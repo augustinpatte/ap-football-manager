@@ -211,7 +211,7 @@ fn group_report(
             match player_tier(player.ovr) {
                 PlayerTier::S => s += 1,
                 PlayerTier::A => a += 1,
-                PlayerTier::Rest => {}
+                PlayerTier::B | PlayerTier::Rest => {}
             }
         }
         let mut ratings: Vec<u32> = players.iter().map(|p| u32::from(p.ovr)).collect();
