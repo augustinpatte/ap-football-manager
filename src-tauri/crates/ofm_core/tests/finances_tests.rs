@@ -1452,6 +1452,72 @@ fn home_match_generates_income() {
     );
 }
 
+/// Given a club that plays in a competition other than the one the player's club plays in
+/// When the week's finances are processed after its home match
+/// Then it is paid its gate like the player's rivals: the gate is the club's own, not the player's
+///      league's.
+#[test]
+fn a_home_match_in_another_competition_pays_its_gate() {
+    let mut game = make_monday_game();
+    game.teams.push(make_team("team3", "Elsewhere FC"));
+    game.teams.push(make_team("team4", "Another FC"));
+    let initial = game.teams[1].finance;
+    let away_side_initial = game.teams[2].finance;
+
+    let played_elsewhere = League {
+        id: "other-league".to_string(),
+        name: "Another Division".to_string(),
+        season: 1,
+        fixtures: vec![Fixture {
+            id: "f-other".to_string(),
+            matchday: 1,
+            date: "2025-06-14".to_string(),
+            home_team_id: "team3".to_string(),
+            away_team_id: "team4".to_string(),
+            competition: FixtureCompetition::League,
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 1,
+                away_goals: 1,
+                home_scorers: vec![],
+                away_scorers: vec![],
+                report: None,
+                home_penalties: None,
+                away_penalties: None,
+            }),
+            ..Default::default()
+        }],
+        standings: vec![
+            StandingEntry::new("team3".to_string()),
+            StandingEntry::new("team4".to_string()),
+        ],
+        ..Default::default()
+    };
+    // The player's own competition has nothing played this week.
+    game.competitions = vec![League::new(
+        "players-league".to_string(),
+        "Players League".to_string(),
+        1,
+        &["team1".to_string(), "team2".to_string()],
+    )];
+    game.competitions.push(played_elsewhere);
+    game.sync_legacy_league();
+
+    finances::process_weekly_finances(&mut game);
+
+    // Stadium 40 000 x 60-92 % x 15-25: at least 360 000 for the one home match.
+    assert!(
+        game.teams[1].finance >= initial + 360_000,
+        "team3 played at home in another competition and should be paid; {} -> {}",
+        initial,
+        game.teams[1].finance
+    );
+    assert_eq!(
+        game.teams[2].finance, away_side_initial,
+        "the away side has no wages here and is paid no gate"
+    );
+}
+
 #[test]
 fn away_match_no_income() {
     let mut game = make_monday_game();

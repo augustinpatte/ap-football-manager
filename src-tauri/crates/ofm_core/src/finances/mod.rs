@@ -11,6 +11,7 @@ pub const MIN_OPENING_RUNWAY_WEEKS: i64 = 16;
 
 use crate::game::Game;
 use chrono::{Datelike, NaiveDate};
+use domain::league::League;
 use domain::message::*;
 use domain::team::{
     FinancialTransaction, FinancialTransactionKind, Sponsorship, SponsorshipBonusCriterion, Team,
@@ -1097,30 +1098,49 @@ fn current_league_position(game: &Game, team_id: &str) -> Option<u32> {
         .map(|index| index as u32 + 1)
 }
 
-fn count_recent_home_matches(game: &Game, team_id: &str) -> i64 {
-    let Some(league) = &game.league else {
-        return 0;
-    };
+/// Every competition the world plays, plus the legacy `league` mirror when no competition carries
+/// it (a save written before `competitions` existed has the mirror as its only copy).
+///
+/// The gate is paid on any club's home match, wherever it is played: reading only `game.league` —
+/// the mirror of the *player's* competition — left every other club in the world without a single
+/// matchday euro, so a world whose clubs were sized on a gate they never received ran at a loss
+/// that no decision of theirs caused.
+fn played_competitions(game: &Game) -> impl Iterator<Item = &League> {
+    game.competitions.iter().chain(
+        game.league
+            .iter()
+            .filter(|league| !game.competitions.iter().any(|c| c.id == league.id)),
+    )
+}
 
+/// Completed home fixtures dated in the last seven days (`YYYY-MM-DD` compares as text), by club.
+/// A club that played none is absent.
+fn recent_home_matches_by_club(game: &Game) -> HashMap<&str, i64> {
     let current = game.clock.current_date.date_naive();
-    let week_ago = current - chrono::Duration::days(7);
-
-    league
-        .fixtures
-        .iter()
-        .filter(|fixture| {
-            fixture.status == domain::league::FixtureStatus::Completed
-                && fixture.home_team_id == team_id
+    let today = current.format("%Y-%m-%d").to_string();
+    let week_ago = (current - chrono::Duration::days(7))
+        .format("%Y-%m-%d")
+        .to_string();
+    let mut counts: HashMap<&str, i64> = HashMap::new();
+    for competition in played_competitions(game) {
+        for fixture in &competition.fixtures {
+            if fixture.status == domain::league::FixtureStatus::Completed
                 && fixture.result.is_some()
-        })
-        .filter(|fixture| {
-            if let Ok(date) = chrono::NaiveDate::parse_from_str(&fixture.date, "%Y-%m-%d") {
-                date > week_ago && date <= current
-            } else {
-                false
+                && fixture.date.as_str() > week_ago.as_str()
+                && fixture.date.as_str() <= today.as_str()
+            {
+                *counts.entry(fixture.home_team_id.as_str()).or_default() += 1;
             }
-        })
-        .count() as i64
+        }
+    }
+    counts
+}
+
+fn count_recent_home_matches(game: &Game, team_id: &str) -> i64 {
+    recent_home_matches_by_club(game)
+        .get(team_id)
+        .copied()
+        .unwrap_or(0)
 }
 
 fn add_weekly_wage(map: &mut std::collections::HashMap<String, i64>, team_id: &str, amount: i64) {
@@ -1276,28 +1296,23 @@ pub fn process_weekly_finances(game: &mut Game) {
         }
     }
 
-    if game.league.is_some() {
-        let team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
-        for team_id in team_ids {
-            let home_count = count_recent_home_matches(game, &team_id);
-            if home_count == 0 {
-                continue;
-            }
-            let stadium_capacity = game
-                .teams
-                .iter()
-                .find(|team| team.id == team_id)
-                .map(|team| team.stadium_capacity)
-                .unwrap_or(0);
-            // One gate per club per week, drawn from that club's own stream.
-            let mut rng = game.rng_today(&format!("finances/matchday/{team_id}"));
-            let attendance_pct = rng.random_range(60..=92) as f64 / 100.0;
-            let avg_ticket = rng.random_range(15..=25) as f64;
-            let total_revenue =
-                calc_matchday(stadium_capacity, home_count, attendance_pct, avg_ticket);
-            let req = PostRequest::new(&team_id, total_revenue, CashKind::Matchday, post_date);
-            let _ = commit_weekly_posts(game, std::slice::from_ref(&req));
-        }
+    let home_matches = recent_home_matches_by_club(game);
+    let gate_clubs: Vec<(String, u32, i64)> = game
+        .teams
+        .iter()
+        .filter_map(|team| {
+            let home_count = home_matches.get(team.id.as_str()).copied()?;
+            Some((team.id.clone(), team.stadium_capacity, home_count))
+        })
+        .collect();
+    for (team_id, stadium_capacity, home_count) in gate_clubs {
+        // One gate per club per week, drawn from that club's own stream.
+        let mut rng = game.rng_today(&format!("finances/matchday/{team_id}"));
+        let attendance_pct = rng.random_range(60..=92) as f64 / 100.0;
+        let avg_ticket = rng.random_range(15..=25) as f64;
+        let total_revenue = calc_matchday(stadium_capacity, home_count, attendance_pct, avg_ticket);
+        let req = PostRequest::new(&team_id, total_revenue, CashKind::Matchday, post_date);
+        let _ = commit_weekly_posts(game, std::slice::from_ref(&req));
     }
 
     // --- Financial health warnings for user's team ---
