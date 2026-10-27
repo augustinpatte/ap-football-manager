@@ -92,10 +92,19 @@ struct LedgerKeys {
 
 /// A player's moves and contracts. Reads like the list of entries it holds; only
 /// [`Player::record_movement`] can add to it.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default)]
 pub struct MovementLedger {
     entries: Vec<PlayerMovementEntry>,
     staged: Option<StagedContract>,
+    /// Set on the copy sent to the screen only: the entries stay in memory (the wage and
+    /// the two dates are read from them) but `movement_history` is left off the wire.
+    wire_without_entries: bool,
+}
+
+impl PartialEq for MovementLedger {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries == other.entries && self.staged == other.staged
+    }
 }
 
 impl MovementLedger {
@@ -115,7 +124,11 @@ impl MovementLedger {
             end,
             wage,
         });
-        Self { entries, staged }
+        Self {
+            entries,
+            staged,
+            wire_without_entries: false,
+        }
     }
 
     /// The entry that makes the contract in force, if the ledger holds one: the
@@ -199,7 +212,9 @@ impl Serialize for MovementLedger {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeMap;
         let mut map = serializer.serialize_map(Some(4))?;
-        map.serialize_entry("movement_history", &self.entries)?;
+        if !self.wire_without_entries {
+            map.serialize_entry("movement_history", &self.entries)?;
+        }
         map.serialize_entry("wage", &self.wage())?;
         map.serialize_entry("contract_start", &self.start())?;
         map.serialize_entry("contract_end", &self.end())?;
@@ -220,6 +235,14 @@ impl<'de> Deserialize<'de> for MovementLedger {
 }
 
 impl Player {
+    /// Make this copy light for the screen: no season-by-season career, no movement
+    /// entries on the wire. The screen asks for them when it opens one profile
+    /// (`get_player_history`). Wage and contract dates still serialize.
+    pub fn elide_history_for_wire(&mut self) {
+        self.career = Vec::new();
+        self.movement_history.wire_without_entries = true;
+    }
+
     /// The one way an entry joins the ledger. A contract it makes replaces any staged
     /// one, and a release or retirement ends it.
     pub fn record_movement(&mut self, entry: PlayerMovementEntry) -> Result<(), LedgerError> {

@@ -1,6 +1,7 @@
 pub mod competitions;
 pub mod inbox;
 pub mod news;
+pub mod player_history;
 pub mod players;
 pub mod schedule;
 pub mod scouted_report;

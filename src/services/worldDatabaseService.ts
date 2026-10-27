@@ -41,3 +41,15 @@ export function findFm24WorldSource(): Promise<string | null> {
 export function installFm24World(worldDb?: string): Promise<Fm24WorldInstalled> {
   return invoke<Fm24WorldInstalled>("install_fm24_world", { worldDb: worldDb ?? null });
 }
+
+/** Whether the FM24 world is installed and whether it predates the current economy fixes. */
+export interface Fm24InstallStatus {
+  installed: boolean;
+  outdated: boolean;
+  revision: number | null;
+  currentRevision: number;
+}
+
+export function getFm24InstallStatus(): Promise<Fm24InstallStatus> {
+  return invoke<Fm24InstallStatus>("get_fm24_install_status");
+}

@@ -8,6 +8,12 @@
 use crate::{Config, Result, checks, pipeline, report};
 use std::path::{Path, PathBuf};
 
+/// Which generation of the world an installation builds. Raise it whenever a correction changes the
+/// world itself (economy, rosters, rules): a world installed under an older revision, or by a
+/// version that wrote no marker at all, is reported `outdated` and offered for regeneration.
+/// Revision 2: recurring income and wage budget of the FM24 economy (mission 4).
+pub const WORLD_REVISION: u32 = 2;
+
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]
 pub struct Installed {
@@ -16,6 +22,40 @@ pub struct Installed {
     pub sha256: String,
     pub bytes: u64,
     pub checks_total: usize,
+}
+
+/// Is the FM24 world in `databases_dir` there, and is it the current generation?
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallStatus {
+    pub installed: bool,
+    /// The revision the marker records; `None` for a world installed before markers existed.
+    pub revision: Option<u32>,
+    pub current_revision: u32,
+    pub outdated: bool,
+}
+
+/// The marker lives beside `databases/`, never inside it: the world listing reads every file there.
+fn marker_path(databases_dir: &Path) -> PathBuf {
+    databases_dir
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("fm24-install.json")
+}
+
+pub fn install_status(databases_dir: &Path) -> InstallStatus {
+    let world = databases_dir.join(format!("{}.json", Config::default_config().world.id));
+    let installed = world.is_file();
+    let revision = std::fs::read_to_string(marker_path(databases_dir))
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+        .and_then(|marker| marker["revision"].as_u64())
+        .and_then(|revision| u32::try_from(revision).ok());
+    InstallStatus {
+        installed,
+        revision,
+        current_revision: WORLD_REVISION,
+        outdated: installed && revision.is_none_or(|found| found < WORLD_REVISION),
+    }
 }
 
 /// Builds the world from `world_db` and installs it as `<databases_dir>/<world id>.json`.
@@ -45,6 +85,9 @@ pub fn install_world(world_db: &Path, work_dir: &Path, databases_dir: &Path) -> 
     std::fs::copy(&written.world_path, &staging)
         .and_then(|_| std::fs::rename(&staging, &destination))
         .map_err(|_| "be.error.fm24.writeFailed".to_string())?;
+    let marker = serde_json::json!({ "revision": WORLD_REVISION, "sha256": written.world_sha256 });
+    std::fs::write(marker_path(databases_dir), marker.to_string())
+        .map_err(|_| "be.error.fm24.writeFailed".to_string())?;
     Ok(Installed {
         world_path: destination,
         world_id: run.cfg.world.id.clone(),
@@ -73,6 +116,79 @@ mod tests {
 
         assert_eq!(result.unwrap_err(), "be.error.fm24.worldDbMissing");
         assert!(!databases.exists());
+    }
+
+    /// Given a world installed by a version that wrote no marker (before the economy fixes)
+    /// When the status is read
+    /// Then it is installed but outdated, and a current marker clears that
+    #[test]
+    fn a_world_without_a_marker_is_outdated() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let databases = dir.path().join("databases");
+        assert!(!install_status(&databases).installed);
+        assert!(!install_status(&databases).outdated);
+
+        std::fs::create_dir_all(&databases).unwrap();
+        let id = Config::default_config().world.id;
+        std::fs::write(databases.join(format!("{id}.json")), "{}").unwrap();
+        let old = install_status(&databases);
+        assert!(old.installed && old.outdated && old.revision.is_none());
+
+        std::fs::write(
+            marker_path(&databases),
+            format!("{{\"revision\":{WORLD_REVISION}}}"),
+        )
+        .unwrap();
+        assert!(!install_status(&databases).outdated);
+        std::fs::write(marker_path(&databases), "{\"revision\":1}").unwrap();
+        assert!(install_status(&databases).outdated);
+    }
+
+    /// Given a source that is not a database
+    /// When installing over an existing world
+    /// Then the install is refused with a translation key and the world already there is kept
+    #[test]
+    fn a_corrupt_source_is_refused_and_keeps_the_installed_world() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let databases = dir.path().join("databases");
+        std::fs::create_dir_all(&databases).unwrap();
+        let id = Config::default_config().world.id;
+        let installed = databases.join(format!("{id}.json"));
+        std::fs::write(&installed, "previous world").unwrap();
+        let source = dir.path().join("world.db");
+        std::fs::write(&source, "this is not sqlite").unwrap();
+
+        let result = install_world(&source, &dir.path().join("work"), &databases);
+
+        assert_eq!(result.unwrap_err(), "be.error.fm24.importFailed");
+        assert_eq!(
+            std::fs::read_to_string(&installed).unwrap(),
+            "previous world"
+        );
+    }
+
+    /// Given a databases folder that cannot be written
+    /// When installing the real world
+    /// Then the refusal is `writeFailed`, not a crash. Skipped without `APFM_WORLD_DB`.
+    #[test]
+    #[cfg(unix)]
+    fn an_unwritable_databases_folder_is_reported() {
+        use std::os::unix::fs::PermissionsExt;
+        let Some(source) = std::env::var_os("APFM_WORLD_DB").map(PathBuf::from) else {
+            return;
+        };
+        let dir = tempfile::tempdir().expect("temp dir");
+        let locked = dir.path().join("locked");
+        std::fs::create_dir_all(&locked).unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o500)).unwrap();
+        if std::fs::write(locked.join("probe"), "x").is_ok() {
+            return; // running as a user the mode does not bind
+        }
+
+        let result = install_world(&source, &dir.path().join("work"), &locked.join("databases"));
+
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(result.unwrap_err(), "be.error.fm24.writeFailed");
     }
 
     /// Given the player's real world.db (`APFM_WORLD_DB`), when installing twice, then the world

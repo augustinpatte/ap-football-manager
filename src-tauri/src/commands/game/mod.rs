@@ -356,7 +356,7 @@ pub fn get_career_stage_internal(
 pub async fn get_active_game(state: State<'_, Arc<StateManager>>) -> Result<Game, String> {
     log::debug!("[cmd] get_active_game");
     state
-        .get_game(|g: &Game| g.clone())
+        .get_game(|g: &Game| g.ui_clone())
         .ok_or("be.error.noActiveGameSession".to_string())
 }
 

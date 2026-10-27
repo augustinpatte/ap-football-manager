@@ -227,6 +227,21 @@ pub struct Game {
 }
 
 impl Game {
+    /// The copy that goes to the screen: every player without the season-by-season
+    /// `career` and the `movement_history` entries (about a quarter of the state), which
+    /// one profile loads on demand through `get_player_history`.
+    pub fn ui_clone(&self) -> Game {
+        self.clone().into_ui()
+    }
+
+    /// [`Game::ui_clone`] for a game that is already a copy.
+    pub fn into_ui(mut self) -> Game {
+        for player in &mut self.players {
+            player.elide_history_for_wire();
+        }
+        self
+    }
+
     pub fn new(
         clock: GameClock,
         manager: Manager,

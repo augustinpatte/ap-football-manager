@@ -8,6 +8,7 @@ use ofm_core::player_knowledge::{players_knowledge, PlayerKnowledge};
 use ofm_core::slices::competitions::{query_competitions, CompetitionsQuery, CompetitionsView};
 use ofm_core::slices::inbox::{query_messages, MessagesQuery};
 use ofm_core::slices::news::{query_news_feed, NewsFeed, NewsFeedQuery};
+use ofm_core::slices::player_history::{query_player_history, PlayerHistory};
 use ofm_core::slices::players::{query_page, PlayersPage, PlayersPageQuery};
 use ofm_core::slices::schedule::{query_schedule, ScheduleQuery, ScheduleSlice};
 use ofm_core::slices::scouted_report::{query_scouted_report, ScoutedReportView};
@@ -110,6 +111,17 @@ pub async fn get_scouted_report(
 ) -> Result<Option<ScoutedReportView>, String> {
     state
         .get_game(|game| query_scouted_report(game, &player_id))
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
+/// The career and moves the game state leaves off every player; one profile loads its own.
+#[tauri::command]
+pub async fn get_player_history(
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+) -> Result<Option<PlayerHistory>, String> {
+    state
+        .get_game(|game| query_player_history(game, &player_id))
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())
 }
 

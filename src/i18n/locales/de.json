@@ -4349,6 +4349,9 @@
     "installing": "Welt wird erstellt …",
     "notInstalled": "Die FM24-Welt ist noch nicht installiert. Das Spiel erstellt sie aus deiner eigenen world.db-Datei; das dauert einige Sekunden.",
     "chooseSource": "Wähle deine world.db-Datei",
+    "outdated": "Diese Welt wurde vor den neuesten Wirtschaftskorrekturen erstellt. Erstelle sie aus deiner world.db neu, um sie zu nutzen.",
+    "update": "Welt aktualisieren",
+    "chooseAnother": "Andere world.db wählen…",
     "localNotice": "Deine FM24-Daten bleiben auf diesem Mac. Sie sind nie Teil der App und werden nirgendwohin gesendet.",
     "next": "Weiter"
   },

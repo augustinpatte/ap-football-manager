@@ -4349,6 +4349,9 @@
     "installing": "Membangun dunia…",
     "notInstalled": "Dunia FM24 belum dipasang. Game membangunnya dari file world.db Anda sendiri; butuh beberapa detik.",
     "chooseSource": "Pilih file world.db Anda",
+    "outdated": "Dunia ini dibuat sebelum perbaikan ekonomi terbaru. Bangun ulang dari world.db Anda untuk memakainya.",
+    "update": "Perbarui dunia",
+    "chooseAnother": "Pilih world.db lain…",
     "localNotice": "Data FM24 Anda tetap di Mac ini. Data itu tidak pernah disertakan dalam aplikasi maupun dikirim ke mana pun.",
     "next": "Lanjutkan"
   },

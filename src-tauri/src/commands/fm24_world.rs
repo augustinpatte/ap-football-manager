@@ -15,6 +15,31 @@ const WORLD_DB_ENV: &str = "APFM_WORLD_DB";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Fm24InstallStatus {
+    pub installed: bool,
+    pub outdated: bool,
+    pub revision: Option<u32>,
+    pub current_revision: u32,
+}
+
+/// Is the FM24 world installed, and is it the current generation (else the screen offers to rebuild)?
+#[tauri::command]
+pub fn get_fm24_install_status(app_handle: tauri::AppHandle) -> Result<Fm24InstallStatus, String> {
+    let app_data = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|_| "be.error.fm24.writeFailed".to_string())?;
+    let status = fm24_adapter::install::install_status(&app_data.join("databases"));
+    Ok(Fm24InstallStatus {
+        installed: status.installed,
+        outdated: status.outdated,
+        revision: status.revision,
+        current_revision: status.current_revision,
+    })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Fm24WorldInstalled {
     pub world_id: String,
     pub path: String,

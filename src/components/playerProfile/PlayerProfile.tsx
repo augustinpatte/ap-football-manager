@@ -29,6 +29,7 @@ import PlayerProfileRecentMatchesCard from "./PlayerProfileRecentMatchesCard";
 import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
 import PlayerProfileSeasonStatsCard from "./PlayerProfileSeasonStatsCard";
 import PlayerProfileTerminationModal from "./PlayerProfileTerminationModal";
+import { usePlayerHistory } from "./usePlayerHistory";
 import { useScoutedReport } from "./useScoutedReport";
 import { useContractActionsFlow } from "./useContractActionsFlow";
 import { useInitialModalIntent } from "./useInitialModalIntent";
@@ -170,6 +171,7 @@ export default function PlayerProfile({
     !isManagerSquadProfile,
     gameState.clock.current_date,
   );
+  const history = usePlayerHistory(player, gameState.clock.current_date);
   const attributesPlayer = scoutedReport
     ? { ...player, attributes: scoutedReport.attributes }
     : player;
@@ -363,9 +365,9 @@ export default function PlayerProfile({
 
         <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
 
-        <PlayerProfileCareerHistoryCard career={player.career} t={t} />
+        <PlayerProfileCareerHistoryCard career={history.career} t={t} />
 
-        <PlayerProfileMovementHistoryCard movementHistory={player.movement_history ?? []} t={t} />
+        <PlayerProfileMovementHistoryCard movementHistory={history.movement_history} t={t} />
 
         <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
       </div>

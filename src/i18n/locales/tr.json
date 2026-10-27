@@ -4349,6 +4349,9 @@
     "installing": "Dünya oluşturuluyor…",
     "notInstalled": "FM24 dünyası henüz yüklenmedi. Oyun onu kendi world.db dosyandan oluşturur; birkaç saniye sürer.",
     "chooseSource": "world.db dosyanı seç",
+    "outdated": "Bu dünya son ekonomi düzeltmelerinden önce oluşturuldu. Onlardan yararlanmak için world.db dosyandan yeniden oluştur.",
+    "update": "Dünyayı güncelle",
+    "chooseAnother": "Başka bir world.db seç…",
     "localNotice": "FM24 verilerin bu Mac'te kalır. Uygulamaya asla dahil edilmez ve hiçbir yere gönderilmez.",
     "next": "Devam"
   },

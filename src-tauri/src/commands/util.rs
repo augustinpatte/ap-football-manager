@@ -46,7 +46,7 @@ where
     state
         .update_game(|game| {
             mutate(game)?;
-            Ok(game.clone())
+            Ok(game.ui_clone())
         })
         .unwrap_or_else(|| Err(NO_ACTIVE_GAME.to_string()))
 }

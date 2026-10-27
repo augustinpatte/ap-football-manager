@@ -7,6 +7,7 @@ import { FM24_WORLD_ID } from "../../lib/product";
 import { resolveBackendError } from "../../utils/backendI18n";
 import {
   findFm24WorldSource,
+  getFm24InstallStatus,
   installFm24World,
   listWorldDatabases,
   type WorldDatabaseInfo,
@@ -41,12 +42,23 @@ interface Fm24CardProps {
   world: WorldDatabaseInfo | null;
   selected: boolean;
   installing: boolean;
+  outdated: boolean;
   error: string | null;
   onSelect: () => void;
   onInstall: () => void;
+  onChooseFile: () => void;
 }
 
-function Fm24Card({ world, selected, installing, error, onSelect, onInstall }: Fm24CardProps) {
+function Fm24Card({
+  world,
+  selected,
+  installing,
+  outdated,
+  error,
+  onSelect,
+  onInstall,
+  onChooseFile,
+}: Fm24CardProps) {
   const { t, i18n } = useTranslation();
   const startDate = formatStartDate(world?.start_date ?? null, i18n.language);
   const frame = selected
@@ -104,11 +116,28 @@ function Fm24Card({ world, selected, installing, error, onSelect, onInstall }: F
             <Button variant={selected ? "primary" : "outline"} size="sm" onClick={onSelect}>
               {selected ? t("apfmWorld.selected") : t("apfmWorld.select")}
             </Button>
-            <Button variant="ghost" size="sm" disabled={installing} onClick={onInstall}>
+            <Button
+              variant={outdated ? "primary" : "ghost"}
+              size="sm"
+              disabled={installing}
+              onClick={onInstall}
+            >
               {installing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {installing ? t("apfmWorld.installing") : t("apfmWorld.reinstall")}
+              {installing
+                ? t("apfmWorld.installing")
+                : outdated
+                  ? t("apfmWorld.update")
+                  : t("apfmWorld.reinstall")}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={installing} onClick={onChooseFile}>
+              {t("apfmWorld.chooseAnother")}
             </Button>
           </div>
+          {outdated && (
+            <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
+              {t("apfmWorld.outdated")}
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -117,6 +146,9 @@ function Fm24Card({ world, selected, installing, error, onSelect, onInstall }: F
             <Button variant="primary" size="sm" disabled={installing} onClick={onInstall}>
               {installing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {installing ? t("apfmWorld.installing") : t("apfmWorld.install")}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={installing} onClick={onChooseFile}>
+              {t("apfmWorld.chooseAnother")}
             </Button>
           </div>
         </>
@@ -138,12 +170,18 @@ export default function WorldDatabaseStep({ onNext, onBack, onClose }: WorldData
   const [worlds, setWorlds] = useState<WorldDatabaseInfo[] | null>(null);
   const [selectedId, setSelectedId] = useState<string>(DEMO_ID);
   const [installing, setInstalling] = useState(false);
+  const [outdated, setOutdated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<WorldDatabaseInfo[]> => {
     try {
       const found = await listWorldDatabases();
       setWorlds(found);
+      try {
+        setOutdated((await getFm24InstallStatus()).outdated);
+      } catch {
+        setOutdated(false);
+      }
       return found;
     } catch (failure) {
       console.error("Failed to list worlds:", failure);
@@ -165,11 +203,11 @@ export default function WorldDatabaseStep({ onNext, onBack, onClose }: WorldData
     (world) => world.id !== DEMO_ID && world.world_id !== FM24_WORLD_ID,
   );
 
-  const handleInstall = async () => {
+  const handleInstall = async (choose = false) => {
     setInstalling(true);
     setError(null);
     try {
-      let source = await findFm24WorldSource();
+      let source = choose ? null : await findFm24WorldSource();
       if (!source) {
         const picked = await open({
           filters: [{ name: "world.db", extensions: ["db"] }],
@@ -229,9 +267,11 @@ export default function WorldDatabaseStep({ onNext, onBack, onClose }: WorldData
             world={fm24}
             selected={fm24 !== null && selectedId === fm24.id}
             installing={installing}
+            outdated={outdated}
             error={error}
             onSelect={() => fm24 && setSelectedId(fm24.id)}
             onInstall={() => void handleInstall()}
+            onChooseFile={() => void handleInstall(true)}
           />
 
           {others.map((world) => (

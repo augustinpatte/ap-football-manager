@@ -4349,6 +4349,9 @@
     "installing": "Vytváření světa…",
     "notInstalled": "Svět FM24 ještě není nainstalován. Hra jej vytvoří z vašeho souboru world.db; trvá to několik sekund.",
     "chooseSource": "Vyberte svůj soubor world.db",
+    "outdated": "Tento svět byl vytvořen před posledními ekonomickými opravami. Vytvořte jej znovu ze svého world.db.",
+    "update": "Aktualizovat svět",
+    "chooseAnother": "Vybrat jiný world.db…",
     "localNotice": "Vaše data z FM24 zůstávají v tomto Macu. Nikdy nejsou součástí aplikace ani se nikam neodesílají.",
     "next": "Pokračovat"
   },

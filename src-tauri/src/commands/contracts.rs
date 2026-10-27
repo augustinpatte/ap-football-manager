@@ -195,7 +195,7 @@ pub fn propose_renewal_internal(
             )?;
             Ok(RenewalCommandResponse {
                 outcome: outcome.decision,
-                game: game.clone(),
+                game: game.ui_clone(),
                 suggested_wage: outcome.suggested_wage,
                 suggested_years: outcome.suggested_years,
                 session_status: serialize_session_status(outcome.session_status),
@@ -231,7 +231,7 @@ pub fn delegate_renewals_internal(
                 },
             )?;
             Ok(DelegatedRenewalCommandResponse {
-                game: game.clone(),
+                game: game.ui_clone(),
                 report,
             })
         })
@@ -281,7 +281,7 @@ pub fn offer_free_agent_contract_internal(
             )?;
             Ok(FreeAgentContractCommandResponse {
                 outcome: outcome.decision,
-                game: game.clone(),
+                game: game.ui_clone(),
                 suggested_wage: outcome.suggested_wage,
                 suggested_years: outcome.suggested_years,
                 session_status: serialize_session_status(outcome.session_status),
@@ -386,7 +386,7 @@ pub fn terminate_contract_now_internal(
                 squad_safety,
             } = ofm_core::contracts::terminate_contract_now(game, player_id)?;
             Ok(ContractTerminationCommandResponse {
-                game: game.clone(),
+                game: game.ui_clone(),
                 severance_cost,
                 squad_safety,
             })

@@ -165,7 +165,7 @@ pub fn make_transfer_bid_internal(
     state
         .update_game(|game| {
             let result = ofm_core::transfers::make_transfer_bid(game, player_id, fee)?;
-            Ok(map_transfer_negotiation_response(result, game.clone()))
+            Ok(map_transfer_negotiation_response(result, game.ui_clone()))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
 }
@@ -233,7 +233,7 @@ pub fn exercise_loan_buy_option_internal(
 
     ofm_core::transfers::exercise_loan_buy_option(&mut game, player_id)?;
     state.set_game(game.clone());
-    Ok(game)
+    Ok(game.into_ui())
 }
 
 pub fn preview_transfer_bid_financial_impact_internal(
@@ -380,7 +380,7 @@ pub fn counter_offer_internal(
         .update_game(|game| {
             let result =
                 ofm_core::transfers::counter_offer(game, player_id, offer_id, requested_fee)?;
-            Ok(map_transfer_negotiation_response(result, game.clone()))
+            Ok(map_transfer_negotiation_response(result, game.ui_clone()))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
 }
@@ -407,7 +407,7 @@ fn map_loan_offer_response(outcome: LoanOfferOutcome, game: Game) -> LoanOfferCo
         suggested_end_date: outcome.suggested_end_date,
         suggested_buy_option_fee: outcome.suggested_buy_option_fee,
         is_terminal: outcome.is_terminal,
-        game,
+        game: game.into_ui(),
     }
 }
 

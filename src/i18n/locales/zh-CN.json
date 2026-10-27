@@ -4349,6 +4349,9 @@
     "installing": "正在构建世界…",
     "notInstalled": "尚未安装 FM24 世界。游戏会用你自己的 world.db 文件构建它，只需几秒钟。",
     "chooseSource": "选择你的 world.db 文件",
+    "outdated": "此世界是在最新经济修正之前构建的。请从你的 world.db 重新构建以应用修正。",
+    "update": "更新世界",
+    "chooseAnother": "选择其他 world.db…",
     "localNotice": "你的 FM24 数据保留在这台 Mac 上，绝不会包含在应用中，也不会发送到任何地方。",
     "next": "继续"
   },

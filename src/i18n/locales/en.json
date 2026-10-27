@@ -4349,6 +4349,9 @@
     "installing": "Building the world…",
     "notInstalled": "The FM24 world is not installed yet. The game builds it from your own world.db file; this takes a few seconds.",
     "chooseSource": "Choose your world.db file",
+    "outdated": "This world was built before the latest economy fixes. Rebuild it from your world.db to play with them.",
+    "update": "Update the world",
+    "chooseAnother": "Choose another world.db…",
     "localNotice": "Your FM24 data stays on this Mac. It is never included in the app or sent anywhere.",
     "next": "Continue"
   },

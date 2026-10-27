@@ -8,10 +8,12 @@ import WorldDatabaseStep from "./WorldDatabaseStep";
 const listWorldDatabases = vi.fn();
 const findFm24WorldSource = vi.fn();
 const installFm24World = vi.fn();
+const getFm24InstallStatus = vi.fn();
 vi.mock("../../services/worldDatabaseService", () => ({
   listWorldDatabases: () => listWorldDatabases(),
   findFm24WorldSource: () => findFm24WorldSource(),
   installFm24World: (path?: string) => installFm24World(path),
+  getFm24InstallStatus: () => getFm24InstallStatus(),
 }));
 
 let pickedFile: string | null = null;
@@ -65,6 +67,13 @@ describe("WorldDatabaseStep", () => {
     listWorldDatabases.mockReset();
     findFm24WorldSource.mockReset();
     installFm24World.mockReset();
+    getFm24InstallStatus.mockReset();
+    getFm24InstallStatus.mockResolvedValue({
+      installed: true,
+      outdated: false,
+      revision: 2,
+      currentRevision: 2,
+    });
     pickedFile = null;
   });
 
@@ -142,5 +151,83 @@ describe("WorldDatabaseStep", () => {
     fireEvent.click(await screen.findByText("Install the FM24 world"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("failed its integrity checks");
+  });
+
+  /** Given a world installed before the economy fixes, when the step opens, then it says so and offers the update as the main action. */
+  it("flags an outdated world and offers to rebuild it", async () => {
+    listWorldDatabases.mockResolvedValue([demo, fm24]);
+    getFm24InstallStatus.mockResolvedValue({
+      installed: true,
+      outdated: true,
+      revision: null,
+      currentRevision: 2,
+    });
+
+    renderStep();
+
+    expect(await screen.findByRole("status")).toHaveTextContent("latest economy fixes");
+    expect(screen.getByText("Update the world")).toBeInTheDocument();
+    expect(screen.queryByText("Rebuild from world.db")).not.toBeInTheDocument();
+  });
+
+  /** Given an up-to-date world, when the step opens, then no warning is shown. */
+  it("shows no warning for a current world", async () => {
+    listWorldDatabases.mockResolvedValue([demo, fm24]);
+
+    renderStep();
+
+    await screen.findByText("Rebuild from world.db");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  /** Given an outdated world, when updating, then the world is rebuilt from the found source and the warning clears. */
+  it("clears the warning once the world is rebuilt", async () => {
+    listWorldDatabases.mockResolvedValue([demo, fm24]);
+    getFm24InstallStatus
+      .mockResolvedValueOnce({
+        installed: true,
+        outdated: true,
+        revision: null,
+        currentRevision: 2,
+      })
+      .mockResolvedValue({ installed: true, outdated: false, revision: 2, currentRevision: 2 });
+    findFm24WorldSource.mockResolvedValue("/data/world.db");
+    installFm24World.mockResolvedValue({});
+    renderStep();
+
+    fireEvent.click(await screen.findByText("Update the world"));
+
+    await waitFor(() => expect(installFm24World).toHaveBeenCalledWith("/data/world.db"));
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  });
+
+  /** Given a world.db found automatically, when choosing another file, then the picker opens and that file is installed. */
+  it("lets the player pick another world.db even when one was found", async () => {
+    listWorldDatabases.mockResolvedValue([demo, fm24]);
+    findFm24WorldSource.mockResolvedValue("/data/world.db");
+    pickedFile = "/elsewhere/world.db";
+    installFm24World.mockResolvedValue({});
+    renderStep();
+
+    fireEvent.click(await screen.findByText("Choose another world.db…"));
+
+    await waitFor(() => expect(installFm24World).toHaveBeenCalledWith("/elsewhere/world.db"));
+    expect(findFm24WorldSource).not.toHaveBeenCalled();
+  });
+
+  /** Given an install in progress, when it runs, then the buttons are disabled, a progress label shows, and Continue waits. */
+  it("shows the build in progress and blocks Continue meanwhile", async () => {
+    listWorldDatabases.mockResolvedValue([demo]);
+    findFm24WorldSource.mockResolvedValue("/data/world.db");
+    let finish: (value: unknown) => void = () => {};
+    installFm24World.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    renderStep();
+
+    fireEvent.click(await screen.findByText("Install the FM24 world"));
+
+    expect(await screen.findByText("Building the world…")).toBeInTheDocument();
+    expect(screen.getByText("Continue")).toBeDisabled();
+    finish({});
+    await waitFor(() => expect(screen.getByText("Continue")).toBeEnabled());
   });
 });

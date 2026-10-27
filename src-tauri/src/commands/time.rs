@@ -24,7 +24,7 @@ pub fn advance_time_internal(state: &StateManager) -> Result<Game, String> {
             ofm_core::turn::process_day_with_capture(game, &mut |capture| {
                 captures.push(capture);
             });
-            game.clone()
+            game.ui_clone()
         })
         .ok_or("be.error.noActiveGameSession".to_string())?;
 
@@ -179,7 +179,7 @@ pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Va
                     let results = collect_advance_results(game, &start_date);
                     return Step::Terminal(serde_json::json!({
                         "action": "fired",
-                        "game": game.clone(),
+                        "game": game.ui_clone(),
                         "days_skipped": days_skipped + 1,
                         "results": results
                     }));
@@ -197,7 +197,7 @@ pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Va
                     let results = collect_advance_results(game, &start_date);
                     return Step::Terminal(serde_json::json!({
                         "action": "blocked",
-                        "game": game.clone(),
+                        "game": game.ui_clone(),
                         "blockers": blockers,
                         "days_skipped": days_skipped + 1,
                         "results": results
@@ -259,7 +259,7 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
                 info!("[cmd] advance_one_day: match_day={}", today);
                 return serde_json::json!({
                     "action": "match_day",
-                    "game": game.clone(),
+                    "game": game.ui_clone(),
                     "date": today,
                     "results": []
                 });
@@ -274,7 +274,7 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
                 );
                 return serde_json::json!({
                     "action": "blocked",
-                    "game": game.clone(),
+                    "game": game.ui_clone(),
                     "date": today,
                     "blockers": blockers,
                     "results": []
@@ -295,7 +295,7 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
                 let results = collect_advance_results(game, &today);
                 return serde_json::json!({
                     "action": "fired",
-                    "game": game.clone(),
+                    "game": game.ui_clone(),
                     "date": today,
                     "results": results
                 });
@@ -309,7 +309,7 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
             );
             serde_json::json!({
                 "action": "advanced",
-                "game": game.clone(),
+                "game": game.ui_clone(),
                 "date": today,
                 "results": results
             })
@@ -418,7 +418,7 @@ pub fn advance_to_next_event_internal(state: &StateManager) -> Result<serde_json
                     let results = collect_advance_results(game, &start_date);
                     return Step::Terminal(serde_json::json!({
                         "action": "fired",
-                        "game": game.clone(),
+                        "game": game.ui_clone(),
                         "days_skipped": days_skipped + 1,
                         "results": results
                     }));
@@ -429,7 +429,7 @@ pub fn advance_to_next_event_internal(state: &StateManager) -> Result<serde_json
                     let results = collect_advance_results(game, &start_date);
                     return Step::Terminal(serde_json::json!({
                         "action": "blocked",
-                        "game": game.clone(),
+                        "game": game.ui_clone(),
                         "blockers": blockers,
                         "days_skipped": days_skipped + 1,
                         "results": results
