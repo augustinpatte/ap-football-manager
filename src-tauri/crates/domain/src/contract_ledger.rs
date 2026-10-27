@@ -148,6 +148,17 @@ impl MovementLedger {
         None
     }
 
+    /// The weekly wage of the last contract the ledger records, even one a release or retirement
+    /// has since ended. A player with no club earns nothing, but he does not forget what he was
+    /// paid: it is what he starts negotiating from. `None` when he never had a paid contract.
+    fn last_recorded_wage(&self) -> Option<u32> {
+        self.entries
+            .iter()
+            .rev()
+            .find_map(|entry| entry.contract.as_ref().map(|record| record.weekly_wage))
+            .filter(|wage| *wage > 0)
+    }
+
     fn start(&self) -> Option<&str> {
         match &self.staged {
             Some(staged) => staged.start.as_deref(),
@@ -316,6 +327,15 @@ impl Player {
     /// Weekly wage.
     pub fn wage(&self) -> u32 {
         self.movement_history.wage()
+    }
+
+    /// The wage he is on, or, with no contract, the last he was paid (0 if he never was). What a
+    /// club reads as his going rate when it has to guess what he will ask.
+    pub fn last_known_wage(&self) -> u32 {
+        match self.wage() {
+            0 => self.movement_history.last_recorded_wage().unwrap_or(0),
+            wage => wage,
+        }
     }
 
     /// Stage the contract world generation gave a player, before he has a history.
@@ -555,6 +575,31 @@ mod tests {
         assert_eq!(p.contract_start(), Some("2026-07-01"));
         assert_eq!(p.contract_end(), Some("2029-06-30"));
         assert_eq!(p.wage(), 4_000);
+    }
+
+    /// Given a player paid 1 200 who was then released at the end of his contract
+    /// When his wage and his last known wage are read
+    /// Then he is paid nothing now but remembers 1 200; one who never had a contract remembers 0.
+    #[test]
+    fn a_released_player_remembers_the_last_wage_he_was_paid() {
+        let mut p = player();
+        p.record_movement(entry(
+            "2024-07-01",
+            PlayerMovementKind::InitialContract,
+            Some(contract(
+                Some("2024-07-01"),
+                "2026-06-30",
+                1_200,
+                ContractSource::Initial,
+            )),
+        ))
+        .unwrap();
+        p.record_movement(entry("2026-06-30", PlayerMovementKind::Released, None))
+            .unwrap();
+
+        assert_eq!(p.wage(), 0);
+        assert_eq!(p.last_known_wage(), 1_200);
+        assert_eq!(player().last_known_wage(), 0);
     }
 
     #[test]

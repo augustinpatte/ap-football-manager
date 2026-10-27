@@ -2,7 +2,7 @@ use crate::contract_wage_policy::{WagePolicyVerdict, wage_policy_verdict};
 use crate::contracts::{
     ContractWarningStage, DelegatedRenewalCase, DelegatedRenewalOptions, DelegatedRenewalReport,
     DelegatedRenewalResultStatus, contract_warning_stage, expected_contract_years, expected_wage,
-    has_active_manager_block, has_let_expire_intent, round_up_to_nearest_thousand,
+    has_active_manager_block, has_let_expire_intent, round_up_wage,
 };
 use crate::game::Game;
 use chrono::NaiveDate;
@@ -88,7 +88,7 @@ pub fn delegate_renewals(
         let expected_wage = expected_wage(player, &team, current_date);
         let expected_years = expected_contract_years(player, current_date);
         let agreed_years = expected_years.min(max_years);
-        let max_wage = round_up_to_nearest_thousand(
+        let max_wage = round_up_wage(
             player
                 .wage()
                 .saturating_mul(100 + options.max_wage_increase_pct)

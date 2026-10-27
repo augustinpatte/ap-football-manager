@@ -79,18 +79,22 @@ pub(crate) fn expected_wage(player: &Player, team: &Team, current_date: NaiveDat
         wage *= 1.05;
     }
 
-    let rounded = round_up_to_nearest_thousand(wage.ceil() as u32);
+    let rounded = round_up_wage(wage.ceil() as u32);
     rounded.max(reference_player_wage(player))
 }
 
 pub(crate) fn reference_player_wage(player: &Player) -> u32 {
-    if player.wage() > 0 {
-        return player.wage();
+    // What he is paid, or what he last was: a free agent's going rate is his own history, not a
+    // figure derived from his market value, which is a different scale in a world whose pay was
+    // not generated from values (an FM24 club pays a tenth of `value / 200`).
+    let known = player.last_known_wage();
+    if known > 0 {
+        return known;
     }
 
     let derived_wage = (player.market_value / MARKET_VALUE_TO_WAGE_RATIO).max(MINIMUM_DEFAULT_WAGE);
 
-    round_up_to_nearest_thousand(derived_wage.min(u32::MAX as u64) as u32)
+    round_up_wage(derived_wage.min(u32::MAX as u64) as u32)
 }
 
 pub(crate) fn importance_wage_multiplier(player: &Player) -> f32 {
@@ -144,12 +148,19 @@ pub(crate) fn remaining_contract_days(player: &Player, current_date: NaiveDate) 
         .max(0)
 }
 
-pub(crate) fn round_up_to_nearest_thousand(value: u32) -> u32 {
-    if value == 0 {
-        return 0;
-    }
-
-    value.div_ceil(1000) * 1000
+/// Round a weekly wage up to the grain a wage of that size is agreed in: whole thousands from
+/// 10 000 (as it has always been), hundreds from 1 000, tens below.
+///
+/// A flat thousand turned a 700 wage into 1 000 (+43 %) at every renewal, so in a world whose pay
+/// scale is a tenth of the generated one a club's wage bill climbed by rounding alone.
+pub(crate) fn round_up_wage(value: u32) -> u32 {
+    let grain = match value {
+        0 => return 0,
+        1..=999 => 10,
+        1_000..=9_999 => 100,
+        _ => 1_000,
+    };
+    value.div_ceil(grain) * grain
 }
 
 /// A contract date as stored: `"YYYY-MM-DD"`, or nothing if it is not one.
@@ -166,4 +177,83 @@ pub(crate) fn contract_days_remaining(
 ) -> Option<i64> {
     let contract_end_date = parse_contract_date(contract_end?)?;
     Some((contract_end_date - current_date).num_days())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::player::{PlayerAttributes, Position};
+    use domain::team::Team;
+
+    /// Given weekly wages across the scales a world can have
+    /// When they are rounded up for an agreement
+    /// Then the grain follows the size: thousands from 10 000, hundreds from 1 000, tens below.
+    #[test]
+    fn a_wage_is_rounded_up_to_the_grain_of_its_size() {
+        assert_eq!(round_up_wage(0), 0);
+        assert_eq!(round_up_wage(731), 740);
+        assert_eq!(round_up_wage(1_000), 1_000);
+        assert_eq!(round_up_wage(1_201), 1_300);
+        assert_eq!(round_up_wage(9_999), 10_000);
+        assert_eq!(round_up_wage(12_001), 13_000);
+        assert_eq!(round_up_wage(250_001), 251_000);
+    }
+
+    fn attributes() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 50,
+            stamina: 50,
+            strength: 50,
+            agility: 50,
+            passing: 50,
+            shooting: 50,
+            tackling: 50,
+            dribbling: 50,
+            defending: 50,
+            positioning: 50,
+            vision: 50,
+            decisions: 50,
+            composure: 50,
+            aggression: 50,
+            teamwork: 50,
+            leadership: 50,
+            handling: 50,
+            reflexes: 50,
+            aerial: 50,
+        }
+    }
+
+    /// Given a fringe player paid 700 a week in a world whose wages are small
+    /// When his club works out what he expects for a renewal
+    /// Then the ask is his pay plus the usual premiums, not a jump to the next thousand.
+    #[test]
+    fn a_renewal_ask_does_not_jump_to_the_next_thousand() {
+        let today = NaiveDate::from_ymd_opt(2027, 1, 10).unwrap();
+        let mut player = Player::new(
+            "p".to_string(),
+            "P".to_string(),
+            "P".to_string(),
+            "1998-03-01".to_string(),
+            "France".to_string(),
+            Position::Midfielder,
+            attributes(),
+        );
+        player.market_value = 100_000;
+        player.stage_wage(700);
+        player.stage_contract_end(Some("2027-06-30".to_string()));
+        let team = Team::new(
+            "t".to_string(),
+            "T".to_string(),
+            "TTT".to_string(),
+            "France".to_string(),
+            "Lyon".to_string(),
+            "Ground".to_string(),
+            10_000,
+        );
+
+        let ask = expected_wage(&player, &team, today);
+
+        // 700 x 0.95 (fringe) x 1.10 (under six months left) = 732, asked as 740 (it was 1 000).
+        assert_eq!(ask, 740);
+    }
 }

@@ -665,7 +665,9 @@ fn free_agent_offer_returns_counter_when_terms_are_close_but_short() {
     .expect("free-agent offer should resolve");
 
     assert!(matches!(outcome.decision, RenewalDecision::CounterOffer));
-    assert_eq!(outcome.suggested_wage, Some(4_000));
+    // The ask is rounded up to the grain of a wage this size (hundreds below 10 000), not to the
+    // next thousand: 3 5xx is asked as 3 500, not 4 000.
+    assert_eq!(outcome.suggested_wage, Some(3_500));
     assert_eq!(outcome.suggested_years, Some(3));
     assert_eq!(game.players[0].team_id, None);
 }
