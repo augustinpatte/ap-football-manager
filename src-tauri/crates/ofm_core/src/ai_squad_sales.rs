@@ -46,6 +46,9 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
         for (index, listed) in decisions {
             game.players[index].transfer_listed = listed;
         }
+        // Young reserves for loan, as the opening market lists them: a loan returns its player and
+        // the club lists the next.
+        crate::transfers::top_up_loan_listings(game, &team_id);
     }
 }
 

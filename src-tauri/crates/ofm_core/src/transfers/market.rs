@@ -199,6 +199,83 @@ pub(crate) fn award_leaderboard_player_ids(game: &Game) -> HashSet<String> {
         .map(|entry| entry.player_id.clone())
         .collect()
 }
+/// A loan-listed player an AI club would lend out, with what a borrower needs to judge him.
+pub(crate) struct LoanTarget {
+    player_id: String,
+    owner_team_id: String,
+    owner_reputation: u32,
+    position_group_index: usize,
+    ovr: u8,
+}
+
+/// An AI club with nothing to buy borrows a loan-listed player who would improve its squad, on the
+/// least share of his wage his club accepts, when it can carry that share. The same loan the
+/// player's own club can ask for (`make_loan_offer`): the owner's terms, the squad floor, the
+/// borrower's wage policy, all unchanged. Returns the player borrowed.
+fn try_ai_loan(
+    game: &mut Game,
+    borrower: &Team,
+    levels: &[Vec<u8>; 4],
+    books: &crate::ai_finance_guard::SigningBooks,
+    targets: &[LoanTarget],
+    moved_player_ids: &HashSet<String>,
+    current_date: NaiveDate,
+) -> Option<String> {
+    let today = current_date.format("%Y-%m-%d").to_string();
+    for target in targets {
+        if target.owner_team_id == borrower.id
+            || moved_player_ids.contains(&target.player_id)
+            || target.owner_reputation as i32 - borrower.reputation as i32
+                > MAX_BUYER_REPUTATION_DEFICIT
+            || !target_fills_a_need(
+                &levels[target.position_group_index],
+                target.position_group_index,
+                target.ovr,
+            )
+        {
+            continue;
+        }
+        let Some(player) = game.players.iter().find(|p| p.id == target.player_id) else {
+            continue;
+        };
+        let Some(owner) = game.teams.iter().find(|t| t.id == target.owner_team_id) else {
+            continue;
+        };
+        if !player.loan_listed
+            || player.team_id.as_deref() != Some(target.owner_team_id.as_str())
+            || player_has_active_or_pending_loan(player)
+            || has_pending_transfer_registration(player)
+        {
+            continue;
+        }
+        let Some(end_date) = default_loan_end_date(current_date, player) else {
+            continue;
+        };
+        let share = minimum_loan_wage_contribution_pct(player, owner);
+        if !books.can_add_wage(loan_wage_share(player, share))
+            || validate_loan_borrower_affordability(game, &borrower.id, player, share).is_err()
+        {
+            continue;
+        }
+        let player_id = target.player_id.clone();
+        if execute_loan(
+            game,
+            &player_id,
+            &target.owner_team_id,
+            &borrower.id,
+            &today,
+            &end_date,
+            share,
+            None,
+        )
+        .is_ok()
+        {
+            return Some(player_id);
+        }
+    }
+    None
+}
+
 pub fn evaluate_transfer_market(game: &mut Game) {
     expire_stale_transfer_offers(game);
     expire_stale_loan_offers(game);
@@ -340,6 +417,39 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // equally appealing targets, so selection is unchanged.
     shortlist.sort_by_key(|candidate| std::cmp::Reverse(candidate.score));
 
+    // The AI clubs' loan-listed players an AI borrower may ask for, best first. A club at the floor
+    // in his group cannot lend him (`execute_loan` refuses it regardless).
+    let mut loan_targets: Vec<LoanTarget> = game
+        .players
+        .iter()
+        .filter(|player| player.loan_listed && !player_has_pending_registration(player))
+        .filter(|player| player.squad_role == domain::player::SquadRole::Senior)
+        .filter_map(|player| {
+            let owner = player.team_id.as_deref()?;
+            if Some(owner) == user_team_id.as_deref()
+                || position_depths.get(owner).is_some_and(|depths| {
+                    !crate::squad_floor::can_spare_one(*depths, &player.position)
+                })
+            {
+                return None;
+            }
+            Some(LoanTarget {
+                player_id: player.id.clone(),
+                owner_team_id: owner.to_string(),
+                owner_reputation: team_reputation.get(owner).copied().unwrap_or(0),
+                position_group_index: position_group_index(&player.position),
+                ovr: player.ovr,
+            })
+        })
+        .collect();
+    loan_targets.sort_by(|a, b| {
+        b.ovr
+            .cmp(&a.ovr)
+            .then_with(|| a.player_id.cmp(&b.player_id))
+    });
+    let max_ai_loans = (buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1);
+    let mut completed_ai_loans = 0_usize;
+
     for buyer_id in buyer_ids {
         let Some(buyer_team) = game.teams.iter().find(|team| team.id == buyer_id).cloned() else {
             continue;
@@ -462,6 +572,21 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         });
 
         let Some(target) = chosen else {
+            // Nothing to buy: perhaps something to borrow.
+            if completed_ai_loans < max_ai_loans
+                && let Some(player_id) = try_ai_loan(
+                    game,
+                    &buyer_team,
+                    &buyer_levels,
+                    &buyer_books,
+                    &loan_targets,
+                    &moved_player_ids,
+                    current_date,
+                )
+            {
+                moved_player_ids.insert(player_id);
+                completed_ai_loans += 1;
+            }
             continue;
         };
         let candidate = MarketCandidate {

@@ -1042,6 +1042,78 @@ fn ai_clubs_complete_transfer_between_themselves_without_inbox_message() {
     assert_eq!(transfer_log[0].fee, 900_000);
 }
 
+/// Given an AI club with nothing it can buy, and another AI club's loan-listed player who would
+/// improve its squad
+/// When the market sweeps
+/// Then the first borrows him on the least share of his wage his club accepts, for a loan that
+///      ends before his contract does, and he is registered as on loan, not transferred.
+#[test]
+fn an_ai_club_borrows_a_loan_listed_player_that_improves_its_squad() {
+    let mut player = make_player("player-ai-loan");
+    player.team_id = Some("team-3".to_string());
+    player.stage_contract_end(Some("2028-06-30".to_string()));
+    player.stage_wage(1_000);
+    player.market_value = 100_000;
+    player.loan_listed = true;
+    player.ovr = 70;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams
+        .push(make_ai_team("team-3", "Lender FC", 3_000_000, 1_000_000));
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 0;
+    give_every_club_squad_depth(&mut game);
+    attach_transfer_log_league(&mut game);
+
+    evaluate_transfer_market(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-ai-loan")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-2"));
+    let loan = player.active_loan.as_ref().expect("on loan");
+    assert_eq!(loan.parent_team_id, "team-3");
+    assert_eq!(loan.loan_team_id, "team-2");
+    assert!(
+        loan.wage_contribution_pct >= 50,
+        "{}",
+        loan.wage_contribution_pct
+    );
+    assert!(loan.end_date.as_str() < "2028-06-30");
+    assert!(game.messages.is_empty(), "AI clubs deal without the inbox");
+}
+
+/// Given a loan-listed player who would not improve the borrower
+/// When the market sweeps
+/// Then nobody borrows him.
+#[test]
+fn an_ai_club_does_not_borrow_a_player_who_does_not_improve_it() {
+    let mut player = make_player("player-ai-loan-weak");
+    player.team_id = Some("team-3".to_string());
+    player.stage_contract_end(Some("2028-06-30".to_string()));
+    player.stage_wage(1_000);
+    player.loan_listed = true;
+    player.ovr = 0;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams
+        .push(make_ai_team("team-3", "Lender FC", 3_000_000, 1_000_000));
+    give_every_club_squad_depth(&mut game);
+    attach_transfer_log_league(&mut game);
+
+    evaluate_transfer_market(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-ai-loan-weak")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-3"));
+    assert!(player.active_loan.is_none());
+}
+
 #[test]
 fn ai_market_limits_completed_ai_transfers_per_day() {
     let mut first = make_player("player-ai-limit-1");

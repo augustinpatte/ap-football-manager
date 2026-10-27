@@ -65,6 +65,94 @@ fn should_retire(player: &Player, age: i32, current_date: NaiveDate, season: u32
     roll < chance
 }
 
+/// The day he last lost his club, from the ledger; `None` for a player the world has always had
+/// without one (an FM24 free agent, a generated one).
+fn unemployed_since(player: &Player) -> Option<NaiveDate> {
+    player
+        .movement_history
+        .iter()
+        .rev()
+        .find(|entry| entry.kind == PlayerMovementKind::Released)
+        .and_then(|entry| NaiveDate::parse_from_str(&entry.date, "%Y-%m-%d").ok())
+}
+
+/// The chance, in percent, that a player with no club for a year gives up the professional game at
+/// this season's end.
+///
+/// The simulated clubs are a few hundred; the players their contracts release are thousands, and
+/// the real world has far more clubs to take them in than this one does. A free agent who has
+/// found nobody for a whole year, and is past the age at which a club takes a chance on a
+/// prospect, drifts out: surely if he is below the standard of the clubs' squads, less so if he is
+/// above it. `market` is the pool as it stands.
+fn drifting_out_chance(
+    player: &Player,
+    age: i32,
+    current_date: NaiveDate,
+    market: &FreeAgentMarket,
+) -> u32 {
+    if player.team_id.is_some() || player.retired || age < FREE_AGENT_PROSPECT_AGE {
+        return 0;
+    }
+    if unemployed_since(player).is_some_and(|since| (current_date - since).num_days() < 365) {
+        return 0;
+    }
+    let base = if player.ovr >= market.median_rating {
+        15
+    } else {
+        45
+    };
+    let older = (age - FREE_AGENT_PROSPECT_AGE).clamp(0, 12) as u32;
+    let chance = (base + 5 * older).min(90);
+    // Only what the market holds beyond its reserve drifts out: the share of the pool above it.
+    chance * market.excess_percent() / 100
+}
+
+/// What the free-agent market looks like at a season's end, read once.
+struct FreeAgentMarket {
+    /// Median rating of the players clubs hold.
+    median_rating: u8,
+    /// Free agents in the world.
+    free_agents: usize,
+    /// Free agents the world keeps whatever happens: a pool for the squad floor to draw on.
+    reserve: usize,
+}
+
+impl FreeAgentMarket {
+    fn of(game: &Game) -> Self {
+        let mut ratings: Vec<u8> = game
+            .players
+            .iter()
+            .filter(|player| player.team_id.is_some() && !player.retired)
+            .map(|player| player.ovr)
+            .collect();
+        ratings.sort_unstable();
+        Self {
+            median_rating: ratings.get(ratings.len() / 2).copied().unwrap_or(0),
+            free_agents: game
+                .players
+                .iter()
+                .filter(|player| player.team_id.is_none() && !player.retired)
+                .count(),
+            reserve: game.teams.len() * FREE_AGENT_RESERVE_PER_CLUB,
+        }
+    }
+
+    /// Percent of the pool that is beyond the reserve: 0 at or under it, approaching 100 as the
+    /// pool outgrows it.
+    fn excess_percent(&self) -> u32 {
+        if self.free_agents <= self.reserve {
+            return 0;
+        }
+        (100 * (self.free_agents - self.reserve) / self.free_agents) as u32
+    }
+}
+
+/// Free agents per club the world keeps before any drifts out.
+const FREE_AGENT_RESERVE_PER_CLUB: usize = 6;
+
+/// A free agent younger than this is still a prospect: he does not give up.
+const FREE_AGENT_PROSPECT_AGE: i32 = 21;
+
 fn retire_player(player: &mut Player, current_date: NaiveDate) {
     // Recorded first, while his club is still known. It ends the contract: the dates
     // and the wage follow it.
@@ -84,6 +172,7 @@ fn retire_player(player: &mut Player, current_date: NaiveDate) {
 
 pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u32) {
     let world_seed = game.seed;
+    let market = FreeAgentMarket::of(game);
     for player in game.players.iter_mut() {
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
         let mut stream = crate::seed::rng_for_seed(
@@ -94,7 +183,11 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
         crate::development::develop_one_season(player, age, world_seed, &mut stream);
         crate::player_rating::refresh_player_derived(player, current_date);
 
-        if should_retire(player, age, current_date, season) {
+        let drifts_out = {
+            let chance = drifting_out_chance(player, age, current_date, &market);
+            chance > 0 && seeded_value(&player.id, season, "free-agent-drift") % 100 < chance
+        };
+        if drifts_out || should_retire(player, age, current_date, season) {
             if let Some(team_id) = player.team_id.clone()
                 && let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id)
             {
@@ -204,6 +297,78 @@ mod tests {
 
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
         assert!(should_retire(&player, age, current_date, 1));
+    }
+
+    /// Given a 27-year-old free agent rated below the clubs' median who has had no club for years
+    /// When the chance that he gives up is worked out
+    /// Then it is high; for one rated above the median it is low; for a prospect, a player under
+    ///      contract or one released only months ago, it is none.
+    #[test]
+    fn a_free_agent_unemployed_for_a_year_may_give_up_the_game() {
+        use super::{FreeAgentMarket, drifting_out_chance};
+        let today = NaiveDate::from_ymd_opt(2027, 6, 30).unwrap();
+        let market = FreeAgentMarket {
+            median_rating: 58,
+            free_agents: 1_000,
+            reserve: 0,
+        };
+        let mut free = make_player("free", "2000-01-01");
+        free.team_id = None;
+        free.ovr = 50;
+
+        assert_eq!(drifting_out_chance(&free, 27, today, &market), 75);
+        free.ovr = 65;
+        assert_eq!(drifting_out_chance(&free, 27, today, &market), 45);
+        assert_eq!(drifting_out_chance(&free, 19, today, &market), 0);
+
+        let mut employed = free.clone();
+        employed.team_id = Some("club".to_string());
+        assert_eq!(drifting_out_chance(&employed, 27, today, &market), 0);
+    }
+
+    /// Given a market whose free agents number the reserve, and one with twice as many
+    /// When the chance that a free agent gives up is worked out
+    /// Then none give up at the reserve, and half the chance applies at double it: only the
+    ///      excess drifts out.
+    #[test]
+    fn only_the_free_agents_beyond_the_reserve_drift_out() {
+        use super::{FreeAgentMarket, drifting_out_chance};
+        let today = NaiveDate::from_ymd_opt(2027, 6, 30).unwrap();
+        let mut free = make_player("free", "2000-01-01");
+        free.team_id = None;
+        free.ovr = 50;
+        let at = |free_agents| FreeAgentMarket {
+            median_rating: 58,
+            free_agents,
+            reserve: 100,
+        };
+
+        assert_eq!(drifting_out_chance(&free, 27, today, &at(100)), 0);
+        assert_eq!(drifting_out_chance(&free, 27, today, &at(200)), 75 / 2);
+    }
+
+    /// Given a free agent let go three months ago
+    /// When the chance that he gives up is worked out
+    /// Then it is none: he has not had a year to find a club.
+    #[test]
+    fn a_player_released_this_year_has_not_given_up() {
+        use super::{FreeAgentMarket, drifting_out_chance};
+        use domain::player::{PlayerMovementEntry, PlayerMovementKind};
+        let today = NaiveDate::from_ymd_opt(2027, 6, 30).unwrap();
+        let mut free = make_player("free", "2000-01-01");
+        free.ovr = 40;
+        crate::contracts::record_movement(
+            &mut free,
+            PlayerMovementEntry::new("2027-03-30".to_string(), PlayerMovementKind::Released),
+        );
+        free.team_id = None;
+
+        let market = FreeAgentMarket {
+            median_rating: 58,
+            free_agents: 1_000,
+            reserve: 0,
+        };
+        assert_eq!(drifting_out_chance(&free, 27, today, &market), 0);
     }
 
     #[test]

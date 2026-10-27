@@ -327,6 +327,31 @@ impl Economy {
         let mut free_ovr: Vec<f64> = free.iter().map(|p| f64::from(p.ovr)).collect();
         let free_ge_60 = free.iter().filter(|p| p.ovr >= 60).count();
         let free_ge_70 = free.iter().filter(|p| p.ovr >= 70).count();
+        let mut pool_profile: BTreeMap<String, u64> = BTreeMap::new();
+        let on = game.clock.current_date.date_naive();
+        for p in &free {
+            let origin = if p.id.starts_with("fm-p-") {
+                "fm24"
+            } else {
+                "generated"
+            };
+            let age = age_on(&p.date_of_birth, on);
+            let age_band = match age {
+                ..=20 => "<=20",
+                21..=25 => "21-25",
+                26..=30 => "26-30",
+                _ => "31+",
+            };
+            let ovr_band = match p.ovr {
+                ..=49 => "<50",
+                50..=59 => "50-59",
+                60..=69 => "60-69",
+                _ => "70+",
+            };
+            *pool_profile
+                .entry(format!("{origin} {age_band} ovr{ovr_band}"))
+                .or_default() += 1;
+        }
         let loans = game
             .players
             .iter()
@@ -410,6 +435,7 @@ impl Economy {
                 "ovr_ge_60": free_ge_60,
                 "ovr_ge_70": free_ge_70,
                 "ovr_median": quantile(&mut free_ovr, 0.5),
+                "profile": pool_profile,
             },
             "active_loans": loans,
             "ai_clubs": ai.len(),
