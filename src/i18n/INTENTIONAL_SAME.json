@@ -1,7 +1,6 @@
 {
   "global": [
     "app.name",
-    "app.publisher",
     "date.day",
     "match.pen",
     "squad.jerseyNumber",
@@ -28,7 +27,9 @@
     "worldEditor.staffId",
     "common.ratingTier.S",
     "common.ratingTier.A",
-    "common.ratingTier.B"
+    "common.ratingTier.B",
+    "apfmWorld.fm24.name",
+    "apfmWorld.demo.badge"
   ],
   "de": [
     "match.formationFit",

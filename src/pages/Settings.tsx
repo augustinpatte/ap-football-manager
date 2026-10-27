@@ -6,8 +6,9 @@ import { useSettingsStore, type AppSettings } from "../store/settingsStore";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggle, Select } from "../components/ui";
 import { SUPPORTED_LANGUAGES, changeAppLanguage } from "../i18n";
-import { formatAppVersion } from "../lib/appVersion";
 import { SegmentedControl, Section, SettingRow, Toggle } from "./Settings.components";
+import { AboutLicences } from "../components/settings/AboutLicences";
+import { UPSTREAM_BUG_REPORT_ENABLED } from "../lib/product";
 import { ReportBugModal } from "../components/diagnostics/ReportBugModal";
 import { SubmittedReports } from "../components/diagnostics/SubmittedReports";
 import {
@@ -375,39 +376,29 @@ export default function Settings() {
         </Section>
 
         {/* ─── Help ─── */}
-        <Section title={t("settings.help")} icon={<Bug className="w-5 h-5" />}>
-          <SettingRow label={t("settings.reportBug")} description={t("settings.reportBugDesc")}>
-            <button
-              type="button"
-              onClick={() => setReportingBug(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-navy-800"
-            >
-              <Bug className="w-4 h-4" />
-              {t("settings.report")}
-            </button>
-          </SettingRow>
-          <SubmittedReports refreshKey={reportsRefresh} />
-        </Section>
+        {UPSTREAM_BUG_REPORT_ENABLED && (
+          <Section title={t("settings.help")} icon={<Bug className="w-5 h-5" />}>
+            <SettingRow label={t("settings.reportBug")} description={t("settings.reportBugDesc")}>
+              <button
+                type="button"
+                onClick={() => setReportingBug(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-navy-800"
+              >
+                <Bug className="w-4 h-4" />
+                {t("settings.report")}
+              </button>
+            </SettingRow>
+            <SubmittedReports refreshKey={reportsRefresh} />
+          </Section>
+        )}
 
         {/* ─── About ─── */}
-        <Section title={t("settings.about")} icon={<Zap className="w-5 h-5" />}>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                {t("app.name")}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {formatAppVersion()}
-              </p>
-            </div>
-            <span className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-600">
-              {t("app.publisher")}
-            </span>
-          </div>
+        <Section title={t("about.title")} icon={<Zap className="w-5 h-5" />}>
+          <AboutLicences />
         </Section>
       </div>
 
-      {reportingBug && (
+      {UPSTREAM_BUG_REPORT_ENABLED && reportingBug && (
         <ReportBugModal
           onClose={() => {
             setReportingBug(false);

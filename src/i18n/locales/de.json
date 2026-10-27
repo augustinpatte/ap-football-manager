@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Neues Spiel",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Diese Formation kennt das Spiel nicht.",
         "invalidPlayStyle": "Diesen Spielstil kennt das Spiel nicht.",
         "notFound": "Diese Taktik gibt es nicht mehr."
+      },
+      "fm24": {
+        "worldDbMissing": "Es wurde keine world.db-Datei gefunden. Wähle die vom FM24-Importer erzeugte Datei.",
+        "importFailed": "Die FM24-Welt konnte aus dieser Datei nicht erstellt werden. Prüfe, ob es eine gültige world.db ist.",
+        "checksFailed": "Die FM24-Daten haben die Integritätsprüfungen nicht bestanden, daher wurde die Welt nicht installiert. Eine vorhandene frühere Welt bleibt unverändert.",
+        "writeFailed": "Die FM24-Welt konnte nicht in den Datenordner des Spiels geschrieben werden. Prüfe Speicherplatz und Berechtigungen."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "Deine letzte Sitzung endete mit einem Absturz. Ihn zu melden hilft uns, ihn zu beheben — du siehst alles, was gesendet würde, bevor irgendetwas deinen Rechner verlässt.",
     "report": "Melden",
     "notNow": "Nicht jetzt"
+  },
+  "apfmWorld": {
+    "title": "Welt auswählen",
+    "subtitle": "Die Welt bestimmt die Vereine, Spieler und Wettbewerbe, mit denen deine Karriere beginnt.",
+    "loading": "Welten werden gesucht …",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Echte Vereine und Spieler, importiert aus deinem eigenen Football-Manager-24-Spielstand.",
+      "badge": "Lokale Daten"
+    },
+    "demo": {
+      "name": "Demo-Welt",
+      "description": "Eine generierte Welt mit fiktiven Vereinen. Sie enthält keine FM24-Daten und darf frei weitergegeben werden.",
+      "badge": "Demo"
+    },
+    "scope": "Umfang",
+    "scopeValue": "{{clubs}} Vereine · {{competitions}} Ligen · {{players}} Spieler",
+    "startDate": "Startdatum",
+    "competitions": "Verfügbare Ligen: {{count}}",
+    "select": "Auswählen",
+    "selected": "Ausgewählt",
+    "install": "FM24-Welt installieren",
+    "reinstall": "Aus world.db neu erstellen",
+    "installing": "Welt wird erstellt …",
+    "notInstalled": "Die FM24-Welt ist noch nicht installiert. Das Spiel erstellt sie aus deiner eigenen world.db-Datei; das dauert einige Sekunden.",
+    "chooseSource": "Wähle deine world.db-Datei",
+    "localNotice": "Deine FM24-Daten bleiben auf diesem Mac. Sie sind nie Teil der App und werden nirgendwohin gesendet.",
+    "next": "Weiter"
+  },
+  "about": {
+    "title": "Über / Open-Source-Lizenzen",
+    "summary": "AP Football Manager ist freie Software und steht unter der GNU General Public License Version 3 (GPL-3.0).",
+    "basedOn": "Es ist eine modifizierte Kopie von {{upstream}}, © die OpenFoot-Manager-Mitwirkenden, ebenfalls unter der GPL-3.0.",
+    "modifications": "Änderungen des Projekts AP Football Manager (2026): Produktidentität, Import und Auswahl der FM24-Welt, französischsprachige Erfahrung, keine Daten an Dritte. Die detaillierte Liste steht in der Änderungshistorie des Projekts.",
+    "noWarranty": "Dieses Programm wird OHNE JEDE GARANTIE bereitgestellt. Du darfst es nach den Bedingungen der GPL-3.0 weitergeben; der vollständige Text steht unten.",
+    "thirdParty": "Die verwendeten Bibliotheken (React, Tauri, SQLite und weitere) behalten ihre eigenen Open-Source-Lizenzen, aufgeführt in den Dateien package.json und Cargo.lock des Projekts.",
+    "fm24Notice": "Football Manager ist eine Marke von Sports Interactive und SEGA, die mit diesem Projekt nicht verbunden sind. FM24-Daten werden aus deinem eigenen Spielstand gelesen, bleiben auf deinem Computer und werden nicht mit dem Spiel verteilt.",
+    "privacy": "Dieses Spiel sendet keine Daten an Dritte: Spielstände, Protokolle und FM24-Daten bleiben auf diesem Mac.",
+    "upstreamSource": "Quellcode des Ursprungsprojekts",
+    "showLicence": "Lizenztext anzeigen",
+    "hideLicence": "Lizenztext ausblenden"
   }
 }

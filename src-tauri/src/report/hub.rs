@@ -7,10 +7,9 @@ use std::path::{Path, PathBuf};
 
 use rand::RngExt;
 
-/// The production OFMHub API base. Its `/config` says `enabled: false` until the maintainer turns
-/// intake on, and the game then offers only the GitHub form.
-pub const PRODUCTION_API_BASE: &str = "https://openfootmanager.com/api/v1";
-pub const STAGING_API_BASE: &str = "https://staging.openfootmanager.com/api/v1";
+// AP Football Manager compiles in no report endpoint: the upstream OFMHub belongs to the
+// OpenFoot Manager project, and logs or saves must never leave this machine towards it. A debug
+// build can still be pointed at a server of one's own through `HUB_URL_VARIABLE`.
 
 /// Debug builds only: points one run somewhere else. A shipped game ignores it, so an
 /// environment variable cannot redirect players' logs and saves.
@@ -160,7 +159,7 @@ impl HubEndpoint {
         })
     }
 
-    /// Release builds send to production; debug builds to staging, or to `override_url`.
+    /// No build has a default endpoint: only a debug build given `override_url` can send anywhere.
     ///
     /// An override that is set but invalid does **not** fall back to the default: whoever set it
     /// meant to send reports elsewhere, and sending them to the default is the one outcome they
@@ -171,8 +170,7 @@ impl HubEndpoint {
             .filter(|url| debug_build && !url.is_empty());
         match override_url {
             Some(url) => Self::from_base_url(url),
-            None if debug_build => Self::from_base_url(STAGING_API_BASE),
-            None => Self::from_base_url(PRODUCTION_API_BASE),
+            None => None,
         }
     }
 
@@ -734,22 +732,15 @@ mod tests {
 
     /// Given a debug build with a valid, an empty, an invalid and no override,
     /// when the endpoint is resolved,
-    /// then a valid override wins, empty means unset, invalid disables instead of falling back,
-    /// and unset means staging.
+    /// then a valid override wins, and empty, invalid or no override send nowhere.
     #[test]
-    fn a_debug_build_honours_the_override_and_defaults_to_staging() {
+    fn a_debug_build_honours_only_a_valid_override() {
         assert_eq!(
             HubEndpoint::resolve(Some("https://other.example.test/api/v1"), true),
             HubEndpoint::from_base_url("https://other.example.test/api/v1")
         );
-        assert_eq!(
-            HubEndpoint::resolve(Some("  "), true),
-            HubEndpoint::from_base_url(STAGING_API_BASE)
-        );
-        assert_eq!(
-            HubEndpoint::resolve(None, true),
-            HubEndpoint::from_base_url(STAGING_API_BASE)
-        );
+        assert_eq!(HubEndpoint::resolve(Some("  "), true), None);
+        assert_eq!(HubEndpoint::resolve(None, true), None);
         assert_eq!(
             HubEndpoint::resolve(Some("http://other.example.test"), true),
             None
@@ -758,26 +749,14 @@ mod tests {
 
     /// Given a release build with an override in its environment,
     /// when the endpoint is resolved,
-    /// then the override is ignored and reports go to production.
+    /// then the override is ignored and nothing is sent anywhere (APFM has no upstream endpoint).
     #[test]
-    fn a_release_build_ignores_the_override_and_uses_production() {
-        let production = HubEndpoint::from_base_url(PRODUCTION_API_BASE);
-
+    fn a_release_build_has_no_endpoint_at_all() {
         assert_eq!(
             HubEndpoint::resolve(Some("https://evil.example.test/api/v1"), false),
-            production
+            None
         );
-        assert_eq!(HubEndpoint::resolve(None, false), production);
-    }
-
-    /// Given both compiled-in bases,
-    /// when they are checked,
-    /// then each is a valid https endpoint and they differ.
-    #[test]
-    fn both_compiled_in_bases_are_valid_and_distinct() {
-        assert!(HubEndpoint::from_base_url(PRODUCTION_API_BASE).is_some());
-        assert!(HubEndpoint::from_base_url(STAGING_API_BASE).is_some());
-        assert_ne!(PRODUCTION_API_BASE, STAGING_API_BASE);
+        assert_eq!(HubEndpoint::resolve(None, false), None);
     }
 
     /// Given version strings of every shape,

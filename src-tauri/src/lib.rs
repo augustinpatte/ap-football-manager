@@ -6,6 +6,7 @@ mod crash;
 mod main_window;
 mod platform;
 mod report;
+mod save_location;
 use commands::*;
 
 #[cfg(feature = "mcp")]
@@ -92,7 +93,19 @@ pub fn run() {
                 report::prepared::sweep_stale_uploads(&cache_dir);
             }
 
-            let saves_dir = app_data_dir.join("saves");
+            let saves_dir = save_location::resolve_saves_dir(
+                &app_data_dir,
+                std::env::var_os(save_location::SAVES_DIR_VARIABLE),
+            );
+            if let Err(error) = save_location::record_launch(
+                &app_data_dir,
+                &saves_dir,
+                env!("CARGO_PKG_VERSION"),
+                chrono::Utc::now(),
+            ) {
+                // Syncing is only being prepared: a failure here must not stop the game opening.
+                log::warn!("[setup] could not record the saves device info: {error}");
+            }
             let mut save_manager = SaveManager::init(&saves_dir).map_err(std::io::Error::other)?;
 
             // Run legacy migration if old saves.db exists
@@ -218,6 +231,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             list_world_databases,
+            find_fm24_world_source,
+            install_fm24_world,
             install_package,
             list_installed_packages,
             uninstall_package,

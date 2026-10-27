@@ -27,11 +27,6 @@ vi.mock("../lib/errorDialog", () => ({
   showError: (title: string, detail: string) => showErrorMock(title, detail),
 }));
 
-const openUrlMock = vi.fn();
-vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: (...args: unknown[]) => openUrlMock(...args),
-}));
-
 // The native file-picker returns whatever the current test stages here.
 let dialogOpenResult: string | null = null;
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -178,6 +173,32 @@ vi.mock("../components/menu/PackageBuildStep", () => ({
   ),
 }));
 
+// The world step lists worlds through the backend and installs the FM24 world; its own tests
+// cover that. Here it is two buttons: pick the demo world, or pick the FM24 world on disk.
+vi.mock("../components/menu/WorldDatabaseStep", () => ({
+  default: ({
+    onNext,
+  }: {
+    onNext: (
+      choice: { kind: "demo" } | { kind: "file"; path: string; baseYear: number | null },
+    ) => void;
+  }) => (
+    <div data-testid="world-database-step">
+      <button type="button" onClick={() => onNext({ kind: "demo" })}>
+        world-demo
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onNext({ kind: "file", path: "/worlds/apfm-fm24-2026.json", baseYear: 2026 })
+        }
+      >
+        world-fm24
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("../components/menu/WorldSelect", () => ({
   default: ({
     onStart,
@@ -209,8 +230,11 @@ const MIN_AGE_KEY = "be.error.createManager.minAge";
 // The packages step sits between the create form and the generation/world-select
 // step. Its internals (installed-package list, stack validation) are covered by
 // their own tests; here we shim it to a simple "advance" control so the manager-
-// creation flow tests can drive create -> packages -> generation directly.
+// creation flow tests can drive create -> world -> packages -> generation directly.
 async function advanceThroughPackages(): Promise<void> {
+  // Either step may be on screen: the world step first, unless a test already passed it.
+  const current = await screen.findByText(/^(world-demo|package-next)$/);
+  if (current.textContent === "world-demo") fireEvent.click(current);
   fireEvent.click(await screen.findByText("package-next"));
 }
 
@@ -287,7 +311,6 @@ describe("MainMenu", () => {
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
     showErrorMock.mockReset();
-    openUrlMock.mockReset();
     dialogOpenResult = null;
     localStorage.clear();
     latestDatePickerOnChange = null;
@@ -637,6 +660,7 @@ describe("MainMenu", () => {
     await selectNationality("en", "ES");
 
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
+    fireEvent.click(await screen.findByText("world-demo"));
 
     await waitFor(() => {
       expect(screen.getByTestId("package-build-step")).toBeInTheDocument();
@@ -675,6 +699,8 @@ describe("MainMenu", () => {
 
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
 
+    // The packages step follows the world step; pick the demo world to reach it.
+    fireEvent.click(await screen.findByText("world-demo"));
     // The packages step loads installed packages; activate one before advancing.
     fireEvent.click(await screen.findByText("toggle-premier-league"));
     await advanceThroughPackages();
@@ -728,6 +754,7 @@ describe("MainMenu", () => {
     fillManagerDetails();
     await selectNationality("en", "ES");
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
+    fireEvent.click(await screen.findByText("world-demo"));
 
     // No packages installed yet, so the file has to be imported first.
     expect(screen.queryByText("toggle-custom-world")).not.toBeInTheDocument();
@@ -760,6 +787,7 @@ describe("MainMenu", () => {
     fillManagerDetails();
     await selectNationality("en", "ES");
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
+    fireEvent.click(await screen.findByText("world-demo"));
 
     fireEvent.click(await screen.findByText("install-package"));
 
@@ -888,24 +916,45 @@ describe("MainMenu", () => {
     expect(localStorage.getItem("ofm-generated-history-depth-years")).toBe("12");
   });
 
-  it("opens the Discord invite in the system browser when the Discord link is clicked", async () => {
+  it("offers no Discord, GitHub or bug-report link: the product sends nothing to the upstream project", async () => {
     render(<MainMenu />);
 
-    const discordButton = await screen.findByRole("button", { name: "menu.openDiscord" });
-    fireEvent.click(discordButton);
+    await screen.findByText("menu.newGame");
 
-    expect(openUrlMock).toHaveBeenCalledTimes(1);
-    expect(openUrlMock).toHaveBeenCalledWith("https://discord.gg/2CXaesaukT");
+    expect(screen.queryByRole("button", { name: "menu.openDiscord" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "menu.openGithub" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "menu.reportBug" })).toBeNull();
   });
 
-  it("opens the GitHub repository in the system browser when the GitHub link is clicked", async () => {
+  it("shows the AP Football Manager wordmark", async () => {
     render(<MainMenu />);
 
-    const githubButton = await screen.findByRole("button", { name: "menu.openGithub" });
-    fireEvent.click(githubButton);
+    expect(
+      await screen.findByRole("heading", { name: /AP\s*Football Manager/ }),
+    ).toBeInTheDocument();
+  });
 
-    expect(openUrlMock).toHaveBeenCalledTimes(1);
-    expect(openUrlMock).toHaveBeenCalledWith("https://github.com/openfootmanager/openfootmanager");
+  it("starts a career in the FM24 world from its file, opening in the world's own season", async () => {
+    render(<MainMenu />);
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+    // A start year that disagrees with the world: the world's own year must win.
+    fillCareerStartDetails("2031", "midSeason");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+    fireEvent.click(await screen.findByText("world-fm24"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "start_new_game",
+        expect.objectContaining({
+          worldSource: "/worlds/apfm-fm24-2026.json",
+          startupOptions: expect.objectContaining({ startYear: 2026, startPhase: "seasonStart" }),
+          packageIds: undefined,
+        }),
+      );
+    });
   });
 
   describe("profile confirm modal", () => {

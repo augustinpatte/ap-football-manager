@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "新游戏",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "游戏不认识该阵型。",
         "invalidPlayStyle": "游戏不认识该打法。",
         "notFound": "该战术已不存在。"
+      },
+      "fm24": {
+        "worldDbMissing": "未找到 world.db 文件。请选择 FM24 导入工具生成的文件。",
+        "importFailed": "无法用此文件构建 FM24 世界。请确认它是有效的 world.db。",
+        "checksFailed": "FM24 数据未通过完整性检查，因此未安装该世界。原有世界（如有）保持不变。",
+        "writeFailed": "无法将 FM24 世界写入游戏数据文件夹。请检查磁盘空间和权限。"
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "你上次游戏时发生了崩溃。报告它能帮助我们修复问题 —— 在任何内容离开你的电脑之前，你都会看到将要发送的全部内容。",
     "report": "报告",
     "notNow": "以后再说"
+  },
+  "apfmWorld": {
+    "title": "选择你的世界",
+    "subtitle": "世界决定了你的职业生涯开始时的俱乐部、球员和赛事。",
+    "loading": "正在查找世界…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "从你自己的《足球经理 24》存档导入的真实俱乐部和球员。",
+      "badge": "本地数据"
+    },
+    "demo": {
+      "name": "演示世界",
+      "description": "带有虚构俱乐部的生成世界。不含 FM24 数据，可自由分享。",
+      "badge": "演示"
+    },
+    "scope": "范围",
+    "scopeValue": "{{clubs}} 家俱乐部 · {{competitions}} 个联赛 · {{players}} 名球员",
+    "startDate": "开始日期",
+    "competitions": "可用联赛：{{count}}",
+    "select": "选择",
+    "selected": "已选择",
+    "install": "安装 FM24 世界",
+    "reinstall": "从 world.db 重新构建",
+    "installing": "正在构建世界…",
+    "notInstalled": "尚未安装 FM24 世界。游戏会用你自己的 world.db 文件构建它，只需几秒钟。",
+    "chooseSource": "选择你的 world.db 文件",
+    "localNotice": "你的 FM24 数据保留在这台 Mac 上，绝不会包含在应用中，也不会发送到任何地方。",
+    "next": "继续"
+  },
+  "about": {
+    "title": "关于 / 开源许可",
+    "summary": "AP Football Manager 是自由软件，依据 GNU 通用公共许可证第 3 版（GPL-3.0）发布。",
+    "basedOn": "它是 {{upstream}} 的修改副本，© OpenFoot Manager 贡献者，同样依据 GPL-3.0 发布。",
+    "modifications": "AP Football Manager 项目的修改（2026）：产品标识、FM24 世界的导入与选择、以法语为主的体验、不向第三方发送任何数据。详细列表见项目的更改历史。",
+    "noWarranty": "本程序不提供任何担保。你可以依据 GPL-3.0 的条款重新分发它；完整文本见下方。",
+    "thirdParty": "所用的库（React、Tauri、SQLite 等）保留各自的开源许可证，列于项目的 package.json 和 Cargo.lock 文件。",
+    "fm24Notice": "Football Manager 是 Sports Interactive 和 SEGA 的商标，二者与本项目无关。FM24 数据读取自你自己的存档，保留在你的电脑上，不随游戏分发。",
+    "privacy": "本游戏不向任何人发送数据：存档、日志和 FM24 数据都保留在这台 Mac 上。",
+    "upstreamSource": "原项目源代码",
+    "showLicence": "显示许可证文本",
+    "hideLicence": "隐藏许可证文本"
   }
 }

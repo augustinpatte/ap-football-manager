@@ -15,6 +15,7 @@ pub mod competitions;
 pub mod config;
 pub mod finance;
 pub mod ids;
+pub mod install;
 pub mod journal;
 pub mod pipeline;
 pub mod positions;

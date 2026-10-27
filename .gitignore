@@ -56,3 +56,9 @@ test-world.json
 
 # Benchmark output from scripts/perf/run-matrix.sh (machine-specific measurements)
 /scripts/perf/results/
+
+# AP Football Manager: the player's own FM24 data never enters the repository or a build
+world.db
+apfm-fm24-*.json
+apfm-fm24-*.extension.jsonl
+fm24-import/

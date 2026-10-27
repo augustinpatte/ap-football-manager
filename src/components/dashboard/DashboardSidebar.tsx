@@ -162,9 +162,15 @@ export default function DashboardSidebar({
           className={`flex ${collapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-3"}`}
         >
           <div className={`flex items-center ${collapsed ? "justify-center" : "gap-2"}`}>
-            <div className="w-8 h-8 flex items-center justify-center">
-              <img src="../../openfootball.svg" alt={appName} className="w-8 h-8" />
-            </div>
+            {collapsed ? (
+              <div
+                role="img"
+                aria-label={appName}
+                className="w-8 h-8 flex items-center justify-center font-heading text-lead font-extrabold text-accent-400"
+              >
+                {appNamePrimary}
+              </div>
+            ) : null}
             {collapsed ? null : (
               <div>
                 <h1 className="font-heading text-body font-semibold uppercase tracking-label text-fg">

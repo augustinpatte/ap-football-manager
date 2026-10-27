@@ -570,6 +570,13 @@ pub fn scan_world_databases(dir: &std::path::Path) -> Vec<WorldDatabaseInfo> {
                 snapshot_date: world.metadata.snapshot_date,
                 source: "user".to_string(),
                 path: path.to_string_lossy().to_string(),
+                world_id: world.metadata.world_id.clone(),
+                competitions: world
+                    .competition_definitions
+                    .as_ref()
+                    .map(|file| file.competitions.iter().map(|c| c.name.clone()).collect())
+                    .unwrap_or_default(),
+                start_date: None,
             });
             // suppress unused variable warning
             let _ = file_stem;

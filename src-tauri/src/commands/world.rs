@@ -122,6 +122,9 @@ pub fn list_world_databases(
         snapshot_date: None,
         source: "builtin".to_string(),
         path: String::new(),
+        world_id: String::new(),
+        competitions: Vec::new(),
+        start_date: None,
     }];
 
     // Scan bundled databases directory (next to the executable / in resources)
@@ -140,8 +143,20 @@ pub fn list_world_databases(
         let user_dbs = ofm_core::generator::scan_world_databases(&user_dir);
         databases.extend(user_dbs);
     }
+    fill_start_dates(&mut databases);
 
     Ok(databases)
+}
+
+/// A fixed-roster world opens on the first day of its base year's season, the date a career
+/// created from it starts on; the world screen shows it so nobody discovers it afterwards.
+fn fill_start_dates(databases: &mut [ofm_core::generator::WorldDatabaseInfo]) {
+    for database in databases.iter_mut().filter(|d| d.history_mode == "hybrid") {
+        database.start_date = database
+            .base_year
+            .and_then(super::game::season_opening_date)
+            .map(|date| date.to_rfc3339());
+    }
 }
 
 /// Export the current world data to a JSON file so it can be shared/reused.

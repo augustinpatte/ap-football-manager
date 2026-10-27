@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Permainan Baru",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Formasi itu tidak dikenal permainan.",
         "invalidPlayStyle": "Gaya bermain itu tidak dikenal permainan.",
         "notFound": "Taktik itu sudah tidak ada."
+      },
+      "fm24": {
+        "worldDbMissing": "File world.db tidak ditemukan. Pilih file yang dihasilkan oleh pengimpor FM24.",
+        "importFailed": "Dunia FM24 tidak dapat dibangun dari file ini. Pastikan itu world.db yang valid.",
+        "checksFailed": "Data FM24 gagal dalam pemeriksaan integritas, sehingga dunia tidak dipasang. Dunia sebelumnya, jika ada, tidak berubah.",
+        "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "Sesi terakhirmu berakhir dengan crash. Melaporkannya membantu kami memperbaikinya — kamu akan melihat semua yang akan dikirim sebelum apa pun keluar dari komputermu.",
     "report": "Laporkan",
     "notNow": "Nanti saja"
+  },
+  "apfmWorld": {
+    "title": "Pilih dunia Anda",
+    "subtitle": "Dunia menentukan klub, pemain, dan kompetisi yang mengawali karier Anda.",
+    "loading": "Mencari dunia…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Klub dan pemain nyata yang diimpor dari save Football Manager 24 milik Anda sendiri.",
+      "badge": "Data lokal"
+    },
+    "demo": {
+      "name": "Dunia demo",
+      "description": "Dunia buatan dengan klub fiktif. Tidak berisi data FM24 dan boleh dibagikan bebas.",
+      "badge": "Demo"
+    },
+    "scope": "Cakupan",
+    "scopeValue": "{{clubs}} klub · {{competitions}} liga · {{players}} pemain",
+    "startDate": "Tanggal mulai",
+    "competitions": "Liga tersedia: {{count}}",
+    "select": "Pilih",
+    "selected": "Dipilih",
+    "install": "Pasang dunia FM24",
+    "reinstall": "Bangun ulang dari world.db",
+    "installing": "Membangun dunia…",
+    "notInstalled": "Dunia FM24 belum dipasang. Game membangunnya dari file world.db Anda sendiri; butuh beberapa detik.",
+    "chooseSource": "Pilih file world.db Anda",
+    "localNotice": "Data FM24 Anda tetap di Mac ini. Data itu tidak pernah disertakan dalam aplikasi maupun dikirim ke mana pun.",
+    "next": "Lanjutkan"
+  },
+  "about": {
+    "title": "Tentang / Lisensi sumber terbuka",
+    "summary": "AP Football Manager adalah perangkat lunak bebas yang dirilis di bawah GNU General Public License versi 3 (GPL-3.0).",
+    "basedOn": "Ini adalah salinan modifikasi dari {{upstream}}, © para kontributor OpenFoot Manager, yang juga dirilis di bawah GPL-3.0.",
+    "modifications": "Perubahan oleh proyek AP Football Manager (2026): identitas produk, impor dan pemilihan dunia FM24, pengalaman berbahasa Prancis, tidak ada data dikirim ke pihak ketiga. Daftar rincinya ada di riwayat perubahan proyek.",
+    "noWarranty": "Program ini disediakan TANPA JAMINAN APA PUN. Anda boleh mendistribusikannya ulang dengan ketentuan GPL-3.0; teks lengkapnya ada di bawah.",
+    "thirdParty": "Pustaka yang digunakan (React, Tauri, SQLite, dan lainnya) tetap memiliki lisensi sumber terbukanya masing-masing, tercantum di berkas package.json dan Cargo.lock proyek.",
+    "fm24Notice": "Football Manager adalah merek dagang Sports Interactive dan SEGA, yang tidak berafiliasi dengan proyek ini. Data FM24 dibaca dari save Anda sendiri, tetap di komputer Anda, dan tidak didistribusikan bersama game.",
+    "privacy": "Game ini tidak mengirim data ke siapa pun: save, log, dan data FM24 tetap di Mac ini.",
+    "upstreamSource": "Kode sumber proyek asli",
+    "showLicence": "Tampilkan teks lisensi",
+    "hideLicence": "Sembunyikan teks lisensi"
   }
 }

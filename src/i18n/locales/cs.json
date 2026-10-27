@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Nová hra",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Tuto formaci hra nezná.",
         "invalidPlayStyle": "Tento herní styl hra nezná.",
         "notFound": "Tato taktika už neexistuje."
+      },
+      "fm24": {
+        "worldDbMissing": "Soubor world.db nebyl nalezen. Vyberte soubor vytvořený importérem FM24.",
+        "importFailed": "Svět FM24 se z tohoto souboru nepodařilo vytvořit. Zkontrolujte, zda jde o platný world.db.",
+        "checksFailed": "Data z FM24 neprošla kontrolou integrity, proto se svět nenainstaloval. Případný předchozí svět zůstal beze změny.",
+        "writeFailed": "Svět FM24 se nepodařilo zapsat do datové složky hry. Zkontrolujte volné místo na disku a oprávnění."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "Vaše poslední hraní skončilo pádem hry. Nahlášení nám pomůže chybu opravit — než cokoli opustí váš počítač, uvidíte vše, co by se odeslalo.",
     "report": "Nahlásit",
     "notNow": "Teď ne"
+  },
+  "apfmWorld": {
+    "title": "Vyberte svůj svět",
+    "subtitle": "Svět určuje kluby, hráče a soutěže, se kterými vaše kariéra začíná.",
+    "loading": "Hledání světů…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Skutečné kluby a hráči importovaní z vašeho vlastního uložení Football Manageru 24.",
+      "badge": "Místní data"
+    },
+    "demo": {
+      "name": "Ukázkový svět",
+      "description": "Vygenerovaný svět s fiktivními kluby. Neobsahuje data z FM24 a lze jej volně sdílet.",
+      "badge": "Ukázka"
+    },
+    "scope": "Rozsah",
+    "scopeValue": "{{clubs}} klubů · {{competitions}} lig · {{players}} hráčů",
+    "startDate": "Datum zahájení",
+    "competitions": "Dostupné ligy: {{count}}",
+    "select": "Vybrat",
+    "selected": "Vybráno",
+    "install": "Nainstalovat svět FM24",
+    "reinstall": "Znovu vytvořit z world.db",
+    "installing": "Vytváření světa…",
+    "notInstalled": "Svět FM24 ještě není nainstalován. Hra jej vytvoří z vašeho souboru world.db; trvá to několik sekund.",
+    "chooseSource": "Vyberte svůj soubor world.db",
+    "localNotice": "Vaše data z FM24 zůstávají v tomto Macu. Nikdy nejsou součástí aplikace ani se nikam neodesílají.",
+    "next": "Pokračovat"
+  },
+  "about": {
+    "title": "O aplikaci / Open source licence",
+    "summary": "AP Football Manager je svobodný software vydaný pod licencí GNU General Public License verze 3 (GPL-3.0).",
+    "basedOn": "Je to upravená kopie projektu {{upstream}}, © přispěvatelé OpenFoot Manageru, rovněž vydaného pod GPL-3.0.",
+    "modifications": "Změny projektu AP Football Manager (2026): identita produktu, import a výběr světa FM24, francouzské prostředí, žádná data nejsou posílána třetím stranám. Podrobný seznam je v historii změn projektu.",
+    "noWarranty": "Tento program je poskytován BEZ JAKÉKOLI ZÁRUKY. Můžete jej šířit za podmínek GPL-3.0; úplné znění je níže.",
+    "thirdParty": "Použité knihovny (React, Tauri, SQLite a další) mají vlastní open source licence uvedené v souborech package.json a Cargo.lock projektu.",
+    "fm24Notice": "Football Manager je ochranná známka společností Sports Interactive a SEGA, které s tímto projektem nejsou nijak spojeny. Data z FM24 se čtou z vašeho vlastního uložení, zůstávají ve vašem počítači a nejsou součástí hry.",
+    "privacy": "Tato hra nikomu neodesílá žádná data: uložené hry, protokoly i data z FM24 zůstávají v tomto Macu.",
+    "upstreamSource": "Zdrojový kód původního projektu",
+    "showLicence": "Zobrazit text licence",
+    "hideLicence": "Skrýt text licence"
   }
 }

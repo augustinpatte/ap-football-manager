@@ -40,6 +40,11 @@ use world_load::*;
 // handler in `lib.rs`, so the path must stay `crate::commands::<name>`.
 pub use validation::*;
 
+/// The date a career opens on in a fixed-roster world of `base_year`, at the start of its season.
+pub(crate) fn season_opening_date(base_year: i32) -> Option<chrono::DateTime<chrono::Utc>> {
+    current_date_for_phase(base_year, ofm_core::career::StartPhase::SeasonStart).ok()
+}
+
 /// What a career start asks of the app's environment, resolved once by the command so the rest of
 /// it can be driven without a Tauri handle.
 pub(crate) struct StartEnvironment {

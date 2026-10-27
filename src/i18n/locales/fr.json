@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Nouvelle Partie",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Le jeu ne connaît pas cette formation.",
         "invalidPlayStyle": "Le jeu ne connaît pas ce style de jeu.",
         "notFound": "Cette tactique n'existe plus."
+      },
+      "fm24": {
+        "worldDbMissing": "Aucun fichier world.db n'a été trouvé. Choisissez le fichier produit par l'importeur FM24.",
+        "importFailed": "Le monde FM24 n'a pas pu être construit à partir de ce fichier. Vérifiez qu'il s'agit bien d'un world.db valide.",
+        "checksFailed": "Les données FM24 n'ont pas passé les contrôles d'intégrité : le monde n'a pas été installé. Le monde précédent, s'il existe, est inchangé.",
+        "writeFailed": "Le monde FM24 n'a pas pu être écrit dans le dossier de données du jeu. Vérifiez l'espace disque et les droits d'accès."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "Votre dernière session s'est terminée par un plantage. Le signaler nous aide à le corriger — vous verrez tout ce qui serait envoyé avant que quoi que ce soit ne quitte votre ordinateur.",
     "report": "Le signaler",
     "notNow": "Pas maintenant"
+  },
+  "apfmWorld": {
+    "title": "Choisir votre monde",
+    "subtitle": "Le monde fixe les clubs, les joueurs et les compétitions avec lesquels votre carrière commence.",
+    "loading": "Recherche des mondes…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Clubs et joueurs réels importés depuis votre propre sauvegarde de Football Manager 24.",
+      "badge": "Données locales"
+    },
+    "demo": {
+      "name": "Monde de démonstration",
+      "description": "Un monde généré avec des clubs fictifs. Il ne contient aucune donnée FM24 et peut être partagé librement.",
+      "badge": "Démo"
+    },
+    "scope": "Périmètre",
+    "scopeValue": "{{clubs}} clubs · {{competitions}} championnats · {{players}} joueurs",
+    "startDate": "Date de départ",
+    "competitions": "Championnats disponibles : {{count}}",
+    "select": "Choisir",
+    "selected": "Sélectionné",
+    "install": "Installer le monde FM24",
+    "reinstall": "Reconstruire depuis world.db",
+    "installing": "Construction du monde…",
+    "notInstalled": "Le monde FM24 n'est pas encore installé. Le jeu le construit à partir de votre propre fichier world.db ; cela prend quelques secondes.",
+    "chooseSource": "Choisissez votre fichier world.db",
+    "localNotice": "Vos données FM24 restent sur ce Mac. Elles ne sont jamais incluses dans l'application ni envoyées ailleurs.",
+    "next": "Continuer"
+  },
+  "about": {
+    "title": "À propos / Licences open source",
+    "summary": "AP Football Manager est un logiciel libre, publié sous la licence publique générale GNU version 3 (GPL-3.0).",
+    "basedOn": "C'est une copie modifiée d'{{upstream}}, © les contributeurs d'OpenFoot Manager, également publiée sous GPL-3.0.",
+    "modifications": "Modifications du projet AP Football Manager (2026) : identité du produit, import et choix du monde FM24, expérience en français, aucune donnée envoyée à des tiers. La liste détaillée figure dans l'historique des modifications du projet.",
+    "noWarranty": "Ce programme est fourni SANS AUCUNE GARANTIE. Vous pouvez le redistribuer selon les termes de la GPL-3.0 ; le texte complet figure ci-dessous.",
+    "thirdParty": "Les bibliothèques utilisées (React, Tauri, SQLite et d'autres) conservent leurs propres licences open source, indiquées dans les fichiers package.json et Cargo.lock du projet.",
+    "fm24Notice": "Football Manager est une marque de Sports Interactive et de SEGA, qui ne sont pas affiliés à ce projet. Les données FM24 sont lues dans votre propre sauvegarde, restent sur votre ordinateur et ne sont pas distribuées avec le jeu.",
+    "privacy": "Ce jeu n'envoie aucune donnée à personne : sauvegardes, journaux et données FM24 restent sur ce Mac.",
+    "upstreamSource": "Code source du projet d'origine",
+    "showLicence": "Afficher le texte de la licence",
+    "hideLicence": "Masquer le texte de la licence"
   }
 }

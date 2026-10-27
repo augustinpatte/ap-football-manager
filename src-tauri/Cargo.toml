@@ -1,7 +1,7 @@
 [package]
 name = "openfootmanager"
 version = "0.3.0"
-description = "Openfoot Manager"
+description = "AP Football Manager (modified copy of OpenFoot Manager, GPL-3.0)"
 authors = ["Sturdy Robot (admin@esportsmanager.net)"]
 edition = "2021"
 publish = false
@@ -64,6 +64,7 @@ ofm_core = { path = "crates/ofm_core" }
 mcp-results = { path = "crates/mcp-results" }
 engine = { path = "crates/engine" }
 db = { path = "crates/db" }
+fm24-adapter = { path = "crates/fm24-adapter" }
 chrono = "0.4.44"
 rand = "0.10"
 semver = "1"

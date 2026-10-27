@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Nuova partita",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Il gioco non conosce questo modulo.",
         "invalidPlayStyle": "Il gioco non conosce questo stile di gioco.",
         "notFound": "Questa tattica non esiste più."
+      },
+      "fm24": {
+        "worldDbMissing": "Nessun file world.db trovato. Scegli il file prodotto dall'importatore FM24.",
+        "importFailed": "Impossibile creare il mondo FM24 da questo file. Verifica che sia un world.db valido.",
+        "checksFailed": "I dati FM24 non hanno superato i controlli di integrità, quindi il mondo non è stato installato. L'eventuale mondo precedente non è cambiato.",
+        "writeFailed": "Impossibile scrivere il mondo FM24 nella cartella dati del gioco. Controlla lo spazio su disco e i permessi."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "La tua ultima sessione è terminata con un arresto anomalo. Segnalarlo ci aiuta a risolverlo: vedrai tutto ciò che verrebbe inviato prima che qualcosa lasci il tuo computer.",
     "report": "Segnala",
     "notNow": "Non ora"
+  },
+  "apfmWorld": {
+    "title": "Scegli il tuo mondo",
+    "subtitle": "Il mondo determina i club, i giocatori e le competizioni con cui inizia la tua carriera.",
+    "loading": "Ricerca dei mondi…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Club e giocatori reali importati dal tuo salvataggio di Football Manager 24.",
+      "badge": "Dati locali"
+    },
+    "demo": {
+      "name": "Mondo demo",
+      "description": "Un mondo generato con club immaginari. Non contiene dati FM24 e può essere condiviso liberamente.",
+      "badge": "Demo"
+    },
+    "scope": "Ambito",
+    "scopeValue": "{{clubs}} club · {{competitions}} campionati · {{players}} giocatori",
+    "startDate": "Data di inizio",
+    "competitions": "Campionati disponibili: {{count}}",
+    "select": "Scegli",
+    "selected": "Selezionato",
+    "install": "Installa il mondo FM24",
+    "reinstall": "Ricostruisci da world.db",
+    "installing": "Creazione del mondo…",
+    "notInstalled": "Il mondo FM24 non è ancora installato. Il gioco lo crea dal tuo file world.db; ci vogliono pochi secondi.",
+    "chooseSource": "Scegli il tuo file world.db",
+    "localNotice": "I tuoi dati FM24 restano su questo Mac. Non sono mai inclusi nell'app né inviati altrove.",
+    "next": "Continua"
+  },
+  "about": {
+    "title": "Informazioni / Licenze open source",
+    "summary": "AP Football Manager è software libero, rilasciato con la GNU General Public License versione 3 (GPL-3.0).",
+    "basedOn": "È una copia modificata di {{upstream}}, © i collaboratori di OpenFoot Manager, anch'esso rilasciato con GPL-3.0.",
+    "modifications": "Modifiche del progetto AP Football Manager (2026): identità del prodotto, importazione e scelta del mondo FM24, esperienza in francese, nessun dato inviato a terzi. L'elenco dettagliato è nella cronologia delle modifiche del progetto.",
+    "noWarranty": "Questo programma è fornito SENZA ALCUNA GARANZIA. Puoi ridistribuirlo secondo i termini della GPL-3.0; il testo completo è qui sotto.",
+    "thirdParty": "Le librerie usate (React, Tauri, SQLite e altre) mantengono le proprie licenze open source, indicate nei file package.json e Cargo.lock del progetto.",
+    "fm24Notice": "Football Manager è un marchio di Sports Interactive e SEGA, non affiliate a questo progetto. I dati FM24 sono letti dal tuo salvataggio, restano sul tuo computer e non sono distribuiti con il gioco.",
+    "privacy": "Questo gioco non invia dati a nessuno: salvataggi, log e dati FM24 restano su questo Mac.",
+    "upstreamSource": "Codice sorgente del progetto originale",
+    "showLicence": "Mostra il testo della licenza",
+    "hideLicence": "Nascondi il testo della licenza"
   }
 }

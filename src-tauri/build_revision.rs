@@ -5,7 +5,14 @@
 /// The workspace crates the app links. `sim-bench`, `ofm-cli` and `mcp-e2e` are not among them, and
 /// of the crates that are, only `src`, `data` and the manifest are compiled in: their tests and
 /// benches are not.
-pub const LINKED_CRATES: [&str; 5] = ["domain", "engine", "ofm_core", "db", "mcp-results"];
+pub const LINKED_CRATES: [&str; 6] = [
+    "domain",
+    "engine",
+    "ofm_core",
+    "db",
+    "mcp-results",
+    "fm24-adapter",
+];
 
 /// What goes into the app binary, relative to `src-tauri`. Tests, docs, generated schemas, tooling
 /// config and the crates the app does not link are not in it, so changing them never makes a

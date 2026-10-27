@@ -519,6 +519,16 @@ pub struct WorldDatabaseInfo {
     pub source: String,
     /// Filesystem path (empty for built-in random)
     pub path: String,
+    /// The world's own identifier (`metadata.world_id`); empty for the built-in random world.
+    #[serde(default)]
+    pub world_id: String,
+    /// Names of the competitions the world declares, in definition order.
+    #[serde(default)]
+    pub competitions: Vec<String>,
+    /// RFC 3339 date a career opens on for this world, when the world fixes it. The command layer
+    /// fills it: only it knows how a start phase maps to a date.
+    #[serde(default)]
+    pub start_date: Option<String>,
 }
 
 #[cfg(test)]

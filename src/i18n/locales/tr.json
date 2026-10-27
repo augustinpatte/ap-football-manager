@@ -1,7 +1,6 @@
 {
   "app": {
-    "name": "OpenFoot Manager",
-    "publisher": "Sturdy Robot"
+    "name": "AP Football Manager"
   },
   "menu": {
     "newGame": "Yeni Oyun",
@@ -2915,6 +2914,12 @@
         "invalidFormation": "Oyun bu diziliş şemasını tanımıyor.",
         "invalidPlayStyle": "Oyun bu oyun tarzını tanımıyor.",
         "notFound": "Bu taktik artık yok."
+      },
+      "fm24": {
+        "worldDbMissing": "world.db dosyası bulunamadı. FM24 içe aktarıcısının ürettiği dosyayı seç.",
+        "importFailed": "FM24 dünyası bu dosyadan oluşturulamadı. Geçerli bir world.db olduğundan emin ol.",
+        "checksFailed": "FM24 verileri bütünlük denetimlerinden geçemedi, bu yüzden dünya yüklenmedi. Varsa önceki dünya değişmedi.",
+        "writeFailed": "FM24 dünyası oyunun veri klasörüne yazılamadı. Disk alanını ve izinleri kontrol et."
       }
     },
     "sender": {
@@ -4318,5 +4323,46 @@
     "body": "Son oturumun bir çökmeyle sona erdi. Bunu bildirmen düzeltmemize yardım eder — bilgisayarından herhangi bir şey çıkmadan önce gönderilecek her şeyi göreceksin.",
     "report": "Bildir",
     "notNow": "Şimdi değil"
+  },
+  "apfmWorld": {
+    "title": "Dünyanı seç",
+    "subtitle": "Dünya, kariyerinin başlayacağı kulüpleri, oyuncuları ve turnuvaları belirler.",
+    "loading": "Dünyalar aranıyor…",
+    "fm24": {
+      "name": "FM24 2026/27",
+      "description": "Kendi Football Manager 24 kaydından içe aktarılan gerçek kulüpler ve oyuncular.",
+      "badge": "Yerel veri"
+    },
+    "demo": {
+      "name": "Demo dünyası",
+      "description": "Kurgusal kulüplerle oluşturulmuş bir dünya. FM24 verisi içermez ve özgürce paylaşılabilir.",
+      "badge": "Demo"
+    },
+    "scope": "Kapsam",
+    "scopeValue": "{{clubs}} kulüp · {{competitions}} lig · {{players}} oyuncu",
+    "startDate": "Başlangıç tarihi",
+    "competitions": "Kullanılabilir ligler: {{count}}",
+    "select": "Seç",
+    "selected": "Seçildi",
+    "install": "FM24 dünyasını yükle",
+    "reinstall": "world.db'den yeniden oluştur",
+    "installing": "Dünya oluşturuluyor…",
+    "notInstalled": "FM24 dünyası henüz yüklenmedi. Oyun onu kendi world.db dosyandan oluşturur; birkaç saniye sürer.",
+    "chooseSource": "world.db dosyanı seç",
+    "localNotice": "FM24 verilerin bu Mac'te kalır. Uygulamaya asla dahil edilmez ve hiçbir yere gönderilmez.",
+    "next": "Devam"
+  },
+  "about": {
+    "title": "Hakkında / Açık kaynak lisansları",
+    "summary": "AP Football Manager, GNU Genel Kamu Lisansı sürüm 3 (GPL-3.0) altında yayımlanan özgür bir yazılımdır.",
+    "basedOn": "{{upstream}} yazılımının değiştirilmiş bir kopyasıdır; © OpenFoot Manager katkıda bulunanları, o da GPL-3.0 altındadır.",
+    "modifications": "AP Football Manager projesinin değişiklikleri (2026): ürün kimliği, FM24 dünyasının içe aktarılması ve seçimi, Fransızca öncelikli deneyim, üçüncü taraflara veri gönderilmez. Ayrıntılı liste projenin değişiklik geçmişindedir.",
+    "noWarranty": "Bu program HİÇBİR GARANTİ VERMEDEN sunulur. GPL-3.0 koşullarında yeniden dağıtabilirsin; tam metin aşağıdadır.",
+    "thirdParty": "Kullanılan kütüphaneler (React, Tauri, SQLite ve diğerleri) projenin package.json ve Cargo.lock dosyalarında belirtilen kendi açık kaynak lisanslarını korur.",
+    "fm24Notice": "Football Manager, bu projeyle bağlantısı olmayan Sports Interactive ve SEGA'nın ticari markasıdır. FM24 verileri kendi kaydından okunur, bilgisayarında kalır ve oyunla birlikte dağıtılmaz.",
+    "privacy": "Bu oyun kimseye veri göndermez: kayıtlar, günlükler ve FM24 verileri bu Mac'te kalır.",
+    "upstreamSource": "Özgün projenin kaynak kodu",
+    "showLicence": "Lisans metnini göster",
+    "hideLicence": "Lisans metnini gizle"
   }
 }

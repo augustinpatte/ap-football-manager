@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { isTauri } from "@tauri-apps/api/core";
 import { useSettingsStore } from "./store/settingsStore";
 import i18n, { changeAppLanguage } from "./i18n";
+import { PRODUCT_NAME } from "./lib/product";
 import { formatAppVersion } from "./lib/appVersion";
 import { rootFontSizeFor } from "./lib/uiScale";
 import "./App.css";
@@ -38,7 +39,7 @@ function App() {
     void (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        await getCurrentWindow().setTitle(`Openfoot Manager ${formatAppVersion()}`);
+        await getCurrentWindow().setTitle(`${PRODUCT_NAME} ${formatAppVersion()}`);
       } catch (error) {
         console.error("Failed to set window title:", error);
       }
