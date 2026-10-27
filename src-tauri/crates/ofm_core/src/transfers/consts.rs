@@ -5,6 +5,8 @@
 
 pub(super) const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
 pub(super) const MAX_COMPLETED_AI_TRANSFERS_PER_DAY: usize = 2;
+/// One more completed AI deal a day for this many shopping clubs.
+pub(super) const BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY: usize = 40;
 pub(super) const AWARD_LEADERBOARD_INTEREST_BONUS: i32 = 25;
 /// Only one new club may open talks for a given user player on a single day,
 /// so stars draw steady interest over the window instead of a same-day flood.

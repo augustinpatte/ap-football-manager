@@ -1008,6 +1008,8 @@ fn ai_clubs_complete_transfer_between_themselves_without_inbox_message() {
     player.stage_contract_end(Some("2026-09-01".to_string()));
     player.market_value = 1_200_000;
     player.transfer_listed = true;
+    // Better than the cover any club here has: an AI club buys a player who improves its squad.
+    player.ovr = 70;
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
     game.teams
@@ -1043,18 +1045,21 @@ fn ai_clubs_complete_transfer_between_themselves_without_inbox_message() {
 #[test]
 fn ai_market_limits_completed_ai_transfers_per_day() {
     let mut first = make_player("player-ai-limit-1");
+    first.ovr = 70;
     first.team_id = Some("team-3".to_string());
     first.stage_contract_end(Some("2026-09-01".to_string()));
     first.market_value = 1_200_000;
     first.transfer_listed = true;
 
     let mut second = make_player("player-ai-limit-2");
+    second.ovr = 70;
     second.team_id = Some("team-3".to_string());
     second.stage_contract_end(Some("2026-09-01".to_string()));
     second.market_value = 1_100_000;
     second.transfer_listed = true;
 
     let mut third = make_player("player-ai-limit-3");
+    third.ovr = 70;
     third.team_id = Some("team-3".to_string());
     third.stage_contract_end(Some("2026-09-01".to_string()));
     third.market_value = 1_000_000;
@@ -2705,11 +2710,13 @@ fn squad_floor_a_club_that_sells_aggressively_never_goes_below_fifteen() {
 #[test]
 fn squad_floor_ai_buyers_pass_over_a_player_whose_club_cannot_sell_him() {
     let mut floor_bound = make_player("player-floor-ai");
+    floor_bound.ovr = 70;
     floor_bound.team_id = Some("team-3".to_string());
     floor_bound.stage_contract_end(Some("2026-09-01".to_string()));
     floor_bound.market_value = 1_200_000;
     floor_bound.transfer_listed = true;
     let mut available = make_player("player-floor-ai-alt");
+    available.ovr = 70;
     available.team_id = Some("team-4".to_string());
     available.stage_contract_end(Some("2026-09-01".to_string()));
     available.market_value = 1_000_000;

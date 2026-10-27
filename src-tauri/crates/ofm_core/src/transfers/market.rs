@@ -20,6 +20,44 @@ pub(crate) fn buyer_has_genuine_interest(
     reputation_deficit <= MAX_BUYER_REPUTATION_DEFICIT
         && buyer_position_depth < POSITION_GROUP_SURPLUS_THRESHOLD
 }
+/// Whether a target would make a buyer's squad better where it matters: the club is thin in his
+/// group (under the floor plus the planning margin) or he is rated above its first cover — the
+/// player just behind the starters. `levels` is the buyer's seniors in that group, best first.
+///
+/// Buying whoever scores best on appeal, whatever the buyer already has, sent clubs after players
+/// worse than the ones on their bench; a transfer should come from a need.
+pub(crate) fn target_fills_a_need(levels: &[u8], group: usize, target_ovr: u8) -> bool {
+    use crate::squad_floor::{
+        MIN_PLAYERS_PER_GROUP, PLANNING_MARGIN_PER_GROUP, STARTERS_PER_GROUP,
+    };
+    let thin = levels.len() < MIN_PLAYERS_PER_GROUP[group].1 + PLANNING_MARGIN_PER_GROUP;
+    thin || levels
+        .get(STARTERS_PER_GROUP[group])
+        .is_none_or(|first_cover| target_ovr > *first_cover)
+}
+
+/// Each club's registered seniors' ratings per position group, best first, for [`target_fills_a_need`].
+fn squad_levels_by_club(game: &Game) -> std::collections::HashMap<String, [Vec<u8>; 4]> {
+    let mut levels: std::collections::HashMap<String, [Vec<u8>; 4]> =
+        std::collections::HashMap::new();
+    for player in &game.players {
+        let Some(team_id) = player.team_id.as_deref() else {
+            continue;
+        };
+        if player.squad_role != domain::player::SquadRole::Senior || player.active_loan.is_some() {
+            continue;
+        }
+        levels.entry(team_id.to_string()).or_default()[position_group_index(&player.position)]
+            .push(player.ovr);
+    }
+    for groups in levels.values_mut() {
+        for group in groups.iter_mut() {
+            group.sort_unstable_by(|a, b| b.cmp(a));
+        }
+    }
+    levels
+}
+
 /// Current squad depth per club and broad position group, computed once so the
 /// market sweep doesn't re-scan every roster. The same count the squad floor
 /// keeps, owned so the sweep can go on to move players.
@@ -181,6 +219,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .map(|team| (team.id.clone(), team.reputation))
         .collect();
     let position_depths = squad_position_depths(game);
+    let squad_levels = squad_levels_by_club(game);
+    let home_matches: std::collections::HashMap<String, i64> =
+        crate::ai_finance_guard::home_league_matches_by_club(game)
+            .into_iter()
+            .map(|(club, matches)| (club.to_string(), matches))
+            .collect();
     // Every club's wage bill, read once: a buyer's check needs its own, and finding one scans
     // every player. The sweep moves players, so the two clubs of a completed transfer are
     // recounted below.
@@ -209,6 +253,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         })
         .map(|team| team.id.clone())
         .collect();
+    // One completed deal per this many shopping clubs a day, and never fewer than the base: with
+    // the whole world shopping, a flat two a day capped the market below what its needs produce.
+    let max_completed_ai_transfers = MAX_COMPLETED_AI_TRANSFERS_PER_DAY
+        .max(buyer_ids.len() / BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY);
     let mut completed_ai_transfers = 0_usize;
     let mut moved_player_ids: HashSet<String> = HashSet::new();
     // New incoming offers opened to user players today, tracked to throttle the
@@ -271,7 +319,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         if award_leaderboards.contains(&player.id) {
             score += AWARD_LEADERBOARD_INTEREST_BONUS;
         }
-        if score < 35 {
+        // A player an AI club has put up for sale is a target whatever his score: the score
+        // measures appeal to a club shopping for a bargain, and his price already is one.
+        if score < 35 && (is_user_owned || !player.transfer_listed) {
             continue;
         }
         shortlist.push(MarketTarget {
@@ -282,6 +332,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             fee: suggested_incoming_fee(current_date, player),
             position_group_index: position_group_index(&player.position),
             owner_reputation: team_reputation.get(owner_team_id).copied().unwrap_or(0),
+            ovr: player.ovr,
+            is_listed: player.transfer_listed,
         });
     }
     // Highest appeal first; a stable sort preserves the original ordering among
@@ -328,6 +380,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
 
         // The list is score-sorted, so the first target clearing this club's
         // filters is its highest-appeal eligible signing.
+        let buyer_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
+        let buyer_books = crate::ai_finance_guard::SigningBooks::given(
+            &buyer_team,
+            wage_bills.get(&buyer_id).copied().unwrap_or(0),
+            home_matches.get(&buyer_id).copied().unwrap_or(0),
+        );
         // Worked out once for this buyer, and only if a target gets as far as needing it.
         let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
         let chosen = shortlist.iter().find(|target| {
@@ -351,7 +409,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 {
                     return false;
                 }
-            } else if completed_ai_transfers >= MAX_COMPLETED_AI_TRANSFERS_PER_DAY {
+            } else if completed_ai_transfers >= max_completed_ai_transfers {
                 return false;
             }
             // Clubs only chase players that fit their stature and a position they
@@ -361,6 +419,16 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 target.owner_reputation,
                 buyer_depths[target.position_group_index],
             ) {
+                return false;
+            }
+            // An AI club buys to fill a need it has, not for appeal alone.
+            if !target.is_user_owned
+                && !target_fills_a_need(
+                    &buyer_levels[target.position_group_index],
+                    target.position_group_index,
+                    target.ovr,
+                )
+            {
                 return false;
             }
             buyer_team.transfer_budget >= target.fee as i64
@@ -377,7 +445,19 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                         &buyer_team,
                         facts,
                         current_date,
-                    )
+                    ) && (target.is_user_owned
+                        || buyer_books.can_carry(
+                            i64::from(
+                                standard_contract_terms(
+                                    &game.players[index],
+                                    &buyer_team,
+                                    current_date,
+                                    0,
+                                )
+                                .map_or(0, |(wage, _)| wage),
+                            ),
+                            target.fee as i64,
+                        ))
                 })
         });
 
@@ -389,6 +469,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             owner_team_id: target.owner_team_id.clone(),
             score: target.score,
             fee: target.fee,
+            is_listed: target.is_listed,
         };
 
         if Some(candidate.owner_team_id.as_str()) == user_team_id.as_deref() {
@@ -404,7 +485,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             continue;
         }
 
-        if candidate.score <= 60 || completed_ai_transfers >= MAX_COMPLETED_AI_TRANSFERS_PER_DAY {
+        // A player his club has listed is for sale to any buyer that needs him; one it has not is
+        // sold only when he is a bargain (a contract running out, an unhappy player).
+        if !(candidate.is_listed || candidate.score > 60)
+            || completed_ai_transfers >= max_completed_ai_transfers
+        {
             continue;
         }
 

@@ -124,6 +124,38 @@ pub fn take_youth_intake(game: &mut Game, team_id: &str, date: NaiveDate, season
 /// any player in the game is paid a week.
 const YOUTH_MINIMUM_WAGE: u32 = crate::contracts::MINIMUM_DEFAULT_WAGE as u32;
 
+/// The most a recruit may ask a week at this club: a quarter above what the club's academy
+/// already pays (its median), or, with fewer than three academy players to go by, above the lowest
+/// quarter of its seniors' wages — never less than the youth minimum.
+///
+/// The generator sizes a youngster's wage from his market value on its own scale, which in a world
+/// whose pay was not generated from values (an FM24 club paying 700 a week) is ten to twenty
+/// times what the club pays anyone: a club whose whole wage budget was 13 000 took four recruits
+/// at 11 000 each, because the board's grace for a club already over budget let every one through.
+fn recruit_wage_ceiling(game: &Game, team_id: &str) -> u32 {
+    let wages = |role: SquadRole| -> Vec<u32> {
+        let mut wages: Vec<u32> = game
+            .players
+            .iter()
+            .filter(|player| {
+                player.team_id.as_deref() == Some(team_id) && player.squad_role == role
+            })
+            .map(Player::wage)
+            .filter(|wage| *wage > 0)
+            .collect();
+        wages.sort_unstable();
+        wages
+    };
+    let academy = wages(SquadRole::Youth);
+    let scale = if academy.len() >= 3 {
+        academy[academy.len() / 2]
+    } else {
+        let seniors = wages(SquadRole::Senior);
+        seniors.get(seniors.len() / 4).copied().unwrap_or(0)
+    };
+    (scale + scale / 4).max(YOUTH_MINIMUM_WAGE)
+}
+
 /// The wage the board lets `team` pay a recruit who asks `asking` a week: what
 /// he asks, else the youth minimum, else nothing — he is not taken. The board's
 /// one wage rule decides, as for every contract a club offers, and a recruit is
@@ -197,6 +229,9 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
                 .filter(|(wage, _)| *wage > 0);
             let (asking, end) = own_terms
                 .or_else(|| crate::contracts::standard_contract_terms(&recruit, team, date, 0))?;
+            // He asks what a youngster asks at this club, not what the generator sizes a
+            // youngster's wage at.
+            let asking = asking.min(recruit_wage_ceiling(game, &team.id));
             Some(Drawn {
                 recruit,
                 asking,
@@ -621,6 +656,39 @@ mod tests {
 
     fn rival(game: &Game) -> &Team {
         game.teams.iter().find(|team| team.id == "rival").unwrap()
+    }
+
+    /// Given a club whose academy pays 600 a week and whose board has money to spare
+    /// When it takes its intake
+    /// Then no recruit joins above a quarter more than the academy pays: a youngster is not paid
+    ///      what the generator sizes his wage at, which is far above a pay scale like this one.
+    #[test]
+    fn a_recruit_joins_at_the_pay_scale_of_the_academy_he_joins() {
+        let mut before = world([0, 0, 0, 0], [2, 3, 3, 2]);
+        for team in &mut before.teams {
+            team.wage_budget = 100_000_000;
+            team.finance = 100_000_000;
+        }
+        for player in before
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("rival"))
+        {
+            player.stage_wage(600);
+        }
+
+        let after = intake(&before);
+
+        let hired = newcomers(&before, &after, "rival");
+        assert!(!hired.is_empty());
+        for recruit in hired {
+            assert!(
+                recruit.wage() <= 750,
+                "{} joined on {} against an academy paying 600",
+                recruit.id,
+                recruit.wage()
+            );
+        }
     }
 
     /// Given a club the board lets spend, a recruit joins on the wage he asks.

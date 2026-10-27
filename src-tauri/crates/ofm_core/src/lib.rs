@@ -1,10 +1,12 @@
 pub mod advance_results;
 pub mod aging;
 pub mod ai_contracts;
+mod ai_finance_guard;
 pub mod ai_hiring;
 pub mod ai_manager_appointments;
 mod ai_math;
 mod ai_roles;
+mod ai_squad_sales;
 pub mod ai_tactics;
 pub mod ai_training;
 pub mod board_objectives;

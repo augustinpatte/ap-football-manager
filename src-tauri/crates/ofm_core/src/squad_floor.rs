@@ -40,6 +40,10 @@ pub const MIN_SENIOR_PLAYERS: usize = 15;
 /// club's players at once, and planning only acts on the club's review day —
 /// a margin of one would put clubs below the floor every summer.
 pub(crate) const PLANNING_MARGIN_PER_GROUP: usize = 1;
+
+/// Players of each group, `[GK, DEF, MID, FWD]`, who start: the shape the rest of the game plans
+/// around (a back four, a midfield four and a front two).
+pub(crate) const STARTERS_PER_GROUP: [usize; 4] = [1, 4, 4, 2];
 pub(crate) const PLANNING_TARGET_SENIORS: usize = 18;
 
 /// The floor for one position group, or 0 for a group with none.
@@ -222,24 +226,6 @@ pub(crate) fn club_needs_him_given(
         seniors[group_index(&player.position)] += 1;
     }
     !can_spare_one(seniors, &player.position)
-}
-
-/// Seniors of this player's group registered to `team_id`, him excluded.
-pub(crate) fn others_in_his_group(game: &Game, team_id: &str, player: &Player) -> usize {
-    let group = player.position.to_group_position();
-    game.players
-        .iter()
-        .filter(|other| other.id != player.id && holds_up_the_floor(other, team_id))
-        .filter(|other| other.position.to_group_position() == group)
-        .count()
-}
-
-/// Seniors registered to `team_id`, this player excluded.
-pub(crate) fn other_seniors(game: &Game, team_id: &str, player: &Player) -> usize {
-    game.players
-        .iter()
-        .filter(|other| other.id != player.id && holds_up_the_floor(other, team_id))
-        .count()
 }
 
 /// [`departure_would_leave_short`] as the refusal a sale, loan or release
@@ -617,6 +603,7 @@ pub(crate) fn restore_minimum_squad(game: &mut Game, team_id: &str) -> TopUp {
     };
 
     let mut top_up = TopUp::default();
+    let mut context = SigningContext::default();
     for (shortage, missing) in &shortfall {
         for filled in 0..*missing {
             let groups = match shortage {
@@ -625,7 +612,7 @@ pub(crate) fn restore_minimum_squad(game: &mut Game, team_id: &str) -> TopUp {
             };
             let brought = groups
                 .iter()
-                .find_map(|group| bring_in_one(game, &team, group));
+                .find_map(|group| bring_in_one(game, &team, group, true, &mut context));
             match brought {
                 Some(BroughtIn::Promoted(id)) => top_up.promoted.push(id),
                 Some(BroughtIn::Signed(id)) => top_up.signed.push(id),
@@ -677,51 +664,212 @@ pub(crate) enum BroughtIn {
     Signed(String),
 }
 
-/// Bring one senior of `group` into `team`'s squad from where the rules allow,
-/// or `None` when nowhere has anyone.
+/// What a pass of squad planning learns once and reuses for every signing it makes: the free
+/// agents of each position group, best first, each with the least he could ask; and how many home
+/// league matches each club has this season (for the gate it can count on). Built on first use —
+/// a pass that signs nobody builds nothing.
 ///
-/// The club's own academy comes first: promotion costs no new wages, and the
-/// player is already the club's. Then the free-agent market, best first, the
-/// first one the board lets the club pay ([`wage_policy_verdict`] — which
-/// always yields for a club below the floor). The shared source for the
-/// emergency top-up and an AI club's ordinary squad planning.
+/// Players are only ever appended to `game.players`, so the positions it holds stay valid while
+/// signings are made; a player signed since is recognised by his club and skipped.
+#[derive(Default)]
+pub(crate) struct SigningContext {
+    free_agents: Option<[Vec<(usize, u32)>; 4]>,
+    home_matches: Option<HashMap<String, i64>>,
+}
+
+impl SigningContext {
+    fn free_agents(&mut self, game: &Game, group: &Position) -> &[(usize, u32)] {
+        let by_group = self.free_agents.get_or_insert_with(|| {
+            let mut by_group: [Vec<usize>; 4] = Default::default();
+            for (index, player) in game.players.iter().enumerate() {
+                if player.team_id.is_none() && !player.retired {
+                    by_group[group_index(&player.position)].push(index);
+                }
+            }
+            by_group.map(|mut candidates| {
+                candidates.sort_by(|left, right| {
+                    let (left, right) = (&game.players[*left], &game.players[*right]);
+                    right
+                        .injury
+                        .is_none()
+                        .cmp(&left.injury.is_none())
+                        .then(right.ovr.cmp(&left.ovr))
+                        .then_with(|| left.id.cmp(&right.id))
+                });
+                candidates
+                    .into_iter()
+                    .map(|index| {
+                        (
+                            index,
+                            crate::contracts::reference_player_wage(&game.players[index]),
+                        )
+                    })
+                    .collect()
+            })
+        });
+        &by_group[group_index(group)]
+    }
+
+    fn home_matches(&mut self, game: &Game, team_id: &str) -> i64 {
+        self.home_matches
+            .get_or_insert_with(|| {
+                crate::ai_finance_guard::home_league_matches_by_club(game)
+                    .into_iter()
+                    .map(|(club, matches)| (club.to_string(), matches))
+                    .collect()
+            })
+            .get(team_id)
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
+/// Bring one senior of `group` into `team`'s squad from where the rules allow, or `None` when
+/// nowhere has anyone.
 ///
-/// [`wage_policy_verdict`]: crate::contract_wage_policy::wage_policy_verdict
-pub(crate) fn bring_in_one(game: &mut Game, team: &Team, group: &Position) -> Option<BroughtIn> {
+/// The club's own academy comes first: promotion costs no new wages, and the player is already the
+/// club's. Then the free-agent market, by what the club can afford ([`best_signing`]) — the shared
+/// source for the emergency top-up and an AI club's ordinary squad planning. A pass that makes
+/// many signings shares one `context`, so what it learned about the market is learned once.
+///
+/// `required` is whether the club needs him to stay at the floor: then, if nobody it can afford
+/// is on offer, it takes the cheapest player the board's policy allows.
+pub(crate) fn bring_in_one(
+    game: &mut Game,
+    team: &Team,
+    group: &Position,
+    required: bool,
+    context: &mut SigningContext,
+) -> Option<BroughtIn> {
     if let Some(index) = best_academy_player(game, &team.id, group) {
         game.players[index].squad_role = SquadRole::Senior;
         return Some(BroughtIn::Promoted(game.players[index].id.clone()));
     }
+    sign_free_agent_for(game, team, group, required, None, context)
+}
 
+/// Sign a free agent of `group` for `team` if one passes the club's tests ([`best_signing`]),
+/// rated above `better_than` when that is given: the signing of a club that wants to improve a
+/// squad that already meets the floor.
+pub(crate) fn sign_free_agent_for(
+    game: &mut Game,
+    team: &Team,
+    group: &Position,
+    required: bool,
+    better_than: Option<u8>,
+    context: &mut SigningContext,
+) -> Option<BroughtIn> {
     let current_date = game.clock.current_date.date_naive();
-    // The club's bill does not change while candidates are turned down: work it out once. Judging
-    // each of up to thousands of free agents with a scan of every player was the daily cost of
-    // a world where a club cannot find a goalkeeper.
-    let current_bill = crate::finances::calc_wages(game, &team.id);
-    for index in free_agents_best_first(game, group) {
-        let wage = crate::contracts::expected_wage(&game.players[index], team, current_date);
-        let permitted = crate::contract_wage_policy::wage_policy_verdict_at_bill(
-            game,
-            team,
-            &game.players[index],
-            wage,
-            current_bill,
-        )
-        .permits();
-        if !permitted {
-            continue;
-        }
-        let years = crate::contracts::expected_contract_years(&game.players[index], current_date);
-        match crate::contracts::sign_free_agent(game, index, team, wage, years, current_date) {
-            Ok(()) => return Some(BroughtIn::Signed(game.players[index].id.clone())),
-            Err(error) => log::error!(
+    let (index, wage) = best_signing(
+        game,
+        team,
+        group,
+        required,
+        better_than,
+        current_date,
+        context,
+    )?;
+    let years = crate::contracts::expected_contract_years(&game.players[index], current_date);
+    match crate::contracts::sign_free_agent(game, index, team, wage, years, current_date) {
+        Ok(()) => Some(BroughtIn::Signed(game.players[index].id.clone())),
+        Err(error) => {
+            log::error!(
                 "[squad_floor] could not sign {} for {}: {error}",
                 game.players[index].id,
                 team.id
-            ),
+            );
+            None
         }
     }
-    None
+}
+
+/// A free agent of `group` this club should sign, with the wage he is signed at.
+///
+/// Highest rated first, among those the club can pay: his asking wage must fit the room the club
+/// has under its wage budget — or, where it has none, what a player of its own pay scale earns
+/// (half as much again as the club's median) — the board's policy must allow it, and the books
+/// must allow it ([`SigningBooks::can_add_wage`]). Taking the best player of the market whatever
+/// he cost is how a club paying 700 a week signed a 17 000 a week player from a pool priced on
+/// another scale.
+///
+/// A club that `required` him for its floor (or is below it now) has no such luxury: if nobody
+/// passes, it signs the cheapest player the board's policy allows — which for a club below the
+/// floor in his group waives the policy, as it always has.
+fn best_signing(
+    game: &Game,
+    team: &Team,
+    group: &Position,
+    required: bool,
+    better_than: Option<u8>,
+    current_date: chrono::NaiveDate,
+    context: &mut SigningContext,
+) -> Option<(usize, u32)> {
+    use crate::contract_wage_policy::BuyerWageFacts;
+
+    // Neither changes while candidates are turned down: work them out once. Judging each of up to
+    // thousands of free agents with a scan of every player was the daily cost of a world where a
+    // club cannot find a goalkeeper.
+    let current_bill = crate::finances::calc_wages(game, &team.id);
+    let seniors = senior_counts(game, &team.id);
+    // A free agent is not on the bill, so signing him is judged as a purchase is: his whole wage
+    // is new to it.
+    let wage_facts = BuyerWageFacts::new(current_bill, seniors);
+    let books = crate::ai_finance_guard::SigningBooks::given(
+        team,
+        current_bill,
+        context.home_matches(game, &team.id),
+    );
+    let room = (team.wage_budget - current_bill).max(0);
+    let pay_scale = median_senior_wage(game, &team.id) * 3 / 2;
+    let affordable_wage = room.max(pay_scale);
+    // A club short of the floor now needs him whatever it was asked.
+    let required = required || !shortfall_of(seniors).is_empty();
+
+    let mut cheapest_allowed: Option<(usize, u32)> = None;
+    for &(index, least_he_asks) in context.free_agents(game, group) {
+        let player = &game.players[index];
+        if player.team_id.is_some() || better_than.is_some_and(|ovr| player.ovr <= ovr) {
+            continue;
+        }
+        // A club that has a choice passes over, unjudged, a player who cannot ask less than it can
+        // afford.
+        if !required && i64::from(least_he_asks) > affordable_wage {
+            continue;
+        }
+        let wage = crate::contracts::expected_wage(player, team, current_date);
+        if !wage_facts.purchase_verdict(team, player, wage).permits() {
+            continue;
+        }
+        // A signing the club makes to improve itself stays within its budget: the room above it, up
+        // to the policy's soft cap, is for the contracts it must make.
+        let within_ambition =
+            better_than.is_none() || current_bill + i64::from(wage) <= team.wage_budget;
+        if within_ambition
+            && i64::from(wage) <= affordable_wage
+            && books.can_add_wage(i64::from(wage))
+        {
+            return Some((index, wage));
+        }
+        if required && cheapest_allowed.is_none_or(|(_, cheapest)| wage < cheapest) {
+            cheapest_allowed = Some((index, wage));
+        }
+    }
+    cheapest_allowed
+}
+
+/// The median weekly wage of the club's registered seniors: the pay scale a newcomer is judged
+/// against. 0 for a club with none.
+fn median_senior_wage(game: &Game, team_id: &str) -> i64 {
+    let mut wages: Vec<i64> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some(team_id) && player.squad_role == SquadRole::Senior
+        })
+        .map(|player| i64::from(player.wage()))
+        .collect();
+    wages.sort_unstable();
+    wages.get(wages.len() / 2).copied().unwrap_or(0)
 }
 
 /// The club's academy player of this group it would promote first: the best
@@ -741,29 +889,6 @@ fn best_academy_player(game: &Game, team_id: &str, group: &Position) -> Option<u
                 .then_with(|| right.id.cmp(&left.id))
         })
         .map(|(index, _)| index)
-}
-
-/// Free agents of this group in the order a club would try to sign them: not
-/// retired, fit before injured, then the highest rating, then the lowest id.
-fn free_agents_best_first(game: &Game, group: &Position) -> Vec<usize> {
-    let mut candidates: Vec<usize> = game
-        .players
-        .iter()
-        .enumerate()
-        .filter(|(_, player)| player.team_id.is_none())
-        .filter(|(_, player)| player.position.to_group_position() == *group)
-        .map(|(index, _)| index)
-        .collect();
-    candidates.sort_by(|left, right| {
-        let (left, right) = (&game.players[*left], &game.players[*right]);
-        right
-            .injury
-            .is_none()
-            .cmp(&left.injury.is_none())
-            .then(right.ovr.cmp(&left.ovr))
-            .then_with(|| left.id.cmp(&right.id))
-    });
-    candidates
 }
 
 #[cfg(test)]
@@ -1093,6 +1218,112 @@ mod tests {
             game.teams[0].finance, -1_000_000,
             "money appeared from nowhere"
         );
+    }
+
+    /// A free agent who asks `wage` a week and is rated `ovr`.
+    fn free_agent_asking(id: &str, position: Position, ovr: u8, wage: u32) -> Player {
+        let mut agent = free_agent(id, position, ovr);
+        agent.stage_wage(wage);
+        agent
+    }
+
+    /// A club of fifteen seniors paid 1 000 each against a wage budget of 10 000 (a bill of 15 000:
+    /// over budget, which the board's policy tolerates a long way), rich enough to carry a loss.
+    fn modest_club() -> Game {
+        let mut game = club_with(SOUND);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 10_000;
+        game.teams[0].finance = 5_000_000;
+        game
+    }
+
+    /// Given a club that pays 1 000 a week with a little room under its budget, a star asking 17 000
+    /// and a decent keeper asking 1 200
+    /// When its squad planning needs a keeper
+    /// Then it signs the decent keeper: the best player of the market is not the one the club can
+    ///      pay.
+    #[test]
+    fn a_modest_club_signs_the_best_player_it_can_afford_not_the_best_on_the_market() {
+        let mut game = modest_club();
+        game.teams[0].wage_budget = 16_000;
+        game.players
+            .push(free_agent_asking("star", Position::Goalkeeper, 80, 17_000));
+        game.players
+            .push(free_agent_asking("decent", Position::Goalkeeper, 62, 1_200));
+        game.players
+            .push(free_agent_asking("poor", Position::Goalkeeper, 50, 1_000));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, Some(BroughtIn::Signed("decent".to_string())));
+        assert_eq!(team_of(&game, "star"), None);
+    }
+
+    /// Given the same club and a market where every keeper asks far above its pay scale
+    /// When it is not below its floor
+    /// Then it signs nobody: planning does not buy what the club cannot carry.
+    #[test]
+    fn a_club_above_its_floor_signs_nobody_it_cannot_afford() {
+        let mut game = modest_club();
+        game.players
+            .push(free_agent_asking("star", Position::Goalkeeper, 80, 17_000));
+        let team = game.teams[0].clone();
+
+        assert_eq!(
+            bring_in_one(
+                &mut game,
+                &team,
+                &Position::Goalkeeper,
+                false,
+                &mut SigningContext::default(),
+            ),
+            None
+        );
+        assert_eq!(team_of(&game, "star"), None);
+    }
+
+    /// Given a club with no keeper at all and two keepers who both ask more than it can afford
+    /// When the floor makes it sign one
+    /// Then it signs the cheaper, though the other is better: the board waives its policy for the
+    ///      floor, not for a luxury.
+    #[test]
+    fn a_club_below_its_floor_signs_the_cheapest_player_on_offer() {
+        let mut game = club_with([0, 5, 5, 3]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 14_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("star", Position::Goalkeeper, 80, 17_000));
+        game.players
+            .push(free_agent_asking("dear", Position::Goalkeeper, 70, 12_000));
+        game.players.push(free_agent_asking(
+            "cheaper",
+            Position::Goalkeeper,
+            60,
+            9_000,
+        ));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, Some(BroughtIn::Signed("cheaper".to_string())));
     }
 
     #[test]

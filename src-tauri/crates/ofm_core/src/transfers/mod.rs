@@ -122,6 +122,8 @@ pub(crate) struct MarketCandidate {
     owner_team_id: String,
     score: i32,
     fee: u64,
+    /// His club has put him up for sale.
+    is_listed: bool,
 }
 
 /// A player worth pursuing, with buyer-independent appeal precomputed once so
@@ -137,6 +139,10 @@ pub(crate) struct MarketTarget {
     position_group_index: usize,
     /// Reputation of the player's current club, used for reputation-fit gating.
     owner_reputation: u32,
+    /// His rating, to tell whether he would improve a buyer's squad.
+    ovr: u8,
+    /// His club has put him up for sale.
+    is_listed: bool,
 }
 
 pub(crate) struct LoanMarketCandidate {

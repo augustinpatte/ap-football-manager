@@ -5,8 +5,8 @@ use crate::finances::{
 use crate::game::Game;
 use domain::team::Team;
 
-const WAGE_SOFT_CAP_PCT: i64 = 110;
-const LEGACY_OVER_BUDGET_GRACE_PCT: i64 = 3;
+pub(crate) const WAGE_SOFT_CAP_PCT: i64 = 110;
+pub(crate) const LEGACY_OVER_BUDGET_GRACE_PCT: i64 = 3;
 const LEGACY_OVER_BUDGET_GRACE_MIN: i64 = 25_000;
 const ERR_PLAYER_HAS_NO_TEAM: &str = "be.error.contracts.playerHasNoTeam";
 

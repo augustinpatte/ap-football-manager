@@ -192,6 +192,8 @@ fn process_day_common(game: &mut Game, today: &str) {
     scouting::process_scouting(game);
     transfers::process_pending_transfer_registrations(game);
     transfers::process_pending_loan_registrations(game);
+    // AI clubs say whom they would sell before the market looks for what is for sale.
+    crate::ai_squad_sales::apply_ai_listing_decisions(game, weekday_num);
     transfers::generate_incoming_transfer_offers(game);
     // After every step above that can take a player away from a club — expiry,
     // registrations and the AI market — and the loan returns that opened the day.

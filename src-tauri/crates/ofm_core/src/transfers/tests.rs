@@ -299,6 +299,8 @@ fn bargain(id: &str, club: &str, wage: u32) -> Player {
     player.transfer_listed = true;
     player.stage_contract_end(Some("2026-02-20".to_string()));
     player.market_value = 1_200_000;
+    // Better than the forwards any club here has: a buyer goes for a player who improves it.
+    player.ovr = 85;
     player
 }
 
@@ -323,6 +325,10 @@ fn a_club_that_just_sold_is_held_to_the_wage_bill_it_has_after_the_sale() {
             .find(|t| t.id == club)
             .unwrap()
             .wage_budget = 50_000_000;
+    }
+    // Cash enough to carry the wages with no income to speak of: the books are not what this is about.
+    for team in game.teams.iter_mut() {
+        team.finance = 200_000_000;
     }
     for club in ["b", "a", "c"] {
         game.players.extend(full_squad(club));
