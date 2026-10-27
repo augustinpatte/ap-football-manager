@@ -285,6 +285,9 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     } else {
         0
     };
+    if cfg.squad.calibrate_generated_to_division {
+        calibrate_generated_players(&mut world, &clubs, &mut journal);
+    }
     apply_staff_contracts(&mut world, &staff_rows, cfg);
     apply_managers(&mut world, &chosen_managers, &refs, cfg, &mut journal);
     let finance_records = restore_finance(&mut world, &clubs, cfg, &mut journal);
@@ -644,6 +647,128 @@ fn trim_generated_players(world: &mut WorldData) -> usize {
     before - world.players.len()
 }
 
+/// The level and pay of OFM's generated fillers, brought down to the division they play in.
+///
+/// OFM generates fillers on its own scale: about 66 rated and 11 000 a week, in a club whose real
+/// players are about 56 rated and paid 700 to 2 500. A National side with ten of them is the best
+/// team of its division by ten points (it was promoted twice in a row, to the top flight), and a
+/// club whose staff and fillers cost twenty times its wage budget is sacked in nine weeks.
+/// A filler above the median rating of the imported senior players of its division is scaled
+/// down to that median (all attributes by one factor, found against OFM's own rating), and its
+/// wage is capped at the division's median wage; its market value follows the imported players of
+/// the division at that rating. A filler already at or under the median is left as OFM made it.
+/// Imported players are never touched.
+fn calibrate_generated_players(world: &mut WorldData, clubs: &[ClubRow], journal: &mut Journal) {
+    let division_of: BTreeMap<String, i64> = clubs
+        .iter()
+        .map(|c| (ids::club(c.id), c.competition_id))
+        .collect();
+    let mut references: BTreeMap<i64, Vec<(u8, u32, u64)>> = BTreeMap::new();
+    for p in world
+        .players
+        .iter()
+        .filter(|p| is_imported(&p.id) && p.squad_role == SquadRole::Senior)
+    {
+        if let Some(division) = p.team_id.as_ref().and_then(|t| division_of.get(t)) {
+            references
+                .entry(*division)
+                .or_default()
+                .push((p.ovr, p.wage(), p.market_value));
+        }
+    }
+    let median = |mut values: Vec<u64>| -> u64 {
+        values.sort_unstable();
+        values.get(values.len() / 2).copied().unwrap_or(0)
+    };
+    let mut changed: BTreeMap<String, usize> = BTreeMap::new();
+    for p in world.players.iter_mut().filter(|p| !is_imported(&p.id)) {
+        let Some(team) = p.team_id.clone() else {
+            continue;
+        };
+        let Some(reference) = division_of.get(&team).and_then(|d| references.get(d)) else {
+            continue;
+        };
+        if reference.len() < 5 {
+            continue;
+        }
+        let target_ovr = median(reference.iter().map(|r| u64::from(r.0)).collect()) as u8;
+        let target_wage = median(reference.iter().map(|r| u64::from(r.1)).collect()) as u32;
+        let mut touched = false;
+        if p.ovr > target_ovr {
+            let position = p.position.clone();
+            let original = p.attributes.clone();
+            let (mut low, mut high) = (0.2_f64, 1.0_f64);
+            for _ in 0..24 {
+                let mid = (low + high) / 2.0;
+                if f64::from(attributes::ovr(
+                    &scale_attributes(&original, mid),
+                    &position,
+                )) <= f64::from(target_ovr)
+                {
+                    low = mid;
+                } else {
+                    high = mid;
+                }
+            }
+            p.attributes = scale_attributes(&original, low);
+            let headroom = p.potential.saturating_sub(p.ovr);
+            p.ovr = attributes::ovr(&p.attributes, &position);
+            p.potential = p.ovr.saturating_add(headroom).min(99);
+            let near: Vec<u64> = reference
+                .iter()
+                .filter(|r| r.0.abs_diff(p.ovr) <= 3)
+                .map(|r| r.2)
+                .collect();
+            let all: Vec<u64> = reference.iter().map(|r| r.2).collect();
+            p.market_value = median(if near.is_empty() { all } else { near });
+            touched = true;
+        }
+        if p.wage() > target_wage {
+            p.stage_wage(target_wage);
+            touched = true;
+        }
+        if touched {
+            *changed.entry(team).or_default() += 1;
+        }
+    }
+    for (team, n) in changed {
+        journal.warn(
+            "squad.generated_calibrated",
+            &team,
+            format!("{n} generated player(s) brought down to the level and pay of the division's imported players"),
+        );
+    }
+}
+
+/// Every attribute multiplied by `factor`, kept in 1..=99.
+fn scale_attributes(
+    a: &domain::player::PlayerAttributes,
+    factor: f64,
+) -> domain::player::PlayerAttributes {
+    let f = |v: u8| ((f64::from(v) * factor).round() as i64).clamp(1, 99) as u8;
+    domain::player::PlayerAttributes {
+        pace: f(a.pace),
+        stamina: f(a.stamina),
+        strength: f(a.strength),
+        agility: f(a.agility),
+        passing: f(a.passing),
+        shooting: f(a.shooting),
+        tackling: f(a.tackling),
+        dribbling: f(a.dribbling),
+        defending: f(a.defending),
+        positioning: f(a.positioning),
+        vision: f(a.vision),
+        decisions: f(a.decisions),
+        composure: f(a.composure),
+        aggression: f(a.aggression),
+        teamwork: f(a.teamwork),
+        leadership: f(a.leadership),
+        handling: f(a.handling),
+        reflexes: f(a.reflexes),
+        aerial: f(a.aerial),
+    }
+}
+
 fn group_index(group: &Position) -> usize {
     ofm_core::squad_floor::MIN_PLAYERS_PER_GROUP
         .iter()
@@ -748,12 +873,24 @@ fn restore_finance(
             *bills.entry(team.clone()).or_default() += i64::from(p.wage());
         }
     }
+    let mut commitments: BTreeMap<String, i64> = BTreeMap::new();
+    for p in &world.players {
+        if let Some(team) = &p.team_id {
+            *commitments.entry(team.clone()).or_default() += i64::from(p.wage());
+        }
+    }
+    for s in &world.staff {
+        if let Some(team) = &s.team_id {
+            *commitments.entry(team.clone()).or_default() += i64::from(s.wage);
+        }
+    }
     let mut records = Vec::new();
     for club in clubs {
         let id = ids::club(club.id);
         if let Some(team) = world.teams.iter_mut().find(|t| t.id == id) {
             let bill = bills.get(&id).copied().unwrap_or(0);
-            records.extend(finance::restore(team, club, bill, cfg, journal));
+            let committed = commitments.get(&id).copied().unwrap_or(0);
+            records.extend(finance::restore(team, club, bill, committed, cfg, journal));
         }
     }
     records
@@ -875,4 +1012,139 @@ fn mapping_rows(
             .then(a.world_db_id.cmp(&b.world_db_id))
     });
     rows
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::player::{Player, PlayerAttributes};
+
+    fn attributes(level: u8) -> PlayerAttributes {
+        scale_attributes(
+            &PlayerAttributes {
+                pace: 100,
+                stamina: 100,
+                strength: 100,
+                agility: 100,
+                passing: 100,
+                shooting: 100,
+                tackling: 100,
+                dribbling: 100,
+                defending: 100,
+                positioning: 100,
+                vision: 100,
+                decisions: 100,
+                composure: 100,
+                aggression: 100,
+                teamwork: 100,
+                leadership: 100,
+                handling: 100,
+                reflexes: 100,
+                aerial: 100,
+            },
+            f64::from(level) / 100.0,
+        )
+    }
+
+    fn player(id: &str, team: &str, level: u8, wage: u32) -> Player {
+        let mut p = Player::new(
+            id.to_string(),
+            id.to_string(),
+            id.to_string(),
+            "2000-01-01".to_string(),
+            "FR".to_string(),
+            Position::CentralMidfielder,
+            attributes(level),
+        );
+        p.team_id = Some(team.to_string());
+        p.squad_role = SquadRole::Senior;
+        p.ovr = attributes::ovr(&p.attributes, &p.position);
+        p.potential = p.ovr + 4;
+        p.stage_wage(wage);
+        p.market_value = 100_000;
+        p
+    }
+
+    fn club(id: i64, division: i64) -> ClubRow {
+        ClubRow {
+            id,
+            fm_uid: None,
+            name: format!("club {id}"),
+            short_name: "C".into(),
+            nation: None,
+            reputation: 100,
+            competition_id: division,
+            colours: None,
+            finance: None,
+        }
+    }
+
+    /// Given a division whose imported players are rated about 55 and paid about 1 000 a week, and a
+    /// club holding two OFM fillers rated about 75 and paid 12 000, plus one at 50 and paid 500,
+    /// When the fillers are calibrated,
+    /// Then the strong ones come down to the division's median rating and wage, the weak one is
+    ///      left alone, imported players are untouched, and another division's reference is not used.
+    #[test]
+    fn fillers_above_their_division_are_brought_down_to_its_median() {
+        let mut world = WorldData::default();
+        for i in 0..7 {
+            world
+                .players
+                .push(player(&format!("fm-p-{i}"), "fm-c-1", 55, 1_000));
+        }
+        world
+            .players
+            .push(player("filler-strong-a", "fm-c-1", 75, 12_000));
+        world
+            .players
+            .push(player("filler-strong-b", "fm-c-1", 75, 12_000));
+        world.players.push(player("filler-weak", "fm-c-1", 50, 500));
+        for i in 0..7 {
+            world
+                .players
+                .push(player(&format!("fm-p-top-{i}"), "fm-c-2", 80, 50_000));
+        }
+        let before_weak = world
+            .players
+            .iter()
+            .find(|p| p.id == "filler-weak")
+            .unwrap()
+            .clone();
+        let snapshot = |w: &WorldData| -> Vec<(String, u8, u32, u64)> {
+            w.players
+                .iter()
+                .filter(|p| is_imported(&p.id))
+                .map(|p| (p.id.clone(), p.ovr, p.wage(), p.market_value))
+                .collect()
+        };
+        let imported_before = snapshot(&world);
+
+        calibrate_generated_players(
+            &mut world,
+            &[club(1, 10), club(2, 20)],
+            &mut Journal::default(),
+        );
+
+        let median = world.players.iter().find(|p| p.id == "fm-p-0").unwrap().ovr;
+        for id in ["filler-strong-a", "filler-strong-b"] {
+            let p = world.players.iter().find(|p| p.id == id).unwrap();
+            assert!(
+                p.ovr <= median && p.ovr + 2 >= median,
+                "{id} rated {} against a median of {median}",
+                p.ovr
+            );
+            assert_eq!(p.wage(), 1_000);
+            assert!(p.potential >= p.ovr);
+        }
+        let weak = world
+            .players
+            .iter()
+            .find(|p| p.id == "filler-weak")
+            .unwrap();
+        assert_eq!(
+            (weak.ovr, weak.wage()),
+            (before_weak.ovr, before_weak.wage())
+        );
+        assert_eq!(imported_before, snapshot(&world));
+    }
 }

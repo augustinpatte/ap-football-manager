@@ -4,6 +4,21 @@ use rusqlite::{Connection, params};
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
 const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
 
+/// Removes the active rows of players who have retired, and nothing else.
+///
+/// Called before the roster is written. A retiree's row still holds his club and shirt number in
+/// the file, and at the rollover the shirt he leaves is free in memory: a recruit who joins the
+/// club the same day is given it, the recruit's row is written first, and the club's unique shirt
+/// index refuses it. The save then failed on every attempt from the rollover on. Removing the
+/// rows first is what [`archive_retired_players`] does at the end anyway.
+pub fn remove_active_rows(conn: &Connection, retired: &[RetiredPlayer]) -> Result<(), String> {
+    for player in retired {
+        conn.execute("DELETE FROM players WHERE id = ?1", params![player.id])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    }
+    Ok(())
+}
+
 /// Archives retirees and removes their active rows, in the caller's transaction so the two
 /// halves commit together or not at all. Insert-only by id: a record already archived is
 /// never rewritten, whatever the payload now says.

@@ -530,11 +530,13 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
                 ));
             }
             let source_budget = run.cfg.to_eur(f.wage_budget_gbp_week);
-            let restored = run.finance.iter().any(|r| {
-                r.club_id == club.id
-                    && r.field == "wage_budget"
-                    && r.provenance == crate::finance::Provenance::Imported
-            });
+            // The last record is the budget the club ends with: a budget raised to the day-one
+            // commitments is documented as such, and is no longer the source's value.
+            let restored = run
+                .finance
+                .iter()
+                .rfind(|r| r.club_id == club.id && r.field == "wage_budget")
+                .is_some_and(|r| r.provenance == crate::finance::Provenance::Imported);
             if restored && team.wage_budget != source_budget {
                 club_field_failures.push(format!(
                     "{id} wage budget {} != {source_budget}",

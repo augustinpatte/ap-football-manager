@@ -29,6 +29,10 @@ const STAGING_ALLOWED: &[&str] = &[
     "crates/domain/src/contract_ledger.rs",
     "crates/ofm_core/src/generator/generation.rs",
     "crates/ofm_core/src/generator/mod.rs",
+    // The FM24 adapter builds a world from an imported source before any career exists: it brings
+    // OFM's own filler players down to the wage scale of their division, as world generation does
+    // for its own players.
+    "crates/fm24-adapter/src/pipeline.rs",
 ];
 
 /// Methods that change a list. Any of them on a movement history, outside the ledger's

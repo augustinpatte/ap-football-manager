@@ -154,7 +154,36 @@ pub fn is_season_complete(game: &Game) -> bool {
                     && !is_league_season_ended(competition)
                     && has_a_fixture_still_to_come(competition, &today)
             });
-            return !countrymen_still_playing;
+            // Nor can the rollover fire while another country's league that runs the same calendar
+            // year is still playing. With real calendars a 34-round league finishes in April and a
+            // 46-round one in late June: rolling over at the first left the second mid-season, which
+            // is then skipped by the regeneration, finishes alone, and sits idle until the
+            // *following* rollover, whose renewed season starts a month after it. In the FM24 world
+            // that was a full calendar year with no Premier League, and every later season played
+            // from May to January. "The same year" is read from the fixtures, not from a declared
+            // start month that a package may leave at its default: the leagues' first rounds fall
+            // within two months of the user's. A league on the other side of the year (Brazil,
+            // starting in January) is not concurrent and still rolls over on its own calendar.
+            let user_first_rounds: Vec<chrono::NaiveDate> = user_leagues
+                .iter()
+                .filter_map(|league| first_league_round(league))
+                .collect();
+            let concurrent_league_still_playing = game.competitions.iter().any(|competition| {
+                berths::is_ladder_tier(competition)
+                    && competition
+                        .country_id
+                        .as_deref()
+                        .is_some_and(|country| !user_countries.contains(country))
+                    && first_league_round(competition).is_some_and(|first| {
+                        user_first_rounds.iter().any(|user_first| {
+                            (first - *user_first).num_days().abs() <= CONCURRENT_START_WINDOW_DAYS
+                        })
+                    })
+                    && season_has_started(competition)
+                    && !is_league_season_ended(competition)
+                    && has_a_fixture_still_to_come(competition, &today)
+            });
+            return !(countrymen_still_playing || concurrent_league_still_playing);
         }
         // Fallback when user has no known league (e.g. international-only):
         // all league tables must complete before rollover is available.
@@ -224,6 +253,19 @@ fn prize_money_for_position(position: u32) -> i64 {
 /// flight (tier 0 = top division).
 fn division_prize_money(position: u32, tier: u32) -> i64 {
     prize_money_for_position(position) >> tier
+}
+
+/// Leagues whose first rounds fall within this many days of each other play the same year.
+const CONCURRENT_START_WINDOW_DAYS: i64 = 60;
+
+/// The date of a league table's first round of league fixtures, if it has any.
+fn first_league_round(league: &League) -> Option<chrono::NaiveDate> {
+    league
+        .fixtures
+        .iter()
+        .filter(|fixture| fixture.counts_for_league_standings())
+        .filter_map(|fixture| chrono::NaiveDate::parse_from_str(&fixture.date, "%Y-%m-%d").ok())
+        .min()
 }
 
 /// True when `competition` still has a match the day loop can reach.
@@ -1763,6 +1805,54 @@ mod tests {
             Some(domain::league::MatchResult::default());
         game.sync_legacy_league();
         assert!(is_season_complete(&game), "every fixture is played");
+    }
+
+    /// Given the user's league is over while another country's league that runs the same calendar
+    /// year (its season starts the same month) still has rounds to play,
+    /// When the season-over check is made,
+    /// Then the season is not over until that league has finished too; a league that starts on the
+    ///      other side of the year does not hold the rollover back.
+    #[test]
+    fn a_league_running_the_same_year_holds_the_rollover_back() {
+        let mut game = calendar_game(at(2035, 10, 15));
+        add_division(&mut game, "fr-d1", "europe", at(2035, 8, 1));
+        add_division(&mut game, "en-d1", "europe", at(2035, 8, 15));
+        add_division(&mut game, "br-d1", "south-america", at(2035, 1, 20));
+        for (id, country) in [("fr-d1", "FR"), ("en-d1", "EN"), ("br-d1", "BR")] {
+            let league = game.competitions.iter_mut().find(|c| c.id == id).unwrap();
+            league.country_id = Some(country.to_string());
+        }
+        game.manager.hire("fr-d1-0".to_string());
+        let user = game
+            .competitions
+            .iter_mut()
+            .find(|c| c.id == "fr-d1")
+            .unwrap();
+        for fixture in &mut user.fixtures {
+            fixture.status = FixtureStatus::Completed;
+            fixture.result = Some(domain::league::MatchResult::default());
+        }
+        game.sync_legacy_league();
+
+        assert!(
+            !is_season_complete(&game),
+            "the English league is mid-season and runs the same year"
+        );
+
+        let english = game
+            .competitions
+            .iter_mut()
+            .find(|c| c.id == "en-d1")
+            .unwrap();
+        for fixture in &mut english.fixtures {
+            fixture.status = FixtureStatus::Completed;
+            fixture.result = Some(domain::league::MatchResult::default());
+        }
+        game.sync_legacy_league();
+        assert!(
+            is_season_complete(&game),
+            "the Brazilian league started in January and never held the rollover back"
+        );
     }
 
     /// Given a cup the completion hook has already renewed, When the rollover regenerates the

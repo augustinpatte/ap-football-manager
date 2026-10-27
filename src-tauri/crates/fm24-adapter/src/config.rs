@@ -61,6 +61,7 @@ pub struct PositionsCfg {
 #[derive(Debug, Clone, Deserialize)]
 pub struct SquadCfg {
     pub trim_generated_to_floor: bool,
+    pub calibrate_generated_to_division: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -68,6 +69,7 @@ pub struct FinanceCfg {
     pub restore_balance: bool,
     pub restore_transfer_budget: bool,
     pub restore_wage_budget: bool,
+    pub restore_recurring_income: bool,
 }
 
 impl Config {

@@ -694,13 +694,18 @@ pub(crate) fn bring_in_one(game: &mut Game, team: &Team, group: &Position) -> Op
     }
 
     let current_date = game.clock.current_date.date_naive();
+    // The club's bill does not change while candidates are turned down: work it out once. Judging
+    // each of up to thousands of free agents with a scan of every player was the daily cost of
+    // a world where a club cannot find a goalkeeper.
+    let current_bill = crate::finances::calc_wages(game, &team.id);
     for index in free_agents_best_first(game, group) {
         let wage = crate::contracts::expected_wage(&game.players[index], team, current_date);
-        let permitted = crate::contract_wage_policy::wage_policy_verdict(
+        let permitted = crate::contract_wage_policy::wage_policy_verdict_at_bill(
             game,
             team,
             &game.players[index],
             wage,
+            current_bill,
         )
         .permits();
         if !permitted {

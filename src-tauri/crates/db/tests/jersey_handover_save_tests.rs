@@ -136,3 +136,62 @@ fn a_day_that_hands_a_shirt_to_a_newcomer_saves_and_loads_back() {
         (Some("club-z".to_string()), Some(16))
     );
 }
+
+/// Given a saved career where club X's veteran wears #4,
+/// When, at the rollover, the veteran retires (off the roster, into the archive) and the youth
+///      recruit who joins X the same day is given the freed #4, and the career is saved over the
+///      same file,
+/// Then the save succeeds, and the file reads back with the recruit in #4 and the veteran archived.
+///
+/// The roster in memory never holds two #4s. The veteran's row is still in the file, though, until
+/// the archive step deletes it, and the recruit's row was written first: the club's unique shirt
+/// index refused it, and every save and every exit to the menu failed from the rollover on, in the
+/// FM24 world (R.C. Celta Fortuna, #4), where each career saves over one file.
+#[test]
+fn a_retirees_shirt_given_to_a_recruit_in_the_same_save_interval_saves_and_loads_back() {
+    let saves = tempfile::tempdir().unwrap();
+    let mut save_manager = SaveManager::init(saves.path()).unwrap();
+    let clock = GameClock::new(Utc.with_ymd_and_hms(2027, 6, 20, 0, 0, 0).unwrap());
+    let mut manager = Manager::new(
+        "mgr-user".to_string(),
+        "Pat".to_string(),
+        "Doyle".to_string(),
+        "1985-03-01".to_string(),
+        "Ireland".to_string(),
+    );
+    manager.hire("club-x".to_string());
+    let mut game = Game::new(
+        clock,
+        manager,
+        vec![club("club-x")],
+        vec![
+            player_in_shirt("veteran", "club-x", 4),
+            player_in_shirt("regular", "club-x", 7),
+        ],
+        vec![],
+        vec![],
+    );
+    let save_id = save_manager.create_save(&game, "Rollover").unwrap();
+
+    let veteran = game.players.remove(0);
+    game.retired_players
+        .push(domain::retired_player::RetiredPlayer::from_player(
+            &veteran,
+            "2027-06-27",
+            2026,
+        ));
+    game.players.push(player_in_shirt("recruit", "club-x", 4));
+    let saved = save_manager.save_game_with_stats(&game, &StatsState::default(), &save_id);
+
+    assert_eq!(saved, Ok(()));
+    let reloaded = SaveManager::init(saves.path())
+        .unwrap()
+        .load_game(&save_id)
+        .unwrap();
+    assert_eq!(
+        shirt(&reloaded, "recruit"),
+        (Some("club-x".to_string()), Some(4))
+    );
+    assert!(reloaded.players.iter().all(|p| p.id != "veteran"));
+    assert_eq!(reloaded.retired_players.len(), 1);
+}

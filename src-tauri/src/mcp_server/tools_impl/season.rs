@@ -13,20 +13,26 @@ use std::sync::Arc;
 
 pub fn season_check_complete(ctx: Arc<McpContext>) -> Result<SeasonStatus, String> {
     let game = require_game(&ctx.state_manager)?;
+    Ok(season_status(&game))
+}
 
+/// The status the rollover itself will act on. It asks `is_season_complete`, the rule
+/// `season_advance` and the screen's own check use, and not the user's league alone: a league that
+/// runs the same calendar year may still be playing when the user's last round is over, and the
+/// rollover then refuses, so a tool that said "complete" sent an agent into an error.
+pub(crate) fn season_status(game: &ofm_core::game::Game) -> SeasonStatus {
     let Some(league) = &game.league else {
-        return Ok(SeasonStatus::NoLeague {});
+        return SeasonStatus::NoLeague {};
     };
+    if ofm_core::end_of_season::is_season_complete(game) {
+        return SeasonStatus::Complete {};
+    }
     let remaining_fixtures = league
         .fixtures
         .iter()
         .filter(|f| f.status != domain::league::FixtureStatus::Completed)
         .count();
-    if remaining_fixtures == 0 && !league.fixtures.is_empty() {
-        Ok(SeasonStatus::Complete {})
-    } else {
-        Ok(SeasonStatus::InProgress { remaining_fixtures })
-    }
+    SeasonStatus::InProgress { remaining_fixtures }
 }
 
 // ─── season_advance ─────────────────────────────────────────────────────────
@@ -150,6 +156,61 @@ mod tests {
     use domain::league::FixtureStatus;
     use ofm_core::game::{BoardObjective, ObjectiveType};
     use ofm_core::state::StateManager;
+
+    /// Given the user's league fully played while another country's league that starts the same
+    /// month still has a round to play,
+    /// When the MCP tool reports the season's status,
+    /// Then it says in progress, as `season_advance` will refuse; once that league is over it says complete.
+    #[test]
+    fn season_status_agrees_with_the_rollover_when_another_league_is_still_playing() {
+        use super::season_status;
+        use mcp_results::season::SeasonStatus;
+
+        let mut game = completed_checkpoint();
+        assert_eq!(season_status(&game), SeasonStatus::Complete {});
+
+        let first_round = game.competitions[0]
+            .fixtures
+            .iter()
+            .filter_map(|f| chrono::NaiveDate::parse_from_str(&f.date, "%Y-%m-%d").ok())
+            .min()
+            .expect("the checkpoint league has fixtures");
+        game.competitions[0].country_id = Some("EN".into());
+        game.competitions[0].scope = domain::league::CompetitionScope::Domestic;
+        let teams = ["f1".to_string(), "f2".to_string()];
+        let mut foreign = ofm_core::schedule::generate_league(
+            "foreign",
+            game.competitions[0].season,
+            &teams,
+            first_round.and_hms_opt(0, 0, 0).unwrap().and_utc(),
+        );
+        foreign.id = "foreign".into();
+        foreign.country_id = Some("FR".into());
+        foreign.scope = domain::league::CompetitionScope::Domestic;
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        let last = foreign.fixtures.len() - 1;
+        for (i, fixture) in foreign.fixtures.iter_mut().enumerate() {
+            if i != last {
+                fixture.status = FixtureStatus::Completed;
+                fixture.result = Some(domain::league::MatchResult::default());
+            } else {
+                fixture.date = (game.clock.current_date + chrono::Duration::days(3))
+                    .format("%Y-%m-%d")
+                    .to_string();
+            }
+        }
+        let _ = today;
+        game.competitions.push(foreign);
+
+        assert!(matches!(
+            season_status(&game),
+            SeasonStatus::InProgress { .. }
+        ));
+        let foreign = game.competitions.last_mut().unwrap();
+        foreign.fixtures[last].status = FixtureStatus::Completed;
+        foreign.fixtures[last].result = Some(domain::league::MatchResult::default());
+        assert_eq!(season_status(&game), SeasonStatus::Complete {});
+    }
 
     fn game_value(state: &StateManager) -> serde_json::Value {
         state

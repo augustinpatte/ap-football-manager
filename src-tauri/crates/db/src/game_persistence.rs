@@ -147,6 +147,8 @@ fn write_game_to_connection(
     }
     team_repo::upsert_teams(conn, &game.teams)?;
     journal_repo::persist_cash_journal(conn, game)?;
+    // Before the roster: a retiree's row would still hold the shirt a recruit has just been given.
+    retired_player_repo::remove_active_rows(conn, &game.retired_players)?;
     player_repo::upsert_players(conn, &game.players)?;
     staff_repo::replace_staff_list(conn, &game.staff)?;
     message_repo::replace_messages(conn, &game.messages)?;

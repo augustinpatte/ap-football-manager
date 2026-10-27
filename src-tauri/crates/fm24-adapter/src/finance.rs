@@ -12,7 +12,29 @@
 use crate::config::Config;
 use crate::journal::Journal;
 use crate::source::ClubRow;
-use domain::team::Team;
+use domain::team::{Sponsorship, Team};
+
+/// Shown on the finance screen as the club's sponsor.
+const RECURRING_INCOME_NAME: &str = "Commercial and broadcasting income";
+/// A hundred years of weeks: the income is permanent, OFM only counts the weeks down.
+const RECURRING_INCOME_WEEKS: u32 = 5_200;
+/// Home matches in a season, to estimate the gate OFM credits on top (a 20-club league has 19).
+const HOME_MATCHES_PER_SEASON: i64 = 19;
+
+/// Weekly income that, with OFM's own gate, gives the club the operating result the importer
+/// generated for it: `tv + other revenue - other costs` over a year, less the gate OFM will pay
+/// (`calc_matchday` with the attendance and price it uses to estimate one), never below zero.
+fn recurring_income_weekly_eur(team: &Team, finance: &crate::source::Finance, cfg: &Config) -> i64 {
+    let net_annual =
+        cfg.to_eur(finance.tv_gbp + finance.other_revenue_gbp - finance.other_costs_gbp);
+    let gate_annual = ofm_core::finances::calc_matchday(
+        team.stadium_capacity,
+        HOME_MATCHES_PER_SEASON,
+        0.76,
+        20.0,
+    );
+    ((net_annual - gate_annual) / 52).max(0)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Provenance {
@@ -41,11 +63,13 @@ pub struct FinanceRecord {
 }
 
 /// Restores the finance fields on a built team. `weekly_wage_bill_eur` is the wage bill of the
-/// imported players the club kept (OFM's generated fillers excluded).
+/// imported players the club kept (OFM's generated fillers excluded); `weekly_commitments_eur` is
+/// everything the club pays from day one: its players, generated fillers included, and its staff.
 pub fn restore(
     team: &mut Team,
     club: &ClubRow,
     weekly_wage_bill_eur: i64,
+    weekly_commitments_eur: i64,
     cfg: &Config,
     journal: &mut Journal,
 ) -> Vec<FinanceRecord> {
@@ -135,6 +159,48 @@ pub fn restore(
         });
     }
 
+    // The board sacks a manager whose club is over its wage budget (weekly warning at 100 %, critical
+    // at 110 %). A budget below what the club already pays on day one is therefore not a budget but
+    // a dismissal in nine weeks: it happens where the save holds few players (OFM fills the squad
+    // with its own, paid on OFM's scale) and where the staff's wages were never in the source's
+    // wage bill. Such a budget is raised to what the club pays, plus a margin.
+    let floor = weekly_commitments_eur + weekly_commitments_eur / 20;
+    if team.wage_budget < floor {
+        let before = team.wage_budget;
+        team.wage_budget = floor;
+        journal.warn(
+            "finance.wage_budget_raised_to_commitments",
+            &team.id,
+            format!("wage budget {before} is below the {weekly_commitments_eur} the club pays from day one; raised to {floor}"),
+        );
+        records.push(FinanceRecord {
+            club_id: club.id,
+            field: "wage_budget",
+            value: floor,
+            provenance: Provenance::OfmGenerated,
+            origin: "adapter".into(),
+            note: format!("raised from {before}: day-one wage commitments (players + staff) were {weekly_commitments_eur}"),
+        });
+    }
+
+    if cfg.finance.restore_recurring_income {
+        let weekly = recurring_income_weekly_eur(team, finance, cfg);
+        team.sponsorship = Some(Sponsorship {
+            sponsor_name: RECURRING_INCOME_NAME.to_string(),
+            base_value: weekly,
+            remaining_weeks: RECURRING_INCOME_WEEKS,
+            bonus_criteria: Vec::new(),
+        });
+        records.push(FinanceRecord {
+            club_id: club.id,
+            field: "recurring_income_weekly",
+            value: weekly,
+            provenance: Provenance::Imported,
+            origin: finance.source.clone(),
+            note: "TV + other revenue - other costs, less OFM's estimated gate".into(),
+        });
+    }
+
     records.push(FinanceRecord {
         club_id: club.id,
         field: "stadium_capacity",
@@ -207,6 +273,7 @@ mod tests {
             &mut t,
             &club(Some(finance(100_000))),
             90_000,
+            90_000,
             &cfg,
             &mut journal,
         );
@@ -225,6 +292,52 @@ mod tests {
         );
     }
 
+    /// Given a club whose generated finances earn 250 M a year from TV and other sources against
+    /// 100 M of non-wage costs,
+    /// When its finances are restored,
+    /// Then it has a permanent sponsorship paying the weekly net, less the gate OFM credits itself;
+    ///      a club whose costs exceed its revenue gets none.
+    #[test]
+    fn the_source_s_net_non_wage_income_becomes_a_permanent_sponsorship() {
+        let cfg = Config::default_config();
+        let mut rich = finance(100_000);
+        rich.tv_gbp = 50_000_000;
+        rich.other_revenue_gbp = 200_000_000;
+        rich.other_costs_gbp = 100_000_000;
+        let mut t = team();
+        restore(
+            &mut t,
+            &club(Some(rich)),
+            90_000,
+            90_000,
+            &cfg,
+            &mut Journal::default(),
+        );
+
+        let sponsorship = t.sponsorship.expect("the club has a sponsorship");
+        let gate = ofm_core::finances::calc_matchday(t.stadium_capacity, 19, 0.76, 20.0);
+        assert_eq!(
+            sponsorship.base_value,
+            (cfg.to_eur(150_000_000) - gate) / 52
+        );
+        assert!(sponsorship.remaining_weeks >= 5_000, "it outlives a career");
+        assert!(sponsorship.bonus_criteria.is_empty());
+
+        let mut loss_making = finance(100_000);
+        loss_making.tv_gbp = 1_000_000;
+        loss_making.other_costs_gbp = 5_000_000;
+        let mut t = team();
+        restore(
+            &mut t,
+            &club(Some(loss_making)),
+            90_000,
+            90_000,
+            &cfg,
+            &mut Journal::default(),
+        );
+        assert_eq!(t.sponsorship.expect("present, at zero").base_value, 0);
+    }
+
     #[test]
     fn a_wage_budget_below_the_wage_bill_is_not_restored() {
         let cfg = Config::default_config();
@@ -235,6 +348,7 @@ mod tests {
             &mut t,
             &club(Some(finance(10_000))),
             90_000,
+            70_000,
             &cfg,
             &mut journal,
         );
@@ -244,13 +358,56 @@ mod tests {
         assert_eq!(journal.count("finance.wage_budget_incompatible"), 1);
     }
 
+    /// Given a club whose source wage budget (55 000) is below what it pays from day one once OFM's
+    /// own fillers and the staff are counted (81 000),
+    /// When its finances are restored,
+    /// Then the budget is raised to those commitments plus 5 %, the raise is journalled and recorded
+    ///      as not coming from the source; a club that is within budget keeps the source's value.
+    #[test]
+    fn a_wage_budget_below_the_day_one_commitments_is_raised_to_them() {
+        let cfg = Config::default_config();
+        let mut t = team();
+        let mut journal = Journal::default();
+        let records = restore(
+            &mut t,
+            &club(Some(finance(47_200))),
+            42_866,
+            81_000,
+            &cfg,
+            &mut journal,
+        );
+        assert_eq!(t.wage_budget, 81_000 + 81_000 / 20);
+        let record = records.iter().rfind(|r| r.field == "wage_budget").unwrap();
+        assert_eq!(record.provenance, Provenance::OfmGenerated);
+        assert_eq!(
+            journal.count("finance.wage_budget_raised_to_commitments"),
+            1
+        );
+
+        let mut within = team();
+        let mut journal = Journal::default();
+        restore(
+            &mut within,
+            &club(Some(finance(100_000))),
+            90_000,
+            90_000,
+            &cfg,
+            &mut journal,
+        );
+        assert_eq!(within.wage_budget, 117_000, "the source's value, in euros");
+        assert_eq!(
+            journal.count("finance.wage_budget_raised_to_commitments"),
+            0
+        );
+    }
+
     #[test]
     fn a_zero_wage_budget_is_not_restored() {
         let cfg = Config::default_config();
         let mut t = team();
         t.wage_budget = 5_000;
         let mut journal = Journal::default();
-        restore(&mut t, &club(Some(finance(0))), 0, &cfg, &mut journal);
+        restore(&mut t, &club(Some(finance(0))), 0, 0, &cfg, &mut journal);
         assert_eq!(t.wage_budget, 5_000);
     }
 
@@ -260,7 +417,7 @@ mod tests {
         let mut t = team();
         let before = t.finance;
         let mut journal = Journal::default();
-        let records = restore(&mut t, &club(None), 0, &cfg, &mut journal);
+        let records = restore(&mut t, &club(None), 0, 0, &cfg, &mut journal);
         assert_eq!(t.finance, before);
         assert!(
             records

@@ -42,7 +42,9 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     let footedness_str = format!("{:?}", p.footedness);
     let training_focus_str: Option<String> = p.training_focus.as_ref().map(|f| format!("{:?}", f));
 
-    conn.execute(
+    // One statement per connection, parsed once: a save writes every player of the world
+    // (12 000 rows), and parsing this 40-column upsert for each of them was 60 % of the save.
+    conn.prepare_cached(
         "INSERT INTO players
          (id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
           attributes, condition, morale, injury, team_id, retired, traits,
@@ -91,7 +93,9 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
            loan_offers = excluded.loan_offers,
            active_loan = excluded.active_loan,
            movement_history = excluded.movement_history",
-        params![
+    )
+    .and_then(|mut statement| {
+        statement.execute(params![
             p.id,
             p.match_name,
             p.full_name,
@@ -131,8 +135,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             active_loan_json,
             movement_history_json,
             p.contract_start(),
-        ],
-    )
+        ])
+    })
     .map_err(|error| {
         // The player sees only the key, so the log is the one place the real
         // cause can survive. #498 spent months as "save stops working" because

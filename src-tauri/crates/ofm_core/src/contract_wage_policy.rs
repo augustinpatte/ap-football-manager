@@ -131,7 +131,21 @@ pub fn wage_policy_verdict(
     player: &domain::player::Player,
     offered_wage: u32,
 ) -> WagePolicyVerdict {
-    let (current_bill, projected_bill) = projected_wage_bills(game, &team.id, player, offered_wage);
+    wage_policy_verdict_at_bill(game, team, player, offered_wage, calc_wages(game, &team.id))
+}
+
+/// [`wage_policy_verdict`] when the caller already knows the club's `current_bill`
+/// ([`calc_wages`]): a sweep that judges many candidates for one club works it out once
+/// instead of scanning every player in the world for each of them. The verdict is the same.
+pub(crate) fn wage_policy_verdict_at_bill(
+    game: &Game,
+    team: &Team,
+    player: &domain::player::Player,
+    offered_wage: u32,
+    current_bill: i64,
+) -> WagePolicyVerdict {
+    let projected_bill = current_bill - player_weekly_wage_for_team(player, &team.id)
+        + weekly_commitment_at_wage(player, &team.id, i64::from(offered_wage));
     verdict_for_bills(team, current_bill, projected_bill, || {
         crate::squad_floor::club_needs_him_for_the_floor(game, &team.id, player)
     })
