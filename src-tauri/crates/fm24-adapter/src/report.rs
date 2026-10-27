@@ -9,7 +9,7 @@ use crate::ids;
 use crate::pipeline::Run;
 use ofm_core::generator::export_world_to_json;
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -295,6 +295,73 @@ pub fn ovr_on_ca_fit(run: &Run) -> (f64, f64) {
     (slope, my - slope * mx)
 }
 
+/// The pool of FM24 free agents: why each unattached player is or is not in it, and what the pool
+/// asks against what contracted players earn.
+fn free_agents_section(r: &mut String, run: &Run) {
+    let stats = &run.free_agent_stats;
+    let _ = writeln!(r, "## Agents libres FM24 (pool actif)\n");
+    if run.free_agent_plans.is_empty() {
+        let _ = writeln!(
+            r,
+            "Aucun agent libre FM24 importé (`free_agents.enabled = false` ou aucun candidat).\n"
+        );
+        return;
+    }
+    let _ = writeln!(
+        r,
+        "La save contient **{}** joueurs sans contrat : de vrais agents libres, des joueurs de clubs de ligues non chargées et des retraités. Un pool borné de **{}** entre dans le monde (tirage par empreinte de l'identifiant et de la graine) ; les autres restent dans `world.db`, intacts.\n",
+        stats.candidates, stats.chosen
+    );
+    let _ = writeln!(r, "| Raison | Joueurs |\n|---|---|");
+    for (label, n) in [
+        ("Sans date de naissance", stats.no_birth_date),
+        ("Hors de la tranche d'âge", stats.outside_age_range),
+        ("Niveau insuffisant", stats.below_level),
+        ("Nation inconnue d'OFM", stats.no_known_nation),
+        ("Aucun poste exploitable", stats.no_position),
+        ("**Éligibles**", stats.eligible),
+        ("dont **dans le pool**", stats.chosen),
+        (
+            "dont laissés dans world.db (pool plein)",
+            stats.eligible - stats.chosen,
+        ),
+    ] {
+        let _ = writeln!(r, "| {label} | {n} |");
+    }
+    let mut ovr: Vec<u8> = run
+        .free_agent_plans
+        .iter()
+        .map(|p| p.ovr_expected)
+        .collect();
+    ovr.sort_unstable();
+    let mut asked: Vec<u32> = run
+        .free_agent_plans
+        .iter()
+        .filter_map(|p| p.asked_wage)
+        .collect();
+    asked.sort_unstable();
+    let pick = |v: &[u32], q: f64| {
+        v.get(((v.len().max(1) - 1) as f64 * q).round() as usize)
+            .copied()
+            .unwrap_or(0)
+    };
+    let _ = writeln!(
+        r,
+        "\nNote OFM du pool : p10 {} · médiane {} · p90 {}. Salaire demandé (€/semaine) : p10 {} · médiane {} · p90 {} (estimé sur les joueurs sous contrat de même niveau et de même âge, quantile {}). Valeur : estimée de la même façon (`estimée (adaptateur)`), sauf {} valeurs lues dans la save.\n",
+        percentile(&ovr, 0.1),
+        percentile(&ovr, 0.5),
+        percentile(&ovr, 0.9),
+        pick(&asked, 0.1),
+        pick(&asked, 0.5),
+        pick(&asked, 0.9),
+        run.cfg.free_agents.wage_quantile,
+        run.free_agent_plans
+            .iter()
+            .filter(|p| p.value_source == "save")
+            .count()
+    );
+}
+
 fn adapter_report(
     run: &Run,
     checks: &[Check],
@@ -304,12 +371,17 @@ fn adapter_report(
 ) -> String {
     let mut r = String::new();
     let world = &run.world;
+    let pool_ids: BTreeSet<&str> = run
+        .free_agent_plans
+        .iter()
+        .map(|p| p.def.id.as_str())
+        .collect();
     let imported_players = world
         .players
         .iter()
-        .filter(|p| p.id.starts_with("fm-p-"))
+        .filter(|p| p.id.starts_with("fm-p-") && !pool_ids.contains(p.id.as_str()))
         .count();
-    let generated_players = world.players.len() - imported_players;
+    let generated_players = world.players.len() - imported_players - pool_ids.len();
     let imported_staff = world
         .staff
         .iter()
@@ -352,11 +424,13 @@ fn adapter_report(
     );
     let _ = writeln!(
         r,
-        "- Clubs : **{}** ; compétitions : **{}** ; joueurs importés : **{imported_players}** ; joueurs générés par OFM : **{generated_players}** ; staff importé : **{imported_staff}** ; staff généré par OFM : **{generated_staff}** ; managers réels : **{}**.\n",
+        "- Clubs : **{}** ; compétitions : **{}** ; joueurs sous contrat importés : **{imported_players}** ; agents libres FM24 importés : **{}** ; joueurs générés par OFM : **{generated_players}** ; staff importé : **{imported_staff}** ; staff généré par OFM : **{generated_staff}** ; managers réels : **{}**.\n",
         world.teams.len(),
         run.competitions.len(),
+        run.free_agent_plans.len(),
         world.managers.len()
     );
+    free_agents_section(&mut r, run);
 
     let _ = writeln!(
         r,

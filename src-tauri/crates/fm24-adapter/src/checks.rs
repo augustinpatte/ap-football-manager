@@ -152,7 +152,13 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         format!("{} ids, all distinct", seen.len()),
     ));
 
-    let player_keys: BTreeSet<i64> = run.players.iter().map(|p| p.person_id).collect();
+    let free_agent_keys: BTreeSet<i64> = run.free_agent_plans.iter().map(|p| p.person_id).collect();
+    let player_keys: BTreeSet<i64> = run
+        .players
+        .iter()
+        .map(|p| p.person_id)
+        .chain(free_agent_keys.iter().copied())
+        .collect();
     let mut key_failures = Vec::new();
     for p in world.players.iter().filter(|p| p.id.starts_with("fm-p-")) {
         match ids::internal_key(&p.id, "fm-p-") {
@@ -198,6 +204,9 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         .players
         .iter()
         .filter(|p| p.id.starts_with("fm-p-"))
+        .filter(|p| {
+            ids::internal_key(&p.id, "fm-p-").is_none_or(|key| !free_agent_keys.contains(&key))
+        })
         .count();
     checks.push(check(
         "players.none_dropped_silently",
@@ -426,7 +435,13 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
     for p in &world.players {
         match &p.team_id {
             Some(team) => by_team.entry(team.as_str()).or_default().push(p),
-            None => squad_failures.push(format!("{} has no club", p.id)),
+            None => {
+                let is_a_pool_free_agent = ids::internal_key(&p.id, "fm-p-")
+                    .is_some_and(|key| free_agent_keys.contains(&key));
+                if !is_a_pool_free_agent {
+                    squad_failures.push(format!("{} has no club", p.id));
+                }
+            }
         }
     }
     for team in &world.teams {
@@ -478,6 +493,73 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         format!(
             "{} generated players, each identified in the report",
             run.generated_players.len()
+        ),
+    ));
+
+    // --- free agents ---------------------------------------------------------------------------
+    let mut fa_failures = Vec::new();
+    let club_person_keys: BTreeSet<i64> = run.players.iter().map(|p| p.person_id).collect();
+    for plan in &run.free_agent_plans {
+        let id = &plan.def.id;
+        if club_person_keys.contains(&plan.person_id) {
+            fa_failures.push(format!("{id} is also a contracted player"));
+            continue;
+        }
+        let Some(player) = world_players.get(id.as_str()) else {
+            fa_failures.push(format!("{id} absent from the world"));
+            continue;
+        };
+        if player.team_id.is_some() {
+            fa_failures.push(format!("{id} is attached to a club"));
+        }
+        if player.contract_end().is_some() || player.contract_start().is_some() {
+            fa_failures.push(format!("{id} carries a contract"));
+        }
+        if player.retired {
+            fa_failures.push(format!("{id} is retired"));
+        }
+        if player.ovr != plan.ovr_expected {
+            fa_failures.push(format!("{id} ovr {} != {}", player.ovr, plan.ovr_expected));
+        }
+        if player.market_value == 0 {
+            fa_failures.push(format!("{id} has no market value"));
+        }
+        if let Some(asked) = plan.asked_wage
+            && player.wage() != asked
+        {
+            fa_failures.push(format!("{id} asks {} instead of {asked}", player.wage()));
+        }
+    }
+    let pool_in_world = world
+        .players
+        .iter()
+        .filter(|p| {
+            p.team_id.is_none()
+                && ids::internal_key(&p.id, "fm-p-")
+                    .is_some_and(|key| free_agent_keys.contains(&key))
+        })
+        .count();
+    if pool_in_world != run.free_agent_stats.chosen {
+        fa_failures.push(format!(
+            "{} chosen but {pool_in_world} in the world",
+            run.free_agent_stats.chosen
+        ));
+    }
+    let stats = &run.free_agent_stats;
+    checks.push(check(
+        "free_agents.pool",
+        true,
+        fa_failures,
+        format!(
+            "{} of {} unattached players enter as free agents ({} eligible; left in world.db: {} outside the age range, {} below the level, {} without a known nation, {} without birth date, {} without a position)",
+            stats.chosen,
+            stats.candidates,
+            stats.eligible,
+            stats.outside_age_range,
+            stats.below_level,
+            stats.no_known_nation,
+            stats.no_birth_date,
+            stats.no_position
         ),
     ));
 

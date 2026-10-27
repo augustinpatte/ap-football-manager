@@ -14,6 +14,7 @@ pub mod checks;
 pub mod competitions;
 pub mod config;
 pub mod finance;
+pub mod free_agents;
 pub mod ids;
 pub mod install;
 pub mod journal;

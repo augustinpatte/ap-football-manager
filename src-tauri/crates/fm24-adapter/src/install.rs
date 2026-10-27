@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 /// world itself (economy, rosters, rules): a world installed under an older revision, or by a
 /// version that wrote no marker at all, is reported `outdated` and offered for regeneration.
 /// Revision 2: recurring income and wage budget of the FM24 economy (mission 4).
-pub const WORLD_REVISION: u32 = 2;
+/// Revision 3: gate income for every club and the pool of FM24 free agents (mission 6).
+pub const WORLD_REVISION: u32 = 3;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]

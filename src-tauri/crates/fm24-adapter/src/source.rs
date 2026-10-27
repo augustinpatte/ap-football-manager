@@ -474,6 +474,105 @@ impl Source {
         Ok(players)
     }
 
+    /// Every player of the save with no current contract: the free agents and, mixed in with
+    /// them, players of clubs the save does not load and people long retired. `club_id` is 0 and
+    /// the contract fields are empty; selecting among them is `free_agents::select`'s job.
+    pub fn unattached_players(&self) -> Result<Vec<PlayerRow>> {
+        let attr_cols = ATTRIBUTE_COLUMNS
+            .iter()
+            .map(|c| format!("a.{c}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT p.id, p.fm_uid, p.fm_uid_status, COALESCE(p.first_name, ''), COALESCE(p.last_name, ''),
+                    p.common_name, p.birth_date, n.name, p.height_cm,
+                    pl.ca, pl.pa, pl.rep_current, pl.rep_home, pl.rep_world, pl.foot_left, pl.foot_right,
+                    pl.value_gbp, pl.value_source, {attr_cols}
+             FROM player pl
+             JOIN person p ON p.id = pl.person_id
+             JOIN player_attributes a ON a.person_id = p.id
+             LEFT JOIN nation n ON n.id = p.nation_id
+             WHERE NOT EXISTS (SELECT 1 FROM contract k WHERE k.person_id = p.id AND k.is_current = 1)
+             ORDER BY p.id"
+        );
+        let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let first_attr = 18;
+        let rows = stmt
+            .query_map([], |r| {
+                let mut attrs = BTreeMap::new();
+                for (offset, name) in ATTRIBUTE_COLUMNS.iter().enumerate() {
+                    let value: Option<i64> = r.get(first_attr + offset)?;
+                    attrs.insert(*name, value.unwrap_or(0));
+                }
+                Ok(PlayerRow {
+                    person_id: r.get(0)?,
+                    fm_uid: r.get(1)?,
+                    fm_uid_status: r.get(2)?,
+                    first_name: r.get(3)?,
+                    last_name: r.get(4)?,
+                    common_name: r.get(5)?,
+                    birth_date: r.get(6)?,
+                    nation: r.get(7)?,
+                    height_cm: r.get(8)?,
+                    club_id: 0,
+                    team_slot: None,
+                    team_is_youth: false,
+                    wage_gbp_week: 0,
+                    wage_original: 0,
+                    wage_source: String::new(),
+                    start_date: None,
+                    end_date: None,
+                    contract_type_code: None,
+                    squad_status_code: None,
+                    ca: r.get(9)?,
+                    pa: r.get(10)?,
+                    rep_current: r.get(11)?,
+                    rep_home: r.get(12)?,
+                    rep_world: r.get(13)?,
+                    foot_left: r.get(14)?,
+                    foot_right: r.get(15)?,
+                    value_gbp: r.get(16)?,
+                    value_source: r.get(17)?,
+                    attrs: FmAttrs(attrs),
+                    positions: BTreeMap::new(),
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        let mut players = rows
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT pp.person_id, pp.position, pp.rating FROM player_position pp
+                 WHERE NOT EXISTS (SELECT 1 FROM contract k WHERE k.person_id = pp.person_id AND k.is_current = 1)
+                 ORDER BY pp.person_id, pp.position",
+            )
+            .map_err(|e| e.to_string())?;
+        let mut by_person: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (person, position, rating) = row.map_err(|e| e.to_string())?;
+            by_person
+                .entry(person)
+                .or_default()
+                .insert(position, rating);
+        }
+        for player in &mut players {
+            player.positions = by_person.remove(&player.person_id).unwrap_or_default();
+        }
+        Ok(players)
+    }
+
     /// Current staff contracts of the given clubs (people who are in `staff`), with attributes.
     pub fn staff(&self, club_ids: &[i64]) -> Result<Vec<StaffRow>> {
         let list = id_list(club_ids);

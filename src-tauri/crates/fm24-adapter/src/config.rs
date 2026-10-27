@@ -16,6 +16,7 @@ pub struct Config {
     pub positions: PositionsCfg,
     pub squad: SquadCfg,
     pub finance: FinanceCfg,
+    pub free_agents: FreeAgentsCfg,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -70,6 +71,30 @@ pub struct FinanceCfg {
     pub restore_transfer_budget: bool,
     pub restore_wage_budget: bool,
     pub restore_recurring_income: bool,
+}
+
+/// Which of the save's unattached players enter the world as free agents, and what they ask.
+#[derive(Debug, Clone, Deserialize)]
+pub struct FreeAgentsCfg {
+    pub enabled: bool,
+    /// Ages are taken on this date (the configured start date).
+    pub age_on: String,
+    pub min_age: i64,
+    pub max_age: i64,
+    /// A player below this current ability is not worth a professional club's roster spot.
+    pub min_ca: i64,
+    /// A young player below `min_ca` is kept when his potential is at least `prospect_min_pa`
+    /// (and his ability `prospect_min_ca`): an academy graduate released at 19 is a real free agent.
+    pub prospect_max_age: i64,
+    pub prospect_min_pa: i64,
+    pub prospect_min_ca: i64,
+    /// Size of the active pool: the eligible players are ranked by a seeded hash of their id and
+    /// the first `pool_size` enter. The rest stay in world.db.
+    pub pool_size: usize,
+    /// The asked wage is this quantile of what contracted players of the same ability and age earn.
+    pub wage_quantile: f64,
+    /// Ability window (+-) used to find those contracted players, widened until enough are found.
+    pub ca_window: i64,
 }
 
 impl Config {

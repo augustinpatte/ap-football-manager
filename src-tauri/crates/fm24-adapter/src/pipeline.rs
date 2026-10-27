@@ -14,6 +14,7 @@ use crate::attributes;
 use crate::competitions;
 use crate::config::Config;
 use crate::finance::{self, FinanceRecord};
+use crate::free_agents::{self, FreeAgentPlan, PoolStats};
 use crate::ids;
 use crate::journal::Journal;
 use crate::positions;
@@ -81,6 +82,8 @@ pub struct Run {
     pub players: Vec<PlayerRow>,
     pub staff_rows: Vec<StaffRow>,
     pub plans: Vec<PlayerPlan>,
+    pub free_agent_plans: Vec<FreeAgentPlan>,
+    pub free_agent_stats: PoolStats,
     pub staff_plans: Vec<(ofm_core::generator::StaffDef, i64)>,
     pub managers: Vec<(String, i64)>,
     pub manager_clubs_missing: Vec<i64>,
@@ -221,6 +224,15 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         }
     }
 
+    // --- free agents: a bounded pool of the save's unattached players ----------------------------
+    let (free_agent_plans, free_agent_stats) = if cfg.free_agents.enabled {
+        let unattached = source.unattached_players()?;
+        let pool = free_agents::select(&unattached, &players, cfg, &refs);
+        (pool.plans, pool.stats)
+    } else {
+        (Vec::new(), PoolStats::default())
+    };
+
     // --- staff and managers --------------------------------------------------------------------
     let country_of = |club_id: i64| club_country.get(&club_id).cloned();
     let staff_plans = staff::build(&staff_rows, &country_of, &refs, &mut journal);
@@ -243,6 +255,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         cfg,
         &teams,
         &plans,
+        &free_agent_plans,
         &staff_plans,
         &competitions,
         &members,
@@ -288,6 +301,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     if cfg.squad.calibrate_generated_to_division {
         calibrate_generated_players(&mut world, &clubs, &mut journal);
     }
+    apply_free_agent_wages(&mut world, &free_agent_plans);
     apply_staff_contracts(&mut world, &staff_rows, cfg);
     apply_managers(&mut world, &chosen_managers, &refs, cfg, &mut journal);
     let finance_records = restore_finance(&mut world, &clubs, cfg, &mut journal);
@@ -300,6 +314,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         &clubs,
         &competitions,
         &plans,
+        &free_agent_plans,
         &staff_plans,
         &chosen_managers,
     );
@@ -315,6 +330,8 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         players,
         staff_rows,
         plans,
+        free_agent_plans,
+        free_agent_stats,
         staff_plans,
         managers,
         manager_clubs_missing,
@@ -346,14 +363,24 @@ fn describe_package_error(error: &ofm_core::generator::package::PackageError) ->
 // players
 // ---------------------------------------------------------------------------------------------
 
-fn plan_player(
+/// What the save says a player is on the pitch, converted to OFM: shared by club players and free
+/// agents so the two cannot be converted differently.
+pub(crate) struct Converted {
+    pub natural_code: &'static str,
+    pub position: Position,
+    pub attributes: domain::player::PlayerAttributes,
+    pub ovr: u8,
+    pub potential: u8,
+    pub foot: domain::player::Footedness,
+    pub weak_foot: Option<u8>,
+    pub alternates: Vec<Position>,
+}
+
+pub(crate) fn convert_player(
     row: &PlayerRow,
-    club: &ClubRow,
-    club_country: &str,
     cfg: &Config,
-    refs: &Refs,
     journal: &mut Journal,
-) -> Option<PlayerPlan> {
+) -> Option<Converted> {
     let id = ids::player(row.person_id);
     // Best FM note; among positions tied for it, the one OFM itself rates highest for this player.
     let mut best: Option<(&'static str, Position, domain::player::PlayerAttributes, u8)> = None;
@@ -366,7 +393,7 @@ fn plan_player(
             best = Some((code, candidate, attrs, rating));
         }
     }
-    let Some((natural_code, position, converted, ovr)) = best else {
+    let Some((natural_code, position, attributes, ovr)) = best else {
         journal.error(
             "player.excluded_no_position",
             &id,
@@ -383,9 +410,38 @@ fn plan_player(
         positions::alternates(&row.positions, natural_code, &cfg.positions)
     };
     let (foot, weak_foot) = positions::foot(row.foot_left, row.foot_right, &cfg.positions);
-
     let potential = attributes::potential(ovr, row.ca, row.pa, cfg.potential.ovr_points_per_ca);
+    Some(Converted {
+        natural_code,
+        position,
+        attributes,
+        ovr,
+        potential,
+        foot,
+        weak_foot: (!is_keeper).then_some(weak_foot),
+        alternates,
+    })
+}
 
+fn plan_player(
+    row: &PlayerRow,
+    club: &ClubRow,
+    club_country: &str,
+    cfg: &Config,
+    refs: &Refs,
+    journal: &mut Journal,
+) -> Option<PlayerPlan> {
+    let id = ids::player(row.person_id);
+    let Converted {
+        natural_code,
+        position,
+        attributes: converted,
+        ovr,
+        potential,
+        foot,
+        weak_foot,
+        alternates,
+    } = convert_player(row, cfg, journal)?;
     let (nationality, nationality_source) =
         match row.nation.as_deref().and_then(|n| refs.nation_code(n)) {
             Some(code) => (code, "save"),
@@ -459,7 +515,7 @@ fn plan_player(
         contract_length: None,
         wage: Some(u32::try_from(cfg.to_eur(row.wage_gbp_week).max(0)).unwrap_or(u32::MAX)),
         value,
-        weak_foot: (!is_keeper).then_some(weak_foot),
+        weak_foot,
         alternate_positions: alternates,
         condition: None,
         morale: None,
@@ -486,6 +542,7 @@ fn write_package(
     cfg: &Config,
     teams: &[TeamDef],
     plans: &[PlayerPlan],
+    free_agent_plans: &[FreeAgentPlan],
     staff_plans: &[(ofm_core::generator::StaffDef, i64)],
     competition_rows: &[crate::source::CompetitionRow],
     members: &BTreeMap<i64, Vec<i64>>,
@@ -538,6 +595,14 @@ fn write_package(
     for (club, defs) in by_club {
         write_items(
             &dir.join("players").join(format!("{club}.json")),
+            "player",
+            &defs,
+        )?;
+    }
+    if !free_agent_plans.is_empty() {
+        let defs: Vec<&PlayerDef> = free_agent_plans.iter().map(|p| &p.def).collect();
+        write_items(
+            &dir.join("players").join("free_agents.json"),
             "player",
             &defs,
         )?;
@@ -777,6 +842,23 @@ fn group_index(group: &Position) -> usize {
 }
 
 /// `StaffDef` carries no wage or contract end: set them on the built staff.
+/// A free agent's asked wage is staged on him after the world is built: the package builder
+/// unattaches an authored player with no club and clears his pay, because a generated free agent
+/// asks whatever OFM derives from his value. These ones ask what the save's clubs pay players of
+/// their ability and age. They are on no club's bill (`calc_wages` counts a wage only for the club
+/// that holds the player); the figure is what a signing club starts negotiating from.
+fn apply_free_agent_wages(world: &mut WorldData, plans: &[FreeAgentPlan]) {
+    let asked: BTreeMap<String, u32> = plans
+        .iter()
+        .filter_map(|p| p.asked_wage.map(|w| (p.def.id.clone(), w)))
+        .collect();
+    for player in world.players.iter_mut().filter(|p| p.team_id.is_none()) {
+        if let Some(wage) = asked.get(&player.id) {
+            player.stage_wage(*wage);
+        }
+    }
+}
+
 fn apply_staff_contracts(world: &mut WorldData, rows: &[StaffRow], cfg: &Config) {
     let by_id: BTreeMap<String, &StaffRow> =
         rows.iter().map(|r| (ids::staff(r.person_id), r)).collect();
@@ -936,6 +1018,7 @@ fn mapping_rows(
     clubs: &[ClubRow],
     competitions: &[crate::source::CompetitionRow],
     plans: &[PlayerPlan],
+    free_agent_plans: &[FreeAgentPlan],
     staff_plans: &[(ofm_core::generator::StaffDef, i64)],
     managers: &[&StaffRow],
 ) -> Vec<MappingRow> {
@@ -981,6 +1064,18 @@ fn mapping_rows(
                 .to_string(),
             ofm_club_id: ids::club(p.club_id),
             note: String::new(),
+        });
+    }
+    for fa in free_agent_plans {
+        rows.push(MappingRow {
+            ofm_id: ids::player(fa.person_id),
+            entity: "player",
+            world_db_id: fa.person_id,
+            fm_uid: fa.fm_uid,
+            fm_uid_status: fa.fm_uid_status.clone(),
+            name: fa.name.clone(),
+            ofm_club_id: String::new(),
+            note: "agent libre FM24".to_string(),
         });
     }
     let staffed: BTreeSet<i64> = staff_plans.iter().map(|(_, id)| *id).collect();
