@@ -1,0 +1,52 @@
+# Paramètres de l'adaptateur FM24 -> Openfoot Manager. Versionné : toute valeur qui change le monde produit
+# est ici (jamais en dur dans le code), pour que « mêmes données + même config + même version » donne le même hash.
+
+[world]
+id = "apfm-fm24-2026"
+name = "AP Football Manager — FM24 2026/27"
+description = "240 clubs réels (12 divisions) importés d'une sauvegarde FM24, saison 2026/27."
+version = "0.1.0"
+author = "AP Football Manager"
+license = "LicenseRef-APFM-private"
+base_year = 2026
+# Graine de la construction du monde OFM (joueurs/staff de complément, capacité des stades, condition, moral).
+seed = 20262027
+
+[money]
+# 1 £ = x €. OFM compte en euros ; world.db en livres. Taux FIXE (documenté), jamais lu en ligne.
+gbp_to_eur = 1.17
+
+[start]
+# Date initiale CONFIGURÉE (jamais extraite de la save : sa date est ambiguë). Valeur native d'OFM pour 2026
+# (année de Coupe du monde -> 1er juin, voir ofm_core::world::start_date_for_year), phase « seasonStart ».
+date = "2026-06-01"
+phase = "seasonStart"
+
+[contracts]
+# Contrat sans date de fin dans la save (337 joueurs du périmètre) : fin générée, marquée « générée ».
+missing_end = "2027-06-30"
+
+[potential]
+# Potentiel OFM = OVR OFM + round(points_par_CA * (PA - CA)), borné à [OVR, 99]. Coefficient calibré (voir
+# docs/FM24_IMPORT_VALIDATION.md §Calibrage) : pente de l'OVR OFM sur le CA FM dans le périmètre.
+ovr_points_per_ca = 0.31
+
+[positions]
+# Note FM (1-20) à partir de laquelle un poste secondaire est « compétent ».
+alternate_min_rating = 15
+# Poste naturel : parmi les postes notés à au plus 1 point de la meilleure note FM, celui que la note OFM
+# (calculée sur les attributs convertis) place le plus haut. Un écart de 1 point FM (20 vs 19) est du bruit.
+natural_within = 1
+# Pied : les deux pieds >= both_feet_min (sur 100) -> "Both".
+both_feet_min = 75
+
+[squad]
+# Après construction, OFM complète chaque effectif à 22 par des joueurs GÉNÉRÉS. On ne garde de ces joueurs
+# que ce qui est nécessaire au plancher de jeu d'OFM (squad_floor : 15 seniors, dont 2 G / 4 D / 4 M / 2 A).
+trim_generated_to_floor = true
+
+[finance]
+# Une valeur FM n'est restaurée que si elle est compatible (budget salaires >= masse salariale hebdomadaire).
+restore_balance = true
+restore_transfer_budget = true
+restore_wage_budget = true

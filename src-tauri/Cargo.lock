@@ -1532,6 +1532,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fm24-adapter"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "csv",
+ "domain",
+ "hex",
+ "ofm_core",
+ "rand",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "toml 0.8.2",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

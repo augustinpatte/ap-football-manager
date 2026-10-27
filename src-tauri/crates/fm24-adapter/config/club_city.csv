@@ -1,0 +1,241 @@
+club_id,club_name,city,source
+319,AFC Bournemouth,Bournemouth,saisie
+321,Arsenal,London,saisie
+322,Aston Villa,Birmingham,saisie
+324,Barnsley,Barnsley,saisie
+327,Birmingham City,Birmingham,saisie
+330,Blackburn Rovers,Blackburn,saisie
+331,Blackpool,Blackpool,saisie
+332,Bolton Wanderers,Bolton,saisie
+334,Bradford City,Bradford,saisie
+335,Brentford,London,saisie
+336,Brighton & Hove Albion,Brighton,saisie
+337,Bristol City,Bristol,saisie
+339,Burnley,Burnley,saisie
+341,Cambridge United,Cambridge,saisie
+342,Cardiff City,Cardiff,saisie
+345,Charlton Athletic,London,saisie
+347,Chelsea,London,saisie
+355,Coventry City,Coventry,saisie
+358,Crystal Palace,London,saisie
+360,Derby County,Derby,saisie
+361,Doncaster Rovers,Doncaster,saisie
+364,Everton,Liverpool,saisie
+367,Fulham,London,saisie
+375,Huddersfield Town,Huddersfield,saisie
+376,Hull City,Kingston upon Hull,saisie
+378,Ipswich Town,Ipswich,saisie
+382,Leeds United,Leeds,saisie
+384,Leicester City,Leicester,saisie
+385,Leyton Orient,London,saisie
+386,Lincoln City,Lincoln,saisie
+387,Liverpool,Liverpool,saisie
+388,Luton Town,Luton,saisie
+389,Manchester City,Manchester,saisie
+390,Manchester United,Manchester,saisie
+391,Mansfield Town,Mansfield,saisie
+394,Middlesbrough,Middlesbrough,saisie
+395,Millwall,London,saisie
+397,Newcastle United,Newcastle upon Tyne,saisie
+400,Norwich City,Norwich,saisie
+401,Nottingham Forest,Nottingham,saisie
+402,Notts County,Nottingham,saisie
+404,Oxford United,Oxford,saisie
+405,Peterborough United,Peterborough,saisie
+406,Plymouth Argyle,Plymouth,saisie
+408,Portsmouth,Portsmouth,saisie
+409,Preston North End,Preston,saisie
+410,Queens Park Rangers,London,saisie
+411,Reading,Reading,saisie
+415,Sheffield United,Sheffield,saisie
+416,Sheffield Wednesday,Sheffield,saisie
+420,Southampton,Southampton,saisie
+426,Stevenage,Stevenage,saisie
+427,Stockport County,Stockport,saisie
+428,Stoke City,Stoke-on-Trent,saisie
+429,Sunderland,Sunderland,saisie
+431,Swansea City,Swansea,saisie
+434,Tottenham Hotspur,London,saisie
+437,Watford,Watford,saisie
+439,West Bromwich Albion,West Bromwich,saisie
+440,West Ham United,London,saisie
+442,Wigan Athletic,Wigan,saisie
+444,Wolverhampton Wanderers,Wolverhampton,saisie
+445,Wrexham,Wrexham,saisie
+446,Wycombe Wanderers,High Wycombe,saisie
+464,AJ Auxerre,Auxerre,saisie
+465,Association Sportive Cannes Football,Cannes,saisie
+466,AS Monaco,Monaco,saisie
+467,AS Nancy Lorraine,Nancy,saisie
+468,AS Saint-Étienne,Saint-Étienne,saisie
+469,Amiens SC,Amiens,saisie
+475,Dijon FCO,Dijon,saisie
+476,En Avant Guingamp,Guingamp,saisie
+479,FC Metz,Metz,saisie
+481,FC Nantes,Nantes,saisie
+484,Grenoble Foot 38,Grenoble,saisie
+487,Havre AC,Le Havre,saisie
+488,Le Mans FC,Le Mans,saisie
+489,LOSC Lille,Lille,saisie
+490,Montpellier Hérault SC,Montpellier,saisie
+493,OGC Nice,Nice,saisie
+495,Olympique Lyonnais,Lyon,saisie
+496,Olympique de Marseille,Marseille,saisie
+497,Paris FC,Paris,saisie
+498,Paris Saint-Germain,Paris,saisie
+501,RC Lens,Lens,saisie
+502,RC Strasbourg Alsace,Strasbourg,saisie
+503,Red Star FC,Saint-Ouen-sur-Seine,saisie
+504,FC Rouen 1899,Rouen,saisie
+505,Angers SCO,Angers,saisie
+506,SC Bastia,Bastia,saisie
+507,Stade Malherbe Caen,Caen,saisie
+511,Stade Rennais FC,Rennes,saisie
+512,Toulouse FC,Toulouse,saisie
+513,Valenciennes FC,Valenciennes,saisie
+517,1. FC Nürnberg,Nürnberg,saisie
+519,Bayer 04 Leverkusen,Leverkusen,saisie
+521,DSC Arminia Bielefeld,Bielefeld,saisie
+522,VfL Bochum 1848,Bochum,saisie
+523,Borussia Dortmund,Dortmund,saisie
+524,Borussia Mönchengladbach,Mönchengladbach,saisie
+525,SG Dynamo Dresden,Dresden,saisie
+526,Eintracht Frankfurt,Frankfurt am Main,saisie
+528,FC Bayern München,München,saisie
+529,1. FC Köln,Köln,saisie
+530,1. FSV Mainz 05,Mainz,saisie
+532,FC Schalke 04,Gelsenkirchen,saisie
+535,Hannover 96,Hannover,saisie
+538,Karlsruher SC,Karlsruhe,saisie
+542,VfL Osnabrück,Osnabrück,saisie
+547,Sport-Club Freiburg,Freiburg im Breisgau,saisie
+548,1. FC Kaiserslautern,Kaiserslautern,saisie
+549,FC St. Pauli,Hamburg,saisie
+550,Hamburger SV,Hamburg,saisie
+551,SV Werder Bremen,Bremen,saisie
+559,VfB Stuttgart,Stuttgart,saisie
+560,VfL Wolfsburg,Wolfsburg,saisie
+669,A.C. Milan,Milano,saisie
+670,A.S. Roma,Roma,saisie
+674,Ascoli Calcio 1898 F.C.,Ascoli Piceno,saisie
+675,Atalanta Bergamasca Calcio,Bergamo,saisie
+677,U.S. Avellino 1912,Avellino,saisie
+679,Bologna F.C. 1909,Bologna,saisie
+680,Cagliari Calcio,Cagliari,saisie
+682,Carrarese Calcio 1908,Carrara,saisie
+685,U.S. Catanzaro 1929,Catanzaro,saisie
+686,Cesena F.C.,Cesena,saisie
+689,Como 1907,Como,saisie
+691,U.S. Cremonese,Cremona,saisie
+692,Empoli F.C.,Empoli,saisie
+694,A.C.F. Fiorentina,Firenze,saisie
+697,Genoa C.F.C.,Genova,saisie
+699,F.C. Internazionale Milano,Milano,saisie
+701,S.S. Juve Stabia,Castellammare di Stabia,saisie
+702,Juventus F.C.,Torino,saisie
+703,S.S. Lazio,Roma,saisie
+704,U.S. Lecce,Lecce,saisie
+709,Modena F.C. 2018,Modena,saisie
+710,A.C. Monza,Monza,saisie
+711,S.S.C. Napoli,Napoli,saisie
+715,Calcio Padova,Padova,saisie
+716,Parma Calcio 1913,Parma,saisie
+726,U.C. Sampdoria,Genova,saisie
+732,Torino F.C.,Torino,saisie
+735,Udinese Calcio,Udine,saisie
+736,Venezia F.C.,Venezia,saisie
+737,L.R. Vicenza,Vicenza,saisie
+1072,Albacete Balompié,Albacete,saisie
+1073,U.D. Almería,Almería,saisie
+1075,Athletic Club,Bilbao,saisie
+1083,C.D. Leganés,Leganés,saisie
+1084,C.D. Tenerife,Santa Cruz de Tenerife,saisie
+1085,Cádiz C.F.,Cádiz,saisie
+1087,Club Atlético Osasuna,Pamplona,saisie
+1088,Club Atlético de Madrid,Madrid,saisie
+1089,Deportivo Alavés,Vitoria-Gasteiz,saisie
+1091,C.D. Castellón,Castellón de la Plana,saisie
+1095,Córdoba C.F.,Córdoba,saisie
+1096,R.C. Deportivo de La Coruña,A Coruña,saisie
+1098,Elche C.F.,Elche,saisie
+1099,F.C. Barcelona,Barcelona,saisie
+1100,F.C. Andorra,Andorra la Vella,saisie
+1101,Getafe C.F.,Getafe,saisie
+1102,Granada C.F.,Granada,saisie
+1104,Levante U.D.,Valencia,saisie
+1106,R.C. Celta de Vigo,Vigo,saisie
+1107,R.C.D. Espanyol de Barcelona,Cornellà de Llobregat,saisie
+1108,R.C.D. Mallorca,Palma,saisie
+1110,Real Racing Club de Santander,Santander,saisie
+1111,Rayo Vallecano de Madrid,Madrid,saisie
+1112,Real Betis Balompié,Sevilla,saisie
+1113,Real Madrid C.F.,Madrid,saisie
+1114,Real Madrid Castilla C.F.,Madrid,saisie
+1118,Real Oviedo,Oviedo,saisie
+1119,Real Sociedad de Fútbol,San Sebastián,saisie
+1120,Real Sociedad de Fútbol B,San Sebastián,saisie
+1121,Real Sporting de Gijón,Gijón,saisie
+1124,Real Valladolid C.F.,Valladolid,saisie
+1129,S.D. Eibar,Eibar,saisie
+1130,Sevilla F.C.,Sevilla,saisie
+1132,U.D. Las Palmas,Las Palmas de Gran Canaria,saisie
+1133,Valencia C.F.,Valencia,saisie
+1135,Villarreal C.F.,Villarreal,saisie
+1275,ESTAC Troyes,Troyes,saisie
+1280,Football Bourg-en-Bresse Péronnas 01,Bourg-en-Bresse,saisie
+1289,Clermont Foot 63,Clermont-Ferrand,saisie
+1294,US Boulogne Côte d'Opale,Boulogne-sur-Mer,saisie
+1296,FC Lorient,Lorient,saisie
+1299,FC Sochaux-Montbéliard,Sochaux,saisie
+1309,La Roche Vendée Football,La Roche-sur-Yon,saisie
+1327,Stade de Reims,Reims,saisie
+1328,Rodez Aveyron Football,Rodez,saisie
+1339,Stade Brestois 29,Brest,saisie
+1340,Stade Lavallois MFC,Laval,saisie
+1348,USL Dunkerque,Dunkerque,saisie
+1350,US Orléans,Orléans,saisie
+1355,FC Versailles 78,Versailles,saisie
+1357,FC Villefranche-Beaujolais,Villefranche-sur-Saône,saisie
+1360,Pau FC,Pau,saisie
+1362,R.C. Celta Fortuna,Vigo,saisie
+1366,Málaga C.F.,Málaga,saisie
+1434,S.S. Arezzo,Arezzo,saisie
+1436,Benevento Calcio,Benevento,saisie
+1441,Palermo F.C.,Palermo,saisie
+1445,Frosinone Calcio,Frosinone,saisie
+1447,Hellas Verona F.C.,Verona,saisie
+1457,Pisa S.C.,Pisa,saisie
+1474,1. FC Magdeburg,Magdeburg,saisie
+1475,Braunschweig TSV Eintracht,Braunschweig,saisie
+1476,FC Augsburg,Augsburg,saisie
+1477,FC Energie Cottbus,Cottbus,saisie
+1480,Holstein Kiel,Kiel,saisie
+1481,Hertha BSC,Berlin,saisie
+1484,SpVgg Greuther Fürth,Fürth,saisie
+2251,SV Darmstadt 98,Darmstadt,saisie
+2360,1. FC Union Berlin,Berlin,saisie
+2372,SC Paderborn 07,Paderborn,saisie
+2373,SV Elversberg,Spiesen-Elversberg,saisie
+3237,Milton Keynes Dons,Milton Keynes,saisie
+4619,Mantova 1911,Mantova,saisie
+5450,Girona F.C.,Girona,saisie
+5605,F.C. Südtirol,Bolzano,saisie
+5825,TSG 1899 Hoffenheim,Sinsheim,saisie
+6015,1. FC Heidenheim 1846,Heidenheim an der Brenz,saisie
+6895,US Concarneau,Concarneau,saisie
+6929,U.S. Sassuolo Calcio,Sassuolo,saisie
+6944,Burton Albion,Burton upon Trent,saisie
+6960,Burgos C.F.,Burgos,saisie
+6995,C.D. Eldense,Elda,saisie
+7218,Bromley,London,saisie
+7471,AFC Wimbledon,London,saisie
+19650,Virtus Entella,Chiavari,saisie
+24151,Union Sportive Quevilly-Rouen Métropole,Le Petit-Quevilly,saisie
+24162,FC Fleury 91,Fleury-Mérogis,saisie
+28032,A.D. Ceuta F.C.,Ceuta,saisie
+33603,Aubagne FC,Aubagne,saisie
+33725,FC Annecy,Annecy,saisie
+33761,Le Puy Foot 43 Auvergne,Le Puy-en-Velay,saisie
+34313,RasenBallsport Leipzig,Leipzig,saisie
+36673,Paris 13 Atlético,Paris,saisie
+39927,Union Sportive Thionville Lusitanos,Thionville,saisie
