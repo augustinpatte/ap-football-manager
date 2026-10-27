@@ -12,3 +12,7 @@ serde_json = "1"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+db = { version = "0.3.0", path = "../db" }
+tempfile = "3"

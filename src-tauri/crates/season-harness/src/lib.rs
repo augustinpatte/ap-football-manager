@@ -17,6 +17,7 @@
 //! * [`calendar`] asks whether a generated calendar is clash-free, and reloads a game.
 //! * [`distribution`] reports how many of the world's players are S and A tier, season by season.
 //! * [`driver`] is the loop, and the only place that advances the game.
+//! * [`fm24`] builds a career in the FM24 world file the user imported (`APFM_WORLD_JSON`).
 //! * [`fingerprint`] reduces a world to what a replay must reproduce.
 //! * [`reputation`] reports where the S and A players play, by the club's reputation.
 //! * [`invariants`] are the rules, held to after every day and every rollover.
@@ -26,6 +27,7 @@ pub mod calendar;
 pub mod distribution;
 pub mod driver;
 pub mod fingerprint;
+pub mod fm24;
 pub mod invariants;
 pub mod reputation;
 pub mod worlds;

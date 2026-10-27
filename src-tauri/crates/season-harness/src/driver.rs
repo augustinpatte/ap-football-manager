@@ -217,31 +217,58 @@ pub fn run_seasons(
                     unfinished: unfinished_competitions(game),
                 });
             }
-            if options.keep_manager_employed {
-                keep_employed(game);
-            }
             summary.days += 1;
-            let mut captured = Vec::new();
-            if advance_one_day(game, options.day_path, season, day, &mut captured)? {
+            if play_day(game, options, season, day, observer)? {
                 summary.live_days += 1;
             }
-            for stats in &captured {
-                observer.on_stats_captured(stats);
-            }
-            require_employed(game, season, Some(day))?;
-            observer.on_day_end(game, season, day);
         }
 
-        observer.on_before_rollover(game, season);
-        if options.keep_manager_employed {
-            keep_employed(game);
-        }
-        let rollover = end_of_season::advance_to_next_season(game)
-            .map_err(|reason| HarnessError::Rollover { season, reason })?;
-        require_employed(game, season, None)?;
-        observer.on_season_end(game, &rollover, season);
+        roll_season_over(game, options, season, observer)?;
     }
     Ok(summary)
+}
+
+/// One day of `season` (`day` counts from 1), exactly as [`run_seasons`] plays it: the tenure
+/// guard, the day, the observer told of the stats it captured and then of the day's end. Returns
+/// whether the player's own match went through `ofm_core::matchday`. For a caller that has to act
+/// between days (save, reload, probe) without a second copy of the loop's body.
+pub fn play_day(
+    game: &mut Game,
+    options: RunOptions,
+    season: u32,
+    day: u32,
+    observer: &mut impl SeasonObserver,
+) -> Result<bool, HarnessError> {
+    if options.keep_manager_employed {
+        keep_employed(game);
+    }
+    let mut captured = Vec::new();
+    let live = advance_one_day(game, options.day_path, season, day, &mut captured)?;
+    for stats in &captured {
+        observer.on_stats_captured(stats);
+    }
+    require_employed(game, season, Some(day))?;
+    observer.on_day_end(game, season, day);
+    Ok(live)
+}
+
+/// The rollover [`run_seasons`] performs once a season is complete, with the tenure guard and the
+/// observer's two moments around it.
+pub fn roll_season_over(
+    game: &mut Game,
+    options: RunOptions,
+    season: u32,
+    observer: &mut impl SeasonObserver,
+) -> Result<(), HarnessError> {
+    observer.on_before_rollover(game, season);
+    if options.keep_manager_employed {
+        keep_employed(game);
+    }
+    let rollover = end_of_season::advance_to_next_season(game)
+        .map_err(|reason| HarnessError::Rollover { season, reason })?;
+    require_employed(game, season, None)?;
+    observer.on_season_end(game, &rollover, season);
+    Ok(())
 }
 
 fn advance_one_day(
