@@ -311,8 +311,10 @@ impl Source {
 
     pub fn clubs(&self, perimeter: &[(i64, i64)]) -> Result<Vec<ClubRow>> {
         let club_ids: Vec<i64> = perimeter.iter().map(|(_, club)| *club).collect();
-        let competition_of: BTreeMap<i64, i64> =
-            perimeter.iter().map(|(comp, club)| (*club, *comp)).collect();
+        let competition_of: BTreeMap<i64, i64> = perimeter
+            .iter()
+            .map(|(comp, club)| (*club, *comp))
+            .collect();
         let list = id_list(&club_ids);
         let sql = format!(
             "SELECT c.id, c.fm_uid, c.name, COALESCE(c.short_name, ''), n.name, COALESCE(c.reputation, 0),
@@ -452,12 +454,19 @@ impl Source {
         let mut by_person: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
         let rows = stmt
             .query_map([], |r| {
-                Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
             })
             .map_err(|e| e.to_string())?;
         for row in rows {
             let (person, position, rating) = row.map_err(|e| e.to_string())?;
-            by_person.entry(person).or_default().insert(position, rating);
+            by_person
+                .entry(person)
+                .or_default()
+                .insert(position, rating);
         }
         for player in &mut players {
             player.positions = by_person.remove(&player.person_id).unwrap_or_default();
@@ -517,7 +526,11 @@ impl Source {
         let mut by_person: BTreeMap<i64, BTreeMap<String, i64>> = BTreeMap::new();
         let rows = stmt
             .query_map([], |r| {
-                Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
             })
             .map_err(|e| e.to_string())?;
         for row in rows {
@@ -571,10 +584,7 @@ fn id_list(ids: &[i64]) -> String {
     if ids.is_empty() {
         return "NULL".to_string();
     }
-    ids.iter()
-        .map(i64::to_string)
-        .collect::<Vec<_>>()
-        .join(",")
+    ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",")
 }
 
 #[cfg(test)]

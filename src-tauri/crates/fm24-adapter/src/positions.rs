@@ -51,7 +51,10 @@ pub fn natural(notes: &BTreeMap<String, i64>) -> Option<(&'static str, Position)
 /// position 20 ("natural") or 19 ("accomplished") on a judgement call, so a one-point gap is noise:
 /// the caller picks among them by OFM's own rating of the converted attributes (a forward rated 20
 /// as a striker and 19 on the wing is a winger if that is where OFM rates him highest).
-pub fn natural_candidates(notes: &BTreeMap<String, i64>, within: i64) -> Vec<(&'static str, Position)> {
+pub fn natural_candidates(
+    notes: &BTreeMap<String, i64>,
+    within: i64,
+) -> Vec<(&'static str, Position)> {
     let best = ORDER
         .iter()
         .filter_map(|(code, _)| notes.get(*code).copied())
@@ -61,7 +64,11 @@ pub fn natural_candidates(notes: &BTreeMap<String, i64>, within: i64) -> Vec<(&'
     };
     ORDER
         .iter()
-        .filter(|(code, _)| notes.get(*code).is_some_and(|rating| *rating >= best - within))
+        .filter(|(code, _)| {
+            notes
+                .get(*code)
+                .is_some_and(|rating| *rating >= best - within)
+        })
         .map(|(code, position)| (*code, position.clone()))
         .collect()
 }
@@ -122,7 +129,8 @@ mod tests {
     }
 
     fn notes(pairs: &[(&str, i64)]) -> BTreeMap<String, i64> {
-        let mut map: BTreeMap<String, i64> = ORDER.iter().map(|(c, _)| (c.to_string(), 1)).collect();
+        let mut map: BTreeMap<String, i64> =
+            ORDER.iter().map(|(c, _)| (c.to_string(), 1)).collect();
         map.insert("SW".to_string(), 1);
         for (code, rating) in pairs {
             map.insert(code.to_string(), *rating);
@@ -145,9 +153,15 @@ mod tests {
     #[test]
     fn positions_within_a_point_of_the_best_note_are_candidates() {
         let n = notes(&[("ML", 20), ("AML", 20), ("AMR", 19), ("STC", 18)]);
-        let near: Vec<_> = natural_candidates(&n, 1).into_iter().map(|(c, _)| c).collect();
+        let near: Vec<_> = natural_candidates(&n, 1)
+            .into_iter()
+            .map(|(c, _)| c)
+            .collect();
         assert_eq!(near, vec!["ML", "AML", "AMR"]);
-        let tied: Vec<_> = natural_candidates(&n, 0).into_iter().map(|(c, _)| c).collect();
+        let tied: Vec<_> = natural_candidates(&n, 0)
+            .into_iter()
+            .map(|(c, _)| c)
+            .collect();
         assert_eq!(tied, vec!["ML", "AML"]);
         assert!(natural_candidates(&BTreeMap::new(), 1).is_empty());
     }

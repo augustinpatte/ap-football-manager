@@ -69,7 +69,10 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// Writes every output into `out_dir`. Refuses to write the world if a blocking check failed.
 pub fn write_all(run: &Run, checks: &[Check], out_dir: &Path) -> Result<Written> {
     if let Some(failed) = checks.iter().find(|c| c.blocking && !c.ok) {
-        return Err(format!("blocking check `{}` failed: {}", failed.name, failed.detail));
+        return Err(format!(
+            "blocking check `{}` failed: {}",
+            failed.name, failed.detail
+        ));
     }
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
     let mut files: Vec<(String, String, u64)> = Vec::new();
@@ -86,13 +89,22 @@ pub fn write_all(run: &Run, checks: &[Check], out_dir: &Path) -> Result<Written>
     let world_bytes = world_json.len() as u64;
     put(&world_name, world_json.into_bytes())?;
     put("mapping.csv", mapping_csv(run).into_bytes())?;
-    put(&format!("{}.extension.jsonl", run.cfg.world.id), extension_jsonl(run).into_bytes())?;
+    put(
+        &format!("{}.extension.jsonl", run.cfg.world.id),
+        extension_jsonl(run).into_bytes(),
+    )?;
     put("finance.csv", finance_csv(run).into_bytes())?;
-    put("generated_players.csv", generated_players_csv(run).into_bytes())?;
+    put(
+        "generated_players.csv",
+        generated_players_csv(run).into_bytes(),
+    )?;
     put("generated_staff.csv", generated_staff_csv(run).into_bytes())?;
     put("journal.csv", journal_csv(run).into_bytes())?;
     put("checks.csv", checks_csv(checks).into_bytes())?;
-    put("ADAPTER_REPORT.md", adapter_report(run, checks, &world_name, &world_sha256, world_bytes).into_bytes())?;
+    put(
+        "ADAPTER_REPORT.md",
+        adapter_report(run, checks, &world_name, &world_sha256, world_bytes).into_bytes(),
+    )?;
 
     let manifest: String = files
         .iter()
@@ -116,7 +128,8 @@ fn csv_field(text: &str) -> String {
 }
 
 fn mapping_csv(run: &Run) -> String {
-    let mut out = String::from("ofm_id,entity,world_db_id,fm_uid,fm_uid_status,name,ofm_club_id,note\n");
+    let mut out =
+        String::from("ofm_id,entity,world_db_id,fm_uid,fm_uid_status,name,ofm_club_id,note\n");
     for row in &run.mapping {
         let _ = writeln!(
             out,
@@ -157,7 +170,15 @@ fn finance_csv(run: &Run) -> String {
 fn generated_players_csv(run: &Run) -> String {
     let mut out = String::from("club_id,ofm_club_id,player_id,position,ovr,origin\n");
     for g in &run.generated_players {
-        let _ = writeln!(out, "{},{},{},{:?},{},généré par OFM (pas FM24)", g.club_id, ids::club(g.club_id), g.id, g.position, g.ovr);
+        let _ = writeln!(
+            out,
+            "{},{},{},{:?},{},généré par OFM (pas FM24)",
+            g.club_id,
+            ids::club(g.club_id),
+            g.id,
+            g.position,
+            g.ovr
+        );
     }
     out
 }
@@ -165,7 +186,14 @@ fn generated_players_csv(run: &Run) -> String {
 fn generated_staff_csv(run: &Run) -> String {
     let mut out = String::from("club_id,ofm_club_id,staff_id,role,origin\n");
     for g in &run.generated_staff {
-        let _ = writeln!(out, "{},{},{},{},généré par OFM (pas FM24)", g.club_id, ids::club(g.club_id), g.id, g.role);
+        let _ = writeln!(
+            out,
+            "{},{},{},{},généré par OFM (pas FM24)",
+            g.club_id,
+            ids::club(g.club_id),
+            g.id,
+            g.role
+        );
     }
     out
 }
@@ -173,7 +201,14 @@ fn generated_staff_csv(run: &Run) -> String {
 fn journal_csv(run: &Run) -> String {
     let mut out = String::from("severity,code,entity,message\n");
     for n in run.journal.notes() {
-        let _ = writeln!(out, "{:?},{},{},{}", n.severity, n.code, csv_field(&n.entity), csv_field(&n.message));
+        let _ = writeln!(
+            out,
+            "{:?},{},{},{}",
+            n.severity,
+            n.code,
+            csv_field(&n.entity),
+            csv_field(&n.message)
+        );
     }
     out
 }
@@ -181,14 +216,22 @@ fn journal_csv(run: &Run) -> String {
 fn checks_csv(checks: &[Check]) -> String {
     let mut out = String::from("name,blocking,ok,detail\n");
     for c in checks {
-        let _ = writeln!(out, "{},{},{},{}", c.name, c.blocking, c.ok, csv_field(&c.detail));
+        let _ = writeln!(
+            out,
+            "{},{},{},{}",
+            c.name,
+            c.blocking,
+            c.ok,
+            csv_field(&c.detail)
+        );
     }
     out
 }
 
 /// One JSON object per imported player: what OFM cannot hold, plus the provenance of derived values.
 fn extension_jsonl(run: &Run) -> String {
-    let rows: BTreeMap<i64, &crate::source::PlayerRow> = run.players.iter().map(|p| (p.person_id, p)).collect();
+    let rows: BTreeMap<i64, &crate::source::PlayerRow> =
+        run.players.iter().map(|p| (p.person_id, p)).collect();
     let mut out = String::new();
     for plan in &run.plans {
         let row = rows[&plan.person_id];
@@ -242,7 +285,9 @@ pub fn ovr_on_ca_fit(run: &Run) -> (f64, f64) {
         .map(|p| (ca[&p.person_id] as f64, f64::from(p.ovr_expected)))
         .collect();
     let n = points.len() as f64;
-    let (sx, sy): (f64, f64) = points.iter().fold((0.0, 0.0), |a, p| (a.0 + p.0, a.1 + p.1));
+    let (sx, sy): (f64, f64) = points
+        .iter()
+        .fold((0.0, 0.0), |a, p| (a.0 + p.0, a.1 + p.1));
     let (mx, my) = (sx / n, sy / n);
     let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
     let sxx: f64 = points.iter().map(|p| (p.0 - mx).powi(2)).sum();
@@ -250,27 +295,88 @@ pub fn ovr_on_ca_fit(run: &Run) -> (f64, f64) {
     (slope, my - slope * mx)
 }
 
-fn adapter_report(run: &Run, checks: &[Check], world_name: &str, world_sha256: &str, world_bytes: u64) -> String {
+fn adapter_report(
+    run: &Run,
+    checks: &[Check],
+    world_name: &str,
+    world_sha256: &str,
+    world_bytes: u64,
+) -> String {
     let mut r = String::new();
     let world = &run.world;
-    let imported_players = world.players.iter().filter(|p| p.id.starts_with("fm-p-")).count();
+    let imported_players = world
+        .players
+        .iter()
+        .filter(|p| p.id.starts_with("fm-p-"))
+        .count();
     let generated_players = world.players.len() - imported_players;
-    let imported_staff = world.staff.iter().filter(|s| s.id.starts_with("fm-s-")).count();
+    let imported_staff = world
+        .staff
+        .iter()
+        .filter(|s| s.id.starts_with("fm-s-"))
+        .count();
     let generated_staff = world.staff.len() - imported_staff;
     let _ = writeln!(r, "# Rapport de l'adaptateur FM24 -> OpenFootManager\n");
-    let _ = writeln!(r, "Généré par `apfm-import` (aucun horodatage : le rapport est reproductible).\n");
+    let _ = writeln!(
+        r,
+        "Généré par `apfm-import` (aucun horodatage : le rapport est reproductible).\n"
+    );
     let _ = writeln!(r, "## Entrées\n");
-    let _ = writeln!(r, "- Source : `world.db` (SHA-256 `{}`), schéma importeur `{}`, save FM `{}` (SHA-256 `{}`), saison {}.", run.source_sha256_before, run.schema.importer_version, run.schema.game_version, run.schema.source_sha256, run.schema.start_season);
-    let _ = writeln!(r, "- Source modifiée par l'adaptateur : **{}** (SHA-256 avant/après identique).", if run.source_sha256_before == run.source_sha256_after { "non" } else { "OUI" });
-    let _ = writeln!(r, "- Graine de construction : {} ; taux £→€ : {} ; version de configuration : {}.\n", run.cfg.world.seed, run.cfg.money.gbp_to_eur, run.cfg.world.version);
+    let _ = writeln!(
+        r,
+        "- Source : `world.db` (SHA-256 `{}`), schéma importeur `{}`, save FM `{}` (SHA-256 `{}`), saison {}.",
+        run.source_sha256_before,
+        run.schema.importer_version,
+        run.schema.game_version,
+        run.schema.source_sha256,
+        run.schema.start_season
+    );
+    let _ = writeln!(
+        r,
+        "- Source modifiée par l'adaptateur : **{}** (SHA-256 avant/après identique).",
+        if run.source_sha256_before == run.source_sha256_after {
+            "non"
+        } else {
+            "OUI"
+        }
+    );
+    let _ = writeln!(
+        r,
+        "- Graine de construction : {} ; taux £→€ : {} ; version de configuration : {}.\n",
+        run.cfg.world.seed, run.cfg.money.gbp_to_eur, run.cfg.world.version
+    );
     let _ = writeln!(r, "## Sortie\n");
-    let _ = writeln!(r, "- Monde : `{world_name}` — {world_bytes} octets — SHA-256 `{world_sha256}`.");
-    let _ = writeln!(r, "- Clubs : **{}** ; compétitions : **{}** ; joueurs importés : **{imported_players}** ; joueurs générés par OFM : **{generated_players}** ; staff importé : **{imported_staff}** ; staff généré par OFM : **{generated_staff}** ; managers réels : **{}**.\n", world.teams.len(), run.competitions.len(), world.managers.len());
+    let _ = writeln!(
+        r,
+        "- Monde : `{world_name}` — {world_bytes} octets — SHA-256 `{world_sha256}`."
+    );
+    let _ = writeln!(
+        r,
+        "- Clubs : **{}** ; compétitions : **{}** ; joueurs importés : **{imported_players}** ; joueurs générés par OFM : **{generated_players}** ; staff importé : **{imported_staff}** ; staff généré par OFM : **{generated_staff}** ; managers réels : **{}**.\n",
+        world.teams.len(),
+        run.competitions.len(),
+        world.managers.len()
+    );
 
-    let _ = writeln!(r, "## Contrôles ({} / {} réussis)\n", checks.iter().filter(|c| c.ok).count(), checks.len());
-    let _ = writeln!(r, "| Contrôle | Bloquant | Résultat | Détail |\n|---|---|---|---|");
+    let _ = writeln!(
+        r,
+        "## Contrôles ({} / {} réussis)\n",
+        checks.iter().filter(|c| c.ok).count(),
+        checks.len()
+    );
+    let _ = writeln!(
+        r,
+        "| Contrôle | Bloquant | Résultat | Détail |\n|---|---|---|---|"
+    );
     for c in checks {
-        let _ = writeln!(r, "| `{}` | {} | {} | {} |", c.name, if c.blocking { "oui" } else { "non" }, if c.ok { "OK" } else { "ÉCHEC" }, c.detail.replace('|', "/"));
+        let _ = writeln!(
+            r,
+            "| `{}` | {} | {} | {} |",
+            c.name,
+            if c.blocking { "oui" } else { "non" },
+            if c.ok { "OK" } else { "ÉCHEC" },
+            c.detail.replace('|', "/")
+        );
     }
 
     let _ = writeln!(r, "\n## Journal (par code)\n");
@@ -279,18 +385,36 @@ fn adapter_report(run: &Run, checks: &[Check], world_name: &str, world_sha256: &
         let _ = writeln!(r, "| {severity:?} | `{code}` | {count} |");
     }
 
-    let _ = writeln!(r, "\n## Joueurs générés par OFM (jamais présentés comme importés)\n");
+    let _ = writeln!(
+        r,
+        "\n## Joueurs générés par OFM (jamais présentés comme importés)\n"
+    );
     let mut per_club: BTreeMap<i64, usize> = BTreeMap::new();
     for g in &run.generated_players {
         *per_club.entry(g.club_id).or_default() += 1;
     }
-    let _ = writeln!(r, "{} joueurs générés dans {} clubs (liste complète : `generated_players.csv`). {} joueurs générés par OFM ont été retirés car non nécessaires au plancher de jeu.\n", generated_players, per_club.len(), run.removed_generated_players);
-    let clubs_by_id: BTreeMap<i64, &crate::source::ClubRow> = run.clubs.iter().map(|c| (c.id, c)).collect();
+    let _ = writeln!(
+        r,
+        "{} joueurs générés dans {} clubs (liste complète : `generated_players.csv`). {} joueurs générés par OFM ont été retirés car non nécessaires au plancher de jeu.\n",
+        generated_players,
+        per_club.len(),
+        run.removed_generated_players
+    );
+    let clubs_by_id: BTreeMap<i64, &crate::source::ClubRow> =
+        run.clubs.iter().map(|c| (c.id, c)).collect();
     let mut top: Vec<(&i64, &usize)> = per_club.iter().collect();
     top.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
     let _ = writeln!(r, "| Club | Joueurs générés |\n|---|---|");
     for (club, n) in top.into_iter().take(12) {
-        let _ = writeln!(r, "| {} (`{}`) | {n} |", clubs_by_id.get(club).map(|c| c.name.as_str()).unwrap_or("?"), ids::club(*club));
+        let _ = writeln!(
+            r,
+            "| {} (`{}`) | {n} |",
+            clubs_by_id
+                .get(club)
+                .map(|c| c.name.as_str())
+                .unwrap_or("?"),
+            ids::club(*club)
+        );
     }
 
     let _ = writeln!(r, "\n## Staff généré par OFM\n");
@@ -298,9 +422,28 @@ fn adapter_report(run: &Run, checks: &[Check], world_name: &str, world_sha256: &
     for g in &run.generated_staff {
         *by_role.entry(g.role.as_str()).or_default() += 1;
     }
-    let _ = writeln!(r, "{} membres générés (liste : `generated_staff.csv`) : {}.", generated_staff, by_role.iter().map(|(k, v)| format!("{k} {v}")).collect::<Vec<_>>().join(", "));
+    let _ = writeln!(
+        r,
+        "{} membres générés (liste : `generated_staff.csv`) : {}.",
+        generated_staff,
+        by_role
+            .iter()
+            .map(|(k, v)| format!("{k} {v}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     let _ = writeln!(r, "\n## Managers\n");
-    let _ = writeln!(r, "{} clubs ont leur entraîneur principal FM comme manager. Clubs sans entraîneur principal en équipe première : {} ({}).", world.managers.len(), run.manager_clubs_missing.len(), run.manager_clubs_missing.iter().map(|c| ids::club(*c)).collect::<Vec<_>>().join(", "));
+    let _ = writeln!(
+        r,
+        "{} clubs ont leur entraîneur principal FM comme manager. Clubs sans entraîneur principal en équipe première : {} ({}).",
+        world.managers.len(),
+        run.manager_clubs_missing.len(),
+        run.manager_clubs_missing
+            .iter()
+            .map(|c| ids::club(*c))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 
     let _ = writeln!(r, "\n## Finances (provenance)\n");
     let mut by_field: BTreeMap<(&str, &str), usize> = BTreeMap::new();
@@ -311,12 +454,23 @@ fn adapter_report(run: &Run, checks: &[Check], world_name: &str, world_sha256: &
     for ((field, provenance), n) in by_field {
         let _ = writeln!(r, "| {field} | {provenance} | {n} |");
     }
-    let _ = writeln!(r, "\nLes valeurs « importée » viennent de `club_finance_start`, elle-même **générée par l'importeur** (`source = générée`, ordres de grandeur à vérifier) ; la capacité du stade est tirée par OFM (absente de world.db).");
+    let _ = writeln!(
+        r,
+        "\nLes valeurs « importée » viennent de `club_finance_start`, elle-même **générée par l'importeur** (`source = générée`, ordres de grandeur à vérifier) ; la capacité du stade est tirée par OFM (absente de world.db)."
+    );
 
     let _ = writeln!(r, "\n## Distribution des notes OFM (joueurs importés)\n");
-    let _ = writeln!(r, "| Division | Joueurs | Médiane | p90 | Max | Moy. des 14 meilleurs/club |\n|---|---|---|---|---|---|");
-    let ovr_of: BTreeMap<&str, u8> = world.players.iter().map(|p| (p.id.as_str(), p.ovr)).collect();
-    let comp_of_club: BTreeMap<i64, i64> = run.clubs.iter().map(|c| (c.id, c.competition_id)).collect();
+    let _ = writeln!(
+        r,
+        "| Division | Joueurs | Médiane | p90 | Max | Moy. des 14 meilleurs/club |\n|---|---|---|---|---|---|"
+    );
+    let ovr_of: BTreeMap<&str, u8> = world
+        .players
+        .iter()
+        .map(|p| (p.id.as_str(), p.ovr))
+        .collect();
+    let comp_of_club: BTreeMap<i64, i64> =
+        run.clubs.iter().map(|c| (c.id, c.competition_id)).collect();
     for comp in &run.competitions {
         let mut ratings: Vec<u8> = Vec::new();
         let mut firsts: Vec<f64> = Vec::new();
@@ -335,11 +489,28 @@ fn adapter_report(run: &Run, checks: &[Check], world_name: &str, world_sha256: &
             ratings.extend(club_ratings);
         }
         ratings.sort_unstable();
-        let strength = if firsts.is_empty() { 0.0 } else { firsts.iter().sum::<f64>() / firsts.len() as f64 };
-        let _ = writeln!(r, "| {} | {} | {} | {} | {} | {:.1} |", comp.name, ratings.len(), percentile(&ratings, 0.5), percentile(&ratings, 0.9), percentile(&ratings, 1.0), strength);
+        let strength = if firsts.is_empty() {
+            0.0
+        } else {
+            firsts.iter().sum::<f64>() / firsts.len() as f64
+        };
+        let _ = writeln!(
+            r,
+            "| {} | {} | {} | {} | {} | {:.1} |",
+            comp.name,
+            ratings.len(),
+            percentile(&ratings, 0.5),
+            percentile(&ratings, 0.9),
+            percentile(&ratings, 1.0),
+            strength
+        );
     }
     let (slope, intercept) = ovr_on_ca_fit(run);
-    let _ = writeln!(r, "\nPente de la note OFM sur le CA FM : {slope:.3} point OFM par point de CA (ordonnée {intercept:.1}) ; coefficient de potentiel configuré : {}.", run.cfg.potential.ovr_points_per_ca);
+    let _ = writeln!(
+        r,
+        "\nPente de la note OFM sur le CA FM : {slope:.3} point OFM par point de CA (ordonnée {intercept:.1}) ; coefficient de potentiel configuré : {}.",
+        run.cfg.potential.ovr_points_per_ca
+    );
     r
 }
 
@@ -364,7 +535,8 @@ mod tests {
 
     #[test]
     fn canonical_json_sorts_keys_at_every_depth() {
-        let value: serde_json::Value = serde_json::from_str(r#"{"b":1,"a":{"d":[{"z":1,"y":2}],"c":"x"}}"#).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(r#"{"b":1,"a":{"d":[{"z":1,"y":2}],"c":"x"}}"#).unwrap();
         let mut out = String::new();
         write_sorted(&value, &mut out);
         assert_eq!(out, r#"{"a":{"c":"x","d":[{"y":2,"z":1}]},"b":1}"#);
@@ -372,6 +544,9 @@ mod tests {
 
     #[test]
     fn sha256_of_empty_input() {
-        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
     }
 }

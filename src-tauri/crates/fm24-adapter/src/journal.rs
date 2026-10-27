@@ -41,15 +41,30 @@ impl Journal {
         });
     }
 
-    pub fn info(&mut self, code: &'static str, entity: impl Into<String>, message: impl Into<String>) {
+    pub fn info(
+        &mut self,
+        code: &'static str,
+        entity: impl Into<String>,
+        message: impl Into<String>,
+    ) {
         self.add(Severity::Info, code, entity, message);
     }
 
-    pub fn warn(&mut self, code: &'static str, entity: impl Into<String>, message: impl Into<String>) {
+    pub fn warn(
+        &mut self,
+        code: &'static str,
+        entity: impl Into<String>,
+        message: impl Into<String>,
+    ) {
         self.add(Severity::Warning, code, entity, message);
     }
 
-    pub fn error(&mut self, code: &'static str, entity: impl Into<String>, message: impl Into<String>) {
+    pub fn error(
+        &mut self,
+        code: &'static str,
+        entity: impl Into<String>,
+        message: impl Into<String>,
+    ) {
         self.add(Severity::Error, code, entity, message);
     }
 

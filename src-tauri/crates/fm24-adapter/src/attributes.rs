@@ -70,7 +70,11 @@ pub fn recipe(name: &str, position: &Position) -> Vec<(&'static str, f64)> {
         "shooting" => vec![("finishing", 0.7), ("long_shots", 0.3)],
         "tackling" => vec![("tackling", 1.0)],
         "dribbling" => vec![("dribbling", 0.6), ("technique", 0.2), ("first_touch", 0.2)],
-        "defending" => vec![("marking", 0.5), ("anticipation", 0.25), ("concentration", 0.25)],
+        "defending" => vec![
+            ("marking", 0.5),
+            ("anticipation", 0.25),
+            ("concentration", 0.25),
+        ],
         "positioning" => match role {
             Role::Goalkeeper => vec![("positioning", 0.7), ("command_of_area", 0.3)],
             Role::Defensive => vec![("positioning", 0.8), ("anticipation", 0.2)],
@@ -90,7 +94,11 @@ pub fn recipe(name: &str, position: &Position) -> Vec<(&'static str, f64)> {
             _ => vec![("reflexes", 1.0)],
         },
         "aerial" => match role {
-            Role::Goalkeeper => vec![("aerial_reach", 0.5), ("command_of_area", 0.3), ("jumping_reach", 0.2)],
+            Role::Goalkeeper => vec![
+                ("aerial_reach", 0.5),
+                ("command_of_area", 0.3),
+                ("jumping_reach", 0.2),
+            ],
             _ => vec![("heading", 0.55), ("jumping_reach", 0.45)],
         },
         other => panic!("unknown OFM attribute {other}"),
@@ -185,7 +193,10 @@ mod tests {
             for name in OFM_ATTRIBUTES {
                 let recipe = recipe(name, position);
                 let total: f64 = recipe.iter().map(|(_, w)| w).sum();
-                assert!((total - 1.0).abs() < 1e-9, "{name} for {position:?} sums to {total}");
+                assert!(
+                    (total - 1.0).abs() < 1e-9,
+                    "{name} for {position:?} sums to {total}"
+                );
                 for (fm_name, _) in recipe {
                     assert!(
                         crate::source::ATTRIBUTE_COLUMNS.contains(&fm_name),
@@ -207,8 +218,18 @@ mod tests {
 
     #[test]
     fn values_are_bounded_to_1_99() {
-        let top = FmAttrs(crate::source::ATTRIBUTE_COLUMNS.iter().map(|n| (*n, 100)).collect());
-        let bottom = FmAttrs(crate::source::ATTRIBUTE_COLUMNS.iter().map(|n| (*n, 0)).collect());
+        let top = FmAttrs(
+            crate::source::ATTRIBUTE_COLUMNS
+                .iter()
+                .map(|n| (*n, 100))
+                .collect(),
+        );
+        let bottom = FmAttrs(
+            crate::source::ATTRIBUTE_COLUMNS
+                .iter()
+                .map(|n| (*n, 0))
+                .collect(),
+        );
         assert_eq!(convert(&top, &Position::Striker).pace, 99);
         assert_eq!(convert(&bottom, &Position::Striker).pace, 1);
     }
@@ -216,10 +237,17 @@ mod tests {
     #[test]
     fn the_same_fm_player_gets_a_different_positioning_by_role() {
         // Positioning high, off the ball low: a defender stands in the right place, a striker does not.
-        let fm = FmAttrs::from_pairs(&[("positioning", 90), ("off_the_ball", 30), ("anticipation", 90)]);
+        let fm = FmAttrs::from_pairs(&[
+            ("positioning", 90),
+            ("off_the_ball", 30),
+            ("anticipation", 90),
+        ]);
         let as_defender = convert(&fm, &Position::CenterBack).positioning;
         let as_striker = convert(&fm, &Position::Striker).positioning;
-        assert!(as_defender > as_striker + 30, "{as_defender} vs {as_striker}");
+        assert!(
+            as_defender > as_striker + 30,
+            "{as_defender} vs {as_striker}"
+        );
     }
 
     #[test]
@@ -237,11 +265,15 @@ mod tests {
         let gk = convert(&fm, &Position::Goalkeeper);
         let outfield = convert(&fm, &Position::CenterBack);
         assert!(gk.aerial >= 80, "keeper aerial {}", gk.aerial);
-        assert!(outfield.aerial < gk.aerial, "heading 20 drags an outfielder's aerial down");
+        assert!(
+            outfield.aerial < gk.aerial,
+            "heading 20 drags an outfielder's aerial down"
+        );
         // A keeper's reflexes also reflect one-on-ones and agility; an outfielder's are just FM reflexes.
         assert_eq!(outfield.reflexes, 92);
         assert_eq!(gk.reflexes, 89);
-        let worse_one_on_ones = FmAttrs::from_pairs(&[("reflexes", 92), ("one_on_ones", 40), ("agility", 80)]);
+        let worse_one_on_ones =
+            FmAttrs::from_pairs(&[("reflexes", 92), ("one_on_ones", 40), ("agility", 80)]);
         assert!(convert(&worse_one_on_ones, &Position::Goalkeeper).reflexes < gk.reflexes);
     }
 
@@ -258,28 +290,130 @@ mod tests {
             // (position, elite, lower-division)
             (
                 Position::Goalkeeper,
-                &[("handling", 92), ("reflexes", 94), ("one_on_ones", 90), ("aerial_reach", 88), ("command_of_area", 88), ("positioning", 92), ("decisions", 88), ("composure", 90)],
-                &[("handling", 55), ("reflexes", 55), ("one_on_ones", 50), ("aerial_reach", 55), ("command_of_area", 50), ("positioning", 55), ("decisions", 50), ("composure", 50)],
+                &[
+                    ("handling", 92),
+                    ("reflexes", 94),
+                    ("one_on_ones", 90),
+                    ("aerial_reach", 88),
+                    ("command_of_area", 88),
+                    ("positioning", 92),
+                    ("decisions", 88),
+                    ("composure", 90),
+                ],
+                &[
+                    ("handling", 55),
+                    ("reflexes", 55),
+                    ("one_on_ones", 50),
+                    ("aerial_reach", 55),
+                    ("command_of_area", 50),
+                    ("positioning", 55),
+                    ("decisions", 50),
+                    ("composure", 50),
+                ],
             ),
             (
                 Position::CenterBack,
-                &[("marking", 90), ("tackling", 90), ("positioning", 92), ("strength", 90), ("heading", 88), ("jumping_reach", 85), ("anticipation", 90), ("concentration", 88), ("decisions", 88), ("composure", 90)],
-                &[("marking", 55), ("tackling", 55), ("positioning", 55), ("strength", 60), ("heading", 55), ("jumping_reach", 55), ("anticipation", 50), ("concentration", 50), ("decisions", 50), ("composure", 50)],
+                &[
+                    ("marking", 90),
+                    ("tackling", 90),
+                    ("positioning", 92),
+                    ("strength", 90),
+                    ("heading", 88),
+                    ("jumping_reach", 85),
+                    ("anticipation", 90),
+                    ("concentration", 88),
+                    ("decisions", 88),
+                    ("composure", 90),
+                ],
+                &[
+                    ("marking", 55),
+                    ("tackling", 55),
+                    ("positioning", 55),
+                    ("strength", 60),
+                    ("heading", 55),
+                    ("jumping_reach", 55),
+                    ("anticipation", 50),
+                    ("concentration", 50),
+                    ("decisions", 50),
+                    ("composure", 50),
+                ],
             ),
             (
                 Position::CentralMidfielder,
-                &[("passing", 92), ("vision", 92), ("decisions", 90), ("stamina", 88), ("dribbling", 85), ("positioning", 85), ("off_the_ball", 85), ("teamwork", 88), ("tackling", 80), ("technique", 90)],
-                &[("passing", 55), ("vision", 55), ("decisions", 55), ("stamina", 60), ("dribbling", 50), ("positioning", 50), ("off_the_ball", 50), ("teamwork", 55), ("tackling", 50), ("technique", 50)],
+                &[
+                    ("passing", 92),
+                    ("vision", 92),
+                    ("decisions", 90),
+                    ("stamina", 88),
+                    ("dribbling", 85),
+                    ("positioning", 85),
+                    ("off_the_ball", 85),
+                    ("teamwork", 88),
+                    ("tackling", 80),
+                    ("technique", 90),
+                ],
+                &[
+                    ("passing", 55),
+                    ("vision", 55),
+                    ("decisions", 55),
+                    ("stamina", 60),
+                    ("dribbling", 50),
+                    ("positioning", 50),
+                    ("off_the_ball", 50),
+                    ("teamwork", 55),
+                    ("tackling", 50),
+                    ("technique", 50),
+                ],
             ),
             (
                 Position::RightWinger,
-                &[("pace", 92), ("acceleration", 92), ("dribbling", 92), ("passing", 80), ("crossing", 85), ("vision", 82), ("off_the_ball", 85), ("technique", 90), ("stamina", 85)],
-                &[("pace", 60), ("acceleration", 60), ("dribbling", 55), ("passing", 50), ("crossing", 50), ("vision", 50), ("off_the_ball", 50), ("technique", 50), ("stamina", 55)],
+                &[
+                    ("pace", 92),
+                    ("acceleration", 92),
+                    ("dribbling", 92),
+                    ("passing", 80),
+                    ("crossing", 85),
+                    ("vision", 82),
+                    ("off_the_ball", 85),
+                    ("technique", 90),
+                    ("stamina", 85),
+                ],
+                &[
+                    ("pace", 60),
+                    ("acceleration", 60),
+                    ("dribbling", 55),
+                    ("passing", 50),
+                    ("crossing", 50),
+                    ("vision", 50),
+                    ("off_the_ball", 50),
+                    ("technique", 50),
+                    ("stamina", 55),
+                ],
             ),
             (
                 Position::Striker,
-                &[("finishing", 94), ("off_the_ball", 92), ("composure", 90), ("decisions", 85), ("long_shots", 80), ("pace", 85), ("acceleration", 85), ("dribbling", 80), ("technique", 85)],
-                &[("finishing", 55), ("off_the_ball", 55), ("composure", 50), ("decisions", 50), ("long_shots", 45), ("pace", 55), ("acceleration", 55), ("dribbling", 50), ("technique", 50)],
+                &[
+                    ("finishing", 94),
+                    ("off_the_ball", 92),
+                    ("composure", 90),
+                    ("decisions", 85),
+                    ("long_shots", 80),
+                    ("pace", 85),
+                    ("acceleration", 85),
+                    ("dribbling", 80),
+                    ("technique", 85),
+                ],
+                &[
+                    ("finishing", 55),
+                    ("off_the_ball", 55),
+                    ("composure", 50),
+                    ("decisions", 50),
+                    ("long_shots", 45),
+                    ("pace", 55),
+                    ("acceleration", 55),
+                    ("dribbling", 50),
+                    ("technique", 50),
+                ],
             ),
         ];
         for (position, elite, lower) in roles {
@@ -294,10 +428,18 @@ mod tests {
 
     #[test]
     fn potential_adds_the_converted_headroom_and_is_bounded() {
-        assert_eq!(potential(70, 150, 150, 0.45), 70, "no headroom -> at the ceiling");
+        assert_eq!(
+            potential(70, 150, 150, 0.45),
+            70,
+            "no headroom -> at the ceiling"
+        );
         assert_eq!(potential(55, 100, 140, 0.45), 73);
         assert_eq!(potential(90, 150, 200, 0.45), 99, "capped at 99");
-        assert_eq!(potential(70, 160, 140, 0.45), 70, "PA below CA never lowers the rating");
+        assert_eq!(
+            potential(70, 160, 140, 0.45),
+            70,
+            "PA below CA never lowers the rating"
+        );
         assert!(potential(1, 1, 1, 0.45) >= 1);
     }
 }

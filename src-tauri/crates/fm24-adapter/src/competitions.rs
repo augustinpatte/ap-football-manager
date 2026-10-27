@@ -94,7 +94,10 @@ mod tests {
 
     #[test]
     fn the_french_third_tier_gets_a_display_name() {
-        assert_eq!(display_name("National (Ligue 3 en 2026/27)"), "National (Ligue 3)");
+        assert_eq!(
+            display_name("National (Ligue 3 en 2026/27)"),
+            "National (Ligue 3)"
+        );
         assert_eq!(display_name("Ligue 1"), "Ligue 1");
     }
 

@@ -82,7 +82,9 @@ impl ShortCodes {
         let short_words = words(short_name);
         let full_words = words(full_name);
         if (2..=5).contains(&short_name.chars().count())
-            && short_name.chars().all(|c| c.is_alphabetic() && c.is_uppercase())
+            && short_name
+                .chars()
+                .all(|c| c.is_alphabetic() && c.is_uppercase())
         {
             candidates.push(strip(short_name));
         }
@@ -98,7 +100,11 @@ impl ShortCodes {
             candidates.push(first_n(distinctive, 3));
         }
         if full_words.len() >= 2 {
-            let initials: String = full_words.iter().filter_map(|w| w.chars().next()).take(3).collect();
+            let initials: String = full_words
+                .iter()
+                .filter_map(|w| w.chars().next())
+                .take(3)
+                .collect();
             candidates.push(initials);
         }
         if let Some(first) = short_words.first() {
@@ -127,8 +133,8 @@ impl ShortCodes {
 }
 
 const STOP_WORDS: [&str; 22] = [
-    "FC", "AFC", "AS", "SC", "SV", "VFL", "VFB", "TSV", "SSC", "AC", "US", "RC", "CD", "CF", "UD", "RCD",
-    "SD", "AD", "DSC", "SG", "SPVGG", "THE",
+    "FC", "AFC", "AS", "SC", "SV", "VFL", "VFB", "TSV", "SSC", "AC", "US", "RC", "CD", "CF", "UD",
+    "RCD", "SD", "AD", "DSC", "SG", "SPVGG", "THE",
 ];
 
 /// Uppercase ASCII letters of `text`, accents folded.
@@ -184,7 +190,10 @@ mod tests {
         assert_eq!(refs.nation_code("England").as_deref(), Some("ENG"));
         assert_eq!(refs.nation_code("Wales").as_deref(), Some("WAL"));
         assert_eq!(refs.nation_code("USA").as_deref(), Some("US"));
-        assert_eq!(refs.nation_code("Republic of Ireland").as_deref(), Some("IE"));
+        assert_eq!(
+            refs.nation_code("Republic of Ireland").as_deref(),
+            Some("IE")
+        );
         assert_eq!(refs.nation_code("Turkey").as_deref(), Some("TR"));
         assert_eq!(refs.nation_code("Atlantis"), None);
     }

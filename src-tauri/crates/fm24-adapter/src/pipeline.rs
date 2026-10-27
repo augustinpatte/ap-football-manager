@@ -147,7 +147,12 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
             .nation
             .as_deref()
             .and_then(|n| refs.nation_code(n))
-            .ok_or_else(|| format!("{id} ({}): club nation `{:?}` has no OFM code", club.name, club.nation))?;
+            .ok_or_else(|| {
+                format!(
+                    "{id} ({}): club nation `{:?}` has no OFM code",
+                    club.name, club.nation
+                )
+            })?;
         club_country.insert(club.id, country.clone());
         let city = match refs.city(club.id) {
             Some((checked_name, city)) if checked_name == club.name => city.to_string(),
@@ -155,12 +160,19 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
                 journal.error(
                     "club.city_row_mismatch",
                     &id,
-                    format!("club_city.csv names `{checked_name}` but world.db names `{}`", club.name),
+                    format!(
+                        "club_city.csv names `{checked_name}` but world.db names `{}`",
+                        club.name
+                    ),
                 );
                 club.name.clone()
             }
             None => {
-                journal.error("club.city_missing", &id, format!("no city for {}", club.name));
+                journal.error(
+                    "club.city_missing",
+                    &id,
+                    format!("no city for {}", club.name),
+                );
                 club.name.clone()
             }
         };
@@ -169,7 +181,11 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         let (primary, secondary) = match &club.colours {
             Some(c) => (hex_colour(&c.primary), hex_colour(&c.secondary)),
             None => {
-                journal.warn("club.colours_missing", &id, "no colours in world.db; white/black used");
+                journal.warn(
+                    "club.colours_missing",
+                    &id,
+                    "no colours in world.db; white/black used",
+                );
                 ("#ffffff".to_string(), "#000000".to_string())
             }
         };
@@ -222,10 +238,24 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     }
 
     // --- package on disk, then OFM's own loader and validator ----------------------------------
-    write_package(package_dir, cfg, &teams, &plans, &staff_plans, &competitions, &members, &refs, &mut journal)?;
+    write_package(
+        package_dir,
+        cfg,
+        &teams,
+        &plans,
+        &staff_plans,
+        &competitions,
+        &members,
+        &refs,
+        &mut journal,
+    )?;
     let (package, load_errors) = load_world_package(package_dir);
     let mut package_errors: Vec<String> = load_errors.iter().map(describe_package_error).collect();
-    package_errors.extend(validate_package(&package).iter().map(describe_package_error));
+    package_errors.extend(
+        validate_package(&package)
+            .iter()
+            .map(describe_package_error),
+    );
     if !package_errors.is_empty() {
         let shown: Vec<_> = package_errors.iter().take(5).cloned().collect();
         return Err(format!(
@@ -256,12 +286,20 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         0
     };
     apply_staff_contracts(&mut world, &staff_rows, cfg);
-    apply_managers(&mut world, &chosen_managers, &refs, &mut journal);
+    apply_managers(&mut world, &chosen_managers, &refs, cfg, &mut journal);
     let finance_records = restore_finance(&mut world, &clubs, cfg, &mut journal);
 
     // --- bookkeeping -----------------------------------------------------------------------------
     let (generated_players, generated_staff) = list_generated(&world, &clubs);
-    let mapping = mapping_rows(&players, &staff_rows, &clubs, &competitions, &plans, &staff_plans, &chosen_managers);
+    let mapping = mapping_rows(
+        &players,
+        &staff_rows,
+        &clubs,
+        &competitions,
+        &plans,
+        &staff_plans,
+        &chosen_managers,
+    );
     let source_sha256_after = Source::sha256(world_db)?;
 
     Ok(Run {
@@ -293,7 +331,11 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
 }
 
 fn describe_package_error(error: &ofm_core::generator::package::PackageError) -> String {
-    let params: Vec<String> = error.params.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    let params: Vec<String> = error
+        .params
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect();
     format!("{} [{}] {}", error.code, error.file, params.join(","))
 }
 
@@ -312,7 +354,9 @@ fn plan_player(
     let id = ids::player(row.person_id);
     // Best FM note; among positions tied for it, the one OFM itself rates highest for this player.
     let mut best: Option<(&'static str, Position, domain::player::PlayerAttributes, u8)> = None;
-    for (code, candidate) in positions::natural_candidates(&row.positions, cfg.positions.natural_within) {
+    for (code, candidate) in
+        positions::natural_candidates(&row.positions, cfg.positions.natural_within)
+    {
         let attrs = attributes::convert(&row.attrs, &candidate);
         let rating = attributes::ovr(&attrs, &candidate);
         if best.as_ref().is_none_or(|(_, _, _, r)| rating > *r) {
@@ -320,7 +364,11 @@ fn plan_player(
         }
     }
     let Some((natural_code, position, converted, ovr)) = best else {
-        journal.error("player.excluded_no_position", &id, "no usable FM position note; player not imported");
+        journal.error(
+            "player.excluded_no_position",
+            &id,
+            "no usable FM position note; player not imported",
+        );
         return None;
     };
     // OFM keeps weak foot and alternate positions only for a specific outfield position; a goalkeeper
@@ -335,23 +383,35 @@ fn plan_player(
 
     let potential = attributes::potential(ovr, row.ca, row.pa, cfg.potential.ovr_points_per_ca);
 
-    let (nationality, nationality_source) = match row.nation.as_deref().and_then(|n| refs.nation_code(n)) {
-        Some(code) => (code, "save"),
-        None => {
-            journal.warn(
+    let (nationality, nationality_source) =
+        match row.nation.as_deref().and_then(|n| refs.nation_code(n)) {
+            Some(code) => (code, "save"),
+            None => {
+                journal.warn(
                 "player.nation_fallback",
                 &id,
                 "no usable nationality in the save; the club's country is used (not an FM fact)",
             );
-            (club_country.to_string(), "club (repli)")
-        }
-    };
+                (club_country.to_string(), "club (repli)")
+            }
+        };
     if row.birth_date.is_none() {
-        journal.warn("player.birth_missing", &id, "no birth date in the save; OFM draws an age");
+        journal.warn(
+            "player.birth_missing",
+            &id,
+            "no birth date in the save; OFM draws an age",
+        );
     }
 
     let (contract_end, contract_end_source) = match &row.end_date {
-        Some(end) if row.start_date.as_deref().is_none_or(|start| end.as_str() > start) => (end.clone(), "save"),
+        Some(end)
+            if row
+                .start_date
+                .as_deref()
+                .is_none_or(|start| end.as_str() > start) =>
+        {
+            (end.clone(), "save")
+        }
         Some(end) => {
             journal.warn(
                 "player.contract_end_not_after_start",
@@ -459,21 +519,39 @@ fn write_package(
     write_items(&dir.join("teams.json"), "team", teams)?;
 
     let competition_defs = competitions::build(competition_rows, members, refs, journal)?;
-    write_items(&dir.join("competitions.json"), "competition", &competition_defs)?;
+    write_items(
+        &dir.join("competitions.json"),
+        "competition",
+        &competition_defs,
+    )?;
 
     let mut by_club: BTreeMap<&str, Vec<&PlayerDef>> = BTreeMap::new();
     for plan in plans {
-        by_club.entry(plan.def.club.as_str()).or_default().push(&plan.def);
+        by_club
+            .entry(plan.def.club.as_str())
+            .or_default()
+            .push(&plan.def);
     }
     for (club, defs) in by_club {
-        write_items(&dir.join("players").join(format!("{club}.json")), "player", &defs)?;
+        write_items(
+            &dir.join("players").join(format!("{club}.json")),
+            "player",
+            &defs,
+        )?;
     }
     let mut staff_by_club: BTreeMap<&str, Vec<&ofm_core::generator::StaffDef>> = BTreeMap::new();
     for (def, _) in staff_plans {
-        staff_by_club.entry(def.club.as_str()).or_default().push(def);
+        staff_by_club
+            .entry(def.club.as_str())
+            .or_default()
+            .push(def);
     }
     for (club, defs) in staff_by_club {
-        write_items(&dir.join("staff").join(format!("{club}.json")), "staff", &defs)?;
+        write_items(
+            &dir.join("staff").join(format!("{club}.json")),
+            "staff",
+            &defs,
+        )?;
     }
     Ok(())
 }
@@ -575,7 +653,8 @@ fn group_index(group: &Position) -> usize {
 
 /// `StaffDef` carries no wage or contract end: set them on the built staff.
 fn apply_staff_contracts(world: &mut WorldData, rows: &[StaffRow], cfg: &Config) {
-    let by_id: BTreeMap<String, &StaffRow> = rows.iter().map(|r| (ids::staff(r.person_id), r)).collect();
+    let by_id: BTreeMap<String, &StaffRow> =
+        rows.iter().map(|r| (ids::staff(r.person_id), r)).collect();
     for member in &mut world.staff {
         if let Some(row) = by_id.get(&member.id) {
             let (wage, end) = staff::contract(row, cfg);
@@ -586,7 +665,13 @@ fn apply_staff_contracts(world: &mut WorldData, rows: &[StaffRow], cfg: &Config)
 }
 
 /// Real head coaches become the clubs' managers.
-fn apply_managers(world: &mut WorldData, chosen: &[&StaffRow], refs: &Refs, journal: &mut Journal) {
+fn apply_managers(
+    world: &mut WorldData,
+    chosen: &[&StaffRow],
+    refs: &Refs,
+    cfg: &Config,
+    journal: &mut Journal,
+) {
     for row in chosen {
         let id = ids::staff(row.person_id);
         let team_id = ids::club(row.club_id);
@@ -607,13 +692,38 @@ fn apply_managers(world: &mut WorldData, chosen: &[&StaffRow], refs: &Refs, jour
         let nationality = match row.nation.as_deref().and_then(|n| refs.nation_code(n)) {
             Some(code) => code,
             None => {
-                journal.warn("manager.nation_fallback", &id, "no usable nationality; the club's country is used");
+                journal.warn(
+                    "manager.nation_fallback",
+                    &id,
+                    "no usable nationality; the club's country is used",
+                );
                 club_country
             }
         };
-        let mut manager = Manager::new(id.clone(), row.first_name.clone(), row.last_name.clone(), dob, nationality);
+        let mut manager = Manager::new(
+            id.clone(),
+            row.first_name.clone(),
+            row.last_name.clone(),
+            dob,
+            nationality,
+        );
         manager.reputation = staff::manager_reputation(row.rep_current);
-        manager.team_id = Some(team_id.clone());
+        manager.hire(team_id.clone());
+        // The save does not say when the tenure began: the entry opens on the world's configured
+        // start date (the same convention OFM uses for the managers it invents).
+        let team_name = world
+            .teams
+            .iter()
+            .find(|t| t.id == team_id)
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
+        manager
+            .career_history
+            .push(domain::manager::ManagerCareerEntry::open(
+                team_id.clone(),
+                team_name,
+                cfg.start.date.clone(),
+            ));
         if let Some(common) = row.common_name.as_ref().filter(|c| !c.trim().is_empty()) {
             manager.set_known_as(Some(common.clone()));
         }
@@ -649,10 +759,11 @@ fn restore_finance(
     records
 }
 
-fn list_generated(world: &WorldData, clubs: &[ClubRow]) -> (Vec<GeneratedPlayer>, Vec<GeneratedStaff>) {
-    let club_of = |team_id: &str| {
-        ids::internal_key(team_id, "fm-c-").unwrap_or(0)
-    };
+fn list_generated(
+    world: &WorldData,
+    clubs: &[ClubRow],
+) -> (Vec<GeneratedPlayer>, Vec<GeneratedStaff>) {
+    let club_of = |team_id: &str| ids::internal_key(team_id, "fm-c-").unwrap_or(0);
     let known: BTreeSet<i64> = clubs.iter().map(|c| c.id).collect();
     let mut players: Vec<GeneratedPlayer> = world
         .players
@@ -701,7 +812,11 @@ fn mapping_rows(
             fm_uid_status: String::new(),
             name: c.name.clone(),
             ofm_club_id: String::new(),
-            note: format!("{} ; niveau {}", if c.playable { "jouable" } else { "simulée" }, c.level.unwrap_or(0)),
+            note: format!(
+                "{} ; niveau {}",
+                if c.playable { "jouable" } else { "simulée" },
+                c.level.unwrap_or(0)
+            ),
         });
     }
     for c in clubs {
@@ -724,7 +839,9 @@ fn mapping_rows(
             world_db_id: p.person_id,
             fm_uid: p.fm_uid,
             fm_uid_status: p.fm_uid_status.clone(),
-            name: format!("{} {}", p.first_name, p.last_name).trim().to_string(),
+            name: format!("{} {}", p.first_name, p.last_name)
+                .trim()
+                .to_string(),
             ofm_club_id: ids::club(p.club_id),
             note: String::new(),
         });
@@ -745,11 +862,17 @@ fn mapping_rows(
             world_db_id: s.person_id,
             fm_uid: s.fm_uid,
             fm_uid_status: s.fm_uid_status.clone(),
-            name: format!("{} {}", s.first_name, s.last_name).trim().to_string(),
+            name: format!("{} {}", s.first_name, s.last_name)
+                .trim()
+                .to_string(),
             ofm_club_id: ids::club(s.club_id),
             note,
         });
     }
-    rows.sort_by(|a, b| a.entity.cmp(b.entity).then(a.world_db_id.cmp(&b.world_db_id)));
+    rows.sort_by(|a, b| {
+        a.entity
+            .cmp(b.entity)
+            .then(a.world_db_id.cmp(&b.world_db_id))
+    });
     rows
 }

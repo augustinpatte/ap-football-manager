@@ -30,7 +30,13 @@ fn execute(world_db: &std::path::Path, out: &std::path::Path, verify: bool) -> R
     let results = checks::run_checks(&run);
     let failed: Vec<_> = results.iter().filter(|c| !c.ok).collect();
     for c in &results {
-        println!("[{}] {}{}: {}", if c.ok { " ok " } else { "FAIL" }, c.name, if c.blocking { "" } else { " (info)" }, c.detail);
+        println!(
+            "[{}] {}{}: {}",
+            if c.ok { " ok " } else { "FAIL" },
+            c.name,
+            if c.blocking { "" } else { " (info)" },
+            c.detail
+        );
     }
     let written = report::write_all(&run, &results, out)?;
     println!(
@@ -49,7 +55,10 @@ fn execute(world_db: &std::path::Path, out: &std::path::Path, verify: bool) -> R
         if again_sha == written.world_sha256 {
             println!("determinism: two independent runs give the same SHA-256");
         } else {
-            return Err(format!("NOT deterministic: {} vs {}", written.world_sha256, again_sha));
+            return Err(format!(
+                "NOT deterministic: {} vs {}",
+                written.world_sha256, again_sha
+            ));
         }
     }
     Ok(())

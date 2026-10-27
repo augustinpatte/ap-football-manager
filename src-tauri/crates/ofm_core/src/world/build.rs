@@ -167,6 +167,15 @@ pub fn build_game_from_world_data(
             (game, stats)
         }
         WorldDataKind::RosterBaseline => {
+            // APFM: a roster-baseline world used to drop `managers` and invent one per club. An
+            // imported world names the clubs' real head coaches (each already wired through its
+            // team's `manager_id`), so they are kept; `seed_ai_managers` only invents for the
+            // clubs left without one.
+            game.managers.extend(
+                managers
+                    .into_iter()
+                    .filter(|existing_manager| existing_manager.id != game.manager.id),
+            );
             // Authored definitions, if any, become the world's competitions;
             // otherwise ensure_multi_competition_foundations auto-builds them.
             game.competitions = competitions;
@@ -229,6 +238,50 @@ mod tests {
         assert!(game.players.len() >= players);
         assert!(!game.competitions.is_empty());
         assert!(game.teams.iter().all(|team| team.history.len() == 2));
+    }
+
+    /// Given a roster-baseline world that carries a real manager for one club (an imported world),
+    /// When a game is built from it and the AI clubs are seeded,
+    /// Then that club keeps its manager, and only the clubs without one are given an invented one.
+    ///
+    /// APFM: the shipped game rebuilt every club's manager for a roster-baseline world; an imported
+    /// world names the clubs' real head coaches.
+    #[test]
+    fn a_roster_baseline_world_keeps_the_managers_it_carries() {
+        let sources = DefinitionSources::embedded_only();
+        let mut world = generate_world_data_seeded_with(5, &WorldGenConfig::compact(), &sources);
+        let club = world.teams[0].id.clone();
+        let mut real = Manager::new(
+            "fm-s-1".to_string(),
+            "Real".to_string(),
+            "Coach".to_string(),
+            "1970-01-01".to_string(),
+            "France".to_string(),
+        );
+        real.team_id = Some(club.clone());
+        world.teams[0].manager_id = Some(real.id.clone());
+        world.managers.push(real);
+        let clock = GameClock::new(start_date_for_year(2033).unwrap());
+        let history = PastHistory {
+            start_year: 2033,
+            depth_years: 1,
+        };
+
+        let (mut game, _) =
+            build_game_from_world_data(clock, manager(), history, world, ReputationBasis::Stored);
+        crate::ai_hiring::seed_ai_managers(&mut game);
+
+        let team = game.teams.iter().find(|t| t.id == club).unwrap();
+        assert_eq!(team.manager_id.as_deref(), Some("fm-s-1"));
+        let kept = game.managers.iter().find(|m| m.id == "fm-s-1").unwrap();
+        assert_eq!(kept.last_name, "Coach");
+        assert!(
+            game.teams.iter().filter(|t| t.id != club).all(|t| t
+                .manager_id
+                .as_deref()
+                .is_some_and(|id| id.starts_with("mgr_"))),
+            "the other clubs are given invented managers as before"
+        );
     }
 
     /// Given a saved world that already carries its past seasons (a historical snapshot),

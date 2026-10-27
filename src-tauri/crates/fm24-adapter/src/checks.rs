@@ -17,7 +17,12 @@ pub struct Check {
     pub detail: String,
 }
 
-fn check(name: &'static str, blocking: bool, failures: Vec<String>, ok_detail: impl Into<String>) -> Check {
+fn check(
+    name: &'static str,
+    blocking: bool,
+    failures: Vec<String>,
+    ok_detail: impl Into<String>,
+) -> Check {
     let ok = failures.is_empty();
     let detail = if ok {
         ok_detail.into()
@@ -25,7 +30,12 @@ fn check(name: &'static str, blocking: bool, failures: Vec<String>, ok_detail: i
         let shown: Vec<_> = failures.iter().take(5).cloned().collect();
         format!("{} failure(s), e.g. {}", failures.len(), shown.join(" ; "))
     };
-    Check { name, blocking, ok, detail }
+    Check {
+        name,
+        blocking,
+        ok,
+        detail,
+    }
 }
 
 pub fn run_checks(run: &Run) -> Vec<Check> {
@@ -39,9 +49,15 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         if run.source_sha256_before == run.source_sha256_after {
             vec![]
         } else {
-            vec![format!("{} -> {}", run.source_sha256_before, run.source_sha256_after)]
+            vec![format!(
+                "{} -> {}",
+                run.source_sha256_before, run.source_sha256_after
+            )]
         },
-        format!("world.db SHA-256 unchanged ({})", &run.source_sha256_before[..16]),
+        format!(
+            "world.db SHA-256 unchanged ({})",
+            &run.source_sha256_before[..16]
+        ),
     ));
     checks.push(check(
         "perimeter.clubs",
@@ -51,7 +67,12 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         {
             vec![]
         } else {
-            vec![format!("source {} / world {} clubs, expected {}", run.clubs.len(), world.teams.len(), crate::pipeline::EXPECTED_CLUBS)]
+            vec![format!(
+                "source {} / world {} clubs, expected {}",
+                run.clubs.len(),
+                world.teams.len(),
+                crate::pipeline::EXPECTED_CLUBS
+            )]
         },
         "240 clubs in the source perimeter and in the world",
     ));
@@ -70,27 +91,44 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         }
         failures
     };
-    checks.push(check("perimeter.competitions", true, comp_failures, "12 league definitions"));
+    checks.push(check(
+        "perimeter.competitions",
+        true,
+        comp_failures,
+        "12 league definitions",
+    ));
 
     // Club membership of every league equals the save's.
     let mut membership_failures = Vec::new();
     if let Some(defs) = &world.competition_definitions {
-        let from_source: BTreeMap<String, BTreeSet<String>> = run.clubs.iter().fold(BTreeMap::new(), |mut acc, c| {
-            acc.entry(ids::competition(c.competition_id)).or_default().insert(ids::club(c.id));
-            acc
-        });
+        let from_source: BTreeMap<String, BTreeSet<String>> =
+            run.clubs.iter().fold(BTreeMap::new(), |mut acc, c| {
+                acc.entry(ids::competition(c.competition_id))
+                    .or_default()
+                    .insert(ids::club(c.id));
+                acc
+            });
         for def in &defs.competitions {
             let value = serde_json::to_value(def).unwrap_or_default();
             let participants: BTreeSet<String> = value["participants"]["explicit"]
                 .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect()
+                })
                 .unwrap_or_default();
             if from_source.get(&def.id) != Some(&participants) {
                 membership_failures.push(format!("{} membership differs from the save", def.id));
             }
         }
     }
-    checks.push(check("competition.membership", true, membership_failures, "league members equal the save's 2026/27 membership"));
+    checks.push(check(
+        "competition.membership",
+        true,
+        membership_failures,
+        "league members equal the save's 2026/27 membership",
+    ));
 
     // --- identifiers -------------------------------------------------------------------------
     let mut seen = BTreeSet::new();
@@ -107,7 +145,12 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             duplicate_ids.push(id.clone());
         }
     }
-    checks.push(check("ids.unique", true, duplicate_ids, format!("{} ids, all distinct", seen.len())));
+    checks.push(check(
+        "ids.unique",
+        true,
+        duplicate_ids,
+        format!("{} ids, all distinct", seen.len()),
+    ));
 
     let player_keys: BTreeSet<i64> = run.players.iter().map(|p| p.person_id).collect();
     let mut key_failures = Vec::new();
@@ -117,24 +160,45 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             _ => key_failures.push(format!("{} is not an internal person key", p.id)),
         }
     }
-    checks.push(check("ids.internal_keys_only", true, key_failures, "every fm-p-* id is a world.db person.id"));
+    checks.push(check(
+        "ids.internal_keys_only",
+        true,
+        key_failures,
+        "every fm-p-* id is a world.db person.id",
+    ));
 
-    let shared: Vec<_> = run.players.iter().filter(|p| p.fm_uid_status == "partagé").collect();
+    let shared: Vec<_> = run
+        .players
+        .iter()
+        .filter(|p| p.fm_uid_status == "partagé")
+        .collect();
     let shared_failures: Vec<String> = shared
         .iter()
-        .filter(|p| !world.players.iter().any(|w| w.id == ids::player(p.person_id)))
+        .filter(|p| {
+            !world
+                .players
+                .iter()
+                .any(|w| w.id == ids::player(p.person_id))
+        })
         .map(|p| format!("{} (shared FM UID) missing", ids::player(p.person_id)))
         .collect();
     checks.push(check(
         "ids.shared_fm_uid_kept_distinct",
         true,
         shared_failures,
-        format!("{} players with a shared FM UID are all present as distinct players", shared.len()),
+        format!(
+            "{} players with a shared FM UID are all present as distinct players",
+            shared.len()
+        ),
     ));
 
     // --- no silent drop ------------------------------------------------------------------------
     let excluded_players = run.journal.count("player.excluded_no_position");
-    let imported_in_world = world.players.iter().filter(|p| p.id.starts_with("fm-p-")).count();
+    let imported_in_world = world
+        .players
+        .iter()
+        .filter(|p| p.id.starts_with("fm-p-"))
+        .count();
     checks.push(check(
         "players.none_dropped_silently",
         true,
@@ -152,14 +216,19 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
     checks.push(check(
         "source.players_distinct",
         false,
-        if total == distinct { vec![] } else { vec![format!("{total} rows, {distinct} distinct person ids")] },
+        if total == distinct {
+            vec![]
+        } else {
+            vec![format!("{total} rows, {distinct} distinct person ids")]
+        },
         format!("{total} source players, all distinct by person.id"),
     ));
 
     // --- players, field by field -----------------------------------------------------------------
     let world_players: BTreeMap<&str, &domain::player::Player> =
         world.players.iter().map(|p| (p.id.as_str(), p)).collect();
-    let row_by_id: BTreeMap<i64, &crate::source::PlayerRow> = run.players.iter().map(|p| (p.person_id, p)).collect();
+    let row_by_id: BTreeMap<i64, &crate::source::PlayerRow> =
+        run.players.iter().map(|p| (p.person_id, p)).collect();
     let mut field_failures = Vec::new();
     let mut club_failures = Vec::new();
     let mut position_failures = Vec::new();
@@ -180,78 +249,176 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             field_failures.push(format!("{id} dob {} != {dob}", player.date_of_birth));
         }
         if player.team_id.as_deref() != Some(ids::club(row.club_id).as_str()) {
-            club_failures.push(format!("{id} club {:?} != fm-c-{}", player.team_id, row.club_id));
+            club_failures.push(format!(
+                "{id} club {:?} != fm-c-{}",
+                player.team_id, row.club_id
+            ));
         }
-        if player.position.is_legacy_bucket() && player.position != domain::player::Position::Goalkeeper {
+        if player.position.is_legacy_bucket()
+            && player.position != domain::player::Position::Goalkeeper
+        {
             position_failures.push(format!("{id} has a general position {:?}", player.position));
         }
         if player.natural_position != plan.def.position {
-            position_failures.push(format!("{id} natural {:?} != planned {:?}", player.natural_position, plan.def.position));
+            position_failures.push(format!(
+                "{id} natural {:?} != planned {:?}",
+                player.natural_position, plan.def.position
+            ));
         }
         if player.position != plan.def.position {
-            position_failures.push(format!("{id} position {:?} != planned {:?}", player.position, plan.def.position));
+            position_failures.push(format!(
+                "{id} position {:?} != planned {:?}",
+                player.position, plan.def.position
+            ));
         }
         if player.attributes != plan.def.attributes.clone().unwrap() {
             field_failures.push(format!("{id} attributes differ from the conversion"));
         }
         if i64::from(player.wage()) != crate::config::Config::to_eur(&run.cfg, row.wage_gbp_week) {
-            field_failures.push(format!("{id} wage {} != {}", player.wage(), run.cfg.to_eur(row.wage_gbp_week)));
+            field_failures.push(format!(
+                "{id} wage {} != {}",
+                player.wage(),
+                run.cfg.to_eur(row.wage_gbp_week)
+            ));
         }
         if let Some(value) = row.value_gbp
             && player.market_value as i64 != run.cfg.to_eur(value)
         {
-            field_failures.push(format!("{id} value {} != {}", player.market_value, run.cfg.to_eur(value)));
+            field_failures.push(format!(
+                "{id} value {} != {}",
+                player.market_value,
+                run.cfg.to_eur(value)
+            ));
         }
         if player.contract_start() != row.start_date.as_deref() {
-            contract_failures.push(format!("{id} contract start {:?} != {:?}", player.contract_start(), row.start_date));
+            contract_failures.push(format!(
+                "{id} contract start {:?} != {:?}",
+                player.contract_start(),
+                row.start_date
+            ));
         }
         if player.contract_end() != plan.def.contract_end.as_deref() {
-            contract_failures.push(format!("{id} contract end {:?} != {:?}", player.contract_end(), plan.def.contract_end));
+            contract_failures.push(format!(
+                "{id} contract end {:?} != {:?}",
+                player.contract_end(),
+                plan.def.contract_end
+            ));
         }
         if let (Some(start), Some(end)) = (player.contract_start(), player.contract_end())
             && end <= start
         {
-            contract_failures.push(format!("{id} contract ends {end} on/before it starts {start}"));
+            contract_failures.push(format!(
+                "{id} contract ends {end} on/before it starts {start}"
+            ));
         }
         if let Some(end) = player.contract_end()
             && end < run.cfg.start.date.as_str()
         {
-            contract_failures.push(format!("{id} contract already expired at the configured start ({end})"));
+            contract_failures.push(format!(
+                "{id} contract already expired at the configured start ({end})"
+            ));
         }
         // Nationality: the player's own code, or OFM's football identity for it (e.g. WAL).
         let expected = &plan.def.nationality;
         if &player.nationality != expected && &player.football_nation != expected {
-            nation_failures.push(format!("{id} nationality {} / {} != {expected}", player.nationality, player.football_nation));
+            nation_failures.push(format!(
+                "{id} nationality {} / {} != {expected}",
+                player.nationality, player.football_nation
+            ));
         }
         if nation_by_code(&player.nationality).is_none() {
-            nation_failures.push(format!("{id} nationality {} is not an OFM code", player.nationality));
+            nation_failures.push(format!(
+                "{id} nationality {} is not an OFM code",
+                player.nationality
+            ));
         }
         let a = &player.attributes;
         let all = [
-            a.pace, a.stamina, a.strength, a.agility, a.passing, a.shooting, a.tackling, a.dribbling, a.defending,
-            a.positioning, a.vision, a.decisions, a.composure, a.aggression, a.teamwork, a.leadership, a.handling,
-            a.reflexes, a.aerial,
+            a.pace,
+            a.stamina,
+            a.strength,
+            a.agility,
+            a.passing,
+            a.shooting,
+            a.tackling,
+            a.dribbling,
+            a.defending,
+            a.positioning,
+            a.vision,
+            a.decisions,
+            a.composure,
+            a.aggression,
+            a.teamwork,
+            a.leadership,
+            a.handling,
+            a.reflexes,
+            a.aerial,
         ];
-        if all.iter().any(|v| !(1..=99).contains(v)) || !(1..=99).contains(&player.ovr) || player.potential < player.ovr {
+        if all.iter().any(|v| !(1..=99).contains(v))
+            || !(1..=99).contains(&player.ovr)
+            || player.potential < player.ovr
+        {
             bound_failures.push(format!("{id} attribute/ovr/potential out of bounds"));
         }
         if player.ovr != plan.ovr_expected {
-            bound_failures.push(format!("{id} ovr {} != expected {}", player.ovr, plan.ovr_expected));
+            bound_failures.push(format!(
+                "{id} ovr {} != expected {}",
+                player.ovr, plan.ovr_expected
+            ));
         }
         if player.wage() > 5_000_000 || player.market_value > 1_000_000_000 {
-            bound_failures.push(format!("{id} wage/value implausible ({}, {})", player.wage(), player.market_value));
+            bound_failures.push(format!(
+                "{id} wage/value implausible ({}, {})",
+                player.wage(),
+                player.market_value
+            ));
         }
         let expected_youth = plan.def.youth;
         if expected_youth && player.squad_role != SquadRole::Youth {
-            field_failures.push(format!("{id} was an FM youth-team player but is not in the academy"));
+            field_failures.push(format!(
+                "{id} was an FM youth-team player but is not in the academy"
+            ));
         }
     }
-    checks.push(check("players.fields", true, field_failures, format!("{} players: dob, attributes, wage, value, youth", run.plans.len())));
-    checks.push(check("players.club_relations", true, club_failures, "every imported player is at the club of his current FM contract"));
-    checks.push(check("players.positions_valid", true, position_failures, "every position is a specific OFM position equal to the plan"));
-    checks.push(check("players.nationalities_valid", true, nation_failures, "every nationality is an OFM country code, equal to the plan"));
-    checks.push(check("players.contracts", true, contract_failures, "contract dates preserved, end after start, none expired at the configured start"));
-    checks.push(check("players.bounds", true, bound_failures, "attributes 1-99, potential >= rating, wage/value plausible"));
+    checks.push(check(
+        "players.fields",
+        true,
+        field_failures,
+        format!(
+            "{} players: dob, attributes, wage, value, youth",
+            run.plans.len()
+        ),
+    ));
+    checks.push(check(
+        "players.club_relations",
+        true,
+        club_failures,
+        "every imported player is at the club of his current FM contract",
+    ));
+    checks.push(check(
+        "players.positions_valid",
+        true,
+        position_failures,
+        "every position is a specific OFM position equal to the plan",
+    ));
+    checks.push(check(
+        "players.nationalities_valid",
+        true,
+        nation_failures,
+        "every nationality is an OFM country code, equal to the plan",
+    ));
+    checks.push(check(
+        "players.contracts",
+        true,
+        contract_failures,
+        "contract dates preserved, end after start, none expired at the configured start",
+    ));
+    checks.push(check(
+        "players.bounds",
+        true,
+        bound_failures,
+        "attributes 1-99, potential >= rating, wage/value plausible",
+    ));
 
     // --- squads ----------------------------------------------------------------------------------
     let mut squad_failures = Vec::new();
@@ -263,26 +430,39 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         }
     }
     for team in &world.teams {
-        let members = by_team.get(team.id.as_str()).map(Vec::as_slice).unwrap_or(&[]);
+        let members = by_team
+            .get(team.id.as_str())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
         if members.is_empty() {
             squad_failures.push(format!("{} has an empty squad", team.id));
             continue;
         }
-        let seniors = members.iter().filter(|p| p.squad_role == SquadRole::Senior).count();
+        let seniors = members
+            .iter()
+            .filter(|p| p.squad_role == SquadRole::Senior)
+            .count();
         if seniors < ofm_core::squad_floor::MIN_SENIOR_PLAYERS {
             squad_failures.push(format!("{} has only {seniors} seniors", team.id));
         }
         for (group, floor) in ofm_core::squad_floor::MIN_PLAYERS_PER_GROUP {
             let n = members
                 .iter()
-                .filter(|p| p.squad_role == SquadRole::Senior && p.position.to_group_position() == group)
+                .filter(|p| {
+                    p.squad_role == SquadRole::Senior && p.position.to_group_position() == group
+                })
                 .count();
             if n < floor {
                 squad_failures.push(format!("{} has {n} {group:?} (floor {floor})", team.id));
             }
         }
     }
-    checks.push(check("squads.floor_and_not_empty", true, squad_failures, "every club has >= 15 seniors and OFM's per-group floor"));
+    checks.push(check(
+        "squads.floor_and_not_empty",
+        true,
+        squad_failures,
+        "every club has >= 15 seniors and OFM's per-group floor",
+    ));
 
     let generated_marked: Vec<String> = world
         .players
@@ -295,12 +475,16 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         "squads.generated_players_all_listed",
         true,
         generated_marked,
-        format!("{} generated players, each identified in the report", run.generated_players.len()),
+        format!(
+            "{} generated players, each identified in the report",
+            run.generated_players.len()
+        ),
     ));
 
     // --- clubs -------------------------------------------------------------------------------------
     let mut club_field_failures = Vec::new();
-    let team_by_id: BTreeMap<&str, &domain::team::Team> = world.teams.iter().map(|t| (t.id.as_str(), t)).collect();
+    let team_by_id: BTreeMap<&str, &domain::team::Team> =
+        world.teams.iter().map(|t| (t.id.as_str(), t)).collect();
     for club in &run.clubs {
         let id = ids::club(club.id);
         let Some(team) = team_by_id.get(id.as_str()) else {
@@ -311,27 +495,51 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             club_field_failures.push(format!("{id} name {} != {}", team.name, club.name));
         }
         if i64::from(team.reputation) != (club.reputation / 10).clamp(0, 1000) {
-            club_field_failures.push(format!("{id} reputation {} != {}", team.reputation, club.reputation / 10));
+            club_field_failures.push(format!(
+                "{id} reputation {} != {}",
+                team.reputation,
+                club.reputation / 10
+            ));
         }
         if let Some(colours) = &club.colours
-            && !team.colors.primary.eq_ignore_ascii_case(&format!("#{}", colours.primary))
+            && !team
+                .colors
+                .primary
+                .eq_ignore_ascii_case(&format!("#{}", colours.primary))
         {
-            club_field_failures.push(format!("{id} primary colour {} != #{}", team.colors.primary, colours.primary));
+            club_field_failures.push(format!(
+                "{id} primary colour {} != #{}",
+                team.colors.primary, colours.primary
+            ));
         }
         if let Some(f) = &club.finance {
             if run.cfg.finance.restore_balance && team.finance != run.cfg.to_eur(f.balance_gbp) {
-                club_field_failures.push(format!("{id} balance {} != {}", team.finance, run.cfg.to_eur(f.balance_gbp)));
+                club_field_failures.push(format!(
+                    "{id} balance {} != {}",
+                    team.finance,
+                    run.cfg.to_eur(f.balance_gbp)
+                ));
             }
-            if run.cfg.finance.restore_transfer_budget && team.transfer_budget != run.cfg.to_eur(f.transfer_budget_gbp) {
-                club_field_failures.push(format!("{id} transfer budget {} != {}", team.transfer_budget, run.cfg.to_eur(f.transfer_budget_gbp)));
+            if run.cfg.finance.restore_transfer_budget
+                && team.transfer_budget != run.cfg.to_eur(f.transfer_budget_gbp)
+            {
+                club_field_failures.push(format!(
+                    "{id} transfer budget {} != {}",
+                    team.transfer_budget,
+                    run.cfg.to_eur(f.transfer_budget_gbp)
+                ));
             }
             let source_budget = run.cfg.to_eur(f.wage_budget_gbp_week);
-            let restored = run
-                .finance
-                .iter()
-                .any(|r| r.club_id == club.id && r.field == "wage_budget" && r.provenance == crate::finance::Provenance::Imported);
+            let restored = run.finance.iter().any(|r| {
+                r.club_id == club.id
+                    && r.field == "wage_budget"
+                    && r.provenance == crate::finance::Provenance::Imported
+            });
             if restored && team.wage_budget != source_budget {
-                club_field_failures.push(format!("{id} wage budget {} != {source_budget}", team.wage_budget));
+                club_field_failures.push(format!(
+                    "{id} wage budget {} != {source_budget}",
+                    team.wage_budget
+                ));
             }
             if !restored && team.wage_budget <= 0 {
                 club_field_failures.push(format!("{id} has no usable wage budget"));
@@ -341,27 +549,47 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
     checks.push(check("clubs.fields", true, club_field_failures, "name, reputation, colours, balance and budgets match the source (or are documented OFM values)"));
 
     // --- staff and managers ------------------------------------------------------------------------
-    let world_staff: BTreeMap<&str, &domain::staff::Staff> = world.staff.iter().map(|s| (s.id.as_str(), s)).collect();
+    let world_staff: BTreeMap<&str, &domain::staff::Staff> =
+        world.staff.iter().map(|s| (s.id.as_str(), s)).collect();
     let mut staff_failures = Vec::new();
     for (def, person) in &run.staff_plans {
         match world_staff.get(def.id.as_str()) {
             None => staff_failures.push(format!("{} absent from the world", def.id)),
             Some(member) => {
                 if member.team_id.as_deref() != Some(def.club.as_str()) {
-                    staff_failures.push(format!("{} club {:?} != {}", def.id, member.team_id, def.club));
+                    staff_failures.push(format!(
+                        "{} club {:?} != {}",
+                        def.id, member.team_id, def.club
+                    ));
                 }
                 if member.role != def.role {
-                    staff_failures.push(format!("{} role {:?} != {:?}", def.id, member.role, def.role));
+                    staff_failures.push(format!(
+                        "{} role {:?} != {:?}",
+                        def.id, member.role, def.role
+                    ));
                 }
                 if let Some(row) = run.staff_rows.iter().find(|r| r.person_id == *person)
                     && i64::from(member.wage) != run.cfg.to_eur(row.wage_gbp_week)
                 {
-                    staff_failures.push(format!("{} wage {} != {}", def.id, member.wage, run.cfg.to_eur(row.wage_gbp_week)));
+                    staff_failures.push(format!(
+                        "{} wage {} != {}",
+                        def.id,
+                        member.wage,
+                        run.cfg.to_eur(row.wage_gbp_week)
+                    ));
                 }
             }
         }
     }
-    checks.push(check("staff.fields", true, staff_failures, format!("{} imported staff members present with role, club and wage", run.staff_plans.len())));
+    checks.push(check(
+        "staff.fields",
+        true,
+        staff_failures,
+        format!(
+            "{} imported staff members present with role, club and wage",
+            run.staff_plans.len()
+        ),
+    ));
 
     let mut manager_failures = Vec::new();
     for manager in &world.managers {
@@ -379,25 +607,50 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             run.clubs.len()
         ));
     }
-    checks.push(check("managers.wired", true, manager_failures, format!("{} real head coaches are the clubs' managers", world.managers.len())));
+    checks.push(check(
+        "managers.wired",
+        true,
+        manager_failures,
+        format!(
+            "{} real head coaches are the clubs' managers",
+            world.managers.len()
+        ),
+    ));
 
     // --- informational -------------------------------------------------------------------------------
     let expired_at_start = world
         .players
         .iter()
-        .filter(|p| p.contract_end().is_some_and(|e| e < run.cfg.start.date.as_str()))
+        .filter(|p| {
+            p.contract_end()
+                .is_some_and(|e| e < run.cfg.start.date.as_str())
+        })
         .count();
-    checks.push(check("contracts.expired_at_start", false, if expired_at_start == 0 { vec![] } else { vec![format!("{expired_at_start}")] }, "no contract expired at the configured start date"));
+    checks.push(check(
+        "contracts.expired_at_start",
+        false,
+        if expired_at_start == 0 {
+            vec![]
+        } else {
+            vec![format!("{expired_at_start}")]
+        },
+        "no contract expired at the configured start date",
+    ));
     let future_start = world
         .players
         .iter()
-        .filter(|p| p.contract_start().is_some_and(|s| s > run.cfg.start.date.as_str()))
+        .filter(|p| {
+            p.contract_start()
+                .is_some_and(|s| s > run.cfg.start.date.as_str())
+        })
         .count();
     checks.push(Check {
         name: "contracts.future_start",
         blocking: false,
         ok: true,
-        detail: format!("{future_start} contracts start after the configured start date (kept as in FM)"),
+        detail: format!(
+            "{future_start} contracts start after the configured start date (kept as in FM)"
+        ),
     });
     checks
 }

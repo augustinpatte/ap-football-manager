@@ -51,7 +51,11 @@ pub fn restore(
 ) -> Vec<FinanceRecord> {
     let mut records = Vec::new();
     let Some(finance) = &club.finance else {
-        journal.warn("finance.missing", &team.id, "no club_finance_start row; OFM's values are kept");
+        journal.warn(
+            "finance.missing",
+            &team.id,
+            "no club_finance_start row; OFM's values are kept",
+        );
         for field in ["balance", "transfer_budget", "wage_budget"] {
             records.push(FinanceRecord {
                 club_id: club.id,
@@ -95,7 +99,10 @@ pub fn restore(
     });
 
     let source_wage_budget = cfg.to_eur(finance.wage_budget_gbp_week);
-    if cfg.finance.restore_wage_budget && source_wage_budget > 0 && source_wage_budget >= weekly_wage_bill_eur {
+    if cfg.finance.restore_wage_budget
+        && source_wage_budget > 0
+        && source_wage_budget >= weekly_wage_bill_eur
+    {
         team.wage_budget = source_wage_budget;
         records.push(FinanceRecord {
             club_id: club.id,
@@ -109,9 +116,15 @@ pub fn restore(
         let note = if source_wage_budget <= 0 {
             "source wage budget is 0".to_string()
         } else {
-            format!("source wage budget {source_wage_budget} is below the imported wage bill {weekly_wage_bill_eur}")
+            format!(
+                "source wage budget {source_wage_budget} is below the imported wage bill {weekly_wage_bill_eur}"
+            )
         };
-        journal.warn("finance.wage_budget_incompatible", &team.id, format!("{note}; OFM's value is kept"));
+        journal.warn(
+            "finance.wage_budget_incompatible",
+            &team.id,
+            format!("{note}; OFM's value is kept"),
+        );
         records.push(FinanceRecord {
             club_id: club.id,
             field: "wage_budget",
@@ -174,7 +187,15 @@ mod tests {
     }
 
     fn team() -> Team {
-        Team::new("fm-c-1".into(), "X".into(), "X".into(), "FR".into(), "Paris".into(), "Stade".into(), 20_000)
+        Team::new(
+            "fm-c-1".into(),
+            "X".into(),
+            "X".into(),
+            "FR".into(),
+            "Paris".into(),
+            "Stade".into(),
+            20_000,
+        )
     }
 
     #[test]
@@ -182,12 +203,26 @@ mod tests {
         let cfg = Config::default_config();
         let mut t = team();
         let mut journal = Journal::default();
-        let records = restore(&mut t, &club(Some(finance(100_000))), 90_000, &cfg, &mut journal);
+        let records = restore(
+            &mut t,
+            &club(Some(finance(100_000))),
+            90_000,
+            &cfg,
+            &mut journal,
+        );
         assert_eq!(t.finance, 1_170_000);
         assert_eq!(t.transfer_budget, 234_000);
         assert_eq!(t.wage_budget, 117_000);
-        assert!(records.iter().any(|r| r.field == "wage_budget" && r.provenance == Provenance::Imported));
-        assert!(records.iter().any(|r| r.field == "stadium_capacity" && r.provenance == Provenance::OfmGenerated));
+        assert!(
+            records
+                .iter()
+                .any(|r| r.field == "wage_budget" && r.provenance == Provenance::Imported)
+        );
+        assert!(
+            records
+                .iter()
+                .any(|r| r.field == "stadium_capacity" && r.provenance == Provenance::OfmGenerated)
+        );
     }
 
     #[test]
@@ -196,7 +231,13 @@ mod tests {
         let mut t = team();
         t.wage_budget = 77_000;
         let mut journal = Journal::default();
-        let records = restore(&mut t, &club(Some(finance(10_000))), 90_000, &cfg, &mut journal);
+        let records = restore(
+            &mut t,
+            &club(Some(finance(10_000))),
+            90_000,
+            &cfg,
+            &mut journal,
+        );
         assert_eq!(t.wage_budget, 77_000);
         let record = records.iter().find(|r| r.field == "wage_budget").unwrap();
         assert_eq!(record.provenance, Provenance::OfmGenerated);
@@ -221,7 +262,11 @@ mod tests {
         let mut journal = Journal::default();
         let records = restore(&mut t, &club(None), 0, &cfg, &mut journal);
         assert_eq!(t.finance, before);
-        assert!(records.iter().all(|r| r.provenance == Provenance::OfmGenerated));
+        assert!(
+            records
+                .iter()
+                .all(|r| r.provenance == Provenance::OfmGenerated)
+        );
         assert_eq!(journal.count("finance.missing"), 1);
     }
 }

@@ -44,12 +44,16 @@ pub fn map_role(role_code: &str) -> Mapping {
         "adjoint" => Mapping::Staff(StaffRole::AssistantManager, None),
         "entraineur" => Mapping::Staff(StaffRole::Coach, Some(Spec::Dominant)),
         "prep_physique" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::Fitness))),
-        "entraineur_gardiens" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::GoalKeeping))),
+        "entraineur_gardiens" => {
+            Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::GoalKeeping)))
+        }
         "entraineur_jeunes" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::Youth))),
         // Set-piece coach: closest OFM focus is tactics (documented approximation).
         "entraineur_cpa" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::Tactics))),
         "recruteur" | "chef_recruteur" => Mapping::Staff(StaffRole::Scout, None),
-        "kine" | "kine_chef" | "medecin" | "resp_medical" => Mapping::Staff(StaffRole::Physio, None),
+        "kine" | "kine_chef" | "medecin" | "resp_medical" => {
+            Mapping::Staff(StaffRole::Physio, None)
+        }
         _ => Mapping::Excluded,
     }
 }
@@ -93,7 +97,11 @@ fn specialization(row: &StaffRow, spec: Spec) -> CoachingSpecialization {
 }
 
 /// The four OFM staff attributes from FM's staff attributes (0-100 raw, same scale).
-pub fn attributes(row: &StaffRow, role: &StaffRole, spec: Option<CoachingSpecialization>) -> StaffAttributes {
+pub fn attributes(
+    row: &StaffRow,
+    role: &StaffRole,
+    spec: Option<CoachingSpecialization>,
+) -> StaffAttributes {
     let general = (raw(row, "attacking")
         + raw(row, "defending")
         + raw(row, "fitness")
@@ -103,7 +111,8 @@ pub fn attributes(row: &StaffRow, role: &StaffRole, spec: Option<CoachingSpecial
         / 6.0;
     let coaching = match (role, spec) {
         (StaffRole::Coach, Some(CoachingSpecialization::GoalKeeping)) => {
-            (raw(row, "gk_handling") + raw(row, "gk_shot_stopping") + raw(row, "gk_distribution")) / 3.0
+            (raw(row, "gk_handling") + raw(row, "gk_shot_stopping") + raw(row, "gk_distribution"))
+                / 3.0
         }
         (StaffRole::Coach, Some(CoachingSpecialization::Fitness)) => {
             0.7 * raw(row, "fitness") + 0.3 * raw(row, "sports_science")
@@ -150,12 +159,16 @@ pub fn build(
                     }
                 };
                 if row.birth_date.is_none() {
-                    journal.warn("staff.birth_missing", &id, "no birth date in the save; OFM draws an age");
+                    journal.warn(
+                        "staff.birth_missing",
+                        &id,
+                        "no birth date in the save; OFM draws an age",
+                    );
                 }
-                let known_as = row
-                    .common_name
-                    .clone()
-                    .filter(|name| !name.trim().is_empty() && *name != format!("{} {}", row.first_name, row.last_name));
+                let known_as = row.common_name.clone().filter(|name| {
+                    !name.trim().is_empty()
+                        && *name != format!("{} {}", row.first_name, row.last_name)
+                });
                 staff.push((
                     StaffDef {
                         id,
@@ -187,10 +200,7 @@ pub fn build(
 
 /// One manager per club: the first-team head coach (team slot 0, or no team) with the highest
 /// reputation; ties go to the lower person id. Clubs with none are returned in `missing`.
-pub fn pick_managers<'a>(
-    rows: &'a [StaffRow],
-    club_ids: &[i64],
-) -> (Vec<&'a StaffRow>, Vec<i64>) {
+pub fn pick_managers<'a>(rows: &'a [StaffRow], club_ids: &[i64]) -> (Vec<&'a StaffRow>, Vec<i64>) {
     let mut chosen = Vec::new();
     let mut missing = Vec::new();
     for &club in club_ids {
@@ -248,16 +258,31 @@ mod tests {
             ca: None,
             pa: None,
             rep_current: Some(5000),
-            attrs: attrs.iter().map(|(k, v)| (k.to_string(), *v)).collect::<BTreeMap<_, _>>(),
+            attrs: attrs
+                .iter()
+                .map(|(k, v)| (k.to_string(), *v))
+                .collect::<BTreeMap<_, _>>(),
         }
     }
 
     #[test]
     fn roles_map_to_the_four_ofm_roles() {
-        assert_eq!(map_role("adjoint"), Mapping::Staff(StaffRole::AssistantManager, None));
-        assert!(matches!(map_role("recruteur"), Mapping::Staff(StaffRole::Scout, None)));
-        assert!(matches!(map_role("kine"), Mapping::Staff(StaffRole::Physio, None)));
-        assert!(matches!(map_role("entraineur_gardiens"), Mapping::Staff(StaffRole::Coach, Some(_))));
+        assert_eq!(
+            map_role("adjoint"),
+            Mapping::Staff(StaffRole::AssistantManager, None)
+        );
+        assert!(matches!(
+            map_role("recruteur"),
+            Mapping::Staff(StaffRole::Scout, None)
+        ));
+        assert!(matches!(
+            map_role("kine"),
+            Mapping::Staff(StaffRole::Physio, None)
+        ));
+        assert!(matches!(
+            map_role("entraineur_gardiens"),
+            Mapping::Staff(StaffRole::Coach, Some(_))
+        ));
         assert_eq!(map_role("entraineur_principal"), Mapping::Manager);
         assert_eq!(map_role("president"), Mapping::Excluded);
         assert_eq!(map_role("analyste_performance"), Mapping::Excluded);
@@ -265,20 +290,47 @@ mod tests {
 
     #[test]
     fn a_generic_coach_specialises_in_his_best_training_attribute() {
-        let r = row("entraineur", &[("attacking", 40), ("defending", 90), ("technical", 60), ("tactical", 50), ("fitness", 30)]);
-        assert_eq!(dominant_specialization(&r), CoachingSpecialization::Defending);
+        let r = row(
+            "entraineur",
+            &[
+                ("attacking", 40),
+                ("defending", 90),
+                ("technical", 60),
+                ("tactical", 50),
+                ("fitness", 30),
+            ],
+        );
+        assert_eq!(
+            dominant_specialization(&r),
+            CoachingSpecialization::Defending
+        );
     }
 
     #[test]
     fn a_goalkeeping_coach_is_rated_on_goalkeeping() {
-        let r = row("entraineur_gardiens", &[("gk_handling", 90), ("gk_shot_stopping", 80), ("gk_distribution", 70), ("attacking", 10)]);
-        let a = attributes(&r, &StaffRole::Coach, Some(CoachingSpecialization::GoalKeeping));
+        let r = row(
+            "entraineur_gardiens",
+            &[
+                ("gk_handling", 90),
+                ("gk_shot_stopping", 80),
+                ("gk_distribution", 70),
+                ("attacking", 10),
+            ],
+        );
+        let a = attributes(
+            &r,
+            &StaffRole::Coach,
+            Some(CoachingSpecialization::GoalKeeping),
+        );
         assert_eq!(a.coaching, 80);
     }
 
     #[test]
     fn attributes_are_bounded() {
-        let r = row("kine", &[("physiotherapy", 0), ("judging_player_ability", 100)]);
+        let r = row(
+            "kine",
+            &[("physiotherapy", 0), ("judging_player_ability", 100)],
+        );
         let a = attributes(&r, &StaffRole::Physio, None);
         assert_eq!(a.physiotherapy, 1);
         assert_eq!(a.judging_ability, 99);
@@ -296,7 +348,10 @@ mod tests {
         let rows = vec![first, youth];
         let (chosen, missing) = pick_managers(&rows, &[10, 11]);
         assert_eq!(chosen.len(), 1);
-        assert_eq!(chosen[0].person_id, 5, "a youth-team head coach is never the club's manager");
+        assert_eq!(
+            chosen[0].person_id, 5,
+            "a youth-team head coach is never the club's manager"
+        );
         assert_eq!(missing, vec![11]);
     }
 
