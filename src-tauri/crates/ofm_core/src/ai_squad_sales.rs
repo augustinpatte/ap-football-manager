@@ -42,14 +42,105 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
         let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
             continue;
         };
+        let previously_listed: std::collections::HashSet<String> = game
+            .players
+            .iter()
+            .filter(|player| {
+                player.transfer_listed && player.team_id.as_deref() == Some(team_id.as_str())
+            })
+            .map(|player| player.id.clone())
+            .collect();
         let decisions = list_decisions(game, &team, current_date);
         for (index, listed) in decisions {
             game.players[index].transfer_listed = listed;
         }
+        release_unsold_surplus(game, &team, &previously_listed, current_date);
         // Young reserves for loan, as the opening market lists them: a loan returns its player and
         // the club lists the next.
         crate::transfers::top_up_loan_listings(game, &team_id);
     }
+}
+
+/// A club this far over its wage budget (per cent) pays a player off rather than carry him.
+const RELEASE_OVER_BUDGET_PCT: i64 = 115;
+
+/// The most of its cash (per cent) a club will pay in severance to be rid of one player.
+const RELEASE_MAX_CASH_SHARE_PCT: i64 = 2;
+
+/// A club that has been over its budget and has had a player on the list since its last review,
+/// unsold, pays him off: the one way out of a long contract nobody will buy. It is the last
+/// resort the manager's own termination is, for the same price (the weeks left on the contract at
+/// his wage), and it takes one player a review, the dearest of those it listed, who is kept by
+/// no rule of the squad floor and whose contract has more than a year to run (a shorter one
+/// expires on its own sooner than the saving pays back the severance). A club in debt cannot
+/// afford it and does not.
+fn release_unsold_surplus(
+    game: &mut Game,
+    team: &Team,
+    previously_listed: &std::collections::HashSet<String>,
+    current_date: chrono::NaiveDate,
+) -> Option<String> {
+    if previously_listed.is_empty() || team.finance <= 0 || team.wage_budget <= 0 {
+        return None;
+    }
+    let bill = crate::finances::calc_wages(game, &team.id);
+    if bill * 100 <= team.wage_budget * RELEASE_OVER_BUDGET_PCT {
+        return None;
+    }
+    let mut candidates: Vec<usize> = game
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, player)| {
+            player.transfer_listed
+                && previously_listed.contains(&player.id)
+                && player.team_id.as_deref() == Some(team.id.as_str())
+                && player.active_loan.is_none()
+                && player.wage() > 0
+                && crate::contracts::contract_days_remaining(player.contract_end(), current_date)
+                    .is_some_and(|days| days > 365)
+        })
+        .map(|(index, _)| index)
+        .collect();
+    candidates.sort_by(|&a, &b| {
+        let (a, b) = (&game.players[a], &game.players[b]);
+        b.wage()
+            .cmp(&a.wage())
+            .then_with(|| a.ovr.cmp(&b.ovr))
+            .then_with(|| a.id.cmp(&b.id))
+    });
+    for index in candidates {
+        let player = &game.players[index];
+        let severance = crate::contracts::termination_severance_cost(player, current_date);
+        if severance * 100 > team.finance * RELEASE_MAX_CASH_SHARE_PCT {
+            continue;
+        }
+        let player_id = player.id.clone();
+        if crate::squad_floor::ensure_departure_keeps_floor(game, &player_id).is_err() {
+            continue;
+        }
+        if crate::finances::post(
+            game,
+            &team.id,
+            -severance,
+            crate::finances::CashKind::ContractTermination,
+            current_date,
+        )
+        .is_err()
+        {
+            continue;
+        }
+        game.players[index].transfer_listed = false;
+        crate::contracts::release_player_contract(
+            game,
+            index,
+            crate::contracts::ContractReleaseReason::ManagerTermination {
+                severance_cost: severance,
+            },
+        );
+        return Some(player_id);
+    }
+    None
 }
 
 /// Whom the club lists and whom it takes off the list, as (index in `game.players`, listed).
@@ -388,5 +479,58 @@ mod tests {
                 "{id} not listed: {listed:?}"
             );
         }
+    }
+
+    /// Given a club far over its wage budget with a listed, unsold player on a long contract
+    /// When it reviews its squad
+    /// Then it pays him off: he leaves, and the severance (weeks left x wage) comes out of its cash.
+    #[test]
+    fn a_club_far_over_budget_pays_off_a_player_it_could_not_sell() {
+        let mut game = world(DESIRED_DEPTH);
+        game.teams[0].wage_budget = 1_000;
+        let dear = game.players.iter_mut().find(|p| p.id == "Midfielder5").unwrap();
+        dear.stage_wage(2_000);
+        dear.transfer_listed = true;
+        let severance = crate::contracts::termination_severance_cost(dear, today());
+        let cash = game.teams[0].finance;
+        let team = game.teams[0].clone();
+        let listed: std::collections::HashSet<String> = ["Midfielder5".to_string()].into();
+
+        let released = release_unsold_surplus(&mut game, &team, &listed, today());
+
+        assert_eq!(released.as_deref(), Some("Midfielder5"));
+        let gone = game.players.iter().find(|p| p.id == "Midfielder5").unwrap();
+        assert!(gone.team_id.is_none() && !gone.transfer_listed);
+        assert_eq!(game.teams[0].finance, cash - severance);
+    }
+
+    /// Given a club within its budget, or a player listed only today, or a contract with a year
+    /// or less to run, or a club in debt
+    /// When it reviews its squad
+    /// Then nobody is paid off.
+    #[test]
+    fn nobody_is_paid_off_without_the_reasons() {
+        let listed: std::collections::HashSet<String> = ["Midfielder5".to_string()].into();
+        let fresh = |budget: i64, days_left: i64, cash: i64| {
+            let mut game = world(DESIRED_DEPTH);
+            game.teams[0].wage_budget = budget;
+            game.teams[0].finance = cash;
+            let dear = game.players.iter_mut().find(|p| p.id == "Midfielder5").unwrap();
+            dear.stage_wage(2_000);
+            dear.transfer_listed = true;
+            dear.stage_contract_end(Some(
+                (today() + Duration::days(days_left)).format("%Y-%m-%d").to_string(),
+            ));
+            game
+        };
+        let attempt = |mut game: Game, listed: &std::collections::HashSet<String>| {
+            let team = game.teams[0].clone();
+            release_unsold_surplus(&mut game, &team, listed, today())
+        };
+        assert_eq!(attempt(fresh(10_000_000, 900, 100_000_000), &listed), None);
+        assert_eq!(attempt(fresh(1_000, 900, 100_000_000), &Default::default()), None);
+        assert_eq!(attempt(fresh(1_000, 300, 100_000_000), &listed), None);
+        assert_eq!(attempt(fresh(1_000, 900, -1), &listed), None);
+        assert_eq!(attempt(fresh(1_000, 900, 10_000), &listed), None, "severance is over the share of cash");
     }
 }
