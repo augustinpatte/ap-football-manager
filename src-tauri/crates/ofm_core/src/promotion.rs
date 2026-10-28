@@ -107,7 +107,7 @@ pub fn apply_promotion_relegation(divisions: &mut [League]) {
 /// outlived its registration put a club into a division it never played in.
 /// The berth pass already filters to registered clubs before it moves anyone;
 /// this is the same rule on the other route.
-fn ranked_participants(division: &League) -> Vec<String> {
+pub(crate) fn ranked_participants(division: &League) -> Vec<String> {
     let registered: HashSet<&str> = division
         .participant_ids
         .iter()

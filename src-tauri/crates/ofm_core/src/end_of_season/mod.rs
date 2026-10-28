@@ -13,7 +13,7 @@ use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRec
 mod berths;
 pub(crate) mod season_calendar;
 use berths::{
-    apply_domestic_berth_promotion_relegation, apply_pyramid_promotion_relegation,
+    apply_domestic_berth_promotion_relegation, apply_pyramid_promotion_relegation_with,
     resolve_domestic_berth_fields,
 };
 pub use berths::{
@@ -509,7 +509,17 @@ fn regenerate_competitions_for_new_season(
         })
         .collect();
 
-    apply_pyramid_promotion_relegation(&mut game.competitions);
+    let movements = {
+        let mut ties = crate::playoff_sim::SquadTies {
+            players: &game.players,
+            seed: game.seed,
+            date: rollover_anchor.format("%Y-%m-%d").to_string(),
+        };
+        apply_pyramid_promotion_relegation_with(&mut game.competitions, &mut ties)
+    };
+    for record in &movements {
+        crate::edition_archive::attach_movements(&mut game.edition_archive, record);
+    }
     apply_domestic_berth_promotion_relegation(game, &domestic_berth_fields);
 
     // Re-seed continental competitions with this season's qualified entrants

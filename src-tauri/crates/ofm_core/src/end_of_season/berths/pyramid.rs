@@ -7,6 +7,13 @@
 
 use domain::league::{BerthRule, CompetitionFormat, CompetitionScope, CompetitionType, League};
 
+/// [`apply_pyramid_promotion_relegation_with`] for a pyramid whose rules need no play-off: if one
+/// is played anyway, the better-ranked club wins it.
+#[cfg(test)]
+pub(crate) fn apply_pyramid_promotion_relegation(competitions: &mut [League]) {
+    apply_pyramid_promotion_relegation_with(competitions, &mut crate::ladder_rules::HigherSeedWins);
+}
+
 /// Apply promotion/relegation within each domestic pyramid. A pyramid is the
 /// set of league-table competitions sharing a country, ordered by `priority`
 /// (lowest priority = highest division).
@@ -25,8 +32,12 @@ use domain::league::{BerthRule, CompetitionFormat, CompetitionScope, Competition
 /// first division carries one, so counting those would empty every ladder.
 /// `CupWinner`, `PlayoffWinner`, and `fallback_to` targets stay
 /// in the ladder (play-offs are Phase C.3b; fallbacks are continental).
-pub(crate) fn apply_pyramid_promotion_relegation(competitions: &mut [League]) {
+pub(crate) fn apply_pyramid_promotion_relegation_with(
+    competitions: &mut [League],
+    resolver: &mut dyn crate::ladder_rules::TieResolver,
+) -> Vec<domain::competition_rules::BoundaryMovements> {
     use std::collections::{BTreeMap, HashMap, HashSet};
+    let mut movements = Vec::new();
 
     let berth_targets: HashSet<&str> = competitions
         .iter()
@@ -161,8 +172,9 @@ pub(crate) fn apply_pyramid_promotion_relegation(competitions: &mut [League]) {
             );
             continue;
         }
-        apply_linear_chain(competitions, &run);
+        movements.extend(apply_linear_chain(competitions, &run, resolver));
     }
+    movements
 }
 
 /// A rung of a domestic pyramid: the country's own league competition, played
@@ -230,18 +242,33 @@ fn tiers_share_clubs(competitions: &[League], indices: &[usize]) -> bool {
     })
 }
 
-fn apply_linear_chain(competitions: &mut [League], indices: &[usize]) {
+fn apply_linear_chain(
+    competitions: &mut [League],
+    indices: &[usize],
+    resolver: &mut dyn crate::ladder_rules::TieResolver,
+) -> Vec<domain::competition_rules::BoundaryMovements> {
     if indices.len() < 2 {
-        return;
+        return Vec::new();
     }
     let mut divisions: Vec<League> = indices
         .iter()
         .map(|&index| competitions[index].clone())
         .collect();
+    // Authored rules (play-offs, barrages, reserve sides) are settled by the ruled ladder; a
+    // pyramid that carries none keeps the generic swap it always had.
+    if crate::ladder_rules::run_needs_rules(&divisions) {
+        let outcome = crate::ladder_rules::plan_ruled_ladder(&divisions, resolver);
+        for (slot, &index) in indices.iter().enumerate() {
+            competitions[index].participant_ids = outcome.participants[slot].clone();
+            competitions[index].rules.withdrawn_sides = outcome.withdrawn[slot].clone();
+        }
+        return outcome.movements;
+    }
     crate::promotion::apply_promotion_relegation(&mut divisions);
     for (slot, &index) in indices.iter().enumerate() {
         competitions[index].participant_ids = divisions[slot].participant_ids.clone();
     }
+    Vec::new()
 }
 
 #[cfg(test)]

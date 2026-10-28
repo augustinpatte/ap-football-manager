@@ -421,6 +421,7 @@ fn renewed_cup_with_archived_winner(game: &mut Game, cup: &mut League, winner: &
             groups: vec![],
             knockout_rounds: vec![],
             fixtures: vec![],
+            movements: None,
         });
     cup.season += 1;
     for fixture in &mut cup.fixtures {

@@ -1,3 +1,4 @@
+use crate::competition_rules::BoundaryMovements;
 use crate::league::{Fixture, GroupState, KnockoutRoundState, StandingEntry};
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,11 @@ pub struct CompletedEdition {
     #[serde(default)]
     pub knockout_rounds: Vec<KnockoutRoundState>,
     pub fixtures: Vec<Fixture>,
+    /// What this division's boundary with the one below (or above) moved when the edition ended:
+    /// promotions, relegations, play-offs. `None` for cups and for editions recorded before the
+    /// rules existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub movements: Option<BoundaryMovements>,
 }
 
 impl CompletedEdition {

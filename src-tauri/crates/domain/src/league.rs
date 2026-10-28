@@ -1,3 +1,4 @@
+use crate::competition_rules::{CupRules, LadderRules, ReserveSide, Tiebreaker, WithdrawnSide};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -62,6 +63,22 @@ pub struct CompetitionRules {
     /// like the World Cup where multiple matches happen on the same day.
     #[serde(default = "default_knockout_matches_per_day")]
     pub knockout_matches_per_day: u32,
+    /// Order in which a league table is settled between clubs level on points. Empty: the
+    /// generic order (points, goal difference, goals scored).
+    #[serde(default)]
+    pub tiebreakers: Vec<Tiebreaker>,
+    /// League tables: what moves between this division and the one below it, season by season.
+    #[serde(default)]
+    pub ladder: LadderRules,
+    /// Domestic competitions: the reserve sides (B teams) of the country and their parent clubs.
+    #[serde(default)]
+    pub reserve_sides: Vec<ReserveSide>,
+    /// League tables: reserve sides sent out of this division by their parent club.
+    #[serde(default)]
+    pub withdrawn_sides: Vec<WithdrawnSide>,
+    /// Knockout cups: feeding, draw and dates.
+    #[serde(default)]
+    pub cup: CupRules,
 }
 
 fn default_knockout_matches_per_day() -> u32 {
@@ -80,6 +97,11 @@ impl Default for CompetitionRules {
             group_matchday_gap_days: 7,
             knockout_round_gap_days: 14,
             knockout_matches_per_day: 1,
+            tiebreakers: Vec::new(),
+            ladder: LadderRules::default(),
+            reserve_sides: Vec::new(),
+            withdrawn_sides: Vec::new(),
+            cup: CupRules::default(),
         }
     }
 }
@@ -562,8 +584,20 @@ impl League {
             .any(|round| round.fixture_ids.iter().any(|id| id == fixture_id))
     }
 
+    /// The table in finishing order. A competition with authored `tiebreakers` settles level
+    /// clubs by them (head-to-head included, read from this competition's own results);
+    /// otherwise by points, goal difference and goals scored.
     pub fn sorted_standings(&self) -> Vec<StandingEntry> {
-        sort_standings(self.standings.clone())
+        if self.rules.tiebreakers.is_empty() {
+            return sort_standings(self.standings.clone());
+        }
+        crate::table_order::order_table(
+            self.standings.clone(),
+            &self.rules.tiebreakers,
+            &self.fixtures,
+            &self.id,
+            self.season,
+        )
     }
 }
 

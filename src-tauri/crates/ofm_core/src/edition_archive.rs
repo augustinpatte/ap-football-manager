@@ -38,6 +38,7 @@ pub fn archive_completed_edition(
         groups: competition.groups.clone(),
         knockout_rounds: competition.knockout_rounds.clone(),
         fixtures: competition.fixtures.clone(),
+        movements: None,
     });
     Ok(ArchiveOutcome::Archived)
 }
@@ -53,6 +54,20 @@ pub(crate) fn champion_of_latest_edition_before<'a>(
         .filter(|edition| edition.competition_id == competition_id && edition.season < season)
         .max_by_key(|edition| edition.season)
         .map(|edition| edition.champion_id.as_str())
+}
+
+/// Records what a division boundary moved on the editions of the two divisions it joins.
+pub fn attach_movements(
+    archive: &mut [CompletedEdition],
+    movements: &domain::competition_rules::BoundaryMovements,
+) {
+    for edition in archive.iter_mut().filter(|edition| {
+        edition.season == movements.season
+            && (edition.competition_id == movements.upper_competition_id
+                || edition.competition_id == movements.lower_competition_id)
+    }) {
+        edition.movements = Some(movements.clone());
+    }
 }
 
 pub fn archive_finished_editions(archive: &mut Vec<CompletedEdition>, competitions: &[League]) {
@@ -267,6 +282,7 @@ mod tests {
             groups: vec![],
             knockout_rounds: vec![],
             fixtures: vec![],
+            movements: None,
         }
     }
 

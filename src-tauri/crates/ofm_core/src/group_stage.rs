@@ -224,6 +224,7 @@ fn build_group_cup(
         group_matchday_gap_days: config.matchday_gap_days.max(1) as u32,
         knockout_round_gap_days: config.knockout_round_gap_days,
         knockout_matches_per_day: config.knockout_matches_per_day,
+        ..Default::default()
     };
     cup.standings.clear();
     cup.groups = groups

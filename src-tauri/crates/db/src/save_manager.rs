@@ -3788,6 +3788,7 @@ mod tests {
                 groups: Vec::new(),
                 knockout_rounds: Vec::new(),
                 fixtures: Vec::new(),
+                movements: None,
             });
         let id = manager.create_save(&game, "Archive").unwrap();
 

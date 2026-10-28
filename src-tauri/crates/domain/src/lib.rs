@@ -1,5 +1,6 @@
 pub mod age;
 pub mod competition_calendar;
+pub mod competition_rules;
 pub mod contract_ledger;
 pub mod custom_tactic;
 pub mod edition_archive;
@@ -16,5 +17,6 @@ pub mod retired_player;
 pub mod season;
 pub mod staff;
 pub mod stats;
+pub mod table_order;
 pub mod team;
 pub mod world_history;
