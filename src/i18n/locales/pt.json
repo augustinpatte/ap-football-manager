@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — tem jogos",
       "yourMatch": "O teu jogo",
       "otherFixtures": "Outros jogos"
-    }
+    },
+    "playoffZone": "Play-offs / barragem"
   },
   "players": {
     "searchPlaceholder": "Procurar por nome ou nacionalidade...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "Taça de {{country}}",
       "continentalChampionsCup": "Taça Continental de Campeões",
       "premierDivision": "Primeira Divisão"
+    },
+    "history": {
+      "tab": "Histórico",
+      "empty": "Ainda não há nenhuma época concluída.",
+      "season": "Época {{season}}",
+      "champion": "Vencedor",
+      "runnerUp": "Finalista",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} nas grandes penalidades",
+      "promoted": "Promovidos",
+      "relegated": "Despromovidos",
+      "playoffs": "Play-offs",
+      "reserveBlocked": "Equipas B sem direito a subir",
+      "reserveForcedDown": "Equipas B afastadas pelo clube principal",
+      "reserveReadmitted": "Equipas B readmitidas"
     }
   },
   "news": {

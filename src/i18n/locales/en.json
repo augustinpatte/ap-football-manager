@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — has fixtures",
       "yourMatch": "Your match",
       "otherFixtures": "Other fixtures"
-    }
+    },
+    "playoffZone": "Play-offs / barrage"
   },
   "players": {
     "searchPlaceholder": "Search by name or nationality...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}} Cup",
       "continentalChampionsCup": "Continental Champions Cup",
       "premierDivision": "Premier Division"
+    },
+    "history": {
+      "tab": "History",
+      "empty": "No finished season yet.",
+      "season": "Season {{season}}",
+      "champion": "Winner",
+      "runnerUp": "Runner-up",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} on penalties",
+      "promoted": "Promoted",
+      "relegated": "Relegated",
+      "playoffs": "Play-offs",
+      "reserveBlocked": "Reserve sides not eligible to go up",
+      "reserveForcedDown": "Reserve sides pushed down by their parent club",
+      "reserveReadmitted": "Reserve sides readmitted"
     }
   },
   "news": {

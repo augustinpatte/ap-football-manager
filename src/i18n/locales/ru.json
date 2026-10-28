@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — есть матчи",
       "yourMatch": "Ваш матч",
       "otherFixtures": "Другие матчи"
-    }
+    },
+    "playoffZone": "Стыковые матчи"
   },
   "players": {
     "searchPlaceholder": "Поиск по имени или гражданству...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}} Кубок",
       "continentalChampionsCup": "Континентальный кубок чемпионов",
       "premierDivision": "Премьер-дивизион"
+    },
+    "history": {
+      "tab": "История",
+      "empty": "Завершённых сезонов пока нет.",
+      "season": "Сезон {{season}}",
+      "champion": "Победитель",
+      "runnerUp": "Финалист",
+      "final": "Финал",
+      "penalties": "{{home}}–{{away}} по пенальти",
+      "promoted": "Повысились",
+      "relegated": "Вылетели",
+      "playoffs": "Стыковые матчи",
+      "reserveBlocked": "Резервные команды без права повышения",
+      "reserveForcedDown": "Резервные команды, понижённые из-за основного клуба",
+      "reserveReadmitted": "Возвращённые резервные команды"
     }
   },
   "news": {

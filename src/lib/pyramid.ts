@@ -1,11 +1,41 @@
 import type { LeagueData } from "../store/gameStore";
+import type { BoundaryRuleData } from "../store/types";
 
 export interface PromotionRelegationZones {
+  /** Places that go up without a play-off: the top N of the table. */
   promotionSlots: number;
+  /** Places that go down without a barrage: the bottom N of the table. */
   relegationSlots: number;
+  /** 1-based ranks that play the promotion play-off (or the barrage against the division above). */
+  promotionPlayoff?: { from: number; to: number } | null;
+  /** 1-based rank that plays the relegation barrage against a club of the division below. */
+  barrageRank?: number | null;
 }
 
 const NO_ZONES: PromotionRelegationZones = { promotionSlots: 0, relegationSlots: 0 };
+
+export type ZoneKind = "promotion" | "playoff" | "barrage" | "relegation" | null;
+
+/** Which zone the row at `index` (0-based) of a table of `total` clubs falls in. */
+export function zoneOfRow(zones: PromotionRelegationZones, index: number, total: number): ZoneKind {
+  if (index < zones.promotionSlots) return "promotion";
+  if (zones.relegationSlots > 0 && index >= total - zones.relegationSlots) return "relegation";
+  const rank = index + 1;
+  if (zones.promotionPlayoff && rank >= zones.promotionPlayoff.from && rank <= zones.promotionPlayoff.to) {
+    return "playoff";
+  }
+  if (zones.barrageRank != null && rank === zones.barrageRank) return "barrage";
+  return null;
+}
+
+/** The authored rule for the boundary below `division`, in force for its season. */
+export function boundaryRuleFor(division: LeagueData): BoundaryRuleData | null {
+  const entries = division.rules?.ladder?.boundaries ?? [];
+  const inForce = entries
+    .filter((entry) => entry.from_season <= division.season)
+    .sort((a, b) => b.from_season - a.from_season)[0];
+  return inForce?.rule ?? null;
+}
 
 /** Mirrors the backend's relegation_count: ~one slot per five clubs in the smaller division, at least one. */
 function swapCount(upperSize: number, lowerSize: number): number {
@@ -100,8 +130,27 @@ export function getPromotionRelegationZones(
     .filter((other) => (other.priority ?? 0) > myPriority)
     .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))[0];
 
-  return {
-    promotionSlots: above ? swapCount(divisionSize(above), divisionSize(competition)) : 0,
-    relegationSlots: below ? swapCount(divisionSize(competition), divisionSize(below)) : 0,
+  // An authored boundary says exactly what moves; without one the generic swap applies.
+  const ruleAbove = above ? boundaryRuleFor(above) : null;
+  const ruleBelow = below ? boundaryRuleFor(competition) : null;
+  const promotionPlayoff = ruleAbove?.promotion_playoff
+    ? { from: ruleAbove.promotion_playoff.from_rank, to: ruleAbove.promotion_playoff.to_rank }
+    : ruleAbove?.barrage
+      ? { from: ruleAbove.barrage.lower_from_rank, to: ruleAbove.barrage.lower_to_rank }
+      : null;
+  const zones: PromotionRelegationZones = {
+    promotionSlots: above
+      ? ruleAbove
+        ? ruleAbove.promoted_direct
+        : swapCount(divisionSize(above), divisionSize(competition))
+      : 0,
+    relegationSlots: below
+      ? ruleBelow
+        ? ruleBelow.relegated_direct
+        : swapCount(divisionSize(competition), divisionSize(below))
+      : 0,
   };
+  if (promotionPlayoff) zones.promotionPlayoff = promotionPlayoff;
+  if (ruleBelow?.barrage) zones.barrageRank = ruleBelow.barrage.upper_rank;
+  return zones;
 }

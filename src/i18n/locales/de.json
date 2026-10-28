@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — hat Spiele",
       "yourMatch": "Dein Spiel",
       "otherFixtures": "Andere Spiele"
-    }
+    },
+    "playoffZone": "Relegation / Playoffs"
   },
   "players": {
     "searchPlaceholder": "Nach Name oder Nationalität suchen...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}} Pokal",
       "continentalChampionsCup": "Kontinentaler Meisterpokal",
       "premierDivision": "Erste Division"
+    },
+    "history": {
+      "tab": "Historie",
+      "empty": "Noch keine abgeschlossene Saison.",
+      "season": "Saison {{season}}",
+      "champion": "Sieger",
+      "runnerUp": "Finalist",
+      "final": "Finale",
+      "penalties": "{{home}}–{{away}} im Elfmeterschießen",
+      "promoted": "Aufsteiger",
+      "relegated": "Absteiger",
+      "playoffs": "Relegation",
+      "reserveBlocked": "Zweitvertretungen ohne Aufstiegsrecht",
+      "reserveForcedDown": "Von ihrem Stammverein verdrängte Zweitvertretungen",
+      "reserveReadmitted": "Wieder aufgenommene Zweitvertretungen"
     }
   },
   "news": {

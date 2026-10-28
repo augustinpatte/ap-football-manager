@@ -1,9 +1,9 @@
+import { orderStandings } from "../../lib/standings";
 import { useState } from "react";
 import CompetitionsOverview from "./CompetitionsOverview";
 import TournamentsAwardsGrid from "./TournamentsAwardsGrid";
 import {
   buildTopScorers,
-  byTablePosition,
   isKnockoutCompetition,
   summarizeCompetitionProgress,
 } from "./TournamentsTab.helpers";
@@ -11,6 +11,7 @@ import { useSeasonAwards } from "./useSeasonAwards";
 import { useTournamentsData } from "./useTournamentsData";
 import type { GameStateData } from "../../store/gameStore";
 import TournamentsFixturesView from "./TournamentsFixturesView";
+import TournamentsHistoryView from "./TournamentsHistoryView";
 import TournamentsLeagueHeader from "./TournamentsLeagueHeader";
 import TournamentsOverview from "./TournamentsOverview";
 import TournamentsStandingsView from "./TournamentsStandingsView";
@@ -52,6 +53,7 @@ export default function TournamentsTab({
     league,
     currentSeason,
     worldCupChampion,
+    history,
   } = useTournamentsData(gameState);
 
   const [view, setView] = useState<TournamentsView>("overview");
@@ -70,7 +72,7 @@ export default function TournamentsTab({
     );
   }
 
-  const standings = [...league.standings].sort(byTablePosition);
+  const standings = orderStandings(league);
 
   const isKnockout = isKnockoutCompetition(league);
   const knockoutRounds = league.knockout_rounds ?? [];
@@ -194,6 +196,9 @@ export default function TournamentsTab({
       {/* Fixtures */}
       {view === "fixtures" && (
         <TournamentsFixturesView sortedMatchdays={sortedMatchdays} teams={teams} />
+      )}
+      {view === "history" && (
+        <TournamentsHistoryView competition={league} history={history} teams={teams} />
       )}
       {/* Awards */}
       {view === "awards" && (

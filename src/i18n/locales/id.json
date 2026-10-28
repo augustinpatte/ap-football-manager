@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — ada jadwal pertandingan",
       "yourMatch": "Pertandingan kamu",
       "otherFixtures": "Pertandingan lainnya"
-    }
+    },
+    "playoffZone": "Play-off / barage"
   },
   "players": {
     "searchPlaceholder": "Cari berdasarkan nama atau kewarganegaraan...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "Piala {{country}}",
       "continentalChampionsCup": "Piala Champions Kontinental",
       "premierDivision": "Divisi Premier"
+    },
+    "history": {
+      "tab": "Riwayat",
+      "empty": "Belum ada musim yang selesai.",
+      "season": "Musim {{season}}",
+      "champion": "Juara",
+      "runnerUp": "Runner-up",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} lewat adu penalti",
+      "promoted": "Promosi",
+      "relegated": "Degradasi",
+      "playoffs": "Play-off",
+      "reserveBlocked": "Tim cadangan yang tidak boleh promosi",
+      "reserveForcedDown": "Tim cadangan yang diturunkan oleh klub induknya",
+      "reserveReadmitted": "Tim cadangan yang diterima kembali"
     }
   },
   "news": {

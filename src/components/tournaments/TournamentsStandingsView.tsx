@@ -1,3 +1,4 @@
+import type { PromotionRelegationZones } from "../../lib/pyramid";
 import { Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -21,7 +22,7 @@ interface TournamentsStandingsViewProps {
   knockoutRounds: KnockoutRound[];
   isKnockout: boolean;
   isPreseason: boolean;
-  zones: { promotionSlots: number; relegationSlots: number };
+  zones: PromotionRelegationZones;
   teams: TournamentsTeamLookup;
 }
 
@@ -119,12 +120,21 @@ export default function TournamentsStandingsView({
           testIdPrefix="tournaments-standing"
           zones={zones}
         />
-        {(zones.promotionSlots > 0 || zones.relegationSlots > 0) && (
+        {(zones.promotionSlots > 0 ||
+          zones.relegationSlots > 0 ||
+          zones.promotionPlayoff ||
+          zones.barrageRank != null) && (
           <div className="flex gap-5 border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400">
             {zones.promotionSlots > 0 && (
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-primary-500" />
                 {t("schedule.promotionZone")}
+              </span>
+            )}
+            {(zones.promotionPlayoff || zones.barrageRank != null) && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                {t("schedule.playoffZone")}
               </span>
             )}
             {zones.relegationSlots > 0 && (

@@ -47,14 +47,16 @@ pub fn entrants_from_feeders(
         }
     }
     entrants.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)).then(a.2.cmp(b.2)));
-    Some(entrants.into_iter().map(|(_, _, club)| club.to_string()).collect())
+    Some(
+        entrants
+            .into_iter()
+            .map(|(_, _, club)| club.to_string())
+            .collect(),
+    )
 }
 
 /// For every cup fed by divisions, the entrants of its next edition, keyed by the cup's id.
-pub fn refreshed_entrants(
-    competitions: &[League],
-    teams: &[Team],
-) -> HashMap<String, Vec<String>> {
+pub fn refreshed_entrants(competitions: &[League], teams: &[Team]) -> HashMap<String, Vec<String>> {
     competitions
         .iter()
         .filter_map(|cup| {

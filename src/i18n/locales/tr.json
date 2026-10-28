@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — maç var",
       "yourMatch": "Sizin maçınız",
       "otherFixtures": "Diğer maçlar"
-    }
+    },
+    "playoffZone": "Play-off / baraj"
   },
   "players": {
     "searchPlaceholder": "Ad veya uyruğa göre ara...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}} Kupası",
       "continentalChampionsCup": "Kıtasal Şampiyonlar Kupası",
       "premierDivision": "Premier Lig"
+    },
+    "history": {
+      "tab": "Geçmiş",
+      "empty": "Henüz tamamlanmış bir sezon yok.",
+      "season": "{{season}} sezonu",
+      "champion": "Şampiyon",
+      "runnerUp": "Finalist",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} penaltılarla",
+      "promoted": "Yükselenler",
+      "relegated": "Düşenler",
+      "playoffs": "Play-off",
+      "reserveBlocked": "Yükselme hakkı olmayan yedek takımlar",
+      "reserveForcedDown": "Ana kulüpleri nedeniyle düşürülen yedek takımlar",
+      "reserveReadmitted": "Yeniden kabul edilen yedek takımlar"
     }
   },
   "news": {

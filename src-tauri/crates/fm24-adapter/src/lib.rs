@@ -23,6 +23,7 @@ pub mod placement;
 pub mod positions;
 pub mod refs;
 pub mod report;
+pub mod rules;
 pub mod source;
 pub mod staff;
 

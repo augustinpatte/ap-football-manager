@@ -16,9 +16,37 @@ pub struct PlayerNameEntry {
     pub team_name: Option<String>,
 }
 
+/// How one archived edition of a competition ended: who won it, who it was won against, and what
+/// it moved between divisions.
+#[derive(Debug, Serialize)]
+pub struct EditionSummary {
+    pub competition_id: String,
+    pub season: u32,
+    pub completed_on: String,
+    pub champion_id: String,
+    /// The beaten finalist of a cup, the second of a table.
+    pub runner_up_id: Option<String>,
+    /// Home club, away club and score of a cup final: `(home id, away id, home goals, away
+    /// goals, home penalties, away penalties)`.
+    pub final_result: Option<FinalResult>,
+    pub movements: Option<domain::competition_rules::BoundaryMovements>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FinalResult {
+    pub home_team_id: String,
+    pub away_team_id: String,
+    pub home_goals: u8,
+    pub away_goals: u8,
+    pub home_penalties: Option<u8>,
+    pub away_penalties: Option<u8>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct CompetitionsView {
     pub competitions: Vec<CompetitionState>,
+    /// Finished editions, most recent first: champions, finals, promotions and relegations.
+    pub history: Vec<EditionSummary>,
     /// Club team names keyed by ID (only teams appearing in competitions).
     pub team_names: BTreeMap<String, String>,
     /// National team names keyed by ID.
@@ -34,8 +62,66 @@ pub struct CompetitionsView {
     pub active_competition_ids: Vec<String>,
 }
 
+/// The finished editions the game remembers, most recent first.
+fn edition_summaries(game: &Game) -> Vec<EditionSummary> {
+    let mut editions: Vec<EditionSummary> = game
+        .edition_archive
+        .iter()
+        .map(|edition| {
+            let final_fixture = edition
+                .knockout_rounds
+                .last()
+                .and_then(|round| round.fixture_ids.first())
+                .and_then(|id| edition.fixtures.iter().find(|fixture| &fixture.id == id));
+            let final_result = final_fixture.and_then(|fixture| {
+                let result = fixture.result.as_ref()?;
+                Some(FinalResult {
+                    home_team_id: fixture.home_team_id.clone(),
+                    away_team_id: fixture.away_team_id.clone(),
+                    home_goals: result.home_goals,
+                    away_goals: result.away_goals,
+                    home_penalties: result.home_penalties,
+                    away_penalties: result.away_penalties,
+                })
+            });
+            let runner_up_id = match &final_result {
+                Some(result) => [&result.home_team_id, &result.away_team_id]
+                    .into_iter()
+                    .find(|team| **team != edition.champion_id)
+                    .cloned(),
+                None => edition
+                    .standings
+                    .get(1)
+                    .map(|entry| entry.team_id.clone())
+                    .filter(|team| *team != edition.champion_id),
+            };
+            EditionSummary {
+                competition_id: edition.competition_id.clone(),
+                season: edition.season,
+                completed_on: edition.completed_on.clone(),
+                champion_id: edition.champion_id.clone(),
+                runner_up_id,
+                final_result,
+                movements: edition.movements.clone(),
+            }
+        })
+        .collect();
+    editions.sort_by(|a, b| {
+        b.season
+            .cmp(&a.season)
+            .then(a.competition_id.cmp(&b.competition_id))
+    });
+    editions
+}
+
 pub fn query_competitions(game: &Game, _query: &CompetitionsQuery) -> CompetitionsView {
-    let competitions = game.competitions.clone();
+    let mut competitions = game.competitions.clone();
+    for competition in &mut competitions {
+        if !competition.rules.tiebreakers.is_empty() {
+            competition.standings = competition.sorted_standings();
+        }
+    }
+    let history = edition_summaries(game);
 
     // Build club team lookup from all competitions' participants and fixtures.
     let club_team_ids: BTreeSet<&str> = competitions
@@ -47,6 +133,20 @@ pub fn query_competitions(game: &Game, _query: &CompetitionsQuery) -> Competitio
                     .flat_map(|f| [f.home_team_id.as_str(), f.away_team_id.as_str()]),
             )
         })
+        .chain(history.iter().flat_map(|edition| {
+            [
+                Some(edition.champion_id.as_str()),
+                edition.runner_up_id.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .chain(edition.movements.iter().flat_map(|movements| {
+                movements
+                    .promoted()
+                    .chain(movements.relegated())
+                    .map(String::as_str)
+            }))
+        }))
         .collect();
 
     let team_map: BTreeMap<&str, &str> = game
@@ -126,6 +226,7 @@ pub fn query_competitions(game: &Game, _query: &CompetitionsQuery) -> Competitio
 
     CompetitionsView {
         competitions,
+        history,
         team_names,
         national_team_names,
         national_team_name_keys,

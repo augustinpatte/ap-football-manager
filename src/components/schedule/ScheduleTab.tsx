@@ -1,3 +1,5 @@
+import { orderStandings } from "../../lib/standings";
+import { zoneOfRow } from "../../lib/pyramid";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, Globe, TableProperties, Trophy } from "lucide-react";
@@ -32,16 +34,6 @@ interface ScheduleTabProps {
 }
 
 const PAST_PAGE_SIZE = 4;
-
-function sortStandings(competition: LeagueData | null): LeagueData["standings"] {
-  if (!competition) return [];
-  return [...competition.standings].sort(
-    (a, b) =>
-      b.points - a.points ||
-      b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
-      b.goals_for - a.goals_for,
-  );
-}
 
 type View = "calendar" | "fixtures" | "standings" | "international";
 
@@ -686,7 +678,7 @@ function StandingsView({
   gameState: GameStateData;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
-  const standings = sortStandings(competition);
+  const standings = orderStandings(competition);
   const zones = competition
     ? getPromotionRelegationZones(getActiveCompetitions(gameState), competition)
     : { promotionSlots: 0, relegationSlots: 0 };
@@ -756,9 +748,10 @@ function StandingsView({
               {standings.map((entry, index) => {
                 const isUser = entry.team_id === userTeamId;
                 const gd = entry.goals_for - entry.goals_against;
-                const inPromotionZone = index < zones.promotionSlots;
-                const inRelegationZone =
-                  zones.relegationSlots > 0 && index >= standings.length - zones.relegationSlots;
+                const zone = zoneOfRow(zones, index, standings.length);
+                const inPromotionZone = zone === "promotion";
+                const inRelegationZone = zone === "relegation";
+                const inPlayoffZone = zone === "playoff" || zone === "barrage";
                 const contextItems = [buildTeamMenuItem(t("common.viewTeam"), entry.team_id)];
 
                 return (
@@ -777,14 +770,18 @@ function StandingsView({
                             ? "border-l-2 border-primary-500 text-primary-500"
                             : inRelegationZone
                               ? "border-l-2 border-red-500 text-red-500"
-                              : "text-gray-400 dark:text-gray-500"
+                              : inPlayoffZone
+                                ? "border-l-2 border-amber-500 text-amber-500"
+                                : "text-gray-400 dark:text-gray-500"
                         }`}
                         data-testid={
                           inPromotionZone
                             ? `standings-promotion-${entry.team_id}`
                             : inRelegationZone
                               ? `standings-relegation-${entry.team_id}`
-                              : undefined
+                              : inPlayoffZone
+                                ? `standings-playoff-${entry.team_id}`
+                                : undefined
                         }
                       >
                         {index + 1}
@@ -834,12 +831,21 @@ function StandingsView({
               })}
             </tbody>
           </table>
-          {(zones.promotionSlots > 0 || zones.relegationSlots > 0) && (
+          {(zones.promotionSlots > 0 ||
+            zones.relegationSlots > 0 ||
+            zones.promotionPlayoff ||
+            zones.barrageRank != null) && (
             <div className="flex gap-5 border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400">
               {zones.promotionSlots > 0 && (
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-primary-500" />
                   {t("schedule.promotionZone")}
+                </span>
+              )}
+              {(zones.promotionPlayoff || zones.barrageRank != null) && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  {t("schedule.playoffZone")}
                 </span>
               )}
               {zones.relegationSlots > 0 && (

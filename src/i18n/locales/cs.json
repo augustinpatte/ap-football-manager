@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — hrají se zápasy",
       "yourMatch": "Váš zápas",
       "otherFixtures": "Ostatní zápasy"
-    }
+    },
+    "playoffZone": "Baráž"
   },
   "players": {
     "searchPlaceholder": "Hledat podle jména nebo národnosti...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}} — pohár",
       "continentalChampionsCup": "Kontinentální Liga mistrů",
       "premierDivision": "Premier Division"
+    },
+    "history": {
+      "tab": "Historie",
+      "empty": "Zatím žádná dohraná sezona.",
+      "season": "Sezona {{season}}",
+      "champion": "Vítěz",
+      "runnerUp": "Finalista",
+      "final": "Finále",
+      "penalties": "{{home}}–{{away}} na penalty",
+      "promoted": "Postupující",
+      "relegated": "Sestupující",
+      "playoffs": "Baráž",
+      "reserveBlocked": "Rezervní týmy bez práva postupu",
+      "reserveForcedDown": "Rezervní týmy sestoupené kvůli mateřskému klubu",
+      "reserveReadmitted": "Znovu přijaté rezervní týmy"
     }
   },
   "news": {

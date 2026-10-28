@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — a des matchs",
       "yourMatch": "Votre match",
       "otherFixtures": "Autres matchs"
-    }
+    },
+    "playoffZone": "Barrages"
   },
   "players": {
     "searchPlaceholder": "Rechercher par nom ou nationalité...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "Coupe de {{country}}",
       "continentalChampionsCup": "Coupe Continentale des Champions",
       "premierDivision": "Première Division"
+    },
+    "history": {
+      "tab": "Palmarès",
+      "empty": "Aucune saison terminée pour l'instant.",
+      "season": "Saison {{season}}",
+      "champion": "Vainqueur",
+      "runnerUp": "Finaliste",
+      "final": "Finale",
+      "penalties": "{{home}}–{{away}} aux tirs au but",
+      "promoted": "Promus",
+      "relegated": "Relégués",
+      "playoffs": "Barrages",
+      "reserveBlocked": "Équipes réserves non promouvables",
+      "reserveForcedDown": "Équipes réserves rétrogradées par leur club principal",
+      "reserveReadmitted": "Équipes réserves réintégrées"
     }
   },
   "news": {

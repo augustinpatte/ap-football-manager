@@ -1505,7 +1505,8 @@
       "dayWithFixtures": "{{date}} — ha partite",
       "yourMatch": "La tua partita",
       "otherFixtures": "Altre partite"
-    }
+    },
+    "playoffZone": "Play-off / spareggio"
   },
   "players": {
     "searchPlaceholder": "Cerca per nome o nazionalità...",
@@ -1610,6 +1611,21 @@
       "nationalCup": "Coppa di {{country}}",
       "continentalChampionsCup": "Coppa dei Campioni Continentale",
       "premierDivision": "Prima Divisione"
+    },
+    "history": {
+      "tab": "Albo d'oro",
+      "empty": "Nessuna stagione ancora conclusa.",
+      "season": "Stagione {{season}}",
+      "champion": "Vincitore",
+      "runnerUp": "Finalista",
+      "final": "Finale",
+      "penalties": "{{home}}–{{away}} ai rigori",
+      "promoted": "Promosse",
+      "relegated": "Retrocesse",
+      "playoffs": "Play-off",
+      "reserveBlocked": "Squadre B non promovibili",
+      "reserveForcedDown": "Squadre B retrocesse dal club principale",
+      "reserveReadmitted": "Squadre B riammesse"
     }
   },
   "news": {

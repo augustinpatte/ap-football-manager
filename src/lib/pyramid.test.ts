@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LeagueData } from "../store/gameStore";
-import { getPromotionRelegationZones } from "./pyramid";
+import { getPromotionRelegationZones, zoneOfRow } from "./pyramid";
 
 function division(overrides: Partial<LeagueData>): LeagueData {
   return {
@@ -274,5 +274,99 @@ describe("getPromotionRelegationZones", () => {
       promotionSlots: 0,
       relegationSlots: 0,
     });
+  });
+});
+
+describe("getPromotionRelegationZones with authored rules", () => {
+  const boundary = (rule: Record<string, unknown>) => ({
+    boundaries: [
+      {
+        from_season: 2026,
+        rule: {
+          promoted_direct: 2,
+          promotion_playoff: null,
+          relegated_direct: 3,
+          barrage: null,
+          status: "Confirmed" as const,
+          note: "",
+          ...rule,
+        },
+      },
+    ],
+  });
+  const withRules = (rules: object) =>
+    ({ format: "LeagueTable", counts_in_season_flow: true, ...rules }) as LeagueData["rules"];
+
+  it("reads the places from the division above's rule, not from the division sizes", () => {
+    const top = division({
+      id: "eng-1",
+      priority: 0,
+      season: 2026,
+      participant_ids: clubs("t", 20),
+      rules: withRules({
+        ladder: boundary({
+          promoted_direct: 2,
+          promotion_playoff: { from_rank: 3, to_rank: 6, round_legs: 2, final_legs: 1 },
+          relegated_direct: 3,
+        }),
+      }),
+    });
+    const second = division({
+      id: "eng-2",
+      priority: 1,
+      season: 2026,
+      participant_ids: clubs("s", 24),
+    });
+    expect(getPromotionRelegationZones([top, second], top)).toEqual({
+      promotionSlots: 0,
+      relegationSlots: 3,
+    });
+    expect(getPromotionRelegationZones([top, second], second)).toEqual({
+      promotionSlots: 2,
+      relegationSlots: 0,
+      promotionPlayoff: { from: 3, to: 6 },
+    });
+  });
+
+  it("shows a barrage as the upper club's rank and the lower division's bracket", () => {
+    const top = division({
+      id: "fra-1",
+      priority: 0,
+      season: 2026,
+      participant_ids: clubs("t", 18),
+      rules: withRules({
+        ladder: boundary({
+          promoted_direct: 2,
+          relegated_direct: 2,
+          barrage: { upper_rank: 16, lower_from_rank: 3, lower_to_rank: 5, bracket_legs: 1, tie_legs: 2 },
+        }),
+      }),
+    });
+    const second = division({ id: "fra-2", priority: 1, season: 2026, participant_ids: clubs("s", 18) });
+    expect(getPromotionRelegationZones([top, second], top)).toEqual({
+      promotionSlots: 0,
+      relegationSlots: 2,
+      barrageRank: 16,
+    });
+    expect(getPromotionRelegationZones([top, second], second)).toEqual({
+      promotionSlots: 2,
+      relegationSlots: 0,
+      promotionPlayoff: { from: 3, to: 5 },
+    });
+  });
+
+  it("names the zone of each row", () => {
+    const zones = {
+      promotionSlots: 2,
+      relegationSlots: 3,
+      promotionPlayoff: { from: 3, to: 6 },
+      barrageRank: 16,
+    };
+    const kinds = Array.from({ length: 20 }, (_, i) => zoneOfRow(zones, i, 20));
+    expect(kinds.slice(0, 2)).toEqual(["promotion", "promotion"]);
+    expect(kinds.slice(2, 6)).toEqual(["playoff", "playoff", "playoff", "playoff"]);
+    expect(kinds[6]).toBeNull();
+    expect(kinds[15]).toBe("barrage");
+    expect(kinds.slice(17)).toEqual(["relegation", "relegation", "relegation"]);
   });
 });

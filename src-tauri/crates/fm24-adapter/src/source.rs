@@ -103,6 +103,8 @@ pub struct CompetitionRow {
     pub target_key: Option<String>,
     /// Confirmed `season_start` rule (ISO date), if any.
     pub season_start: Option<String>,
+    /// The `tiebreak` rule of the referential (`pts>gd>gf>...`), confirmed or not.
+    pub tiebreak: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,7 +294,9 @@ impl Source {
         let sql = format!(
             "SELECT c.id, c.fm_uid, c.name, n.name, c.playable, c.simulated, ct.level, ct.competition_key,
                     (SELECT value FROM competition_rule r WHERE r.competition_key = ct.competition_key
-                       AND r.rule_key = 'season_start' AND r.status = 'confirmée')
+                       AND r.rule_key = 'season_start' AND r.status = 'confirmée'),
+                    (SELECT value FROM competition_rule r WHERE r.competition_key = ct.competition_key
+                       AND r.rule_key = 'tiebreak' AND r.value IS NOT NULL)
              FROM competition c
              LEFT JOIN nation n ON n.id = c.nation_id
              LEFT JOIN competition_target ct ON ct.fm_uid = CAST(c.fm_uid AS TEXT)
@@ -311,6 +315,7 @@ impl Source {
                     level: r.get(6)?,
                     target_key: r.get(7)?,
                     season_start: r.get(8)?,
+                    tiebreak: r.get(9)?,
                 })
             })
             .map_err(|e| e.to_string())?;

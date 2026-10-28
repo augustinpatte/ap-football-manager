@@ -81,13 +81,23 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         if run.competitions.len() != crate::pipeline::EXPECTED_COMPETITIONS {
             failures.push(format!("{} competitions", run.competitions.len()));
         }
-        let defs = world
+        let (leagues, cups) = world
             .competition_definitions
             .as_ref()
-            .map(|d| d.competitions.len())
-            .unwrap_or(0);
-        if defs != run.competitions.len() {
-            failures.push(format!("world holds {defs} competition definitions"));
+            .map(|d| {
+                let cups = d
+                    .competitions
+                    .iter()
+                    .filter(|c| c.r#type == domain::league::CompetitionType::Cup)
+                    .count();
+                (d.competitions.len() - cups, cups)
+            })
+            .unwrap_or((0, 0));
+        if leagues != run.competitions.len() {
+            failures.push(format!("world holds {leagues} league definitions"));
+        }
+        if cups != crate::pipeline::EXPECTED_CUPS {
+            failures.push(format!("world holds {cups} cup definitions"));
         }
         failures
     };
@@ -95,7 +105,7 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         "perimeter.competitions",
         true,
         comp_failures,
-        "12 league definitions",
+        "12 league definitions and 6 national cups",
     ));
 
     // Club membership of every league equals the save's.
@@ -108,7 +118,11 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
                     .insert(ids::club(c.id));
                 acc
             });
-        for def in &defs.competitions {
+        for def in defs
+            .competitions
+            .iter()
+            .filter(|def| def.r#type == domain::league::CompetitionType::League)
+        {
             let value = serde_json::to_value(def).unwrap_or_default();
             let participants: BTreeSet<String> = value["participants"]["explicit"]
                 .as_array()

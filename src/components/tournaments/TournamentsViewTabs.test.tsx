@@ -30,6 +30,7 @@ describe("TournamentsViewTabs", () => {
       "schedule.standings",
       "schedule.fixtures",
       "tournaments.awardsTab",
+      "tournaments.history.tab",
     ]);
   });
 
@@ -41,6 +42,7 @@ describe("TournamentsViewTabs", () => {
       "tournaments.bracket",
       "schedule.fixtures",
       "tournaments.awardsTab",
+      "tournaments.history.tab",
     ]);
   });
 

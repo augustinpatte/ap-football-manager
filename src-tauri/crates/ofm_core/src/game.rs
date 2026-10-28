@@ -239,6 +239,14 @@ impl Game {
         for player in &mut self.players {
             player.elide_history_for_wire();
         }
+        // The screens rank a table by points, goal difference and goals scored. A competition
+        // with authored tiebreakers (head-to-head, away goals...) is ranked by the backend, and
+        // the table is sent in that order for the screens to keep.
+        for competition in &mut self.competitions {
+            if !competition.rules.tiebreakers.is_empty() {
+                competition.standings = competition.sorted_standings();
+            }
+        }
         self
     }
 

@@ -1,7 +1,7 @@
-import { Award, Calendar, GitBranch, TableProperties, Trophy } from "lucide-react";
+import { Award, Calendar, GitBranch, History, TableProperties, Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-export type TournamentsView = "overview" | "standings" | "fixtures" | "awards";
+export type TournamentsView = "overview" | "standings" | "fixtures" | "awards" | "history";
 
 interface TournamentsViewTabsProps {
   view: TournamentsView;
@@ -43,6 +43,11 @@ export default function TournamentsViewTabs({
       id: "awards",
       icon: <Award className="w-4 h-4 inline mr-1.5 -mt-0.5" />,
       label: t("tournaments.awardsTab"),
+    },
+    {
+      id: "history",
+      icon: <History className="w-4 h-4 inline mr-1.5 -mt-0.5" />,
+      label: t("tournaments.history.tab"),
     },
   ];
 

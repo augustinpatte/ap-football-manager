@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LeagueData, SeasonAwardsData, WorldCupChampionData } from "../store/types";
+import type {
+  EditionSummaryData,
+  LeagueData,
+  SeasonAwardsData,
+  WorldCupChampionData,
+} from "../store/types";
 
 export interface PlayerNameEntry {
   match_name: string;
@@ -10,6 +15,8 @@ export interface PlayerNameEntry {
 
 export interface CompetitionsView {
   competitions: LeagueData[];
+  /** Finished editions, most recent first. */
+  history?: EditionSummaryData[];
   team_names: Record<string, string>;
   national_team_names: Record<string, string>;
   national_team_name_keys: Record<string, string>;

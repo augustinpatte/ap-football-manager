@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 /// Revision 3: gate income for every club and the pool of FM24 free agents (mission 6).
 /// Revision 4: squads follow the team the save registers each player with: reserve and youth sides are
 /// the academy, loans carry their owner, affiliated B sides are the owner's reserve (roster audit).
-pub const WORLD_REVISION: u32 = 4;
+pub const WORLD_REVISION: u32 = 5;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]

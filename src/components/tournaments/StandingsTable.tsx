@@ -1,3 +1,4 @@
+import { zoneOfRow, type PromotionRelegationZones } from "../../lib/pyramid";
 import { useTranslation } from "react-i18next";
 
 import ContextMenu from "../ContextMenu";
@@ -16,7 +17,7 @@ interface StandingsTableProps {
   teams: TournamentsTeamLookup;
   /** Rows get `${testIdPrefix}-${team_id}`, so the two tables stay tellable apart. */
   testIdPrefix: string;
-  zones?: { promotionSlots: number; relegationSlots: number };
+  zones?: PromotionRelegationZones;
 }
 
 /** Already sorted by the caller — this only decides how a table looks. */
@@ -87,10 +88,10 @@ export default function StandingsTable({
         {standings.map((entry, idx) => {
           const isUser = entry.team_id === userTeamId;
           const gd = entry.goals_for - entry.goals_against;
-          const inPromotionZone = idx < (zones?.promotionSlots ?? 0);
-          const inRelegationZone =
-            (zones?.relegationSlots ?? 0) > 0 &&
-            idx >= standings.length - (zones?.relegationSlots ?? 0);
+          const zone = zones ? zoneOfRow(zones, idx, standings.length) : null;
+          const inPromotionZone = zone === "promotion";
+          const inRelegationZone = zone === "relegation";
+          const inPlayoffZone = zone === "playoff" || zone === "barrage";
 
           // A qualifying group with no groups defined lands national teams in
           // this table, and those have no team page to open.
@@ -112,14 +113,18 @@ export default function StandingsTable({
                       ? "border-l-2 border-primary-500 text-primary-500 dark:text-primary-400"
                       : inRelegationZone
                         ? "border-l-2 border-red-500 text-red-500 dark:text-red-400"
-                        : "text-gray-400 dark:text-gray-500"
+                        : inPlayoffZone
+                          ? "border-l-2 border-amber-500 text-amber-500 dark:text-amber-400"
+                          : "text-gray-400 dark:text-gray-500"
                   }`}
                   data-testid={
                     inPromotionZone
                       ? `tournaments-promotion-${entry.team_id}`
                       : inRelegationZone
                         ? `tournaments-relegation-${entry.team_id}`
-                        : undefined
+                        : inPlayoffZone
+                          ? `tournaments-playoff-${entry.team_id}`
+                          : undefined
                   }
                 >
                   {idx + 1}

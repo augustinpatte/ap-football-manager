@@ -390,7 +390,9 @@
     "worldEditor.playerClub",
     "worldEditor.competitionSelector",
     "worldEditor.staffClub",
-    "worldEditor.staffSpecialization.Fitness"
+    "worldEditor.staffSpecialization.Fitness",
+    "tournaments.history.final",
+    "tournaments.history.playoffs"
   ],
   "pt-BR": [
     "nations.pt",
@@ -433,7 +435,9 @@
     "match.phases.Finished",
     "match.commentary.Goal.hattrick.headline",
     "squad.kitPatterns.Diagonal",
-    "packageBuild.patches"
+    "packageBuild.patches",
+    "tournaments.history.final",
+    "tournaments.history.playoffs"
   ],
   "pt": [
     "nations.pt",
@@ -474,10 +478,17 @@
     "match.phases.Finished",
     "match.commentary.Goal.hattrick.headline",
     "squad.kitPatterns.Diagonal",
-    "packageBuild.patches"
+    "packageBuild.patches",
+    "tournaments.history.final",
+    "tournaments.history.playoffs"
   ],
-  "ru": ["dashboard.recapTransferLine"],
-  "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
+  "ru": [
+    "dashboard.recapTransferLine"
+  ],
+  "zh-CN": [
+    "be.news.roundup.resultLine",
+    "be.news.preseasonDigest.resultLine"
+  ],
   "tr": [
     "dashboard.recapTransferLine",
     "common.vs",
@@ -514,7 +525,8 @@
     "nations.gt",
     "nations.sv",
     "nations.sn",
-    "worldEditor.competitionFormat"
+    "worldEditor.competitionFormat",
+    "tournaments.history.final"
   ],
   "cs": [
     "dashboard.recapTransferLine",
@@ -714,6 +726,8 @@
     "worldEditor.staffRole.Scout",
     "youthAcademy.ovr",
     "youthAcademy.pos",
-    "youthAcademy.traits"
+    "youthAcademy.traits",
+    "tournaments.history.runnerUp",
+    "tournaments.history.final"
   ]
 }

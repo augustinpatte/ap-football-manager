@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — 有比赛",
       "yourMatch": "您的比赛",
       "otherFixtures": "其他比赛"
-    }
+    },
+    "playoffZone": "附加赛 / 保级附加赛"
   },
   "players": {
     "searchPlaceholder": "按姓名或国籍搜索...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "{{country}}杯",
       "continentalChampionsCup": "洲际冠军杯",
       "premierDivision": "超级联赛"
+    },
+    "history": {
+      "tab": "历史",
+      "empty": "还没有结束的赛季。",
+      "season": "{{season}} 赛季",
+      "champion": "冠军",
+      "runnerUp": "亚军",
+      "final": "决赛",
+      "penalties": "点球 {{home}}–{{away}}",
+      "promoted": "升级",
+      "relegated": "降级",
+      "playoffs": "附加赛",
+      "reserveBlocked": "无权升级的预备队",
+      "reserveForcedDown": "因一线队降级而被迫降级的预备队",
+      "reserveReadmitted": "重新获准参赛的预备队"
     }
   },
   "news": {

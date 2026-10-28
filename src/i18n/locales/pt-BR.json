@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — tem jogos",
       "yourMatch": "Seu jogo",
       "otherFixtures": "Outros jogos"
-    }
+    },
+    "playoffZone": "Play-offs / repescagem"
   },
   "players": {
     "searchPlaceholder": "Buscar por nome ou nacionalidade...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "Copa de {{country}}",
       "continentalChampionsCup": "Copa Continental de Campeões",
       "premierDivision": "Primeira Divisão"
+    },
+    "history": {
+      "tab": "Histórico",
+      "empty": "Ainda não há nenhuma temporada concluída.",
+      "season": "Temporada {{season}}",
+      "champion": "Campeão",
+      "runnerUp": "Vice-campeão",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} nos pênaltis",
+      "promoted": "Promovidos",
+      "relegated": "Rebaixados",
+      "playoffs": "Play-offs",
+      "reserveBlocked": "Times B sem direito ao acesso",
+      "reserveForcedDown": "Times B rebaixados pelo clube principal",
+      "reserveReadmitted": "Times B readmitidos"
     }
   },
   "news": {

@@ -111,6 +111,8 @@ pub struct Run {
 
 pub const EXPECTED_CLUBS: usize = 240;
 pub const EXPECTED_COMPETITIONS: usize = 12;
+/// The national cups created beside the leagues.
+pub const EXPECTED_CUPS: usize = 6;
 
 fn hex_colour(rgb: &str) -> String {
     format!("#{}", rgb.to_lowercase())
@@ -284,6 +286,31 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         );
     }
 
+    // --- reserve sides and the rules that depend on them ---------------------------------------
+    let reserve_pairs = crate::rules::reserve_pairs(&players, &unique_clubs);
+    for (side, parent) in &reserve_pairs {
+        journal.info(
+            "reserve.side",
+            &ids::club(*side),
+            format!(
+                "{} is read as the reserve side of {} (players of the parent registered with it)",
+                clubs
+                    .iter()
+                    .find(|c| c.id == *side)
+                    .map_or("?", |c| c.name.as_str()),
+                clubs
+                    .iter()
+                    .find(|c| c.id == *parent)
+                    .map_or("?", |c| c.name.as_str()),
+            ),
+        );
+    }
+    let reputation: BTreeMap<i64, i64> = clubs.iter().map(|c| (c.id, c.reputation)).collect();
+    let rule_context = competitions::RuleContext {
+        reserve_pairs: &reserve_pairs,
+        reputation: &reputation,
+    };
+
     // --- package on disk, then OFM's own loader and validator ----------------------------------
     write_package(
         package_dir,
@@ -294,6 +321,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         &staff_plans,
         &competitions,
         &members,
+        &rule_context,
         &refs,
         &mut journal,
     )?;
@@ -591,6 +619,7 @@ fn write_package(
     staff_plans: &[(ofm_core::generator::StaffDef, i64)],
     competition_rows: &[crate::source::CompetitionRow],
     members: &BTreeMap<i64, Vec<i64>>,
+    rule_context: &competitions::RuleContext<'_>,
     refs: &Refs,
     journal: &mut Journal,
 ) -> Result<()> {
@@ -623,7 +652,8 @@ fn write_package(
 
     write_items(&dir.join("teams.json"), "team", teams)?;
 
-    let competition_defs = competitions::build(competition_rows, members, refs, journal)?;
+    let competition_defs =
+        competitions::build(competition_rows, members, refs, journal, rule_context)?;
     write_items(
         &dir.join("competitions.json"),
         "competition",

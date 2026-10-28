@@ -59,13 +59,23 @@ fn an_uneven_field_is_a_round_of_the_bracket_above_it_and_the_best_seeds_wait() 
         .flat_map(|fixture| [fixture.home_team_id.as_str(), fixture.away_team_id.as_str()])
         .collect();
     assert_eq!(playing.len(), 8);
-    assert!(clubs(36)[28..].iter().all(|club| playing.contains(club.as_str())));
+    assert!(
+        clubs(36)[28..]
+            .iter()
+            .all(|club| playing.contains(club.as_str()))
+    );
 }
 
 #[test]
 fn the_draw_is_fixed_by_the_salt_and_changes_with_it() {
-    assert_eq!(pairings(&authored_cup(40, 7)), pairings(&authored_cup(40, 7)));
-    assert_ne!(pairings(&authored_cup(40, 7)), pairings(&authored_cup(40, 8)));
+    assert_eq!(
+        pairings(&authored_cup(40, 7)),
+        pairings(&authored_cup(40, 7))
+    );
+    assert_ne!(
+        pairings(&authored_cup(40, 7)),
+        pairings(&authored_cup(40, 8))
+    );
 }
 
 #[test]
@@ -91,8 +101,14 @@ fn a_cup_plays_down_to_one_champion_and_its_rounds_follow_the_authored_dates() {
     ];
     let mut names = vec![cup.knockout_rounds[0].name.clone()];
     for _ in 0..8 {
-        if cup.knockout_rounds.last().is_some_and(|round| round.name == "Final")
-            && cup.fixtures.iter().all(|f| f.status == FixtureStatus::Completed)
+        if cup
+            .knockout_rounds
+            .last()
+            .is_some_and(|round| round.name == "Final")
+            && cup
+                .fixtures
+                .iter()
+                .all(|f| f.status == FixtureStatus::Completed)
         {
             break;
         }
@@ -105,18 +121,34 @@ fn a_cup_plays_down_to_one_champion_and_its_rounds_follow_the_authored_dates() {
     }
     assert_eq!(
         names,
-        ["Round of 64", "Round of 32", "Round of 16", "Quarterfinal", "Semifinal", "Final"]
+        [
+            "Round of 64",
+            "Round of 32",
+            "Round of 16",
+            "Quarterfinal",
+            "Semifinal",
+            "Final"
+        ]
     );
     let date_of = |round: usize| -> String {
         let id = &cup.knockout_rounds[round].fixture_ids[0];
-        cup.fixtures.iter().find(|f| &f.id == id).unwrap().date.clone()
+        cup.fixtures
+            .iter()
+            .find(|f| &f.id == id)
+            .unwrap()
+            .date
+            .clone()
     };
     assert_eq!(date_of(1), "2026-12-09", "round of 32");
     assert_eq!(date_of(2), "2027-01-13", "round of 16");
     assert_eq!(date_of(3), "2027-02-03", "quarter-finals");
     assert_eq!(date_of(4), "2027-04-21", "semi-finals");
     assert_eq!(date_of(5), "2027-05-22", "final");
-    assert!(cup.fixtures.iter().all(|f| f.status == FixtureStatus::Completed));
+    assert!(
+        cup.fixtures
+            .iter()
+            .all(|f| f.status == FixtureStatus::Completed)
+    );
     let final_id = &cup.knockout_rounds[5].fixture_ids[0];
     let final_tie = cup.fixtures.iter().find(|f| &f.id == final_id).unwrap();
     assert!(final_tie.advancing_team_id().is_some());

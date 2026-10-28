@@ -16,6 +16,11 @@ pub fn competition(competition_id: i64) -> String {
     format!("fm-k-{competition_id}")
 }
 
+/// A national cup, named by its key in the importer's referential (`fr_coupe`).
+pub fn cup(key: &str) -> String {
+    format!("fm-cup-{key}")
+}
+
 /// The internal key behind an id, if it has the expected prefix.
 pub fn internal_key(id: &str, prefix: &str) -> Option<i64> {
     id.strip_prefix(prefix)?.parse().ok()

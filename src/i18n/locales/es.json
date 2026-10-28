@@ -1486,7 +1486,8 @@
       "dayWithFixtures": "{{date}} — tiene partidos",
       "yourMatch": "Tu partido",
       "otherFixtures": "Otros partidos"
-    }
+    },
+    "playoffZone": "Play-offs"
   },
   "players": {
     "searchPlaceholder": "Buscar por nombre o nacionalidad...",
@@ -1591,6 +1592,21 @@
       "nationalCup": "Copa de {{country}}",
       "continentalChampionsCup": "Copa Continental de Campeones",
       "premierDivision": "Primera División"
+    },
+    "history": {
+      "tab": "Historial",
+      "empty": "Aún no hay ninguna temporada terminada.",
+      "season": "Temporada {{season}}",
+      "champion": "Campeón",
+      "runnerUp": "Subcampeón",
+      "final": "Final",
+      "penalties": "{{home}}–{{away}} en los penaltis",
+      "promoted": "Ascendidos",
+      "relegated": "Descendidos",
+      "playoffs": "Play-offs",
+      "reserveBlocked": "Filiales que no pueden ascender",
+      "reserveForcedDown": "Filiales descendidas por su club matriz",
+      "reserveReadmitted": "Filiales readmitidas"
     }
   },
   "news": {

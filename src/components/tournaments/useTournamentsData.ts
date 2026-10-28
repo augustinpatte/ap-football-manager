@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { GameStateData, LeagueData } from "../../store/gameStore";
-import type { SeasonContextData, WorldCupChampionData } from "../../store/types";
+import type {
+  EditionSummaryData,
+  SeasonContextData,
+  WorldCupChampionData,
+} from "../../store/types";
 import {
   fetchCompetitionsView,
   type CompetitionsView,
@@ -21,6 +25,7 @@ interface UseTournamentsDataResult {
   league: LeagueData | null;
   currentSeason: number;
   worldCupChampion: WorldCupChampionData | null;
+  history: EditionSummaryData[];
 }
 
 /**
@@ -142,5 +147,6 @@ export function useTournamentsData(gameState: GameStateData): UseTournamentsData
     league,
     currentSeason,
     worldCupChampion,
+    history: competitionsView?.history ?? [],
   };
 }

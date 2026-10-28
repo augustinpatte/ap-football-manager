@@ -694,6 +694,70 @@ export interface CompetitionCalendarData {
   windowEnd?: { month: number; day: number } | null;
 }
 
+/** What moves between two divisions: direct places, a play-off, a barrage. */
+export interface BoundaryRuleData {
+  promoted_direct: number;
+  promotion_playoff: {
+    from_rank: number;
+    to_rank: number;
+    round_legs: number;
+    final_legs: number;
+  } | null;
+  relegated_direct: number;
+  barrage: {
+    upper_rank: number;
+    lower_from_rank: number;
+    lower_to_rank: number;
+    bracket_legs: number;
+    tie_legs: number;
+  } | null;
+  status: "Confirmed" | "Unverified" | "Assumed";
+  note: string;
+}
+
+/** One tie of a play-off or barrage, as the history keeps it. */
+export interface PlayoffTieData {
+  stage: string;
+  home_team_id: string;
+  away_team_id: string;
+  legs: [number, number][];
+  penalties: [number, number] | null;
+  winner_id: string;
+}
+
+/** What a division boundary moved when a season ended. */
+export interface BoundaryMovementsData {
+  upper_competition_id: string;
+  lower_competition_id: string;
+  season: number;
+  promoted_direct: string[];
+  promoted_playoff: string[];
+  relegated_direct: string[];
+  relegated_barrage: string[];
+  ties: PlayoffTieData[];
+  reserves_blocked: string[];
+  reserves_forced_down: string[];
+  reserves_readmitted: string[];
+}
+
+/** A finished edition of a competition: who won, how the final went, what it moved. */
+export interface EditionSummaryData {
+  competition_id: string;
+  season: number;
+  completed_on: string;
+  champion_id: string;
+  runner_up_id: string | null;
+  final_result: {
+    home_team_id: string;
+    away_team_id: string;
+    home_goals: number;
+    away_goals: number;
+    home_penalties: number | null;
+    away_penalties: number | null;
+  } | null;
+  movements: BoundaryMovementsData | null;
+}
+
 export interface LeagueData {
   season_start_month?: number;
   season_start_day?: number;
@@ -728,6 +792,19 @@ export interface LeagueData {
     group_matchday_gap_days?: number;
     knockout_matches_per_day?: number;
     knockout_round_gap_days?: number;
+    /** Order in which level clubs are separated, when the competition authors one. */
+    tiebreakers?: string[];
+    /** What moves between this division and the one below it, season by season. */
+    ladder?: { boundaries: { from_season: number; rule: BoundaryRuleData }[] };
+    reserve_sides?: { team_id: string; parent_id: string }[];
+    withdrawn_sides?: { team_id: string; since_season: number }[];
+    cup?: {
+      draw: "Sequential" | "Random";
+      feeder_ids: string[];
+      exclude_reserve_sides: boolean;
+      round_dates: { month: number; day: number }[];
+      note: string;
+    };
   };
   fixtures: FixtureData[];
   standings: StandingData[];
