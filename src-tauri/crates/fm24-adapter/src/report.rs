@@ -228,7 +228,8 @@ fn checks_csv(checks: &[Check]) -> String {
     out
 }
 
-/// One JSON object per imported player: what OFM cannot hold, plus the provenance of derived values.
+/// One JSON object per imported player and per free agent of the pool: what OFM cannot hold, plus
+/// the provenance of derived values.
 fn extension_jsonl(run: &Run) -> String {
     let rows: BTreeMap<i64, &crate::source::PlayerRow> =
         run.players.iter().map(|p| (p.person_id, p)).collect();
@@ -254,6 +255,34 @@ fn extension_jsonl(run: &Run) -> String {
                 "nationality": plan.nationality_source,
                 "contract_end": plan.contract_end_source,
                 "value": plan.value_source,
+                "attributes": "dérivés (52 -> 19, voir attributes.rs)",
+                "potential": "dérivé (OVR OFM + 0,31 x (PA - CA))",
+            },
+        });
+        out.push_str(&value.to_string());
+        out.push('\n');
+    }
+    for fa in &run.free_agent_plans {
+        let row = &fa.source;
+        let value = serde_json::json!({
+            "id": fa.def.id,
+            "fm_person_id": row.person_id,
+            "fm_uid": row.fm_uid,
+            "fm_uid_status": row.fm_uid_status,
+            "free_agent": true,
+            "ca": row.ca,
+            "pa": row.pa,
+            "reputation": { "current": row.rep_current, "home": row.rep_home, "world": row.rep_world },
+            "height_cm": row.height_cm,
+            "feet": { "left": row.foot_left, "right": row.foot_right },
+            "fm_natural_position": fa.natural_code,
+            "fm_positions": row.positions,
+            "fm_attributes": row.attrs.0,
+            "asked_wage_eur_week": fa.asked_wage,
+            "provenance": {
+                "pool": "agent libre FM24 (joueur sans contrat dans la save, tiré dans le pool actif)",
+                "wage": fa.wage_source,
+                "value": fa.value_source,
                 "attributes": "dérivés (52 -> 19, voir attributes.rs)",
                 "potential": "dérivé (OVR OFM + 0,31 x (PA - CA))",
             },

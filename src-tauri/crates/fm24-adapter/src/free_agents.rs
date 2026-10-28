@@ -41,6 +41,10 @@ pub struct FreeAgentPlan {
     pub wage_source: &'static str,
     pub age: i32,
     pub ca: i64,
+    /// The row of world.db this player was read from, for the extension file.
+    pub source: PlayerRow,
+    /// The natural FM position the converter chose.
+    pub natural_code: &'static str,
 }
 
 /// Why each of the save's unattached players is or is not in the pool.
@@ -284,6 +288,8 @@ fn plan(e: Eligible, reference: &Reference, cfg: &Config) -> FreeAgentPlan {
         },
         age: e.age.floor() as i32,
         ca: row.ca,
+        source: row.clone(),
+        natural_code: e.converted.natural_code,
     }
 }
 

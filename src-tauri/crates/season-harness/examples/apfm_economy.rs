@@ -407,6 +407,28 @@ impl Economy {
             .collect();
         worst.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
         let worst: Vec<Value> = worst.into_iter().take(12).map(|x| x.1).collect();
+        // The clubs that lose most money in the season, with what their income is made of.
+        let mut losers: Vec<(i64, Value)> = ai
+            .iter()
+            .map(|t| {
+                let result = op_result.get(&t.id).copied().unwrap_or(0);
+                (
+                    result,
+                    json!({
+                        "club": t.name, "rep": t.reputation, "stadium": t.stadium_capacity,
+                        "operating_result": result,
+                        "gate": matchday.get(&t.id).copied().unwrap_or(0),
+                        "sponsor_weekly": t.sponsorship.as_ref().map(|s| s.base_value),
+                        "weekly_bill": bills.get(&t.id).copied().unwrap_or(0),
+                        "wage_budget": t.wage_budget, "cash": t.finance,
+                    }),
+                )
+            })
+            .filter(|(result, _)| *result < 0)
+            .collect();
+        losers.sort_by_key(|row| row.0);
+        let deficit_clubs: Vec<Value> = losers.into_iter().take(10).map(|row| row.1).collect();
+
         // What the three worst-off clubs actually pay, dearest first, and how each came to be there.
         let worst_names: Vec<String> = worst
             .iter()
@@ -445,6 +467,7 @@ impl Economy {
             "label": label,
             "worst_wage_bill_clubs": worst,
             "worst_clubs_payroll": worst_players,
+            "largest_deficits": deficit_clubs,
             "date": game.clock.current_date.format("%Y-%m-%d").to_string(),
             "players_total": game.players.len(),
             "free_agents": {
