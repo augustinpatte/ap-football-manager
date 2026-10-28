@@ -314,8 +314,29 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
         weekly_wage: expected_wage(player, team, current_date),
         contract_years: expected_contract_years(player, current_date),
     };
-    if !wage_policy_verdict(game, team, player, offer.weekly_wage).permits() {
+    let verdict = wage_policy_verdict(game, team, player, offer.weekly_wage);
+    if !verdict.permits() {
         return;
+    }
+    // The board's policy allows a club already over budget a further 25 000 a week at every
+    // decision, a margin sized for clubs paying hundreds of thousands: at a club whose whole
+    // budget is 16 000 it let every renewal pass at any raise. An AI club's raise is held to the
+    // proportional grace as well, unless the squad floor is what lets it through.
+    if verdict == crate::contract_wage_policy::WagePolicyVerdict::WithinPolicy {
+        let extra = crate::finances::weekly_commitment_at_wage(
+            player,
+            &team.id,
+            i64::from(offer.weekly_wage),
+        ) - crate::finances::player_weekly_wage_for_team(player, &team.id);
+        let books = crate::ai_finance_guard::SigningBooks {
+            cash: team.finance,
+            weekly_bill: crate::finances::calc_wages(game, &team.id),
+            weekly_income: 0,
+            wage_budget: team.wage_budget,
+        };
+        if !books.can_add_wage(extra) {
+            return;
+        }
     }
     let outcome = evaluate_renewal_offer(player, team, current_date, &offer);
     if outcome.decision != RenewalDecision::Accepted {

@@ -7,6 +7,15 @@
 use super::*;
 
 use crate::squad_floor::group_index as position_group_index;
+use chrono::Datelike;
+
+/// How many buyer turns the sweep has taken in this process: a measure of the market's work, read
+/// by the harness. It never feeds a decision.
+static BUYER_EVALUATIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn market_buyer_evaluations() -> u64 {
+    BUYER_EVALUATIONS.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 /// Whether a club has a realistic reason to pursue a target: it isn't far below
 /// the player's current club in stature, and it isn't already overloaded in the
@@ -315,21 +324,31 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .map(|(index, player)| (player.id.clone(), index))
         .collect();
 
-    // In a multi-competition world only the player's active scope shops the
-    // market each day; dormant clubs are handled by lighter periodic passes.
-    // `None` means no scope is configured, so every club is a potential buyer.
+    // In a multi-competition world the clubs of the player's active scope shop every day, as in
+    // OFM. The rest of the world shops too (a club abroad buys, sells and borrows by the same
+    // rules), but on its own review weekday only: one day in seven, not every day, which keeps the
+    // sweep's cost proportional to the clubs that are deciding. `None` means no scope is
+    // configured, so every club is a potential buyer every day.
     let active_team_ids = game.active_team_ids();
-    let buyer_ids: Vec<String> = game
+    let weekday = game.clock.current_date.weekday().num_days_from_monday();
+    let day_number = u64::try_from(current_date.num_days_from_ce()).unwrap_or(0);
+    let mut buyer_ids: Vec<String> = game
         .teams
         .iter()
         .filter(|team| Some(team.id.as_str()) != user_team_id.as_deref())
         .filter(|team| {
-            active_team_ids
-                .as_ref()
-                .is_none_or(|ids| ids.contains(&team.id))
+            active_team_ids.as_ref().is_none_or(|ids| {
+                ids.contains(&team.id) || crate::ai_tactics::review_weekday(&team.id) == weekday
+            })
         })
         .map(|team| team.id.clone())
         .collect();
+    if active_team_ids.is_some() {
+        // The world's clubs are stored league by league and the sweep stops buying at the day's
+        // cap: in stored order the first league would always shop first. A hash of the day and
+        // the club puts them in a different, reproducible order every day.
+        buyer_ids.sort_by_key(|id| crate::stable_hash::stable_hash(id.as_bytes(), day_number));
+    }
     // One completed deal per this many shopping clubs a day, and never fewer than the base: with
     // the whole world shopping, a flat two a day capped the market below what its needs produce.
     let max_completed_ai_transfers = MAX_COMPLETED_AI_TRANSFERS_PER_DAY
@@ -450,6 +469,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     let max_ai_loans = (buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1);
     let mut completed_ai_loans = 0_usize;
 
+    BUYER_EVALUATIONS.fetch_add(buyer_ids.len() as u64, std::sync::atomic::Ordering::Relaxed);
     for buyer_id in buyer_ids {
         let Some(buyer_team) = game.teams.iter().find(|team| team.id == buyer_id).cloned() else {
             continue;

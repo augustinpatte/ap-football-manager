@@ -39,6 +39,10 @@ struct Economy {
     events: BTreeMap<u32, BTreeMap<String, u64>>,
     /// season -> sampled free signings
     signings: BTreeMap<u32, Vec<Value>>,
+    /// season -> "from>to" country -> count, for AI transfers (`T`) and loans (`L`)
+    flows: BTreeMap<u32, BTreeMap<String, u64>>,
+    /// season -> players listed twice in the world, or loaned to the club that owns them
+    integrity: BTreeMap<u32, u64>,
     /// season -> sampled AI-to-AI transfers
     transfers: BTreeMap<u32, Vec<Value>>,
     signing_ratios: BTreeMap<u32, Vec<f64>>,
@@ -120,6 +124,43 @@ impl Economy {
         ofm_core::finances::calc_wages(game, team_id) as f64 / team.wage_budget as f64 * 100.0
     }
 
+    fn count_flow(
+        flows: &mut BTreeMap<u32, BTreeMap<String, u64>>,
+        game: &Game,
+        season: u32,
+        kind: char,
+        from: &str,
+        to: &str,
+    ) {
+        let country = |id: &str| {
+            game.teams
+                .iter()
+                .find(|t| t.id == id)
+                .map(|t| t.country.clone())
+                .unwrap_or_default()
+        };
+        let key = format!("{kind} {} > {}", country(from), country(to));
+        *flows.entry(season).or_default().entry(key).or_default() += 1;
+    }
+
+    /// A player twice in the world, or loaned to the club that owns him.
+    fn check_integrity(&mut self, game: &Game, season: u32) {
+        let mut seen = std::collections::HashSet::new();
+        let mut bad = 0u64;
+        for p in &game.players {
+            if !seen.insert(p.id.as_str()) {
+                bad += 1;
+            }
+            if let Some(loan) = &p.active_loan
+                && (loan.loan_team_id == loan.parent_team_id
+                    || p.team_id.as_deref() != Some(loan.loan_team_id.as_str()))
+            {
+                bad += 1;
+            }
+        }
+        self.integrity.insert(season, bad);
+    }
+
     fn classify_day(&mut self, game: &Game, season: u32) {
         let today = game.clock.current_date.date_naive();
         let today_s = game.clock.current_date.format("%Y-%m-%d").to_string();
@@ -141,6 +182,7 @@ impl Economy {
                 (Some(a), Some(b)) if a != b => {
                     if cur.loaned && !prev.loaned {
                         keys.push((id.clone(), "loan_started"));
+                        Self::count_flow(&mut self.flows, game, season, 'L', prev.parent.as_deref().unwrap_or(a), b);
                     } else if prev.loaned && !cur.loaned {
                         if prev.parent.as_deref() == Some(b.as_str()) {
                             keys.push((id.clone(), "loan_returned"));
@@ -151,6 +193,7 @@ impl Economy {
                         keys.push((id.clone(), "transfer_user_club"));
                     } else {
                         keys.push((id.clone(), "transfer_ai"));
+                        Self::count_flow(&mut self.flows, game, season, 'T', a, b);
                         let sample = self.transfers.entry(season).or_default();
                         if sample.len() < 400 {
                             let team = |id: &str| game.teams.iter().find(|t| t.id == id);
@@ -255,6 +298,7 @@ impl Economy {
     }
 
     fn season_state(&mut self, game: &Game, season: u32, label: &str) {
+        self.check_integrity(game, season);
         let user = self.user.clone();
         let team_index: HashMap<&str, usize> = game
             .teams
@@ -647,6 +691,9 @@ fn main() {
         "state": econ.season_state,
         "signings_sample": econ.signings,
         "transfers_sample": econ.transfers,
+        "country_flows": econ.flows,
+        "integrity_violations": econ.integrity,
+        "market_buyer_evaluations": ofm_core::transfers::market_buyer_evaluations(),
     });
     std::fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
     println!("{}", serde_json::to_string(&report["headline"]).unwrap());
