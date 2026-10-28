@@ -98,6 +98,9 @@ pub struct AuthoredRules {
     /// Days left between two rounds of a cup, at least.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub knockout_round_gap_days: Option<u32>,
+    /// Ties of one round played on the same day (a cup weekend); one tie a day when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knockout_matches_per_day: Option<u32>,
 }
 
 /// Format-specific configuration. `kind` selects the shape; the other fields
@@ -1106,6 +1109,9 @@ fn apply_authored_rules(competition: &mut League, def: &CompetitionDefinition) {
     competition.rules.cup = rules.cup.clone();
     if let Some(gap) = rules.knockout_round_gap_days {
         competition.rules.knockout_round_gap_days = gap;
+    }
+    if let Some(per_day) = rules.knockout_matches_per_day {
+        competition.rules.knockout_matches_per_day = per_day;
     }
 }
 

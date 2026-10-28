@@ -3804,6 +3804,116 @@ mod tests {
         assert_eq!(loaded.edition_archive.len(), 1);
     }
 
+    /// Given a division with authored rules, a withdrawn reserve side and a cup with its draw and
+    /// dates, and an archived edition that remembers what the boundary moved, when the career is
+    /// saved and reloaded, then every rule and every record is there unchanged.
+    #[test]
+    fn competition_rules_and_season_movements_survive_save_and_load() {
+        use domain::competition_rules::*;
+        let dir = tempfile::tempdir().unwrap();
+        let mut manager = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game_with_league();
+        let mut division = game.league.clone().unwrap();
+        division.rules.tiebreakers = vec![
+            Tiebreaker::Points,
+            Tiebreaker::HeadToHeadPoints,
+            Tiebreaker::GoalDifference,
+            Tiebreaker::Lots,
+        ];
+        division.rules.ladder = LadderRules {
+            boundaries: vec![SeasonBoundary {
+                from_season: 2026,
+                rule: BoundaryRule {
+                    promoted_direct: 2,
+                    promotion_playoff: Some(PromotionPlayoff {
+                        from_rank: 3,
+                        to_rank: 6,
+                        round_legs: 2,
+                        final_legs: 1,
+                    }),
+                    relegated_direct: 3,
+                    barrage: None,
+                    status: RuleStatus::Unverified,
+                    note: "assumed".into(),
+                },
+            }],
+        };
+        division.rules.reserve_sides = vec![ReserveSide {
+            team_id: "b-team".into(),
+            parent_id: "parent".into(),
+        }];
+        division.rules.withdrawn_sides = vec![WithdrawnSide {
+            team_id: "b-team".into(),
+            since_season: 2029,
+        }];
+        let mut cup = division.clone();
+        cup.id = "cup".into();
+        cup.kind = domain::league::CompetitionType::Cup;
+        cup.rules.format = domain::league::CompetitionFormat::Knockout;
+        cup.rules.cup = CupRules {
+            draw: DrawMode::Random,
+            feeder_ids: vec![division.id.clone()],
+            exclude_reserve_sides: true,
+            round_dates: vec![
+                MonthDay { month: 5, day: 22 },
+                MonthDay { month: 4, day: 21 },
+            ],
+            draw_salt: 424242,
+            note: "reduced".into(),
+        };
+        game.competitions = vec![division.clone(), cup];
+        game.edition_archive
+            .push(domain::edition_archive::CompletedEdition {
+                competition_id: division.id.clone(),
+                season: division.season,
+                completed_on: "2033-06-30".into(),
+                champion_id: "champion-club".into(),
+                participant_ids: division.participant_ids.clone(),
+                standings: Vec::new(),
+                groups: Vec::new(),
+                knockout_rounds: Vec::new(),
+                fixtures: Vec::new(),
+                movements: Some(BoundaryMovements {
+                    upper_competition_id: "top".into(),
+                    lower_competition_id: division.id.clone(),
+                    season: division.season,
+                    promoted_direct: vec!["a".into(), "b".into()],
+                    promoted_playoff: vec!["c".into()],
+                    relegated_direct: vec!["x".into()],
+                    relegated_barrage: vec!["y".into()],
+                    ties: vec![PlayoffTie {
+                        stage: "Final".into(),
+                        home_team_id: "c".into(),
+                        away_team_id: "d".into(),
+                        legs: vec![(1, 1)],
+                        penalties: Some((4, 3)),
+                        winner_id: "c".into(),
+                    }],
+                    reserves_blocked: vec!["b-team".into()],
+                    reserves_forced_down: vec![],
+                    reserves_readmitted: vec![],
+                }),
+            });
+        let id = manager.create_save(&game, "Rules").unwrap();
+        let loaded = manager.load_game(&id).unwrap();
+
+        for (before, after) in game.competitions.iter().zip(&loaded.competitions) {
+            assert_eq!(
+                serde_json::to_value(&before.rules).unwrap(),
+                serde_json::to_value(&after.rules).unwrap(),
+                "{}",
+                before.id
+            );
+        }
+        assert_eq!(
+            serde_json::to_value(&loaded.edition_archive).unwrap(),
+            serde_json::to_value(&game.edition_archive).unwrap()
+        );
+        let loaded_cup = loaded.competitions.iter().find(|c| c.id == "cup").unwrap();
+        assert_eq!(loaded_cup.rules.cup.draw_salt, 424242);
+        assert_eq!(loaded_cup.rules.cup.draw, DrawMode::Random);
+    }
+
     fn archived_veteran(id: &str, full_name: &str) -> domain::retired_player::RetiredPlayer {
         let mut player = sample_game().players[0].clone();
         player.id = id.to_string();

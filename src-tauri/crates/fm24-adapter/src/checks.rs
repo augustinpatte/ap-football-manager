@@ -96,7 +96,12 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         if leagues != run.competitions.len() {
             failures.push(format!("world holds {leagues} league definitions"));
         }
-        if cups != crate::pipeline::EXPECTED_CUPS {
+        let expected_cups = if run.cfg.competitions.authored_rules {
+            crate::pipeline::EXPECTED_CUPS
+        } else {
+            0
+        };
+        if cups != expected_cups {
             failures.push(format!("world holds {cups} cup definitions"));
         }
         failures

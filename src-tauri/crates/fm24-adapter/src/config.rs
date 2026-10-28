@@ -18,6 +18,25 @@ pub struct Config {
     pub squad: SquadCfg,
     pub finance: FinanceCfg,
     pub free_agents: FreeAgentsCfg,
+    #[serde(default)]
+    pub competitions: CompetitionsCfg,
+}
+
+/// How the competitions are built.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CompetitionsCfg {
+    /// Authored sporting rules (tiebreakers, promotion play-offs, reserve sides) and the six
+    /// national cups. `false` rebuilds the plain league-only world, the baseline performance and
+    /// behaviour are compared with.
+    pub authored_rules: bool,
+}
+
+impl Default for CompetitionsCfg {
+    fn default() -> Self {
+        Self {
+            authored_rules: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

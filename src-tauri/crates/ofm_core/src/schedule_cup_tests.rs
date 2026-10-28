@@ -153,3 +153,35 @@ fn a_cup_plays_down_to_one_champion_and_its_rounds_follow_the_authored_dates() {
     let final_tie = cup.fixtures.iter().find(|f| &f.id == final_id).unwrap();
     assert!(final_tie.advancing_team_id().is_some());
 }
+
+/// The first round was pushed back by an international break past the date the cup sets for the
+/// second: the second must follow its gap, not wait for the same date a year later.
+#[test]
+fn a_round_that_ran_late_does_not_push_the_next_one_a_year() {
+    let mut cup = authored_cup(36, 3);
+    cup.season_start_month = 8;
+    cup.rules.knockout_round_gap_days = 7;
+    cup.rules.cup.round_dates = vec![
+        MonthDay { month: 5, day: 22 },
+        MonthDay { month: 4, day: 21 },
+        MonthDay { month: 2, day: 24 },
+        MonthDay { month: 12, day: 15 },
+        MonthDay { month: 10, day: 27 },
+    ];
+    for fixture in &mut cup.fixtures {
+        fixture.date = "2026-11-02".to_string();
+    }
+    play_round_home_wins(&mut cup);
+    let id = &cup.knockout_rounds[1].fixture_ids[0];
+    let date = cup
+        .fixtures
+        .iter()
+        .find(|f| &f.id == id)
+        .unwrap()
+        .date
+        .clone();
+    assert_eq!(
+        date, "2026-11-09",
+        "Oct 27 is behind us: the round gap (7 days) applies"
+    );
+}

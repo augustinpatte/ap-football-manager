@@ -586,3 +586,60 @@ fn ten_seasons_keep_every_reserve_below_its_parent_and_every_division_whole() {
         "the scenario never relegated a parent, so it tested nothing"
     );
 }
+
+/// A middle division has just sent its champion and runner-up up: its 5th place is still its 5th
+/// place, and plays the barrage against the division below.
+#[test]
+fn a_barrage_place_counts_the_clubs_the_division_sent_up() {
+    let top = with_rule(
+        division(
+            "l1",
+            0,
+            2026,
+            &["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8"],
+        ),
+        BoundaryRule {
+            promoted_direct: 1,
+            promotion_playoff: None,
+            relegated_direct: 1,
+            barrage: None,
+            status: RuleStatus::Confirmed,
+            note: String::new(),
+        },
+    );
+    let middle = with_rule(
+        division(
+            "l2",
+            1,
+            2026,
+            &["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"],
+        ),
+        BoundaryRule {
+            promoted_direct: 1,
+            promotion_playoff: None,
+            relegated_direct: 1,
+            barrage: Some(Barrage {
+                upper_rank: 5,
+                lower_from_rank: 2,
+                lower_to_rank: 2,
+                bracket_legs: 1,
+                tie_legs: 2,
+            }),
+            status: RuleStatus::Assumed,
+            note: String::new(),
+        },
+    );
+    let bottom = division(
+        "l3",
+        2,
+        2026,
+        &["b1", "b2", "b3", "b4", "b5", "b6", "b7", "b8"],
+    );
+    let outcome = plan_ruled_ladder(&[top, middle, bottom], &mut HigherSeedWins);
+    let lower_boundary = &outcome.movements[1];
+    assert_eq!(lower_boundary.ties.len(), 1, "the barrage was played");
+    // m1 went up at the boundary above, so the barrage is between the table's real 5th (m5) and b2.
+    let tie = &lower_boundary.ties[0];
+    let clubs = [tie.home_team_id.as_str(), tie.away_team_id.as_str()];
+    assert!(clubs.contains(&"m5") && clubs.contains(&"b2"), "{clubs:?}");
+}

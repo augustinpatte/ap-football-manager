@@ -108,11 +108,22 @@ pub fn ladder_violations(game: &Game, authored_sizes: &BTreeMap<String, usize>) 
                     table.id, table.participant_ids
                 ));
             }
+            // A reserve side its parent club has pushed out of the division is not registered
+            // with it, and not missing either: the division is one club short until it returns.
+            let withdrawn: BTreeSet<&str> = table
+                .rules
+                .withdrawn_sides
+                .iter()
+                .map(|side| side.team_id.as_str())
+                .collect();
+            let held = table.participant_ids.len() + withdrawn.len();
             match authored_sizes.get(&table.id) {
-                Some(&size) if size != table.participant_ids.len() => violations.push(format!(
-                    "{} changed size from {size} to {}",
+                Some(&size) if size != held => violations.push(format!(
+                    "{} changed size from {size} to {} ({} registered, {} reserve side(s) withdrawn)",
                     table.id,
-                    table.participant_ids.len()
+                    held,
+                    table.participant_ids.len(),
+                    withdrawn.len()
                 )),
                 None => violations.push(format!("{} was not in the authored sizes", table.id)),
                 Some(_) => {}
@@ -124,7 +135,10 @@ pub fn ladder_violations(game: &Game, authored_sizes: &BTreeMap<String, usize>) 
                 ));
             }
             union.extend(clubs);
+            union.extend(withdrawn);
         }
+
+        reserve_violations(tables, &mut violations);
 
         if split_season {
             let first: BTreeSet<&str> = tables[0]
@@ -154,6 +168,34 @@ pub fn ladder_violations(game: &Game, authored_sizes: &BTreeMap<String, usize>) 
     }
 
     violations
+}
+
+/// A reserve side must play strictly below its parent club: never in the same division, never in
+/// one above it. The links are read from the divisions of the country.
+fn reserve_violations(tables: &[&League], violations: &mut Vec<String>) {
+    let tier_of: BTreeMap<&str, u32> = tables
+        .iter()
+        .flat_map(|table| {
+            table
+                .participant_ids
+                .iter()
+                .map(move |club| (club.as_str(), table.priority))
+        })
+        .collect();
+    let links: BTreeSet<(&str, &str)> = tables
+        .iter()
+        .flat_map(|table| table.rules.reserve_sides.iter())
+        .map(|side| (side.team_id.as_str(), side.parent_id.as_str()))
+        .collect();
+    for (reserve, parent) in links {
+        if let (Some(reserve_tier), Some(parent_tier)) = (tier_of.get(reserve), tier_of.get(parent))
+            && reserve_tier <= parent_tier
+        {
+            violations.push(format!(
+                "reserve side {reserve} (division {reserve_tier}) is not below its parent {parent} (division {parent_tier})"
+            ));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -225,6 +267,43 @@ mod tests {
             violations
                 .iter()
                 .any(|message| message.contains("exactly one league table")),
+            "{violations:?}"
+        );
+    }
+
+    #[test]
+    fn a_reserve_side_withdrawn_from_its_division_is_not_a_missing_club() {
+        let mut game = small_world();
+        let sizes = division_sizes(&game);
+        let reserve = table(&mut game, "eng-d2").participant_ids.pop().unwrap();
+        table(&mut game, "eng-d2").rules.withdrawn_sides.push(
+            domain::competition_rules::WithdrawnSide {
+                team_id: reserve,
+                since_season: 2033,
+            },
+        );
+
+        assert_eq!(ladder_violations(&game, &sizes), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_reserve_side_level_with_its_parent_is_a_violation() {
+        let mut game = small_world();
+        let sizes = division_sizes(&game);
+        let parent = table(&mut game, "eng-d2").participant_ids[0].clone();
+        let reserve = table(&mut game, "eng-d2").participant_ids[1].clone();
+        table(&mut game, "eng-d2").rules.reserve_sides =
+            vec![domain::competition_rules::ReserveSide {
+                team_id: reserve,
+                parent_id: parent,
+            }];
+
+        let violations = ladder_violations(&game, &sizes);
+
+        assert!(
+            violations
+                .iter()
+                .any(|message| message.contains("is not below its parent")),
             "{violations:?}"
         );
     }

@@ -307,6 +307,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     }
     let reputation: BTreeMap<i64, i64> = clubs.iter().map(|c| (c.id, c.reputation)).collect();
     let rule_context = competitions::RuleContext {
+        authored: cfg.competitions.authored_rules,
         reserve_pairs: &reserve_pairs,
         reputation: &reputation,
     };

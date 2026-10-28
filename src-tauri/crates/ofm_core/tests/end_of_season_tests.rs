@@ -1966,6 +1966,75 @@ fn season_complete_when_all_fixtures_completed() {
     assert!(is_season_complete(&game));
 }
 
+/// A national cup left to play: its next round is still ahead.
+fn unfinished_national_cup(authored: bool) -> League {
+    let mut cup = League {
+        id: "cup".to_string(),
+        name: "Cup".to_string(),
+        kind: CompetitionType::Cup,
+        scope: CompetitionScope::Domestic,
+        country_id: Some("ENG".to_string()),
+        season: 1,
+        participant_ids: vec!["team1".to_string(), "team2".to_string()],
+        fixtures: vec![make_completed_fixture("final", "team1", "team2", 1, 0)],
+        ..Default::default()
+    };
+    cup.rules.format = CompetitionFormat::Knockout;
+    cup.fixtures[0].status = FixtureStatus::Scheduled;
+    cup.fixtures[0].result = None;
+    cup.fixtures[0].date = "2026-05-30".to_string();
+    if authored {
+        cup.rules.cup.feeder_ids = vec!["league".to_string()];
+    }
+    cup
+}
+
+#[test]
+fn the_season_waits_for_an_authored_national_cup_of_the_users_country() {
+    let mut game = make_completed_season_game();
+    game.competitions = vec![game.league.clone().expect("the game has a league")];
+    game.competitions[0].country_id = Some("ENG".to_string());
+    game.competitions[0].participant_ids = vec!["team1".to_string(), "team2".to_string()];
+    game.competitions.push(unfinished_national_cup(true));
+    assert!(
+        !is_season_complete(&game),
+        "a final left to play must not be renewed over"
+    );
+
+    game.competitions[1].fixtures[0].status = FixtureStatus::Completed;
+    game.competitions[1].fixtures[0].result = Some(MatchResult {
+        home_goals: 1,
+        away_goals: 0,
+        ..Default::default()
+    });
+    assert!(is_season_complete(&game));
+}
+
+#[test]
+fn a_cup_without_authored_rules_does_not_hold_the_season_open() {
+    let mut game = make_completed_season_game();
+    game.competitions = vec![game.league.clone().expect("the game has a league")];
+    game.competitions[0].country_id = Some("ENG".to_string());
+    game.competitions[0].participant_ids = vec!["team1".to_string(), "team2".to_string()];
+    game.competitions.push(unfinished_national_cup(false));
+    assert!(
+        is_season_complete(&game),
+        "the cups OpenFootManager generates keep their old behaviour"
+    );
+}
+
+#[test]
+fn a_cup_of_another_country_does_not_hold_the_season_open() {
+    let mut game = make_completed_season_game();
+    game.competitions = vec![game.league.clone().expect("the game has a league")];
+    game.competitions[0].country_id = Some("ENG".to_string());
+    game.competitions[0].participant_ids = vec!["team1".to_string(), "team2".to_string()];
+    let mut abroad = unfinished_national_cup(true);
+    abroad.country_id = Some("FRA".to_string());
+    game.competitions.push(abroad);
+    assert!(is_season_complete(&game));
+}
+
 #[test]
 fn season_not_complete_with_scheduled_fixtures() {
     // One of the two league fixtures is still Scheduled.

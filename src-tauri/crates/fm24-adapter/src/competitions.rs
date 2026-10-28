@@ -21,6 +21,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// What the rules need to know about the clubs.
 pub struct RuleContext<'a> {
+    /// `false`: leagues only, with none of the authored rules.
+    pub authored: bool,
     /// `(reserve side, parent)` club ids.
     pub reserve_pairs: &'a [(i64, i64)],
     /// Club id -> reputation, to seed the first edition of each cup.
@@ -75,15 +77,19 @@ pub fn build(
         }
         let mut definition: CompetitionDefinition = serde_json::from_value(value)
             .map_err(|e| format!("competition {} definition: {e}", competition.id))?;
-        let country_clubs = clubs_of_country(competitions, members, refs, &country);
-        definition.rules = Some(rules::league_rules(
-            competition.target_key.as_deref(),
-            competition.tiebreak.as_deref(),
-            reserve_sides(context, &country_clubs),
-        ));
+        if context.authored {
+            let country_clubs = clubs_of_country(competitions, members, refs, &country);
+            definition.rules = Some(rules::league_rules(
+                competition.target_key.as_deref(),
+                competition.tiebreak.as_deref(),
+                reserve_sides(context, &country_clubs),
+            ));
+        }
         definitions.push(definition);
     }
-    definitions.extend(build_cups(competitions, members, refs, journal, context)?);
+    if context.authored {
+        definitions.extend(build_cups(competitions, members, refs, journal, context)?);
+    }
     Ok(definitions)
 }
 
@@ -250,6 +256,7 @@ mod tests {
         let members = BTreeMap::from([(12, vec![464, 498])]);
         let mut journal = Journal::default();
         let context = RuleContext {
+            authored: true,
             reserve_pairs: &[],
             reputation: &BTreeMap::new(),
         };

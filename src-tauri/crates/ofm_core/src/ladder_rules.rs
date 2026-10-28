@@ -169,6 +169,7 @@ struct BoundaryDraft {
 
 #[allow(clippy::too_many_arguments)]
 fn settle_boundary(
+    upper_full: &[String],
     upper_rank: &[String],
     lower_rank: &[String],
     rule: &BoundaryRule,
@@ -261,10 +262,12 @@ fn settle_boundary(
         tie_legs,
     }) = rule.barrage
     {
+        // The barrage place is a place in the final table, promoted clubs included: a division
+        // that has just sent its champion up still has a 16th.
         let upper_index = (upper_place as usize).saturating_sub(1);
-        let candidate = upper_rank
+        let candidate = upper_full
             .get(upper_index)
-            .filter(|club| !relegated_now.contains(club.as_str()));
+            .filter(|club| !relegated_now.contains(club.as_str()) && upper_rank.contains(club));
         let start = (lower_from_rank as usize)
             .saturating_sub(1)
             .max(draft.promoted_direct.len());
@@ -356,7 +359,8 @@ pub fn plan_ruled_ladder(divisions: &[League], resolver: &mut dyn TieResolver) -
     for tier in 0..divisions.len().saturating_sub(1) {
         let upper = &divisions[tier];
         let lower = &divisions[tier + 1];
-        let mut upper_rank = ranked(upper);
+        let upper_full = ranked(upper);
+        let mut upper_rank = upper_full.clone();
         // Clubs the boundary above already took out of this division cannot go down as well.
         upper_rank.retain(|club| !moved_up_from[tier].contains(club));
         let lower_rank = ranked(lower);
@@ -388,6 +392,7 @@ pub fn plan_ruled_ladder(divisions: &[League], resolver: &mut dyn TieResolver) -
         };
 
         let draft = settle_boundary(
+            &upper_full,
             &upper_rank,
             &lower_rank,
             &rule,

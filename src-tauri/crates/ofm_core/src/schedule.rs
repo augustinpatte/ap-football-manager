@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use domain::league::{
     CompetitionFormat, CompetitionRules, CompetitionScope, CompetitionType, Fixture,
     FixtureCompetition, FixtureStatus, KnockoutRoundState, League, StandingEntry,
@@ -438,21 +438,19 @@ fn next_round_start(cup: &League, last_round_date: &str, field_size: usize) -> D
     let Some(target) = cup.rules.cup.round_dates.get(from_final) else {
         return after_gap;
     };
-    // The first time the cup's date for that round comes round after the previous round.
-    let last_day = last.date_naive();
-    let mut candidate = None;
-    for year in last_day.year()..=last_day.year() + 1 {
-        let date = chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day.into())
-            .or_else(|| {
-                chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day as u32 - 1)
-            });
-        if let Some(date) = date.filter(|date| *date > last_day) {
-            candidate = Some(date);
-            break;
-        }
-    }
-    match candidate.and_then(|date| date.and_hms_opt(0, 0, 0)) {
-        Some(naive) => DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).max(after_gap),
+    // The cup's date for that round in this edition: the season's own year for the months from
+    // the cup's start on, the next one for the months before it. A round never waits a whole year
+    // because the one before it ran late; it follows the gap instead.
+    let start_month = cup.season_start_month.max(1);
+    let year = cup.season as i32 + i32::from(target.month < start_month);
+    let date = chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day.into())
+        .or_else(|| {
+            chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day as u32 - 1)
+        })
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .map(|naive| DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc));
+    match date {
+        Some(date) => date.max(after_gap),
         None => after_gap,
     }
 }
