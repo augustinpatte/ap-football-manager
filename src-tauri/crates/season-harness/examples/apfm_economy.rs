@@ -553,6 +553,7 @@ fn main() {
         game.active_region_ids.clear();
         game.active_competition_ids.clear();
     }
+    let active_clubs = game.active_team_ids().map(|ids| ids.len());
     let mut options = RunOptions::seasons(seasons);
     if flag("--no-tenure-guard") {
         options.keep_manager_employed = false;
@@ -610,6 +611,7 @@ fn main() {
         "headline": {
             "club": club, "seasons": seasons, "seed": seed,
             "everything": flag("--everything"),
+            "active_clubs_in_scope": active_clubs,
             "completed": result.is_ok(),
             "error": result.as_ref().err().map(|e| e.to_string()),
             "total_seconds": round2(total_s), "build_seconds": round2(build_s),

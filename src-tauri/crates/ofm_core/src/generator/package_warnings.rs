@@ -95,11 +95,15 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     fn package_dir(tag: &str) -> PathBuf {
+        // A clock alone is not unique: tests that share a tag and start within the same tick of it
+        // wrote into one folder and read each other's files. The counter makes the name unique.
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("ofm-warn-{tag}-{nanos}"));
+        let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("ofm-warn-{tag}-{nanos}-{serial}"));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
