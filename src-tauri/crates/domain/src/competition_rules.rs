@@ -175,6 +175,10 @@ pub struct CupRules {
     /// Where the cup falls, counted back from the final: `[final, semi-finals, quarter-finals…]`.
     /// A round with no entry follows the previous round by the cup's round gap.
     pub round_dates: Vec<MonthDay>,
+    /// Mixed into the draw so that two careers started from the same world do not draw the same
+    /// cup. Set from the game's seed when the cup is built or renewed.
+    #[serde(default)]
+    pub draw_salt: u64,
     /// What the authors simplified compared with the real cup, shown in the rules document.
     #[serde(default)]
     pub note: String,

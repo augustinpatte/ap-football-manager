@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use domain::league::{
     CompetitionFormat, CompetitionRules, CompetitionScope, CompetitionType, Fixture,
     FixtureCompetition, FixtureStatus, KnockoutRoundState, League, StandingEntry,
@@ -277,7 +277,14 @@ pub fn seed_knockout_round(
     fixture_competition: FixtureCompetition,
 ) {
     let round_index = cup.knockout_rounds.len() as u32 + 1;
-    let round_name = match team_ids.len() {
+    // A field that is not a power of two is a round of the bracket above it, whose empty places
+    // are the byes ("Round of 64" for 36 clubs): the round is named for the bracket, not the field.
+    let named_for = if cup.rules.cup.is_authored() {
+        team_ids.len().next_power_of_two()
+    } else {
+        team_ids.len()
+    };
+    let round_name = match named_for {
         2 => "Final".to_string(),
         4 => "Semifinal".to_string(),
         8 => "Quarterfinal".to_string(),
@@ -295,6 +302,16 @@ pub fn seed_knockout_round(
         return;
     };
     let (bye_teams, playing_teams) = team_ids.split_at(byes);
+    let mut drawn: Vec<String> = playing_teams.to_vec();
+    if cup.rules.cup.draw == domain::competition_rules::DrawMode::Random {
+        // The clubs that play are drawn against each other: a fixed-seed shuffle, so a reloaded
+        // save finds the same pairings. The byes keep going to the best seeds.
+        use rand::seq::SliceRandom;
+        let tag = format!("cup-draw/{}/{}/{}", cup.id, cup.season, round_index);
+        let mut rng = crate::seed::rng_for_seed(cup.rules.cup.draw_salt, &tag, "");
+        drawn.shuffle(&mut rng);
+    }
+    let playing_teams: &[String] = &drawn;
 
     let mpd = cup.rules.knockout_matches_per_day.max(1) as usize;
     let mut round_fixture_ids = Vec::new();
@@ -399,8 +416,7 @@ pub fn advance_knockout_round_with(
             .map(|fixture| fixture.date.as_str())
             .max()
             .unwrap_or("2026-01-01");
-        let round_start = date_str_to_utc(last_round_date).unwrap_or_else(Utc::now)
-            + Duration::days(cup.rules.knockout_round_gap_days as i64);
+        let round_start = next_round_start(cup, last_round_date, advancing.len());
         let fixture_competition = cup
             .fixtures
             .iter()
@@ -408,6 +424,36 @@ pub fn advance_knockout_round_with(
             .map(|fixture| fixture.competition.clone())
             .unwrap_or(FixtureCompetition::Cup);
         seed_knockout_round(cup, &advancing, round_start, fixture_competition);
+    }
+}
+
+/// When the next round of `cup` is played: the cup's round gap after the last match of the round
+/// before it, and no earlier than the date the cup's calendar sets for a round of that size
+/// (counted back from the final) when it sets one.
+fn next_round_start(cup: &League, last_round_date: &str, field_size: usize) -> DateTime<Utc> {
+    let last = date_str_to_utc(last_round_date).unwrap_or_else(Utc::now);
+    let after_gap = last + Duration::days(cup.rules.knockout_round_gap_days as i64);
+    let rounds_to_go = usize::BITS - field_size.saturating_sub(1).leading_zeros();
+    let from_final = (rounds_to_go as usize).saturating_sub(1);
+    let Some(target) = cup.rules.cup.round_dates.get(from_final) else {
+        return after_gap;
+    };
+    // The first time the cup's date for that round comes round after the previous round.
+    let last_day = last.date_naive();
+    let mut candidate = None;
+    for year in last_day.year()..=last_day.year() + 1 {
+        let date = chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day.into())
+            .or_else(|| {
+                chrono::NaiveDate::from_ymd_opt(year, target.month.into(), target.day as u32 - 1)
+            });
+        if let Some(date) = date.filter(|date| *date > last_day) {
+            candidate = Some(date);
+            break;
+        }
+    }
+    match candidate.and_then(|date| date.and_hms_opt(0, 0, 0)) {
+        Some(naive) => DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc).max(after_gap),
+        None => after_gap,
     }
 }
 
@@ -1322,3 +1368,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "schedule_cup_tests.rs"]
+mod cup_tests;

@@ -690,6 +690,7 @@ mod tests {
                 }),
                 window_end: Some(domain::competition_calendar::CalendarDate { month: 6, day: 30 }),
             }),
+            rules: None,
         };
 
         let mut competition_value = serde_json::to_value(&competition).unwrap();

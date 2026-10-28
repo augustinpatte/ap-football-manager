@@ -77,6 +77,27 @@ pub struct CompetitionDefinition {
     /// Explicit phase identity and optional authored closing window.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar: Option<domain::competition_calendar::SeasonCalendar>,
+    /// Sporting rules beyond the format: tiebreakers, movement between divisions, reserve sides,
+    /// how a cup is drawn and dated. Absent: the generic rules.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rules: Option<AuthoredRules>,
+}
+
+/// The authored sporting rules of one competition, copied onto its [`CompetitionRules`] when the
+/// competition is built.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct AuthoredRules {
+    #[serde(default)]
+    pub tiebreakers: Vec<domain::competition_rules::Tiebreaker>,
+    #[serde(default)]
+    pub ladder: domain::competition_rules::LadderRules,
+    #[serde(default)]
+    pub reserve_sides: Vec<domain::competition_rules::ReserveSide>,
+    #[serde(default)]
+    pub cup: domain::competition_rules::CupRules,
+    /// Days left between two rounds of a cup, at least.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knockout_round_gap_days: Option<u32>,
 }
 
 /// Format-specific configuration. `kind` selects the shape; the other fields
@@ -1075,6 +1096,19 @@ fn resolve_participants(
     }
 }
 
+fn apply_authored_rules(competition: &mut League, def: &CompetitionDefinition) {
+    let Some(rules) = &def.rules else {
+        return;
+    };
+    competition.rules.tiebreakers = rules.tiebreakers.clone();
+    competition.rules.ladder = rules.ladder.clone();
+    competition.rules.reserve_sides = rules.reserve_sides.clone();
+    competition.rules.cup = rules.cup.clone();
+    if let Some(gap) = rules.knockout_round_gap_days {
+        competition.rules.knockout_round_gap_days = gap;
+    }
+}
+
 fn build_competition(
     def: &CompetitionDefinition,
     team_ids: &[String],
@@ -1103,6 +1137,8 @@ fn build_competition(
             let mut cup = League::new(def.id.clone(), def.name.clone(), season, team_ids);
             cup.standings.clear();
             cup.rules.format = CompetitionFormat::Knockout;
+            // Before the first round is drawn: the draw reads them.
+            apply_authored_rules(&mut cup, def);
             crate::schedule::seed_knockout_round(
                 &mut cup,
                 team_ids,
@@ -1138,6 +1174,7 @@ fn build_competition(
     competition.season_start_month = def.season_start_month.unwrap_or(8);
     competition.season_start_day = def.season_start_day.unwrap_or(1);
     competition.name_key = def.name_key.clone();
+    apply_authored_rules(&mut competition, def);
     crate::calendar_identity::attach_definition_calendar(&mut competition, def, season_start);
     // Rebuild standings to match the resolved participants for table formats.
     if def.format.kind == CompetitionFormat::LeagueTable {
@@ -1314,6 +1351,7 @@ mod tests {
             name_key: None,
             logo: None,
             calendar: None,
+            rules: None,
         }
     }
 
@@ -1720,6 +1758,7 @@ mod tests {
             name_key: None,
             logo: None,
             calendar: None,
+            rules: None,
         }
     }
 

@@ -61,6 +61,15 @@ pub fn build_game_from_world_data(
         .competition_definitions
         .as_ref()
         .map(|file| {
+            // A cup's draw is salted with the game's seed: two careers on the same world do not
+            // meet the same draw.
+            let mut file = file.clone();
+            for definition in &mut file.competitions {
+                if let Some(rules) = &mut definition.rules {
+                    rules.cup.draw_salt = seed;
+                }
+            }
+            let file = &file;
             let mut comps = crate::generator::resolve_definitions_ranked(
                 file,
                 &world,

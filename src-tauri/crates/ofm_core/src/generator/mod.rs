@@ -1182,6 +1182,7 @@ fn build_fallback_competition(
         },
         logo: None,
         calendar: None,
+        rules: None,
     }
 }
 

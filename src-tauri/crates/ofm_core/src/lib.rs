@@ -43,6 +43,7 @@ pub mod inbox;
 pub mod inbox_archive;
 pub mod job_offers;
 pub mod knockout_dates;
+pub mod cup_entrants;
 pub mod ladder_rules;
 pub mod live_match_manager;
 pub mod manager_retirement;

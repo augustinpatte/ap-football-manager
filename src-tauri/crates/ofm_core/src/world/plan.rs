@@ -204,6 +204,7 @@ pub(super) fn build_foundation_competition_plan(
                                 CalendarDate { month: 1, day: 31 }
                             }),
                         }),
+                        rules: None,
                     }
                 };
                 let tier_suffix = format!("d{}", tier + 1);
@@ -291,6 +292,7 @@ pub(super) fn build_foundation_competition_plan(
                             }),
                             window_end: None,
                         }),
+                        rules: None,
                     },
                     actual_start,
                 ));
@@ -328,6 +330,7 @@ pub(super) fn build_foundation_competition_plan(
                 name_key: Some("tournaments.competitions.nationalCup".to_string()),
                 logo: None,
                 calendar: None,
+                rules: None,
             },
             cup_actual_start,
         ));
@@ -414,6 +417,7 @@ pub(super) fn build_foundation_competition_plan(
                         name_key: Some(name_key.to_string()),
                         logo: None,
                         calendar: None,
+                        rules: None,
                     },
                     state_start,
                 ));
@@ -463,6 +467,7 @@ pub(super) fn build_foundation_competition_plan(
                 season_start_day: Some(1),
                 logo: None,
                 calendar: None,
+                rules: None,
             },
             continental_start,
         ));

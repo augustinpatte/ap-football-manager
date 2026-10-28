@@ -77,7 +77,15 @@ pub(crate) fn renew_finished_cups(game: &mut Game, today: &str) -> usize {
             continue;
         }
         let edition = next_edition(cup, &game.clock, earliest_start);
+        // A cup fed by divisions reads its entrants again: the divisions may have moved.
+        let entrants =
+            crate::cup_entrants::entrants_from_feeders(cup, &game.competitions, &game.teams);
+        let seed = game.seed;
         let cup = &mut game.competitions[index];
+        if let Some(entrants) = entrants {
+            cup.participant_ids = entrants;
+            cup.rules.cup.draw_salt = seed;
+        }
         debug!(
             "[cup-renewal] {} season {} finished on {today}; renewing as season {}",
             cup.id, cup.season, edition.season

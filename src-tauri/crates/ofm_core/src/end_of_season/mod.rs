@@ -143,6 +143,24 @@ pub fn is_season_complete(game: &Game) -> bool {
                 .iter()
                 .filter_map(|league| league.country_id.as_deref())
                 .collect();
+            // A national cup of the user's country has to be won before the season turns over:
+            // a final left to the next season would be renewed over, unplayed. Only cups with
+            // authored rules wait; the cups OpenFootManager generates keep the old behaviour.
+            let national_cup_still_running = game.competitions.iter().any(|competition| {
+                competition.kind == CompetitionType::Cup
+                    && competition.scope == CompetitionScope::Domestic
+                    && competition.rules.format == CompetitionFormat::Knockout
+                    && competition.rules.cup.is_authored()
+                    && competition
+                        .country_id
+                        .as_deref()
+                        .is_some_and(|country| user_countries.contains(country))
+                    && !competition.fixtures.is_empty()
+                    && !is_cup_edition_finished(competition)
+            });
+            if national_cup_still_running {
+                return false;
+            }
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             let countrymen_still_playing = game.competitions.iter().any(|competition| {
                 berths::is_ladder_tier(competition)
@@ -548,6 +566,10 @@ fn regenerate_competitions_for_new_season(
         .filter(|competition| !is_regenerated_at_rollover(competition))
         .map(|competition| competition.id.clone())
         .collect();
+    // The cups fed by divisions read their entrants now that the divisions have moved.
+    let refreshed_cup_entrants =
+        crate::cup_entrants::refreshed_entrants(&game.competitions, &game.teams);
+    let seed = game.seed;
     for competition in game.competitions.iter_mut() {
         // A surviving mid-campaign qualifying competition must not be rebuilt
         // as a plain league — its groups and played results carry over; the
@@ -586,6 +608,10 @@ fn regenerate_competitions_for_new_season(
                 );
             }
             CompetitionFormat::Knockout => {
+                if let Some(entrants) = refreshed_cup_entrants.get(&competition.id) {
+                    competition.participant_ids = entrants.clone();
+                    competition.rules.cup.draw_salt = seed;
+                }
                 crate::schedule::regenerate_knockout_for_season(
                     competition,
                     comp_next_season,
