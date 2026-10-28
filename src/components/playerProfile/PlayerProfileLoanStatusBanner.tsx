@@ -29,7 +29,9 @@ export default function PlayerProfileLoanStatusBanner({
     unknown: t("common.unknown"),
   };
   const parentTeamName = getPlayerTeamName(teams, loan.parent_team_id, labels);
-  const loanTeamName = getPlayerTeamName(teams, loan.loan_team_id, labels);
+  const loanTeamName = teams.some((team) => team.id === loan.loan_team_id)
+    ? getPlayerTeamName(teams, loan.loan_team_id, labels)
+    : (loan.loan_team_name ?? getPlayerTeamName(teams, loan.loan_team_id, labels));
   const relationship =
     managerTeamId === loan.parent_team_id
       ? t("playerProfile.loanedOutTo", { team: loanTeamName })

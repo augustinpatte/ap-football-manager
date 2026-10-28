@@ -608,6 +608,7 @@ mod tests {
         loanee.active_loan = Some(domain::player::ActiveLoan {
             parent_team_id: "rival".to_string(),
             loan_team_id: "user".to_string(),
+            loan_team_name: None,
             start_date: "2026-08-01".to_string(),
             end_date: "2027-06-30".to_string(),
             wage_contribution_pct: 100,

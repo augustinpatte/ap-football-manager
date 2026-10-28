@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 /// version that wrote no marker at all, is reported `outdated` and offered for regeneration.
 /// Revision 2: recurring income and wage budget of the FM24 economy (mission 4).
 /// Revision 3: gate income for every club and the pool of FM24 free agents (mission 6).
-pub const WORLD_REVISION: u32 = 3;
+/// Revision 4: squads follow the team the save registers each player with: reserve and youth sides are
+/// the academy, loans carry their owner, affiliated B sides are the owner's reserve (roster audit).
+pub const WORLD_REVISION: u32 = 4;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]

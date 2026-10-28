@@ -680,6 +680,7 @@ fn the_market_scope_leaves_out_own_loaned_and_already_agreed_players() {
     on_loan.active_loan = Some(ActiveLoan {
         parent_team_id: "other".to_string(),
         loan_team_id: "third".to_string(),
+        loan_team_name: None,
         start_date: "2026-01-01".to_string(),
         end_date: "2026-12-31".to_string(),
         wage_contribution_pct: 50,
@@ -797,6 +798,7 @@ fn the_user_listed_scope_leaves_out_a_player_out_on_loan() {
     away.active_loan = Some(domain::player::ActiveLoan {
         parent_team_id: "mine".to_string(),
         loan_team_id: "other".to_string(),
+        loan_team_name: None,
         start_date: "2026-01-01".to_string(),
         end_date: "2026-12-31".to_string(),
         wage_contribution_pct: 50,

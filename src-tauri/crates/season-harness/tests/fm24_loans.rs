@@ -233,6 +233,13 @@ fn ai_clubs_offer_for_a_loan_listed_player_and_he_comes_back() {
     let (offer_id, borrower) = offers.last().expect("an offer").clone();
     let wage = i64::from(player(&game, &mine).wage());
     let borrower_bill = calc_wages(&game, &borrower);
+    // By the end of August about one AI club in ten is over its wage budget (the same in the world
+    // before the roster audit); the lifecycle is what this test follows, so the borrower of the
+    // offer is given room for the loan rather than the test depending on which club happened to
+    // bid.
+    if let Some(team) = game.teams.iter_mut().find(|t| t.id == borrower) {
+        team.wage_budget = team.wage_budget.max((borrower_bill + wage) * 2);
+    }
     respond_to_loan_offer(&mut game, &mine, &offer_id, true).expect("the offer is accepted");
 
     let p = player(&game, &mine);

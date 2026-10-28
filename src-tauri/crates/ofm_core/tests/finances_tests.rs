@@ -704,6 +704,7 @@ fn monday_payday_splits_loan_wages_between_parent_and_loanee() {
     loanee.active_loan = Some(ActiveLoan {
         parent_team_id: "parent".to_string(),
         loan_team_id: "loanee".to_string(),
+        loan_team_name: None,
         start_date: "2025-01-01".to_string(),
         end_date: "2026-06-30".to_string(),
         wage_contribution_pct: 50,

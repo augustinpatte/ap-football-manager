@@ -883,6 +883,7 @@ mod tests {
         p.active_loan = Some(ActiveLoan {
             parent_team_id: "parent".into(),
             loan_team_id: "borrower".into(),
+            loan_team_name: None,
             start_date: "2026-08-01".into(),
             end_date: "2027-05-31".into(),
             wage_contribution_pct: 50,
@@ -1179,6 +1180,7 @@ mod tests {
         p.active_loan = Some(ActiveLoan {
             parent_team_id: "club-a".into(),
             loan_team_id: "borrower".into(),
+            loan_team_name: None,
             start_date: "2026-08-01".into(),
             end_date: "2027-05-31".into(),
             wage_contribution_pct: 50,

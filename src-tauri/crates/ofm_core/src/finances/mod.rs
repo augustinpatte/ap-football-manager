@@ -1611,6 +1611,7 @@ mod tests {
             p.active_loan = loan.map(|(parent, borrower, pct)| ActiveLoan {
                 parent_team_id: parent.to_string(),
                 loan_team_id: borrower.to_string(),
+                loan_team_name: None,
                 start_date: "2026-01-01".to_string(),
                 end_date: "2026-12-31".to_string(),
                 wage_contribution_pct: pct,

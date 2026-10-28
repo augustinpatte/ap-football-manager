@@ -408,6 +408,8 @@ export interface LoanOfferData {
 export interface ActiveLoanData {
   parent_team_id: string;
   loan_team_id: string;
+  /** Name of the borrower when it is a club the world does not contain (a loan imported from a save). */
+  loan_team_name?: string | null;
   start_date: string;
   end_date: string;
   wage_contribution_pct: number;

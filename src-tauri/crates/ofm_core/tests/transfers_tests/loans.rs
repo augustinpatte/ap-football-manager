@@ -659,6 +659,7 @@ fn loan_offer_counts_existing_loan_wages_against_borrower_budget() {
     existing_loan.active_loan = Some(ActiveLoan {
         parent_team_id: "team-2".to_string(),
         loan_team_id: "team-1".to_string(),
+        loan_team_name: None,
         start_date: "2026-07-01".to_string(),
         end_date: "2027-06-30".to_string(),
         wage_contribution_pct: 100,
@@ -845,6 +846,7 @@ fn loan_development_report_is_generated_for_parent_club() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -892,6 +894,7 @@ fn loan_development_only_counts_minutes_since_last_report() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -984,6 +987,7 @@ fn ai_loan_club_can_exercise_buy_option_when_loan_expires() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 60,
@@ -1062,6 +1066,7 @@ fn ai_loan_club_cannot_exercise_buy_option_when_window_is_closed() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 60,
@@ -1130,6 +1135,7 @@ fn ai_loan_club_does_not_exercise_buy_option_from_pre_loan_minutes() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 60,
@@ -1536,6 +1542,7 @@ fn permanent_bid_is_rejected_for_active_loan_player() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-3".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -1707,6 +1714,7 @@ fn a_buy_option_sale_credits_the_parent_club_the_same_as_a_permanent_sale() {
     player.active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 60,

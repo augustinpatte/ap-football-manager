@@ -257,11 +257,44 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         {
             field_failures.push(format!("{id} dob {} != {dob}", player.date_of_birth));
         }
-        if player.team_id.as_deref() != Some(ids::club(row.club_id).as_str()) {
+        // Where he plays is where the save registers him (his owner's club when he is not on a
+        // loan); a loan carries his owner and ends within his contract.
+        let placement = &plan.placement;
+        if player.team_id.as_deref() != Some(ids::club(placement.playing_club).as_str()) {
             club_failures.push(format!(
-                "{id} club {:?} != fm-c-{}",
-                player.team_id, row.club_id
+                "{id} club {:?} != fm-c-{} ({})",
+                player.team_id,
+                placement.playing_club,
+                placement.kind.label()
             ));
+        }
+        if !placement.is_loan()
+            && player.team_id.as_deref() != Some(ids::club(row.club_id).as_str())
+            && placement.kind == crate::placement::Kind::Own
+        {
+            club_failures.push(format!(
+                "{id} owns a contract at fm-c-{} but plays for {:?}",
+                row.club_id, player.team_id
+            ));
+        }
+        match (
+            &player.active_loan,
+            placement.is_loan() && run.cfg.loans.enabled,
+        ) {
+            (Some(loan), true) => {
+                if Some(loan.parent_team_id.as_str())
+                    != placement.owner_club.map(ids::club).as_deref()
+                    || Some(loan.loan_team_id.as_str()) != player.team_id.as_deref()
+                {
+                    club_failures.push(format!("{id} loan has the wrong owner or borrower"));
+                }
+                if loan.end_date.as_str() <= loan.start_date.as_str() {
+                    club_failures.push(format!("{id} loan ends before it starts"));
+                }
+            }
+            (None, true) => club_failures.push(format!("{id} should be on loan")),
+            (Some(_), false) => club_failures.push(format!("{id} is on loan but should not be")),
+            (None, false) => {}
         }
         if player.position.is_legacy_bucket()
             && player.position != domain::player::Position::Goalkeeper
@@ -382,10 +415,15 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
                 player.market_value
             ));
         }
-        let expected_youth = plan.def.youth;
+        let expected_youth = plan.def.youth && !run.promoted_academy_players.contains(id);
         if expected_youth && player.squad_role != SquadRole::Youth {
             field_failures.push(format!(
-                "{id} was an FM youth-team player but is not in the academy"
+                "{id} was registered with a reserve or youth side in the save but is not in the academy"
+            ));
+        }
+        if !plan.def.youth && player.squad_role != SquadRole::Senior {
+            field_failures.push(format!(
+                "{id} was registered with a first team (or past the academy age) but is not senior"
             ));
         }
     }
@@ -402,7 +440,7 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         "players.club_relations",
         true,
         club_failures,
-        "every imported player is at the club of his current FM contract",
+        "every imported player plays for the club the save registers him with, loans carry their owner",
     ));
     checks.push(check(
         "players.positions_valid",

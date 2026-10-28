@@ -679,6 +679,10 @@ pub enum LoanOfferStatus {
 pub struct ActiveLoan {
     pub parent_team_id: String,
     pub loan_team_id: String,
+    /// Name of the borrower when it is not a club of the world (a loan imported from a save to a
+    /// club the world does not contain), so the interface can still say where he is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loan_team_name: Option<String>,
     pub start_date: String,
     pub end_date: String,
     pub wage_contribution_pct: u8,

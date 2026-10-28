@@ -275,6 +275,7 @@ fn borrowed_player_contract_actions_are_not_owned_by_borrowing_club() {
     game.players[0].active_loan = Some(ActiveLoan {
         parent_team_id: "team-2".to_string(),
         loan_team_id: "team-1".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -316,6 +317,7 @@ fn loaned_out_player_termination_is_blocked_until_loan_ends() {
     game.players[0].active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -1367,6 +1369,7 @@ fn a_renewal_of_a_loaned_player_by_the_borrower_is_refused_and_writes_nothing() 
     game.players[0].active_loan = Some(ActiveLoan {
         parent_team_id: "team-2".to_string(),
         loan_team_id: "team-1".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -1449,6 +1452,7 @@ fn a_renewal_of_a_loaned_out_player_by_the_parent_belongs_to_the_parent() {
     game.players[0].active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-08-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -1492,6 +1496,7 @@ fn a_contract_that_runs_out_during_a_loan_releases_him_from_the_parent() {
     game.players[0].active_loan = Some(ActiveLoan {
         parent_team_id: "team-1".to_string(),
         loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
         start_date: "2026-01-01".to_string(),
         end_date: "2027-01-01".to_string(),
         wage_contribution_pct: 75,
@@ -1664,6 +1669,7 @@ fn a_loanee_whose_parent_contract_expires_is_reported_to_the_borrower() {
     loanee.active_loan = Some(ActiveLoan {
         parent_team_id: "team-2".to_string(),
         loan_team_id: "team-1".to_string(),
+        loan_team_name: None,
         start_date: "2026-01-01".to_string(),
         end_date: "2026-12-31".to_string(),
         wage_contribution_pct: 100,

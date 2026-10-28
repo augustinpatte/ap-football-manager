@@ -127,6 +127,7 @@ fn weekly_planning_covers_a_loss_in_the_middle_of_a_season() {
     loanee.active_loan = Some(domain::player::ActiveLoan {
         parent_team_id: "team1".to_string(),
         loan_team_id: "team2".to_string(),
+        loan_team_name: None,
         start_date: "2025-01-01".to_string(),
         end_date: loan_end,
         wage_contribution_pct: 100,

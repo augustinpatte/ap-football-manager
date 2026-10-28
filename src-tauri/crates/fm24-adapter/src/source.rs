@@ -148,9 +148,18 @@ pub struct PlayerRow {
     pub birth_date: Option<String>,
     pub nation: Option<String>,
     pub height_cm: Option<i64>,
+    /// The club that holds his current contract (his owner, whoever he plays for).
     pub club_id: i64,
+    pub club_name: String,
     pub team_slot: Option<i64>,
     pub team_is_youth: bool,
+    /// Where the save has him registered (`player.registered_team_id`): the club he plays for and
+    /// the team of that club (slot 0 = first team, above 0 = reserve or youth sides). When this
+    /// club is not `club_id`, he is on loan (or in an affiliated side) with `club_id` as owner.
+    pub registered_club_id: Option<i64>,
+    pub registered_club_name: Option<String>,
+    pub registered_slot: Option<i64>,
+    pub registered_is_youth: bool,
     pub wage_gbp_week: i64,
     pub wage_original: i64,
     pub wage_source: String,
@@ -388,18 +397,23 @@ impl Source {
                     k.wage_gbp_week, k.wage_original, k.wage_source, k.start_date, k.end_date,
                     k.contract_type_code, k.squad_status_code,
                     pl.ca, pl.pa, pl.rep_current, pl.rep_home, pl.rep_world, pl.foot_left, pl.foot_right,
-                    pl.value_gbp, pl.value_source, {attr_cols}
+                    pl.value_gbp, pl.value_source,
+                    rt.club_id, rc.name, rt.slot, COALESCE(rt.is_youth, 0), oc.name,
+                    {attr_cols}
              FROM contract k
              JOIN person p ON p.id = k.person_id
              JOIN player pl ON pl.person_id = p.id
              JOIN player_attributes a ON a.person_id = p.id
              LEFT JOIN nation n ON n.id = p.nation_id
              LEFT JOIN team t ON t.id = k.team_id
-             WHERE k.is_current = 1 AND k.club_id IN ({list})
+             LEFT JOIN team rt ON rt.id = pl.registered_team_id
+             LEFT JOIN club rc ON rc.id = rt.club_id
+             LEFT JOIN club oc ON oc.id = k.club_id
+             WHERE k.is_current = 1 AND (k.club_id IN ({list}) OR rt.club_id IN ({list}))
              ORDER BY p.id"
         );
         let mut stmt = self.conn.prepare(&sql).map_err(|e| e.to_string())?;
-        let first_attr = 28;
+        let first_attr = 33;
         let rows = stmt
             .query_map([], |r| {
                 let mut attrs = BTreeMap::new();
@@ -420,6 +434,11 @@ impl Source {
                     club_id: r.get(9)?,
                     team_slot: r.get(10)?,
                     team_is_youth: r.get::<_, i64>(11)? == 1,
+                    registered_club_id: r.get(28)?,
+                    registered_club_name: r.get(29)?,
+                    registered_slot: r.get(30)?,
+                    registered_is_youth: r.get::<_, i64>(31)? == 1,
+                    club_name: r.get::<_, Option<String>>(32)?.unwrap_or_default(),
                     wage_gbp_week: r.get(12)?,
                     wage_original: r.get(13)?,
                     wage_source: r.get(14)?,
@@ -447,7 +466,11 @@ impl Source {
 
         let pos_sql = format!(
             "SELECT pp.person_id, pp.position, pp.rating FROM player_position pp
-             WHERE pp.person_id IN (SELECT person_id FROM contract WHERE is_current = 1 AND club_id IN ({list}))
+             WHERE pp.person_id IN (
+                 SELECT k.person_id FROM contract k
+                 JOIN player pl ON pl.person_id = k.person_id
+                 LEFT JOIN team rt ON rt.id = pl.registered_team_id
+                 WHERE k.is_current = 1 AND (k.club_id IN ({list}) OR rt.club_id IN ({list})))
              ORDER BY pp.person_id, pp.position"
         );
         let mut stmt = self.conn.prepare(&pos_sql).map_err(|e| e.to_string())?;
@@ -515,8 +538,13 @@ impl Source {
                     nation: r.get(7)?,
                     height_cm: r.get(8)?,
                     club_id: 0,
+                    club_name: String::new(),
                     team_slot: None,
                     team_is_youth: false,
+                    registered_club_id: None,
+                    registered_club_name: None,
+                    registered_slot: None,
+                    registered_is_youth: false,
                     wage_gbp_week: 0,
                     wage_original: 0,
                     wage_source: String::new(),

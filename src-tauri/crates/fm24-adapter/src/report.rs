@@ -250,6 +250,16 @@ fn extension_jsonl(run: &Run) -> String {
             "fm_positions": row.positions,
             "fm_attributes": row.attrs.0,
             "contract": { "type_code": row.contract_type_code, "squad_status_code": row.squad_status_code },
+            "placement": {
+                "kind": plan.placement.kind.label(),
+                "contract_club_id": row.club_id,
+                "registered_club_id": row.registered_club_id,
+                "registered_team_slot": row.registered_slot,
+                "playing_club_id": plan.placement.playing_club,
+                "owner_club_id": plan.placement.owner_club,
+                "role": format!("{:?}", plan.placement.role),
+                "promoted_from_academy": run.promoted_academy_players.contains(&plan.def.id),
+            },
             "wage_gbp_week": { "value": row.wage_gbp_week, "original": row.wage_original, "source": row.wage_source },
             "provenance": {
                 "nationality": plan.nationality_source,
@@ -322,6 +332,61 @@ pub fn ovr_on_ca_fit(run: &Run) -> (f64, f64) {
     let sxx: f64 = points.iter().map(|p| (p.0 - mx).powi(2)).sum();
     let slope = sxy / sxx;
     (slope, my - slope * mx)
+}
+
+/// Where the save's players play and in what role: the registered team decides, not the contract.
+fn placement_section(r: &mut String, run: &Run) {
+    use crate::placement::Kind;
+    let _ = writeln!(r, "## Effectifs : équipe d'inscription, prêts, académie\n");
+    let _ = writeln!(
+        r,
+        "La save enregistre, pour chaque joueur, le club de son **contrat** et l'**équipe** avec laquelle il est inscrit (première équipe, réserve, jeunes). Les deux diffèrent pour les prêts et les équipes B affiliées. Règles : `placement.rs`, vérifiées indépendamment par `tools/roster_audit/oracle.py`.\n"
+    );
+    let mut by_kind: BTreeMap<&'static str, usize> = BTreeMap::new();
+    for plan in &run.plans {
+        *by_kind.entry(plan.placement.kind.label()).or_default() += 1;
+    }
+    let _ = writeln!(r, "| Cas | Joueurs |\n|---|---|");
+    for (kind, n) in &by_kind {
+        let _ = writeln!(r, "| {kind} | {n} |");
+    }
+    let senior = run
+        .plans
+        .iter()
+        .filter(|p| p.placement.role == domain::player::SquadRole::Senior)
+        .count();
+    let _ = writeln!(
+        r,
+        "\n- Rôle d'après la save : **{senior}** seniors (première équipe, ou au-delà de l'âge d'académie d'OFM), **{}** académie.",
+        run.plans.len() - senior
+    );
+    let _ = writeln!(
+        r,
+        "- **{}** joueurs importés comme prêts (`team_id` = club où ils jouent, `active_loan` = propriétaire) ; fin `{}`, part du salaire payée par l'emprunteur {} % : **valeurs configurées**, la save n'en contient pas.",
+        run.loans_applied.len(),
+        run.cfg.loans.end_date,
+        run.cfg.loans.wage_contribution_pct
+    );
+    let outside = run
+        .plans
+        .iter()
+        .filter(|p| {
+            matches!(
+                p.placement.kind,
+                Kind::LoanToOutsideClub | Kind::AffiliateLoan
+            )
+        })
+        .count();
+    let _ = writeln!(
+        r,
+        "- Dont **{outside}** prêtés à un club que le monde ne contient pas (leur nom est gardé dans le prêt ; ils reviennent à leur propriétaire à la fin du prêt).",
+    );
+    let _ = writeln!(
+        r,
+        "- **{}** joueurs de l'académie promus en équipe première pour atteindre le plancher d'OFM (15 seniors, 2 G / 4 D / 4 M / 2 A) au lieu de générer un joueur ; **{}** joueurs générés par OFM subsistent.\n",
+        run.promoted_academy_players.len(),
+        run.generated_players.len()
+    );
 }
 
 /// The pool of FM24 free agents: why each unattached player is or is not in it, and what the pool
@@ -459,6 +524,7 @@ fn adapter_report(
         run.free_agent_plans.len(),
         world.managers.len()
     );
+    placement_section(&mut r, run);
     free_agents_section(&mut r, run);
 
     let _ = writeln!(

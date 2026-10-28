@@ -136,6 +136,7 @@ mod tests {
         ActiveLoan {
             parent_team_id: parent.to_string(),
             loan_team_id: borrower.to_string(),
+            loan_team_name: None,
             start_date: "2026-07-01".to_string(),
             end_date: "2027-06-30".to_string(),
             wage_contribution_pct: 100,

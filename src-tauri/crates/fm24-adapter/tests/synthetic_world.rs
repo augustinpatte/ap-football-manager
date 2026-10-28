@@ -26,7 +26,7 @@ CREATE TABLE team (id INTEGER PRIMARY KEY, club_id INTEGER, slot INTEGER, is_you
 CREATE TABLE person (id INTEGER PRIMARY KEY, fm_uid INTEGER, first_name TEXT, last_name TEXT, common_name TEXT,
   birth_date TEXT, nation_id INTEGER, height_cm INTEGER, fm_uid_status TEXT);
 CREATE TABLE player (person_id INTEGER PRIMARY KEY, ca INTEGER, pa INTEGER, rep_current INTEGER, rep_home INTEGER, rep_world INTEGER,
-  foot_left INTEGER, foot_right INTEGER, value_gbp INTEGER, value_source TEXT);
+  foot_left INTEGER, foot_right INTEGER, value_gbp INTEGER, value_source TEXT, registered_team_id INTEGER);
 CREATE TABLE player_attributes (person_id INTEGER PRIMARY KEY, %ATTRS%);
 CREATE TABLE player_position (person_id INTEGER, position TEXT, rating INTEGER);
 CREATE TABLE staff (person_id INTEGER PRIMARY KEY, ca INTEGER, pa INTEGER, rep_current INTEGER);
@@ -35,6 +35,10 @@ CREATE TABLE contract (id INTEGER PRIMARY KEY, person_id INTEGER, club_id INTEGE
   role_code TEXT, wage_gbp_week INTEGER, wage_original INTEGER, wage_source TEXT, start_date TEXT, end_date TEXT,
   squad_status_code INTEGER, contract_type_code INTEGER);
 ";
+
+fn club_team_of(club: i64) -> i64 {
+    club * 10
+}
 
 fn attribute_columns() -> String {
     fm24_adapter::source::ATTRIBUTE_COLUMNS
@@ -53,6 +57,9 @@ struct Spec {
     ca: i64,
     pa: i64,
     nation: Option<i64>,
+    /// Team the save registers him with (`player.registered_team_id`); `None` = no registration.
+    registered: Option<i64>,
+    born: &'static str,
 }
 
 fn build_db(path: &Path) {
@@ -118,6 +125,20 @@ fn build_db(path: &Path) {
         .unwrap();
     }
 
+    // PSG's youth team, Auxerre's reserve team, and a club the world does not contain with its first team.
+    for (team, club, slot, youth) in [(4981, 498, 1, 1), (4641, 464, 1, 1), (77770, 7777, 0, 0)] {
+        conn.execute(
+            "INSERT INTO team VALUES (?,?,?,?)",
+            params![team, club, slot, youth],
+        )
+        .unwrap();
+    }
+    conn.execute(
+        "INSERT INTO club VALUES (7777,8777,'Outside FC','Outside',1,2000)",
+        [],
+    )
+    .unwrap();
+
     let mut specs: Vec<Spec> = Vec::new();
     // PSG: 2 keepers, 5 defenders, 5 midfielders, 4 forwards, one with an unknown nationality; a star and a prospect.
     let layout = [("GK", 2), ("DC", 5), ("MC", 5), ("STC", 4)];
@@ -132,6 +153,8 @@ fn build_db(path: &Path) {
                 ca: if n == 0 { 185 } else { 140 },
                 pa: if n == 0 { 190 } else { 150 },
                 nation: Some(1),
+                registered: Some(club_team_of(498)),
+                born: "1998-05-04",
             });
             id += 1;
         }
@@ -144,6 +167,43 @@ fn build_db(path: &Path) {
         ca: 70,
         pa: 160,
         nation: None,
+        registered: Some(498 * 10),
+        born: "1998-05-04",
+    });
+    // PSG: an under-18 side player (registered with the youth team 4981), a player on loan at Auxerre (a club of the
+    // world) and one on loan at a club the world does not contain (7777).
+    specs.push(Spec {
+        id: 2100,
+        club: 498,
+        position: "MC",
+        level: 50,
+        ca: 80,
+        pa: 150,
+        nation: Some(1),
+        registered: Some(4981),
+        born: "2008-06-24",
+    });
+    specs.push(Spec {
+        id: 2101,
+        club: 498,
+        position: "DC",
+        level: 60,
+        ca: 100,
+        pa: 120,
+        nation: Some(1),
+        registered: Some(464 * 10),
+        born: "2003-01-01",
+    });
+    specs.push(Spec {
+        id: 2102,
+        club: 498,
+        position: "GK",
+        level: 60,
+        ca: 100,
+        pa: 120,
+        nation: Some(1),
+        registered: Some(77770),
+        born: "2005-01-01",
     });
     // Auxerre: 6 players only, lower division level.
     for (n, position) in ["GK", "DC", "DC", "MC", "MC", "STC"]
@@ -158,6 +218,22 @@ fn build_db(path: &Path) {
             ca: 80,
             pa: 85,
             nation: Some(2),
+            registered: Some(464 * 10),
+            born: "1998-05-04",
+        });
+    }
+    // Auxerre's reserve side: two 18-year-olds, one defender and one midfielder.
+    for (id, position) in [(3100, "DC"), (3101, "MC")] {
+        specs.push(Spec {
+            id,
+            club: 464,
+            position,
+            level: 40,
+            ca: 60,
+            pa: 100,
+            nation: Some(2),
+            registered: Some(4641),
+            born: "2008-03-03",
         });
     }
     for spec in &specs {
@@ -169,16 +245,25 @@ fn build_db(path: &Path) {
                 format!("First{}", spec.id),
                 format!("Last{}", spec.id),
                 Option::<String>::None,
-                "1998-05-04",
+                spec.born,
                 spec.nation,
                 180
             ],
         )
         .unwrap();
         conn.execute(
-            "INSERT INTO player VALUES (?,?,?,?,?,?,?,?,?,'save')",
+            "INSERT INTO player VALUES (?,?,?,?,?,?,?,?,?,'save',?)",
             params![
-                spec.id, spec.ca, spec.pa, 5000, 5000, 5000, 60, 100, 10_000_000
+                spec.id,
+                spec.ca,
+                spec.pa,
+                5000,
+                5000,
+                5000,
+                60,
+                100,
+                10_000_000,
+                spec.registered
             ],
         )
         .unwrap();
@@ -352,14 +437,14 @@ fn clubs_below_the_floor_get_identified_generated_players_and_an_empty_club_is_n
             .count()
             <= 2
     );
-    // Auxerre keeps its 6 real players.
+    // Auxerre keeps its 6 real players, plus its 2 reserve players and PSG's loanee.
     assert_eq!(
         run.world
             .players
             .iter()
             .filter(|p| p.team_id.as_deref() == Some("fm-c-464") && p.id.starts_with("fm-p-"))
             .count(),
-        6
+        9
     );
 }
 
@@ -414,5 +499,62 @@ fn the_integrity_checks_pass_except_the_240_club_perimeter_of_the_real_world() {
         failed,
         vec!["perimeter.clubs", "perimeter.competitions"],
         "{results:?}"
+    );
+}
+
+#[test]
+fn registered_teams_decide_senior_academy_and_loans() {
+    let dir = tempfile::tempdir().unwrap();
+    let run = run_once(dir.path());
+    let player = |id: &str| run.world.players.iter().find(|p| p.id == id).unwrap();
+    // Under-18 side player: academy of his own club.
+    let youth = player("fm-p-2100");
+    assert_eq!(youth.team_id.as_deref(), Some("fm-c-498"));
+    assert_eq!(youth.squad_role, domain::player::SquadRole::Youth);
+    // Loan inside the world: plays for Auxerre, owned by PSG, wage and contract stay the owner's.
+    let inside = player("fm-p-2101");
+    assert_eq!(inside.team_id.as_deref(), Some("fm-c-464"));
+    let loan = inside.active_loan.as_ref().expect("on loan");
+    assert_eq!(loan.parent_team_id, "fm-c-498");
+    assert_eq!(loan.loan_team_id, "fm-c-464");
+    assert!(loan.loan_team_name.is_none());
+    assert_eq!(inside.contract_club_id(), Some("fm-c-498"));
+    // Loan to a club the world does not contain: the borrower keeps its name.
+    let outside = player("fm-p-2102");
+    assert_eq!(outside.team_id.as_deref(), Some("fm-c-7777"));
+    let loan = outside.active_loan.as_ref().expect("on loan");
+    assert_eq!(loan.parent_team_id, "fm-c-498");
+    assert_eq!(loan.loan_team_name.as_deref(), Some("Outside FC"));
+    assert_eq!(outside.contract_club_id(), Some("fm-c-498"));
+    assert_eq!(run.loans_applied.len(), 2);
+    // Nobody else is on loan.
+    assert_eq!(
+        run.world
+            .players
+            .iter()
+            .filter(|p| p.active_loan.is_some())
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn a_short_club_promotes_its_own_reserve_before_a_filler_is_generated() {
+    let dir = tempfile::tempdir().unwrap();
+    let run = run_once(dir.path());
+    // Auxerre: 6 real seniors + 1 loaned in = 7; its two 18-year-old reserve players are promoted first.
+    for id in ["fm-p-3100", "fm-p-3101"] {
+        assert!(
+            run.promoted_academy_players.contains(&id.to_string()),
+            "{id}"
+        );
+        let p = run.world.players.iter().find(|p| p.id == id).unwrap();
+        assert_eq!(p.squad_role, domain::player::SquadRole::Senior);
+        assert_eq!(p.team_id.as_deref(), Some("fm-c-464"));
+    }
+    // PSG meets the floor without touching its academy.
+    assert!(
+        !run.promoted_academy_players
+            .contains(&"fm-p-2100".to_string())
     );
 }

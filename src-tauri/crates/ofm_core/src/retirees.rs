@@ -253,6 +253,7 @@ mod tests {
         lent.active_loan = Some(domain::player::ActiveLoan {
             parent_team_id: "parent".into(),
             loan_team_id: "borrower".into(),
+            loan_team_name: None,
             start_date: "2040-01-01".into(),
             end_date: "2040-12-31".into(),
             wage_contribution_pct: 50,

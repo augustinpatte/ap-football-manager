@@ -12,6 +12,7 @@ pub struct Config {
     pub money: MoneyCfg,
     pub start: StartCfg,
     pub contracts: ContractsCfg,
+    pub loans: LoansCfg,
     pub potential: PotentialCfg,
     pub positions: PositionsCfg,
     pub squad: SquadCfg,
@@ -47,6 +48,14 @@ pub struct ContractsCfg {
     pub missing_end: String,
 }
 
+/// Terms of the loans the save implies (it records where a player plays, not the terms).
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoansCfg {
+    pub enabled: bool,
+    pub end_date: String,
+    pub wage_contribution_pct: u8,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct PotentialCfg {
     pub ovr_points_per_ca: f64,
@@ -63,6 +72,7 @@ pub struct PositionsCfg {
 pub struct SquadCfg {
     pub trim_generated_to_floor: bool,
     pub calibrate_generated_to_division: bool,
+    pub promote_academy_before_generating: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

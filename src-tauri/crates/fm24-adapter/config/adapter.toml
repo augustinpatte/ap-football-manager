@@ -26,6 +26,17 @@ phase = "seasonStart"
 # Contrat sans date de fin dans la save (337 joueurs du périmètre) : fin générée, marquée « générée ».
 missing_end = "2027-06-30"
 
+[loans]
+# World.db registers each player with a team (`player.registered_team_id`); when that club is not the one that
+# holds his contract, he plays elsewhere under his owner's contract (a loan, or an affiliated side such as
+# Bayern II). Such a player is imported as an OFM loan: `team_id` = where he plays, `active_loan.parent_team_id`
+# = his owner. The save does not carry the terms, so they are configured (marked generated in the report):
+# the loan ends with the season (capped by his contract), the borrower pays this share of the wage.
+# 0 keeps the owner's wage bill as the importer's finances computed it.
+enabled = true
+end_date = "2027-06-30"
+wage_contribution_pct = 0
+
 [potential]
 # Potentiel OFM = OVR OFM + round(points_par_CA * (PA - CA)), borné à [OVR, 99]. Coefficient calibré (voir
 # docs/FM24_IMPORT_VALIDATION.md §Calibrage) : pente de l'OVR OFM sur le CA FM dans le périmètre.
@@ -48,6 +59,9 @@ trim_generated_to_floor = true
 # division du club (≈ 56, 700 à 2 500). Ceux qui dépassent la médiane des joueurs importés de la division
 # sont ramenés à cette médiane (note et salaire) ; les joueurs importés ne sont jamais modifiés.
 calibrate_generated_to_division = true
+# Before inventing a filler, a club short of the floor promotes players of its own academy side (the save's
+# reserve and youth teams) to its senior squad, best rated first. Only what is still missing is generated.
+promote_academy_before_generating = true
 
 [finance]
 # Une valeur FM n'est restaurée que si elle est compatible (budget salaires >= masse salariale hebdomadaire).

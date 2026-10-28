@@ -1005,6 +1005,7 @@ mod tests {
         player.active_loan = Some(ActiveLoan {
             parent_team_id: "team-parent".to_string(),
             loan_team_id: "team-loan".to_string(),
+            loan_team_name: None,
             start_date: "2026-08-01".to_string(),
             end_date: "2027-01-01".to_string(),
             wage_contribution_pct: 75,

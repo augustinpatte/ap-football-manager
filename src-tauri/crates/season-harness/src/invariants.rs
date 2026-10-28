@@ -299,12 +299,24 @@ fn world_not_emptied(game: &Game) -> Vec<String> {
 /// Given any player, staff member or standing,
 /// When it names a team that does not exist,
 /// Then that is reported, with the id.
+/// A player an FM24 save has on loan to a club the world does not contain: he plays for that club
+/// (`team_id`), which has no team here, but the loan names it and his owner is a club of the world,
+/// to which the loan's return brings him back. Nothing else may reference an unknown team.
+fn is_on_loan_to_an_outside_club(player: &domain::player::Player, teams: &BTreeSet<&str>) -> bool {
+    player.active_loan.as_ref().is_some_and(|loan| {
+        Some(loan.loan_team_id.as_str()) == player.team_id.as_deref()
+            && loan.loan_team_name.is_some()
+            && teams.contains(loan.parent_team_id.as_str())
+    })
+}
+
 fn referential_integrity(game: &Game) -> Vec<String> {
     let teams: BTreeSet<&str> = game.teams.iter().map(|team| team.id.as_str()).collect();
     let mut faults = Vec::new();
     for player in &game.players {
         if let Some(team_id) = player.team_id.as_deref()
             && !teams.contains(team_id)
+            && !is_on_loan_to_an_outside_club(player, &teams)
         {
             faults.push(format!(
                 "player {} references unknown team {team_id}",
@@ -751,6 +763,33 @@ mod tests {
         let mut game = world();
         game.teams.clear();
         assert!(mentions(&world_not_emptied(&game), "no teams remain"));
+    }
+
+    #[test]
+    fn a_loan_to_a_named_club_outside_the_world_is_not_a_dangling_reference() {
+        let mut game = world();
+        let owner = game.teams[0].id.clone();
+        game.players[0].team_id = Some("fm-c-9999".to_string());
+        game.players[0].active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: owner,
+            loan_team_id: "fm-c-9999".to_string(),
+            loan_team_name: Some("Outside FC".to_string()),
+            start_date: "2026-06-01".to_string(),
+            end_date: "2027-06-30".to_string(),
+            wage_contribution_pct: 0,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+        });
+        assert_eq!(referential_integrity(&game), Vec::<String>::new());
+        // Without the club's name, or with another club in the loan, it is a fault again.
+        game.players[0].active_loan.as_mut().unwrap().loan_team_name = None;
+        assert!(mentions(
+            &referential_integrity(&game),
+            "unknown team fm-c-9999"
+        ));
     }
 
     #[test]

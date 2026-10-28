@@ -500,6 +500,7 @@ mod tests {
         loaned.active_loan = Some(ActiveLoan {
             parent_team_id: "team1".to_string(),
             loan_team_id: "team2".to_string(),
+            loan_team_name: None,
             start_date: "2026-01-01".to_string(),
             end_date: END_DATE.to_string(),
             wage_contribution_pct: 50,

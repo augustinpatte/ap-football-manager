@@ -100,6 +100,7 @@ pub(super) fn execute_loan(
     player.active_loan = Some(ActiveLoan {
         parent_team_id: parent_team_id.to_string(),
         loan_team_id: loan_team_id.to_string(),
+        loan_team_name: None,
         start_date: start_date.to_string(),
         end_date: end_date.to_string(),
         wage_contribution_pct,
@@ -903,6 +904,7 @@ mod tests {
         game.players[0].active_loan = Some(ActiveLoan {
             parent_team_id: "team2".to_string(),
             loan_team_id: "team1".to_string(),
+            loan_team_name: None,
             start_date: "2026-01-01".to_string(),
             end_date: "2026-05-01".to_string(),
             wage_contribution_pct: 50,

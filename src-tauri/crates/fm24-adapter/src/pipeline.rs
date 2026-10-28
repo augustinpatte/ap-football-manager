@@ -17,6 +17,7 @@ use crate::finance::{self, FinanceRecord};
 use crate::free_agents::{self, FreeAgentPlan, PoolStats};
 use crate::ids;
 use crate::journal::Journal;
+use crate::placement::{self, Kind, Placement};
 use crate::positions;
 use crate::refs::{Refs, ShortCodes};
 use crate::source::{ClubRow, PlayerRow, Source, StaffRow};
@@ -37,6 +38,8 @@ use std::path::{Path, PathBuf};
 pub struct PlayerPlan {
     pub person_id: i64,
     pub def: PlayerDef,
+    /// Where he plays and for whom (see `placement`).
+    pub placement: Placement,
     pub natural_code: &'static str,
     pub ovr_expected: u8,
     pub nationality_source: &'static str,
@@ -96,6 +99,11 @@ pub struct Run {
     pub generated_players: Vec<GeneratedPlayer>,
     pub generated_staff: Vec<GeneratedStaff>,
     pub removed_generated_players: usize,
+    /// Imported academy players promoted to the senior squad to reach OFM's floor instead of
+    /// generating a filler (`squad.promote_academy_before_generating`).
+    pub promoted_academy_players: Vec<String>,
+    /// Players imported as loans (`team_id` = where he plays, `active_loan` = owner and terms).
+    pub loans_applied: Vec<String>,
     pub total_players_in_source: (i64, i64),
     pub club_country: BTreeMap<i64, String>,
     pub short_codes: BTreeMap<i64, String>,
@@ -216,10 +224,37 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     // --- players -------------------------------------------------------------------------------
     let club_by_id: BTreeMap<i64, &ClubRow> = clubs.iter().map(|c| (c.id, c)).collect();
     let mut plans: Vec<PlayerPlan> = Vec::new();
+    let start_day = chrono::NaiveDate::parse_from_str(&cfg.start.date, "%Y-%m-%d")
+        .map_err(|e| format!("start.date: {e}"))?;
+    let affiliates = placement::affiliated_sides(&players, &unique_clubs);
     for row in &players {
-        let club = club_by_id[&row.club_id];
-        let country = &club_country[&row.club_id];
-        if let Some(plan) = plan_player(row, club, country, cfg, &refs, &mut journal) {
+        let Some(placement) = placement::place(
+            row,
+            &unique_clubs,
+            &affiliates,
+            start_day,
+            ofm_core::roster::YOUTH_ACADEMY_MAX_AGE,
+        ) else {
+            journal.error(
+                "player.not_placed",
+                ids::player(row.person_id),
+                "neither his contract club nor his registered club is in the perimeter",
+            );
+            continue;
+        };
+        // The package builder takes the club the player is built for: his owner while he is on a
+        // loan (the loan is applied after the build), otherwise the club he plays for.
+        let built_for = match placement.kind {
+            Kind::LoanInsideWorld | Kind::LoanToOutsideClub | Kind::AffiliateLoan => {
+                placement.owner_club.unwrap_or(row.club_id)
+            }
+            Kind::Own | Kind::LoanedInFromOutside | Kind::AffiliateAcademy => {
+                placement.playing_club
+            }
+        };
+        let club = club_by_id[&built_for];
+        let country = &club_country[&built_for];
+        if let Some(plan) = plan_player(row, placement, club, country, cfg, &refs, &mut journal) {
             plans.push(plan);
         }
     }
@@ -293,10 +328,16 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     world.name = cfg.world.name.clone();
     world.description = cfg.world.description.clone();
 
-    let removed = if cfg.squad.trim_generated_to_floor {
-        trim_generated_players(&mut world)
+    enforce_squad_roles(&mut world, &plans, &mut journal);
+    let loans_applied = apply_loans(&mut world, &plans, cfg, &mut journal);
+    let (removed, promoted_academy_players) = if cfg.squad.trim_generated_to_floor {
+        trim_generated_players(
+            &mut world,
+            cfg.squad.promote_academy_before_generating,
+            &mut journal,
+        )
     } else {
-        0
+        (0, Vec::new())
     };
     if cfg.squad.calibrate_generated_to_division {
         calibrate_generated_players(&mut world, &clubs, &mut journal);
@@ -344,6 +385,8 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         generated_players,
         generated_staff,
         removed_generated_players: removed,
+        promoted_academy_players,
+        loans_applied,
         total_players_in_source,
         club_country,
         short_codes: short_codes_by_club,
@@ -425,6 +468,7 @@ pub(crate) fn convert_player(
 
 fn plan_player(
     row: &PlayerRow,
+    placement: Placement,
     club: &ClubRow,
     club_country: &str,
     cfg: &Config,
@@ -509,7 +553,7 @@ fn plan_player(
         attributes: Some(converted),
         photo: None,
         footedness: Some(positions::footedness_name(&foot).to_string()),
-        youth: row.team_is_youth,
+        youth: placement.role == SquadRole::Youth,
         contract_start: row.start_date.clone(),
         contract_end: Some(contract_end),
         contract_length: None,
@@ -524,6 +568,7 @@ fn plan_player(
     Some(PlayerPlan {
         person_id: row.person_id,
         def,
+        placement,
         natural_code,
         ovr_expected: ovr,
         nationality_source,
@@ -643,13 +688,20 @@ fn is_imported(id: &str) -> bool {
 
 /// OFM pads every club to 22 players with generated ones. Only what OFM's own squad floor needs is
 /// kept (15 seniors, at least 2 G / 4 D / 4 M / 2 F counting the imported players), best rated
-/// first; the rest of the generated players are removed. Imported players are never touched.
-/// Returns the number of generated players removed.
-fn trim_generated_players(world: &mut WorldData) -> usize {
+/// first; the rest of the generated players are removed. Imported players are never touched,
+/// except that, with `promote_academy`, a club short of the floor first promotes players of its own
+/// academy side (imported, never on loan), best rated first, so that a real player is preferred to a
+/// generated one. Returns the number of generated players removed and the promoted players.
+fn trim_generated_players(
+    world: &mut WorldData,
+    promote_academy: bool,
+    journal: &mut Journal,
+) -> (usize, Vec<String>) {
     use ofm_core::squad_floor::{MIN_PLAYERS_PER_GROUP, MIN_SENIOR_PLAYERS};
     let before = world.players.len();
     let team_ids: Vec<String> = world.teams.iter().map(|t| t.id.clone()).collect();
     let mut keep_generated: BTreeSet<String> = BTreeSet::new();
+    let mut promoted: Vec<String> = Vec::new();
     for team_id in &team_ids {
         let members: Vec<&domain::player::Player> = world
             .players
@@ -663,6 +715,56 @@ fn trim_generated_players(world: &mut WorldData) -> usize {
             .filter(|p| is_imported(&p.id) && p.squad_role == SquadRole::Senior)
         {
             *counts.entry(group_index(&group_of(p))).or_default() += 1;
+        }
+        if promote_academy {
+            let mut academy: Vec<&domain::player::Player> = members
+                .iter()
+                .copied()
+                .filter(|p| {
+                    is_imported(&p.id)
+                        && p.squad_role == SquadRole::Youth
+                        && p.active_loan.is_none()
+                })
+                .collect();
+            academy.sort_by(|a, b| b.ovr.cmp(&a.ovr).then(a.id.cmp(&b.id)));
+            let mut here: Vec<String> = Vec::new();
+            for (index, (group, floor)) in MIN_PLAYERS_PER_GROUP.iter().enumerate() {
+                let mut need = floor.saturating_sub(counts.get(&index).copied().unwrap_or(0));
+                for p in academy.iter().filter(|p| &group_of(p) == group) {
+                    if need == 0 {
+                        break;
+                    }
+                    if here.contains(&p.id) {
+                        continue;
+                    }
+                    here.push(p.id.clone());
+                    *counts.entry(index).or_default() += 1;
+                    need -= 1;
+                }
+            }
+            let mut extra = MIN_SENIOR_PLAYERS.saturating_sub(counts.values().sum());
+            for p in academy.iter() {
+                if extra == 0 {
+                    break;
+                }
+                if !here.contains(&p.id) {
+                    here.push(p.id.clone());
+                    *counts.entry(group_index(&group_of(p))).or_default() += 1;
+                    extra -= 1;
+                }
+            }
+            if !here.is_empty() {
+                journal.warn(
+                    "squad.academy_promoted",
+                    team_id,
+                    format!(
+                        "{} academy player(s) of the save's reserve/youth sides promoted to the senior squad to reach OFM's floor: {}",
+                        here.len(),
+                        here.join(" ")
+                    ),
+                );
+                promoted.extend(here);
+            }
         }
         let mut chosen: Vec<&domain::player::Player> = Vec::new();
         // Generated players only. OFM makes some of them academy players; one needed to reach the
@@ -709,7 +811,117 @@ fn trim_generated_players(world: &mut WorldData) -> usize {
     for p in world.players.iter_mut().filter(|p| !is_imported(&p.id)) {
         p.squad_role = SquadRole::Senior;
     }
-    before - world.players.len()
+    let promoted_set: BTreeSet<&str> = promoted.iter().map(String::as_str).collect();
+    for p in world
+        .players
+        .iter_mut()
+        .filter(|p| promoted_set.contains(p.id.as_str()))
+    {
+        p.squad_role = SquadRole::Senior;
+    }
+    promoted.sort();
+    (before - world.players.len(), promoted)
+}
+
+/// OFM's own builder seeds each club's academy with its three youngest outfield players aged 21 or
+/// less, whatever team the save registers them with. An imported player's role comes from the save
+/// (the team he is registered with, then the academy's age limit): it replaces the builder's pick.
+fn enforce_squad_roles(world: &mut WorldData, plans: &[PlayerPlan], journal: &mut Journal) {
+    let role_of: BTreeMap<&str, SquadRole> = plans
+        .iter()
+        .map(|p| (p.def.id.as_str(), p.placement.role))
+        .collect();
+    let mut changed = 0;
+    for player in world.players.iter_mut() {
+        if let Some(role) = role_of.get(player.id.as_str())
+            && player.squad_role != *role
+        {
+            player.squad_role = *role;
+            changed += 1;
+        }
+    }
+    journal.warn(
+        "squad.roles_from_registration",
+        "world",
+        format!("{changed} imported players had their squad role replaced by the one the save implies (OFM's builder had seeded the academy itself)"),
+    );
+}
+
+/// A player the save registers with a club other than his owner's plays for that club on loan:
+/// `team_id` becomes the club he plays for and `active_loan` records his owner. The save carries no
+/// loan terms, so the end (the season's, capped by his contract) and the wage share come from
+/// `[loans]` in `adapter.toml`. A borrower the world does not contain keeps only its name.
+/// Returns the ids of the players placed on loan.
+fn apply_loans(
+    world: &mut WorldData,
+    plans: &[PlayerPlan],
+    cfg: &Config,
+    journal: &mut Journal,
+) -> Vec<String> {
+    if !cfg.loans.enabled {
+        return Vec::new();
+    }
+    let index: BTreeMap<String, usize> = world
+        .players
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.id.clone(), i))
+        .collect();
+    let mut applied = Vec::new();
+    for plan in plans.iter().filter(|p| p.placement.is_loan()) {
+        let Some(&i) = index.get(&plan.def.id) else {
+            continue;
+        };
+        let owner = ids::club(plan.placement.owner_club.unwrap_or_default());
+        let borrower = ids::club(plan.placement.playing_club);
+        let player = &mut world.players[i];
+        // The loan ends with the season, or with his contract if that comes first and is later than
+        // the start; a contract already over at the start keeps the configured end.
+        let end = match player.contract_end() {
+            Some(contract_end)
+                if contract_end > cfg.start.date.as_str()
+                    && contract_end < cfg.loans.end_date.as_str() =>
+            {
+                contract_end.to_string()
+            }
+            _ => cfg.loans.end_date.clone(),
+        };
+        let outside = matches!(
+            plan.placement.kind,
+            Kind::LoanToOutsideClub | Kind::AffiliateLoan
+        );
+        player.team_id = Some(borrower.clone());
+        player.jersey_number = None;
+        player.active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: owner.clone(),
+            loan_team_id: borrower,
+            loan_team_name: outside
+                .then(|| plan.placement.borrower_name.clone())
+                .flatten(),
+            start_date: cfg.start.date.clone(),
+            end_date: end,
+            wage_contribution_pct: cfg.loans.wage_contribution_pct,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+        });
+        let id = plan.def.id.clone();
+        if let Some(team) = world.teams.iter_mut().find(|t| t.id == owner) {
+            team.remove_player_references(&id);
+        }
+        applied.push(id);
+    }
+    journal.warn(
+        "loans.applied",
+        "world",
+        format!(
+            "{} players imported as loans (registered with a club other than their owner's); terms are configured, not read from the save",
+            applied.len()
+        ),
+    );
+    applied
 }
 
 /// The level and pay of OFM's generated fillers, brought down to the division they play in.
@@ -1011,6 +1223,24 @@ fn list_generated(
     (players, staff)
 }
 
+/// What the mapping says about where a player plays when it is not simply his contract club.
+fn placement_note(plan: Option<&PlayerPlan>) -> String {
+    let Some(plan) = plan else {
+        return String::new();
+    };
+    let p = &plan.placement;
+    match p.kind {
+        Kind::Own => format!("{:?}", p.role).to_lowercase(),
+        _ => format!(
+            "{} ; joue à {} ; propriétaire {} ; {:?}",
+            p.kind.label(),
+            ids::club(p.playing_club),
+            p.owner_club.map(ids::club).unwrap_or_default(),
+            p.role
+        ),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn mapping_rows(
     players: &[PlayerRow],
@@ -1062,8 +1292,13 @@ fn mapping_rows(
             name: format!("{} {}", p.first_name, p.last_name)
                 .trim()
                 .to_string(),
-            ofm_club_id: ids::club(p.club_id),
-            note: String::new(),
+            ofm_club_id: ids::club(
+                plans
+                    .iter()
+                    .find(|plan| plan.person_id == p.person_id)
+                    .map_or(p.club_id, |plan| plan.placement.playing_club),
+            ),
+            note: placement_note(plans.iter().find(|plan| plan.person_id == p.person_id)),
         });
     }
     for fa in free_agent_plans {

@@ -1105,6 +1105,7 @@ mod tests {
         game.players[0].active_loan = Some(ActiveLoan {
             parent_team_id: "team-1".to_string(),
             loan_team_id: "team-2".to_string(),
+            loan_team_name: None,
             start_date: "2026-08-01".to_string(),
             end_date: "2027-01-01".to_string(),
             wage_contribution_pct: 75,

@@ -106,7 +106,7 @@ impl Reference {
     pub fn from_contracted(players: &[PlayerRow], cfg: &Config, on: NaiveDate) -> Self {
         let rows = players
             .iter()
-            .filter(|p| !p.team_is_youth && p.wage_gbp_week > 0)
+            .filter(|p| !p.team_is_youth && !p.registered_is_youth && p.wage_gbp_week > 0)
             .filter_map(|p| {
                 let age = age_years(p.birth_date.as_deref()?, on)?;
                 Some((
@@ -313,8 +313,13 @@ mod tests {
             nation: Some(nation.into()),
             height_cm: None,
             club_id: 0,
+            club_name: String::new(),
             team_slot: None,
             team_is_youth: false,
+            registered_club_id: None,
+            registered_club_name: None,
+            registered_slot: None,
+            registered_is_youth: false,
             wage_gbp_week: 0,
             wage_original: 0,
             wage_source: String::new(),
