@@ -113,7 +113,7 @@ fn clubs_outside_the_players_league_buy_players() {
     run_seasons(&mut game, RunOptions::seasons(1), &mut market).expect("a season plays");
 
     assert!(
-        market.transfers >= 60,
+        market.transfers >= 120,
         "{} transfers between AI clubs in a season",
         market.transfers
     );
