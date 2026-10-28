@@ -124,6 +124,13 @@ impl Economy {
         ofm_core::finances::calc_wages(game, team_id) as f64 / team.wage_budget as f64 * 100.0
     }
 
+    fn last_move_is_transfer(player: &domain::player::Player) -> bool {
+        serde_json::to_value(&player.movement_history)
+            .ok()
+            .and_then(|v| v.get("movement_history").and_then(|e| e.as_array()).and_then(|e| e.last().cloned()))
+            .is_some_and(|e| e["kind"] == "permanent_transfer")
+    }
+
     fn count_flow(
         flows: &mut BTreeMap<u32, BTreeMap<String, u64>>,
         game: &Game,
@@ -191,6 +198,11 @@ impl Economy {
                         }
                     } else if *a == self.user || *b == self.user {
                         keys.push((id.clone(), "transfer_user_club"));
+                    } else if !Self::last_move_is_transfer(player) {
+                        // A club change the movement ledger does not call a transfer (a loan
+                        // closing on the other side of the snapshot, a reserve side joining its
+                        // parent): counted apart so that "transfers" is what the market did.
+                        keys.push((id.clone(), "team_change_other"));
                     } else {
                         keys.push((id.clone(), "transfer_ai"));
                         Self::count_flow(&mut self.flows, game, season, 'T', a, b);
@@ -202,6 +214,10 @@ impl Economy {
                                 "player_ovr": player.ovr,
                                 "age": age_on(&player.date_of_birth, today),
                                 "pos": format!("{:?}", player.position),
+                                "last_move": serde_json::to_value(&player.movement_history)
+                                    .ok()
+                                    .and_then(|v| v.get("movement_history").and_then(|e| e.as_array()).and_then(|e| e.last().cloned()))
+                                    .map(|e| json!([e["kind"], e["date"], e["from_team_name"], e["to_team_name"]])),
                                 "market_value": player.market_value,
                                 "wage_before": prev.wage,
                                 "wage_after": cur.wage,

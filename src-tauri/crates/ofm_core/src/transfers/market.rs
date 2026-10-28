@@ -17,6 +17,13 @@ pub fn market_buyer_evaluations() -> u64 {
     BUYER_EVALUATIONS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// The age from which an AI club will not pay a transfer fee for a player: his career is nearly
+/// over and the fee buys no resale. A goalkeeper's lasts longer. Free agents and loans are not
+/// bound by it: they cost no fee.
+pub(crate) fn retirement_horizon_age(position_group_index: usize) -> i32 {
+    if position_group_index == 0 { 36 } else { 33 }
+}
+
 /// Whether a club has a realistic reason to pursue a target: it isn't far below
 /// the player's current club in stature, and it isn't already overloaded in the
 /// player's position group.
@@ -435,6 +442,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             owner_reputation: team_reputation.get(owner_team_id).copied().unwrap_or(0),
             ovr: player.ovr,
             is_listed: player.transfer_listed,
+            age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
         });
     }
     // Highest appeal first; a stable sort preserves the original ordering among
@@ -554,6 +562,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 target.owner_reputation,
                 buyer_depths[target.position_group_index],
             ) {
+                return false;
+            }
+            // Nobody pays a fee for a player at the end of his career, a goalkeeper's coming later.
+            if !target.is_user_owned && target.age >= retirement_horizon_age(target.position_group_index) {
                 return false;
             }
             // An AI club buys to fill a need it has, not for appeal alone.

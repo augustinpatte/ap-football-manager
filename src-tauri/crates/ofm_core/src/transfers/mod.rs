@@ -143,6 +143,8 @@ pub(crate) struct MarketTarget {
     ovr: u8,
     /// His club has put him up for sale.
     is_listed: bool,
+    /// His age on the day of the sweep.
+    age: i32,
 }
 
 pub(crate) struct LoanMarketCandidate {
