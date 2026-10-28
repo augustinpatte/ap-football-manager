@@ -15,7 +15,7 @@ fn main() {
     let mut inv = Invariants::new(&game);
     let options = RunOptions::seasons(1);
     for day in 1..=days {
-        if play_day(&mut game, options.clone(), 1, day, &mut inv).is_err() {
+        if play_day(&mut game, options, 1, day, &mut inv).is_err() {
             println!("day {day}: play_day failed");
             break;
         }

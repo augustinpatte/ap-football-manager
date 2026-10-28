@@ -21,7 +21,11 @@ export function zoneOfRow(zones: PromotionRelegationZones, index: number, total:
   if (index < zones.promotionSlots) return "promotion";
   if (zones.relegationSlots > 0 && index >= total - zones.relegationSlots) return "relegation";
   const rank = index + 1;
-  if (zones.promotionPlayoff && rank >= zones.promotionPlayoff.from && rank <= zones.promotionPlayoff.to) {
+  if (
+    zones.promotionPlayoff &&
+    rank >= zones.promotionPlayoff.from &&
+    rank <= zones.promotionPlayoff.to
+  ) {
     return "playoff";
   }
   if (zones.barrageRank != null && rank === zones.barrageRank) return "barrage";

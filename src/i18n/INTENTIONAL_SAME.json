@@ -482,13 +482,8 @@
     "tournaments.history.final",
     "tournaments.history.playoffs"
   ],
-  "ru": [
-    "dashboard.recapTransferLine"
-  ],
-  "zh-CN": [
-    "be.news.roundup.resultLine",
-    "be.news.preseasonDigest.resultLine"
-  ],
+  "ru": ["dashboard.recapTransferLine"],
+  "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
   "tr": [
     "dashboard.recapTransferLine",
     "common.vs",

@@ -53,7 +53,9 @@ export default function TournamentsHistoryView({
         const final = edition.final_result;
         return (
           <Card key={`${edition.competition_id}-${edition.season}`}>
-            <CardHeader>{t("tournaments.history.season", { season: seasonSpan(edition.season) })}</CardHeader>
+            <CardHeader>
+              {t("tournaments.history.season", { season: seasonSpan(edition.season) })}
+            </CardHeader>
             <CardBody>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                 <dt className="text-gray-500 dark:text-gray-400">

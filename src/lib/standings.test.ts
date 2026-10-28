@@ -25,7 +25,11 @@ describe("orderStandings", () => {
   it("keeps the backend's order when the competition authors its tiebreakers", () => {
     const order = orderStandings({
       standings: [row("b", 70, 60, 40), row("a", 70, 80, 30)],
-      rules: { format: "LeagueTable", counts_in_season_flow: true, tiebreakers: ["Points", "HeadToHeadPoints"] },
+      rules: {
+        format: "LeagueTable",
+        counts_in_season_flow: true,
+        tiebreakers: ["Points", "HeadToHeadPoints"],
+      },
     }).map((r) => r.team_id);
     expect(order).toEqual(["b", "a"]);
   });

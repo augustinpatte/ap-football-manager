@@ -1060,6 +1060,7 @@ mod tests {
             name_key: None,
             logo: None,
             calendar: None,
+            rules: None,
         }];
 
         let staff = vec![StaffDef {

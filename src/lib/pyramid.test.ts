@@ -338,11 +338,22 @@ describe("getPromotionRelegationZones with authored rules", () => {
         ladder: boundary({
           promoted_direct: 2,
           relegated_direct: 2,
-          barrage: { upper_rank: 16, lower_from_rank: 3, lower_to_rank: 5, bracket_legs: 1, tie_legs: 2 },
+          barrage: {
+            upper_rank: 16,
+            lower_from_rank: 3,
+            lower_to_rank: 5,
+            bracket_legs: 1,
+            tie_legs: 2,
+          },
         }),
       }),
     });
-    const second = division({ id: "fra-2", priority: 1, season: 2026, participant_ids: clubs("s", 18) });
+    const second = division({
+      id: "fra-2",
+      priority: 1,
+      season: 2026,
+      participant_ids: clubs("s", 18),
+    });
     expect(getPromotionRelegationZones([top, second], top)).toEqual({
       promotionSlots: 0,
       relegationSlots: 2,

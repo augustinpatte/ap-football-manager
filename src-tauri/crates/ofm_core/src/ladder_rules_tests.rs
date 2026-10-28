@@ -574,7 +574,7 @@ fn ten_seasons_keep_every_reserve_below_its_parent_and_every_division_whole() {
             let reserve_in_second = lower.participant_ids.contains(&link.team_id);
             let parent_in_second = lower.participant_ids.contains(&link.parent_id);
             assert!(
-                !(reserve_in_second && (parent_in_second || !parent_in_top && !parent_in_second)),
+                !(reserve_in_second && (parent_in_second || !parent_in_top)),
                 "season {season}: {} shares a division with, or is above, {}",
                 link.team_id,
                 link.parent_id

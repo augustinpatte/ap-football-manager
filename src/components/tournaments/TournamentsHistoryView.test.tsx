@@ -25,7 +25,13 @@ const teams: TournamentsTeamLookup = {
   onSelectTeam: vi.fn(),
 };
 
-const competition = { id: "cup", name: "Cup", season: 2027, fixtures: [], standings: [] } as LeagueData;
+const competition = {
+  id: "cup",
+  name: "Cup",
+  season: 2027,
+  fixtures: [],
+  standings: [],
+} as LeagueData;
 
 const edition = (overrides: Partial<EditionSummaryData>): EditionSummaryData => ({
   competition_id: "cup",
@@ -72,7 +78,9 @@ describe("TournamentsHistoryView", () => {
       />,
     );
     expect(screen.getByTestId("tournaments-history-champion-2026").textContent).toBe("LENS");
-    expect(screen.getByTestId("tournaments-history-final-2026").textContent).toContain("LENS 1–1 PSG");
+    expect(screen.getByTestId("tournaments-history-final-2026").textContent).toContain(
+      "LENS 1–1 PSG",
+    );
     expect(screen.getByTestId("tournaments-history-final-2026").textContent).toContain("4");
     expect(screen.queryByText("ELSEWHERE")).toBeNull();
   });

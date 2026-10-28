@@ -400,7 +400,7 @@ pub fn plan_ruled_ladder(divisions: &[League], resolver: &mut dyn TieResolver) -
             &tier_of,
             &parent_of,
             resolver,
-            (&format!("{}", lower.name), &format!("{}", upper.name)),
+            (lower.name.as_str(), upper.name.as_str()),
         );
         for club in draft.promoted_direct.iter().chain(&draft.promoted_playoff) {
             tier_of.insert(club.clone(), tier);

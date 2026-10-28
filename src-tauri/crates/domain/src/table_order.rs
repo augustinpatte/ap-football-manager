@@ -119,7 +119,7 @@ fn split(
         .iter()
         .map(|entry| (context.value(*criterion, entry, &members), entry.clone()))
         .collect();
-    keyed.sort_by(|a, b| b.0.cmp(&a.0));
+    keyed.sort_by_key(|(value, _)| std::cmp::Reverse(*value));
 
     let mut ordered = Vec::with_capacity(keyed.len());
     let mut run: Vec<StandingEntry> = Vec::new();

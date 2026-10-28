@@ -291,7 +291,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     for (side, parent) in &reserve_pairs {
         journal.info(
             "reserve.side",
-            &ids::club(*side),
+            ids::club(*side),
             format!(
                 "{} is read as the reserve side of {} (players of the parent registered with it)",
                 clubs
