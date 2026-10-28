@@ -304,6 +304,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .iter()
         .map(|team| (team.id.clone(), team.reputation))
         .collect();
+    let team_country: std::collections::HashMap<String, String> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.clone(), team.country.clone()))
+        .collect();
     let position_depths = squad_position_depths(game);
     let squad_levels = squad_levels_by_club(game);
     let home_matches: std::collections::HashMap<String, i64> =
@@ -518,7 +523,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         );
         // Worked out once for this buyer, and only if a target gets as far as needing it.
         let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
-        let chosen = shortlist.iter().find(|target| {
+        let mut acceptable = |target: &&MarketTarget| -> bool {
             if target.owner_team_id == buyer_id || moved_player_ids.contains(&target.player_id) {
                 return false;
             }
@@ -589,7 +594,18 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                             target.fee as i64,
                         ))
                 })
-        });
+        };
+        // A club looks at its own country's market first, and abroad only when nothing there
+        // fits: moves between countries are the exception, not a draw from the whole world.
+        let chosen = shortlist
+            .iter()
+            .filter(|target| {
+                team_country
+                    .get(&target.owner_team_id)
+                    .is_some_and(|country| *country == buyer_team.country)
+            })
+            .find(&mut acceptable)
+            .or_else(|| shortlist.iter().find(&mut acceptable));
 
         let Some(target) = chosen else {
             // Nothing to buy: perhaps something to borrow.

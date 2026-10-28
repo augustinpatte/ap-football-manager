@@ -67,15 +67,7 @@ pub(crate) fn expected_wage(player: &Player, team: &Team, current_date: NaiveDat
         wage *= 1.10;
     }
 
-    // The importance premium prices a wage derived from value. A wage he is already paid has it
-    // in it: applying it again at every renewal compounded +10 to +18 % a contract, for ever.
-    // The fringe discount (below 1) still applies.
-    let importance = importance_wage_multiplier(player);
-    wage *= if player.last_known_wage() == 0 {
-        importance
-    } else {
-        importance.min(1.0)
-    };
+    wage *= importance_wage_multiplier(player);
 
     if team.reputation < 40 {
         wage *= 1.05;

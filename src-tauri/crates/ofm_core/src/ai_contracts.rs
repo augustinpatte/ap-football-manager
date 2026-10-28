@@ -306,12 +306,37 @@ fn worth_keeping(facts: &SquadFacts, player: &Player, current_date: NaiveDate) -
         || (age <= PEAK_AGE_LIMIT && player.ovr >= facts.median_ovr)
 }
 
+/// A player this content (morale) re-signs for a modest raise rather than the whole of his ask.
+const CONTENT_MORALE: u8 = 65;
+
+/// The most a content player's wage rises at a renewal an AI club negotiates, in per cent.
+///
+/// `expected_wage` multiplies the wage he is paid by an age, an importance and a contract-running-
+/// down premium, so offering what he expects at every renewal compounded +15 to +30 % a contract
+/// for ever, on a revenue that does not grow. The premiums are leverage: a player at ease in his
+/// club does not use all of it, an unhappy one does. A human manager's negotiations are not
+/// touched; `expected_wage` is the same for them.
+const CONTENT_PLAYER_MAX_RAISE_PCT: u32 = 10;
+
+/// What this player agrees to sign for, when the club asks for a renewal: the whole of what he
+/// `asked` unless he is content and the ask is a bigger raise than [`CONTENT_PLAYER_MAX_RAISE_PCT`].
+fn settled_renewal_wage(player: &Player, asked: u32) -> u32 {
+    let paid = player.last_known_wage();
+    if paid == 0 || player.morale < CONTENT_MORALE {
+        return asked;
+    }
+    let modest = crate::contracts::round_up_wage(paid * (100 + CONTENT_PLAYER_MAX_RAISE_PCT) / 100);
+    asked.min(modest.max(paid))
+}
+
 /// Offer what the player expects, if the board allows the wage, and if he
 /// takes it put it into effect.
 fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveDate) {
     let player = &game.players[player_index];
+    let asked = expected_wage(player, team, current_date);
+    let wage = settled_renewal_wage(player, asked);
     let offer = RenewalOffer {
-        weekly_wage: expected_wage(player, team, current_date),
+        weekly_wage: wage,
         contract_years: expected_contract_years(player, current_date),
     };
     let verdict = wage_policy_verdict(game, team, player, offer.weekly_wage);
@@ -320,9 +345,13 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
     }
     // The board's policy allows a club already over budget a further 25 000 a week at every
     // decision, a margin sized for clubs paying hundreds of thousands: at a club whose whole
-    // budget is 16 000 it let every renewal pass at any raise. An AI club's raise is held to the
-    // proportional grace as well, unless the squad floor is what lets it through.
-    if verdict == crate::contract_wage_policy::WagePolicyVerdict::WithinPolicy {
+    // budget is 16 000 it let every renewal pass at any raise. In a world with a simulation scope
+    // (every career; the single-league test worlds have none and keep OFM's legacy margin) an AI
+    // club's raise is held to the proportional grace as well, unless the squad floor is what lets
+    // it through.
+    if verdict == crate::contract_wage_policy::WagePolicyVerdict::WithinPolicy
+        && !game.active_competition_ids.is_empty()
+    {
         let extra = crate::finances::weekly_commitment_at_wage(
             player,
             &team.id,
@@ -338,9 +367,13 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
             return;
         }
     }
-    let outcome = evaluate_renewal_offer(player, team, current_date, &offer);
-    if outcome.decision != RenewalDecision::Accepted {
-        return;
+    // A player who settled for less than he asked has agreed already; one who asked and got it
+    // is judged as any renewal is.
+    if wage >= asked {
+        let outcome = evaluate_renewal_offer(player, team, current_date, &offer);
+        if outcome.decision != RenewalDecision::Accepted {
+            return;
+        }
     }
     let round = next_renewal_round(player, None);
     if let Err(error) = apply_agreed_renewal(
@@ -714,6 +747,13 @@ mod tests {
     fn a_club_at_the_floor_without_him_keeps_to_its_wage_policy() {
         use crate::contract_wage_policy::WagePolicyVerdict;
         let mut game = over_policy_forward(2);
+        // An unhappy player asks for everything he can; a content one would settle for a modest
+        // raise that fits the policy (see `a_content_player_settles_for_a_modest_raise`).
+        game.players
+            .iter_mut()
+            .find(|player| player.id == "costly_fwd")
+            .unwrap()
+            .morale = 40;
         assert!(needed_for_depth(
             &SquadFacts::of(&game, "ai"),
             game.players.last().unwrap()
@@ -1093,5 +1133,27 @@ mod tests {
             !squad_shortfall(&game, "user").is_empty(),
             "the club nobody renewed for kept its squad too, so this test proves nothing"
         );
+    }
+
+    #[test]
+    fn a_content_player_settles_for_a_modest_raise() {
+        let mut content = player("c", "ai", Position::Midfielder, 70, 26, 100);
+        content.morale = 80;
+        content.stage_wage(1_000);
+        // He could ask for 1 400; he settles for +10 %.
+        assert_eq!(settled_renewal_wage(&content, 1_400), 1_100);
+        // An ask below the cap is not raised to it.
+        assert_eq!(settled_renewal_wage(&content, 1_050), 1_050);
+        // A player who is not content asks for all of it.
+        content.morale = 40;
+        assert_eq!(settled_renewal_wage(&content, 1_400), 1_400);
+    }
+
+    #[test]
+    fn a_player_with_no_wage_on_record_asks_what_he_asks() {
+        let mut free = player("f", "ai", Position::Midfielder, 70, 26, 100);
+        free.morale = 90;
+        free.stage_wage(0);
+        assert_eq!(settled_renewal_wage(&free, 1_400), 1_400);
     }
 }

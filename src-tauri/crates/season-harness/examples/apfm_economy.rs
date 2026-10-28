@@ -321,6 +321,8 @@ impl Economy {
         let ai: Vec<&domain::team::Team> = game.teams.iter().filter(|t| t.id != user).collect();
 
         let mut cash: Vec<f64> = ai.iter().map(|t| t.finance as f64).collect();
+        let mut budgets: Vec<f64> = ai.iter().map(|t| t.wage_budget as f64).collect();
+        let median_budget = quantile(&mut budgets, 0.5);
         let negative = ai.iter().filter(|t| t.finance < 0).count();
         let mut bill_pct: Vec<f64> = ai
             .iter()
@@ -506,6 +508,29 @@ impl Economy {
             })
             .collect();
 
+        let by_country = {
+            let mut groups: BTreeMap<String, (Vec<f64>, Vec<f64>, Vec<f64>)> = BTreeMap::new();
+            for t in &ai {
+                let g = groups.entry(t.country.clone()).or_default();
+                g.0.push(op_result.get(&t.id).copied().unwrap_or(0) as f64);
+                g.1.push(t.finance as f64);
+                if t.wage_budget > 0 {
+                    g.2.push(bills.get(&t.id).copied().unwrap_or(0) as f64 / t.wage_budget as f64 * 100.0);
+                }
+            }
+            let mut out = serde_json::Map::new();
+            for (country, (mut ops_c, mut cash_c, mut bill_c)) in groups {
+                out.insert(country, json!({
+                    "clubs": ops_c.len(),
+                    "deficit_clubs": ops_c.iter().filter(|x| **x < 0.0).count(),
+                    "op_median": quantile(&mut ops_c, 0.5),
+                    "cash_median": quantile(&mut cash_c, 0.5),
+                    "bill_pct_median": round2(quantile(&mut bill_c, 0.5)),
+                }));
+            }
+            Value::Object(out)
+            
+        };
         self.season_state.push(json!({
             "season": season,
             "label": label,
@@ -533,6 +558,8 @@ impl Economy {
             },
             "wage_bill": {
                 "total_weekly_ai": total_bill,
+                "total_budget_ai": ai.iter().map(|t| t.wage_budget).sum::<i64>(),
+                "median_budget_ai": median_budget,
                 "pct_of_budget_p10": round2(quantile(&mut bill_pct, 0.1)),
                 "pct_of_budget_median": round2(quantile(&mut bill_pct, 0.5)),
                 "pct_of_budget_p90": round2(quantile(&mut bill_pct, 0.9)),
@@ -553,6 +580,7 @@ impl Economy {
                 "median": quantile(&mut senior_sizes, 0.5),
                 "p90": quantile(&mut senior_sizes, 0.9),
             },
+            "by_country": by_country,
             "journal_since_last_reading_ai": by_kind_ai,
             "operating_result": {
                 "deficit_clubs": deficit,
