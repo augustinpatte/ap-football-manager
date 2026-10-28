@@ -58,44 +58,42 @@ pub fn seed_opening_ai_loan_market(game: &mut Game) -> usize {
 /// weekly review ask the same question, so they answer it with the same rule.
 pub(crate) fn top_up_loan_listings(game: &mut Game, team_id: &str) -> usize {
     let current_date = game.clock.current_date.date_naive();
-    let starting_xi_ids: HashSet<String> = game
+    let starting_xi_ids: HashSet<&str> = game
         .teams
         .iter()
         .find(|team| team.id == team_id)
-        .map(|team| team.starting_xi_ids.iter().cloned().collect())
+        .map(|team| team.starting_xi_ids.iter().map(String::as_str).collect())
         .unwrap_or_default();
-    let existing_listings = game
-        .players
-        .iter()
-        .filter(|player| {
-            player.team_id.as_deref() == Some(team_id)
-                && player.loan_listed
-                && !player_has_pending_registration(player)
-        })
-        .count();
+    let earliest_end = current_date + Duration::days(MIN_OPENING_LOAN_CONTRACT_RUNWAY_DAYS);
+
+    // One pass: how many the club has listed, and who it could list.
+    let mut existing_listings = 0;
+    let mut candidates: Vec<usize> = Vec::new();
+    for (index, player) in game.players.iter().enumerate() {
+        if player.team_id.as_deref() != Some(team_id) {
+            continue;
+        }
+        if player.loan_listed {
+            if !player_has_pending_registration(player) {
+                existing_listings += 1;
+            }
+            continue;
+        }
+        if !player.transfer_listed
+            && !player_has_pending_registration(player)
+            && !starting_xi_ids.contains(player.id.as_str())
+            && player.contract_end().is_some_and(|contract_end| {
+                NaiveDate::parse_from_str(contract_end, "%Y-%m-%d")
+                    .is_ok_and(|date| date >= earliest_end)
+            })
+        {
+            candidates.push(index);
+        }
+    }
     let listings_needed = OPENING_LOAN_LISTINGS_PER_AI_TEAM.saturating_sub(existing_listings);
     if listings_needed == 0 {
         return 0;
     }
-
-    let mut candidates: Vec<usize> = game
-        .players
-        .iter()
-        .enumerate()
-        .filter(|(_, player)| {
-            player.team_id.as_deref() == Some(team_id)
-                && !player.transfer_listed
-                && !player.loan_listed
-                && !player_has_pending_registration(player)
-                && !starting_xi_ids.contains(&player.id)
-                && player.contract_end().is_some_and(|contract_end| {
-                    NaiveDate::parse_from_str(contract_end, "%Y-%m-%d").is_ok_and(|date| {
-                        date >= current_date + Duration::days(MIN_OPENING_LOAN_CONTRACT_RUNWAY_DAYS)
-                    })
-                })
-        })
-        .map(|(index, _)| index)
-        .collect();
 
     candidates.sort_by(|left, right| {
         let left = &game.players[*left];

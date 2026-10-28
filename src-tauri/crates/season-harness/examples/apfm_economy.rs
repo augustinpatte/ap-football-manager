@@ -39,6 +39,8 @@ struct Economy {
     events: BTreeMap<u32, BTreeMap<String, u64>>,
     /// season -> sampled free signings
     signings: BTreeMap<u32, Vec<Value>>,
+    /// season -> sampled AI-to-AI transfers
+    transfers: BTreeMap<u32, Vec<Value>>,
     signing_ratios: BTreeMap<u32, Vec<f64>>,
     signing_wage_over_budget_pct: BTreeMap<u32, Vec<f64>>,
     extension_wage_change: BTreeMap<u32, Vec<f64>>,
@@ -149,6 +151,21 @@ impl Economy {
                         keys.push((id.clone(), "transfer_user_club"));
                     } else {
                         keys.push((id.clone(), "transfer_ai"));
+                        let sample = self.transfers.entry(season).or_default();
+                        if sample.len() < 400 {
+                            let team = |id: &str| game.teams.iter().find(|t| t.id == id);
+                            sample.push(json!({
+                                "date": today_s,
+                                "player_ovr": player.ovr,
+                                "age": age_on(&player.date_of_birth, today),
+                                "pos": format!("{:?}", player.position),
+                                "market_value": player.market_value,
+                                "wage_before": prev.wage,
+                                "wage_after": cur.wage,
+                                "from": team(a).map(|t| json!([t.name, t.reputation])),
+                                "to": team(b).map(|t| json!([t.name, t.reputation])),
+                            }));
+                        }
                     }
                 }
                 (Some(_), None) => {
@@ -604,6 +621,7 @@ fn main() {
         "per_season": per_season,
         "state": econ.season_state,
         "signings_sample": econ.signings,
+        "transfers_sample": econ.transfers,
     });
     std::fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
     println!("{}", serde_json::to_string(&report["headline"]).unwrap());

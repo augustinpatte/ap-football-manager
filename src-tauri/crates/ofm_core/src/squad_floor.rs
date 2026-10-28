@@ -675,6 +675,16 @@ pub(crate) enum BroughtIn {
 pub(crate) struct SigningContext {
     free_agents: Option<[Vec<(usize, u32)>; 4]>,
     home_matches: Option<HashMap<String, i64>>,
+    club: Option<ClubFacts>,
+}
+
+/// What a club's signing decisions need to know about the club, counted once: valid until the club
+/// signs or promotes someone.
+struct ClubFacts {
+    team_id: String,
+    weekly_bill: i64,
+    seniors: [usize; 4],
+    median_senior_wage: i64,
 }
 
 impl SigningContext {
@@ -710,6 +720,29 @@ impl SigningContext {
         &by_group[group_index(group)]
     }
 
+    /// The club's bill, senior counts and median senior wage, counted on the first ask for this
+    /// club since it last changed.
+    fn club_facts(&mut self, game: &Game, team_id: &str) -> &ClubFacts {
+        if self
+            .club
+            .as_ref()
+            .is_none_or(|facts| facts.team_id != team_id)
+        {
+            self.club = Some(ClubFacts {
+                team_id: team_id.to_string(),
+                weekly_bill: crate::finances::calc_wages(game, team_id),
+                seniors: senior_counts(game, team_id),
+                median_senior_wage: median_senior_wage(game, team_id),
+            });
+        }
+        self.club.as_ref().expect("just set")
+    }
+
+    /// The club has a new player: what was counted is out of date.
+    fn club_changed(&mut self) {
+        self.club = None;
+    }
+
     fn home_matches(&mut self, game: &Game, team_id: &str) -> i64 {
         self.home_matches
             .get_or_insert_with(|| {
@@ -743,6 +776,7 @@ pub(crate) fn bring_in_one(
 ) -> Option<BroughtIn> {
     if let Some(index) = best_academy_player(game, &team.id, group) {
         game.players[index].squad_role = SquadRole::Senior;
+        context.club_changed();
         return Some(BroughtIn::Promoted(game.players[index].id.clone()));
     }
     sign_free_agent_for(game, team, group, required, None, context)
@@ -771,7 +805,10 @@ pub(crate) fn sign_free_agent_for(
     )?;
     let years = crate::contracts::expected_contract_years(&game.players[index], current_date);
     match crate::contracts::sign_free_agent(game, index, team, wage, years, current_date) {
-        Ok(()) => Some(BroughtIn::Signed(game.players[index].id.clone())),
+        Ok(()) => {
+            context.club_changed();
+            Some(BroughtIn::Signed(game.players[index].id.clone()))
+        }
         Err(error) => {
             log::error!(
                 "[squad_floor] could not sign {} for {}: {error}",
@@ -809,8 +846,10 @@ fn best_signing(
     // Neither changes while candidates are turned down: work them out once. Judging each of up to
     // thousands of free agents with a scan of every player was the daily cost of a world where a
     // club cannot find a goalkeeper.
-    let current_bill = crate::finances::calc_wages(game, &team.id);
-    let seniors = senior_counts(game, &team.id);
+    let (current_bill, seniors, median_wage) = {
+        let facts = context.club_facts(game, &team.id);
+        (facts.weekly_bill, facts.seniors, facts.median_senior_wage)
+    };
     // A free agent is not on the bill, so signing him is judged as a purchase is: his whole wage
     // is new to it.
     let wage_facts = BuyerWageFacts::new(current_bill, seniors);
@@ -820,7 +859,7 @@ fn best_signing(
         context.home_matches(game, &team.id),
     );
     let room = (team.wage_budget - current_bill).max(0);
-    let pay_scale = median_senior_wage(game, &team.id) * 3 / 2;
+    let pay_scale = median_wage * 3 / 2;
     let affordable_wage = room.max(pay_scale);
     // A club short of the floor now needs him whatever it was asked.
     let required = required || !shortfall_of(seniors).is_empty();
