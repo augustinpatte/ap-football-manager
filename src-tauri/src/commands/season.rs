@@ -21,6 +21,7 @@ pub fn advance_to_next_season(
 
 pub fn advance_to_next_season_internal(state: &StateManager) -> Result<serde_json::Value, String> {
     let _operation = crate::application::live_session::idle_operation(state)?;
+    crate::platform::keep_simulation_awake();
     info!("[cmd] advance_to_next_season");
     state
         .update_game(|game| {

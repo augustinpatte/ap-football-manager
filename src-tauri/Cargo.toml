@@ -97,6 +97,11 @@ ureq = { version = "3", default-features = false, features = ["rustls"] }
 # WebKitGTK exposes child-process termination; reuse the version Tauri already links.
 webkit2gtk = { version = "2.0", features = ["v2_20"] }
 
+# App Nap opt-out (`platform::keep_simulation_awake`). Both crates are already in the build through
+# Tauri; the features below are the only ones the opt-out reads.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSObject", "NSProcessInfo", "NSString"] }
+
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gtk = "0.18"
 

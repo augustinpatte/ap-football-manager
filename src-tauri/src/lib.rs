@@ -198,6 +198,9 @@ pub fn run() {
 
                     // Spawn MCP server on the tokio runtime
                     let mcp_port = mcp_config.port;
+                    // An automation client drives the game with no window and idle gaps between
+                    // calls, which is exactly what App Nap throttles.
+                    platform::keep_simulation_awake();
                     tauri::async_runtime::spawn(async move {
                         if let Err(e) =
                             mcp_server::start_mcp_server(mcp_config, sm, save_mgr, app_handle).await

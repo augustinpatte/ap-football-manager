@@ -11,6 +11,7 @@ use ofm_core::state::StateManager;
 
 pub fn advance_time_internal(state: &StateManager) -> Result<Game, String> {
     let _operation = crate::application::live_session::idle_operation(state)?;
+    crate::platform::keep_simulation_awake();
     // Process the day in place (no upfront clone of the whole world) and clone
     // only once for the response. Captures are appended after the game lock is
     // released to avoid holding two state locks at once.
@@ -107,6 +108,7 @@ pub async fn skip_to_match_day(
 
 pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Value, String> {
     let _operation = crate::application::live_session::idle_operation(state)?;
+    crate::platform::keep_simulation_awake();
     info!("[cmd] skip_to_match_day");
     // Precondition: manager must be employed at entry — guarantees that any later
     // `team_id.is_none()` inside the loop is a real firing transition, not a stale state.

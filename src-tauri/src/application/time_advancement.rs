@@ -96,6 +96,7 @@ pub fn advance_time_with_mode(
     mode: &str,
 ) -> Result<AdvanceTimeWithModeResponse, String> {
     let _operation = super::live_session::idle_operation(state)?;
+    crate::platform::keep_simulation_awake();
     info!("[cmd] advance_time_with_mode: mode={}", mode);
 
     // The whole day-start sequence runs under the game lock (update_game) so a

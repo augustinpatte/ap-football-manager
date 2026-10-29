@@ -31,3 +31,15 @@ pub fn watch_startup() {}
 /// Only Linux uses WebKitGTK's web-process-terminated signal.
 #[cfg(not(target_os = "linux"))]
 pub fn watch_web_processes(_app: &tauri::App) {}
+
+/// macOS throttles a process with no visible window (App Nap), which makes the day loop eight to
+/// eleven times slower; see `app_nap`. Takes the opt-out once, for the life of the process.
+#[cfg(target_os = "macos")]
+mod app_nap;
+
+#[cfg(target_os = "macos")]
+pub use app_nap::keep_simulation_awake;
+
+/// App Nap is a macOS mechanism; the other platforms have nothing to opt out of.
+#[cfg(not(target_os = "macos"))]
+pub fn keep_simulation_awake() {}
