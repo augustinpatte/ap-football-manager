@@ -488,7 +488,11 @@ mod tests {
     fn a_club_far_over_budget_pays_off_a_player_it_could_not_sell() {
         let mut game = world(DESIRED_DEPTH);
         game.teams[0].wage_budget = 1_000;
-        let dear = game.players.iter_mut().find(|p| p.id == "Midfielder5").unwrap();
+        let dear = game
+            .players
+            .iter_mut()
+            .find(|p| p.id == "Midfielder5")
+            .unwrap();
         dear.stage_wage(2_000);
         dear.transfer_listed = true;
         let severance = crate::contracts::termination_severance_cost(dear, today());
@@ -515,11 +519,17 @@ mod tests {
             let mut game = world(DESIRED_DEPTH);
             game.teams[0].wage_budget = budget;
             game.teams[0].finance = cash;
-            let dear = game.players.iter_mut().find(|p| p.id == "Midfielder5").unwrap();
+            let dear = game
+                .players
+                .iter_mut()
+                .find(|p| p.id == "Midfielder5")
+                .unwrap();
             dear.stage_wage(2_000);
             dear.transfer_listed = true;
             dear.stage_contract_end(Some(
-                (today() + Duration::days(days_left)).format("%Y-%m-%d").to_string(),
+                (today() + Duration::days(days_left))
+                    .format("%Y-%m-%d")
+                    .to_string(),
             ));
             game
         };
@@ -528,9 +538,16 @@ mod tests {
             release_unsold_surplus(&mut game, &team, listed, today())
         };
         assert_eq!(attempt(fresh(10_000_000, 900, 100_000_000), &listed), None);
-        assert_eq!(attempt(fresh(1_000, 900, 100_000_000), &Default::default()), None);
+        assert_eq!(
+            attempt(fresh(1_000, 900, 100_000_000), &Default::default()),
+            None
+        );
         assert_eq!(attempt(fresh(1_000, 300, 100_000_000), &listed), None);
         assert_eq!(attempt(fresh(1_000, 900, -1), &listed), None);
-        assert_eq!(attempt(fresh(1_000, 900, 10_000), &listed), None, "severance is over the share of cash");
+        assert_eq!(
+            attempt(fresh(1_000, 900, 10_000), &listed),
+            None,
+            "severance is over the share of cash"
+        );
     }
 }

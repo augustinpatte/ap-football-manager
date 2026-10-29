@@ -46,6 +46,7 @@ fn a_club_match_that_records_an_injury_injures_the_player() {
 #[test]
 fn two_players_hurt_in_one_match_are_drawn_independently() {
     let mut identical = 0;
+    let mut compared = 0;
     let seeds = 30;
     for seed in 0..seeds {
         let mut game = make_game_with_match();
@@ -61,17 +62,23 @@ fn two_players_hurt_in_one_match_are_drawn_independently() {
             &report_injuring(&[&first, &second]),
         );
 
-        let (a, b) = (
-            injury_of(&game, &first).expect("first injured"),
-            injury_of(&game, &second).expect("second injured"),
-        );
+        // The medical department can catch a knock before it becomes an injury; those seeds
+        // say nothing about the streams, so only seeds where both were hurt are compared.
+        let (Some(a), Some(b)) = (injury_of(&game, &first), injury_of(&game, &second)) else {
+            continue;
+        };
+        compared += 1;
         if a.name == b.name && a.days_remaining == b.days_remaining {
             identical += 1;
         }
     }
 
     assert!(
-        identical < seeds,
-        "the two injuries were the same under every one of {seeds} seeds"
+        compared >= seeds / 2,
+        "most seeds should injure both players"
+    );
+    assert!(
+        identical < compared,
+        "the two injuries were the same under every one of {compared} seeds"
     );
 }

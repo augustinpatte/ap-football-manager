@@ -109,7 +109,9 @@ pub fn staff_overview_of(game: &Game) -> Result<StaffOverview, String> {
             severance_pct: market::SEVERANCE_PCT,
         },
         delegation: game.delegation.clone(),
-        has_assistant: members.iter().any(|s| s.post() == StaffPost::AssistantManager),
+        has_assistant: members
+            .iter()
+            .any(|s| s.post() == StaffPost::AssistantManager),
         team_id,
     })
 }
@@ -267,7 +269,9 @@ pub fn set_duty_delegation(
     confirm_major: bool,
 ) -> Result<Game, String> {
     info!("[cmd] set_duty_delegation: {duty:?} delegated={delegated} confirm={confirm_major}");
-    mutate_active_game(&state, |game| set_duty(game, duty, delegated, confirm_major))
+    mutate_active_game(&state, |game| {
+        set_duty(game, duty, delegated, confirm_major)
+    })
 }
 
 pub fn set_duty(
@@ -331,10 +335,10 @@ pub fn apply_assistant_recommendation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::delegation::Duty;
-    use domain::staff::StaffPost;
     use chrono::{TimeZone, Utc};
+    use domain::delegation::Duty;
     use domain::manager::Manager;
+    use domain::staff::StaffPost;
     use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
@@ -461,7 +465,13 @@ mod tests {
             Some("be.error.teamNotFound".into())
         );
         let stored = state.get_game(|g| g.clone()).unwrap();
-        assert!(stored.staff.iter().find(|s| s.id == "staff-1").unwrap().team_id.is_none());
+        assert!(stored
+            .staff
+            .iter()
+            .find(|s| s.id == "staff-1")
+            .unwrap()
+            .team_id
+            .is_none());
 
         state.set_game(with_dangling_team_id(make_game_with_employed_staff()));
         assert_eq!(
@@ -470,7 +480,13 @@ mod tests {
         );
         let stored = state.get_game(|g| g.clone()).unwrap();
         assert_eq!(
-            stored.staff.iter().find(|s| s.id == "staff-1").unwrap().team_id.as_deref(),
+            stored
+                .staff
+                .iter()
+                .find(|s| s.id == "staff-1")
+                .unwrap()
+                .team_id
+                .as_deref(),
             Some("team-1")
         );
     }
@@ -568,7 +584,10 @@ mod tests {
 
         let physios = search_candidates_of(&game, Some(StaffPost::Physio), 0).unwrap();
         assert_eq!(
-            physios.iter().map(|c| c.staff.id.as_str()).collect::<Vec<_>>(),
+            physios
+                .iter()
+                .map(|c| c.staff.id.as_str())
+                .collect::<Vec<_>>(),
             ["p1", "p2"]
         );
         assert!(physios.iter().all(|c| c.blocker.is_none()));
@@ -578,15 +597,15 @@ mod tests {
         let mut broke = game.clone();
         broke.teams[0].finance = 0;
         let blocked = search_candidates_of(&broke, Some(StaffPost::Physio), 0).unwrap();
-        assert_eq!(blocked[0].blocker.as_deref(), Some("be.error.staff.notEnoughCash"));
+        assert_eq!(
+            blocked[0].blocker.as_deref(),
+            Some("be.error.staff.notEnoughCash")
+        );
     }
 
     #[test]
     fn delegating_needs_an_assistant_and_taking_back_always_works() {
-        let mut game = with_posts(
-            make_game(),
-            &[("p1", StaffPost::Physio, 50, 2_000, true)],
-        );
+        let mut game = with_posts(make_game(), &[("p1", StaffPost::Physio, 50, 2_000, true)]);
         assert_eq!(
             set_duty(&mut game, Duty::Training, true, false),
             Err("be.error.delegation.noAssistant".to_string())

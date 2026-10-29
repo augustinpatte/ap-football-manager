@@ -211,7 +211,10 @@ fn wage_bills_no_longer_drift_away_from_the_budgets() {
         .filter(|t| t.id != user && t.wage_budget > 0)
         .filter(|t| calc_wages(&game, &t.id) * 100 > t.wage_budget * 150)
         .count();
-    assert!(over_150 <= 2, "{over_150} clubs above 150 % of their wage budget");
+    assert!(
+        over_150 <= 2,
+        "{over_150} clubs above 150 % of their wage budget"
+    );
     let thin = game
         .teams
         .iter()

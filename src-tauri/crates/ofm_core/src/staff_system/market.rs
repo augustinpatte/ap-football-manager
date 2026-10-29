@@ -125,7 +125,9 @@ pub fn asking_wage(staff: &Staff, club_reputation: u32) -> u32 {
 pub enum OfferResponse {
     Accepted,
     /// Not at that wage; at this one, yes.
-    Counter { wage: u32 },
+    Counter {
+        wage: u32,
+    },
     Refused,
 }
 
@@ -158,7 +160,10 @@ fn staff_age(staff: &Staff) -> i32 {
 }
 
 fn club_reputation(game: &Game, team_id: &str) -> Option<u32> {
-    game.teams.iter().find(|t| t.id == team_id).map(|t| t.reputation)
+    game.teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map(|t| t.reputation)
 }
 
 fn today(game: &Game) -> NaiveDate {
@@ -391,9 +396,23 @@ mod tests {
 
     fn game(members: Vec<Staff>) -> Game {
         let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
-        let mut manager = Manager::new("m".into(), "T".into(), "M".into(), "1980-01-01".into(), "England".into());
+        let mut manager = Manager::new(
+            "m".into(),
+            "T".into(),
+            "M".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
         manager.hire("t1".into());
-        let mut team = Team::new("t1".into(), "T".into(), "T".into(), "England".into(), "L".into(), "S".into(), 20_000);
+        let mut team = Team::new(
+            "t1".into(),
+            "T".into(),
+            "T".into(),
+            "England".into(),
+            "L".into(),
+            "S".into(),
+            20_000,
+        );
         team.finance = 1_000_000;
         team.wage_budget = 100_000;
         team.reputation = 700;
@@ -402,9 +421,18 @@ mod tests {
 
     #[test]
     fn the_structure_counts_each_post_and_flags_vacancies() {
-        let g = game(vec![staff("a", StaffPost::AssistantManager, 60, 1000, Some("t1"))]);
+        let g = game(vec![staff(
+            "a",
+            StaffPost::AssistantManager,
+            60,
+            1000,
+            Some("t1"),
+        )]);
         let s = structure(&g, "t1");
-        let assistant = s.iter().find(|p| p.post == StaffPost::AssistantManager).unwrap();
+        let assistant = s
+            .iter()
+            .find(|p| p.post == StaffPost::AssistantManager)
+            .unwrap();
         let physio = s.iter().find(|p| p.post == StaffPost::Physio).unwrap();
         assert!(!assistant.is_vacant());
         assert!(physio.is_vacant());
@@ -414,7 +442,10 @@ mod tests {
     fn an_offer_is_accepted_countered_or_refused_by_how_close_it_is_to_the_ask() {
         let member = staff("p", StaffPost::Physio, 50, 1000, None);
         assert_eq!(answer_offer(&member, 700, 1000, 2), OfferResponse::Accepted);
-        assert_eq!(answer_offer(&member, 700, 950, 2), OfferResponse::Counter { wage: 1000 });
+        assert_eq!(
+            answer_offer(&member, 700, 950, 2),
+            OfferResponse::Counter { wage: 1000 }
+        );
         assert_eq!(answer_offer(&member, 700, 500, 2), OfferResponse::Refused);
     }
 

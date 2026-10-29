@@ -4,7 +4,6 @@ pub mod ai_budget_review;
 pub mod ai_contracts;
 mod ai_finance_guard;
 pub mod ai_hiring;
-pub mod staff_system;
 pub mod ai_manager_appointments;
 mod ai_math;
 mod ai_roles;
@@ -77,6 +76,7 @@ pub mod slices;
 pub mod squad_floor;
 pub mod squad_safety;
 pub(crate) mod stable_hash;
+pub mod staff_system;
 pub mod state;
 #[cfg(test)]
 mod test_support;

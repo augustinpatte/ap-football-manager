@@ -339,10 +339,7 @@ mod tests {
             map_role("analyste_performance"),
             Mapping::Staff(StaffRole::Scout, None)
         );
-        assert_eq!(
-            post_for("analyste_performance"),
-            Some(StaffPost::Analyst)
-        );
+        assert_eq!(post_for("analyste_performance"), Some(StaffPost::Analyst));
         assert_eq!(post_for("resp_formation"), Some(StaffPost::HeadOfYouth));
         assert_eq!(post_for("kine"), None);
     }

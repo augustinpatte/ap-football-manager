@@ -209,12 +209,11 @@ pub fn start_youth_scouting(
         return Err(ERR_YOUTH_SEARCH_ALREADY_ACTIVE.to_string());
     }
 
-    let days =
-        assignment_days_for_youth_scouting(
-            crate::staff_system::profile::effective_judging(game, scout).1,
-            region,
-            objective,
-        );
+    let days = assignment_days_for_youth_scouting(
+        crate::staff_system::profile::effective_judging(game, scout).1,
+        region,
+        objective,
+    );
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     let search = format!("{region:?}/{objective:?}/{target_position:?}");
     game.youth_scouting_assignments

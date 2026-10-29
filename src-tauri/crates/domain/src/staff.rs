@@ -233,7 +233,11 @@ impl Staff {
             }
             StaffPost::Analyst => {
                 let judging = (u32::from(a.judging_ability) + u32::from(a.judging_potential)) / 2;
-                match self.detail.as_ref().and_then(|d| StaffDetail::known(d.analysing)) {
+                match self
+                    .detail
+                    .as_ref()
+                    .and_then(|d| StaffDetail::known(d.analysing))
+                {
                     Some(analysing) => (u32::from(analysing) * 6 + judging * 4) / 10,
                     None => judging,
                 }

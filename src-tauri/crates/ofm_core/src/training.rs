@@ -481,9 +481,16 @@ fn train_player(
     let is_goalkeeper = player.natural_position.to_group_position() == Position::Goalkeeper;
     // The staff that teaches this player in particular: youth coaches for the young, the
     // goalkeeping coach for keepers.
-    let gain = gain
-        * if age <= 21 { plan.bonus.youth_mult } else { 1.0 }
-        * if is_goalkeeper { plan.bonus.gk_mult } else { 1.0 };
+    let gain =
+        gain * if age <= 21 {
+            plan.bonus.youth_mult
+        } else {
+            1.0
+        } * if is_goalkeeper {
+            plan.bonus.gk_mult
+        } else {
+            1.0
+        };
     apply_focus_gains(
         &mut player.attributes,
         &session.focus,
@@ -639,6 +646,96 @@ fn clamp_fitness(val: i16) -> u8 {
 
 #[cfg(test)]
 mod tests {
+    /// A club's whole staff at one level, for the weak / average / excellent comparison.
+    fn department_at(level: u8) -> Vec<domain::staff::Staff> {
+        use domain::staff::{Staff, StaffAttributes, StaffPost, StaffRole};
+        [
+            StaffPost::AssistantManager,
+            StaffPost::FirstTeamCoach,
+            StaffPost::FitnessCoach,
+            StaffPost::GoalkeepingCoach,
+            StaffPost::YouthCoach,
+            StaffPost::Physio,
+            StaffPost::HeadOfMedical,
+        ]
+        .iter()
+        .enumerate()
+        .map(|(n, post)| {
+            let mut s = Staff::new(
+                format!("s{n}"),
+                "A".into(),
+                "B".into(),
+                "1980-01-01".into(),
+                StaffRole::Coach,
+                StaffAttributes {
+                    coaching: level,
+                    judging_ability: level,
+                    judging_potential: level,
+                    physiotherapy: level,
+                },
+            );
+            s.post = Some(*post);
+            s
+        })
+        .collect()
+    }
+
+    #[test]
+    fn staff_effects_rise_from_weak_to_average_to_excellent() {
+        use crate::staff_system::profile::StaffProfile;
+        let levels = [
+            ("none", 0u8),
+            ("weak", 30),
+            ("average", 50),
+            ("excellent", 90),
+        ];
+        let mut rows = Vec::new();
+        for (name, level) in levels {
+            let staff = department_at(level);
+            let refs: Vec<_> = staff.iter().collect();
+            let bonus = if level == 0 {
+                compute_coaching_bonus(&[], &TrainingFocus::Technical)
+            } else {
+                compute_coaching_bonus(&refs, &TrainingFocus::Technical)
+            };
+            let profile = StaffProfile::from_staff(&refs);
+            rows.push((
+                name,
+                bonus.coaching_mult,
+                bonus.physio_mult,
+                bonus.youth_mult,
+                bonus.gk_mult,
+                profile.injury_prevention(),
+                profile.injury_duration_mult(),
+            ));
+            println!(
+                "STAFF {name:<9} coaching x{:.3}  recovery x{:.3}  youth x{:.3}  gk x{:.3}  injury caught {:.1}%  injury length x{:.2}",
+                bonus.coaching_mult,
+                bonus.physio_mult,
+                bonus.youth_mult,
+                bonus.gk_mult,
+                profile.injury_prevention() * 100.0,
+                profile.injury_duration_mult(),
+            );
+        }
+        // Better staff never does worse on any effect, and the extremes differ.
+        for pair in rows.windows(2) {
+            let (lo, hi) = (&pair[0], &pair[1]);
+            assert!(hi.1 >= lo.1, "coaching {} -> {}", lo.0, hi.0);
+            assert!(hi.2 >= lo.2, "recovery {} -> {}", lo.0, hi.0);
+            // An empty youth or goalkeeping seat is neutral (x1.0), so a weak coach there is
+            // worse than none; the ordering holds from weak upwards (see APFM_STAFF_SYSTEM.md).
+            if lo.0 != "none" {
+                assert!(hi.3 >= lo.3, "youth {} -> {}", lo.0, hi.0);
+                assert!(hi.4 >= lo.4, "goalkeepers {} -> {}", lo.0, hi.0);
+            }
+            assert!(hi.5 >= lo.5, "injury prevention {} -> {}", lo.0, hi.0);
+            assert!(hi.6 <= lo.6, "injury length {} -> {}", lo.0, hi.0);
+        }
+        let (none, excellent) = (&rows[0], &rows[3]);
+        assert!(excellent.1 > none.1 && excellent.6 < none.6);
+    }
+
     use super::*;
     use crate::world::test_fixtures::{manager_for, nation_team, player_at};
     use chrono::{Datelike, TimeZone, Utc};

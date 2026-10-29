@@ -80,7 +80,10 @@ fn parse_role(s: &str) -> StaffRole {
 }
 
 fn parse_post(s: &str) -> Option<StaffPost> {
-    StaffPost::ALL.iter().copied().find(|post| format!("{post:?}") == s)
+    StaffPost::ALL
+        .iter()
+        .copied()
+        .find(|post| format!("{post:?}") == s)
 }
 
 fn parse_specialization(s: &str) -> Option<CoachingSpecialization> {
@@ -143,7 +146,9 @@ fn row_to_staff(row: &rusqlite::Row) -> rusqlite::Result<Staff> {
         contract_end: row.get(12)?,
         known_as: row.get(13)?,
         display_name: String::new(),
-        post: row.get::<_, Option<String>>(14)?.and_then(|p| parse_post(&p)),
+        post: row
+            .get::<_, Option<String>>(14)?
+            .and_then(|p| parse_post(&p)),
         detail: row
             .get::<_, Option<String>>(15)?
             .and_then(|json| serde_json::from_str(&json).ok()),
@@ -243,6 +248,32 @@ mod tests {
         assert_eq!(all[0].wage, 3000);
         assert_eq!(all[0].football_nation, "SCO");
         assert_eq!(all[0].birth_country, Some("SCO".to_string()));
+    }
+
+    /// Given a member in a seat finer than their role, with FM24 detail attributes
+    /// When the staff are saved and loaded back
+    /// Then the seat and every detail attribute are the same, and a member without either stays so.
+    #[test]
+    fn a_staff_seat_and_detail_attributes_survive_a_round_trip() {
+        let db = test_db();
+        let mut head = sample_staff("head", StaffRole::Coach);
+        head.post = Some(domain::staff::StaffPost::HeadOfYouth);
+        head.detail = Some(domain::staff::StaffDetail {
+            attacking: 71,
+            determination: 88,
+            sports_science: 64,
+            ..Default::default()
+        });
+        let plain = sample_staff("plain", StaffRole::Physio);
+
+        upsert_staff_list(db.conn(), &[head.clone(), plain]).unwrap();
+
+        let loaded = load_all_staff(db.conn()).unwrap();
+        let find = |id: &str| loaded.iter().find(|s| s.id == id).unwrap();
+        assert_eq!(find("head").post, head.post);
+        assert_eq!(find("head").detail, head.detail);
+        assert_eq!(find("plain").post, None);
+        assert_eq!(find("plain").detail, None);
     }
 
     /// Given staff known by a short name, and staff who are not

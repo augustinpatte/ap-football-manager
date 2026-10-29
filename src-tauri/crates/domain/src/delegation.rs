@@ -57,13 +57,33 @@ pub struct DutySetting {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ProposalAction {
-    HireStaff { staff_id: String, wage: u32, years: u8 },
-    RenewStaff { staff_id: String, wage: u32, years: u8 },
-    ReleaseStaff { staff_id: String },
-    SetTraining { focus: TrainingFocus, intensity: TrainingIntensity },
-    SendScout { scout_id: String, player_id: String },
-    PromoteYouth { player_id: String },
-    RestPlayers { player_ids: Vec<String> },
+    HireStaff {
+        staff_id: String,
+        wage: u32,
+        years: u8,
+    },
+    RenewStaff {
+        staff_id: String,
+        wage: u32,
+        years: u8,
+    },
+    ReleaseStaff {
+        staff_id: String,
+    },
+    SetTraining {
+        focus: TrainingFocus,
+        intensity: TrainingIntensity,
+    },
+    SendScout {
+        scout_id: String,
+        player_id: String,
+    },
+    PromoteYouth {
+        player_id: String,
+    },
+    RestPlayers {
+        player_ids: Vec<String>,
+    },
 }
 
 /// A step waiting for the manager's answer.
@@ -185,7 +205,9 @@ impl DelegationState {
         params: Vec<(String, String)>,
         reason_key: &str,
     ) -> bool {
-        if self.proposals.iter().any(|p| p.action == action) || self.proposals.len() >= PROPOSAL_CAPACITY {
+        if self.proposals.iter().any(|p| p.action == action)
+            || self.proposals.len() >= PROPOSAL_CAPACITY
+        {
             return false;
         }
         self.next_proposal += 1;
@@ -218,9 +240,25 @@ mod tests {
     #[test]
     fn an_identical_proposal_is_not_queued_twice() {
         let mut state = DelegationState::default();
-        let action = ProposalAction::ReleaseStaff { staff_id: "s1".into() };
-        assert!(state.propose(Duty::StaffRecruitment, "2026-08-01", action.clone(), "t", vec![], "r"));
-        assert!(!state.propose(Duty::StaffRecruitment, "2026-08-02", action, "t", vec![], "r"));
+        let action = ProposalAction::ReleaseStaff {
+            staff_id: "s1".into(),
+        };
+        assert!(state.propose(
+            Duty::StaffRecruitment,
+            "2026-08-01",
+            action.clone(),
+            "t",
+            vec![],
+            "r"
+        ));
+        assert!(!state.propose(
+            Duty::StaffRecruitment,
+            "2026-08-02",
+            action,
+            "t",
+            vec![],
+            "r"
+        ));
         assert_eq!(state.proposals.len(), 1);
     }
 

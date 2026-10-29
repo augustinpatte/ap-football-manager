@@ -76,7 +76,9 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
         let members = by_team.get(team_id.as_str()).cloned().unwrap_or_default();
         // Contracts that have run out or are about to.
         for member in &members {
-            let Some(end) = parse(member.contract_end.as_deref()) else { continue };
+            let Some(end) = parse(member.contract_end.as_deref()) else {
+                continue;
+            };
             if (end - today).num_days() > 14 {
                 continue;
             }
@@ -89,7 +91,11 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
         // Over budget: let the dearest member of the least valuable seat go.
         let bill: i64 = members.iter().map(|m| i64::from(m.wage)).sum();
         let budget = market::staff_budget(game, team_id);
-        let finance = game.teams.iter().find(|t| &t.id == team_id).map_or(0, |t| t.finance);
+        let finance = game
+            .teams
+            .iter()
+            .find(|t| &t.id == team_id)
+            .map_or(0, |t| t.finance);
         if bill * 100 > budget * OVER_BUDGET_PCT && finance < 0 {
             let counts: HashMap<StaffPost, usize> =
                 members.iter().fold(HashMap::new(), |mut m, s| {
@@ -116,7 +122,9 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
     for step in steps {
         match step {
             Step::Renew(team_id, staff_id) => {
-                let Some(member) = game.staff.iter().find(|s| s.id == staff_id) else { continue };
+                let Some(member) = game.staff.iter().find(|s| s.id == staff_id) else {
+                    continue;
+                };
                 let ask = market::renewal_ask(member, club_rep(game, &team_id));
                 let years = if member.overall() >= 70 { 3 } else { 2 };
                 // A renewal that does not fit the budget lets the member go.
@@ -138,7 +146,10 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
 }
 
 fn club_rep(game: &Game, team_id: &str) -> u32 {
-    game.teams.iter().find(|t| t.id == team_id).map_or(0, |t| t.reputation)
+    game.teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map_or(0, |t| t.reputation)
 }
 
 /// Signs the best free agent for `post` that the club can afford.
@@ -152,10 +163,14 @@ fn fill_post(game: &mut Game, team_id: &str, post: StaffPost) {
         .staff
         .iter()
         .filter(|s| s.team_id.is_none() && s.post() == post)
-        .filter(|s| market::hire_blocker(game, team_id, &s.id, market::asking_wage(s, reputation)).is_none())
+        .filter(|s| {
+            market::hire_blocker(game, team_id, &s.id, market::asking_wage(s, reputation)).is_none()
+        })
         .collect();
     candidates.sort_by(|a, b| better(b, a));
-    let Some(choice) = candidates.first() else { return };
+    let Some(choice) = candidates.first() else {
+        return;
+    };
     let (id, wage) = (choice.id.clone(), market::asking_wage(choice, reputation));
     let _ = market::hire(game, team_id, &id, wage, 2);
 }
@@ -163,31 +178,54 @@ fn fill_post(game: &mut Game, team_id: &str, post: StaffPost) {
 /// Staff of the user's club whose contract is ending soon are announced once; those whose
 /// contract has ended leave. Runs daily.
 pub fn process_user_staff_expiry(game: &mut Game) {
-    let Some(team_id) = game.manager.team_id.clone() else { return };
+    let Some(team_id) = game.manager.team_id.clone() else {
+        return;
+    };
     let today = game.clock.current_date.date_naive();
     let stamp = today.format("%Y-%m-%d").to_string();
     let mut warnings = Vec::new();
     let mut leaving = Vec::new();
-    for member in game.staff.iter().filter(|s| s.team_id.as_deref() == Some(team_id.as_str())) {
-        let Some(end) = parse(member.contract_end.as_deref()) else { continue };
+    for member in game
+        .staff
+        .iter()
+        .filter(|s| s.team_id.as_deref() == Some(team_id.as_str()))
+    {
+        let Some(end) = parse(member.contract_end.as_deref()) else {
+            continue;
+        };
         let left = (end - today).num_days();
         if left <= 0 {
             leaving.push((member.id.clone(), member.display_name.clone()));
         } else if left <= EXPIRY_WARNING_DAYS {
-            warnings.push((member.id.clone(), member.display_name.clone(), left, end.year()));
+            warnings.push((
+                member.id.clone(),
+                member.display_name.clone(),
+                left,
+                end.year(),
+            ));
         }
     }
     for (id, name, days, year) in warnings {
         let key = format!("staff_contract_ending_{id}_{year}");
         crate::inbox::emit_once(game, &key, || {
-            staff_message(&key, "be.msg.staffContractEnding", &[("name", &name), ("days", &days.to_string())], &stamp)
+            staff_message(
+                &key,
+                "be.msg.staffContractEnding",
+                &[("name", &name), ("days", &days.to_string())],
+                &stamp,
+            )
         });
     }
     for (id, name) in leaving {
         if market::release_expired(game, &id).is_ok() {
             let key = format!("staff_contract_ended_{id}_{stamp}");
             crate::inbox::emit_once(game, &key, || {
-                staff_message(&key, "be.msg.staffContractEnded", &[("name", &name)], &stamp)
+                staff_message(
+                    &key,
+                    "be.msg.staffContractEnded",
+                    &[("name", &name)],
+                    &stamp,
+                )
             });
         }
     }
@@ -195,18 +233,24 @@ pub fn process_user_staff_expiry(game: &mut Game) {
 
 /// An inbox message from the assistant about the staff.
 pub fn staff_message(id: &str, key: &str, params: &[(&str, &str)], date: &str) -> InboxMessage {
-    InboxMessage::new(id.to_string(), String::new(), String::new(), String::new(), date.to_string())
-        .with_category(MessageCategory::Contract)
-        .with_priority(MessagePriority::Normal)
-        .with_i18n(
-            &format!("{key}.subject"),
-            &format!("{key}.body"),
-            params
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect::<std::collections::HashMap<_, _>>(),
-        )
-        .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
+    InboxMessage::new(
+        id.to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Contract)
+    .with_priority(MessagePriority::Normal)
+    .with_i18n(
+        &format!("{key}.subject"),
+        &format!("{key}.body"),
+        params
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect::<std::collections::HashMap<_, _>>(),
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 #[cfg(test)]
@@ -220,8 +264,17 @@ mod tests {
 
     fn member(id: &str, post: StaffPost, level: u8, wage: u32, team: Option<&str>) -> Staff {
         let mut s = Staff::new(
-            id.into(), "A".into(), id.into(), "1980-01-01".into(), post.role(),
-            StaffAttributes { coaching: level, judging_ability: level, judging_potential: level, physiotherapy: level },
+            id.into(),
+            "A".into(),
+            id.into(),
+            "1980-01-01".into(),
+            post.role(),
+            StaffAttributes {
+                coaching: level,
+                judging_ability: level,
+                judging_potential: level,
+                physiotherapy: level,
+            },
         );
         s.specialization = post.specialization();
         s.post = Some(post);
@@ -233,16 +286,37 @@ mod tests {
     /// A user club "user" and an AI club "ai" whose day is today.
     fn world(staff: Vec<Staff>) -> (Game, u32) {
         let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 3, 12, 0, 0).unwrap());
-        let mut manager = Manager::new("m".into(), "T".into(), "M".into(), "1980-01-01".into(), "England".into());
+        let mut manager = Manager::new(
+            "m".into(),
+            "T".into(),
+            "M".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
         manager.hire("user".into());
         let mk = |id: &str| {
-            let mut t = Team::new(id.into(), id.into(), id.into(), "England".into(), "L".into(), "S".into(), 20_000);
+            let mut t = Team::new(
+                id.into(),
+                id.into(),
+                id.into(),
+                "England".into(),
+                "L".into(),
+                "S".into(),
+                20_000,
+            );
             t.finance = 5_000_000;
             t.wage_budget = 200_000;
             t.reputation = 600;
             t
         };
-        let game = Game::new(clock, manager, vec![mk("user"), mk("ai")], vec![], staff, vec![]);
+        let game = Game::new(
+            clock,
+            manager,
+            vec![mk("user"), mk("ai")],
+            vec![],
+            staff,
+            vec![],
+        );
         (game, club_day("ai"))
     }
 
@@ -260,10 +334,16 @@ mod tests {
         staff.push(member("cheap", StaffPost::Physio, 55, 1000, None));
         staff.push(member("best", StaffPost::Physio, 80, 2000, None));
         staff.push(member("too-dear", StaffPost::Physio, 95, 500_000, None));
-        for i in 0..8 { staff.push(member(&format!("pad{i}"), StaffPost::Scout, 40, 500, None)); }
+        for i in 0..8 {
+            staff.push(member(&format!("pad{i}"), StaffPost::Scout, 40, 500, None));
+        }
         let (mut game, day) = world(staff);
         apply_ai_staff_management(&mut game, day);
-        let physio: Vec<_> = game.staff.iter().filter(|s| s.team_id.as_deref() == Some("ai") && s.post() == StaffPost::Physio).collect();
+        let physio: Vec<_> = game
+            .staff
+            .iter()
+            .filter(|s| s.team_id.as_deref() == Some("ai") && s.post() == StaffPost::Physio)
+            .collect();
         assert_eq!(physio.len(), 1);
         assert_eq!(physio[0].id, "best");
     }
@@ -272,10 +352,19 @@ mod tests {
     fn an_ai_club_never_hires_without_budget() {
         let mut staff = all_posts_but(StaffPost::Physio);
         staff.push(member("only", StaffPost::Physio, 80, 90_000, None));
-        for i in 0..8 { staff.push(member(&format!("pad{i}"), StaffPost::Scout, 40, 500, None)); }
+        for i in 0..8 {
+            staff.push(member(&format!("pad{i}"), StaffPost::Scout, 40, 500, None));
+        }
         let (mut game, day) = world(staff);
         apply_ai_staff_management(&mut game, day);
-        assert!(game.staff.iter().find(|s| s.id == "only").unwrap().team_id.is_none());
+        assert!(
+            game.staff
+                .iter()
+                .find(|s| s.id == "only")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
     }
 
     #[test]
@@ -284,7 +373,14 @@ mod tests {
         staff.push(member("only", StaffPost::Physio, 80, 2000, None));
         let (mut game, day) = world(staff);
         apply_ai_staff_management(&mut game, day);
-        assert!(game.staff.iter().find(|s| s.id == "only").unwrap().team_id.is_none());
+        assert!(
+            game.staff
+                .iter()
+                .find(|s| s.id == "only")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
     }
 
     #[test]
@@ -296,13 +392,22 @@ mod tests {
         poor.contract_end = Some("2026-08-05".into());
         staff.push(good);
         staff.push(poor);
-        for i in 0..8 { staff.push(member(&format!("pad{i}"), StaffPost::Physio, 40, 500, None)); }
+        for i in 0..8 {
+            staff.push(member(&format!("pad{i}"), StaffPost::Physio, 40, 500, None));
+        }
         let (mut game, day) = world(staff);
         apply_ai_staff_management(&mut game, day);
         let good = game.staff.iter().find(|s| s.id == "good").unwrap();
         assert_eq!(good.team_id.as_deref(), Some("ai"));
         assert!(good.contract_end.as_deref().unwrap() > "2027-01-01");
-        assert!(game.staff.iter().find(|s| s.id == "poor").unwrap().team_id.is_none());
+        assert!(
+            game.staff
+                .iter()
+                .find(|s| s.id == "poor")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
     }
 
     #[test]
@@ -310,7 +415,9 @@ mod tests {
         let mut staff = vec![member("ex", StaffPost::Scout, 70, 1000, Some("user"))];
         staff[0].contract_end = Some("2026-08-01".into());
         let (mut game, _) = world(staff);
-        for day in 0..7 { apply_ai_staff_management(&mut game, day); }
+        for day in 0..7 {
+            apply_ai_staff_management(&mut game, day);
+        }
         assert_eq!(game.staff[0].team_id.as_deref(), Some("user"));
     }
 

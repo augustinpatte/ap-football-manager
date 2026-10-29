@@ -127,7 +127,11 @@ impl Economy {
     fn last_move_is_transfer(player: &domain::player::Player) -> bool {
         serde_json::to_value(&player.movement_history)
             .ok()
-            .and_then(|v| v.get("movement_history").and_then(|e| e.as_array()).and_then(|e| e.last().cloned()))
+            .and_then(|v| {
+                v.get("movement_history")
+                    .and_then(|e| e.as_array())
+                    .and_then(|e| e.last().cloned())
+            })
             .is_some_and(|e| e["kind"] == "permanent_transfer")
     }
 
@@ -189,7 +193,14 @@ impl Economy {
                 (Some(a), Some(b)) if a != b => {
                     if cur.loaned && !prev.loaned {
                         keys.push((id.clone(), "loan_started"));
-                        Self::count_flow(&mut self.flows, game, season, 'L', prev.parent.as_deref().unwrap_or(a), b);
+                        Self::count_flow(
+                            &mut self.flows,
+                            game,
+                            season,
+                            'L',
+                            prev.parent.as_deref().unwrap_or(a),
+                            b,
+                        );
                     } else if prev.loaned && !cur.loaned {
                         if prev.parent.as_deref() == Some(b.as_str()) {
                             keys.push((id.clone(), "loan_returned"));
@@ -525,27 +536,33 @@ impl Economy {
             .collect();
 
         let by_country = {
-            let mut groups: BTreeMap<String, (Vec<f64>, Vec<f64>, Vec<f64>)> = BTreeMap::new();
+            type Columns = (Vec<f64>, Vec<f64>, Vec<f64>);
+            let mut groups: BTreeMap<String, Columns> = BTreeMap::new();
             for t in &ai {
                 let g = groups.entry(t.country.clone()).or_default();
                 g.0.push(op_result.get(&t.id).copied().unwrap_or(0) as f64);
                 g.1.push(t.finance as f64);
                 if t.wage_budget > 0 {
-                    g.2.push(bills.get(&t.id).copied().unwrap_or(0) as f64 / t.wage_budget as f64 * 100.0);
+                    g.2.push(
+                        bills.get(&t.id).copied().unwrap_or(0) as f64 / t.wage_budget as f64
+                            * 100.0,
+                    );
                 }
             }
             let mut out = serde_json::Map::new();
             for (country, (mut ops_c, mut cash_c, mut bill_c)) in groups {
-                out.insert(country, json!({
-                    "clubs": ops_c.len(),
-                    "deficit_clubs": ops_c.iter().filter(|x| **x < 0.0).count(),
-                    "op_median": quantile(&mut ops_c, 0.5),
-                    "cash_median": quantile(&mut cash_c, 0.5),
-                    "bill_pct_median": round2(quantile(&mut bill_c, 0.5)),
-                }));
+                out.insert(
+                    country,
+                    json!({
+                        "clubs": ops_c.len(),
+                        "deficit_clubs": ops_c.iter().filter(|x| **x < 0.0).count(),
+                        "op_median": quantile(&mut ops_c, 0.5),
+                        "cash_median": quantile(&mut cash_c, 0.5),
+                        "bill_pct_median": round2(quantile(&mut bill_c, 0.5)),
+                    }),
+                );
             }
             Value::Object(out)
-            
         };
         self.season_state.push(json!({
             "season": season,

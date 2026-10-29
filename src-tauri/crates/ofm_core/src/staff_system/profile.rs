@@ -153,7 +153,10 @@ impl StaffProfile {
 /// the head of scouting. Reports are as accurate as this, not as the bare attributes.
 pub fn effective_judging(game: &Game, scout: &Staff) -> (u8, u8) {
     let Some(team_id) = scout.team_id.as_deref() else {
-        return (scout.attributes.judging_ability, scout.attributes.judging_potential);
+        return (
+            scout.attributes.judging_ability,
+            scout.attributes.judging_potential,
+        );
     };
     let staff = team_staff(game, team_id);
     let analysts: Vec<f64> = staff
@@ -171,8 +174,15 @@ pub fn effective_judging(game: &Game, scout: &Staff) -> (u8, u8) {
         .filter(|s| s.post() == StaffPost::HeadOfScouting && s.id != scout.id)
         .map(|s| 4.0 * f64::from(s.overall()) / 100.0)
         .fold(0.0, f64::max);
-    let lift = |base: u8| (f64::from(base) + analyst_bonus + head_bonus).round().min(100.0) as u8;
-    (lift(scout.attributes.judging_ability), lift(scout.attributes.judging_potential))
+    let lift = |base: u8| {
+        (f64::from(base) + analyst_bonus + head_bonus)
+            .round()
+            .min(100.0) as u8
+    };
+    (
+        lift(scout.attributes.judging_ability),
+        lift(scout.attributes.judging_potential),
+    )
 }
 
 /// `1.0` at a rating of 50, `1 ± swing` at 100 and 0.
@@ -224,16 +234,30 @@ mod tests {
     #[test]
     fn effects_are_neutral_at_fifty_and_bounded_at_the_extremes() {
         let average = StaffProfile {
-            assistant: 50.0, coaching: 50.0, fitness: 50.0, goalkeeping: 50.0,
-            youth: 50.0, medical: 50.0, scouting: 50.0, analysis: 50.0,
+            assistant: 50.0,
+            coaching: 50.0,
+            fitness: 50.0,
+            goalkeeping: 50.0,
+            youth: 50.0,
+            medical: 50.0,
+            scouting: 50.0,
+            analysis: 50.0,
         };
         assert!((average.youth_progression_mult() - 1.0).abs() < 1e-9);
         assert!((average.goalkeeper_progression_mult() - 1.0).abs() < 1e-9);
-        let best = StaffProfile { youth: 100.0, medical: 100.0, goalkeeping: 100.0, ..average.clone() };
+        let best = StaffProfile {
+            youth: 100.0,
+            medical: 100.0,
+            goalkeeping: 100.0,
+            ..average.clone()
+        };
         assert!((best.youth_progression_mult() - 1.08).abs() < 1e-9);
         assert!((best.injury_duration_mult() - 0.80).abs() < 1e-9);
         assert!(best.injury_prevention() <= INJURY_PREVENTION_MAX + 1e-12);
-        let worst = StaffProfile { medical: 0.0, ..average };
+        let worst = StaffProfile {
+            medical: 0.0,
+            ..average
+        };
         assert!((worst.injury_duration_mult() - 1.25).abs() < 1e-9);
         assert_eq!(worst.injury_prevention(), 0.0);
     }
@@ -241,7 +265,11 @@ mod tests {
     #[test]
     fn a_coach_is_rated_on_the_attribute_of_the_session() {
         let mut coach = member(StaffPost::FirstTeamCoach, 50);
-        coach.detail = Some(StaffDetail { technical: 90, fitness: 20, ..StaffDetail::default() });
+        coach.detail = Some(StaffDetail {
+            technical: 90,
+            fitness: 20,
+            ..StaffDetail::default()
+        });
         assert_eq!(focus_rating(&coach, &TrainingFocus::Technical), 90.0);
         assert_eq!(focus_rating(&coach, &TrainingFocus::Physical), 20.0);
         // No detail for tactics: the general coaching stands in.

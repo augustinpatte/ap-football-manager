@@ -565,7 +565,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 return false;
             }
             // Nobody pays a fee for a player at the end of his career, a goalkeeper's coming later.
-            if !target.is_user_owned && target.age >= retirement_horizon_age(target.position_group_index) {
+            if !target.is_user_owned
+                && target.age >= retirement_horizon_age(target.position_group_index)
+            {
                 return false;
             }
             // An AI club buys to fill a need it has, not for appeal alone.

@@ -227,11 +227,11 @@ pub fn apply_ai_training_policies(game: &mut Game, weekday_num: u32) {
 
     for team_id in team_ids {
         let club = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
-        if let Some((focus, intensity)) = plan_for_team(&game.teams, club, &team_id, weekday_num) {
-            if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
-                team.training_focus = focus;
-                team.training_intensity = intensity;
-            }
+        if let Some((focus, intensity)) = plan_for_team(&game.teams, club, &team_id, weekday_num)
+            && let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id)
+        {
+            team.training_focus = focus;
+            team.training_intensity = intensity;
         }
     }
 }

@@ -66,7 +66,11 @@ fn due(game: &Game, duty: Duty) -> bool {
     if !game.delegation.is_delegated(duty) {
         return false;
     }
-    match game.delegation.last_run_on(duty).and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()) {
+    match game
+        .delegation
+        .last_run_on(duty)
+        .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+    {
         Some(last) => (date(game) - last).num_days() >= duty.period_days(),
         None => true,
     }
@@ -74,38 +78,65 @@ fn due(game: &Game, duty: Duty) -> bool {
 
 fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> {
     let staff = team_staff(game, team_id);
-    let a = staff.iter().find(|s| s.post() == StaffPost::AssistantManager)?;
+    let a = staff
+        .iter()
+        .find(|s| s.post() == StaffPost::AssistantManager)?;
     Some((a.id.clone(), StaffProfile::from_staff(&staff).assistant))
 }
 
 /// Before the day's training: a delegated training plan.
 pub fn run_training(game: &mut Game, weekday_num: u32) {
-    let Some(team_id) = user_team(game) else { return };
+    let Some(team_id) = user_team(game) else {
+        return;
+    };
     if !game.delegation.is_delegated(Duty::Training) || assistant_of(game, &team_id).is_none() {
         return;
     }
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
     let club = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
-    let Some((focus, intensity)) = crate::ai_training::plan_for_team(&game.teams, club, &team_id, weekday_num) else { return };
+    let Some((focus, intensity)) =
+        crate::ai_training::plan_for_team(&game.teams, club, &team_id, weekday_num)
+    else {
+        return;
+    };
     drop(by_club);
     let crisis = focus == TrainingFocus::Recovery && intensity == TrainingIntensity::Low;
     let changed_to_recovery = crisis
-        && game.teams.iter().find(|t| t.id == team_id).is_some_and(|t| t.training_focus != TrainingFocus::Recovery);
+        && game
+            .teams
+            .iter()
+            .find(|t| t.id == team_id)
+            .is_some_and(|t| t.training_focus != TrainingFocus::Recovery);
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.training_focus = focus;
         team.training_intensity = intensity;
     }
     if changed_to_recovery {
-        log(game, Duty::Training, "delegation.log.recoveryOrdered", vec![]);
+        log(
+            game,
+            Duty::Training,
+            "delegation.log.recoveryOrdered",
+            vec![],
+        );
     }
 }
 
 /// After the day: everything else that is delegated and due.
 pub fn run_after_day(game: &mut Game) {
-    let Some(team_id) = user_team(game) else { return };
-    let Some((assistant_id, rating)) = assistant_of(game, &team_id) else { return };
+    let Some(team_id) = user_team(game) else {
+        return;
+    };
+    let Some((assistant_id, rating)) = assistant_of(game, &team_id) else {
+        return;
+    };
     let today = stamp(game);
-    for duty in [Duty::MatchPreparation, Duty::Scouting, Duty::Youth, Duty::StaffRecruitment, Duty::StaffRenewals] {
+    for duty in [
+        Duty::MatchPreparation,
+        Duty::Scouting,
+        Duty::Youth,
+        Duty::StaffRecruitment,
+        Duty::StaffRenewals,
+    ] {
         if !due(game, duty) {
             continue;
         }
@@ -133,12 +164,20 @@ fn match_preparation(game: &mut Game, team_id: &str) {
         return;
     }
     for rec in recs {
-        let acts = matches!(rec.kind, RecKind::ReplaceStarter | RecKind::RestPlayer | RecKind::TacticalAdjustment);
+        let acts = matches!(
+            rec.kind,
+            RecKind::ReplaceStarter | RecKind::RestPlayer | RecKind::TacticalAdjustment
+        );
         if !acts || rec.severity < 2 || rec.action == RecAction::None {
             continue;
         }
         if assistant::apply_action(game, team_id, &rec.action).is_ok() {
-            log(game, Duty::MatchPreparation, &rec.title_key, rec.params.clone());
+            log(
+                game,
+                Duty::MatchPreparation,
+                &rec.title_key,
+                rec.params.clone(),
+            );
         }
     }
 }
@@ -167,9 +206,16 @@ fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
         .scouting_assignments
         .iter()
         .map(|a| a.scout_id.as_str())
-        .chain(game.youth_scouting_assignments.iter().map(|a| a.scout_id.as_str()))
+        .chain(
+            game.youth_scouting_assignments
+                .iter()
+                .map(|a| a.scout_id.as_str()),
+        )
         .collect();
-    let idle: Vec<String> = scouts.into_iter().filter(|s| !busy.contains(s.as_str())).collect();
+    let idle: Vec<String> = scouts
+        .into_iter()
+        .filter(|s| !busy.contains(s.as_str()))
+        .collect();
     if idle.is_empty() {
         return;
     }
@@ -185,19 +231,39 @@ fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
             _ => None,
         })
         .collect();
-    let budget = game.teams.iter().find(|t| t.id == team_id).map_or(0, |t| t.transfer_budget.max(0)) as u64;
+    let budget = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map_or(0, |t| t.transfer_budget.max(0)) as u64;
     let today = date(game);
-    let already: std::collections::HashSet<&str> = game.scouted_players.iter().map(|s| s.player_id.as_str()).collect();
-    let watched: std::collections::HashSet<&str> = game.scouting_assignments.iter().map(|a| a.player_id.as_str()).collect();
+    let already: std::collections::HashSet<&str> = game
+        .scouted_players
+        .iter()
+        .map(|s| s.player_id.as_str())
+        .collect();
+    let watched: std::collections::HashSet<&str> = game
+        .scouting_assignments
+        .iter()
+        .map(|a| a.player_id.as_str())
+        .collect();
     let mut targets: Vec<(&domain::player::Player, f64)> = game
         .players
         .iter()
         .filter(|p| p.team_id.as_deref().is_some_and(|t| t != team_id) && !p.retired)
         .filter(|p| !already.contains(p.id.as_str()) && !watched.contains(p.id.as_str()))
         .filter(|p| p.market_value <= budget.max(1))
-        .filter(|p| weak_groups.is_empty() || weak_groups.contains(&p.natural_position.to_group_position()))
         .filter(|p| {
-            domain::age::age_on(today, &p.date_of_birth).is_some_and(|a| if weak_groups.is_empty() { a <= 21 } else { a <= 30 })
+            weak_groups.is_empty() || weak_groups.contains(&p.natural_position.to_group_position())
+        })
+        .filter(|p| {
+            domain::age::age_on(today, &p.date_of_birth).is_some_and(|a| {
+                if weak_groups.is_empty() {
+                    a <= 21
+                } else {
+                    a <= 30
+                }
+            })
         })
         .map(|p| (p, f64::from(p.ovr) * 0.6 + f64::from(p.potential) * 0.4))
         .collect();
@@ -209,7 +275,12 @@ fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
         .collect();
     for (scout_id, player_id, name) in picks {
         if crate::scouting::send_scout(game, &scout_id, &player_id).is_ok() {
-            log(game, Duty::Scouting, "delegation.log.scoutSent", vec![param("player", name)]);
+            log(
+                game,
+                Duty::Scouting,
+                "delegation.log.scoutSent",
+                vec![param("player", name)],
+            );
         }
     }
 }
@@ -221,9 +292,21 @@ fn youth(game: &mut Game, team_id: &str) {
     let date = stamp(game);
     for rec in recs.into_iter().filter(|r| r.kind == RecKind::PromoteYouth) {
         if confirm {
-            game.delegation.propose(Duty::Youth, &date, rec.action.clone().into_proposal(), &rec.title_key, rec.params.clone(), &rec.reason_key);
+            game.delegation.propose(
+                Duty::Youth,
+                &date,
+                rec.action.clone().into_proposal(),
+                &rec.title_key,
+                rec.params.clone(),
+                &rec.reason_key,
+            );
         } else if assistant::apply_action(game, team_id, &rec.action).is_ok() {
-            log(game, Duty::Youth, "delegation.log.promoted", rec.params.clone());
+            log(
+                game,
+                Duty::Youth,
+                "delegation.log.promoted",
+                rec.params.clone(),
+            );
         }
     }
 }
@@ -239,7 +322,11 @@ impl RecAction {
 
 /// Fills vacant posts with the best affordable free agent, and proposes upgrades.
 fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
-    let reputation = game.teams.iter().find(|t| t.id == team_id).map_or(0, |t| t.reputation);
+    let reputation = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map_or(0, |t| t.reputation);
     let confirm = game.delegation.needs_confirmation(Duty::StaffRecruitment);
     let today = stamp(game);
     for status in market::structure(game, team_id) {
@@ -250,19 +337,41 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
             .staff
             .iter()
             .filter(|s| s.team_id.is_none() && s.post() == status.post)
-            .filter(|s| market::hire_blocker(game, team_id, &s.id, market::asking_wage(s, reputation)).is_none())
+            .filter(|s| {
+                market::hire_blocker(game, team_id, &s.id, market::asking_wage(s, reputation))
+                    .is_none()
+            })
             .collect();
         candidates.sort_by(|a, b| {
-            perceived(rating, assistant_id, b).total_cmp(&perceived(rating, assistant_id, a)).then(a.id.cmp(&b.id))
+            perceived(rating, assistant_id, b)
+                .total_cmp(&perceived(rating, assistant_id, a))
+                .then(a.id.cmp(&b.id))
         });
-        let Some(choice) = candidates.first() else { continue };
-        let (id, name, wage) = (choice.id.clone(), choice.display_name.clone(), market::asking_wage(choice, reputation));
-        let params = vec![param("name", &name), param("post", format!("{:?}", status.post)), param("wage", wage)];
+        let Some(choice) = candidates.first() else {
+            continue;
+        };
+        let (id, name, wage) = (
+            choice.id.clone(),
+            choice.display_name.clone(),
+            market::asking_wage(choice, reputation),
+        );
+        let params = vec![
+            param("name", &name),
+            param("post", format!("{:?}", status.post)),
+            param("wage", wage),
+        ];
         if confirm {
             game.delegation.propose(
-                Duty::StaffRecruitment, &today,
-                ProposalAction::HireStaff { staff_id: id, wage, years: 2 },
-                "delegation.proposal.hire", params, "delegation.reason.vacancy",
+                Duty::StaffRecruitment,
+                &today,
+                ProposalAction::HireStaff {
+                    staff_id: id,
+                    wage,
+                    years: 2,
+                },
+                "delegation.proposal.hire",
+                params,
+                "delegation.reason.vacancy",
             );
         } else if market::hire(game, team_id, &id, wage, 2).is_ok() {
             log(game, Duty::StaffRecruitment, "delegation.log.hired", params);
@@ -270,8 +379,13 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
     }
     // Upgrades are always the manager's call: the assistant never dismisses anyone by himself.
     for status in market::structure(game, team_id) {
-        let members: Vec<&Staff> = team_staff(game, team_id).into_iter().filter(|s| s.post() == status.post).collect();
-        let Some(worst) = members.iter().min_by_key(|s| (s.overall(), s.id.clone())) else { continue };
+        let members: Vec<&Staff> = team_staff(game, team_id)
+            .into_iter()
+            .filter(|s| s.post() == status.post)
+            .collect();
+        let Some(worst) = members.iter().min_by_key(|s| (s.overall(), s.id.clone())) else {
+            continue;
+        };
         if status.has_room() {
             continue;
         }
@@ -280,44 +394,92 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
             .iter()
             .filter(|s| s.team_id.is_none() && s.post() == status.post)
             .filter(|s| s.overall() >= worst.overall().saturating_add(UPGRADE_MARGIN))
-            .filter(|s| i64::from(market::asking_wage(s, reputation)) <= market::staff_headroom(game, team_id) + i64::from(worst.wage))
+            .filter(|s| {
+                i64::from(market::asking_wage(s, reputation))
+                    <= market::staff_headroom(game, team_id) + i64::from(worst.wage)
+            })
             .max_by(|a, b| a.overall().cmp(&b.overall()).then(b.id.cmp(&a.id)));
         if let Some(candidate) = best_free {
             let params = vec![
-                param("name", &candidate.display_name), param("replaces", &worst.display_name),
-                param("ovr", candidate.overall()), param("current", worst.overall()),
+                param("name", &candidate.display_name),
+                param("replaces", &worst.display_name),
+                param("ovr", candidate.overall()),
+                param("current", worst.overall()),
             ];
             let wage = market::asking_wage(candidate, reputation);
-            let action = ProposalAction::ReleaseStaff { staff_id: worst.id.clone() };
-            let hire = ProposalAction::HireStaff { staff_id: candidate.id.clone(), wage, years: 2 };
+            let action = ProposalAction::ReleaseStaff {
+                staff_id: worst.id.clone(),
+            };
+            let hire = ProposalAction::HireStaff {
+                staff_id: candidate.id.clone(),
+                wage,
+                years: 2,
+            };
             let (a, h) = (action, hire);
-            game.delegation.propose(Duty::StaffRecruitment, &today, a, "delegation.proposal.upgradeRelease", params.clone(), "delegation.reason.upgrade");
-            game.delegation.propose(Duty::StaffRecruitment, &today, h, "delegation.proposal.upgradeHire", params, "delegation.reason.upgrade");
+            game.delegation.propose(
+                Duty::StaffRecruitment,
+                &today,
+                a,
+                "delegation.proposal.upgradeRelease",
+                params.clone(),
+                "delegation.reason.upgrade",
+            );
+            game.delegation.propose(
+                Duty::StaffRecruitment,
+                &today,
+                h,
+                "delegation.proposal.upgradeHire",
+                params,
+                "delegation.reason.upgrade",
+            );
         }
     }
 }
 
 /// Renews good members whose contracts are running out.
 fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
-    let reputation = game.teams.iter().find(|t| t.id == team_id).map_or(0, |t| t.reputation);
+    let reputation = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map_or(0, |t| t.reputation);
     let confirm = game.delegation.needs_confirmation(Duty::StaffRenewals);
     let today = stamp(game);
     let ending: Vec<(String, String, u32)> = team_staff(game, team_id)
         .into_iter()
         .filter(|s| market::days_left(game, s).is_some_and(|d| d <= RENEWAL_LEAD_DAYS))
         .filter(|s| perceived(rating, assistant_id, s) >= f64::from(RENEWAL_FLOOR))
-        .map(|s| (s.id.clone(), s.display_name.clone(), market::renewal_ask(s, reputation)))
+        .map(|s| {
+            (
+                s.id.clone(),
+                s.display_name.clone(),
+                market::renewal_ask(s, reputation),
+            )
+        })
         .collect();
     for (id, name, ask) in ending {
         let years = 2;
-        let params = vec![param("name", &name), param("wage", ask), param("years", years)];
+        let params = vec![
+            param("name", &name),
+            param("wage", ask),
+            param("years", years),
+        ];
         if confirm {
             game.delegation.propose(
-                Duty::StaffRenewals, &today,
-                ProposalAction::RenewStaff { staff_id: id, wage: ask, years },
-                "delegation.proposal.renew", params, "delegation.reason.contractEnding",
+                Duty::StaffRenewals,
+                &today,
+                ProposalAction::RenewStaff {
+                    staff_id: id,
+                    wage: ask,
+                    years,
+                },
+                "delegation.proposal.renew",
+                params,
+                "delegation.reason.contractEnding",
             );
-        } else if market::negotiate_renewal(game, team_id, &id, ask, years).is_ok_and(|r| r == OfferResponse::Accepted) {
+        } else if market::negotiate_renewal(game, team_id, &id, ask, years)
+            .is_ok_and(|r| r == OfferResponse::Accepted)
+        {
             log(game, Duty::StaffRenewals, "delegation.log.renewed", params);
         }
     }
@@ -326,7 +488,8 @@ fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
 fn expire_proposals(game: &mut Game) {
     let today = date(game);
     game.delegation.proposals.retain(|p| {
-        NaiveDate::parse_from_str(&p.created, "%Y-%m-%d").is_ok_and(|c| (today - c).num_days() <= PROPOSAL_LIFETIME_DAYS)
+        NaiveDate::parse_from_str(&p.created, "%Y-%m-%d")
+            .is_ok_and(|c| (today - c).num_days() <= PROPOSAL_LIFETIME_DAYS)
     });
 }
 
@@ -346,20 +509,44 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
         return Ok(());
     }
     let result = match &proposal.action {
-        ProposalAction::HireStaff { staff_id, wage, years } => market::hire(game, &team_id, staff_id, *wage, *years),
-        ProposalAction::RenewStaff { staff_id, wage, years } => {
-            market::negotiate_renewal(game, &team_id, staff_id, *wage, *years).and_then(|r| {
-                if r == OfferResponse::Accepted { Ok(()) } else { Err("be.error.staff.offerRefused".to_string()) }
-            })
+        ProposalAction::HireStaff {
+            staff_id,
+            wage,
+            years,
+        } => market::hire(game, &team_id, staff_id, *wage, *years),
+        ProposalAction::RenewStaff {
+            staff_id,
+            wage,
+            years,
+        } => market::negotiate_renewal(game, &team_id, staff_id, *wage, *years).and_then(|r| {
+            if r == OfferResponse::Accepted {
+                Ok(())
+            } else {
+                Err("be.error.staff.offerRefused".to_string())
+            }
+        }),
+        ProposalAction::ReleaseStaff { staff_id } => {
+            market::release(game, &team_id, staff_id).map(|_| ())
         }
-        ProposalAction::ReleaseStaff { staff_id } => market::release(game, &team_id, staff_id).map(|_| ()),
-        ProposalAction::SetTraining { focus, intensity } => {
-            assistant::apply_action(game, &team_id, &RecAction::SetTraining { focus: focus.clone(), intensity: intensity.clone() })
-        }
-        ProposalAction::PromoteYouth { player_id } => {
-            assistant::apply_action(game, &team_id, &RecAction::PromoteYouth { player_id: player_id.clone() })
-        }
-        ProposalAction::SendScout { scout_id, player_id } => crate::scouting::send_scout(game, scout_id, player_id),
+        ProposalAction::SetTraining { focus, intensity } => assistant::apply_action(
+            game,
+            &team_id,
+            &RecAction::SetTraining {
+                focus: focus.clone(),
+                intensity: intensity.clone(),
+            },
+        ),
+        ProposalAction::PromoteYouth { player_id } => assistant::apply_action(
+            game,
+            &team_id,
+            &RecAction::PromoteYouth {
+                player_id: player_id.clone(),
+            },
+        ),
+        ProposalAction::SendScout {
+            scout_id,
+            player_id,
+        } => crate::scouting::send_scout(game, scout_id, player_id),
         ProposalAction::RestPlayers { .. } => Ok(()),
     };
     if result.is_ok() {
@@ -376,8 +563,8 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::assistant::tests::{game, staff_member};
+    use super::*;
     use domain::player::SquadRole;
 
     fn delegate(g: &mut Game, duty: Duty, confirm: bool) {
@@ -402,7 +589,14 @@ mod tests {
         free.team_id = None;
         g.staff.push(free);
         run_after_day(&mut g);
-        assert!(g.staff.iter().find(|s| s.id == "free").unwrap().team_id.is_none());
+        assert!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
     }
 
     #[test]
@@ -414,7 +608,15 @@ mod tests {
         g.staff.push(free);
         delegate(&mut g, Duty::StaffRecruitment, false);
         run_after_day(&mut g);
-        assert_eq!(g.staff.iter().find(|s| s.id == "free").unwrap().team_id.as_deref(), Some("team1"));
+        assert_eq!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .as_deref(),
+            Some("team1")
+        );
         assert_eq!(g.delegation.log.len(), 1);
         assert_eq!(g.delegation.log[0].duty, Duty::StaffRecruitment);
     }
@@ -428,7 +630,14 @@ mod tests {
         g.staff.push(free);
         delegate(&mut g, Duty::StaffRecruitment, true);
         run_after_day(&mut g);
-        assert!(g.staff.iter().find(|s| s.id == "free").unwrap().team_id.is_none());
+        assert!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
         assert_eq!(g.delegation.proposals.len(), 1);
         let id = g.delegation.proposals[0].id.clone();
 
@@ -436,11 +645,27 @@ mod tests {
         let mut refused = g.clone();
         resolve_proposal(&mut refused, &id, false).unwrap();
         assert!(refused.delegation.proposals.is_empty());
-        assert!(refused.staff.iter().find(|s| s.id == "free").unwrap().team_id.is_none());
+        assert!(
+            refused
+                .staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
 
         // An acceptance hires through the ordinary rules.
         resolve_proposal(&mut g, &id, true).unwrap();
-        assert_eq!(g.staff.iter().find(|s| s.id == "free").unwrap().team_id.as_deref(), Some("team1"));
+        assert_eq!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .as_deref(),
+            Some("team1")
+        );
         assert!(g.delegation.proposals.is_empty());
     }
 
@@ -448,14 +673,19 @@ mod tests {
     fn a_duty_runs_once_per_period() {
         let mut g = game(Some(80), 6);
         delegate(&mut g, Duty::Youth, false);
-        let mut kid = domain::player::Player { ..g.players[0].clone() };
+        let mut kid = domain::player::Player {
+            ..g.players[0].clone()
+        };
         kid.id = "kid".into();
         kid.squad_role = SquadRole::Youth;
         kid.date_of_birth = "2007-01-01".into();
         kid.ovr = 70;
         g.players.push(kid);
         run_after_day(&mut g);
-        assert_eq!(g.players.iter().find(|p| p.id == "kid").unwrap().squad_role, SquadRole::Senior);
+        assert_eq!(
+            g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
+            SquadRole::Senior
+        );
         let runs = g.delegation.last_run.len();
         // The next day it is not due again.
         g.clock.current_date += chrono::Duration::days(1);
@@ -487,7 +717,10 @@ mod tests {
         let mut g = game(Some(80), 1);
         g.players.iter_mut().find(|p| p.id == "s11").unwrap().ovr = 68;
         g.players.iter_mut().find(|p| p.id == "s0").unwrap().injury =
-            Some(domain::player::Injury { name: "x".into(), days_remaining: 10 });
+            Some(domain::player::Injury {
+                name: "x".into(),
+                days_remaining: 10,
+            });
         delegate(&mut g, Duty::MatchPreparation, false);
         run_after_day(&mut g);
         assert!(!g.teams[0].starting_xi_ids.contains(&"s0".to_string()));
@@ -495,10 +728,17 @@ mod tests {
     }
 
     #[test]
-    fn delegated_training_follows_the_assistants_plan_and_orders_recovery_when_the_eleven_is_spent() {
+    fn delegated_training_follows_the_assistants_plan_and_orders_recovery_when_the_eleven_is_spent()
+    {
         let mut g = game(Some(80), 6);
         delegate(&mut g, Duty::Training, false);
-        for p in g.players.iter_mut().filter(|p| p.team_id.as_deref() == Some("team1")) { p.condition = 5; }
+        for p in g
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("team1"))
+        {
+            p.condition = 5;
+        }
         g.teams[0].training_focus = TrainingFocus::Attacking;
         g.teams[0].training_intensity = TrainingIntensity::High;
         run_training(&mut g, 1);
@@ -514,7 +754,11 @@ mod tests {
         g.staff.retain(|s| s.post() != StaffPost::Scout);
         g.staff.push(scout);
         g.teams[0].transfer_budget = 10_000_000;
-        for p in g.players.iter_mut().filter(|p| p.team_id.as_deref() == Some("team2")) {
+        for p in g
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("team2"))
+        {
             p.date_of_birth = "2005-01-01".into();
             p.market_value = 1_000_000;
             // The test squad has no forwards: that is the gap the scout is sent to fill.

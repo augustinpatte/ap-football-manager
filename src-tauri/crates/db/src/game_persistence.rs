@@ -11,10 +11,10 @@ use ofm_core::game::{
 
 use crate::game_database::GameDatabase;
 use crate::repositories::{
-    archived_message_repo, competition_repo, custom_tactic_repo, delegation_repo, edition_archive_repo,
-    journal_repo, league_repo, manager_repo, message_repo, meta_repo, national_team_repo,
-    news_repo, objective_repo, player_repo, retired_manager_repo, retired_player_repo,
-    scouting_repo, staff_repo, stats_repo, team_repo,
+    archived_message_repo, competition_repo, custom_tactic_repo, delegation_repo,
+    edition_archive_repo, journal_repo, league_repo, manager_repo, message_repo, meta_repo,
+    national_team_repo, news_repo, objective_repo, player_repo, retired_manager_repo,
+    retired_player_repo, scouting_repo, staff_repo, stats_repo, team_repo,
 };
 
 pub struct GamePersistenceWriter;
@@ -863,20 +863,40 @@ mod tests {
         let db = GameDatabase::open_in_memory().unwrap();
         let mut game = sample_game_with_clock(2032, 18);
         let mut member = Staff::new(
-            "st-1".into(), "Ana".into(), "Head".into(), "1975-05-05".into(), StaffPost::HeadOfYouth.role(),
-            StaffAttributes { coaching: 71, judging_ability: 60, judging_potential: 66, physiotherapy: 10 },
+            "st-1".into(),
+            "Ana".into(),
+            "Head".into(),
+            "1975-05-05".into(),
+            StaffPost::HeadOfYouth.role(),
+            StaffAttributes {
+                coaching: 71,
+                judging_ability: 60,
+                judging_potential: 66,
+                physiotherapy: 10,
+            },
         );
         member.post = Some(StaffPost::HeadOfYouth);
-        member.detail = Some(StaffDetail { technical: 77, motivating: 64, ..StaffDetail::default() });
+        member.detail = Some(StaffDetail {
+            technical: 77,
+            motivating: 64,
+            ..StaffDetail::default()
+        });
         member.contract_end = Some("2034-07-01".into());
         member.wage = 4321;
         game.staff.push(member);
         game.delegation.set(Duty::Scouting, true, false);
         game.delegation.mark_run(Duty::Scouting, "2032-07-18");
         game.delegation.propose(
-            Duty::StaffRecruitment, "2032-07-18",
-            ProposalAction::HireStaff { staff_id: "free".into(), wage: 800, years: 2 },
-            "delegation.proposal.hire", vec![("name".into(), "Z".into())], "delegation.reason.vacancy",
+            Duty::StaffRecruitment,
+            "2032-07-18",
+            ProposalAction::HireStaff {
+                staff_id: "free".into(),
+                wage: 800,
+                years: 2,
+            },
+            "delegation.proposal.hire",
+            vec![("name".into(), "Z".into())],
+            "delegation.reason.vacancy",
         );
 
         GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
@@ -885,7 +905,10 @@ mod tests {
         let back = loaded.staff.iter().find(|s| s.id == "st-1").unwrap();
         assert_eq!(back.post, Some(StaffPost::HeadOfYouth));
         assert_eq!(back.detail, game.staff.last().unwrap().detail);
-        assert_eq!((back.wage, back.contract_end.as_deref()), (4321, Some("2034-07-01")));
+        assert_eq!(
+            (back.wage, back.contract_end.as_deref()),
+            (4321, Some("2034-07-01"))
+        );
         assert_eq!(loaded.delegation, game.delegation);
     }
 

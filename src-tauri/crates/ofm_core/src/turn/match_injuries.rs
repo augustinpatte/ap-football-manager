@@ -33,7 +33,11 @@ pub(super) fn apply_match_injuries(
         };
 
         let mut rng = game.rng_today(&format!("post-match/injury/{fixture_id}/{player_id}"));
-        let Some(index) = game.players.iter().position(|player| player.id == player_id) else {
+        let Some(index) = game
+            .players
+            .iter()
+            .position(|player| player.id == player_id)
+        else {
             continue;
         };
         if game.players[index].injury.is_some() {
