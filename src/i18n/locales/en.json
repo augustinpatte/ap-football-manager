@@ -1064,6 +1064,80 @@
       "Attacking": "Attacking",
       "GoalKeeping": "Goalkeeping",
       "Youth": "Youth Dev"
+    },
+    "mgmt": {
+      "tab": "Management",
+      "budget": "Staff budget",
+      "budgetUsed": "{{bill}} of {{budget}} used",
+      "headroom": "Room left: {{amount}} a week",
+      "vacant": "Vacant"
+    },
+    "posts": {
+      "AssistantManager": "Assistant manager",
+      "FirstTeamCoach": "First-team coach",
+      "FitnessCoach": "Fitness coach",
+      "GoalkeepingCoach": "Goalkeeping coach",
+      "YouthCoach": "Youth coach",
+      "HeadOfYouth": "Head of youth",
+      "Scout": "Scout",
+      "HeadOfScouting": "Chief scout",
+      "Analyst": "Analyst",
+      "Physio": "Physio",
+      "HeadOfMedical": "Head of medical"
+    },
+    "offer": {
+      "titleHire": "Offer a contract to {{name}}",
+      "titleRenew": "Renew {{name}}'s contract",
+      "wage": "Weekly wage",
+      "years": "Years",
+      "signingFee": "Signing fee: {{amount}}",
+      "submit": "Make offer",
+      "refused": "{{name}} turned the offer down: it is far too low.",
+      "counter": "{{name}} would sign for {{wage}}.",
+      "acceptCounter": "Accept {{wage}}"
+    },
+    "release": {
+      "confirmTitle": "Release {{name}}?",
+      "confirmBody": "Severance: {{amount}}. This cannot be undone.",
+      "confirm": "Release"
+    },
+    "contract": {
+      "openEnded": "Open-ended contract",
+      "daysLeft": "{{days}} days left",
+      "asks": "Asks {{wage}}",
+      "renew": "Renew contract"
+    },
+    "delegation": {
+      "title": "Delegation",
+      "intro": "Your assistant can run these duties for you. You keep the final say on the big decisions.",
+      "noAssistant": "Hire an assistant manager to delegate duties.",
+      "duties": {
+        "Training": "Training",
+        "MatchPreparation": "Match preparation",
+        "Scouting": "Scouting",
+        "Youth": "Youth",
+        "StaffRecruitment": "Staff recruitment",
+        "StaffRenewals": "Staff renewals"
+      },
+      "confirmMajor": "Ask me before major decisions",
+      "delegate": "Delegate",
+      "takeBack": "Take back",
+      "proposals": "Proposals",
+      "noProposals": "Nothing waiting for your answer.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "log": "Recent decisions",
+      "noLog": "Nothing decided yet."
+    },
+    "assistant": {
+      "title": "Assistant's advice",
+      "none": "Nothing to report.",
+      "apply": "Apply",
+      "severity": {
+        "1": "Worth a look",
+        "2": "Important",
+        "3": "Urgent"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "The FM24 world could not be built from this file. Check that it is a valid world.db.",
         "checksFailed": "The FM24 data failed its integrity checks, so the world was not installed. The previous world, if any, is unchanged.",
         "writeFailed": "The FM24 world could not be written to the game's data folder. Check the free disk space and permissions."
+      },
+      "staff": {
+        "badContractLength": "Invalid contract length.",
+        "notAtClub": "That staff member does not work at your club.",
+        "notEnoughCash": "The club cannot afford this.",
+        "offerRefused": "The offer was refused.",
+        "overBudget": "This would exceed the staff budget.",
+        "postFull": "That seat is already full."
+      },
+      "assistant": {
+        "recommendationGone": "That advice no longer applies."
+      },
+      "delegation": {
+        "noAssistant": "You need an assistant manager to delegate.",
+        "proposalNotFound": "That proposal no longer exists."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Upstream source code",
     "showLicence": "Show the licence text",
     "hideLicence": "Hide the licence text"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "You have no assistant manager",
+        "reason": "Without one there is no advice and nothing to delegate. Hire one from the free agents."
+      },
+      "vacancy": {
+        "title": "Vacant seat: {{post}}",
+        "reason": "Nobody fills this seat yet, so the club loses what it brings."
+      },
+      "injuredStarter": {
+        "title": "{{player}} is injured",
+        "reason": "Out for {{days}} days. {{replacement}} (condition {{replacementCondition}}) can step in."
+      },
+      "tiredStarter": {
+        "title": "{{player}} is tired",
+        "reason": "Condition {{condition}} with a match in {{days}} days. Rest him.",
+        "reasonWithCover": "Condition {{condition}} with a match in {{days}} days. {{replacement}} (condition {{replacementCondition}}) can start instead."
+      },
+      "lowMorale": {
+        "title": "{{player}} has low morale",
+        "reason": "Morale is {{morale}}. Talk to him or give him a role he values."
+      },
+      "poorForm": {
+        "title": "{{player}} is out of form",
+        "reason": "Average rating {{rating}} against {{squad}} for the squad. {{replacement}} could take his place."
+      },
+      "weakPosition": {
+        "title": "Weak spot: {{position}}",
+        "reasonDepth": "Only {{fit}} fit players for {{needed}} needed. Sign cover.",
+        "reasonLevel": "Best player here rates {{best}} against {{squad}} for the squad. Look for an upgrade."
+      },
+      "busySchedule": {
+        "title": "Busy week ahead",
+        "reason": "{{matches}} matches this week. Lower the training intensity to protect the squad."
+      },
+      "tactics": {
+        "title": "Adjust tactics against {{opponent}}",
+        "reason": "Our rating is {{mine}} against {{theirs}} in {{days}} days. A {{style}} approach suits this match."
+      },
+      "promote": {
+        "title": "Promote {{player}} from the academy",
+        "reason": "Aged {{age}}, rated {{ovr}} against a senior median of {{median}}. He is ready."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "Hire {{name}} ({{post}}) at {{wage}} a week",
+      "upgradeRelease": "Release {{replaces}} (rated {{current}})",
+      "upgradeHire": "Replace with {{name}} (rated {{ovr}})",
+      "renew": "Renew {{name}} at {{wage}} a week for {{years}} years"
+    },
+    "reason": {
+      "vacancy": "A required seat is empty.",
+      "upgrade": "A clearly better candidate is available.",
+      "contractEnding": "The contract is about to end."
+    },
+    "log": {
+      "hired": "Hired {{name}} ({{post}}) at {{wage}} a week",
+      "promoted": "Promoted {{player}} from the academy",
+      "recoveryOrdered": "Switched training to recovery",
+      "renewed": "Renewed {{name}} at {{wage}} a week for {{years}} years",
+      "scoutSent": "Sent a scout to watch {{player}}"
+    }
   }
 }

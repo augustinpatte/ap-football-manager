@@ -1064,6 +1064,80 @@
       "Attacking": "Menyerang",
       "GoalKeeping": "Penjaga Gawang",
       "Youth": "Pembinaan Muda"
+    },
+    "mgmt": {
+      "tab": "Pengelolaan",
+      "budget": "Anggaran staf",
+      "budgetUsed": "terpakai {{bill}} dari {{budget}}",
+      "headroom": "Sisa ruang: {{amount}} per minggu",
+      "vacant": "Kosong"
+    },
+    "posts": {
+      "AssistantManager": "Asisten manajer",
+      "FirstTeamCoach": "Pelatih tim utama",
+      "FitnessCoach": "Pelatih kebugaran",
+      "GoalkeepingCoach": "Pelatih kiper",
+      "YouthCoach": "Pelatih remaja",
+      "HeadOfYouth": "Kepala akademi",
+      "Scout": "Pemandu bakat",
+      "HeadOfScouting": "Kepala pemandu bakat",
+      "Analyst": "Analis",
+      "Physio": "Fisioterapis",
+      "HeadOfMedical": "Kepala tim medis"
+    },
+    "offer": {
+      "titleHire": "Tawarkan kontrak kepada {{name}}",
+      "titleRenew": "Perpanjang kontrak {{name}}",
+      "wage": "Gaji mingguan",
+      "years": "Tahun",
+      "signingFee": "Biaya penandatanganan: {{amount}}",
+      "submit": "Ajukan tawaran",
+      "refused": "{{name}} menolak tawaran: terlalu rendah.",
+      "counter": "{{name}} bersedia menandatangani dengan {{wage}}.",
+      "acceptCounter": "Terima {{wage}}"
+    },
+    "release": {
+      "confirmTitle": "Berhentikan {{name}}?",
+      "confirmBody": "Pesangon: {{amount}}. Tindakan ini tidak dapat dibatalkan.",
+      "confirm": "Berhentikan"
+    },
+    "contract": {
+      "openEnded": "Kontrak tanpa batas waktu",
+      "daysLeft": "sisa {{days}} hari",
+      "asks": "Meminta {{wage}}",
+      "renew": "Perpanjang kontrak"
+    },
+    "delegation": {
+      "title": "Delegasi",
+      "intro": "Asisten dapat menjalankan tugas ini untuk Anda. Keputusan besar tetap di tangan Anda.",
+      "noAssistant": "Rekrut asisten manajer untuk mendelegasikan tugas.",
+      "duties": {
+        "Training": "Latihan",
+        "MatchPreparation": "Persiapan pertandingan",
+        "Scouting": "Pemanduan bakat",
+        "Youth": "Akademi",
+        "StaffRecruitment": "Perekrutan staf",
+        "StaffRenewals": "Perpanjangan staf"
+      },
+      "confirmMajor": "Tanya saya untuk keputusan besar",
+      "delegate": "Delegasikan",
+      "takeBack": "Ambil kembali",
+      "proposals": "Usulan",
+      "noProposals": "Tidak ada yang menunggu jawaban Anda.",
+      "accept": "Terima",
+      "decline": "Tolak",
+      "log": "Keputusan terbaru",
+      "noLog": "Belum ada keputusan."
+    },
+    "assistant": {
+      "title": "Saran asisten",
+      "none": "Tidak ada yang perlu dilaporkan.",
+      "apply": "Terapkan",
+      "severity": {
+        "1": "Perlu dilihat",
+        "2": "Penting",
+        "3": "Mendesak"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "Dunia FM24 tidak dapat dibangun dari file ini. Pastikan itu world.db yang valid.",
         "checksFailed": "Data FM24 gagal dalam pemeriksaan integritas, sehingga dunia tidak dipasang. Dunia sebelumnya, jika ada, tidak berubah.",
         "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses."
+      },
+      "staff": {
+        "badContractLength": "Durasi kontrak tidak valid.",
+        "notAtClub": "Staf itu tidak bekerja di klub Anda.",
+        "notEnoughCash": "Klub tidak mampu membayarnya.",
+        "offerRefused": "Tawaran ditolak.",
+        "overBudget": "Ini akan melebihi anggaran staf.",
+        "postFull": "Posisi itu sudah penuh."
+      },
+      "assistant": {
+        "recommendationGone": "Saran itu tidak berlaku lagi."
+      },
+      "delegation": {
+        "noAssistant": "Anda perlu asisten manajer untuk mendelegasikan.",
+        "proposalNotFound": "Usulan itu sudah tidak ada."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Kode sumber proyek asli",
     "showLicence": "Tampilkan teks lisensi",
     "hideLicence": "Sembunyikan teks lisensi"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "Anda belum punya asisten manajer",
+        "reason": "Tanpa asisten tidak ada saran atau delegasi. Rekrut dari agen bebas."
+      },
+      "vacancy": {
+        "title": "Posisi kosong: {{post}}",
+        "reason": "Posisi ini belum terisi sehingga klub kehilangan manfaatnya."
+      },
+      "injuredStarter": {
+        "title": "{{player}} cedera",
+        "reason": "Absen {{days}} hari. {{replacement}} (kondisi {{replacementCondition}}) bisa menggantikan."
+      },
+      "tiredStarter": {
+        "title": "{{player}} lelah",
+        "reason": "Kondisi {{condition}}, pertandingan {{days}} hari lagi. Istirahatkan dia.",
+        "reasonWithCover": "Kondisi {{condition}}, pertandingan {{days}} hari lagi. {{replacement}} (kondisi {{replacementCondition}}) bisa tampil sebagai gantinya."
+      },
+      "lowMorale": {
+        "title": "Moral {{player}} rendah",
+        "reason": "Moral {{morale}}. Bicaralah dengannya atau beri peran yang ia hargai."
+      },
+      "poorForm": {
+        "title": "{{player}} sedang tidak dalam performa",
+        "reason": "Rating rata-rata {{rating}} dibanding {{squad}} untuk skuad. {{replacement}} bisa mengambil posisinya."
+      },
+      "weakPosition": {
+        "title": "Titik lemah: {{position}}",
+        "reasonDepth": "Hanya {{fit}} pemain fit dari {{needed}} yang dibutuhkan. Cari tambahan.",
+        "reasonLevel": "Pemain terbaik di sini bernilai {{best}} dibanding {{squad}} untuk skuad. Cari peningkatan."
+      },
+      "busySchedule": {
+        "title": "Pekan padat di depan",
+        "reason": "{{matches}} pertandingan pekan ini. Turunkan intensitas latihan untuk melindungi skuad."
+      },
+      "tactics": {
+        "title": "Sesuaikan taktik melawan {{opponent}}",
+        "reason": "Kita {{mine}} melawan {{theirs}} dalam {{days}} hari. Gaya {{style}} cocok untuk laga ini."
+      },
+      "promote": {
+        "title": "Promosikan {{player}} dari akademi",
+        "reason": "Usia {{age}}, level {{ovr}} dibanding median tim utama {{median}}. Ia siap."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "Rekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
+      "upgradeRelease": "Berhentikan {{replaces}} (level {{current}})",
+      "upgradeHire": "Ganti dengan {{name}} (level {{ovr}})",
+      "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun"
+    },
+    "reason": {
+      "vacancy": "Posisi wajib masih kosong.",
+      "upgrade": "Tersedia kandidat yang jelas lebih baik.",
+      "contractEnding": "Kontrak hampir berakhir."
+    },
+    "log": {
+      "hired": "Merekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
+      "promoted": "Mempromosikan {{player}} dari akademi",
+      "recoveryOrdered": "Mengalihkan latihan ke pemulihan",
+      "renewed": "Memperpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
+      "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}"
+    }
   }
 }

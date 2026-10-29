@@ -1064,6 +1064,80 @@
       "Attacking": "Angriff",
       "GoalKeeping": "Torwart",
       "Youth": "Jugend"
+    },
+    "mgmt": {
+      "tab": "Verwaltung",
+      "budget": "Staff-Budget",
+      "budgetUsed": "{{bill}} von {{budget}} belegt",
+      "headroom": "Spielraum: {{amount}} pro Woche",
+      "vacant": "Unbesetzt"
+    },
+    "posts": {
+      "AssistantManager": "Co-Trainer",
+      "FirstTeamCoach": "Cheftrainer-Assistent",
+      "FitnessCoach": "Fitnesstrainer",
+      "GoalkeepingCoach": "Torwarttrainer",
+      "YouthCoach": "Jugendtrainer",
+      "HeadOfYouth": "Leiter Nachwuchs",
+      "Scout": "Scout",
+      "HeadOfScouting": "Chefscout",
+      "Analyst": "Analyst",
+      "Physio": "Physiotherapeut",
+      "HeadOfMedical": "Leiter Medizin"
+    },
+    "offer": {
+      "titleHire": "{{name}} einen Vertrag anbieten",
+      "titleRenew": "Vertrag von {{name}} verlängern",
+      "wage": "Wochengehalt",
+      "years": "Jahre",
+      "signingFee": "Unterschriftsprämie: {{amount}}",
+      "submit": "Angebot abgeben",
+      "refused": "{{name}} lehnt das Angebot ab: Es ist viel zu niedrig.",
+      "counter": "{{name}} würde für {{wage}} unterschreiben.",
+      "acceptCounter": "{{wage}} akzeptieren"
+    },
+    "release": {
+      "confirmTitle": "{{name}} entlassen?",
+      "confirmBody": "Abfindung: {{amount}}. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Entlassen"
+    },
+    "contract": {
+      "openEnded": "Unbefristeter Vertrag",
+      "daysLeft": "noch {{days}} Tage",
+      "asks": "Fordert {{wage}}",
+      "renew": "Vertrag verlängern"
+    },
+    "delegation": {
+      "title": "Delegation",
+      "intro": "Dein Co-Trainer kann diese Aufgaben übernehmen. Die großen Entscheidungen triffst weiter du.",
+      "noAssistant": "Stelle einen Co-Trainer ein, um Aufgaben zu delegieren.",
+      "duties": {
+        "Training": "Training",
+        "MatchPreparation": "Spielvorbereitung",
+        "Scouting": "Spielerbeobachtung",
+        "Youth": "Jugend",
+        "StaffRecruitment": "Staff-Verpflichtungen",
+        "StaffRenewals": "Staff-Verlängerungen"
+      },
+      "confirmMajor": "Bei großen Entscheidungen fragen",
+      "delegate": "Delegieren",
+      "takeBack": "Zurücknehmen",
+      "proposals": "Vorschläge",
+      "noProposals": "Nichts wartet auf deine Antwort.",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "log": "Letzte Entscheidungen",
+      "noLog": "Noch nichts entschieden."
+    },
+    "assistant": {
+      "title": "Rat des Co-Trainers",
+      "none": "Nichts zu melden.",
+      "apply": "Anwenden",
+      "severity": {
+        "1": "Beachtenswert",
+        "2": "Wichtig",
+        "3": "Dringend"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "Die FM24-Welt konnte aus dieser Datei nicht erstellt werden. Prüfe, ob es eine gültige world.db ist.",
         "checksFailed": "Die FM24-Daten haben die Integritätsprüfungen nicht bestanden, daher wurde die Welt nicht installiert. Eine vorhandene frühere Welt bleibt unverändert.",
         "writeFailed": "Die FM24-Welt konnte nicht in den Datenordner des Spiels geschrieben werden. Prüfe Speicherplatz und Berechtigungen."
+      },
+      "staff": {
+        "badContractLength": "Ungültige Vertragslaufzeit.",
+        "notAtClub": "Diese Person arbeitet nicht in deinem Verein.",
+        "notEnoughCash": "Der Verein kann sich das nicht leisten.",
+        "offerRefused": "Das Angebot wurde abgelehnt.",
+        "overBudget": "Das würde das Staff-Budget überschreiten.",
+        "postFull": "Diese Stelle ist bereits besetzt."
+      },
+      "assistant": {
+        "recommendationGone": "Dieser Rat gilt nicht mehr."
+      },
+      "delegation": {
+        "noAssistant": "Zum Delegieren brauchst du einen Co-Trainer.",
+        "proposalNotFound": "Dieser Vorschlag existiert nicht mehr."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Quellcode des Ursprungsprojekts",
     "showLicence": "Lizenztext anzeigen",
     "hideLicence": "Lizenztext ausblenden"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "Du hast keinen Co-Trainer",
+        "reason": "Ohne Co-Trainer gibt es weder Rat noch Delegation. Verpflichte einen vertragslosen."
+      },
+      "vacancy": {
+        "title": "Offene Stelle: {{post}}",
+        "reason": "Niemand besetzt diese Stelle, der Verein verliert ihren Nutzen."
+      },
+      "injuredStarter": {
+        "title": "{{player}} ist verletzt",
+        "reason": "Fällt {{days}} Tage aus. {{replacement}} (Fitness {{replacementCondition}}) kann einspringen."
+      },
+      "tiredStarter": {
+        "title": "{{player}} ist müde",
+        "reason": "Fitness {{condition}}, Spiel in {{days}} Tagen. Er sollte pausieren.",
+        "reasonWithCover": "Fitness {{condition}}, Spiel in {{days}} Tagen. {{replacement}} (Fitness {{replacementCondition}}) kann stattdessen starten."
+      },
+      "lowMorale": {
+        "title": "{{player}} hat schlechte Moral",
+        "reason": "Die Moral liegt bei {{morale}}. Sprich mit ihm oder gib ihm eine Rolle, die er schätzt."
+      },
+      "poorForm": {
+        "title": "{{player}} ist außer Form",
+        "reason": "Durchschnittsnote {{rating}} gegenüber {{squad}} im Kader. {{replacement}} könnte seinen Platz übernehmen."
+      },
+      "weakPosition": {
+        "title": "Schwachstelle: {{position}}",
+        "reasonDepth": "Nur {{fit}} fitte Spieler von {{needed}} benötigten. Hol Verstärkung.",
+        "reasonLevel": "Der Beste hier hat {{best}} gegenüber {{squad}} im Kader. Such eine Verstärkung."
+      },
+      "busySchedule": {
+        "title": "Volle Woche voraus",
+        "reason": "{{matches}} Spiele diese Woche. Senke die Trainingsintensität, um den Kader zu schonen."
+      },
+      "tactics": {
+        "title": "Taktik gegen {{opponent}} anpassen",
+        "reason": "Wir stehen bei {{mine}} gegen {{theirs}} in {{days}} Tagen. Ein {{style}}-Ansatz passt zu diesem Spiel."
+      },
+      "promote": {
+        "title": "{{player}} aus der Jugend befördern",
+        "reason": "{{age}} Jahre, Stärke {{ovr}} bei einem Profi-Median von {{median}}. Er ist bereit."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "{{name}} ({{post}}) für {{wage}} pro Woche verpflichten",
+      "upgradeRelease": "{{replaces}} (Stärke {{current}}) entlassen",
+      "upgradeHire": "Durch {{name}} ersetzen (Stärke {{ovr}})",
+      "renew": "{{name}} für {{wage}} pro Woche um {{years}} Jahre verlängern"
+    },
+    "reason": {
+      "vacancy": "Eine Pflichtstelle ist unbesetzt.",
+      "upgrade": "Ein deutlich besserer Kandidat ist verfügbar.",
+      "contractEnding": "Der Vertrag läuft bald aus."
+    },
+    "log": {
+      "hired": "Hat {{name}} ({{post}}) für {{wage}} pro Woche verpflichtet",
+      "promoted": "Hat {{player}} aus der Jugend befördert",
+      "recoveryOrdered": "Hat das Training auf Erholung umgestellt",
+      "renewed": "Hat {{name}} für {{wage}} pro Woche um {{years}} Jahre verlängert",
+      "scoutSent": "Hat einen Scout zu {{player}} geschickt"
+    }
   }
 }

@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
 import { type GameStateData, type StaffData, useGameStore } from "../../store/gameStore";
-import { getStaff, type StaffSlice } from "../../services/staffService";
-import { Card, CardBody, Badge, CountryFlag, ProgressBar } from "../ui";
+import {
+  getStaff,
+  getStaffOverview,
+  proposeStaffContract,
+  renewStaffContract,
+  searchStaffCandidates,
+  type CandidateView,
+  type StaffOverview,
+  type StaffSlice,
+} from "../../services/staffService";
+import { resolveBackendError } from "../../utils/backendI18n";
+import OfferDialog from "./OfferDialog";
+import StaffManagementPanel from "./StaffManagementPanel";
+import { Button, Card, CardBody, Badge, CountryFlag, Dialog, ProgressBar } from "../ui";
 import {
   UserCog,
   Search,
@@ -12,11 +24,12 @@ import {
   Stethoscope,
   GraduationCap,
   Star,
+  Settings2,
 } from "lucide-react";
-import { getTeamName, calcAge, formatWeeklyWage } from "../../lib/helpers";
+import { getTeamName, calcAge, formatVal, formatWeeklyWage } from "../../lib/helpers";
 import { countryName } from "../../lib/countries";
 import { useTranslation } from "react-i18next";
-import { hireStaff, releaseStaff } from "../../services/staffService";
+import { releaseStaff } from "../../services/staffService";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import type { DashboardNavigateContext } from "../dashboard/dashboardProfileNavigation";
 
@@ -98,10 +111,15 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   const { t, i18n } = useTranslation();
   const { sessionState } = useGameStore();
   const [fetchedStaff, setFetchedStaff] = useState<StaffSlice | null>(null);
-  const [view, setView] = useState<"mystaff" | "available">("mystaff");
+  const [view, setView] = useState<"mystaff" | "available" | "management">("mystaff");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [overview, setOverview] = useState<StaffOverview | null>(null);
+  const [candidates, setCandidates] = useState<Record<string, CandidateView>>({});
+  const [offer, setOffer] = useState<{ staff: StaffData; mode: "hire" | "renew" } | null>(null);
+  const [releasing, setReleasing] = useState<StaffData | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const teamId = sessionState?.manager?.team_id ?? gameState?.manager?.team_id ?? null;
 
@@ -111,6 +129,19 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
       .then(setFetchedStaff)
       .catch(() => {});
   }, [teamId]);
+
+  // The seats, budget, contract terms and delegation, and the asking wages of free agents: all of
+  // it comes from the backend, so it is read again after every change to the game.
+  const refreshManagement = () => {
+    if (!teamId) return;
+    void getStaffOverview()
+      .then(setOverview)
+      .catch(() => {});
+    void searchStaffCandidates(null, 0)
+      .then((found) => setCandidates(Object.fromEntries(found.map((c) => [c.staff.id, c]))))
+      .catch(() => {});
+  };
+  useEffect(refreshManagement, [teamId]);
 
   const openScoutingWorkflowLabel = t("staff.openScoutingWorkflow");
 
@@ -124,6 +155,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
 
   const applyStaffUpdate = (updated: GameStateData) => {
     onGameUpdate?.(updated);
+    refreshManagement();
     setFetchedStaff({
       team_staff: updated.staff.filter((s) => s.team_id === teamId),
       available_staff: updated.staff.filter((s) => !s.team_id),
@@ -132,27 +164,31 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
     });
   };
 
-  const handleHire = async (staffId: string) => {
+  const handleOffer = async (wage: number, years: number) => {
+    if (!offer) throw new Error("be.error.staffMemberNotFound");
+    const outcome = await (offer.mode === "hire" ? proposeStaffContract : renewStaffContract)(
+      offer.staff.id,
+      wage,
+      years,
+    );
+    if (outcome.response.status === "accepted") applyStaffUpdate(outcome.game);
+    return outcome.response;
+  };
+
+  const handleRelease = async (staffId: string) => {
     setActionLoading(staffId);
+    setActionError("");
     try {
-      applyStaffUpdate(await hireStaff(staffId));
+      applyStaffUpdate(await releaseStaff(staffId));
+      setReleasing(null);
     } catch (err) {
-      console.error("Failed to hire staff:", err);
+      setActionError(resolveBackendError(err));
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleRelease = async (staffId: string) => {
-    setActionLoading(staffId);
-    try {
-      applyStaffUpdate(await releaseStaff(staffId));
-    } catch (err) {
-      console.error("Failed to release staff:", err);
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const memberOf = (staffId: string) => overview?.members.find((m) => m.id === staffId);
 
   const displayStaff = view === "mystaff" ? myStaff : availableStaff;
 
@@ -200,6 +236,20 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             <UserPlus className="w-4 h-4" />{" "}
             {t("staff.available", { count: availableStaff.length })}
           </button>
+          <button
+            type="button"
+            onClick={() => setView("management")}
+            className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              view === "management"
+                ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
+                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+            }`}
+          >
+            <Settings2 className="w-4 h-4" /> {t("staff.mgmt.tab")}
+            {overview && overview.delegation.proposals.length > 0
+              ? ` (${overview.delegation.proposals.length})`
+              : ""}
+          </button>
         </div>
 
         <div className="relative flex-1 min-w-[180px] max-w-xs">
@@ -242,8 +292,21 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
         </div>
       </div>
 
-      {/* Staff grid */}
-      {filtered.length === 0 ? (
+      {actionError ? (
+        <p role="alert" className="mb-3 text-body text-danger">
+          {actionError}
+        </p>
+      ) : null}
+
+      {view === "management" ? (
+        <StaffManagementPanel
+          overview={overview}
+          onGameUpdate={(updated) => {
+            onGameUpdate?.(updated);
+            refreshManagement();
+          }}
+        />
+      ) : filtered.length === 0 ? (
         <div className="py-12 text-center">
           <UserCog className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -285,7 +348,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                     {
                       label: t("staff.releaseStaff"),
                       icon: <UserMinus className="w-4 h-4" />,
-                      onClick: () => handleRelease(staff.id),
+                      onClick: () => setReleasing(staff),
                       danger: true,
                       disabled: isLoading,
                     },
@@ -294,7 +357,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                     {
                       label: t("staff.hireStaff"),
                       icon: <UserPlus className="w-4 h-4" />,
-                      onClick: () => handleHire(staff.id),
+                      onClick: () => setOffer({ staff, mode: "hire" }),
                       disabled: isLoading,
                     },
                   ];
@@ -363,6 +426,28 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                           ) : null}
                         </div>
 
+                        {/* Contract terms (own staff) or asking wage (free agents) */}
+                        {view === "mystaff" && memberOf(staff.id) ? (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            {t(`staff.posts.${memberOf(staff.id)?.post}`)} ·{" "}
+                            {memberOf(staff.id)?.days_left == null
+                              ? t("staff.contract.openEnded")
+                              : t("staff.contract.daysLeft", {
+                                  days: Math.max(0, memberOf(staff.id)?.days_left ?? 0),
+                                })}
+                          </p>
+                        ) : null}
+                        {view === "available" && candidates[staff.id] ? (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            {t("staff.contract.asks", {
+                              wage: formatWeeklyWage(candidates[staff.id].asking_wage, "compact"),
+                            })}
+                            {candidates[staff.id].blocker
+                              ? ` — ${resolveBackendError(candidates[staff.id].blocker)}`
+                              : ""}
+                          </p>
+                        ) : null}
+
                         {/* Attributes */}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3">
                           <AttrBar
@@ -401,12 +486,23 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                         ) : null}
                       </div>
 
+                      {view === "mystaff" && memberOf(staff.id) ? (
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => setOffer({ staff, mode: "renew" })}
+                          className="p-2 rounded-lg bg-gray-50 dark:bg-navy-700 text-gray-500 hover:bg-gray-100 transition-colors"
+                          title={t("staff.contract.renew")}
+                        >
+                          <Briefcase className="w-4 h-4" />
+                        </button>
+                      ) : null}
                       {/* Action button */}
                       {view === "mystaff" && (
                         <button
                           type="button"
                           disabled={isLoading}
-                          onClick={() => handleRelease(staff.id)}
+                          onClick={() => setReleasing(staff)}
                           className={`p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
                           title={t("staff.releaseStaff")}
                         >
@@ -417,7 +513,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                         <button
                           type="button"
                           disabled={isLoading}
-                          onClick={() => handleHire(staff.id)}
+                          onClick={() => setOffer({ staff, mode: "hire" })}
                           className={`p-2 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
                           title={t("staff.hireStaff")}
                         >
@@ -438,6 +534,49 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
           })}
         </div>
       )}
+      {offer ? (
+        <OfferDialog
+          mode={offer.mode}
+          name={offer.staff.display_name}
+          askingWage={
+            offer.mode === "hire"
+              ? (candidates[offer.staff.id]?.asking_wage ?? offer.staff.wage)
+              : (memberOf(offer.staff.id)?.renewal_ask ?? offer.staff.wage)
+          }
+          maxYears={overview?.budget.max_years ?? 3}
+          signingFeeWeeks={overview?.budget.signing_fee_weeks ?? 1}
+          onSubmit={handleOffer}
+          onClose={() => setOffer(null)}
+        />
+      ) : null}
+      {releasing ? (
+        <Dialog
+          label={t("staff.release.confirmTitle", { name: releasing.display_name })}
+          onClose={() => setReleasing(null)}
+          className="w-full max-w-md p-5"
+        >
+          <h2 className="font-heading text-heading uppercase">
+            {t("staff.release.confirmTitle", { name: releasing.display_name })}
+          </h2>
+          <p className="mt-3 text-body text-fg-muted">
+            {t("staff.release.confirmBody", {
+              amount: formatVal(memberOf(releasing.id)?.severance ?? 0),
+            })}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setReleasing(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="accent"
+              disabled={actionLoading === releasing.id}
+              onClick={() => void handleRelease(releasing.id)}
+            >
+              {t("staff.release.confirm")}
+            </Button>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

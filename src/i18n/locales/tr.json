@@ -1064,6 +1064,80 @@
       "Attacking": "Hücum",
       "GoalKeeping": "Kalecilik",
       "Youth": "Genç Gelişimi"
+    },
+    "mgmt": {
+      "tab": "Yönetim",
+      "budget": "Kadro bütçesi",
+      "budgetUsed": "{{budget}} bütçenin {{bill}} kadarı kullanıldı",
+      "headroom": "Kalan pay: haftada {{amount}}",
+      "vacant": "Boş"
+    },
+    "posts": {
+      "AssistantManager": "Yardımcı teknik direktör",
+      "FirstTeamCoach": "A takım antrenörü",
+      "FitnessCoach": "Fitness antrenörü",
+      "GoalkeepingCoach": "Kaleci antrenörü",
+      "YouthCoach": "Altyapı antrenörü",
+      "HeadOfYouth": "Altyapı sorumlusu",
+      "Scout": "Gözlemci",
+      "HeadOfScouting": "Başgözlemci",
+      "Analyst": "Analist",
+      "Physio": "Fizyoterapist",
+      "HeadOfMedical": "Sağlık birimi başkanı"
+    },
+    "offer": {
+      "titleHire": "{{name}} için sözleşme teklif et",
+      "titleRenew": "{{name}} sözleşmesini yenile",
+      "wage": "Haftalık maaş",
+      "years": "Yıl",
+      "signingFee": "İmza parası: {{amount}}",
+      "submit": "Teklif yap",
+      "refused": "{{name}} teklifi reddetti: çok düşük.",
+      "counter": "{{name}}, {{wage}} karşılığında imzalar.",
+      "acceptCounter": "{{wage}} kabul et"
+    },
+    "release": {
+      "confirmTitle": "{{name}} görevden alınsın mı?",
+      "confirmBody": "Tazminat: {{amount}}. Geri alınamaz.",
+      "confirm": "Görevden al"
+    },
+    "contract": {
+      "openEnded": "Süresiz sözleşme",
+      "daysLeft": "{{days}} gün kaldı",
+      "asks": "{{wage}} istiyor",
+      "renew": "Sözleşmeyi yenile"
+    },
+    "delegation": {
+      "title": "Yetki devri",
+      "intro": "Yardımcınız bu görevleri sizin yerinize yürütebilir. Büyük kararlar sizde kalır.",
+      "noAssistant": "Görev devretmek için bir yardımcı teknik direktör tutun.",
+      "duties": {
+        "Training": "Antrenman",
+        "MatchPreparation": "Maça hazırlık",
+        "Scouting": "Gözlem",
+        "Youth": "Altyapı",
+        "StaffRecruitment": "Kadro alımı",
+        "StaffRenewals": "Kadro yenilemeleri"
+      },
+      "confirmMajor": "Büyük kararlarda bana sor",
+      "delegate": "Devret",
+      "takeBack": "Geri al",
+      "proposals": "Öneriler",
+      "noProposals": "Yanıt bekleyen bir şey yok.",
+      "accept": "Kabul et",
+      "decline": "Reddet",
+      "log": "Son kararlar",
+      "noLog": "Henüz karar alınmadı."
+    },
+    "assistant": {
+      "title": "Yardımcının tavsiyeleri",
+      "none": "Bildirilecek bir şey yok.",
+      "apply": "Uygula",
+      "severity": {
+        "1": "Göz atın",
+        "2": "Önemli",
+        "3": "Acil"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "FM24 dünyası bu dosyadan oluşturulamadı. Geçerli bir world.db olduğundan emin ol.",
         "checksFailed": "FM24 verileri bütünlük denetimlerinden geçemedi, bu yüzden dünya yüklenmedi. Varsa önceki dünya değişmedi.",
         "writeFailed": "FM24 dünyası oyunun veri klasörüne yazılamadı. Disk alanını ve izinleri kontrol et."
+      },
+      "staff": {
+        "badContractLength": "Geçersiz sözleşme süresi.",
+        "notAtClub": "Bu kişi kulübünüzde çalışmıyor.",
+        "notEnoughCash": "Kulübün bunu karşılayacak parası yok.",
+        "offerRefused": "Teklif reddedildi.",
+        "overBudget": "Bu, kadro bütçesini aşar.",
+        "postFull": "Bu kadro dolu."
+      },
+      "assistant": {
+        "recommendationGone": "Bu tavsiye artık geçerli değil."
+      },
+      "delegation": {
+        "noAssistant": "Görev devretmek için yardımcı teknik direktör gerekir.",
+        "proposalNotFound": "Bu öneri artık yok."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Özgün projenin kaynak kodu",
     "showLicence": "Lisans metnini göster",
     "hideLicence": "Lisans metnini gizle"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "Yardımcı teknik direktörünüz yok",
+        "reason": "Yardımcı olmadan ne tavsiye ne de görev devri olur. Serbest oyunculardan birini tutun."
+      },
+      "vacancy": {
+        "title": "Boş kadro: {{post}}",
+        "reason": "Bu kadroyu kimse doldurmuyor, kulüp katkısını kaybediyor."
+      },
+      "injuredStarter": {
+        "title": "{{player}} sakat",
+        "reason": "{{days}} gün yok. Yerine {{replacement}} (kondisyon {{replacementCondition}}) girebilir."
+      },
+      "tiredStarter": {
+        "title": "{{player}} yorgun",
+        "reason": "Kondisyon {{condition}}, maça {{days}} gün var. Dinlendirin.",
+        "reasonWithCover": "Kondisyon {{condition}}, maça {{days}} gün var. Yerine {{replacement}} (kondisyon {{replacementCondition}}) başlayabilir."
+      },
+      "lowMorale": {
+        "title": "{{player}} moral olarak düşük",
+        "reason": "Moral {{morale}}. Onunla konuşun veya değer verdiği bir rol verin."
+      },
+      "poorForm": {
+        "title": "{{player}} formsuz",
+        "reason": "Ortalama puan {{rating}}, takım ortalaması {{squad}}. Yerine {{replacement}} geçebilir."
+      },
+      "weakPosition": {
+        "title": "Zayıf nokta: {{position}}",
+        "reasonDepth": "{{needed}} gereken yerde yalnızca {{fit}} sağlıklı oyuncu var. Takviye alın.",
+        "reasonLevel": "Buradaki en iyi oyuncu {{best}}, takım ortalaması {{squad}}. Daha iyisini arayın."
+      },
+      "busySchedule": {
+        "title": "Yoğun bir hafta var",
+        "reason": "Bu hafta {{matches}} maç var. Kadroyu korumak için antrenman şiddetini düşürün."
+      },
+      "tactics": {
+        "title": "{{opponent}} karşısında taktiği ayarla",
+        "reason": "Biz {{mine}}, rakip {{theirs}}; maça {{days}} gün var. {{style}} yaklaşımı bu maça uygun."
+      },
+      "promote": {
+        "title": "{{player}} oyuncusunu altyapıdan yükselt",
+        "reason": "{{age}} yaşında, seviye {{ovr}}; A takım medyanı {{median}}. Hazır."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "{{name}} ({{post}}) haftalık {{wage}} ile işe alınsın",
+      "upgradeRelease": "{{replaces}} görevden alınsın (seviye {{current}})",
+      "upgradeHire": "{{name}} ile değiştir (seviye {{ovr}})",
+      "renew": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilensin"
+    },
+    "reason": {
+      "vacancy": "Zorunlu bir kadro boş.",
+      "upgrade": "Belirgin biçimde daha iyi bir aday mevcut.",
+      "contractEnding": "Sözleşme bitmek üzere."
+    },
+    "log": {
+      "hired": "{{name}} ({{post}}) haftalık {{wage}} ile işe alındı",
+      "promoted": "{{player}} altyapıdan yükseltildi",
+      "recoveryOrdered": "Antrenmanı toparlanmaya çevirdi",
+      "renewed": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilendi",
+      "scoutSent": "{{player}} için gözlemci gönderdi"
+    }
   }
 }

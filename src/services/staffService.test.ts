@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import { hireStaff, releaseStaff } from "./staffService";
+import {
+  applyAssistantRecommendation,
+  proposeStaffContract,
+  releaseStaff,
+  setDutyDelegation,
+} from "./staffService";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -14,13 +19,33 @@ describe("staffService", () => {
     mockedInvoke.mockReset();
   });
 
-  it("calls the hire staff backend command", async () => {
-    const response = { manager: { id: "manager-1" } };
-    mockedInvoke.mockResolvedValueOnce(response);
+  it("proposes a contract with the wage and length", async () => {
+    const outcome = { response: { status: "accepted" } };
+    mockedInvoke.mockResolvedValueOnce(outcome);
 
-    await expect(hireStaff("staff-1")).resolves.toBe(response);
-    expect(mockedInvoke).toHaveBeenCalledWith("hire_staff", {
+    await expect(proposeStaffContract("staff-1", 2000, 2)).resolves.toBe(outcome);
+    expect(mockedInvoke).toHaveBeenCalledWith("propose_staff_contract", {
       staffId: "staff-1",
+      wage: 2000,
+      years: 2,
+    });
+  });
+
+  it("sets a delegation with the confirmation flag", async () => {
+    mockedInvoke.mockResolvedValueOnce({});
+    await setDutyDelegation("Training", true, false);
+    expect(mockedInvoke).toHaveBeenCalledWith("set_duty_delegation", {
+      duty: "Training",
+      delegated: true,
+      confirmMajor: false,
+    });
+  });
+
+  it("applies a recommendation by id", async () => {
+    mockedInvoke.mockResolvedValueOnce({});
+    await applyAssistantRecommendation("rec-1");
+    expect(mockedInvoke).toHaveBeenCalledWith("apply_assistant_recommendation", {
+      recommendationId: "rec-1",
     });
   });
 

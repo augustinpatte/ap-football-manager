@@ -7,11 +7,43 @@ import { createSeasonContext } from "../../test-utils/factories";
 
 const invokeMock = vi.fn();
 
+// The read-only management commands have one fixed answer in every test; the rest go to invokeMock.
+const overviewFixture = {
+  team_id: "team-1",
+  posts: [],
+  members: [
+    {
+      id: "staff-1",
+      post: "FirstTeamCoach",
+      overall: 70,
+      days_left: 400,
+      severance: 12345,
+      renewal_ask: 900,
+    },
+  ],
+  budget: {
+    budget: 50000,
+    weekly_bill: 10000,
+    headroom: 40000,
+    signing_fee_weeks: 1,
+    max_years: 3,
+    severance_pct: 50,
+  },
+  delegation: { settings: [], proposals: [], log: [] },
+  has_assistant: false,
+};
+
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invokeMock(...args),
+  invoke: (command: string, ...rest: unknown[]) => {
+    if (command === "get_staff_overview") return Promise.resolve(overviewFixture);
+    if (command === "search_staff_candidates") return Promise.resolve([]);
+    if (command === "get_assistant_recommendations") return Promise.resolve([]);
+    return invokeMock(command, ...rest);
+  },
 }));
 
 vi.mock("react-i18next", () => ({
+  initReactI18next: { type: "3rdParty", init: () => {} },
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>, fallback?: string) => {
       if (key === "finances.perWeekSuffix") return "/wk";
@@ -344,7 +376,7 @@ describe("StaffTab", () => {
     const onGameUpdate = vi.fn();
     invokeMock.mockImplementation(async (command: string) => {
       if (command === "get_staff") return makeStaffSlice([scout]);
-      return updatedState;
+      return { response: { status: "accepted" }, game: updatedState };
     });
 
     render(<StaffTab gameState={createGameState([scout])} onGameUpdate={onGameUpdate} />);
@@ -354,9 +386,14 @@ describe("StaffTab", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Available 1/i }));
     fireEvent.click(screen.getByTitle("Hire staff"));
+    fireEvent.click(await screen.findByRole("button", { name: "staff.offer.submit" }));
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("hire_staff", { staffId: "staff-2" });
+      expect(invokeMock).toHaveBeenCalledWith("propose_staff_contract", {
+        staffId: "staff-2",
+        wage: expect.any(Number),
+        years: 2,
+      });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
   });
@@ -373,7 +410,7 @@ describe("StaffTab", () => {
     const onGameUpdate = vi.fn();
     invokeMock.mockImplementation(async (command: string) => {
       if (command === "get_staff") return makeStaffSlice([scout]);
-      return updatedState;
+      return { response: { status: "accepted" }, game: updatedState };
     });
 
     render(<StaffTab gameState={createGameState([scout])} onGameUpdate={onGameUpdate} />);
@@ -384,9 +421,14 @@ describe("StaffTab", () => {
     fireEvent.click(screen.getByRole("button", { name: /Available 1/i }));
     fireEvent.contextMenu(screen.getByTestId("staff-card-staff-2"));
     fireEvent.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Hire staff" }));
+    fireEvent.click(await screen.findByRole("button", { name: "staff.offer.submit" }));
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("hire_staff", { staffId: "staff-2" });
+      expect(invokeMock).toHaveBeenCalledWith("propose_staff_contract", {
+        staffId: "staff-2",
+        wage: expect.any(Number),
+        years: 2,
+      });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
   });
@@ -409,6 +451,9 @@ describe("StaffTab", () => {
     fireEvent.click(
       within(screen.getByRole("menu")).getByRole("menuitem", { name: "Release staff" }),
     );
+    // Releasing asks first: the dialog shows the severance, nothing is sent until it is confirmed.
+    expect(invokeMock).not.toHaveBeenCalledWith("release_staff", expect.anything());
+    fireEvent.click(await screen.findByRole("button", { name: "staff.release.confirm" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("release_staff", { staffId: "staff-1" });

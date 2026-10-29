@@ -1064,6 +1064,80 @@
       "Attacking": "Útočení",
       "GoalKeeping": "Brankáři",
       "Youth": "Rozvoj mládeže"
+    },
+    "mgmt": {
+      "tab": "Správa",
+      "budget": "Rozpočet realizačního týmu",
+      "budgetUsed": "využito {{bill}} z {{budget}}",
+      "headroom": "Zbývá: {{amount}} týdně",
+      "vacant": "Neobsazeno"
+    },
+    "posts": {
+      "AssistantManager": "Asistent trenéra",
+      "FirstTeamCoach": "Trenér A-týmu",
+      "FitnessCoach": "Kondiční trenér",
+      "GoalkeepingCoach": "Trenér brankářů",
+      "YouthCoach": "Trenér mládeže",
+      "HeadOfYouth": "Vedoucí mládeže",
+      "Scout": "Skaut",
+      "HeadOfScouting": "Hlavní skaut",
+      "Analyst": "Analytik",
+      "Physio": "Fyzioterapeut",
+      "HeadOfMedical": "Vedoucí lékařského týmu"
+    },
+    "offer": {
+      "titleHire": "Nabídnout smlouvu: {{name}}",
+      "titleRenew": "Prodloužit smlouvu: {{name}}",
+      "wage": "Týdenní mzda",
+      "years": "Roky",
+      "signingFee": "Podpisový bonus: {{amount}}",
+      "submit": "Podat nabídku",
+      "refused": "{{name}} nabídku odmítl: je příliš nízká.",
+      "counter": "{{name}} by podepsal za {{wage}}.",
+      "acceptCounter": "Přijmout {{wage}}"
+    },
+    "release": {
+      "confirmTitle": "Propustit: {{name}}?",
+      "confirmBody": "Odstupné: {{amount}}. Nelze vrátit zpět.",
+      "confirm": "Propustit"
+    },
+    "contract": {
+      "openEnded": "Smlouva na dobu neurčitou",
+      "daysLeft": "zbývá dní: {{days}}",
+      "asks": "Žádá {{wage}}",
+      "renew": "Prodloužit smlouvu"
+    },
+    "delegation": {
+      "title": "Delegování",
+      "intro": "Váš asistent může tyto úkoly vykonávat za vás. O důležitých věcech rozhodujete vy.",
+      "noAssistant": "Najměte asistenta trenéra, abyste mohli delegovat.",
+      "duties": {
+        "Training": "Trénink",
+        "MatchPreparation": "Příprava na zápas",
+        "Scouting": "Skauting",
+        "Youth": "Mládež",
+        "StaffRecruitment": "Najímání týmu",
+        "StaffRenewals": "Prodlužování smluv týmu"
+      },
+      "confirmMajor": "Ptát se mě u důležitých rozhodnutí",
+      "delegate": "Delegovat",
+      "takeBack": "Vzít zpět",
+      "proposals": "Návrhy",
+      "noProposals": "Nic nečeká na vaši odpověď.",
+      "accept": "Přijmout",
+      "decline": "Odmítnout",
+      "log": "Poslední rozhodnutí",
+      "noLog": "Zatím nic nerozhodnuto."
+    },
+    "assistant": {
+      "title": "Rady asistenta",
+      "none": "Není co hlásit.",
+      "apply": "Použít",
+      "severity": {
+        "1": "Stojí za pozornost",
+        "2": "Důležité",
+        "3": "Naléhavé"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "Svět FM24 se z tohoto souboru nepodařilo vytvořit. Zkontrolujte, zda jde o platný world.db.",
         "checksFailed": "Data z FM24 neprošla kontrolou integrity, proto se svět nenainstaloval. Případný předchozí svět zůstal beze změny.",
         "writeFailed": "Svět FM24 se nepodařilo zapsat do datové složky hry. Zkontrolujte volné místo na disku a oprávnění."
+      },
+      "staff": {
+        "badContractLength": "Neplatná délka smlouvy.",
+        "notAtClub": "Tento člen týmu ve vašem klubu nepracuje.",
+        "notEnoughCash": "Klub si to nemůže dovolit.",
+        "offerRefused": "Nabídka byla odmítnuta.",
+        "overBudget": "Překročilo by to rozpočet týmu.",
+        "postFull": "Toto místo je již obsazeno."
+      },
+      "assistant": {
+        "recommendationGone": "Tato rada už neplatí."
+      },
+      "delegation": {
+        "noAssistant": "K delegování potřebujete asistenta trenéra.",
+        "proposalNotFound": "Tento návrh už neexistuje."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Zdrojový kód původního projektu",
     "showLicence": "Zobrazit text licence",
     "hideLicence": "Skrýt text licence"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "Nemáte asistenta trenéra",
+        "reason": "Bez něj nejsou rady ani delegování. Najměte volného agenta."
+      },
+      "vacancy": {
+        "title": "Volné místo: {{post}}",
+        "reason": "Toto místo nikdo neobsazuje, klub přichází o jeho přínos."
+      },
+      "injuredStarter": {
+        "title": "{{player}} je zraněný",
+        "reason": "Chybí {{days}} dní. Nahradit ho může {{replacement}} (kondice {{replacementCondition}})."
+      },
+      "tiredStarter": {
+        "title": "{{player}} je unavený",
+        "reason": "Kondice {{condition}}, zápas za {{days}} dní. Nechte ho odpočinout.",
+        "reasonWithCover": "Kondice {{condition}}, zápas za {{days}} dní. Místo něj může nastoupit {{replacement}} (kondice {{replacementCondition}})."
+      },
+      "lowMorale": {
+        "title": "{{player}} má nízkou morálku",
+        "reason": "Morálka je {{morale}}. Promluvte si s ním nebo mu dejte roli, kterou ocení."
+      },
+      "poorForm": {
+        "title": "{{player}} je mimo formu",
+        "reason": "Průměrné hodnocení {{rating}} oproti {{squad}} u kádru. Jeho místo může zaujmout {{replacement}}."
+      },
+      "weakPosition": {
+        "title": "Slabé místo: {{position}}",
+        "reasonDepth": "Jen {{fit}} zdravých hráčů z potřebných {{needed}}. Sežeňte posily.",
+        "reasonLevel": "Nejlepší hráč má {{best}} oproti {{squad}} u kádru. Hledejte vylepšení."
+      },
+      "busySchedule": {
+        "title": "Nabitý týden",
+        "reason": "Tento týden {{matches}} zápasů. Snižte intenzitu tréninku, abyste kádr ochránili."
+      },
+      "tactics": {
+        "title": "Upravit taktiku proti {{opponent}}",
+        "reason": "My {{mine}} proti {{theirs}} za {{days}} dní. Styl {{style}} se na tento zápas hodí."
+      },
+      "promote": {
+        "title": "Povýšit {{player}} z akademie",
+        "reason": "Věk {{age}}, úroveň {{ovr}} při mediánu A-týmu {{median}}. Je připravený."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "Najmout {{name}} ({{post}}) za {{wage}} týdně",
+      "upgradeRelease": "Propustit {{replaces}} (úroveň {{current}})",
+      "upgradeHire": "Nahradit osobou {{name}} (úroveň {{ovr}})",
+      "renew": "Prodloužit {{name}} za {{wage}} týdně na {{years}} let"
+    },
+    "reason": {
+      "vacancy": "Povinné místo je prázdné.",
+      "upgrade": "K dispozici je výrazně lepší kandidát.",
+      "contractEnding": "Smlouva brzy končí."
+    },
+    "log": {
+      "hired": "Najal {{name}} ({{post}}) za {{wage}} týdně",
+      "promoted": "Povýšil {{player}} z akademie",
+      "recoveryOrdered": "Přepnul trénink na regeneraci",
+      "renewed": "Prodloužil {{name}} za {{wage}} týdně na {{years}} let",
+      "scoutSent": "Poslal skauta sledovat {{player}}"
+    }
   }
 }

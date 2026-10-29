@@ -1064,6 +1064,80 @@
       "Attacking": "进攻",
       "GoalKeeping": "门将",
       "Youth": "青训"
+    },
+    "mgmt": {
+      "tab": "管理",
+      "budget": "staff 预算",
+      "budgetUsed": "已用 {{bill}} / {{budget}}",
+      "headroom": "剩余空间：每周 {{amount}}",
+      "vacant": "空缺"
+    },
+    "posts": {
+      "AssistantManager": "助理教练",
+      "FirstTeamCoach": "一线队教练",
+      "FitnessCoach": "体能教练",
+      "GoalkeepingCoach": "守门员教练",
+      "YouthCoach": "青训教练",
+      "HeadOfYouth": "青训主管",
+      "Scout": "球探",
+      "HeadOfScouting": "球探主管",
+      "Analyst": "分析师",
+      "Physio": "理疗师",
+      "HeadOfMedical": "医疗主管"
+    },
+    "offer": {
+      "titleHire": "向 {{name}} 提出合同",
+      "titleRenew": "续约 {{name}}",
+      "wage": "周薪",
+      "years": "年数",
+      "signingFee": "签约费：{{amount}}",
+      "submit": "提交报价",
+      "refused": "{{name}} 拒绝了报价：金额太低。",
+      "counter": "{{name}} 愿意以 {{wage}} 签约。",
+      "acceptCounter": "接受 {{wage}}"
+    },
+    "release": {
+      "confirmTitle": "解雇 {{name}}？",
+      "confirmBody": "解约金：{{amount}}。此操作无法撤销。",
+      "confirm": "解雇"
+    },
+    "contract": {
+      "openEnded": "无限期合同",
+      "daysLeft": "剩余 {{days}} 天",
+      "asks": "要价 {{wage}}",
+      "renew": "续约"
+    },
+    "delegation": {
+      "title": "委派",
+      "intro": "助理教练可以代你处理这些事务，重大决定仍由你定夺。",
+      "noAssistant": "聘请一名助理教练后才能委派事务。",
+      "duties": {
+        "Training": "训练",
+        "MatchPreparation": "赛前准备",
+        "Scouting": "球探",
+        "Youth": "青训",
+        "StaffRecruitment": "员工招募",
+        "StaffRenewals": "员工续约"
+      },
+      "confirmMajor": "重大决定前先征求我",
+      "delegate": "委派",
+      "takeBack": "收回",
+      "proposals": "提案",
+      "noProposals": "没有待你答复的提案。",
+      "accept": "接受",
+      "decline": "拒绝",
+      "log": "近期决定",
+      "noLog": "暂无决定。"
+    },
+    "assistant": {
+      "title": "助理教练的建议",
+      "none": "暂无建议。",
+      "apply": "采纳",
+      "severity": {
+        "1": "值得关注",
+        "2": "重要",
+        "3": "紧急"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "无法用此文件构建 FM24 世界。请确认它是有效的 world.db。",
         "checksFailed": "FM24 数据未通过完整性检查，因此未安装该世界。原有世界（如有）保持不变。",
         "writeFailed": "无法将 FM24 世界写入游戏数据文件夹。请检查磁盘空间和权限。"
+      },
+      "staff": {
+        "badContractLength": "合同期限无效。",
+        "notAtClub": "该员工不在你的俱乐部。",
+        "notEnoughCash": "俱乐部资金不足。",
+        "offerRefused": "报价被拒绝。",
+        "overBudget": "这会超出 staff 预算。",
+        "postFull": "该职位已满员。"
+      },
+      "assistant": {
+        "recommendationGone": "该建议已不再适用。"
+      },
+      "delegation": {
+        "noAssistant": "委派事务需要一名助理教练。",
+        "proposalNotFound": "该提案已不存在。"
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "原项目源代码",
     "showLicence": "显示许可证文本",
     "hideLicence": "隐藏许可证文本"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "你没有助理教练",
+        "reason": "没有助理教练就没有建议，也无法委派。请从自由球员中聘请一位。"
+      },
+      "vacancy": {
+        "title": "职位空缺：{{post}}",
+        "reason": "该职位无人担任，俱乐部因此失去相应助益。"
+      },
+      "injuredStarter": {
+        "title": "{{player}} 受伤",
+        "reason": "缺阵 {{days}} 天。{{replacement}}（状态 {{replacementCondition}}）可以顶替。"
+      },
+      "tiredStarter": {
+        "title": "{{player}} 疲劳",
+        "reason": "状态 {{condition}}，{{days}} 天后有比赛，建议让他休息。",
+        "reasonWithCover": "状态 {{condition}}，{{days}} 天后有比赛。{{replacement}}（状态 {{replacementCondition}}）可以首发。"
+      },
+      "lowMorale": {
+        "title": "{{player}} 士气低落",
+        "reason": "士气为 {{morale}}。与他谈谈，或给他一个他看重的角色。"
+      },
+      "poorForm": {
+        "title": "{{player}} 状态不佳",
+        "reason": "平均评分 {{rating}}，全队为 {{squad}}。{{replacement}} 可以取代他。"
+      },
+      "weakPosition": {
+        "title": "薄弱位置：{{position}}",
+        "reasonDepth": "需要 {{needed}} 名可用球员，仅有 {{fit}} 名。请补充人手。",
+        "reasonLevel": "此位置最佳球员评分 {{best}}，全队为 {{squad}}。可以寻找升级。"
+      },
+      "busySchedule": {
+        "title": "赛程密集的一周",
+        "reason": "本周有 {{matches}} 场比赛。降低训练强度以保护阵容。"
+      },
+      "tactics": {
+        "title": "针对 {{opponent}} 调整战术",
+        "reason": "我方 {{mine}} 对 {{theirs}}，{{days}} 天后开赛。{{style}} 打法适合这场比赛。"
+      },
+      "promote": {
+        "title": "将 {{player}} 从青训提拔",
+        "reason": "{{age}} 岁，能力 {{ovr}}，一线队中位数为 {{median}}。他已准备好。"
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "以每周 {{wage}} 聘请 {{name}}（{{post}}）",
+      "upgradeRelease": "解雇 {{replaces}}（能力 {{current}}）",
+      "upgradeHire": "由 {{name}} 接替（能力 {{ovr}}）",
+      "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年"
+    },
+    "reason": {
+      "vacancy": "必需职位空缺。",
+      "upgrade": "有明显更优的候选人。",
+      "contractEnding": "合同即将到期。"
+    },
+    "log": {
+      "hired": "已以每周 {{wage}} 聘请 {{name}}（{{post}}）",
+      "promoted": "已将 {{player}} 从青训提拔",
+      "recoveryOrdered": "已将训练改为恢复",
+      "renewed": "已以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
+      "scoutSent": "已派球探观察 {{player}}"
+    }
   }
 }

@@ -1083,6 +1083,80 @@
       "Attacking": "Attacco",
       "GoalKeeping": "Portieri",
       "Youth": "Settore giovanile"
+    },
+    "mgmt": {
+      "tab": "Gestione",
+      "budget": "Budget dello staff",
+      "budgetUsed": "{{bill}} su {{budget}} utilizzati",
+      "headroom": "Margine residuo: {{amount}} a settimana",
+      "vacant": "Vacante"
+    },
+    "posts": {
+      "AssistantManager": "Vice allenatore",
+      "FirstTeamCoach": "Allenatore della prima squadra",
+      "FitnessCoach": "Preparatore atletico",
+      "GoalkeepingCoach": "Allenatore dei portieri",
+      "YouthCoach": "Allenatore giovanile",
+      "HeadOfYouth": "Responsabile del settore giovanile",
+      "Scout": "Osservatore",
+      "HeadOfScouting": "Capo degli osservatori",
+      "Analyst": "Analista",
+      "Physio": "Fisioterapista",
+      "HeadOfMedical": "Responsabile sanitario"
+    },
+    "offer": {
+      "titleHire": "Offri un contratto a {{name}}",
+      "titleRenew": "Rinnova il contratto di {{name}}",
+      "wage": "Stipendio settimanale",
+      "years": "Anni",
+      "signingFee": "Premio alla firma: {{amount}}",
+      "submit": "Fai l'offerta",
+      "refused": "{{name}} rifiuta l'offerta: è troppo bassa.",
+      "counter": "{{name}} firmerebbe per {{wage}}.",
+      "acceptCounter": "Accetta {{wage}}"
+    },
+    "release": {
+      "confirmTitle": "Licenziare {{name}}?",
+      "confirmBody": "Indennità: {{amount}}. L'azione è irreversibile.",
+      "confirm": "Licenzia"
+    },
+    "contract": {
+      "openEnded": "Contratto a tempo indeterminato",
+      "daysLeft": "{{days}} giorni rimanenti",
+      "asks": "Chiede {{wage}}",
+      "renew": "Rinnova contratto"
+    },
+    "delegation": {
+      "title": "Delega",
+      "intro": "Il tuo vice può occuparsi di questi compiti. Le decisioni importanti restano tue.",
+      "noAssistant": "Ingaggia un vice allenatore per delegare i compiti.",
+      "duties": {
+        "Training": "Allenamento",
+        "MatchPreparation": "Preparazione della partita",
+        "Scouting": "Osservazione",
+        "Youth": "Giovani",
+        "StaffRecruitment": "Ingaggio dello staff",
+        "StaffRenewals": "Rinnovi dello staff"
+      },
+      "confirmMajor": "Chiedimi per le decisioni importanti",
+      "delegate": "Delega",
+      "takeBack": "Riprendi",
+      "proposals": "Proposte",
+      "noProposals": "Nulla in attesa di risposta.",
+      "accept": "Accetta",
+      "decline": "Rifiuta",
+      "log": "Decisioni recenti",
+      "noLog": "Ancora nessuna decisione."
+    },
+    "assistant": {
+      "title": "Consigli del vice",
+      "none": "Niente da segnalare.",
+      "apply": "Applica",
+      "severity": {
+        "1": "Da valutare",
+        "2": "Importante",
+        "3": "Urgente"
+      }
     }
   },
   "finances": {
@@ -2936,6 +3010,21 @@
         "importFailed": "Impossibile creare il mondo FM24 da questo file. Verifica che sia un world.db valido.",
         "checksFailed": "I dati FM24 non hanno superato i controlli di integrità, quindi il mondo non è stato installato. L'eventuale mondo precedente non è cambiato.",
         "writeFailed": "Impossibile scrivere il mondo FM24 nella cartella dati del gioco. Controlla lo spazio su disco e i permessi."
+      },
+      "staff": {
+        "badContractLength": "Durata del contratto non valida.",
+        "notAtClub": "Questa persona non lavora nel tuo club.",
+        "notEnoughCash": "Il club non può permetterselo.",
+        "offerRefused": "L'offerta è stata rifiutata.",
+        "overBudget": "Supererebbe il budget dello staff.",
+        "postFull": "Quel ruolo è già al completo."
+      },
+      "assistant": {
+        "recommendationGone": "Quel consiglio non è più valido."
+      },
+      "delegation": {
+        "noAssistant": "Serve un vice allenatore per delegare.",
+        "proposalNotFound": "Quella proposta non esiste più."
       }
     },
     "sender": {
@@ -4383,5 +4472,71 @@
     "upstreamSource": "Codice sorgente del progetto originale",
     "showLicence": "Mostra il testo della licenza",
     "hideLicence": "Nascondi il testo della licenza"
+  },
+  "assistant": {
+    "rec": {
+      "noAssistant": {
+        "title": "Non hai un vice allenatore",
+        "reason": "Senza di lui niente consigli né deleghe. Ingaggia uno tra gli svincolati."
+      },
+      "vacancy": {
+        "title": "Ruolo vacante: {{post}}",
+        "reason": "Nessuno copre questo ruolo: il club perde ciò che porta."
+      },
+      "injuredStarter": {
+        "title": "{{player}} è infortunato",
+        "reason": "Fuori per {{days}} giorni. {{replacement}} (condizione {{replacementCondition}}) può sostituirlo."
+      },
+      "tiredStarter": {
+        "title": "{{player}} è stanco",
+        "reason": "Condizione {{condition}} e partita tra {{days}} giorni. Meglio farlo riposare.",
+        "reasonWithCover": "Condizione {{condition}} e partita tra {{days}} giorni. {{replacement}} (condizione {{replacementCondition}}) può giocare al suo posto."
+      },
+      "lowMorale": {
+        "title": "{{player}} ha il morale basso",
+        "reason": "Il morale è {{morale}}. Parlagli o dagli un ruolo che apprezza."
+      },
+      "poorForm": {
+        "title": "{{player}} è fuori forma",
+        "reason": "Voto medio {{rating}} contro {{squad}} della rosa. {{replacement}} potrebbe prendere il suo posto."
+      },
+      "weakPosition": {
+        "title": "Punto debole: {{position}}",
+        "reasonDepth": "Solo {{fit}} giocatori abili su {{needed}} necessari. Prendi rinforzi.",
+        "reasonLevel": "Il migliore qui vale {{best}} contro {{squad}} della rosa. Cerca un upgrade."
+      },
+      "busySchedule": {
+        "title": "Settimana fitta in arrivo",
+        "reason": "{{matches}} partite questa settimana. Riduci l'intensità dell'allenamento per proteggere la rosa."
+      },
+      "tactics": {
+        "title": "Adatta la tattica contro {{opponent}}",
+        "reason": "Siamo a {{mine}} contro {{theirs}} tra {{days}} giorni. Uno stile {{style}} si adatta a questa partita."
+      },
+      "promote": {
+        "title": "Promuovi {{player}} dal settore giovanile",
+        "reason": "{{age}} anni, valore {{ovr}} contro una mediana di {{median}} della prima squadra. È pronto."
+      }
+    }
+  },
+  "delegation": {
+    "proposal": {
+      "hire": "Ingaggiare {{name}} ({{post}}) a {{wage}} a settimana",
+      "upgradeRelease": "Licenziare {{replaces}} (valore {{current}})",
+      "upgradeHire": "Sostituire con {{name}} (valore {{ovr}})",
+      "renew": "Rinnovare {{name}} a {{wage}} a settimana per {{years}} anni"
+    },
+    "reason": {
+      "vacancy": "Un ruolo obbligatorio è vuoto.",
+      "upgrade": "È disponibile un candidato nettamente migliore.",
+      "contractEnding": "Il contratto sta per scadere."
+    },
+    "log": {
+      "hired": "Ha ingaggiato {{name}} ({{post}}) a {{wage}} a settimana",
+      "promoted": "Ha promosso {{player}} dal settore giovanile",
+      "recoveryOrdered": "Ha portato l'allenamento sul recupero",
+      "renewed": "Ha rinnovato {{name}} a {{wage}} a settimana per {{years}} anni",
+      "scoutSent": "Ha mandato un osservatore a vedere {{player}}"
+    }
   }
 }
