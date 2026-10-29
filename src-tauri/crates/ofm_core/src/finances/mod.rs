@@ -346,9 +346,49 @@ pub fn calc_matchday(
     revenue_per_match * home_match_count
 }
 
-pub fn calc_upkeep(_team: &Team) -> i64 {
-    0
+/// Share of a full house's gate (capacity x ticket x home matches) a stadium costs to run: stewards,
+/// pitch, utilities, repairs. Per season; paid weekly.
+const STADIUM_RUNNING_COST_OF_FULL_GATE: f64 = 0.25;
+/// Cost of keeping each level of the training, medical and scouting facilities, as a share of the
+/// club's weekly wage bill (a bigger club has bigger grounds and a bigger staff to staff them).
+const FACILITY_LEVEL_COST_OF_WAGES: f64 = 0.015;
+/// The offices: administration, commercial and ticketing staff not on the football payroll.
+const ADMINISTRATION_COST_OF_WAGES: f64 = 0.06;
+/// The upkeep never takes more than this share of what the club has left each week after its
+/// wages: the recurring income the world was built with is already net of the importer's
+/// "other costs", so a club that earns little beyond its wages is not charged the rest twice.
+const UPKEEP_SHARE_OF_MARGIN: f64 = 0.35;
+/// Weeks of wages a club must hold in cash to pay its full upkeep.
+const RESERVE_WEEKS: i64 = 13;
+
+/// What the club's grounds, facilities and offices cost it a week: the running costs a club has
+/// that are neither wages nor transfers. Every term depends on the club's own size (seats,
+/// facility levels, wage bill), and the total is capped at a share of the margin the club makes
+/// before it, so a club close to the line is not pushed over it by a cost it cannot influence.
+///
+/// `weekly_wages` is players plus staff; `weekly_income` is the recurring income and the gate the
+/// club can count on.
+pub fn calc_upkeep(team: &Team, weekly_wages: i64, weekly_income: i64) -> i64 {
+    let full_gate = calc_matchday(team.stadium_capacity, HOME_MATCHES_PER_SEASON, 1.0, 20.0);
+    let stadium = full_gate as f64 * STADIUM_RUNNING_COST_OF_FULL_GATE / 52.0;
+    let levels = i64::from(team.facilities.training)
+        + i64::from(team.facilities.medical)
+        + i64::from(team.facilities.scouting);
+    let facilities = weekly_wages.max(0) as f64 * FACILITY_LEVEL_COST_OF_WAGES * levels as f64;
+    let offices = weekly_wages.max(0) as f64 * ADMINISTRATION_COST_OF_WAGES;
+    let mut wanted = (stadium + facilities + offices).round() as i64;
+    // A club with little cash defers what it can (repairs, the offices' growth): it pays in
+    // proportion to the reserve it holds, up to a quarter of a year of its wage bill, and nothing
+    // while it is in debt. The clubs that bear the cost are the ones that have the money.
+    let reserve_target = weekly_wages.max(1).saturating_mul(RESERVE_WEEKS);
+    let funded = (team.finance as f64 / reserve_target as f64).clamp(0.0, 1.0);
+    wanted = (wanted as f64 * funded).round() as i64;
+    let margin = (weekly_income - weekly_wages).max(0);
+    wanted.min((margin as f64 * UPKEEP_SHARE_OF_MARGIN) as i64)
 }
+
+/// Home matches in a league season of twenty clubs.
+const HOME_MATCHES_PER_SEASON: i64 = 19;
 
 fn estimated_weekly_matchday_income(game: &Game, team: &Team) -> i64 {
     let recent_home_match_count = count_recent_home_matches(game, &team.id);
@@ -375,7 +415,9 @@ pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSn
         .unwrap_or(0);
     let weekly_matchday_income = estimated_weekly_matchday_income(game, team);
     let weekly_recurring_income = weekly_sponsor_income + weekly_matchday_income;
-    let projected_weekly_net = weekly_recurring_income - weekly_wage_spend;
+    // `calc_wages` already counts players and staff.
+    let weekly_upkeep = calc_upkeep(team, weekly_wage_spend, weekly_recurring_income);
+    let projected_weekly_net = weekly_recurring_income - weekly_wage_spend - weekly_upkeep;
     let cash_runway_weeks = calc_cash_runway_weeks(team.finance, projected_weekly_net);
     let wage_budget_usage_percent = ((annual_wage_bill * 100) / std::cmp::max(1, team.wage_budget))
         .clamp(0, u32::MAX as i64) as u32;
@@ -1223,12 +1265,28 @@ pub fn process_weekly_finances(game: &mut Game) {
         .unwrap_or_default();
 
     let post_date = game.clock.current_date.date_naive();
+    let home_matches: std::collections::HashMap<String, i64> = recent_home_matches_by_club(game)
+        .into_iter()
+        .map(|(club, matches)| (club.to_string(), matches))
+        .collect();
     let mut weekly_by_club: Vec<(String, Vec<PostRequest>)> = Vec::new();
     for team in &game.teams {
         let mut reqs = Vec::new();
         let player_wages = player_wages_by_team.get(&team.id).copied().unwrap_or(0);
         let staff_wages = staff_wages_by_team.get(&team.id).copied().unwrap_or(0);
-        let upkeep = calc_upkeep(team);
+        let upkeep = calc_upkeep(
+            team,
+            player_wages + staff_wages,
+            team.sponsorship
+                .as_ref()
+                .map_or(0, |sponsorship| sponsorship.base_value)
+                + calc_matchday(
+                    team.stadium_capacity,
+                    home_matches.get(team.id.as_str()).copied().unwrap_or(0),
+                    0.76,
+                    20.0,
+                ),
+        );
         if player_wages != 0 {
             reqs.push(PostRequest::new(
                 &team.id,
@@ -1296,7 +1354,6 @@ pub fn process_weekly_finances(game: &mut Game) {
         }
     }
 
-    let home_matches = recent_home_matches_by_club(game);
     let gate_clubs: Vec<(String, u32, i64)> = game
         .teams
         .iter()
@@ -1483,7 +1540,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::preview_sponsor_pitch;
+    use super::{calc_upkeep, preview_sponsor_pitch};
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
@@ -1506,6 +1563,32 @@ mod tests {
         team.wage_budget = 400_000;
         team.transfer_budget = 500_000;
         team
+    }
+
+    #[test]
+    fn upkeep_scales_with_the_club_and_never_takes_more_than_a_third_of_a_thin_margin() {
+        let mut team = make_team("tst", "Test FC");
+        team.stadium_capacity = 40_000;
+        team.finance = 500_000_000;
+        let rich = calc_upkeep(&team, 1_000_000, 3_000_000);
+        assert!(rich > 0);
+        // Bigger wage bill and ground: bigger upkeep.
+        let mut bigger = team.clone();
+        bigger.stadium_capacity = 60_000;
+        assert!(calc_upkeep(&bigger, 2_000_000, 6_000_000) > rich);
+        // A club whose income barely covers its wages pays at most a third of what is left.
+        assert!(calc_upkeep(&team, 1_000_000, 1_100_000) <= 35_000);
+        // A club that already loses money on its wages is charged nothing.
+        assert_eq!(calc_upkeep(&team, 1_000_000, 900_000), 0);
+        assert_eq!(calc_upkeep(&team, 0, 0), 0);
+        // A club in debt defers it, one with a thin reserve pays part of it.
+        team.finance = -1;
+        assert_eq!(calc_upkeep(&team, 1_000_000, 3_000_000), 0);
+        team.finance = 6_500_000;
+        let part = calc_upkeep(&team, 1_000_000, 3_000_000);
+        team.finance = 500_000_000;
+        let full = calc_upkeep(&team, 1_000_000, 3_000_000);
+        assert!(0 < part && part < full);
     }
 
     fn make_game() -> Game {

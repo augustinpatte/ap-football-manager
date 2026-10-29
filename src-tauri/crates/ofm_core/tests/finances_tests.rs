@@ -146,7 +146,11 @@ fn team_finance_snapshot_uses_canonical_backend_values() {
     assert_eq!(snapshot.weekly_wage_budget, 2_000_000);
     assert_eq!(snapshot.weekly_sponsor_income, 2_000);
     assert_eq!(snapshot.weekly_recurring_income, 2_000);
-    assert_eq!(snapshot.projected_weekly_net, 300);
+    // The ground, facilities and offices cost something, never more than a third of the 300 left
+    // after wages, and the snapshot shows it.
+    let upkeep = finances::calc_upkeep(&game.teams[0], 1_700, 2_000);
+    assert!(upkeep > 0 && upkeep <= 105, "{upkeep}");
+    assert_eq!(snapshot.projected_weekly_net, 300 - upkeep);
     assert_eq!(snapshot.cash_runway_weeks, None);
     assert_eq!(snapshot.wage_budget_usage_percent, 0);
     assert!(!snapshot.currently_in_debt);
@@ -559,12 +563,13 @@ fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
 }
 
 #[test]
-fn calc_upkeep_defaults_to_zero_for_now() {
+fn calc_upkeep_is_zero_without_wages_or_a_margin_to_charge_it_to() {
     let game = make_monday_game();
 
-    let upkeep = finances::calc_upkeep(&game.teams[0]);
-
-    assert_eq!(upkeep, 0);
+    // No wages and no income: nothing to size the offices on, nothing to take it from.
+    assert_eq!(finances::calc_upkeep(&game.teams[0], 0, 0), 0);
+    // A club whose wages exceed its income pays no upkeep: it is never pushed further under.
+    assert_eq!(finances::calc_upkeep(&game.teams[0], 1_000_000, 900_000), 0);
 }
 
 #[test]
@@ -613,9 +618,17 @@ fn weekly_sponsorship_payout_is_applied_and_duration_decrements_on_monday() {
 
     let wages = 1_700;
     let expected_sponsor_income = 125_000;
+    // What the club's running costs took, as the journal recorded it: a share of what was left.
+    let upkeep: i64 = game
+        .cash_journal
+        .iter()
+        .filter(|post| post.club_id == "team1" && post.kind == domain::finance::CashKind::Upkeep)
+        .map(|post| -post.amount)
+        .sum();
+    assert!(upkeep > 0 && upkeep <= (expected_sponsor_income - wages) * 35 / 100);
     assert_eq!(
         game.teams[0].finance,
-        initial_finance - wages + expected_sponsor_income
+        initial_finance - wages + expected_sponsor_income - upkeep
     );
     assert_eq!(game.teams[0].season_income, expected_sponsor_income);
     assert_eq!(
