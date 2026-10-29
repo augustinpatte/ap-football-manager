@@ -7,6 +7,7 @@
 use crate::game::Game;
 use crate::messages;
 use crate::player_wear::roll_injury;
+use crate::staff_system::profile::StaffProfile;
 
 /// Turns the engine's injury events into player injuries.
 ///
@@ -32,18 +33,29 @@ pub(super) fn apply_match_injuries(
         };
 
         let mut rng = game.rng_today(&format!("post-match/injury/{fixture_id}/{player_id}"));
-        let Some(player) = game
-            .players
-            .iter_mut()
-            .find(|player| player.id == player_id)
-        else {
+        let Some(index) = game.players.iter().position(|player| player.id == player_id) else {
             continue;
         };
-        if player.injury.is_some() {
+        if game.players[index].injury.is_some() {
             continue;
         }
 
-        let injury = roll_injury(&mut rng);
+        let mut injury = roll_injury(&mut rng);
+        // The club's medical department: it catches some knocks before they become injuries
+        // and shortens the ones that do happen. Its own dice, so the injury roll is unchanged.
+        if let Some(team_id) = game.players[index].team_id.clone() {
+            let profile = StaffProfile::of(game, &team_id);
+            let mut caught =
+                game.rng_today(&format!("post-match/injury-staff/{fixture_id}/{player_id}"));
+            if rand::RngExt::random_bool(&mut caught, profile.injury_prevention()) {
+                continue;
+            }
+            injury.days_remaining = ((f64::from(injury.days_remaining)
+                * profile.injury_duration_mult())
+            .round() as u32)
+                .max(1);
+        }
+        let player = &mut game.players[index];
         if user_team_id.is_some() && player.team_id == user_team_id {
             physio_reports.push((player.id.clone(), player.match_name.clone(), injury.clone()));
         }

@@ -154,6 +154,8 @@ fn simulate_competition_day_with_capture<F>(
 fn run_training_ground(game: &mut Game) {
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
     crate::ai_training::apply_ai_training_policies(game, weekday_num);
+    // The manager's club, if the training is delegated: the assistant's plan for the day.
+    crate::staff_system::delegation::run_training(game, weekday_num);
     training::process_training(game, weekday_num);
     training::check_squad_fitness_warnings(game);
     // Not a session, and deliberately not skipped for the clubs playing today:
@@ -177,6 +179,9 @@ fn process_day_common(game: &mut Game, today: &str) {
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
     crate::ai_contracts::apply_ai_contract_decisions(game, weekday_num);
     crate::contracts::process_contract_expiries(game);
+    // Staff contracts run out like players'; AI clubs fill, renew and trim their staff.
+    crate::staff_system::ai::process_user_staff_expiry(game);
+    crate::staff_system::ai::apply_ai_staff_management(game, weekday_num);
 
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);
@@ -210,6 +215,8 @@ fn process_day_common(game: &mut Game, today: &str) {
     crate::ai_manager_appointments::appoint_permanent_managers(game);
     crate::job_offers::check_job_offers(game);
     crate::inbox_archive::archive_on_the_first_of_the_month(game);
+    // Last, so the assistant works from the day's results: delegated duties that are due.
+    crate::staff_system::delegation::run_after_day(game);
 }
 
 /// Marks the start of a day, before any match of it is played: notes which knockout fixtures the

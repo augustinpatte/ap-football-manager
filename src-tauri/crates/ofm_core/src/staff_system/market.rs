@@ -54,19 +54,32 @@ impl PostStatus {
 
 /// How full each post of `team_id` is.
 pub fn structure(game: &Game, team_id: &str) -> Vec<PostStatus> {
+    structure_of(&super::profile::team_staff(game, team_id))
+}
+
+/// How full each post is, given a club's staff.
+pub fn structure_of(members: &[&Staff]) -> Vec<PostStatus> {
     StaffPost::ALL
         .iter()
         .map(|post| PostStatus {
             post: *post,
-            count: game
-                .staff
-                .iter()
-                .filter(|s| s.team_id.as_deref() == Some(team_id) && s.post() == *post)
-                .count(),
+            count: members.iter().filter(|s| s.post() == *post).count(),
             limit: post.limit(),
             required: post.required(),
         })
         .collect()
+}
+
+/// A member whose contract has run out leaves the club for the market; nothing is owed.
+pub fn release_expired(game: &mut Game, staff_id: &str) -> Result<(), String> {
+    let member = game
+        .staff
+        .iter_mut()
+        .find(|s| s.id == staff_id)
+        .ok_or(ERR_NOT_FOUND)?;
+    member.team_id = None;
+    member.contract_end = None;
+    Ok(())
 }
 
 /// What the club's staff costs per week.

@@ -226,66 +226,75 @@ pub fn apply_ai_training_policies(game: &mut Game, weekday_num: u32) {
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
 
     for team_id in team_ids {
-        // Snapshot reads immutably and returns owned data — no borrow retained.
         let club = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
-        let snap = snapshot_team(&game.teams, club, &team_id, weekday_num);
-
-        // Rest day: no-op.
-        if !snap.is_training_day {
-            continue;
-        }
-
-        // Recovery crisis: full recovery day, cycle does NOT advance.
-        if snap.starters_condition < RECOVERY_CRISIS_THRESHOLD {
+        if let Some((focus, intensity)) = plan_for_team(&game.teams, club, &team_id, weekday_num) {
             if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
-                team.training_focus = TrainingFocus::Recovery;
-                team.training_intensity = TrainingIntensity::Low;
+                team.training_focus = focus;
+                team.training_intensity = intensity;
             }
-            continue;
-        }
-
-        // Base intensity from condition band.
-        let base_intensity = if snap.starters_condition < LOW_INTENSITY_MAX {
-            TrainingIntensity::Low
-        } else if snap.starters_condition <= HIGH_INTENSITY_MIN {
-            TrainingIntensity::Medium
-        } else {
-            TrainingIntensity::High
-        };
-
-        // The near-match / congestion taper used to live here. It now lives in
-        // `training::tapering_teams`, which applies it to every club — the human's
-        // included — because reducing load before a game is a property of
-        // training, not a manager's insight. What stays here is what a manager
-        // genuinely decides: how hard to work when there is room to, and on what.
-        let intensity = base_intensity;
-
-        // Style-biased weekly cycle; slot is based on weekday mod 5.
-        let cycle = style_weekly_cycle(&snap.play_style);
-        let slot = (weekday_num as usize) % 5;
-        let rotation_focus = cycle[slot].clone();
-
-        // Focus override based on effective intensity.
-        let focus = match &intensity {
-            // Low intensity band (a tired squad) → recovery-first.
-            TrainingIntensity::Low => TrainingFocus::Recovery,
-            // Healthy band → follow style-biased rotation.
-            _ => rotation_focus,
-        };
-
-        // V1 safety rule: Physical + High is the most punishing combination.
-        let intensity = if focus == TrainingFocus::Physical && intensity == TrainingIntensity::High
-        {
-            TrainingIntensity::Medium
-        } else {
-            intensity
-        };
-
-        if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
-            team.training_focus = focus;
-            team.training_intensity = intensity;
         }
     }
+}
+
+/// The session the planner would run for `team_id` today, or `None` on a rest day. The AI clubs
+/// use it every day, and the assistant uses the same plan for the manager's club when the
+/// training is delegated.
+pub(crate) fn plan_for_team(
+    teams: &[Team],
+    club: &[&Player],
+    team_id: &str,
+    weekday_num: u32,
+) -> Option<(TrainingFocus, TrainingIntensity)> {
+    // Snapshot reads immutably and returns owned data — no borrow retained.
+    let snap = snapshot_team(teams, club, team_id, weekday_num);
+
+    // Rest day: no-op.
+    if !snap.is_training_day {
+        return None;
+    }
+
+    // Recovery crisis: full recovery day, cycle does NOT advance.
+    if snap.starters_condition < RECOVERY_CRISIS_THRESHOLD {
+        return Some((TrainingFocus::Recovery, TrainingIntensity::Low));
+    }
+
+    // Base intensity from condition band.
+    let base_intensity = if snap.starters_condition < LOW_INTENSITY_MAX {
+        TrainingIntensity::Low
+    } else if snap.starters_condition <= HIGH_INTENSITY_MIN {
+        TrainingIntensity::Medium
+    } else {
+        TrainingIntensity::High
+    };
+
+    // The near-match / congestion taper used to live here. It now lives in
+    // `training::tapering_teams`, which applies it to every club — the human's
+    // included — because reducing load before a game is a property of
+    // training, not a manager's insight. What stays here is what a manager
+    // genuinely decides: how hard to work when there is room to, and on what.
+    let intensity = base_intensity;
+
+    // Style-biased weekly cycle; slot is based on weekday mod 5.
+    let cycle = style_weekly_cycle(&snap.play_style);
+    let slot = (weekday_num as usize) % 5;
+    let rotation_focus = cycle[slot].clone();
+
+    // Focus override based on effective intensity.
+    let focus = match &intensity {
+        // Low intensity band (a tired squad) → recovery-first.
+        TrainingIntensity::Low => TrainingFocus::Recovery,
+        // Healthy band → follow style-biased rotation.
+        _ => rotation_focus,
+    };
+
+    // V1 safety rule: Physical + High is the most punishing combination.
+    let intensity = if focus == TrainingFocus::Physical && intensity == TrainingIntensity::High {
+        TrainingIntensity::Medium
+    } else {
+        intensity
+    };
+
+    Some((focus, intensity))
 }
 
 // ---------------------------------------------------------------------------

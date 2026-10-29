@@ -7,7 +7,7 @@ pub use fitness_warnings::{
 use crate::game::Game;
 use crate::player_rating::refresh_player_derived;
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::staff::{CoachingSpecialization, StaffRole};
+use domain::staff::CoachingSpecialization;
 use domain::team::{TrainingFocus, TrainingIntensity, TrainingSchedule};
 use rand::Rng;
 
@@ -19,32 +19,45 @@ pub struct TeamCoachingBonus {
     pub coaching_mult: f64, // Overall coaching quality multiplier (1.0 = no staff)
     pub specialization_mult: f64, // Extra bonus if a coach specializes in the current focus
     pub physio_mult: f64,   // Recovery bonus from physio staff
+    /// Progression multiplier for players of 21 and under (youth coaches, head of youth).
+    pub youth_mult: f64,
+    /// Progression multiplier for goalkeepers (goalkeeping coaches).
+    pub gk_mult: f64,
 }
 
 /// Compute coaching bonuses from a team's staff.
-fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> TeamCoachingBonus {
-    let team_staff: Vec<_> = game
-        .staff
-        .iter()
-        .filter(|s| s.team_id.as_deref() == Some(team_id))
-        .collect();
+///
+/// Who counts is decided by the seat they fill, not only their role: the first team is taught
+/// by the assistant and the first-team coaches (and the fitness coaches in a physical or
+/// recovery session); youth and goalkeeping coaches have their own effects, and each coach is
+/// rated on the attribute of the session being run.
+fn compute_coaching_bonus(
+    team_staff: &[&domain::staff::Staff],
+    focus: &TrainingFocus,
+) -> TeamCoachingBonus {
+    use crate::staff_system::profile::{StaffProfile, focus_rating};
+    use domain::staff::StaffPost;
 
-    // Average coaching rating of coaches + assistant managers
+    let fitness_session = matches!(focus, TrainingFocus::Physical | TrainingFocus::Recovery);
     let coaching_staff: Vec<_> = team_staff
         .iter()
-        .filter(|s| matches!(s.role, StaffRole::Coach | StaffRole::AssistantManager))
+        .filter(|s| match s.post() {
+            StaffPost::AssistantManager | StaffPost::FirstTeamCoach => true,
+            StaffPost::FitnessCoach => fitness_session,
+            _ => false,
+        })
         .collect();
 
     let coaching_mult = if coaching_staff.is_empty() {
         0.8 // Penalty for having no coaching staff
     } else {
-        let avg_coaching: f64 = coaching_staff
+        let avg_rating: f64 = coaching_staff
             .iter()
-            .map(|s| s.attributes.coaching as f64)
+            .map(|s| focus_rating(s, focus))
             .sum::<f64>()
             / coaching_staff.len() as f64;
-        // Range: 0.85 (coaching=0) to 1.35 (coaching=100)
-        0.85 + (avg_coaching / 100.0) * 0.5
+        // Range: 0.85 (rating=0) to 1.35 (rating=100)
+        0.85 + (avg_rating / 100.0) * 0.5
     };
 
     // Check if any coach specializes in the current training focus
@@ -66,28 +79,37 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
         1.0
     };
 
-    // Physio bonus for recovery
-    let physio_staff: Vec<_> = team_staff
-        .iter()
-        .filter(|s| matches!(s.role, StaffRole::Physio))
-        .collect();
+    let profile = StaffProfile::from_staff(team_staff);
+    let has_post = |post: StaffPost| team_staff.iter().any(|s| s.post() == post);
 
-    let physio_mult = if physio_staff.is_empty() {
-        1.0
+    // Recovery: the medical department, then a little more from the fitness coaches.
+    let has_medical = has_post(StaffPost::Physio) || has_post(StaffPost::HeadOfMedical);
+    let medical_mult = if has_medical {
+        // Range: 1.0 (rating=0) to 1.4 (rating=100)
+        1.0 + (profile.medical / 100.0) * 0.4
     } else {
-        let avg_physio: f64 = physio_staff
-            .iter()
-            .map(|s| s.attributes.physiotherapy as f64)
-            .sum::<f64>()
-            / physio_staff.len() as f64;
-        // Range: 1.0 (physio=0) to 1.4 (physio=100)
-        1.0 + (avg_physio / 100.0) * 0.4
+        1.0
+    };
+    let fitness_mult = if has_post(StaffPost::FitnessCoach) {
+        profile.fitness_recovery_bonus()
+    } else {
+        1.0
     };
 
     TeamCoachingBonus {
         coaching_mult,
         specialization_mult,
-        physio_mult,
+        physio_mult: medical_mult * fitness_mult,
+        youth_mult: if has_post(StaffPost::YouthCoach) || has_post(StaffPost::HeadOfYouth) {
+            profile.youth_progression_mult()
+        } else {
+            1.0
+        },
+        gk_mult: if has_post(StaffPost::GoalkeepingCoach) {
+            profile.goalkeeper_progression_mult()
+        } else {
+            1.0
+        },
     }
 }
 
@@ -254,12 +276,21 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
         game,
         &game.clock.current_date.format("%Y-%m-%d").to_string(),
     );
+    let mut staff_by_team: std::collections::HashMap<&str, Vec<&domain::staff::Staff>> =
+        std::collections::HashMap::new();
+    for member in &game.staff {
+        if let Some(team_id) = member.team_id.as_deref() {
+            staff_by_team.entry(team_id).or_default().push(member);
+        }
+    }
     let plans: std::collections::HashMap<String, TeamTrainingPlan> = game
         .teams
         .iter()
         .filter(|t| !playing_today.contains(&t.id))
         .map(|t| {
-            let bonus = compute_coaching_bonus(game, &t.id, &t.training_focus);
+            let no_staff = Vec::new();
+            let club_staff = staff_by_team.get(t.id.as_str()).unwrap_or(&no_staff);
+            let bonus = compute_coaching_bonus(club_staff, &t.training_focus);
             let medical_facility_mult =
                 1.0 + f64::from(t.facilities.medical.saturating_sub(1)) * 0.1;
             let mut group_overrides = std::collections::HashMap::new();
@@ -448,6 +479,11 @@ fn train_player(
         * plan.bonus.specialization_mult;
 
     let is_goalkeeper = player.natural_position.to_group_position() == Position::Goalkeeper;
+    // The staff that teaches this player in particular: youth coaches for the young, the
+    // goalkeeping coach for keepers.
+    let gain = gain
+        * if age <= 21 { plan.bonus.youth_mult } else { 1.0 }
+        * if is_goalkeeper { plan.bonus.gk_mult } else { 1.0 };
     apply_focus_gains(
         &mut player.attributes,
         &session.focus,
@@ -669,6 +705,8 @@ mod tests {
                 coaching_mult: 1.0,
                 specialization_mult: 1.0,
                 physio_mult: 1.0,
+                youth_mult: 1.0,
+                gk_mult: 1.0,
             },
             medical_facility_mult: 1.0,
             group_overrides: std::collections::HashMap::new(),

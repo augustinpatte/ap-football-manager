@@ -146,17 +146,33 @@ impl StaffProfile {
     pub fn fitness_recovery_bonus(&self) -> f64 {
         1.0 + 0.08 * self.fitness / 100.0
     }
+}
 
-    /// Scouting speed bonus from the scouting department as a whole (up to +10 %).
-    pub fn scouting_speed_mult(&self) -> f64 {
-        1.0 + 0.10 * self.scouting / 100.0
-    }
-
-    /// Points added to a scout's judging by the club's analysts (0-8): the club hands its
-    /// scouts the data.
-    pub fn analyst_judging_bonus(&self, has_analyst: bool) -> f64 {
-        if has_analyst { 8.0 * self.analysis / 100.0 } else { 0.0 }
-    }
+/// A scout's judging as the club's scouting department lets them use it: their own attributes
+/// plus up to 8 points from the club's analysts (who hand the scouts the data) and up to 4 from
+/// the head of scouting. Reports are as accurate as this, not as the bare attributes.
+pub fn effective_judging(game: &Game, scout: &Staff) -> (u8, u8) {
+    let Some(team_id) = scout.team_id.as_deref() else {
+        return (scout.attributes.judging_ability, scout.attributes.judging_potential);
+    };
+    let staff = team_staff(game, team_id);
+    let analysts: Vec<f64> = staff
+        .iter()
+        .filter(|s| s.post() == StaffPost::Analyst)
+        .map(|s| f64::from(s.overall()))
+        .collect();
+    let analyst_bonus = if analysts.is_empty() {
+        0.0
+    } else {
+        8.0 * analysts.iter().sum::<f64>() / analysts.len() as f64 / 100.0
+    };
+    let head_bonus = staff
+        .iter()
+        .filter(|s| s.post() == StaffPost::HeadOfScouting && s.id != scout.id)
+        .map(|s| 4.0 * f64::from(s.overall()) / 100.0)
+        .fold(0.0, f64::max);
+    let lift = |base: u8| (f64::from(base) + analyst_bonus + head_bonus).round().min(100.0) as u8;
+    (lift(scout.attributes.judging_ability), lift(scout.attributes.judging_potential))
 }
 
 /// `1.0` at a rating of 50, `1 ± swing` at 100 and 0.

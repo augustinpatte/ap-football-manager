@@ -122,6 +122,9 @@ pub fn take_youth_intake(game: &mut Game, team_id: &str, date: NaiveDate, season
 
 /// What a recruit is offered when the board will not pay what he asks: the least
 /// any player in the game is paid a week.
+/// Most points of potential the academy's staff add to or take from an intake's promise.
+pub const YOUTH_POTENTIAL_SWING: u8 = 3;
+
 const YOUTH_MINIMUM_WAGE: u32 = crate::contracts::MINIMUM_DEFAULT_WAGE as u32;
 
 /// The most a recruit may ask a week at this club: a quarter above what the club's academy
@@ -210,17 +213,25 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
         &date.format("%Y-%m-%d").to_string(),
     );
     let team = &game.teams[team_index];
+    // The academy's staff decide how much of a youngster's promise is found and kept: up to
+    // `YOUTH_POTENTIAL_SWING` points of potential either way, around the generator's own
+    // calibration. A club with no youth staff loses a couple of points, never gains any.
+    let youth_rating = crate::staff_system::profile::StaffProfile::of(game, &team.id).youth;
+    let potential_shift =
+        ((youth_rating - 50.0) / 50.0 * f64::from(YOUTH_POTENTIAL_SWING)).round() as i32;
     plan.groups
         .iter()
         .filter_map(|group| {
             let age = rng.random_range(INTAKE_AGES);
-            let recruit = crate::generator::generate_youth_intake_recruit(
+            let mut recruit = crate::generator::generate_youth_intake_recruit(
                 team,
                 group,
                 age,
                 date.year() as u32,
                 &mut rng,
             );
+            recruit.potential = (i32::from(recruit.potential) + potential_shift)
+                .clamp(i32::from(recruit.ovr), 99) as u8;
             let own_terms = recruit
                 .contract_end()
                 .and_then(crate::contracts::parse_contract_date)

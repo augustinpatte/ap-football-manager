@@ -72,7 +72,7 @@ fn resolve_user_scout<'a>(
         .iter()
         .find(|staff_member| staff_member.id == scout_id)
         .ok_or(ERR_SCOUT_NOT_FOUND)?;
-    if scout.role != StaffRole::Scout {
+    if scout.role != StaffRole::Scout || scout.post() == domain::staff::StaffPost::Analyst {
         return Err(ERR_STAFF_MEMBER_NOT_SCOUT.to_string());
     }
     if scout.team_id.as_ref() != Some(user_team_id) {
@@ -164,7 +164,9 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     }
 
     // Create assignment (2-5 days depending on scout quality)
-    let days = assignment_days_for_player_scouting(scout.attributes.judging_ability);
+    let days = assignment_days_for_player_scouting(
+        crate::staff_system::profile::effective_judging(game, scout).0,
+    );
 
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     game.scouting_assignments.push(ScoutingAssignment {
@@ -208,7 +210,11 @@ pub fn start_youth_scouting(
     }
 
     let days =
-        assignment_days_for_youth_scouting(scout.attributes.judging_potential, region, objective);
+        assignment_days_for_youth_scouting(
+            crate::staff_system::profile::effective_judging(game, scout).1,
+            region,
+            objective,
+        );
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     let search = format!("{region:?}/{objective:?}/{target_position:?}");
     game.youth_scouting_assignments
@@ -307,8 +313,8 @@ pub fn process_scouting(game: &mut Game) {
 
         if let (Some(scout), Some(player)) = (scout, player) {
             let scout_name = format!("{} {}", scout.first_name, scout.last_name);
-            let judging_ability = scout.attributes.judging_ability;
-            let judging_potential = scout.attributes.judging_potential;
+            let (judging_ability, judging_potential) =
+                crate::staff_system::profile::effective_judging(game, scout);
             let team_name = player
                 .team_id
                 .as_ref()
