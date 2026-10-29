@@ -25,7 +25,7 @@ Le staff importé de la save garde son poste (`staff.post`) et ses attributs dé
 ## Budget et contrats (`ofm_core::staff_system::market`)
 - Budget staff = 15 % du budget salarial hebdomadaire du club, plancher 6 000 £/semaine. Un club déjà au-dessus n'est pas forcé de licencier mais ne peut plus ajouter.
 - Prime de signature : 1 semaine de salaire. Durée max : 5 ans.
-- Salaire demandé : base du membre, majoré jusqu'à ~+4,5 % pour un membre fort dans un petit club (réputation < 700).
+- Salaire demandé : base du membre, majoré jusqu'à +15 % pour un membre fort (niveau 100) dans un club de réputation 0, nul à partir de 700.
 - Réponse à une offre : **acceptée** (≥ demande), **contre-proposition** (≥ 90 % de la demande : rien ne change, la réponse porte le salaire acceptable), **refusée** (< 90 %). Accepter une contre-proposition = rappeler avec ce salaire.
 - Renouvellement : demande = max(marché, salaire actuel + 5 %).
 - Licenciement : indemnité = 50 % des salaires restants, minimum 4 semaines ; payée en trésorerie (journal `ContractTermination`).
