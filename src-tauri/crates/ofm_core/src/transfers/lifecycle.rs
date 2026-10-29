@@ -30,8 +30,19 @@ pub(crate) fn pending_approach_clubs(player: &domain::player::Player) -> HashSet
 /// [`REBID_COOLDOWN_DAYS`] of `today`. The one statement of that window: the incoming sweep, an
 /// outgoing permanent bid and an outgoing loan bid all ask it.
 pub(crate) fn within_rebid_cooldown(closed_on: Option<&str>, date: &str, today: NaiveDate) -> bool {
+    within_cooldown_of(closed_on, date, today, REBID_COOLDOWN_DAYS)
+}
+
+/// [`within_rebid_cooldown`] with the window's length given: the incoming sweep shortens it as the
+/// transfer window closes, when a refused club has little time left to come back.
+pub(crate) fn within_cooldown_of(
+    closed_on: Option<&str>,
+    date: &str,
+    today: NaiveDate,
+    cooldown_days: i64,
+) -> bool {
     NaiveDate::parse_from_str(closed_on.unwrap_or(date), "%Y-%m-%d")
-        .is_ok_and(|day| (today - day).num_days() < REBID_COOLDOWN_DAYS)
+        .is_ok_and(|day| (today - day).num_days() < cooldown_days)
 }
 
 /// Whether talks that ended on `stamp` were with the club that owns the player now.
@@ -67,9 +78,19 @@ pub(crate) fn loan_made_to_current_owner(
 ///
 /// Read from the offers already on the player, so this costs no new saved state. `closed_on` is
 /// when talks ended; offers written before that field existed fall back to their arrival date.
+#[cfg(test)]
 pub(crate) fn clubs_in_rebid_cooldown(
     player: &domain::player::Player,
     current_date: NaiveDate,
+) -> HashSet<String> {
+    clubs_in_cooldown_of(player, current_date, REBID_COOLDOWN_DAYS)
+}
+
+/// [`clubs_in_rebid_cooldown`] for a cooldown of `cooldown_days`.
+pub(crate) fn clubs_in_cooldown_of(
+    player: &domain::player::Player,
+    current_date: NaiveDate,
+    cooldown_days: i64,
 ) -> HashSet<String> {
     player
         .transfer_offers
@@ -78,8 +99,12 @@ pub(crate) fn clubs_in_rebid_cooldown(
             matches!(
                 offer.status,
                 TransferOfferStatus::Rejected | TransferOfferStatus::Withdrawn
-            ) && within_rebid_cooldown(offer.closed_on.as_deref(), &offer.date, current_date)
-                && heard_by_current_owner(player, offer.closed_on.as_deref().unwrap_or(&offer.date))
+            ) && within_cooldown_of(
+                offer.closed_on.as_deref(),
+                &offer.date,
+                current_date,
+                cooldown_days,
+            ) && heard_by_current_owner(player, offer.closed_on.as_deref().unwrap_or(&offer.date))
         })
         .map(|offer| offer.from_team_id.clone())
         .chain(
@@ -90,10 +115,11 @@ pub(crate) fn clubs_in_rebid_cooldown(
                     matches!(
                         offer.status,
                         LoanOfferStatus::Rejected | LoanOfferStatus::Withdrawn
-                    ) && within_rebid_cooldown(
+                    ) && within_cooldown_of(
                         offer.closed_on.as_deref(),
                         &offer.date,
                         current_date,
+                        cooldown_days,
                     ) && loan_made_to_current_owner(player, offer)
                 })
                 .map(|offer| offer.from_team_id.clone()),

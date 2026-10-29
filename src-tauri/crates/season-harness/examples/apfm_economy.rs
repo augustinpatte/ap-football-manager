@@ -45,6 +45,14 @@ struct Economy {
     integrity: BTreeMap<u32, u64>,
     /// season -> sampled AI-to-AI transfers
     transfers: BTreeMap<u32, Vec<Value>>,
+    /// Mission 10: season -> counter name -> count, by window phase and by border.
+    market_counts: BTreeMap<u32, BTreeMap<String, u64>>,
+    /// Mission 10: season -> "all" / "intl" / "dom" -> fee as a share of market value.
+    market_ratio: BTreeMap<u32, BTreeMap<String, Vec<f64>>>,
+    /// Mission 10: season -> fees (pounds) of AI transfers.
+    market_fee: BTreeMap<u32, Vec<f64>>,
+    /// Days left in the window as the previous day ended: the window the day just played ran in.
+    prev_window_days: Option<Option<i64>>,
     signing_ratios: BTreeMap<u32, Vec<f64>>,
     signing_wage_over_budget_pct: BTreeMap<u32, Vec<f64>>,
     extension_wage_change: BTreeMap<u32, Vec<f64>>,
@@ -172,7 +180,26 @@ impl Economy {
         self.integrity.insert(season, bad);
     }
 
+    /// The window phase of the day, named the way the market names it.
+    fn phase_name(days_remaining: Option<i64>) -> &'static str {
+        match days_remaining {
+            None => "closed",
+            Some(d) if d <= 0 => "deadline_day",
+            Some(1..=2) => "last_72h",
+            Some(3..=7) => "last_week",
+            Some(8..=40) => "mid",
+            Some(_) => "early",
+        }
+    }
+
+    fn market_bump(counts: &mut BTreeMap<u32, BTreeMap<String, u64>>, season: u32, key: String) {
+        *counts.entry(season).or_default().entry(key).or_default() += 1;
+    }
+
     fn classify_day(&mut self, game: &Game, season: u32) {
+        let exec_days = self
+            .prev_window_days
+            .unwrap_or(game.season_context.transfer_window.days_remaining);
         let today = game.clock.current_date.date_naive();
         let today_s = game.clock.current_date.format("%Y-%m-%d").to_string();
         let now = Self::take_snapshot(game);
@@ -193,6 +220,11 @@ impl Economy {
                 (Some(a), Some(b)) if a != b => {
                     if cur.loaned && !prev.loaned {
                         keys.push((id.clone(), "loan_started"));
+                        Self::market_bump(
+                            &mut self.market_counts,
+                            season,
+                            format!("loan_{}", Self::phase_name(exec_days)),
+                        );
                         Self::count_flow(
                             &mut self.flows,
                             game,
@@ -217,6 +249,66 @@ impl Economy {
                     } else {
                         keys.push((id.clone(), "transfer_ai"));
                         Self::count_flow(&mut self.flows, game, season, 'T', a, b);
+                        {
+                            let country = |id: &str| {
+                                game.teams
+                                    .iter()
+                                    .find(|t| t.id == id)
+                                    .map(|t| t.country.clone())
+                                    .unwrap_or_default()
+                            };
+                            let intl = country(a) != country(b);
+                            let border = if intl { "intl" } else { "dom" };
+                            let phase = Self::phase_name(exec_days);
+                            Self::market_bump(
+                                &mut self.market_counts,
+                                season,
+                                format!("transfer_{phase}"),
+                            );
+                            Self::market_bump(
+                                &mut self.market_counts,
+                                season,
+                                format!("transfer_{border}"),
+                            );
+                            let buyer_rep = game
+                                .teams
+                                .iter()
+                                .find(|t| t.id == *b)
+                                .map_or(0, |t| t.reputation);
+                            let band = match buyer_rep {
+                                0..=599 => "rep_lt600",
+                                600..=749 => "rep_600_749",
+                                _ => "rep_ge750",
+                            };
+                            Self::market_bump(
+                                &mut self.market_counts,
+                                season,
+                                format!("transfer_{band}_{border}"),
+                            );
+                            Self::market_bump(
+                                &mut self.market_counts,
+                                season,
+                                format!("transfer_{phase}_{border}"),
+                            );
+                            let fee = serde_json::to_value(&player.movement_history)
+                                .ok()
+                                .and_then(|v| {
+                                    v.get("movement_history")
+                                        .and_then(|e| e.as_array())
+                                        .and_then(|e| e.last().cloned())
+                                })
+                                .and_then(|e| e["fee"].as_f64());
+                            if let Some(fee) = fee {
+                                self.market_fee.entry(season).or_default().push(fee);
+                                if player.market_value > 0 {
+                                    let ratio = fee / player.market_value as f64;
+                                    let by = self.market_ratio.entry(season).or_default();
+                                    by.entry("all".into()).or_default().push(ratio);
+                                    by.entry(border.into()).or_default().push(ratio);
+                                    by.entry(phase.into()).or_default().push(ratio);
+                                }
+                            }
+                        }
                         let sample = self.transfers.entry(season).or_default();
                         if sample.len() < 400 {
                             let team = |id: &str| game.teams.iter().find(|t| t.id == id);
@@ -639,6 +731,7 @@ impl SeasonObserver for Economy {
         } else {
             self.classify_day(game, season);
         }
+        self.prev_window_days = Some(game.season_context.transfer_window.days_remaining);
         if let Some(t) = self.last_day_started.take() {
             self.day_millis.push(t.elapsed().as_secs_f64() * 1000.0);
         }
@@ -752,6 +845,24 @@ fn main() {
         "state": econ.season_state,
         "signings_sample": econ.signings,
         "transfers_sample": econ.transfers,
+        "market_realism": {
+            "counts": econ.market_counts,
+            "fee_over_value": econ.market_ratio.iter().map(|(season, by)| {
+                (season.to_string(), by.iter().map(|(k, v)| {
+                    let mut v = v.clone();
+                    (k.clone(), json!({
+                        "n": v.len(),
+                        "p10": round2(quantile(&mut v, 0.1)),
+                        "p50": round2(quantile(&mut v, 0.5)),
+                        "p90": round2(quantile(&mut v, 0.9)),
+                    }))
+                }).collect::<BTreeMap<_, _>>())
+            }).collect::<BTreeMap<_, _>>(),
+            "fee_median": econ.market_fee.iter().map(|(season, v)| {
+                let mut v = v.clone();
+                (season.to_string(), quantile(&mut v, 0.5).round())
+            }).collect::<BTreeMap<_, _>>(),
+        },
         "country_flows": econ.flows,
         "integrity_violations": econ.integrity,
         "market_buyer_evaluations": ofm_core::transfers::market_buyer_evaluations(),

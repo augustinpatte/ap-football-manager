@@ -71,3 +71,7 @@ pub(super) const ERR_LOAN_BUY_OPTION_NOT_AVAILABLE: &str =
 pub(super) const LOAN_DEVELOPMENT_REPORT_INTERVAL_DAYS: i64 = 30;
 pub(super) const OPENING_LOAN_LISTINGS_PER_AI_TEAM: usize = 2;
 pub(super) const MIN_OPENING_LOAN_CONTRACT_RUNWAY_DAYS: i64 = 90;
+/// How many acceptable options of each kind (in its own country, abroad) a buying club weighs
+/// against each other in a day, taken in order of appeal. Bounds the sweep's work; the best of
+/// these few is what a club goes for.
+pub(super) const OPTIONS_WEIGHED_PER_BUYER: usize = 6;

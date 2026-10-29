@@ -60,7 +60,13 @@ fn squad_levels_by_club(game: &Game) -> std::collections::HashMap<String, [Vec<u
         let Some(team_id) = player.team_id.as_deref() else {
             continue;
         };
-        if player.squad_role != domain::player::SquadRole::Senior || player.active_loan.is_some() {
+        if player.squad_role != domain::player::SquadRole::Senior
+            || player.active_loan.is_some()
+            || player
+                .injury
+                .as_ref()
+                .is_some_and(|injury| injury.days_remaining >= LONG_INJURY_DAYS)
+        {
             continue;
         }
         levels.entry(team_id.to_string()).or_default()[position_group_index(&player.position)]
@@ -72,6 +78,49 @@ fn squad_levels_by_club(game: &Game) -> std::collections::HashMap<String, [Vec<u
         }
     }
     levels
+}
+
+/// What every senior is to his club, and which clubs are in trouble (over their wage budget or in
+/// debt), for the sweep to read prices and willingness to sell from.
+fn player_statuses(
+    game: &Game,
+    current_date: NaiveDate,
+    wage_bills: &std::collections::HashMap<String, i64>,
+) -> (
+    std::collections::HashMap<String, PlayerStatus>,
+    HashSet<String>,
+) {
+    let mut by_club: std::collections::HashMap<&str, Vec<&Player>> =
+        std::collections::HashMap::new();
+    for player in &game.players {
+        if let Some(team_id) = player.team_id.as_deref()
+            && player.active_loan.is_none()
+        {
+            by_club.entry(team_id).or_default().push(player);
+        }
+    }
+    let age_of =
+        |player: &Player| domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
+    let mut statuses = std::collections::HashMap::new();
+    let mut troubled = HashSet::new();
+    for team in &game.teams {
+        let Some(players) = by_club.get(team.id.as_str()) else {
+            continue;
+        };
+        let bill = wage_bills.get(&team.id).copied().unwrap_or(0);
+        let in_trouble = bill > team.wage_budget || team.finance < 0;
+        if in_trouble {
+            troubled.insert(team.id.clone());
+        }
+        statuses.extend(club_statuses(
+            players,
+            &team.starting_xi_ids,
+            team.wage_budget,
+            in_trouble,
+            &age_of,
+        ));
+    }
+    (statuses, troubled)
 }
 
 /// Current squad depth per club and broad position group, computed once so the
@@ -105,12 +154,18 @@ pub(crate) fn infer_player_importance(
 
     PlayerImportance::Fringe
 }
-pub(crate) fn minimum_acceptable_fee(
+/// The least a club takes for a player, at a point in the window: the club that cannot replace a first-team
+/// player asks more as the close nears, one with a fringe player asks less, and a contract that
+/// ends soon is worth less to sell later. Each term is added to the multiplier once, then the
+/// whole is clamped, so nothing compounds across the rounds of a negotiation.
+pub(crate) fn minimum_acceptable_fee_at(
     current_date: NaiveDate,
     player: &domain::player::Player,
     owner_team: &domain::team::Team,
     buyer_team: &domain::team::Team,
+    phase: WindowPhase,
 ) -> u64 {
+    let pressure = phase.pressure();
     let mut multiplier: f64 = if player.transfer_listed { 0.8 } else { 1.2 };
 
     if let Some(days_remaining) = contract_days_remaining(current_date, player.contract_end()) {
@@ -124,9 +179,12 @@ pub(crate) fn minimum_acceptable_fee(
     }
 
     match infer_player_importance(player, owner_team) {
-        PlayerImportance::Key => multiplier += 0.2,
+        PlayerImportance::Key => multiplier += 0.2 + 0.15 * pressure,
         PlayerImportance::Regular => multiplier += 0.1,
-        PlayerImportance::Fringe => {}
+        PlayerImportance::Fringe => multiplier -= 0.15 * pressure,
+    }
+    if contract_days_remaining(current_date, player.contract_end()).is_some_and(|days| days <= 60) {
+        multiplier -= 0.10 * pressure;
     }
 
     if player.morale <= 40 {
@@ -329,6 +387,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     let mut wage_bills = crate::finances::wage_bills_by_club(game);
     // Where each target sits in `game.players`, so the buyer's wage check need not search.
     // The sweep moves players between clubs but never adds or removes one.
+    let phase = window_phase(game.season_context.transfer_window.days_remaining);
+    let (statuses, troubled_clubs) = player_statuses(game, current_date, &wage_bills);
     let player_index: std::collections::HashMap<String, usize> = game
         .players
         .iter()
@@ -349,9 +409,23 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .iter()
         .filter(|team| Some(team.id.as_str()) != user_team_id.as_deref())
         .filter(|team| {
-            active_team_ids.as_ref().is_none_or(|ids| {
-                ids.contains(&team.id) || crate::ai_tactics::review_weekday(&team.id) == weekday
-            })
+            let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need);
+            // A club with nothing pressing may wait: early in the window most do.
+            let patient = !unmet_need
+                && !shops_without_pressing_need(
+                    phase,
+                    crate::stable_hash::stable_hash(team.id.as_bytes(), day_number),
+                );
+            !patient
+                && active_team_ids.as_ref().is_none_or(|ids| {
+                    ids.contains(&team.id)
+                        || crate::ai_tactics::review_weekday(&team.id) == weekday
+                        // A club with a hole in its squad does not wait for its review day once
+                        // the window is closing.
+                        || (phase >= WindowPhase::LastWeek && unmet_need)
+                        // And in the last three days every club is in the market.
+                        || whole_market_is_open(phase)
+                })
         })
         .map(|team| team.id.clone())
         .collect();
@@ -363,8 +437,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     }
     // One completed deal per this many shopping clubs a day, and never fewer than the base: with
     // the whole world shopping, a flat two a day capped the market below what its needs produce.
-    let max_completed_ai_transfers = MAX_COMPLETED_AI_TRANSFERS_PER_DAY
-        .max(buyer_ids.len() / BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY);
+    let max_completed_ai_transfers = ((MAX_COMPLETED_AI_TRANSFERS_PER_DAY
+        .max(buyer_ids.len() / BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY)
+        as f64)
+        * phase.activity_factor())
+    .round() as usize;
     let mut completed_ai_transfers = 0_usize;
     let mut moved_player_ids: HashSet<String> = HashSet::new();
     // New incoming offers opened to user players today, tracked to throttle the
@@ -393,7 +470,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .map(|player| {
             (
                 player.id.clone(),
-                clubs_in_rebid_cooldown(player, current_date),
+                clubs_in_cooldown_of(
+                    player,
+                    current_date,
+                    phase.rebid_cooldown_days(REBID_COOLDOWN_DAYS),
+                ),
             )
         })
         .collect();
@@ -427,22 +508,60 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         if award_leaderboards.contains(&player.id) {
             score += AWARD_LEADERBOARD_INTEREST_BONUS;
         }
+        let status = statuses
+            .get(&player.id)
+            .copied()
+            .unwrap_or(PlayerStatus::Rotation);
+        // A club with a spare it has not sold looks harder for a buyer as the window closes.
+        let is_spare = !is_user_owned
+            && matches!(status, PlayerStatus::Surplus | PlayerStatus::Unwanted)
+            && phase >= WindowPhase::Mid;
+        if is_spare {
+            score += (30.0 * phase.pressure()) as i32;
+        }
         // A player an AI club has put up for sale is a target whatever his score: the score
-        // measures appeal to a club shopping for a bargain, and his price already is one.
-        if score < 35 && (is_user_owned || !player.transfer_listed) {
+        // measures appeal to a club shopping for a bargain, and his price already is one. So is a
+        // spare it would let go.
+        if score < 35 && (is_user_owned || !(player.transfer_listed || is_spare)) {
             continue;
         }
+        let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
+        let group = position_group_index(&player.position);
+        // Buyer-independent, so priced once. A user's player is offered for at the usual
+        // incoming fee: his price is the user's to set.
+        let fee = if is_user_owned {
+            suggested_incoming_fee(current_date, player)
+        } else {
+            asking_fee(&AskingFacts {
+                value: player.market_value,
+                status,
+                phase,
+                contract_days_left: contract_days_remaining(current_date, player.contract_end()),
+                listed: player.transfer_listed,
+                age,
+                potential_gap: i32::from(player.potential) - i32::from(player.ovr),
+                morale: player.morale,
+                seller_in_trouble: troubled_clubs.contains(owner_team_id),
+                replacement_hard: position_depths.get(owner_team_id).is_some_and(|depths| {
+                    depths[group]
+                        <= crate::squad_floor::MIN_PLAYERS_PER_GROUP[group].1
+                            + crate::squad_floor::PLANNING_MARGIN_PER_GROUP
+                }),
+            })
+        };
         shortlist.push(MarketTarget {
             player_id: player.id.clone(),
             owner_team_id: owner_team_id.to_string(),
             is_user_owned,
             score,
-            fee: suggested_incoming_fee(current_date, player),
-            position_group_index: position_group_index(&player.position),
+            fee,
+            position_group_index: group,
             owner_reputation: team_reputation.get(owner_team_id).copied().unwrap_or(0),
             ovr: player.ovr,
             is_listed: player.transfer_listed,
-            age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
+            age,
+            value: player.market_value,
+            status,
         });
     }
     // Highest appeal first; a stable sort preserves the original ordering among
@@ -479,7 +598,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             .cmp(&a.ovr)
             .then_with(|| a.player_id.cmp(&b.player_id))
     });
-    let max_ai_loans = (buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1);
+    let max_ai_loans = ((((buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1)) as f64)
+        * phase.activity_factor())
+    .round() as usize;
     let mut completed_ai_loans = 0_usize;
 
     BUYER_EVALUATIONS.fetch_add(buyer_ids.len() as u64, std::sync::atomic::Ordering::Relaxed);
@@ -531,6 +652,41 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         );
         // Worked out once for this buyer, and only if a target gets as far as needing it.
         let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
+        let buyer_overstretched = is_overstretched(
+            wage_bills.get(&buyer_id).copied().unwrap_or(0),
+            buyer_team.wage_budget,
+            buyer_team.finance,
+        );
+        let buyer_cash = buyer_team.transfer_budget.min(buyer_team.finance);
+        // What he adds to this buyer, and whether the buyer is short in his group.
+        let fit = |target: &MarketTarget| -> (i32, bool) {
+            let levels = &buyer_levels[target.position_group_index];
+            (
+                improvement_over_cover(levels, target.position_group_index, target.ovr),
+                group_is_thin(levels, target.position_group_index),
+            )
+        };
+        // The fee this buyer would pay: the seller's price when it is within his ceiling, a little
+        // under it when the ceiling is close, none otherwise. A user's player has no asking price
+        // to haggle over: the incoming offer is the buyer's own.
+        let price = |target: &MarketTarget| -> Option<u64> {
+            if target.is_user_owned {
+                return Some(target.fee);
+            }
+            let (improvement, thin) = fit(target);
+            agreed_fee(
+                target.fee,
+                buyer_ceiling(&CeilingFacts {
+                    value: target.value,
+                    improvement,
+                    thin,
+                    age: target.age,
+                    phase,
+                    alternatives: 1,
+                    budget: buyer_cash,
+                }),
+            )
+        };
         let mut acceptable = |target: &&MarketTarget| -> bool {
             if target.owner_team_id == buyer_id || moved_player_ids.contains(&target.player_id) {
                 return false;
@@ -552,14 +708,23 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 {
                     return false;
                 }
-            } else if completed_ai_transfers >= max_completed_ai_transfers {
+            } else if completed_ai_transfers >= max_completed_ai_transfers
+                || !willing_to_sell(target.status, target.is_listed, target.score, phase)
+            {
                 return false;
             }
+            let (improvement, thin) = fit(target);
             // Clubs only chase players that fit their stature and a position they
-            // actually need, so a single star doesn't draw the whole division.
+            // actually need, so a single star doesn't draw the whole division. A club with a hole
+            // to fill near the close will look a little higher.
+            let reach = if thin {
+                (60.0 * phase.pressure()) as u32
+            } else {
+                0
+            };
             if !buyer_has_genuine_interest(
                 buyer_team.reputation,
-                target.owner_reputation,
+                target.owner_reputation.saturating_sub(reach),
                 buyer_depths[target.position_group_index],
             ) {
                 return false;
@@ -580,8 +745,23 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             {
                 return false;
             }
-            buyer_team.transfer_budget >= target.fee as i64
-                && buyer_team.finance >= target.fee as i64
+            // A club that cannot carry what it already pays sells and lends before it buys.
+            if !target.is_user_owned && buyer_overstretched && target.fee > 0 {
+                return false;
+            }
+            let Some(price) = price(target) else {
+                return false;
+            };
+            // A dear signing has to be a real upgrade, or fill a hole.
+            if !target.is_user_owned
+                && !thin
+                && improvement < 3
+                && i128::from(price) * 100 > i128::from(buyer_team.transfer_budget) * 15
+            {
+                return false;
+            }
+            buyer_team.transfer_budget >= price as i64
+                && buyer_team.finance >= price as i64
                 && player_index.get(&target.player_id).is_some_and(|&index| {
                     let facts = buyer_wage_facts.get_or_insert_with(|| {
                         BuyerWageFacts::new(
@@ -605,23 +785,54 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                                 )
                                 .map_or(0, |(wage, _)| wage),
                             ),
-                            target.fee as i64,
+                            price as i64,
                         ))
                 })
         };
-        // A club looks at its own country's market first, and abroad only when nothing there
-        // fits: moves between countries are the exception, not a draw from the whole world.
-        let chosen = shortlist
-            .iter()
-            .filter(|target| {
-                team_country
-                    .get(&target.owner_team_id)
-                    .is_some_and(|country| *country == buyer_team.country)
-            })
-            .find(&mut acceptable)
-            .or_else(|| shortlist.iter().find(&mut acceptable));
+        // Every option the buyer could take is weighed by what it adds to the squad and by the
+        // country it is in. A club's own market is no longer tried first: a big club hardly
+        // minds the border, a small one pays for it, and a clear upgrade is worth the trip to
+        // either. The first few options in appeal order are weighed, which bounds the work.
+        let mut chosen: Option<(&MarketTarget, f64, u64)> = None;
+        // The first few options of each kind, so that a long run of foreign stars at the top of
+        // the list cannot hide a good option at home (nor the reverse).
+        let mut weighed = [0_usize; 2];
+        for target in &shortlist {
+            let same_country = team_country
+                .get(&target.owner_team_id)
+                .is_some_and(|country| *country == buyer_team.country);
+            let bucket = usize::from(same_country);
+            if weighed[bucket] >= OPTIONS_WEIGHED_PER_BUYER {
+                if weighed[1 - bucket] >= OPTIONS_WEIGHED_PER_BUYER {
+                    break;
+                }
+                continue;
+            }
+            if !acceptable(&target) {
+                continue;
+            }
+            let Some(fee) = price(target) else {
+                continue;
+            };
+            let (improvement, _) = fit(target);
+            let rank = target_rank(
+                target.score,
+                improvement,
+                geographic_affinity(&GeoFacts {
+                    same_country,
+                    buyer_reputation: buyer_team.reputation,
+                    improvement,
+                    fee,
+                    buyer_budget: buyer_cash,
+                }),
+            );
+            if chosen.is_none_or(|(_, best, _)| rank > best) {
+                chosen = Some((target, rank, fee));
+            }
+            weighed[bucket] += 1;
+        }
 
-        let Some(target) = chosen else {
+        let Some((target, _, agreed)) = chosen else {
             // Nothing to buy: perhaps something to borrow.
             if completed_ai_loans < max_ai_loans
                 && let Some(player_id) = try_ai_loan(
@@ -642,9 +853,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let candidate = MarketCandidate {
             player_id: target.player_id.clone(),
             owner_team_id: target.owner_team_id.clone(),
-            score: target.score,
-            fee: target.fee,
-            is_listed: target.is_listed,
+            fee: agreed,
         };
 
         if Some(candidate.owner_team_id.as_str()) == user_team_id.as_deref() {
@@ -660,11 +869,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             continue;
         }
 
-        // A player his club has listed is for sale to any buyer that needs him; one it has not is
-        // sold only when he is a bargain (a contract running out, an unhappy player).
-        if !(candidate.is_listed || candidate.score > 60)
-            || completed_ai_transfers >= max_completed_ai_transfers
-        {
+        // Whether the club would sell him was settled with the choice (`willing_to_sell`).
+        if completed_ai_transfers >= max_completed_ai_transfers {
             continue;
         }
 

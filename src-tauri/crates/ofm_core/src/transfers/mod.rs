@@ -30,6 +30,7 @@ mod lifecycle;
 mod loans;
 mod market;
 mod notifications;
+mod realism;
 mod registration;
 
 pub(crate) use affordability::{can_afford_fee, fee_block, transfer_fee_ceiling};
@@ -40,6 +41,7 @@ use lifecycle::*;
 pub use loans::*;
 pub use market::*;
 use notifications::*;
+use realism::*;
 use registration::*;
 pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
@@ -120,10 +122,7 @@ pub(crate) enum PlayerImportance {
 pub(crate) struct MarketCandidate {
     player_id: String,
     owner_team_id: String,
-    score: i32,
     fee: u64,
-    /// His club has put him up for sale.
-    is_listed: bool,
 }
 
 /// A player worth pursuing, with buyer-independent appeal precomputed once so
@@ -145,6 +144,10 @@ pub(crate) struct MarketTarget {
     is_listed: bool,
     /// His age on the day of the sweep.
     age: i32,
+    /// His market value, which every price is a bounded multiple of.
+    value: u64,
+    /// What he is to his club today.
+    status: PlayerStatus,
 }
 
 pub(crate) struct LoanMarketCandidate {

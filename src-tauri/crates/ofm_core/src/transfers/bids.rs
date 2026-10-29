@@ -476,7 +476,8 @@ pub fn make_transfer_bid(
 
     let buyer_team = my_team;
 
-    let threshold = minimum_acceptable_fee(current_date, player, owner_team, buyer_team);
+    let phase = window_phase(game.season_context.transfer_window.days_remaining);
+    let threshold = minimum_acceptable_fee_at(current_date, player, owner_team, buyer_team, phase);
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
     let existing_offer = latest_negotiation_with_club(player, &user_team_id, current_date);
     if talks_are_broken_off(existing_offer) {

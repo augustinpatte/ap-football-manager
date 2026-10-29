@@ -114,6 +114,99 @@ pub(crate) fn top_up_loan_listings(game: &mut Game, team_id: &str) -> usize {
     }
     listed
 }
+/// Most players a club has on the loan list at once.
+const MAX_LOAN_LISTINGS_PER_AI_TEAM: usize = 4;
+
+/// Loan listings by what a player is to his club, on top of the opening ones: a prospect who is
+/// not playing goes where he will; a spare nobody has bought is offered on loan as the window
+/// closes, because a loan saves part of his wage when a sale cannot; a costly player the club does
+/// not want is offered at once. Never a player of the first eleven, nor one whose contract is too
+/// short for a loan. Returns how many were listed.
+pub(crate) fn list_loans_by_status(game: &mut Game, team_id: &str) -> usize {
+    // A loan can only start while the window is open, so the rest of the year leaves the list be.
+    if !transfer_window_is_open(game) {
+        return 0;
+    }
+    let current_date = game.clock.current_date.date_naive();
+    let phase = window_phase(game.season_context.transfer_window.days_remaining);
+    let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
+        return 0;
+    };
+    let bill = crate::finances::calc_wages(game, team_id);
+    let in_trouble = bill > team.wage_budget || team.finance < 0;
+    let members: Vec<&domain::player::Player> = game
+        .players
+        .iter()
+        .filter(|player| player.team_id.as_deref() == Some(team_id) && player.active_loan.is_none())
+        .collect();
+    let statuses = club_statuses(
+        &members,
+        &team.starting_xi_ids,
+        team.wage_budget,
+        in_trouble,
+        &|player| domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
+    );
+    let earliest_end = current_date + Duration::days(MIN_OPENING_LOAN_CONTRACT_RUNWAY_DAYS);
+    let already = members
+        .iter()
+        .filter(|player| player.loan_listed && !player_has_pending_registration(player))
+        .count();
+    let room = MAX_LOAN_LISTINGS_PER_AI_TEAM.saturating_sub(already);
+    if room == 0 {
+        return 0;
+    }
+    let mut candidates: Vec<(usize, i32, u32, &str)> = Vec::new();
+    for player in &members {
+        let Some(status) = statuses.get(&player.id).copied() else {
+            continue;
+        };
+        if player.loan_listed
+            || player_has_pending_registration(player)
+            || player.squad_role != domain::player::SquadRole::Senior
+            || team.starting_xi_ids.contains(&player.id)
+            || !player.contract_end().is_some_and(|end| {
+                NaiveDate::parse_from_str(end, "%Y-%m-%d").is_ok_and(|date| date >= earliest_end)
+            })
+        {
+            continue;
+        }
+        let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
+        let needs_minutes = age <= 22
+            && matches!(status, PlayerStatus::Backup | PlayerStatus::Surplus)
+            && i32::from(player.potential) >= i32::from(player.ovr) + 6;
+        let hard_sale = matches!(status, PlayerStatus::Surplus | PlayerStatus::Unwanted)
+            && phase >= WindowPhase::LastWeek;
+        let costly_unwanted = status == PlayerStatus::Unwanted && phase >= WindowPhase::Mid;
+        // A player already on the transfer list is only lent when the sale has had its chance.
+        if (player.transfer_listed && !hard_sale)
+            || !(needs_minutes || hard_sale || costly_unwanted)
+        {
+            continue;
+        }
+        let priority = if needs_minutes { 0 } else { 1 };
+        candidates.push((
+            game.players
+                .iter()
+                .position(|p| p.id == player.id)
+                .unwrap_or(usize::MAX),
+            priority,
+            u32::MAX - player.wage(),
+            player.id.as_str(),
+        ));
+    }
+    candidates.sort_by(|a, b| (a.1, a.2, a.3).cmp(&(b.1, b.2, b.3)));
+    let indices: Vec<usize> = candidates
+        .into_iter()
+        .take(room)
+        .map(|(index, ..)| index)
+        .filter(|&index| index != usize::MAX)
+        .collect();
+    for &index in &indices {
+        game.players[index].loan_listed = true;
+    }
+    indices.len()
+}
+
 pub(crate) fn incoming_loan_interest_score(player: &domain::player::Player) -> i32 {
     if !player.loan_listed || player_has_pending_registration(player) {
         return 0;

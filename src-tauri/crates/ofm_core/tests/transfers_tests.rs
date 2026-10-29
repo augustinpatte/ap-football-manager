@@ -2,6 +2,8 @@
 mod bid_money;
 #[path = "transfers_tests/loans.rs"]
 mod loans;
+#[path = "transfers_tests/realism.rs"]
+mod realism;
 
 use chrono::{TimeZone, Utc};
 use domain::league::{CompetitionType, League};
@@ -1031,15 +1033,22 @@ fn ai_clubs_complete_transfer_between_themselves_without_inbox_message() {
 
     let buyer = game.teams.iter().find(|team| team.id == "team-2").unwrap();
     let seller = game.teams.iter().find(|team| team.id == "team-3").unwrap();
-    assert_eq!(buyer.finance, 5_100_000);
-    assert_eq!(seller.finance, 3_900_000);
+    // The seller asks what a listed player with a contract in its last year is worth to it (from
+    // the value: status, contract and time left in the window), and the buyer pays that.
+    let fee = 6_000_000 - buyer.finance;
+    assert_eq!(seller.finance, 3_000_000 + fee);
+    let fee = fee as u64;
+    assert!(
+        (600_000_u64..=1_920_000).contains(&fee),
+        "a bounded multiple of a 1 200 000 value, got {fee}"
+    );
 
     let transfer_log = &game.league.as_ref().unwrap().transfer_log;
     assert_eq!(transfer_log.len(), 1);
+    assert_eq!(transfer_log[0].fee, fee);
     assert_eq!(transfer_log[0].player_id, "player-ai-market");
     assert_eq!(transfer_log[0].from_team_id, "team-3");
     assert_eq!(transfer_log[0].to_team_id, "team-2");
-    assert_eq!(transfer_log[0].fee, 900_000);
 }
 
 /// Given an AI club with nothing it can buy, and another AI club's loan-listed player who would

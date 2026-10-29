@@ -58,6 +58,8 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
         // Young reserves for loan, as the opening market lists them: a loan returns its player and
         // the club lists the next.
         crate::transfers::top_up_loan_listings(game, &team_id);
+        // And the loans a squad's players call for: prospects not playing, spares nobody bought.
+        crate::transfers::list_loans_by_status(game, &team_id);
     }
 }
 
@@ -549,5 +551,73 @@ mod tests {
             None,
             "severance is over the share of cash"
         );
+    }
+
+    /// Given a prospect on the bench of a club that has more than it needs in his group
+    /// When the club reviews its loans
+    /// Then he is put on the loan list, and nobody of the first eleven is.
+    #[test]
+    fn a_prospect_who_is_not_playing_is_put_on_the_loan_list() {
+        let mut game = world([3, 7, 7, 7]);
+        game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
+        // The youngest forward, with room to grow and the lowest rating.
+        let prospect = game
+            .players
+            .iter_mut()
+            .find(|p| p.id == "Forward6")
+            .unwrap();
+        prospect.ovr = 50;
+        prospect.potential = 70;
+        prospect.date_of_birth = format!("{}-01-01", TODAY.0 - 19);
+        let listed = crate::transfers::list_loans_by_status(&mut game, "ai");
+        assert!(listed >= 1);
+        let on_list: Vec<&str> = game
+            .players
+            .iter()
+            .filter(|p| p.loan_listed)
+            .map(|p| p.id.as_str())
+            .collect();
+        assert!(on_list.contains(&"Forward6"), "{on_list:?}");
+        assert!(on_list.len() <= 4);
+        // With the window closed nothing is listed: no loan could start.
+        for player in &mut game.players {
+            player.loan_listed = false;
+        }
+        game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Closed;
+        assert_eq!(crate::transfers::list_loans_by_status(&mut game, "ai"), 0);
+        game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
+        crate::transfers::list_loans_by_status(&mut game, "ai");
+        // Calling again adds nobody beyond the limit.
+        crate::transfers::list_loans_by_status(&mut game, "ai");
+        assert!(game.players.iter().filter(|p| p.loan_listed).count() <= 4);
+    }
+
+    /// Given a spare nobody has bought, late in the window
+    /// When the club reviews its loans
+    /// Then it offers him on loan too: a loan saves part of his wage when a sale cannot.
+    #[test]
+    fn a_spare_nobody_bought_is_offered_on_loan_as_the_window_closes() {
+        let build = |days: i64| {
+            let mut game = world([3, 7, 7, 8]);
+            game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
+            game.season_context.transfer_window.days_remaining = Some(days);
+            let spare = game
+                .players
+                .iter_mut()
+                .find(|p| p.id == "Forward7")
+                .unwrap();
+            spare.ovr = 50;
+            spare.potential = 50;
+            spare.date_of_birth = format!("{}-01-01", TODAY.0 - 30);
+            spare.transfer_listed = true;
+            crate::transfers::list_loans_by_status(&mut game, "ai");
+            game.players
+                .iter()
+                .find(|p| p.id == "Forward7")
+                .unwrap()
+                .loan_listed
+        };
+        assert!(!build(30), "early on, the sale has its chance");
+        assert!(build(2), "late, a loan is the way out");
     }
 }
