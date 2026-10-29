@@ -71,6 +71,11 @@ pub struct UnrepresentedTactic {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AppliedDefault {
     pub field: &'static str,
+    /// The input entity receiving the imputed value; `None` is match-level.
+    pub subject_id: Option<String>,
+    /// Why OFM cannot provide a source value.  This is provenance, never a claim
+    /// that the generated value is real player data.
+    pub provenance: &'static str,
     pub value: String,
 }
 
@@ -277,16 +282,7 @@ pub fn adapt(selection: MatchSelection<'_>) -> Result<AdaptedMatch, AdaptationEr
         });
     }
     let unrepresented_tactics = unrepresented_tactics(&selection);
-    let mut defaults = vec![
-        AppliedDefault {
-            field: "height_cm",
-            value: "180 (OFM has no source)".into(),
-        },
-        AppliedDefault {
-            field: "attributes.balance",
-            value: "absent (M12 neutral default 50)".into(),
-        },
-    ];
+    let mut defaults = Vec::new();
     let home = adapt_team(selection.home, &mut defaults)?;
     let away = adapt_team(selection.away, &mut defaults)?;
     let mut all_players = HashSet::new();
@@ -452,10 +448,14 @@ fn adapt_player(
     let goalkeeping = if is_goalkeeper {
         defaults.push(AppliedDefault {
             field: "goalkeeping.one_on_one",
+            subject_id: Some(player.id.clone()),
+            provenance: "OFM has no source",
             value: "50 (OFM has no source)".into(),
         });
         defaults.push(AppliedDefault {
             field: "goalkeeping.kicking",
+            subject_id: Some(player.id.clone()),
+            provenance: "OFM has no source",
             value: "50 (OFM has no source)".into(),
         });
         Some(GoalkeeperAttributes {
@@ -468,6 +468,18 @@ fn adapt_player(
     } else {
         None
     };
+    defaults.push(AppliedDefault {
+        field: "height_cm",
+        subject_id: Some(player.id.clone()),
+        provenance: "OFM has no source",
+        value: "180".into(),
+    });
+    defaults.push(AppliedDefault {
+        field: "attributes.balance",
+        subject_id: Some(player.id.clone()),
+        provenance: "M12 applies its neutral default because the field is omitted",
+        value: "absent (M12 neutral default 50)".into(),
+    });
     Ok(SpatialPlayer {
         id: player.id.clone(),
         name: player.match_name.clone(),
@@ -575,7 +587,9 @@ fn shirt_numbers(
             }
             defaults.push(AppliedDefault {
                 field: "shirt_number",
-                value: format!("{next} (deterministic, OFM jersey_number missing)"),
+                subject_id: Some(player.id.clone()),
+                provenance: "OFM jersey_number missing",
+                value: format!("{next} (deterministic generated number)"),
             });
             next
         };
@@ -1154,6 +1168,81 @@ mod tests {
             }
         );
         assert_eq!(result.metadata.unrepresented_tactics.len(), 8);
+    }
+    /// Given every value of each tactical setting, when adapted, then all five
+    /// representable dials have their contractual value and four remain metadata.
+    #[test]
+    fn every_tactical_setting_variant_is_covered() {
+        let phase = TacticsPhaseSettings::default();
+        for (value, expected) in [
+            (BuildUpStyle::Short, 25),
+            (BuildUpStyle::Mixed, 50),
+            (BuildUpStyle::Long, 75),
+        ] {
+            let mut phase = phase.clone();
+            phase.build_up_style = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).directness, expected);
+        }
+        for (value, expected) in [
+            (PitchWidth::Narrow, 25),
+            (PitchWidth::Normal, 50),
+            (PitchWidth::Wide, 75),
+        ] {
+            let mut phase = phase.clone();
+            phase.width = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).width, expected);
+        }
+        for (value, expected) in [(Tempo::Patient, 30), (Tempo::Direct, 70)] {
+            let mut phase = phase.clone();
+            phase.tempo = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).tempo, expected);
+        }
+        for (value, expected) in [
+            (DefensiveLine::VeryLow, 10),
+            (DefensiveLine::Low, 35),
+            (DefensiveLine::Medium, 60),
+            (DefensiveLine::High, 85),
+        ] {
+            let mut phase = phase.clone();
+            phase.defensive_line = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).line_height, expected);
+        }
+        for (value, expected) in [
+            (PressingIntensity::Passive, 25),
+            (PressingIntensity::Medium, 55),
+            (PressingIntensity::Aggressive, 85),
+        ] {
+            let mut phase = phase.clone();
+            phase.pressing_intensity = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).pressing, expected);
+        }
+        for (style, expected) in [
+            (PlayStyle::Defensive, 30),
+            (PlayStyle::Counter, 45),
+            (PlayStyle::Balanced, 50),
+            (PlayStyle::Possession, 55),
+            (PlayStyle::HighPress, 60),
+            (PlayStyle::Attacking, 70),
+        ] {
+            assert_eq!(tactics(&style, &phase).mentality, expected);
+        }
+    }
+    /// Given generated adapter values, when defaults are reported, then every
+    /// imputation names both its recipient and its source limitation.
+    #[test]
+    fn all_imputed_values_have_explicit_player_provenance() {
+        let (fixture, home, away, hp, ap) = selection();
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        assert!(
+            result
+                .metadata
+                .defaults
+                .iter()
+                .all(|default| { default.subject_id.is_some() && !default.provenance.is_empty() })
+        );
+        assert!(result.metadata.defaults.iter().any(|default| {
+            default.field == "height_cm" && default.subject_id.as_deref() == Some("p0")
+        }));
     }
     /// Given every formation exposed by OFM, when laid out, then it has eleven in-bounds positions and one goalkeeper.
     #[test]
