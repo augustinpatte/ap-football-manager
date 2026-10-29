@@ -146,6 +146,8 @@ pub(crate) struct MarketTarget {
     age: i32,
     /// His market value, which every price is a bounded multiple of.
     value: u64,
+    /// Days left on his contract, if it has an end.
+    contract_days: Option<i64>,
     /// What he is to his club today.
     status: PlayerStatus,
 }

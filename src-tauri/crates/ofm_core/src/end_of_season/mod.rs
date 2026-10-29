@@ -1181,6 +1181,8 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     let user_division_before =
         user_division(game, &user_team_id).map(|division| (division.id.clone(), division.priority));
     regenerate_competitions_for_new_season(game, next_season, rollover_anchor);
+    // 7b. The boards of promoted and relegated AI clubs re-base their wage budgets.
+    crate::division_move::rebase_wage_budgets(game);
     notify_user_division_change(
         game,
         user_division_before,

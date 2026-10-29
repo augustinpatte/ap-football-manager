@@ -448,3 +448,32 @@ fn two_competing_clubs_produce_a_single_transfer() {
     evaluate_transfer_market(&mut game);
     assert!(game.league.as_ref().unwrap().transfer_log.len() <= 2);
 }
+
+/// M12-A. A small club does not cross a border for a cheap player who barely improves its bench,
+/// but a home player of the same level is fine.
+#[test]
+fn a_small_club_does_not_go_abroad_for_a_cheap_marginal_filler() {
+    let build = |seller_country: &str| {
+        let mut game = world(
+            vec![
+                club("fra-small", "France", 450, 30_000_000),
+                club("seller", seller_country, 450, 0),
+            ],
+            vec![forward("filler", "seller", 62, 150_000)],
+        );
+        only_buyer_funded(&mut game, "fra-small");
+        set_days_left(&mut game, 1);
+        evaluate_transfer_market(&mut game);
+        game
+    };
+    // Cheap, +2 on its first cover, and abroad: not worth the trip.
+    assert_eq!(
+        owner(&build("England"), "filler").as_deref(),
+        Some("seller")
+    );
+    // The same player at home is signed.
+    assert_eq!(
+        owner(&build("France"), "filler").as_deref(),
+        Some("fra-small")
+    );
+}

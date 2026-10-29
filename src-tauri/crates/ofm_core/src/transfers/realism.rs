@@ -38,6 +38,31 @@ pub(crate) enum WindowPhase {
     DeadlineDay,
 }
 
+impl WindowPhase {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            WindowPhase::Early => "early",
+            WindowPhase::Mid => "mid",
+            WindowPhase::LastWeek => "last_week",
+            WindowPhase::Last72h => "last_72h",
+            WindowPhase::DeadlineDay => "deadline_day",
+        }
+    }
+}
+
+impl PlayerStatus {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            PlayerStatus::Indispensable => "indispensable",
+            PlayerStatus::Starter => "starter",
+            PlayerStatus::Rotation => "rotation",
+            PlayerStatus::Backup => "backup",
+            PlayerStatus::Surplus => "surplus",
+            PlayerStatus::Unwanted => "unwanted",
+        }
+    }
+}
+
 pub(crate) fn window_phase(days_remaining: Option<i64>) -> WindowPhase {
     match days_remaining {
         None => WindowPhase::Mid,
@@ -211,8 +236,17 @@ pub(crate) fn willing_to_sell(
     listed: bool,
     interest_score: i32,
     phase: WindowPhase,
+    contract_days_left: Option<i64>,
 ) -> bool {
     if listed {
+        return true;
+    }
+    // A player whose contract ends within two months and who is not the club's mainstay is going
+    // for nothing in a few weeks: in the last week the club takes a fee rather than lose him.
+    if phase >= WindowPhase::LastWeek
+        && contract_days_left.is_some_and(|days| days <= 60)
+        && status > PlayerStatus::Starter
+    {
         return true;
     }
     match status {
@@ -237,9 +271,19 @@ pub(crate) struct AskingFacts {
     pub potential_gap: i32,
     pub morale: u8,
     pub seller_in_trouble: bool,
+    /// The seller has just been relegated and is over the wage budget of its new division.
+    pub seller_cutting_costs: bool,
     /// The seller has nobody to replace him in his group beyond the squad floor.
     pub replacement_hard: bool,
 }
+
+/// What a spare is worth less than his value on an ordinary day, and how much more he is worth
+/// less at the very close. A spare with years on his contract is still an asset: the discount
+/// that matters grows as the time to sell him runs out (and, separately, as his contract does).
+const SURPLUS_BASE_DISCOUNT: f64 = 0.06;
+const UNWANTED_BASE_DISCOUNT: f64 = 0.10;
+const SURPLUS_CLOSING_DISCOUNT: f64 = 0.26;
+const UNWANTED_CLOSING_DISCOUNT: f64 = 0.36;
 
 pub(crate) const ASKING_MIN: f64 = 0.50;
 pub(crate) const ASKING_MAX: f64 = 1.60;
@@ -248,16 +292,22 @@ pub(crate) const ASKING_MAX: f64 = 1.60;
 pub(crate) fn asking_multiplier(facts: &AskingFacts) -> f64 {
     let pressure = facts.phase.pressure();
     let mut m = 1.0;
-    if facts.listed {
-        m -= 0.10;
-    }
+    // Listing a player and calling him a spare are two names for one decision: the club wants him
+    // gone. The deeper of the two discounts applies in full and half of the other, so a listed
+    // surplus is not charged twice for the same reason.
+    let listing_discount = if facts.listed { 0.10 } else { 0.0 };
+    let status_discount = match facts.status {
+        PlayerStatus::Backup => 0.05,
+        PlayerStatus::Surplus => SURPLUS_BASE_DISCOUNT,
+        PlayerStatus::Unwanted => UNWANTED_BASE_DISCOUNT,
+        _ => 0.0,
+    };
+    m -= f64::max(listing_discount, status_discount)
+        + 0.5 * f64::min(listing_discount, status_discount);
     m += match facts.status {
         PlayerStatus::Indispensable => 0.25,
         PlayerStatus::Starter => 0.12,
-        PlayerStatus::Rotation => 0.0,
-        PlayerStatus::Backup => -0.05,
-        PlayerStatus::Surplus => -0.12,
-        PlayerStatus::Unwanted => -0.18,
+        _ => 0.0,
     };
     // A contract about to run out is a player the club will lose for nothing.
     if let Some(days) = facts.contract_days_left {
@@ -291,9 +341,13 @@ pub(crate) fn asking_multiplier(facts: &AskingFacts) -> f64 {
         PlayerStatus::Starter => 0.04 * pressure,
         PlayerStatus::Rotation => 0.0,
         PlayerStatus::Backup => -0.04 * pressure,
-        PlayerStatus::Surplus => -0.18 * pressure,
-        PlayerStatus::Unwanted => -0.30 * pressure,
+        PlayerStatus::Surplus => -SURPLUS_CLOSING_DISCOUNT * pressure,
+        PlayerStatus::Unwanted => -UNWANTED_CLOSING_DISCOUNT * pressure,
     };
+    // A club that has just come down and is over its new budget sells a little cheaper.
+    if facts.seller_cutting_costs {
+        m -= 0.04;
+    }
     if facts.contract_days_left.is_some_and(|days| days <= 60) {
         m -= 0.10 * pressure;
     }
@@ -321,6 +375,9 @@ pub(crate) struct CeilingFacts {
     pub alternatives: usize,
     /// Cash the buyer can spend: the lesser of his transfer budget and his finances.
     pub budget: i64,
+    /// What the board adds to a valuation for a club that has just come up and must be ready for
+    /// its new division (0 for everybody else).
+    pub ambition: f64,
 }
 
 pub(crate) const CEILING_MIN: f64 = 0.60;
@@ -332,8 +389,8 @@ pub(crate) fn ceiling_multiplier(facts: &CeilingFacts) -> f64 {
     // A buyer with time to spare holds out for a lower price, and gives in as the window closes:
     // the reason the best deals wait for the last days, and a club short of players waits less.
     let waiting = match facts.phase {
-        WindowPhase::Early => 0.15,
-        WindowPhase::Mid => 0.08,
+        WindowPhase::Early => 0.18,
+        WindowPhase::Mid => 0.12,
         WindowPhase::LastWeek => 0.03,
         WindowPhase::Last72h => 0.0,
         WindowPhase::DeadlineDay => -0.03,
@@ -342,6 +399,7 @@ pub(crate) fn ceiling_multiplier(facts: &CeilingFacts) -> f64 {
     if facts.thin {
         m += 0.10 + 0.10 * pressure;
     }
+    m += facts.ambition;
     if facts.age >= 30 {
         m -= (0.03 * f64::from(facts.age - 29)).min(0.20);
     }
@@ -383,6 +441,8 @@ pub(crate) struct GeoFacts {
     pub improvement: i32,
     pub fee: u64,
     pub buyer_budget: i64,
+    /// The target's market value: a cheap player is not worth a scouting trip across a border.
+    pub value: u64,
 }
 
 pub(crate) const GEO_MIN: f64 = 0.40;
@@ -397,7 +457,7 @@ pub(crate) fn geographic_affinity(facts: &GeoFacts) -> f64 {
         return 1.0;
     }
     let prestige = ((f64::from(facts.buyer_reputation) - 500.0) / 350.0).clamp(0.0, 1.0);
-    let base = 0.30 + 0.45 * prestige;
+    let base = (0.30 + 0.45 * prestige) * foreign_visibility(facts.value);
     let pull = 0.30 * (f64::from(facts.improvement.clamp(0, 15)) / 15.0);
     let share = if facts.buyer_budget > 0 {
         facts.fee as f64 / facts.buyer_budget as f64
@@ -411,6 +471,16 @@ pub(crate) fn geographic_affinity(facts: &GeoFacts) -> f64 {
         0.0
     };
     (base + pull - drag).clamp(GEO_MIN, GEO_MAX)
+}
+
+/// How visible a foreign player is to a buyer, by what he is worth: a player under £300 000 is
+/// seen by few scouts outside his own country (0.6), one above £3 million by everybody (1.0),
+/// in between on a log scale.
+pub(crate) fn foreign_visibility(value: u64) -> f64 {
+    const LOW: f64 = 300_000.0;
+    const HIGH: f64 = 3_000_000.0;
+    let v = (value.max(1) as f64).clamp(LOW, HIGH);
+    0.6 + 0.4 * (v.ln() - LOW.ln()) / (HIGH.ln() - LOW.ln())
 }
 
 /// A buyer's ranking of a target it could sign: the club's own interest in him, plus what he adds
@@ -433,6 +503,25 @@ pub(crate) fn shops_without_pressing_need(phase: WindowPhase, draw: u64) -> bool
 /// Whether every club, not only those on their review day, is in the market: the last three days.
 pub(crate) fn whole_market_is_open(phase: WindowPhase) -> bool {
     phase >= WindowPhase::Last72h
+}
+
+/// A foreign player worth less than this is not worth a trip across the border for a squad filler.
+pub(crate) const CROSS_BORDER_FILLER_VALUE: u64 = 500_000;
+/// The rating gain that does justify one.
+pub(crate) const CROSS_BORDER_MIN_GAIN: i32 = 4;
+
+/// Whether a buyer would look abroad for this player: not a cheap squad filler, unless he is a
+/// clear upgrade or the buyer has nobody in the position at all. A home player is never refused here.
+pub(crate) fn worth_the_border(
+    same_country: bool,
+    value: u64,
+    improvement: i32,
+    thin: bool,
+) -> bool {
+    same_country
+        || thin
+        || value >= CROSS_BORDER_FILLER_VALUE
+        || improvement >= CROSS_BORDER_MIN_GAIN
 }
 
 /// Rating gain a target would bring over the buyer's first cover in his group (the player he
@@ -459,8 +548,14 @@ pub(crate) fn has_unmet_need(depths: &[usize; 4]) -> bool {
 
 /// A club that cannot carry the signing of a fee player: over its wage budget by a fifth, or in
 /// debt. It sells or lends before it buys.
-pub(crate) fn is_overstretched(wage_bill: i64, wage_budget: i64, finance: i64) -> bool {
-    finance < 0 || (wage_budget > 0 && wage_bill * 100 > wage_budget * 120)
+/// The line past which a club is overstretched, drawn at `limit_pct` of the wage budget.
+pub(crate) fn is_overstretched_at(
+    wage_bill: i64,
+    wage_budget: i64,
+    finance: i64,
+    limit_pct: i64,
+) -> bool {
+    finance < 0 || (wage_budget > 0 && wage_bill * 100 > wage_budget * limit_pct)
 }
 
 #[cfg(test)]
@@ -478,6 +573,7 @@ mod tests {
             potential_gap: 0,
             morale: 70,
             seller_in_trouble: false,
+            seller_cutting_costs: false,
             replacement_hard: true,
         }
     }
@@ -590,6 +686,7 @@ mod tests {
                             potential_gap: gap,
                             morale,
                             seller_in_trouble: trouble,
+                            seller_cutting_costs: false,
                             replacement_hard: hard,
                         };
                         let m = asking_multiplier(&facts);
@@ -617,6 +714,7 @@ mod tests {
             phase: WindowPhase::DeadlineDay,
             alternatives: 0,
             budget: i64::MAX,
+            ambition: 0.0,
         };
         let m = ceiling_multiplier(&facts);
         assert!((CEILING_MIN..=CEILING_MAX).contains(&m));
@@ -661,6 +759,7 @@ mod tests {
             improvement,
             fee: 10,
             buyer_budget: 1_000,
+            value: 5_000_000,
         };
         let small = |improvement| GeoFacts {
             buyer_reputation: 450,
@@ -700,6 +799,7 @@ mod tests {
             improvement: 3,
             fee: 1,
             buyer_budget: 0,
+            value: 0,
         });
         assert!(a.is_finite());
     }
@@ -712,15 +812,22 @@ mod tests {
             Indispensable,
             false,
             100,
-            WindowPhase::DeadlineDay
+            WindowPhase::DeadlineDay,
+            Some(900)
         ));
-        assert!(willing_to_sell(Indispensable, true, 0, mid));
-        assert!(!willing_to_sell(Starter, false, 70, mid));
-        assert!(willing_to_sell(Starter, false, 80, mid));
-        assert!(willing_to_sell(Surplus, false, 0, mid));
-        assert!(willing_to_sell(Unwanted, false, 0, mid));
-        assert!(!willing_to_sell(Backup, false, 20, mid));
-        assert!(willing_to_sell(Backup, false, 20, WindowPhase::LastWeek));
+        assert!(willing_to_sell(Indispensable, true, 0, mid, Some(900)));
+        assert!(!willing_to_sell(Starter, false, 70, mid, Some(900)));
+        assert!(willing_to_sell(Starter, false, 80, mid, Some(900)));
+        assert!(willing_to_sell(Surplus, false, 0, mid, Some(900)));
+        assert!(willing_to_sell(Unwanted, false, 0, mid, Some(900)));
+        assert!(!willing_to_sell(Backup, false, 20, mid, Some(900)));
+        assert!(willing_to_sell(
+            Backup,
+            false,
+            20,
+            WindowPhase::LastWeek,
+            Some(900)
+        ));
     }
 
     #[test]
@@ -803,9 +910,166 @@ mod tests {
     fn needs_and_overstretch() {
         assert!(has_unmet_need(&[1, 6, 6, 4]));
         assert!(!has_unmet_need(&[3, 6, 6, 4]));
-        assert!(is_overstretched(121, 100, 5));
-        assert!(!is_overstretched(119, 100, 5));
-        assert!(is_overstretched(10, 100, -1));
-        assert!(!is_overstretched(500, 0, 5));
+        assert!(is_overstretched_at(121, 100, 5, 120));
+        assert!(!is_overstretched_at(119, 100, 5, 120));
+        assert!(is_overstretched_at(10, 100, -1, 120));
+        assert!(!is_overstretched_at(500, 0, 5, 120));
+    }
+}
+
+#[cfg(test)]
+mod mission12_tests {
+    use super::*;
+
+    #[test]
+    fn a_cheap_foreign_filler_is_not_worth_the_border_but_an_upgrade_or_a_hole_is() {
+        assert!(worth_the_border(true, 100_000, 0, false));
+        assert!(!worth_the_border(false, 100_000, 1, false));
+        assert!(worth_the_border(false, 100_000, 4, false));
+        assert!(worth_the_border(false, 100_000, 0, true));
+        assert!(worth_the_border(false, 500_000, 0, false));
+    }
+
+    #[test]
+    fn a_mainstay_is_kept_but_an_expiring_spare_goes_in_the_last_week() {
+        let late = WindowPhase::LastWeek;
+        assert!(!willing_to_sell(
+            PlayerStatus::Starter,
+            false,
+            30,
+            late,
+            Some(40)
+        ));
+        assert!(willing_to_sell(
+            PlayerStatus::Rotation,
+            false,
+            30,
+            late,
+            Some(40)
+        ));
+        assert!(!willing_to_sell(
+            PlayerStatus::Rotation,
+            false,
+            30,
+            WindowPhase::Mid,
+            Some(40)
+        ));
+        assert!(!willing_to_sell(
+            PlayerStatus::Rotation,
+            false,
+            30,
+            late,
+            Some(400)
+        ));
+    }
+
+    fn spare(
+        status: PlayerStatus,
+        listed: bool,
+        phase: WindowPhase,
+        days: Option<i64>,
+    ) -> AskingFacts {
+        AskingFacts {
+            value: 1_000_000,
+            status,
+            phase,
+            contract_days_left: days,
+            listed,
+            age: 27,
+            potential_gap: 0,
+            morale: 70,
+            seller_in_trouble: false,
+            seller_cutting_costs: false,
+            replacement_hard: false,
+        }
+    }
+
+    #[test]
+    fn a_listed_surplus_with_years_to_run_is_not_charged_twice_for_being_spare() {
+        let m = asking_multiplier(&spare(
+            PlayerStatus::Surplus,
+            true,
+            WindowPhase::Mid,
+            Some(900),
+        ));
+        // 10 % listed + half of 6 %: 87 %, not the 78 % of the two discounts added.
+        assert!((m - 0.87).abs() < 1e-9, "{m}");
+    }
+
+    #[test]
+    fn the_last_day_does_not_cut_every_price() {
+        for status in [
+            PlayerStatus::Indispensable,
+            PlayerStatus::Starter,
+            PlayerStatus::Rotation,
+        ] {
+            let mid = asking_multiplier(&spare(status, false, WindowPhase::Mid, Some(900)));
+            let last =
+                asking_multiplier(&spare(status, false, WindowPhase::DeadlineDay, Some(900)));
+            assert!(last >= mid, "{status:?}: {last} < {mid}");
+        }
+        let spare_mid = asking_multiplier(&spare(
+            PlayerStatus::Surplus,
+            false,
+            WindowPhase::Mid,
+            Some(900),
+        ));
+        let spare_last = asking_multiplier(&spare(
+            PlayerStatus::Surplus,
+            false,
+            WindowPhase::DeadlineDay,
+            Some(900),
+        ));
+        assert!(spare_last < spare_mid - 0.2);
+    }
+
+    #[test]
+    fn a_relegated_seller_over_budget_asks_a_little_less() {
+        let base = spare(PlayerStatus::Rotation, false, WindowPhase::Mid, Some(900));
+        let cutting = AskingFacts {
+            seller_cutting_costs: true,
+            ..base
+        };
+        assert!((asking_multiplier(&base) - asking_multiplier(&cutting) - 0.04).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_cheap_player_is_less_visible_abroad_and_a_star_is_seen_by_all() {
+        assert!((foreign_visibility(0) - 0.6).abs() < 1e-9);
+        assert!((foreign_visibility(300_000) - 0.6).abs() < 1e-9);
+        assert!((foreign_visibility(3_000_000) - 1.0).abs() < 1e-9);
+        assert!((foreign_visibility(u64::MAX) - 1.0).abs() < 1e-9);
+        assert!(foreign_visibility(1_000_000) > 0.6 && foreign_visibility(1_000_000) < 1.0);
+    }
+
+    #[test]
+    fn ambition_lifts_a_promoted_clubs_valuation_within_the_bounds() {
+        let base = CeilingFacts {
+            value: 1_000_000,
+            improvement: 4,
+            thin: false,
+            age: 25,
+            phase: WindowPhase::Mid,
+            alternatives: 1,
+            budget: i64::MAX,
+            ambition: 0.0,
+        };
+        let promoted = CeilingFacts {
+            ambition: 0.04,
+            ..base
+        };
+        assert!((ceiling_multiplier(&promoted) - ceiling_multiplier(&base) - 0.04).abs() < 1e-9);
+        let huge = CeilingFacts {
+            ambition: 10.0,
+            ..base
+        };
+        assert!(ceiling_multiplier(&huge) <= CEILING_MAX);
+    }
+
+    #[test]
+    fn a_relegated_club_is_overstretched_at_its_budget_not_a_fifth_above() {
+        assert!(!is_overstretched_at(110, 100, 1, 120));
+        assert!(is_overstretched_at(110, 100, 1, 100));
+        assert!(is_overstretched_at(1, 100, -1, 120), "debt always counts");
     }
 }

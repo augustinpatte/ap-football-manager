@@ -17,6 +17,43 @@ pub fn market_buyer_evaluations() -> u64 {
     BUYER_EVALUATIONS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// What the market knew about one completed AI transfer when it was made: the harness's view of
+/// *why* a price was what it was. It never feeds a decision, and nothing is recorded unless the
+/// harness switches the log on.
+#[derive(Debug, Clone)]
+pub struct DealRecord {
+    pub status: &'static str,
+    pub phase: &'static str,
+    pub listed: bool,
+    pub fee: u64,
+    pub asking: u64,
+    pub value: u64,
+    pub age: i32,
+    pub contract_days: Option<i64>,
+    pub buyer_reputation: u32,
+    pub seller_reputation: u32,
+    pub buyer_country: String,
+    pub seller_country: String,
+    pub improvement: i32,
+    pub thin: bool,
+}
+
+static DEAL_LOG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DEAL_LOG: std::sync::Mutex<Vec<DealRecord>> = std::sync::Mutex::new(Vec::new());
+
+pub fn enable_deal_log() {
+    DEAL_LOG_ON.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The deals recorded since the last call.
+pub fn take_deal_log() -> Vec<DealRecord> {
+    std::mem::take(&mut *DEAL_LOG.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+/// How much further up the reputation ladder a club that has just come up looks for a signing:
+/// its new division is above the reputation it earned in the old one.
+const PROMOTED_REPUTATION_REACH: u32 = 50;
+
 /// The age from which an AI club will not pay a transfer fee for a player: his career is nearly
 /// over and the fee buys no resale. A goalkeeper's lasts longer. Free agents and loans are not
 /// bound by it: they cost no fee.
@@ -86,6 +123,7 @@ fn player_statuses(
     game: &Game,
     current_date: NaiveDate,
     wage_bills: &std::collections::HashMap<String, i64>,
+    division_moves: &std::collections::HashMap<String, crate::division_move::DivisionMove>,
 ) -> (
     std::collections::HashMap<String, PlayerStatus>,
     HashSet<String>,
@@ -108,7 +146,13 @@ fn player_statuses(
             continue;
         };
         let bill = wage_bills.get(&team.id).copied().unwrap_or(0);
-        let in_trouble = bill > team.wage_budget || team.finance < 0;
+        // A club that has just come down is held to a stricter line: it is "in trouble" from 90 %
+        // of the budget its new division plans on, so its costly spares are the first to go.
+        let relegated =
+            division_moves.get(&team.id) == Some(&crate::division_move::DivisionMove::Relegated);
+        let in_trouble = bill > team.wage_budget
+            || team.finance < 0
+            || (relegated && bill * 100 > team.wage_budget * 90);
         if in_trouble {
             troubled.insert(team.id.clone());
         }
@@ -388,7 +432,27 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // Where each target sits in `game.players`, so the buyer's wage check need not search.
     // The sweep moves players between clubs but never adds or removes one.
     let phase = window_phase(game.season_context.transfer_window.days_remaining);
-    let (statuses, troubled_clubs) = player_statuses(game, current_date, &wage_bills);
+    let division_moves = crate::division_move::recent_division_moves(game);
+    let promoted_clubs: HashSet<&str> = division_moves
+        .iter()
+        .filter(|(_, change)| **change == crate::division_move::DivisionMove::Promoted)
+        .map(|(club, _)| club.as_str())
+        .collect();
+    let relegated_clubs: HashSet<&str> = division_moves
+        .iter()
+        .filter(|(_, change)| **change == crate::division_move::DivisionMove::Relegated)
+        .map(|(club, _)| club.as_str())
+        .collect();
+    let (statuses, troubled_clubs) =
+        player_statuses(game, current_date, &wage_bills, &division_moves);
+    // Relegated clubs that pay more than the budget of the division they now play in.
+    let cutting_clubs: HashSet<String> = game
+        .teams
+        .iter()
+        .filter(|team| relegated_clubs.contains(team.id.as_str()))
+        .filter(|team| wage_bills.get(&team.id).copied().unwrap_or(0) > team.wage_budget)
+        .map(|team| team.id.clone())
+        .collect();
     let player_index: std::collections::HashMap<String, usize> = game
         .players
         .iter()
@@ -412,6 +476,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need);
             // A club with nothing pressing may wait: early in the window most do.
             let patient = !unmet_need
+                && !promoted_clubs.contains(team.id.as_str())
                 && !shops_without_pressing_need(
                     phase,
                     crate::stable_hash::stable_hash(team.id.as_bytes(), day_number),
@@ -542,6 +607,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 potential_gap: i32::from(player.potential) - i32::from(player.ovr),
                 morale: player.morale,
                 seller_in_trouble: troubled_clubs.contains(owner_team_id),
+                seller_cutting_costs: cutting_clubs.contains(owner_team_id),
                 replacement_hard: position_depths.get(owner_team_id).is_some_and(|depths| {
                     depths[group]
                         <= crate::squad_floor::MIN_PLAYERS_PER_GROUP[group].1
@@ -562,6 +628,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             age,
             value: player.market_value,
             status,
+            contract_days: contract_days_remaining(current_date, player.contract_end()),
         });
     }
     // Highest appeal first; a stable sort preserves the original ordering among
@@ -652,10 +719,17 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         );
         // Worked out once for this buyer, and only if a target gets as far as needing it.
         let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
-        let buyer_overstretched = is_overstretched(
+        let buyer_promoted = promoted_clubs.contains(buyer_id.as_str());
+        let buyer_overstretched = is_overstretched_at(
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
             buyer_team.wage_budget,
             buyer_team.finance,
+            // A club that has just come down does not spend as the division it left did.
+            if relegated_clubs.contains(buyer_id.as_str()) {
+                100
+            } else {
+                120
+            },
         );
         let buyer_cash = buyer_team.transfer_budget.min(buyer_team.finance);
         // What he adds to this buyer, and whether the buyer is short in his group.
@@ -684,6 +758,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     phase,
                     alternatives: 1,
                     budget: buyer_cash,
+                    // A club that has come up wants to be ready for its new division.
+                    ambition: if buyer_promoted { 0.04 } else { 0.0 },
                 }),
             )
         };
@@ -709,7 +785,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     return false;
                 }
             } else if completed_ai_transfers >= max_completed_ai_transfers
-                || !willing_to_sell(target.status, target.is_listed, target.score, phase)
+                || !willing_to_sell(
+                    target.status,
+                    target.is_listed,
+                    target.score,
+                    phase,
+                    target.contract_days,
+                )
             {
                 return false;
             }
@@ -721,6 +803,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 (60.0 * phase.pressure()) as u32
             } else {
                 0
+            } + if buyer_promoted {
+                PROMOTED_REPUTATION_REACH
+            } else {
+                0
             };
             if !buyer_has_genuine_interest(
                 buyer_team.reputation,
@@ -728,6 +814,15 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 buyer_depths[target.position_group_index],
             ) {
                 return false;
+            }
+            // A cheap foreign filler is not worth the trip.
+            if !target.is_user_owned {
+                let same_country = team_country
+                    .get(&target.owner_team_id)
+                    .is_some_and(|country| *country == buyer_team.country);
+                if !worth_the_border(same_country, target.value, improvement, thin) {
+                    return false;
+                }
             }
             // Nobody pays a fee for a player at the end of his career, a goalkeeper's coming later.
             if !target.is_user_owned
@@ -824,6 +919,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     improvement,
                     fee,
                     buyer_budget: buyer_cash,
+                    value: target.value,
                 }),
             );
             if chosen.is_none_or(|(_, best, _)| rank > best) {
@@ -874,6 +970,32 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             continue;
         }
 
+        let deal_record = DEAL_LOG_ON
+            .load(std::sync::atomic::Ordering::Relaxed)
+            .then(|| {
+                let player = &game.players[*player_index.get(&target.player_id)?];
+                let (improvement, thin) = fit(target);
+                Some(DealRecord {
+                    status: target.status.name(),
+                    phase: phase.name(),
+                    listed: target.is_listed,
+                    fee: candidate.fee,
+                    asking: target.fee,
+                    value: target.value,
+                    age: target.age,
+                    contract_days: contract_days_remaining(current_date, player.contract_end()),
+                    buyer_reputation: buyer_team.reputation,
+                    seller_reputation: target.owner_reputation,
+                    buyer_country: buyer_team.country.clone(),
+                    seller_country: team_country
+                        .get(&target.owner_team_id)
+                        .cloned()
+                        .unwrap_or_default(),
+                    improvement,
+                    thin,
+                })
+            })
+            .flatten();
         if execute_transfer(
             game,
             &candidate.player_id,
@@ -883,6 +1005,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         )
         .is_ok()
         {
+            if let Some(record) = deal_record {
+                DEAL_LOG
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push(record);
+            }
             moved_player_ids.insert(candidate.player_id);
             completed_ai_transfers += 1;
             // Only the seller is recounted: a club that has just bought has had its turn (each

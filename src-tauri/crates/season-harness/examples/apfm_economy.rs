@@ -767,6 +767,7 @@ fn main() {
         .unwrap_or(7);
 
     let path = world_path_from_env().expect("APFM_WORLD_JSON is not set");
+    ofm_core::transfers::enable_deal_log();
     let t0 = Instant::now();
     let mut game = build_fm24_career(&path, &club, seed).expect("career builds");
     let build_s = t0.elapsed().as_secs_f64();
@@ -867,6 +868,22 @@ fn main() {
         "integrity_violations": econ.integrity,
         "market_buyer_evaluations": ofm_core::transfers::market_buyer_evaluations(),
     });
+    // Mission 12: one line per completed AI transfer, with what the market knew when it was made.
+    let deals: String = ofm_core::transfers::take_deal_log()
+        .iter()
+        .map(|d| {
+            json!({
+                "status": d.status, "phase": d.phase, "listed": d.listed, "fee": d.fee,
+                "asking": d.asking, "value": d.value, "age": d.age, "contract_days": d.contract_days,
+                "buyer_rep": d.buyer_reputation, "seller_rep": d.seller_reputation,
+                "buyer_country": d.buyer_country, "seller_country": d.seller_country,
+                "improvement": d.improvement, "thin": d.thin,
+            })
+            .to_string()
+                + "\n"
+        })
+        .collect();
+    std::fs::write(format!("{out}.deals.jsonl"), deals).unwrap();
     std::fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
     println!("{}", serde_json::to_string(&report["headline"]).unwrap());
 }
