@@ -630,6 +630,8 @@ mod tests {
             specialization: Some(CoachingSpecialization::Fitness),
             date_of_birth: Some("1975-01-01".into()),
             age: Some(50),
+            post: None,
+            detail: None,
             known_as: Some("Sam Staffer".into()),
         };
 

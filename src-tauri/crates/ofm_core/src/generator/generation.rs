@@ -854,6 +854,8 @@ pub(super) fn generate_staff_from_authored_def(
     s.team_id = team_id.map(|t| t.to_string());
     s.specialization = def.specialization.clone();
     s.set_known_as(def.known_as.clone());
+    s.post = def.post;
+    s.detail = def.detail.clone();
     s
 }
 

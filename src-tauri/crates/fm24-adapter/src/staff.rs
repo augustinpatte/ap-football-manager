@@ -9,7 +9,7 @@ use crate::ids;
 use crate::journal::Journal;
 use crate::refs::Refs;
 use crate::source::StaffRow;
-use domain::staff::{CoachingSpecialization, StaffAttributes, StaffRole};
+use domain::staff::{CoachingSpecialization, StaffAttributes, StaffDetail, StaffPost, StaffRole};
 use ofm_core::generator::StaffDef;
 
 /// What an FM role becomes in OFM.
@@ -51,10 +51,57 @@ pub fn map_role(role_code: &str) -> Mapping {
         // Set-piece coach: closest OFM focus is tactics (documented approximation).
         "entraineur_cpa" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::Tactics))),
         "recruteur" | "chef_recruteur" => Mapping::Staff(StaffRole::Scout, None),
+        // Analysts and the head of youth fill their own seats; `post_for` names them.
+        "analyste_recrutement"
+        | "resp_analyse_recrutement"
+        | "analyste_performance"
+        | "resp_analyse_performance" => Mapping::Staff(StaffRole::Scout, None),
+        "resp_formation" => Mapping::Staff(StaffRole::Coach, Some(Spec::Fixed(K::Youth))),
         "kine" | "kine_chef" | "medecin" | "resp_medical" => {
             Mapping::Staff(StaffRole::Physio, None)
         }
         _ => Mapping::Excluded,
+    }
+}
+
+/// The seat an FM role fills when it is finer than the OFM role and specialisation say.
+pub fn post_for(role_code: &str) -> Option<StaffPost> {
+    match role_code {
+        "chef_recruteur" => Some(StaffPost::HeadOfScouting),
+        "kine_chef" | "resp_medical" => Some(StaffPost::HeadOfMedical),
+        "resp_formation" => Some(StaffPost::HeadOfYouth),
+        "analyste_recrutement"
+        | "resp_analyse_recrutement"
+        | "analyste_performance"
+        | "resp_analyse_performance" => Some(StaffPost::Analyst),
+        _ => None,
+    }
+}
+
+/// The FM24 training attributes the save gave, kept beside the four OFM attributes they were
+/// folded into. A value the save did not give stays 0 ("unknown"), never a made-up skill.
+pub fn detail(row: &StaffRow) -> StaffDetail {
+    let get = |key: &str| clamp(raw(row, key)).min(99) * u8::from(row.attrs.contains_key(key));
+    StaffDetail {
+        attacking: get("attacking"),
+        defending: get("defending"),
+        technical: get("technical"),
+        tactical: get("tactical"),
+        mental: get("mental"),
+        fitness: get("fitness"),
+        goalkeeping: {
+            let keys = ["gk_handling", "gk_shot_stopping", "gk_distribution"];
+            if keys.iter().all(|k| row.attrs.contains_key(*k)) {
+                clamp(keys.iter().map(|k| raw(row, k)).sum::<f64>() / 3.0)
+            } else {
+                0
+            }
+        },
+        determination: get("determination"),
+        motivating: get("motivating"),
+        discipline: get("level_of_discipline"),
+        analysing: get("analysing_data"),
+        sports_science: get("sports_science"),
     }
 }
 
@@ -182,6 +229,8 @@ pub fn build(
                         date_of_birth: row.birth_date.clone(),
                         age: None,
                         known_as,
+                        post: post_for(&row.role_code),
+                        detail: Some(detail(row)),
                     },
                     row.person_id,
                 ));
@@ -285,7 +334,68 @@ mod tests {
         ));
         assert_eq!(map_role("entraineur_principal"), Mapping::Manager);
         assert_eq!(map_role("president"), Mapping::Excluded);
-        assert_eq!(map_role("analyste_performance"), Mapping::Excluded);
+        // Analysts and the head of youth now fill their own seats.
+        assert_eq!(
+            map_role("analyste_performance"),
+            Mapping::Staff(StaffRole::Scout, None)
+        );
+        assert_eq!(
+            post_for("analyste_performance"),
+            Some(StaffPost::Analyst)
+        );
+        assert_eq!(post_for("resp_formation"), Some(StaffPost::HeadOfYouth));
+        assert_eq!(post_for("kine"), None);
+    }
+
+    #[test]
+    fn detail_keeps_what_the_save_gave_and_leaves_the_rest_unknown_across_clubs() {
+        // Three clubs, three profiles: full, partial, and none of the detailed attributes.
+        let full = row(
+            "entraineur",
+            &[
+                ("attacking", 70),
+                ("defending", 55),
+                ("technical", 62),
+                ("tactical", 48),
+                ("mental", 51),
+                ("fitness", 80),
+                ("gk_handling", 30),
+                ("gk_shot_stopping", 60),
+                ("gk_distribution", 90),
+                ("determination", 66),
+                ("motivating", 71),
+                ("level_of_discipline", 44),
+            ],
+        );
+        let d = detail(&full);
+        assert_eq!((d.attacking, d.fitness, d.determination), (70, 80, 66));
+        assert_eq!(d.goalkeeping, 60);
+        // Not in the row: unknown (0), never a default skill.
+        assert_eq!((d.analysing, d.sports_science), (0, 0));
+        assert_eq!(StaffDetail::known(d.analysing), None);
+
+        // Only one of the three goalkeeping attributes: the average is not guessed.
+        let partial = row("kine", &[("sports_science", 77), ("gk_handling", 40)]);
+        let d = detail(&partial);
+        assert_eq!(d.sports_science, 77);
+        assert_eq!(d.goalkeeping, 0);
+        assert_eq!(d.attacking, 0);
+
+        let none = row("resp_formation", &[]);
+        assert_eq!(detail(&none), StaffDetail::default());
+
+        // Seats: the analysts and the head of youth keep their own, the rest derive theirs.
+        for (club, code, post) in [
+            (1, "resp_formation", Some(StaffPost::HeadOfYouth)),
+            (2, "analyste_recrutement", Some(StaffPost::Analyst)),
+            (3, "chef_recruteur", Some(StaffPost::HeadOfScouting)),
+            (3, "kine_chef", Some(StaffPost::HeadOfMedical)),
+            (3, "adjoint", None),
+        ] {
+            let mut r = row(code, &[]);
+            r.club_id = club;
+            assert_eq!(post_for(&r.role_code), post, "club {club} role {code}");
+        }
     }
 
     #[test]

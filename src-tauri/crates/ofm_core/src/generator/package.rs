@@ -193,6 +193,12 @@ pub struct StaffDef {
     /// i Sala). `firstName`/`lastName` stay the real name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub known_as: Option<String>,
+    /// The seat they fill, when `role` + `specialization` cannot say it (head of youth, analyst).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post: Option<domain::staff::StaffPost>,
+    /// The detailed training attributes behind the four above, when the source has them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<domain::staff::StaffDetail>,
 }
 
 /// Package-level metadata (at most one per package).

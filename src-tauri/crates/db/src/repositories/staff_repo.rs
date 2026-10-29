@@ -1,4 +1,4 @@
-use domain::staff::{CoachingSpecialization, Staff, StaffAttributes, StaffRole};
+use domain::staff::{CoachingSpecialization, Staff, StaffAttributes, StaffPost, StaffRole};
 use rusqlite::{Connection, params};
 
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
@@ -10,12 +10,19 @@ pub fn upsert_staff(conn: &Connection, s: &Staff) -> Result<(), String> {
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let role_str = format!("{:?}", s.role);
     let spec_str = s.specialization.as_ref().map(|sp| format!("{:?}", sp));
+    let post_str = s.post.map(|post| format!("{post:?}"));
+    let detail_json = s
+        .detail
+        .as_ref()
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     conn.execute(
         "INSERT OR REPLACE INTO staff
          (id, first_name, last_name, date_of_birth, nationality, football_nation, birth_country, role,
-          attributes, team_id, specialization, wage, contract_end, known_as)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+          attributes, team_id, specialization, wage, contract_end, known_as, post, detail_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
             s.id,
             s.first_name,
@@ -31,6 +38,8 @@ pub fn upsert_staff(conn: &Connection, s: &Staff) -> Result<(), String> {
             s.wage,
             s.contract_end,
             s.known_as,
+            post_str,
+            detail_json,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -70,6 +79,10 @@ fn parse_role(s: &str) -> StaffRole {
     }
 }
 
+fn parse_post(s: &str) -> Option<StaffPost> {
+    StaffPost::ALL.iter().copied().find(|post| format!("{post:?}") == s)
+}
+
 fn parse_specialization(s: &str) -> Option<CoachingSpecialization> {
     match s {
         "Fitness" => Some(CoachingSpecialization::Fitness),
@@ -88,7 +101,7 @@ pub fn load_all_staff(conn: &Connection) -> Result<Vec<Staff>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, first_name, last_name, date_of_birth, nationality, football_nation, birth_country, role,
-                    attributes, team_id, specialization, wage, contract_end, known_as
+                    attributes, team_id, specialization, wage, contract_end, known_as, post, detail_json
              FROM staff",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -130,6 +143,10 @@ fn row_to_staff(row: &rusqlite::Row) -> rusqlite::Result<Staff> {
         contract_end: row.get(12)?,
         known_as: row.get(13)?,
         display_name: String::new(),
+        post: row.get::<_, Option<String>>(14)?.and_then(|p| parse_post(&p)),
+        detail: row
+            .get::<_, Option<String>>(15)?
+            .and_then(|json| serde_json::from_str(&json).ok()),
     };
     staff.refresh_display_name();
     Ok(staff)

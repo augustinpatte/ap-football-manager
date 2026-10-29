@@ -11,7 +11,7 @@ use ofm_core::game::{
 
 use crate::game_database::GameDatabase;
 use crate::repositories::{
-    archived_message_repo, competition_repo, custom_tactic_repo, edition_archive_repo,
+    archived_message_repo, competition_repo, custom_tactic_repo, delegation_repo, edition_archive_repo,
     journal_repo, league_repo, manager_repo, message_repo, meta_repo, national_team_repo,
     news_repo, objective_repo, player_repo, retired_manager_repo, retired_player_repo,
     scouting_repo, staff_repo, stats_repo, team_repo,
@@ -161,6 +161,7 @@ fn write_game_to_connection(
     competition_repo::replace_competitions(conn, &game.competitions)?;
     edition_archive_repo::persist_new_editions(conn, &game.edition_archive)?;
     custom_tactic_repo::replace_custom_tactics(conn, &game.custom_tactics)?;
+    delegation_repo::replace_delegation(conn, &game.delegation)?;
     retired_player_repo::archive_retired_players(conn, &game.retired_players)?;
     retired_manager_repo::archive_retired_managers(conn, &game.retired_managers)?;
     national_team_repo::replace_national_teams(conn, &game.national_teams)?;
@@ -292,6 +293,7 @@ impl GamePersistenceReader {
         let mut competitions = competition_repo::load_competitions(conn)?;
         let edition_archive = edition_archive_repo::load_editions(conn)?;
         let custom_tactics = custom_tactic_repo::load_custom_tactics(conn)?;
+        let delegation = delegation_repo::load_delegation(conn)?;
         let retired_players = retired_player_repo::load_retired_players(conn)?;
         let retired_managers = retired_manager_repo::load_retired_managers(conn)?;
         let national_teams = national_team_repo::load_national_teams(conn)?;
@@ -386,6 +388,7 @@ impl GamePersistenceReader {
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
             edition_archive,
             custom_tactics,
+            delegation,
             retired_players,
             calendar_fingerprint: None,
             day_start: None,
@@ -848,6 +851,42 @@ mod tests {
             loaded.available_staff_market_last_activity_date.as_deref(),
             Some("2032-07-18")
         );
+    }
+
+    /// The staff system is career state: a member's seat and FM24 detail, the contract the
+    /// manager signed, what is delegated and the proposals waiting must all come back.
+    #[test]
+    fn write_and_read_game_preserves_the_staff_system() {
+        use domain::delegation::{Duty, ProposalAction};
+        use domain::staff::{Staff, StaffAttributes, StaffDetail, StaffPost};
+
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut game = sample_game_with_clock(2032, 18);
+        let mut member = Staff::new(
+            "st-1".into(), "Ana".into(), "Head".into(), "1975-05-05".into(), StaffPost::HeadOfYouth.role(),
+            StaffAttributes { coaching: 71, judging_ability: 60, judging_potential: 66, physiotherapy: 10 },
+        );
+        member.post = Some(StaffPost::HeadOfYouth);
+        member.detail = Some(StaffDetail { technical: 77, motivating: 64, ..StaffDetail::default() });
+        member.contract_end = Some("2034-07-01".into());
+        member.wage = 4321;
+        game.staff.push(member);
+        game.delegation.set(Duty::Scouting, true, false);
+        game.delegation.mark_run(Duty::Scouting, "2032-07-18");
+        game.delegation.propose(
+            Duty::StaffRecruitment, "2032-07-18",
+            ProposalAction::HireStaff { staff_id: "free".into(), wage: 800, years: 2 },
+            "delegation.proposal.hire", vec![("name".into(), "Z".into())], "delegation.reason.vacancy",
+        );
+
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+        let loaded = GamePersistenceReader::read_game(&db).unwrap();
+
+        let back = loaded.staff.iter().find(|s| s.id == "st-1").unwrap();
+        assert_eq!(back.post, Some(StaffPost::HeadOfYouth));
+        assert_eq!(back.detail, game.staff.last().unwrap().detail);
+        assert_eq!((back.wage, back.contract_end.as_deref()), (4321, Some("2034-07-01")));
+        assert_eq!(loaded.delegation, game.delegation);
     }
 
     fn sample_message(id: &str) -> domain::message::InboxMessage {
