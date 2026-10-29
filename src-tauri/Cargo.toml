@@ -106,6 +106,13 @@ gtk = "0.18"
 # making the played dev build an order of magnitude quicker at runtime.
 [profile.dev]
 opt-level = 1
+# Disk: debuginfo and incremental caches took target/ to 47 GB.
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
 
 [profile.dev.package."*"]
 opt-level = 3

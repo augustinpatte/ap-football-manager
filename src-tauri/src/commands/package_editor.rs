@@ -1080,6 +1080,8 @@ mod tests {
             date_of_birth: Some("1941-12-31".to_string()),
             age: None,
             known_as: None,
+            post: None,
+            detail: None,
         }];
 
         save_package_project(
