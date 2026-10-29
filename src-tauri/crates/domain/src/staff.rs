@@ -35,6 +35,16 @@ pub struct Staff {
     /// as it is and never decides between the names itself.
     #[serde(default)]
     pub display_name: String,
+
+    /// The post they fill when it is finer than `role` + `specialization` can say (head of
+    /// youth, analyst...). `None` means "derive it": see [`Staff::post`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post: Option<StaffPost>,
+    /// The FM24 training attributes that the four OFM attributes were folded from. Present only
+    /// for staff imported from a save; generated staff have none and the four attributes stand
+    /// in for them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<StaffDetail>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -71,6 +81,170 @@ pub struct StaffAttributes {
     pub physiotherapy: u8,
 }
 
+/// A seat on a club's staff. `StaffRole` says what kind of person this is; the post says which
+/// seat they fill, and a club has a limit and a minimum for each seat.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum StaffPost {
+    AssistantManager,
+    FirstTeamCoach,
+    FitnessCoach,
+    GoalkeepingCoach,
+    YouthCoach,
+    HeadOfYouth,
+    Scout,
+    HeadOfScouting,
+    Analyst,
+    Physio,
+    HeadOfMedical,
+}
+
+impl StaffPost {
+    pub const ALL: [StaffPost; 11] = [
+        StaffPost::AssistantManager,
+        StaffPost::FirstTeamCoach,
+        StaffPost::FitnessCoach,
+        StaffPost::GoalkeepingCoach,
+        StaffPost::YouthCoach,
+        StaffPost::HeadOfYouth,
+        StaffPost::Scout,
+        StaffPost::HeadOfScouting,
+        StaffPost::Analyst,
+        StaffPost::Physio,
+        StaffPost::HeadOfMedical,
+    ];
+
+    /// The most a club can employ in this seat.
+    pub fn limit(self) -> usize {
+        match self {
+            StaffPost::AssistantManager | StaffPost::HeadOfYouth => 1,
+            StaffPost::HeadOfScouting | StaffPost::HeadOfMedical => 1,
+            StaffPost::FitnessCoach | StaffPost::GoalkeepingCoach => 2,
+            StaffPost::YouthCoach | StaffPost::Analyst => 2,
+            StaffPost::FirstTeamCoach | StaffPost::Physio => 3,
+            StaffPost::Scout => 6,
+        }
+    }
+
+    /// The fewest a club needs before the seat counts as vacant.
+    pub fn required(self) -> usize {
+        match self {
+            StaffPost::AssistantManager
+            | StaffPost::FirstTeamCoach
+            | StaffPost::FitnessCoach
+            | StaffPost::GoalkeepingCoach
+            | StaffPost::Physio
+            | StaffPost::Scout => 1,
+            _ => 0,
+        }
+    }
+
+    /// The `StaffRole` a person in this seat has.
+    pub fn role(self) -> StaffRole {
+        match self {
+            StaffPost::AssistantManager => StaffRole::AssistantManager,
+            StaffPost::FirstTeamCoach
+            | StaffPost::FitnessCoach
+            | StaffPost::GoalkeepingCoach
+            | StaffPost::YouthCoach
+            | StaffPost::HeadOfYouth => StaffRole::Coach,
+            StaffPost::Scout | StaffPost::HeadOfScouting | StaffPost::Analyst => StaffRole::Scout,
+            StaffPost::Physio | StaffPost::HeadOfMedical => StaffRole::Physio,
+        }
+    }
+
+    /// The coaching specialisation that goes with the seat, if it has one.
+    pub fn specialization(self) -> Option<CoachingSpecialization> {
+        match self {
+            StaffPost::FitnessCoach => Some(CoachingSpecialization::Fitness),
+            StaffPost::GoalkeepingCoach => Some(CoachingSpecialization::GoalKeeping),
+            StaffPost::YouthCoach | StaffPost::HeadOfYouth => Some(CoachingSpecialization::Youth),
+            _ => None,
+        }
+    }
+
+    /// Heads lead their department: they count for more in its effects.
+    pub fn is_head(self) -> bool {
+        matches!(
+            self,
+            StaffPost::HeadOfYouth | StaffPost::HeadOfScouting | StaffPost::HeadOfMedical
+        )
+    }
+}
+
+/// FM24 staff attributes (0-100) behind the four OFM attributes. `0` means the save did not give
+/// the value; readers go through the accessors so they never treat a missing value as a skill.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct StaffDetail {
+    pub attacking: u8,
+    pub defending: u8,
+    pub technical: u8,
+    pub tactical: u8,
+    pub mental: u8,
+    pub fitness: u8,
+    pub goalkeeping: u8,
+    pub determination: u8,
+    pub motivating: u8,
+    pub discipline: u8,
+    pub analysing: u8,
+    pub sports_science: u8,
+}
+
+impl StaffDetail {
+    /// The value, or `None` when the save did not give it.
+    pub fn known(value: u8) -> Option<u8> {
+        (value > 0).then_some(value)
+    }
+}
+
+impl Staff {
+    /// The seat this person fills: the one written on the record, else derived from role and
+    /// specialisation.
+    pub fn post(&self) -> StaffPost {
+        if let Some(post) = self.post {
+            return post;
+        }
+        match (&self.role, &self.specialization) {
+            (StaffRole::AssistantManager, _) => StaffPost::AssistantManager,
+            (StaffRole::Scout, _) => StaffPost::Scout,
+            (StaffRole::Physio, _) => StaffPost::Physio,
+            (StaffRole::Coach, Some(CoachingSpecialization::Fitness)) => StaffPost::FitnessCoach,
+            (StaffRole::Coach, Some(CoachingSpecialization::GoalKeeping)) => {
+                StaffPost::GoalkeepingCoach
+            }
+            (StaffRole::Coach, Some(CoachingSpecialization::Youth)) => StaffPost::YouthCoach,
+            (StaffRole::Coach, _) => StaffPost::FirstTeamCoach,
+        }
+    }
+
+    /// How good they are at the seat they fill, 0-100: the attributes that seat actually uses,
+    /// weighted the way the simulation reads them.
+    pub fn overall(&self) -> u8 {
+        let a = &self.attributes;
+        let value = match self.post() {
+            StaffPost::AssistantManager => {
+                (u32::from(a.coaching) * 4
+                    + u32::from(a.judging_ability) * 3
+                    + u32::from(a.judging_potential) * 3)
+                    / 10
+            }
+            StaffPost::Scout | StaffPost::HeadOfScouting => {
+                (u32::from(a.judging_ability) + u32::from(a.judging_potential)) / 2
+            }
+            StaffPost::Analyst => {
+                let judging = (u32::from(a.judging_ability) + u32::from(a.judging_potential)) / 2;
+                match self.detail.as_ref().and_then(|d| StaffDetail::known(d.analysing)) {
+                    Some(analysing) => (u32::from(analysing) * 6 + judging * 4) / 10,
+                    None => judging,
+                }
+            }
+            StaffPost::Physio | StaffPost::HeadOfMedical => u32::from(a.physiotherapy),
+            _ => u32::from(a.coaching),
+        };
+        value.min(100) as u8
+    }
+}
+
 impl Staff {
     pub fn new(
         id: String,
@@ -96,6 +270,8 @@ impl Staff {
             contract_end: None,
             known_as: None,
             display_name: String::new(),
+            post: None,
+            detail: None,
         }
         .with_display_name_refreshed()
     }

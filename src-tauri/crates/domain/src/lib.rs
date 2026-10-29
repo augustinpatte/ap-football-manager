@@ -3,6 +3,7 @@ pub mod competition_calendar;
 pub mod competition_rules;
 pub mod contract_ledger;
 pub mod custom_tactic;
+pub mod delegation;
 pub mod edition_archive;
 pub mod finance;
 pub mod identity;

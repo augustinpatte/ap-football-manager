@@ -128,6 +128,9 @@ pub struct Game {
     pub days_since_last_job_offer: Option<u32>,
     #[serde(default)]
     pub available_staff_market_last_activity_date: Option<String>,
+    /// What the manager has handed to the staff, and what the staff has proposed.
+    #[serde(default)]
+    pub delegation: domain::delegation::DelegationState,
     #[serde(default)]
     pub vacant_team_days: HashMap<String, u32>,
     #[serde(default)]
@@ -282,6 +285,7 @@ impl Game {
             season_context: SeasonContext::default(),
             days_since_last_job_offer: None,
             available_staff_market_last_activity_date: None,
+            delegation: domain::delegation::DelegationState::default(),
             vacant_team_days: HashMap::new(),
             world_history: WorldHistoryArchive::default(),
             edition_archive: Vec::new(),
