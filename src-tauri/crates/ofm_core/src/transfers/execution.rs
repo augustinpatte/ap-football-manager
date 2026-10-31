@@ -201,11 +201,16 @@ pub(super) fn reserve_player_for_pending_transfer(
     Ok(())
 }
 
-pub(super) fn transfer_buyer_can_register(game: &Game, buyer_team_id: &str, fee: u64) -> bool {
+pub(super) fn transfer_buyer_can_register(
+    game: &Game,
+    buyer_team_id: &str,
+    fee: u64,
+    terms: &domain::transfer_terms::TransferTerms,
+) -> bool {
     game.teams
         .iter()
         .find(|team| team.id == buyer_team_id)
-        .is_some_and(|team| can_afford_fee(team, fee))
+        .is_some_and(|team| terms::fund_block(team, fee, terms).is_ok())
 }
 
 pub(super) fn ensure_transfer_cash_postable(
@@ -309,6 +314,27 @@ pub(super) fn execute_transfer(
     from_team_id: &str,
     fee: u64,
 ) -> Result<(), String> {
+    execute_transfer_with_terms(
+        game,
+        player_id,
+        to_team_id,
+        from_team_id,
+        fee,
+        &domain::transfer_terms::TransferTerms::default(),
+    )
+}
+
+/// [`execute_transfer`] with what the buyer attached to the fee: instalments, a sell-on clause, a
+/// signing bonus, a promise to the player. The cash goes in one atomic posting, so a refusal
+/// anywhere before it leaves nothing half done.
+pub(super) fn execute_transfer_with_terms(
+    game: &mut Game,
+    player_id: &str,
+    to_team_id: &str,
+    from_team_id: &str,
+    fee: u64,
+    terms: &domain::transfer_terms::TransferTerms,
+) -> Result<(), String> {
     // First, before anything moves: an agreement struck while the club had
     // players to spare can fall due after it has lost some.
     crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
@@ -351,25 +377,17 @@ pub(super) fn execute_transfer(
     let (buying_team, new_wage, new_contract_end) =
         buyers_contract_terms(game, &player_snapshot, to_team_id)?;
 
-    let fee_i64 = i64::try_from(fee).map_err(|_| "be.error.finance.amountOverflow".to_string())?;
+    terms::validate_terms(terms)?;
     let date = game.clock.current_date.date_naive();
-    crate::finances::post_all(
-        game,
-        &[
-            crate::finances::PostRequest::new(
-                to_team_id,
-                -fee_i64,
-                crate::finances::CashKind::TransferFeeOut,
-                date,
-            ),
-            crate::finances::PostRequest::new(
-                from_team_id,
-                fee_i64,
-                crate::finances::CashKind::TransferFeeIn,
-                date,
-            ),
-        ],
-    )?;
+    let deal = terms::Deal {
+        player_id,
+        to_team_id,
+        from_team_id,
+        fee,
+        terms,
+        date,
+    };
+    let settlement = terms::settle_cash(game, &deal)?;
 
     // Move player
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
@@ -408,15 +426,14 @@ pub(super) fn execute_transfer(
 
     // Envelope (transfer_budget) still mutates here. Cash is posted above.
     // Transfer fees do not change season income/expenses (same as develop).
-    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id) {
-        t.transfer_budget -= fee_i64;
-        if let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id) {
-            t.starting_xi_ids.remove(pos);
-        }
+    terms::apply_budgets(game, &deal, &settlement);
+    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id)
+        && let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id)
+    {
+        t.starting_xi_ids.remove(pos);
     }
 
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == from_team_id) {
-        t.transfer_budget += fee_i64;
         // A departing player gives up every role, not just his place in the XI. Trimming the XI by
         // hand here used to leave him as the old club's captain and penalty taker.
         t.remove_player_references(player_id);
@@ -456,6 +473,8 @@ pub(super) fn execute_transfer(
             fee,
         },
     );
+    terms::record_obligations(game, &deal, &settlement);
+    on_player_sold(game, player_id, from_team_id, to_team_id, fee);
 
     Ok(())
 }
@@ -551,7 +570,13 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
     let current_date = game.clock.current_date.date_naive();
     let today = current_date.format("%Y-%m-%d").to_string();
     let user_team_id = game.manager.team_id.clone();
-    type DueTransferRegistration = (String, String, String, u64);
+    type DueTransferRegistration = (
+        String,
+        String,
+        String,
+        u64,
+        domain::transfer_terms::TransferTerms,
+    );
 
     let due_registrations: Vec<DueTransferRegistration> = game
         .players
@@ -574,12 +599,13 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
                     offer.id.clone(),
                     offer.from_team_id.clone(),
                     offer.fee,
+                    offer.terms.clone(),
                 ))
             })
         })
         .collect();
 
-    for (player_id, offer_id, buyer_team_id, fee) in due_registrations {
+    for (player_id, offer_id, buyer_team_id, fee, terms) in due_registrations {
         let player_snapshot = game
             .players
             .iter()
@@ -599,11 +625,18 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
                 return Err(Failure::LoanConflict);
             }
             let from_team_id = from_team_id.as_deref().ok_or(Failure::PlayerUnavailable)?;
-            if !transfer_buyer_can_register(game, &buyer_team_id, fee) {
+            if !transfer_buyer_can_register(game, &buyer_team_id, fee, &terms) {
                 return Err(Failure::InsufficientFunds);
             }
-            execute_transfer(game, &player_id, &buyer_team_id, from_team_id, fee)
-                .map_err(|_| Failure::RegistrationBlocked)?;
+            execute_transfer_with_terms(
+                game,
+                &player_id,
+                &buyer_team_id,
+                from_team_id,
+                fee,
+                &terms,
+            )
+            .map_err(|_| Failure::RegistrationBlocked)?;
             finalize_successful_transfer_offer(game, &player_id, &offer_id)
                 .map_err(|_| Failure::RegistrationBlocked)
         })();

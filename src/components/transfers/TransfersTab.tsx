@@ -5,6 +5,7 @@ import { useTransfersTabController } from "./useTransfersTabController";
 import { TransfersMarketFilters } from "./TransfersMarketFilters";
 import { TransfersBudgetHeader, TransfersTabNavigation } from "./TransfersTabHeader";
 import { TransfersMarketTable } from "./TransfersMarketTable";
+import TransferDeadlinePanel from "./TransferDeadlinePanel";
 import {
   ActiveDealWorkspace,
   TransferBidDialog,
@@ -32,6 +33,9 @@ export default function TransfersTab(props: TransfersTabProps) {
     <div>
       {/* Budget header */}
       {<TransfersBudgetHeader state={state} />}
+
+      {/* Surfaces the closing window and whatever is still unanswered */}
+      <TransferDeadlinePanel gameState={props.gameState} onSelectPlayer={props.onSelectPlayer} />
 
       {/* Tab navigation */}
       <TransfersTabNavigation state={state} />

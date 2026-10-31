@@ -31,6 +31,13 @@ interface UseFreeAgentContractFlowResult {
   setContractWage: (value: string) => void;
   contractLength: string;
   setContractLength: (value: string) => void;
+  steppingStoneAvailable: boolean;
+  signingBonus: string;
+  setSigningBonus: (value: string) => void;
+  /** A translation key: why a bonus of that size cannot be paid, when the backend says so. */
+  signingBonusError: string | null;
+  promiseSteppingStone: boolean;
+  setPromiseSteppingStone: (value: boolean) => void;
   contractStatus: RenewalStatus;
   contractError: string | null;
   contractFeedback: FreeAgentContractResponseData["feedback"];
@@ -79,6 +86,10 @@ export function useFreeAgentContractFlow({
       : (gameState.players.find((player) => player.id === freeAgentTargetId) ?? null);
   const [contractWage, setContractWage] = useState("");
   const [contractLength, setContractLength] = useState("");
+  const [steppingStoneAvailable, setSteppingStoneAvailable] = useState(false);
+  const [signingBonus, setSigningBonus] = useState("0");
+  const [signingBonusError, setSigningBonusError] = useState<string | null>(null);
+  const [promiseSteppingStone, setPromiseSteppingStone] = useState(false);
   const [contractStatus, setContractStatus] = useState<RenewalStatus>("idle");
   const [contractError, setContractError] = useState<string | null>(null);
   const [contractFeedback, setContractFeedback] =
@@ -96,6 +107,8 @@ export function useFreeAgentContractFlow({
   const offeredWage = Number(contractWage);
   const offeredYears = Number(contractLength);
   const isContractWageValid = Number.isFinite(offeredWage) && offeredWage > 0;
+  const offeredBonus = Number(signingBonus);
+  const isSigningBonusValid = Number.isInteger(offeredBonus) && offeredBonus >= 0;
   const isContractLengthValid =
     Number.isInteger(offeredYears) && offeredYears > 0 && offeredYears <= MAX_CONTRACT_YEARS;
   const contractViolatesSoftCap =
@@ -111,10 +124,21 @@ export function useFreeAgentContractFlow({
 
     const loadProjection = async (): Promise<void> => {
       try {
-        const result = await previewFreeAgentContractImpact(freeAgentTarget.id, offeredWage);
+        const result = await previewFreeAgentContractImpact(
+          freeAgentTarget.id,
+          offeredWage,
+          isSigningBonusValid ? offeredBonus : 0,
+        );
 
         if (!cancelled) {
           setContractProjection(result.projection ?? null);
+          setSigningBonusError(result.signing_bonus_error ?? null);
+          const available = result.stepping_stone_available === true;
+          setSteppingStoneAvailable(available);
+          // A promise the player would not value is refused by the backend: never carry it over.
+          if (!available) {
+            setPromiseSteppingStone(false);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -128,12 +152,16 @@ export function useFreeAgentContractFlow({
     return () => {
       cancelled = true;
     };
-  }, [freeAgentTarget, isContractWageValid, offeredWage]);
+  }, [freeAgentTarget, isContractWageValid, offeredWage, isSigningBonusValid, offeredBonus]);
 
   const openFreeAgentContract = (player: PlayerData): void => {
     setFreeAgentTargetId(player.id);
     setContractWage(defaultContractWage(player));
     setContractLength(defaultContractYears(player.date_of_birth, gameState.clock.current_date));
+    setPromiseSteppingStone(false);
+    setSteppingStoneAvailable(false);
+    setSigningBonus("0");
+    setSigningBonusError(null);
     setContractStatus("idle");
     setContractError(null);
     setContractFeedback(null);
@@ -152,6 +180,10 @@ export function useFreeAgentContractFlow({
     setFreeAgentTargetId(null);
     setContractWage("");
     setContractLength("");
+    setPromiseSteppingStone(false);
+    setSteppingStoneAvailable(false);
+    setSigningBonus("0");
+    setSigningBonusError(null);
     setContractStatus("idle");
     setContractError(null);
     setContractFeedback(null);
@@ -163,7 +195,12 @@ export function useFreeAgentContractFlow({
   };
 
   const submitFreeAgentContract = async (): Promise<void> => {
-    if (!freeAgentTarget || !isContractWageValid || !isContractLengthValid) {
+    if (
+      !freeAgentTarget ||
+      !isContractWageValid ||
+      !isContractLengthValid ||
+      !isSigningBonusValid
+    ) {
       return;
     }
 
@@ -172,7 +209,13 @@ export function useFreeAgentContractFlow({
     setContractError(null);
 
     try {
-      const result = await offerFreeAgentContract(freeAgentTarget.id, offeredWage, offeredYears);
+      const result = await offerFreeAgentContract(
+        freeAgentTarget.id,
+        offeredWage,
+        offeredYears,
+        promiseSteppingStone,
+        offeredBonus,
+      );
 
       onGameUpdate?.(result.game);
       setContractStatus(result.outcome);
@@ -205,6 +248,12 @@ export function useFreeAgentContractFlow({
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractStatus,
     contractError,
     contractFeedback,
@@ -214,7 +263,8 @@ export function useFreeAgentContractFlow({
       renewalSubmitting: contractSubmitting,
       renewalIsTerminal: contractIsTerminal,
       isRenewalWageValid: isContractWageValid,
-      isRenewalLengthValid: isContractLengthValid,
+      isRenewalLengthValid:
+        isContractLengthValid && isSigningBonusValid && signingBonusError === null,
       renewalViolatesSoftCap: contractViolatesSoftCap,
     }),
     contractStatusMessage: (t: TranslateFn) =>

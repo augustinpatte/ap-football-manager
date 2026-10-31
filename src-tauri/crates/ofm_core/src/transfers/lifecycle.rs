@@ -309,6 +309,7 @@ mod tests {
             registration_date: None,
             registration_failure_reason: None,
             closed_on: Some(refused_on.into()),
+            terms: Default::default(),
         });
         player
             .record_movement(PlayerMovementEntry {

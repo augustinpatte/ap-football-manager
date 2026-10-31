@@ -59,6 +59,8 @@ mod tests {
             description: String::new(),
             formation: "4-4-2".into(),
             play_style: "Balanced".into(),
+            out_of_possession_formation: "4-4-2".into(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: None,
         }
     }

@@ -180,6 +180,13 @@ function HookHarness({
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
+    contractSubmitDisabled,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     openFreeAgentContract,
     submitFreeAgentContract,
   } = useFreeAgentContractFlow({ gameState });
@@ -201,6 +208,20 @@ function HookHarness({
         value={contractLength}
         onChange={(event) => setContractLength(event.target.value)}
       />
+      <label htmlFor="bonus">Bonus</label>
+      <input id="bonus" value={signingBonus} onChange={(e) => setSigningBonus(e.target.value)} />
+      <output aria-label="bonus-error">{signingBonusError ?? "none"}</output>
+      <output aria-label="submit-disabled">{String(contractSubmitDisabled)}</output>
+      {steppingStoneAvailable ? (
+        <label>
+          Promise
+          <input
+            type="checkbox"
+            checked={promiseSteppingStone}
+            onChange={(event) => setPromiseSteppingStone(event.target.checked)}
+          />
+        </label>
+      ) : null}
       <button type="button" onClick={() => void submitFreeAgentContract()}>
         Submit
       </button>
@@ -214,6 +235,7 @@ describe("useFreeAgentContractFlow", () => {
     mockedPreviewFreeAgentContractImpact.mockReset();
     mockedResolveBackendError.mockClear();
     mockedPreviewFreeAgentContractImpact.mockResolvedValue({
+      stepping_stone_available: false,
       projection: {
         current_annual_wage_bill: 0,
         projected_annual_wage_bill: 4000,
@@ -238,7 +260,7 @@ describe("useFreeAgentContractFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
 
     await waitFor(() => {
-      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(target.id, 3000);
+      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(target.id, 3000, 0);
     });
 
     fireEvent.change(screen.getByLabelText("Wage"), {
@@ -276,7 +298,156 @@ describe("useFreeAgentContractFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
-      expect(mockedOfferFreeAgentContract).toHaveBeenCalledWith(target.id, 4000, 3);
+      expect(mockedOfferFreeAgentContract).toHaveBeenCalledWith(target.id, 4000, 3, false, 0);
+    });
+  });
+
+  /**
+   * Given a player who would not value a stepping-stone promise
+   * When the contract form opens
+   * Then the promise option is not offered.
+   */
+  it("hides the promise option when the backend says the player has no use for it", async () => {
+    const target = createPlayer();
+    render(<HookHarness gameState={createGameState([target])} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    await waitFor(() => {
+      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalled();
+    });
+    expect(screen.queryByLabelText("Promise")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a player who would value a stepping-stone promise, and the manager ticks it
+   * When the offer is submitted
+   * Then the promise travels with the offer, and only because it was ticked.
+   */
+  it("sends the promise with the offer when the manager gives it", async () => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedPreviewFreeAgentContractImpact.mockResolvedValue({
+      stepping_stone_available: true,
+      projection: {
+        current_annual_wage_bill: 0,
+        projected_annual_wage_bill: 4000,
+        annual_wage_budget: 50000,
+        annual_soft_cap: 55000,
+        current_weekly_wage_spend: 0,
+        projected_weekly_wage_spend: 4000,
+        current_cash_runway_weeks: 40,
+        projected_cash_runway_weeks: 30,
+        currently_over_budget: false,
+        policy_allows: true,
+      },
+    });
+    mockedOfferFreeAgentContract.mockResolvedValue({
+      outcome: "accepted",
+      game: gameState,
+      suggested_wage: null,
+      suggested_years: null,
+      session_status: "agreed",
+      is_terminal: true,
+      feedback: null,
+    });
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.click(await screen.findByLabelText("Promise"));
+    fireEvent.change(screen.getByLabelText("Wage"), { target: { value: "4000" } });
+    fireEvent.change(screen.getByLabelText("Years"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mockedOfferFreeAgentContract).toHaveBeenCalledWith(target.id, 4000, 3, true, 0);
+    });
+  });
+
+  /**
+   * Given a signing bonus typed into the contract form
+   * When the offer is previewed and submitted
+   * Then the backend is asked about, and sent, that bonus.
+   */
+  it("previews and sends the signing bonus", async () => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedOfferFreeAgentContract.mockResolvedValue({
+      outcome: "accepted",
+      game: gameState,
+      suggested_wage: null,
+      suggested_years: null,
+      session_status: "agreed",
+      is_terminal: true,
+      feedback: null,
+    });
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.change(screen.getByLabelText("Wage"), { target: { value: "4000" } });
+    fireEvent.change(screen.getByLabelText("Years"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Bonus"), { target: { value: "100000" } });
+
+    await waitFor(() => {
+      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(target.id, 4000, 100000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => {
+      expect(mockedOfferFreeAgentContract).toHaveBeenCalledWith(target.id, 4000, 3, false, 100000);
+    });
+  });
+
+  /**
+   * Given the backend says the club cannot pay the bonus
+   * When the preview comes back
+   * Then the reason is exposed and submitting is disabled.
+   */
+  it("disables the offer when the backend says the bonus cannot be paid", async () => {
+    const target = createPlayer();
+    mockedPreviewFreeAgentContractImpact.mockResolvedValue({
+      stepping_stone_available: false,
+      signing_bonus_error: "be.error.transfers.insufficientFunds",
+      projection: {
+        current_annual_wage_bill: 0,
+        projected_annual_wage_bill: 4000,
+        annual_wage_budget: 50000,
+        annual_soft_cap: 55000,
+        current_weekly_wage_spend: 0,
+        projected_weekly_wage_spend: 4000,
+        current_cash_runway_weeks: 40,
+        projected_cash_runway_weeks: 30,
+        currently_over_budget: false,
+        policy_allows: true,
+      },
+    });
+    render(<HookHarness gameState={createGameState([target])} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.change(screen.getByLabelText("Bonus"), { target: { value: "9000000" } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("bonus-error")).toHaveTextContent(
+        "be.error.transfers.insufficientFunds",
+      );
+    });
+    expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("true");
+  });
+
+  /**
+   * Given a bonus that is not a whole number of euros
+   * When the manager submits
+   * Then nothing is sent.
+   */
+  it("does not send a bonus that is not a whole amount", async () => {
+    const target = createPlayer();
+    render(<HookHarness gameState={createGameState([target])} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.change(screen.getByLabelText("Bonus"), { target: { value: "12.5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mockedOfferFreeAgentContract).not.toHaveBeenCalled();
     });
   });
 

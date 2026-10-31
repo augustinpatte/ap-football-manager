@@ -29,26 +29,36 @@ export interface FreeAgentContractResponseData {
 
 export interface FreeAgentContractProjectionResponseData {
   projection: FreeAgentContractProjection;
+  /** The player would value a stepping-stone promise; the backend refuses it for anyone else. */
+  stepping_stone_available: boolean;
+  /** A translation key: why a signing bonus of the size asked about cannot be paid, if it cannot. */
+  signing_bonus_error?: string | null;
 }
 
 export async function offerFreeAgentContract(
   playerId: string,
   weeklyWage: number,
   contractYears: number,
+  promiseSteppingStone = false,
+  signingBonus = 0,
 ): Promise<FreeAgentContractResponseData> {
   return invoke<FreeAgentContractResponseData>("offer_free_agent_contract", {
     playerId,
     weeklyWage,
     contractYears,
+    promiseSteppingStone,
+    signingBonus,
   });
 }
 
 export async function previewFreeAgentContractImpact(
   playerId: string,
   weeklyWage: number,
+  signingBonus = 0,
 ): Promise<FreeAgentContractProjectionResponseData> {
   return invoke<FreeAgentContractProjectionResponseData>("preview_free_agent_contract_impact", {
     playerId,
     weeklyWage,
+    signingBonus,
   });
 }

@@ -5,16 +5,16 @@
 //! state, persistence, Tauri command, or match-engine side effect.
 //!
 //! The mapping is the provisional I1 matrix.  Direct OFM attributes are copied;
-//! documented proxies are calculated in memory only.  The four phase settings
-//! without an M12 v1 equivalent are retained as adaptation metadata rather than
-//! silently folded into another slider.
+//! documented proxies are calculated in memory only. Phase settings without a
+//! one-to-one M12 v1 dial make bounded changes to the closest existing input.
 
 use domain::{
     league::Fixture,
     player::{Footedness, Player, Position as OfmPosition},
     team::{
-        BuildUpStyle, DefensiveLine, PitchWidth, PlayStyle, PlayerRole, PressingIntensity,
-        TacticsPhaseSettings, Tempo,
+        BreakSpeed, BuildUpStyle, CounterPressDuration, DefensiveLine, DefensiveShape,
+        MarkingStyle, PitchWidth, PlayStyle, PlayerRole, PressingIntensity, TacticsPhaseSettings,
+        Tempo,
     },
 };
 use serde::Serialize;
@@ -108,8 +108,12 @@ pub struct SpatialTeam {
     pub id: String,
     pub name: String,
     pub formation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_formation: Option<String>,
     pub tactics: Tactics,
     pub lineup: Vec<LineupSlot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_lineup: Option<Vec<LineupSlot>>,
     pub players: Vec<SpatialPlayer>,
     pub bench: Vec<String>,
     pub captain: String,
@@ -333,6 +337,11 @@ fn adapt_team(
     let team = selection.team;
     validate_id("team", &team.id)?;
     let layout = formation_geometry(&team.formation)?;
+    let defensive_formation = (!team.out_of_possession_formation.trim().is_empty())
+        .then(|| team.out_of_possession_formation.trim().to_string());
+    let defensive_layout = defensive_formation
+        .as_deref()
+        .and_then(|formation| formation_geometry(formation).ok());
     if selection.starters.len() != 11 {
         return Err(AdaptationError::WrongStarterCount {
             team_id: team.id.clone(),
@@ -368,6 +377,25 @@ fn adapt_team(
         });
         let _ = shirt;
     }
+    let out_of_possession_lineup = match defensive_layout {
+        Some(defensive_layout) => {
+            let mut defensive_lineup = Vec::with_capacity(defensive_layout.len());
+            for (player, slot) in selection.starters.iter().zip(defensive_layout) {
+                defensive_lineup.push(LineupSlot {
+                    player: player.id.clone(),
+                    role: map_position(&slot.position)?,
+                    base: slot.base,
+                    instructions: role_instructions(
+                        team.player_roles
+                            .get(&player.id)
+                            .unwrap_or(&PlayerRole::Standard),
+                    ),
+                });
+            }
+            Some(defensive_lineup)
+        }
+        None => None,
+    };
     if lineup
         .iter()
         .filter(|slot| slot.role == SpatialPosition::Gk)
@@ -415,8 +443,10 @@ fn adapt_team(
         id: team.id.clone(),
         name: team.name.clone(),
         formation: team.formation.clone(),
+        out_of_possession_formation: defensive_formation,
         tactics: tactics(&team.play_style, &team.tactics_phase),
         lineup,
+        out_of_possession_lineup,
         players,
         bench: selection.bench.iter().map(|p| p.id.clone()).collect(),
         captain: choose(&team.match_roles.captain, auto_captain)?,
@@ -664,6 +694,27 @@ pub fn role_instructions(role: &PlayerRole) -> PlayerInstructions {
 }
 
 pub fn tactics(style: &PlayStyle, phase: &TacticsPhaseSettings) -> Tactics {
+    let bounded = |value: i16| value.clamp(0, 100) as u8;
+    let transition_pressing = match phase.counter_press_duration {
+        CounterPressDuration::None => -8,
+        CounterPressDuration::Short => 0,
+        CounterPressDuration::Long => 8,
+    };
+    let marking_pressing = match phase.marking_style {
+        MarkingStyle::Zonal => 0,
+        MarkingStyle::Mixed => 3,
+        MarkingStyle::ManToMan => 6,
+    };
+    let shape_width = match phase.defensive_shape {
+        DefensiveShape::Stretched => 8,
+        DefensiveShape::Normal => 0,
+        DefensiveShape::Compact => -8,
+    };
+    let break_speed = match phase.break_speed {
+        BreakSpeed::Slow => -10,
+        BreakSpeed::Medium => 0,
+        BreakSpeed::Fast => 10,
+    };
     Tactics {
         mentality: match style {
             PlayStyle::Defensive => 30,
@@ -673,61 +724,46 @@ pub fn tactics(style: &PlayStyle, phase: &TacticsPhaseSettings) -> Tactics {
             PlayStyle::HighPress => 60,
             PlayStyle::Attacking => 70,
         },
-        pressing: match phase.pressing_intensity {
-            PressingIntensity::Passive => 25,
-            PressingIntensity::Medium => 55,
-            PressingIntensity::Aggressive => 85,
-        },
+        pressing: bounded(
+            match phase.pressing_intensity {
+                PressingIntensity::Passive => 25,
+                PressingIntensity::Medium => 55,
+                PressingIntensity::Aggressive => 85,
+            } + transition_pressing
+                + marking_pressing,
+        ),
         line_height: match phase.defensive_line {
             DefensiveLine::VeryLow => 10,
             DefensiveLine::Low => 35,
             DefensiveLine::Medium => 60,
             DefensiveLine::High => 85,
         },
-        width: match phase.width {
-            PitchWidth::Narrow => 25,
-            PitchWidth::Normal => 50,
-            PitchWidth::Wide => 75,
-        },
-        tempo: match phase.tempo {
-            Tempo::Patient => 30,
-            Tempo::Direct => 70,
-        },
-        directness: match phase.build_up_style {
-            BuildUpStyle::Short => 25,
-            BuildUpStyle::Mixed => 50,
-            BuildUpStyle::Long => 75,
-        },
+        width: bounded(
+            match phase.width {
+                PitchWidth::Narrow => 25,
+                PitchWidth::Normal => 50,
+                PitchWidth::Wide => 75,
+            } + shape_width,
+        ),
+        tempo: bounded(
+            match phase.tempo {
+                Tempo::Patient => 30,
+                Tempo::Direct => 70,
+            } + break_speed,
+        ),
+        directness: bounded(
+            match phase.build_up_style {
+                BuildUpStyle::Short => 25,
+                BuildUpStyle::Mixed => 50,
+                BuildUpStyle::Long => 75,
+            } + break_speed,
+        ),
     }
 }
 
 fn unrepresented_tactics(selection: &MatchSelection<'_>) -> Vec<UnrepresentedTactic> {
-    [
-        (&selection.home.team.tactics_phase),
-        (&selection.away.team.tactics_phase),
-    ]
-    .into_iter()
-    .flat_map(|phase| {
-        [
-            UnrepresentedTactic {
-                setting: "defensive_shape",
-                value: format!("{:#?}", phase.defensive_shape),
-            },
-            UnrepresentedTactic {
-                setting: "marking_style",
-                value: format!("{:#?}", phase.marking_style),
-            },
-            UnrepresentedTactic {
-                setting: "counter_press_duration",
-                value: format!("{:#?}", phase.counter_press_duration),
-            },
-            UnrepresentedTactic {
-                setting: "break_speed",
-                value: format!("{:#?}", phase.break_speed),
-            },
-        ]
-    })
-    .collect()
+    let _ = selection;
+    Vec::new()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1044,6 +1080,38 @@ mod tests {
         assert_eq!(result.input.home.players[0].id, "p0");
         assert!(result.input.config.seed <= MAX_SEED);
     }
+
+    /// Given a club with distinct possession and defensive formations
+    /// When its final XI is adapted for M12
+    /// Then both shapes retain the same player order and expose different anchors.
+    #[test]
+    fn the_adapter_sends_a_slot_aligned_defensive_shape_to_m12() {
+        let (fixture, mut home, away, hp, ap) = selection();
+        home.out_of_possession_formation = "5-3-2".into();
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        let defensive_lineup = result.input.home.out_of_possession_lineup.as_ref().unwrap();
+
+        assert_eq!(
+            result.input.home.out_of_possession_formation.as_deref(),
+            Some("5-3-2")
+        );
+        assert_eq!(defensive_lineup.len(), 11);
+        assert_eq!(
+            defensive_lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>(),
+            result
+                .input
+                .home
+                .lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>()
+        );
+        assert_ne!(defensive_lineup[4].base, result.input.home.lineup[4].base);
+    }
     /// Given I1 proxy inputs, when attributes are adapted, then the documented rounded formula is used.
     #[test]
     fn every_direct_and_proxy_attribute_is_bounded_and_uses_the_i1_formula() {
@@ -1160,17 +1228,17 @@ mod tests {
             result.input.home.tactics,
             Tactics {
                 mentality: 50,
-                pressing: 85,
+                pressing: 99,
                 line_height: 85,
-                width: 75,
-                tempo: 30,
-                directness: 75
+                width: 67,
+                tempo: 40,
+                directness: 85
             }
         );
-        assert_eq!(result.metadata.unrepresented_tactics.len(), 8);
+        assert!(result.metadata.unrepresented_tactics.is_empty());
     }
-    /// Given every value of each tactical setting, when adapted, then all five
-    /// representable dials have their contractual value and four remain metadata.
+    /// Given every value of each tactical setting, when adapted, then every
+    /// setting changes a bounded M12 team-tactics input.
     #[test]
     fn every_tactical_setting_variant_is_covered() {
         let phase = TacticsPhaseSettings::default();
@@ -1208,9 +1276,9 @@ mod tests {
             assert_eq!(tactics(&PlayStyle::Balanced, &phase).line_height, expected);
         }
         for (value, expected) in [
-            (PressingIntensity::Passive, 25),
-            (PressingIntensity::Medium, 55),
-            (PressingIntensity::Aggressive, 85),
+            (PressingIntensity::Passive, 17),
+            (PressingIntensity::Medium, 47),
+            (PressingIntensity::Aggressive, 77),
         ] {
             let mut phase = phase.clone();
             phase.pressing_intensity = value;
@@ -1225,6 +1293,87 @@ mod tests {
             (PlayStyle::Attacking, 70),
         ] {
             assert_eq!(tactics(&style, &phase).mentality, expected);
+        }
+        for (value, expected) in [
+            (DefensiveShape::Stretched, 58),
+            (DefensiveShape::Normal, 50),
+            (DefensiveShape::Compact, 42),
+        ] {
+            let mut phase = phase.clone();
+            phase.defensive_shape = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).width, expected);
+        }
+        for (value, expected) in [
+            (MarkingStyle::Zonal, 47),
+            (MarkingStyle::Mixed, 50),
+            (MarkingStyle::ManToMan, 53),
+        ] {
+            let mut phase = phase.clone();
+            phase.marking_style = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).pressing, expected);
+        }
+        for (value, expected) in [
+            (CounterPressDuration::None, 47),
+            (CounterPressDuration::Short, 55),
+            (CounterPressDuration::Long, 63),
+        ] {
+            let mut phase = phase.clone();
+            phase.counter_press_duration = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).pressing, expected);
+        }
+        for (value, expected) in [
+            (BreakSpeed::Slow, (60, 40)),
+            (BreakSpeed::Medium, (70, 50)),
+            (BreakSpeed::Fast, (80, 60)),
+        ] {
+            let mut phase = phase.clone();
+            phase.break_speed = value;
+            let projected = tactics(&PlayStyle::Balanced, &phase);
+            assert_eq!((projected.tempo, projected.directness), expected);
+        }
+    }
+
+    /// Given two contrasting saved tactical blueprints, when adapted for M12,
+    /// then their bounded team-tactics inputs are materially distinct.
+    #[test]
+    fn contrasting_preset_blueprints_produce_distinct_bounded_m12_inputs() {
+        let park_the_bus = TacticsPhaseSettings {
+            width: PitchWidth::Narrow,
+            defensive_line: DefensiveLine::VeryLow,
+            pressing_intensity: PressingIntensity::Passive,
+            defensive_shape: DefensiveShape::Compact,
+            ..TacticsPhaseSettings::default()
+        };
+        let fast_transition = TacticsPhaseSettings {
+            pressing_intensity: PressingIntensity::Aggressive,
+            counter_press_duration: CounterPressDuration::Short,
+            break_speed: BreakSpeed::Fast,
+            ..TacticsPhaseSettings::default()
+        };
+
+        let defensive = tactics(&PlayStyle::Defensive, &park_the_bus);
+        let transition = tactics(&PlayStyle::Counter, &fast_transition);
+
+        assert_ne!(defensive, transition);
+        assert!(defensive.line_height < transition.line_height);
+        assert!(defensive.width < transition.width);
+        assert!(defensive.pressing < transition.pressing);
+        assert!(defensive.tempo < transition.tempo);
+        for value in [
+            defensive.mentality,
+            defensive.pressing,
+            defensive.line_height,
+            defensive.width,
+            defensive.tempo,
+            defensive.directness,
+            transition.mentality,
+            transition.pressing,
+            transition.line_height,
+            transition.width,
+            transition.tempo,
+            transition.directness,
+        ] {
+            assert!(value <= 100);
         }
     }
     /// Given generated adapter values, when defaults are reported, then every

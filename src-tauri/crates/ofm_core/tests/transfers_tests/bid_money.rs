@@ -136,6 +136,7 @@ fn users_offer(
         registration_date: None,
         closed_on: closed_on.map(str::to_string),
         registration_failure_reason: None,
+        terms: Default::default(),
     }
 }
 

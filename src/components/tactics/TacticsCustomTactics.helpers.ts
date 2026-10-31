@@ -38,8 +38,10 @@ export function toLibraryEntries(tactics: readonly CustomTactic[]): TacticsLibra
     formation: tactic.formation,
     id: tactic.id,
     name: tactic.name,
+    outOfPossessionFormation: tactic.outOfPossessionFormation,
     playStyle: tactic.playStyle,
     sourcePresetName: tactic.sourcePresetName ?? null,
+    tacticsPhase: tactic.tacticsPhase ?? null,
     type: "custom",
   }));
 }
@@ -51,8 +53,10 @@ export function toCustomTactic(entry: TacticsLibraryEntry): CustomTactic {
     formation: entry.formation,
     id: entry.id.trim(),
     name: entry.name,
+    outOfPossessionFormation: entry.outOfPossessionFormation,
     playStyle: entry.playStyle,
     sourcePresetName: entry.sourcePresetName ?? null,
+    tacticsPhase: entry.tacticsPhase ?? null,
   };
 }
 
@@ -69,7 +73,9 @@ function isStoredTactic(value: unknown): value is TacticsLibraryEntry {
     typeof candidate.name === "string" &&
     typeof candidate.description === "string" &&
     typeof candidate.formation === "string" &&
-    typeof candidate.playStyle === "string"
+    typeof candidate.playStyle === "string" &&
+    (candidate.outOfPossessionFormation === undefined ||
+      typeof candidate.outOfPossessionFormation === "string")
   );
 }
 

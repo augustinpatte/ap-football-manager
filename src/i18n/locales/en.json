@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formation & Style",
     "formation": "Formation",
+    "outOfPossessionFormation": "Out of possession",
     "playStyle": "Play Style",
     "teamIdentity": "Team Identity",
     "presetTactics": "Preset Tactics",
@@ -799,14 +800,40 @@
       "wing-play": "Wing Play",
       "high-press": "High Press",
       "counter-attack": "Counter Attack",
-      "low-block": "Low Block"
+      "low-block": "Low Block",
+      "control-possession": "Control Possession",
+      "tiki-taka": "Tiki-Taka",
+      "vertical-tiki-taka": "Vertical Tiki-Taka",
+      "gegenpress": "Gegenpress",
+      "direct-counter": "Direct Counterattack",
+      "direct-play": "Direct Play",
+      "mid-block": "Mid Block",
+      "high-defensive-line": "High Defensive Line",
+      "defensive": "Defensive",
+      "attacking": "Attacking",
+      "long-ball": "Long Ball",
+      "park-the-bus": "Park the Bus",
+      "fast-transition": "Fast Transition"
     },
     "presetDescriptions": {
       "balanced-control": "Stable lines, reliable coverage, and a straightforward shape for most squads.",
       "wing-play": "Natural width, earlier support around the box, and more runners ahead of the ball.",
       "high-press": "Pushes the block higher, asks for aggressive pressure, and commits numbers forward.",
       "counter-attack": "Prioritises quick breaks from a safer midfield base once possession is regained.",
-      "low-block": "Extra protection across the back line and a more compact shape when absorbing pressure."
+      "low-block": "Extra protection across the back line and a more compact shape when absorbing pressure.",
+      "control-possession": "Keeps the ball through short, patient circulation and a stable midfield rest defence.",
+      "tiki-taka": "Uses narrow short passing and close support to progress through tightly connected lines.",
+      "vertical-tiki-taka": "Combines short combinations with a higher line to move the ball forward sooner.",
+      "gegenpress": "Hunts immediately after losing the ball with an aggressive high line and sustained counter-press.",
+      "direct-counter": "Defends compactly before releasing fast, long passes into the space behind opponents.",
+      "direct-play": "Moves the ball forward early with wide outlets and fewer passes through midfield.",
+      "mid-block": "Protects central space in a compact middle block without dropping all the way back.",
+      "high-defensive-line": "Holds the team high to compress the pitch and support proactive possession.",
+      "defensive": "Prioritises a narrow, low shape and disciplined protection of the penalty area.",
+      "attacking": "Pushes numbers forward with width, a high line and quick support around the final third.",
+      "long-ball": "Uses a low, secure base before playing long passes to contest territory quickly.",
+      "park-the-bus": "Sits extremely deep, narrow and passive to deny space in and around the box.",
+      "fast-transition": "Turns recoveries into immediate forward attacks with rapid breaks and active pressure."
     },
     "playerRoles": {
       "Standard": "Standard",
@@ -1509,7 +1536,51 @@
     "registrationFailureInsufficientFunds": "Registration failed: insufficient buyer funds",
     "registrationFailureLoanConflict": "Registration failed: loan conflict",
     "registrationFailurePlayerUnavailable": "Registration failed: player unavailable",
-    "registrationFailureRegistrationBlocked": "Registration blocked"
+    "registrationFailureRegistrationBlocked": "Registration blocked",
+    "deadline": {
+      "title": "Deadline watch",
+      "phase": {
+        "early": "Window open",
+        "mid": "Window open",
+        "last_week": "Final week",
+        "last_72h": "Final 72 hours",
+        "deadline_day": "Deadline day"
+      },
+      "needsResponse": "{{count}} negotiation(s) need your answer",
+      "nothingPending": "Nothing is waiting for your answer.",
+      "lapseWarning": "Unanswered talks end when the window closes.",
+      "pendingList": "Pending negotiations",
+      "recentDeals": "Market activity",
+      "dealLine": "{{player}} moved from {{from}} to {{to}} for {{fee}}",
+      "scheduledFor": "registers {{date}}",
+      "state": {
+        "incoming_offer": "Offer received",
+        "counter_received": "Counter-offer received",
+        "awaiting_club": "Awaiting the club's answer",
+        "scheduled_registration": "Deal agreed"
+      }
+    },
+    "promise": {
+      "label": "Promise not to block a future move",
+      "hint": "A young player may accept less pay if you promise not to stand in the way of a suitable step up later. Refusing such an offer breaks the promise.",
+      "bidHint": "He may accept a lesser club if you promise not to block a suitable move later."
+    },
+    "terms": {
+      "title": "Deal terms",
+      "instalments": "Payment",
+      "instalmentsSingle": "Paid at once",
+      "instalmentsCount": "{{count}} yearly payments",
+      "sellOn": "Sell-on clause (% of the next sale)",
+      "signingBonus": "Signing bonus (millions)",
+      "hint": "Longer payment plans cost more; a sell-on clause lowers the price. The player is paid his bonus on signing.",
+      "bonusHint": "Paid on signing, on top of his wage, out of cash and transfer budget.",
+      "projectionInstalments": "Pay {{now}} now, then {{count}} more payment(s) of {{amount}} a year apart.",
+      "projectionBonus": "Signing bonus of {{amount}}, paid on completion.",
+      "signingBonusEuros": "Signing bonus (whole euros)",
+      "invalid": "Use 1 to {{instalments}} payments, a sell-on clause of 0 to {{sellOn}}%, and a bonus of 0 or more."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "The player turns the move down",
+    "transferFeedbackPlayerRefusesDetail": "The clubs could agree, but he will not drop to a smaller club without a promise of a way out or a real signing bonus."
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -1824,7 +1895,14 @@
     "renewalProjectionTitle": "Projected financial impact",
     "renewalProjectionWageBill": "Weekly wage bill {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Wage budget use {{before}}% → {{after}}%",
-    "renewalProjectionRunway": "Cash runway {{before}} → {{after}}"
+    "renewalProjectionRunway": "Cash runway {{before}} → {{after}}",
+    "promise": {
+      "title": "Stepping-stone promise",
+      "active": "Active until {{date}}: a suitable offer from a bigger club must not be blocked.",
+      "fulfilled": "Kept: he was allowed to move on.",
+      "lapsed": "Expired without being broken.",
+      "breached": "Broken: a suitable offer was refused, and he will not discuss a contract for now."
+    }
   },
   "teamProfile": {
     "clubInfo": "Club Information",
@@ -2709,7 +2787,13 @@
     "nGoals": "{{count}} goals",
     "playerOfYear": "Player of the Year",
     "avgRating": "Avg rating: {{rating}}",
-    "continueDashboard": "Continue to Dashboard"
+    "continueDashboard": "Continue to Dashboard",
+    "promoted": "Promoted to {{league}}",
+    "relegated": "Relegated to {{league}}",
+    "stayedUp": "Staying in {{league}}",
+    "cupResults": "Cup results",
+    "cupWon": "You won the {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} took the trophy"
   },
   "notifications": {
     "attentionRequired": "Attention Required",
@@ -2986,7 +3070,9 @@
         "loanBuyOptionNotAvailable": "No exercisable loan buy option is available for this player",
         "invalidYouthScoutingRegion": "Unsupported youth scouting region.",
         "invalidYouthScoutingObjective": "Unsupported youth scouting objective.",
-        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position."
+        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position.",
+        "invalidDealTerms": "These deal terms are not allowed.",
+        "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",
@@ -2997,7 +3083,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Terminating this contract would leave your squad unable to field a matchday XI",
         "noAssistantManagerAssigned": "No assistant manager assigned to your team",
         "playerHasNoTeam": "Player has no team",
-        "boardWagePolicy": "Renewal blocked by board wage policy. Keep weekly wages near {{budget}} to recover."
+        "boardWagePolicy": "Renewal blocked by board wage policy. Keep weekly wages near {{budget}} to recover.",
+        "promiseNotWanted": "This player has no use for a stepping-stone promise."
       },
       "scouting": {
         "scoutNotFound": "Scout not found",
@@ -3613,7 +3700,23 @@
       "transferInterest": {
         "subject": "Transfer interest in {{player}}",
         "body": "Clubs with active bids for {{player}}: {{n}}. Latest enquiry: {{team}} ({{fee}}). Review the offers in the Transfers tab to respond.",
-        "actionReview": "Review Offers"
+        "actionReview": "Review Offers",
+        "actionRespond": "Answer the offer",
+        "option": {
+          "accept": {
+            "label": "Accept the offer",
+            "description": "Sell the player to this club at the offered fee."
+          },
+          "reject": {
+            "label": "Turn the offer down",
+            "description": "Decline. The club may come back after a cooling-off period."
+          }
+        },
+        "effect": {
+          "accepted": "{{player}}'s sale has been agreed.",
+          "rejected": "The offer for {{player}} has been turned down.",
+          "expired": "That offer for {{player}} is no longer open. Check the Transfers tab."
+        }
       },
       "loanAgreed": {
         "subject": "Loan agreed: {{player}}",
@@ -3644,6 +3747,34 @@
       "matchesMoved": {
         "subject": "Fixtures rescheduled",
         "body": "Some of your matches have been moved so that your players keep their rest and the international breaks are respected:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} feels betrayed",
+          "body": "{{player}} was promised that {{team}} would not block a suitable move, and a suitable offer was turned down. His trust and morale have dropped, and he will not discuss a new contract for now."
+        },
+        "fulfilled": {
+          "subject": "{{player}} thanks you",
+          "body": "{{team}} kept its word and let {{player}} move on to a bigger club."
+        },
+        "lapsed": {
+          "subject": "{{player}}'s promise has run its course",
+          "body": "The promise made to {{player}} expired without {{team}} ever standing in the way of a suitable move. He trusts you a little more for it."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Transfer deadline passed",
+        "body": "The window has closed. {{count}} unanswered negotiation(s) have lapsed."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Instalment paid for {{player}}",
+          "body": "Instalment {{number}} of {{of}} for {{player}}: {{amount}} paid to {{club}}."
+        },
+        "received": {
+          "subject": "Instalment received for {{player}}",
+          "body": "Instalment {{number}} of {{of}} for {{player}}: {{amount}} received from {{club}}."
+        }
       }
     },
     "news": {

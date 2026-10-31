@@ -391,10 +391,16 @@ fn transfer_interest_digest_message_uses_i18n_keys_and_stable_id() {
         3,
         "Rival FC",
         1_250_000,
+        "offer-9",
         "2025-08-01",
     );
 
     assert_eq!(msg.id, "transfer_interest_player-1");
+    assert!(
+        msg.actions
+            .iter()
+            .any(|action| action.id == "respond_offer:offer-9")
+    );
     assert_eq!(
         msg.subject_key.as_deref(),
         Some("be.msg.transferInterest.subject")

@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formasi & Gaya",
     "formation": "Formasi",
+    "outOfPossessionFormation": "Tanpa penguasaan bola",
     "playStyle": "Gaya Bermain",
     "teamIdentity": "Identitas Tim",
     "presetTactics": "Taktik Prasetel",
@@ -799,14 +800,28 @@
       "wing-play": "Permainan Sayap",
       "high-press": "Pressing Tinggi",
       "counter-attack": "Serangan Balik",
-      "low-block": "Blok Rendah"
+      "low-block": "Blok Rendah",
+      "control-possession": "Kontrol penguasaan", "tiki-taka": "Gaya tiki-taka", "vertical-tiki-taka": "Tiki-taka vertikal", "gegenpress": "Tekanan balik", "direct-counter": "Serangan balik langsung", "direct-play": "Permainan langsung", "mid-block": "Blok menengah", "high-defensive-line": "Garis pertahanan tinggi", "defensive": "Bertahan", "attacking": "Menyerang", "long-ball": "Bola panjang", "park-the-bus": "Parkir bus", "fast-transition": "Transisi cepat"
     },
     "presetDescriptions": {
       "balanced-control": "Garis yang stabil, jangkauan yang andal, dan bentuk yang sederhana untuk sebagian besar skuad.",
       "wing-play": "Lebar alami, dukungan lebih awal di sekitar kotak penalti, dan lebih banyak pemain yang berlari di depan bola.",
       "high-press": "Menaikkan blok lebih tinggi, menuntut tekanan agresif, dan mengerahkan banyak pemain ke depan.",
       "counter-attack": "Mengutamakan serangan balik cepat dari lini tengah yang lebih aman setelah penguasaan bola kembali.",
-      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan."
+      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan.",
+      "control-possession": "Menjaga bola dengan sirkulasi pendek dan sabar serta struktur lini tengah yang stabil.",
+      "tiki-taka": "Memakai umpan pendek rapat dan dukungan dekat untuk maju melalui lini yang terhubung.",
+      "vertical-tiki-taka": "Memadukan kombinasi pendek dengan garis tinggi agar bola lebih cepat maju.",
+      "gegenpress": "Mengejar bola segera setelah kehilangan dengan garis tinggi dan tekanan balik berkelanjutan.",
+      "direct-counter": "Bertahan rapat sebelum melepas umpan panjang cepat ke ruang di belakang lawan.",
+      "direct-play": "Mengirim bola lebih awal ke depan melalui opsi lebar dan lebih sedikit umpan di tengah.",
+      "mid-block": "Melindungi ruang tengah dalam blok menengah yang kompak tanpa terlalu mundur.",
+      "high-defensive-line": "Menahan tim tetap tinggi untuk memadatkan lapangan dan mendukung penguasaan proaktif.",
+      "defensive": "Mengutamakan bentuk rendah dan sempit serta perlindungan area penalti yang disiplin.",
+      "attacking": "Mendorong pemain ke depan dengan lebar, garis tinggi, dan dukungan cepat di sepertiga akhir.",
+      "long-ball": "Memakai dasar rendah dan aman sebelum umpan panjang cepat untuk merebut wilayah.",
+      "park-the-bus": "Bermain sangat dalam, sempit, dan pasif untuk menutup ruang di sekitar kotak penalti.",
+      "fast-transition": "Mengubah perebutan bola menjadi serangan langsung dengan transisi cepat dan tekanan aktif."
     },
     "playerRoles": {
       "Standard": "Standard",
@@ -1509,7 +1524,51 @@
     "registrationFailureInsufficientFunds": "Registrasi gagal: dana pembeli tidak cukup",
     "registrationFailureLoanConflict": "Registrasi gagal: benturan pinjaman",
     "registrationFailurePlayerUnavailable": "Registrasi gagal: pemain tidak tersedia",
-    "registrationFailureRegistrationBlocked": "Registrasi terhalang"
+    "registrationFailureRegistrationBlocked": "Registrasi terhalang",
+    "deadline": {
+      "title": "Pantauan tenggat",
+      "phase": {
+        "early": "Bursa transfer dibuka",
+        "mid": "Bursa transfer dibuka",
+        "last_week": "Minggu terakhir",
+        "last_72h": "72 jam terakhir",
+        "deadline_day": "Hari penutupan"
+      },
+      "needsResponse": "{{count}} negosiasi menunggu jawabanmu",
+      "nothingPending": "Tidak ada yang menunggu jawabanmu.",
+      "lapseWarning": "Pembicaraan yang belum dijawab berakhir saat bursa ditutup.",
+      "pendingList": "Negosiasi yang berjalan",
+      "recentDeals": "Aktivitas pasar",
+      "dealLine": "{{player}} pindah dari {{from}} ke {{to}} seharga {{fee}}",
+      "scheduledFor": "didaftarkan {{date}}",
+      "state": {
+        "incoming_offer": "Tawaran diterima",
+        "counter_received": "Tawaran balasan diterima",
+        "awaiting_club": "Menunggu jawaban klub",
+        "scheduled_registration": "Kesepakatan tercapai"
+      }
+    },
+    "promise": {
+      "label": "Janji tidak menghalangi kepindahan nanti",
+      "hint": "Pemain muda mungkin menerima gaji lebih rendah jika kamu berjanji tidak menghalangi kepindahan yang layak di kemudian hari. Menolak tawaran seperti itu melanggar janji.",
+      "bidHint": "Ia mungkin menerima klub yang lebih kecil jika kamu berjanji tidak menghalangi kepindahan yang layak nanti."
+    },
+    "terms": {
+      "title": "Ketentuan kesepakatan",
+      "instalments": "Pembayaran",
+      "instalmentsSingle": "Dibayar sekaligus",
+      "instalmentsCount": "{{count}} cicilan tahunan",
+      "sellOn": "Klausul jual kembali (% dari penjualan berikutnya)",
+      "signingBonus": "Bonus tanda tangan (juta)",
+      "hint": "Rencana cicilan yang lebih panjang lebih mahal; klausul jual kembali menurunkan harga. Pemain menerima bonusnya saat menandatangani.",
+      "bonusHint": "Dibayar saat tanda tangan, di luar gaji, dari kas dan anggaran transfer.",
+      "projectionInstalments": "Bayar {{now}} sekarang, lalu {{count}} cicilan lagi sebesar {{amount}} dengan selang setahun.",
+      "projectionBonus": "Bonus tanda tangan {{amount}}, dibayar saat selesai.",
+      "signingBonusEuros": "Bonus tanda tangan (euro bulat)",
+      "invalid": "Gunakan 1 sampai {{instalments}} cicilan, klausul jual kembali 0 sampai {{sellOn}}%, dan bonus 0 atau lebih."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Pemain menolak kepindahan ini",
+    "transferFeedbackPlayerRefusesDetail": "Kedua klub bisa sepakat, tetapi ia tidak mau turun ke klub yang lebih kecil tanpa janji jalan keluar atau bonus tanda tangan yang nyata."
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -1824,7 +1883,14 @@
     "renewalProjectionTitle": "Perkiraan dampak finansial",
     "renewalProjectionWageBill": "Beban gaji mingguan {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Penggunaan anggaran gaji {{before}}% → {{after}}%",
-    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}"
+    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}",
+    "promise": {
+      "title": "Janji batu loncatan",
+      "active": "Berlaku sampai {{date}}: tawaran layak dari klub yang lebih besar tidak boleh dihalangi.",
+      "fulfilled": "Ditepati: ia diizinkan pergi.",
+      "lapsed": "Berakhir tanpa dilanggar.",
+      "breached": "Dilanggar: tawaran layak ditolak, dan untuk sementara ia tidak mau membahas kontrak."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informasi Klub",
@@ -2709,7 +2775,13 @@
     "nGoals": "{{count}} gol",
     "playerOfYear": "Pemain Terbaik Tahun Ini",
     "avgRating": "Rating rata-rata: {{rating}}",
-    "continueDashboard": "Lanjut ke Dashboard"
+    "continueDashboard": "Lanjut ke Dashboard",
+    "promoted": "Promosi ke {{league}}",
+    "relegated": "Degradasi ke {{league}}",
+    "stayedUp": "Bertahan di {{league}}",
+    "cupResults": "Hasil piala",
+    "cupWon": "Kalian memenangkan {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} merebut trofi"
   },
   "notifications": {
     "attentionRequired": "Perlu Perhatian",
@@ -2986,7 +3058,9 @@
         "loanBuyOptionNotAvailable": "Tidak ada opsi pembelian pinjaman yang dapat digunakan untuk pemain ini",
         "invalidYouthScoutingRegion": "Wilayah scouting pemuda tidak didukung.",
         "invalidYouthScoutingObjective": "Sasaran scouting pemuda tidak didukung.",
-        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung."
+        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung.",
+        "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
+        "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",
@@ -2997,7 +3071,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Mengakhiri kontrak ini akan membuat skuad kamu tidak dapat menurunkan XI pertandingan",
         "noAssistantManagerAssigned": "Tidak ada asisten manajer yang ditugaskan ke tim kamu",
         "playerHasNoTeam": "Pemain tidak memiliki tim",
-        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih."
+        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih.",
+        "promiseNotWanted": "Pemain ini tidak membutuhkan janji batu loncatan."
       },
       "scouting": {
         "scoutNotFound": "Scout tidak ditemukan",
@@ -3613,7 +3688,23 @@
       "transferInterest": {
         "subject": "Minat Transfer pada {{player}}",
         "body": "Klub dengan tawaran aktif untuk {{player}}: {{n}}. Pertanyaan terbaru: {{team}} ({{fee}}). Tinjau tawaran di tab Transfer untuk merespons.",
-        "actionReview": "Tinjau Tawaran"
+        "actionReview": "Tinjau Tawaran",
+        "actionRespond": "Jawab tawaran",
+        "option": {
+          "accept": {
+            "label": "Terima tawaran",
+            "description": "Jual pemain ke klub ini dengan harga yang ditawarkan."
+          },
+          "reject": {
+            "label": "Tolak tawaran",
+            "description": "Tolak. Klub dapat kembali setelah masa jeda."
+          }
+        },
+        "effect": {
+          "accepted": "Penjualan {{player}} telah disepakati.",
+          "rejected": "Tawaran untuk {{player}} telah ditolak.",
+          "expired": "Tawaran untuk {{player}} itu sudah tidak terbuka. Lihat tab Transfer."
+        }
       },
       "loanAgreed": {
         "subject": "Pinjaman disepakati: {{player}}",
@@ -3644,6 +3735,34 @@
       "matchesMoved": {
         "subject": "Jadwal pertandingan diubah",
         "body": "Beberapa pertandingan kamu dipindahkan agar para pemain kamu tetap mendapat waktu istirahat dan jeda internasional dihormati:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} merasa dikhianati",
+          "body": "{{player}} dijanjikan bahwa {{team}} tidak akan menghalangi kepindahan yang layak, namun tawaran yang layak ditolak. Kepercayaan dan moralnya turun, dan untuk sementara ia tidak mau membahas kontrak baru."
+        },
+        "fulfilled": {
+          "subject": "{{player}} berterima kasih",
+          "body": "{{team}} menepati janji dan membiarkan {{player}} pindah ke klub yang lebih besar."
+        },
+        "lapsed": {
+          "subject": "Janji untuk {{player}} telah berakhir",
+          "body": "Janji yang diberikan kepada {{player}} berakhir tanpa {{team}} pernah menghalangi kepindahan yang layak. Ia jadi sedikit lebih percaya padamu."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Tenggat transfer berlalu",
+        "body": "Bursa telah ditutup. {{count}} negosiasi yang belum dijawab gugur."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Cicilan untuk {{player}} dibayar",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} dibayarkan ke {{club}}."
+        },
+        "received": {
+          "subject": "Cicilan untuk {{player}} diterima",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} diterima dari {{club}}."
+        }
       }
     },
     "news": {

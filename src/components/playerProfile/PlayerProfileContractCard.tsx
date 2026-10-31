@@ -18,6 +18,7 @@ import {
 } from "../../lib/helpers";
 import { formatPlayerWage, formatPlayerMarketValue } from "./PlayerProfile.helpers";
 import { Badge, Button, Card, CardBody, CardHeader } from "../ui";
+import type { SteppingStonePromiseData } from "../../store/types";
 
 type TranslateFn = (key: string, options?: Record<string, string | number>) => string;
 
@@ -34,6 +35,8 @@ interface PlayerProfileContractCardProps {
   contractRiskLabel: string;
   isOwnClub: boolean;
   isFreeAgent?: boolean;
+  /** What the club promised him on signing, shown to the manager who made it. */
+  steppingStonePromise?: SteppingStonePromiseData | null;
   hasLetExpireIntent: boolean;
   actionSubmitting: boolean;
   onOpenRenewal: () => void;
@@ -57,6 +60,7 @@ export default function PlayerProfileContractCard({
   contractRiskLabel,
   isOwnClub,
   isFreeAgent,
+  steppingStonePromise,
   hasLetExpireIntent,
   actionSubmitting,
   onOpenRenewal,
@@ -120,6 +124,25 @@ export default function PlayerProfileContractCard({
             value={`${morale}%`}
           />
         </div>
+        {isOwnClub && steppingStonePromise ? (
+          <div
+            className="mt-3 rounded-lg border border-line bg-sunken p-3"
+            data-testid="stepping-stone-promise"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-caption font-heading font-bold uppercase tracking-label text-fg-muted">
+                {t("playerProfile.promise.title")}
+              </span>
+            </div>
+            <p
+              className={`mt-1 text-body ${steppingStonePromise.status === "breached" ? "text-danger" : "text-fg-muted"}`}
+            >
+              {t(`playerProfile.promise.${steppingStonePromise.status}`, {
+                date: formatDate(steppingStonePromise.expires_on, language),
+              })}
+            </p>
+          </div>
+        ) : null}
         {isOwnClub ? (
           <div className="flex flex-wrap gap-2 pt-3">
             {hasLetExpireIntent ? (

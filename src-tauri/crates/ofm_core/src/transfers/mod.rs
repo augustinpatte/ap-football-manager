@@ -18,6 +18,7 @@ use domain::player::{
 };
 use domain::season::TransferWindowStatus;
 use domain::team::Team;
+use domain::transfer_terms::TransferTerms;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -25,26 +26,41 @@ use uuid::Uuid;
 mod affordability;
 mod bids;
 mod consts;
+mod deadline;
 mod execution;
+mod inbox_actions;
 mod lifecycle;
 mod loans;
 mod market;
 mod notifications;
+mod promises;
 mod realism;
 mod registration;
+mod terms;
 
-pub(crate) use affordability::{can_afford_fee, fee_block, transfer_fee_ceiling};
+pub(crate) use affordability::{can_afford_fee, transfer_fee_ceiling};
 pub use bids::*;
 use consts::*;
+pub use deadline::{
+    DeadlineDeal, DeadlineItem, DeadlineItemKind, DeadlineItemState, DeadlineSummary,
+    expire_negotiations_at_deadline, transfer_deadline_summary,
+};
 pub use execution::*;
+pub use inbox_actions::{TransferOfferResponseEffect, apply_transfer_offer_response};
 use lifecycle::*;
 pub use loans::*;
 pub use market::*;
 use notifications::*;
+pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
+pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;
 use registration::*;
 pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
+};
+pub use terms::{
+    ERR_INVALID_DEAL_TERMS, ERR_SELL_ON_UNAFFORDABLE, ensure_bonus_affordable,
+    process_transfer_obligations,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -93,6 +109,19 @@ pub struct TransferBidFinancialProjection {
     /// the window is open and the debit fires immediately on acceptance.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_registration_date: Option<String>,
+    /// Cash that leaves on completion: the first instalment and any signing bonus.
+    #[serde(default)]
+    pub cash_due_on_completion: u64,
+    #[serde(default)]
+    pub signing_bonus: u64,
+    /// Payments still to come after completion, a year apart.
+    #[serde(default)]
+    pub later_instalments: u8,
+    #[serde(default)]
+    pub later_instalment_amount: u64,
+    /// The player would value a stepping-stone promise; the bid is refused for anyone else.
+    #[serde(default)]
+    pub stepping_stone_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

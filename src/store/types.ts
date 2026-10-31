@@ -148,6 +148,8 @@ export interface TeamData {
   season_expenses: number;
   financial_ledger?: FinancialTransactionData[];
   formation: string;
+  /** Empty in legacy saves: the in-possession formation is reused when defending. */
+  out_of_possession_formation?: string;
   play_style: string;
   training_focus: string;
   training_intensity: string;
@@ -273,6 +275,17 @@ export interface ContractRenewalStateData {
   exit_intent?: ContractExitIntentData | null;
 }
 
+export interface SteppingStonePromiseData {
+  club_id: string;
+  made_on: string;
+  protected_from: string;
+  expires_on: string;
+  min_buyer_reputation: number;
+  min_fee_pct_of_value: number;
+  status: "active" | "fulfilled" | "lapsed" | "breached";
+  resolved_on?: string | null;
+}
+
 export interface PlayerMoraleCoreData {
   manager_trust: number;
   renewal_state?: ContractRenewalStateData | null;
@@ -280,6 +293,8 @@ export interface PlayerMoraleCoreData {
   pending_promise?: { kind: "PlayingTime"; matches_remaining: number } | null;
   /** The date until which the player won't take another talk. */
   talk_cooldown_until?: string | null;
+  /** The club's promise not to obstruct a suitable future move; see `SteppingStonePromiseData`. */
+  stepping_stone_promise?: SteppingStonePromiseData | null;
   /** Sent by the backend; the frontend doesn't read them from the game state. */
   unresolved_issue?: unknown;
   recent_treatment?: unknown;

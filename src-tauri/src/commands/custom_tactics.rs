@@ -155,6 +155,8 @@ mod tests {
             description: String::new(),
             formation: "4-3-3".into(),
             play_style: "Possession".into(),
+            out_of_possession_formation: "4-3-3".into(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: None,
         }
     }

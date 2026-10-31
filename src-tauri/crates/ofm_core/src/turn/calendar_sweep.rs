@@ -17,9 +17,20 @@ fn has_bracket(competition: &domain::league::League) -> bool {
     !competition.knockout_rounds.is_empty()
 }
 
+/// Settles, once, the calendar of a game that was just loaded. The repair moves matches that
+/// clash with the rest rule or an international window, so it runs when time moves and not while
+/// a save is being read: loading restores a state, it does not progress it. Runs before the day's
+/// football, because a match dated today may have to move too.
+pub(super) fn settle_loaded_calendar(game: &mut Game) {
+    if std::mem::take(&mut game.calendar_repair_pending) {
+        crate::calendar_repair::repair_loaded_calendar(game);
+    }
+}
+
 /// Notes, once per day and before anything is played, which bracket fixtures the player has been
 /// shown. Calling it again the same day changes nothing.
 pub(super) fn begin_day(game: &mut Game) {
+    settle_loaded_calendar(game);
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     if game
         .day_start

@@ -197,9 +197,13 @@ fn process_day_common(game: &mut Game, today: &str) {
     scouting::process_scouting(game);
     transfers::process_pending_transfer_registrations(game);
     transfers::process_pending_loan_registrations(game);
+    // Later instalments of fees agreed in earlier windows or seasons fall due whatever the window.
+    transfers::process_transfer_obligations(game);
     // AI clubs say whom they would sell before the market looks for what is for sale.
     crate::ai_squad_sales::apply_ai_listing_decisions(game, weekday_num);
     transfers::generate_incoming_transfer_offers(game);
+    // After the market has had its last say on the closing day, whatever is still unanswered ends.
+    transfers::expire_negotiations_at_deadline(game);
     // After every step above that can take a player away from a club — expiry,
     // registrations and the AI market — and the loan returns that opened the day.
     crate::ai_contracts::apply_ai_squad_planning(game, weekday_num);
@@ -277,9 +281,11 @@ pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
 where
     F: FnMut(StatsState),
 {
+    calendar_sweep::settle_loaded_calendar(game);
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     transfers::process_loan_development_reports(game);
     transfers::process_loan_returns(game);
+    transfers::process_stepping_stone_promises(game);
 
     simulate_the_rest_of_the_world(game, &today, on_capture);
 
@@ -312,6 +318,7 @@ where
     info!("[turn] finish_live_match_day: {}", today);
     transfers::process_loan_development_reports(game);
     transfers::process_loan_returns(game);
+    transfers::process_stepping_stone_promises(game);
     generate_matchday_news(game, &today);
 
     // The rest of the world had a day too. The player's own fixture is already settled, so it is

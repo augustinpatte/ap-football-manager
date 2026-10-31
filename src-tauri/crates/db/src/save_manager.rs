@@ -686,17 +686,12 @@ impl SaveManager {
             needs_resave = true;
         }
 
-        // After the stranded fixtures are resolved, so that what remains unplayed is the calendar
-        // from here on. Matches inside the rest window, or on an international window, move to the
-        // earliest legal day; each is recorded as postponed and the user is told once. Idempotent.
-        let repaired_calendar = ofm_core::calendar_repair::repair_loaded_calendar(&mut game);
-        if repaired_calendar > 0 {
-            info!(
-                "[save_manager] moved {} clashing fixture(s) for save {}",
-                repaired_calendar, save_id
-            );
-            needs_resave = true;
-        }
+        // The calendar rules (rest between matches, international windows) are checked against a
+        // loaded save on the first day played from it, not here: moving a match is progress
+        // through time, and a load must hand back, and leave on disk, the state that was saved.
+        // After the stranded fixtures are resolved above, so what remains unplayed is the
+        // calendar from here on. See `Game::calendar_repair_pending`.
+        game.calendar_repair_pending = true;
 
         if league_repo::needs_cleanup(
             db.conn(),
@@ -1752,10 +1747,13 @@ mod tests {
     }
 
     /// Given a save whose unplayed matches clash (one club, two matches on consecutive days),
-    /// When it is loaded, Then the clash is repaired, the move is recorded as a postponement, and
-    /// the repair is on disk: it is not recomputed, or lost, on the next load.
+    /// When it is loaded, Then nothing moves (loading restores the saved state);
+    /// When the first day is then started, Then the clash is repaired and the move is recorded as a
+    /// postponement; and
+    /// When the career is saved, Then the repair is on disk: it is not recomputed, or lost, on
+    /// the next load.
     #[test]
-    fn loading_a_save_repairs_clashing_matches_and_persists_them() {
+    fn a_saves_clashing_matches_are_repaired_on_the_first_day_and_persisted_by_the_next_save() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
         let mut sm = SaveManager::init(&saves_dir).unwrap();
@@ -1770,7 +1768,10 @@ mod tests {
         };
         let (first_day, second_day) = (day(30), day(31));
         let competition = game.competitions.first_mut().expect("a league");
-        for (id, date) in [("clash-1", first_day), ("clash-2", second_day)] {
+        for (id, date) in [
+            ("clash-1", first_day.clone()),
+            ("clash-2", second_day.clone()),
+        ] {
             competition.fixtures.push(Fixture {
                 postponement: None,
                 id: id.to_string(),
@@ -1786,7 +1787,7 @@ mod tests {
         }
         let save_id = sm.create_save(&game, "Clashing Career").unwrap();
 
-        let loaded = sm.load_game(&save_id).unwrap();
+        let mut loaded = sm.load_game(&save_id).unwrap();
 
         let dates = |game: &Game| -> Vec<(String, String, bool)> {
             game.competitions
@@ -1802,6 +1803,17 @@ mod tests {
                 })
                 .collect()
         };
+        assert_eq!(
+            dates(&loaded),
+            [
+                ("clash-1".to_string(), first_day, false),
+                ("clash-2".to_string(), second_day, false)
+            ],
+            "the load itself moves nothing"
+        );
+
+        ofm_core::turn::begin_day(&mut loaded);
+
         let in_memory = dates(&loaded);
         let gap = |rows: &[(String, String, bool)]| {
             let parse = |date: &str| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
@@ -1814,7 +1826,8 @@ mod tests {
             "exactly one of the two moved, and is marked: {in_memory:?}"
         );
 
-        // From the file itself, not a second load (which would repair again and prove nothing).
+        sm.save_game(&loaded, &save_id).unwrap();
+        // From the file itself, not a second load.
         let db = GameDatabase::open_save(&saves_dir.join(format!("{save_id}.db"))).unwrap();
         let from_disk = GamePersistenceReader::read_game(&db).unwrap();
         assert_eq!(dates(&from_disk), in_memory);
@@ -2075,10 +2088,16 @@ mod tests {
         );
     }
 
+    /// Given a saved calendar holding two matches that sit inside each other's rest window,
+    /// When the save is loaded,
+    /// Then the load changes nothing: the loaded calendar is the saved one and the file is not
+    ///      rewritten. Loading restores a state; moving a match is progress through time.
+    ///
+    /// When the first day is then started,
+    /// Then the clash is settled — a match is moved later and recorded as postponed — which is the
+    ///      legitimate repair of a save that carries a clash, run when time moves and not before.
     #[test]
-    fn only_the_calendar_repairs_own_resave_flag_writes_a_late_clash_back() {
-        // As above, for the calendar: let the save settle, inject a clash straight into the
-        // database, and let the repair's own flag be the only thing that can persist the move.
+    fn loading_a_save_does_not_move_a_clashing_match_but_the_first_day_does() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
         let mut sm = SaveManager::init(&saves_dir).unwrap();
@@ -2095,11 +2114,15 @@ mod tests {
                 .format("%Y-%m-%d")
                 .to_string()
         };
+        let (first_clash, second_clash) = (day(40), day(41));
         {
             let db = GameDatabase::open_save(&db_path).unwrap();
             let mut competitions = competition_repo::load_competitions(db.conn()).unwrap();
             let competition = competitions.first_mut().expect("a settled competition");
-            for (id, date) in [("late-clash-1", day(40)), ("late-clash-2", day(41))] {
+            for (id, date) in [
+                ("late-clash-1", first_clash.clone()),
+                ("late-clash-2", second_clash.clone()),
+            ] {
                 competition.fixtures.push(Fixture {
                     postponement: None,
                     id: id.to_string(),
@@ -2115,22 +2138,53 @@ mod tests {
             }
             competition_repo::replace_competitions(db.conn(), &competitions).unwrap();
         }
-
-        sm.load_game(&save_id).unwrap();
-
-        let db = GameDatabase::open_save(&db_path).unwrap();
-        let from_disk = competition_repo::load_competitions(db.conn()).unwrap();
-        let persisted: Vec<_> = from_disk
-            .iter()
-            .flat_map(|competition| competition.fixtures.iter())
-            .filter(|fixture| fixture.id.starts_with("late-clash-"))
-            .collect();
-        assert_eq!(persisted.len(), 2);
-        assert!(
-            persisted
+        let dates_of = |game: &Game| -> Vec<(String, String, bool)> {
+            game.competitions
                 .iter()
-                .any(|fixture| fixture.postponement.is_some()),
-            "the repair's own resave flag is what writes the move back"
+                .flat_map(|competition| competition.fixtures.iter())
+                .filter(|fixture| fixture.id.starts_with("late-clash-"))
+                .map(|fixture| {
+                    (
+                        fixture.id.clone(),
+                        fixture.date.clone(),
+                        fixture.postponement.is_some(),
+                    )
+                })
+                .collect()
+        };
+
+        let mut loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(
+            dates_of(&loaded),
+            [
+                ("late-clash-1".to_string(), first_clash.clone(), false),
+                ("late-clash-2".to_string(), second_clash.clone(), false),
+            ],
+            "the load must hand back the saved calendar, clash and all"
+        );
+        let on_disk = GameDatabase::open_save(&db_path).unwrap();
+        let from_disk = competition_repo::load_competitions(on_disk.conn()).unwrap();
+        assert!(
+            from_disk
+                .iter()
+                .flat_map(|competition| competition.fixtures.iter())
+                .filter(|fixture| fixture.id.starts_with("late-clash-"))
+                .all(|fixture| fixture.postponement.is_none()),
+            "and the file is not rewritten by a load"
+        );
+        drop(on_disk);
+
+        ofm_core::turn::begin_day(&mut loaded);
+
+        let settled = dates_of(&loaded);
+        assert!(
+            settled.iter().any(|(_, _, postponed)| *postponed),
+            "the first day settles the clash and records the postponement: {settled:?}"
+        );
+        assert!(
+            settled.iter().all(|(_, date, _)| date >= &first_clash),
+            "a match is only ever moved later"
         );
     }
 
@@ -4020,6 +4074,81 @@ mod tests {
         );
     }
 
+    /// Given a career owing an unpaid instalment, a paid one and a live sell-on clause, and an
+    /// offer carrying non-default terms,
+    /// When it is saved, loaded, and saved and loaded again,
+    /// Then every obligation and the offer's terms survive both trips unchanged.
+    #[test]
+    fn transfer_obligations_and_offer_terms_survive_save_and_load() {
+        use domain::transfer_terms::{TransferObligation, TransferTerms};
+        let dir = tempfile::tempdir().unwrap();
+        let mut manager = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        game.transfer_obligations = vec![
+            TransferObligation::Instalment {
+                id: "i-1".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2027-08-01".to_string(),
+                number: 2,
+                of: 3,
+                paid_on: None,
+            },
+            TransferObligation::Instalment {
+                id: "i-0".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2026-08-01".to_string(),
+                number: 1,
+                of: 3,
+                paid_on: Some("2026-08-01".to_string()),
+            },
+            TransferObligation::SellOn {
+                id: "s-1".to_string(),
+                player_id: "p1".to_string(),
+                holder_team_id: "team-a".to_string(),
+                beneficiary_team_id: "team-b".to_string(),
+                pct: 20,
+                settled_on: None,
+            },
+        ];
+        let mut offer = domain::player::TransferOffer {
+            id: "o-1".to_string(),
+            from_team_id: "team-a".to_string(),
+            fee: 3_000_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: domain::player::TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-07-01".to_string()),
+            registration_failure_reason: None,
+            closed_on: None,
+            terms: TransferTerms::default(),
+        };
+        offer.terms = TransferTerms {
+            instalments: 3,
+            sell_on_pct: 20,
+            signing_bonus: 250_000,
+            promise_stepping_stone: true,
+        };
+        game.players[0].transfer_offers.push(offer.clone());
+        let id = manager.create_save(&game, "Terms").unwrap();
+
+        let loaded = manager.load_game(&id).unwrap();
+        assert_eq!(loaded.transfer_obligations, game.transfer_obligations);
+        assert_eq!(loaded.players[0].transfer_offers[0].terms, offer.terms);
+
+        manager.save_game(&loaded, &id).unwrap();
+        let reloaded = manager.load_game(&id).unwrap();
+        assert_eq!(reloaded.transfer_obligations, game.transfer_obligations);
+    }
+
     /// Given a saved archive, when the career is loaded, then every field of every record survives.
     #[test]
     fn the_retired_archive_survives_save_and_load() {
@@ -4309,6 +4438,11 @@ mod tests {
             description: "d".to_string(),
             formation: "4-4-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-4-1".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings {
+                width: domain::team::PitchWidth::Wide,
+                ..domain::team::TacticsPhaseSettings::default()
+            }),
             source_preset_name: Some("Counter".to_string()),
         };
         game.custom_tactics = vec![
@@ -4345,6 +4479,8 @@ mod tests {
             description: String::new(),
             formation: "3-5-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-3-2".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: None,
         }];
         let id = manager.create_save(&game, "Source").unwrap();

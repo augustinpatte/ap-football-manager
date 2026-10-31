@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formação & Estilo",
     "formation": "Formação",
+    "outOfPossessionFormation": "Sem a bola",
     "playStyle": "Estilo de Jogo",
     "lineupTab": "Escalação",
     "rolesTab": "Bolas paradas & funções",
@@ -845,7 +846,20 @@
       "wing-play": "Jogo pelos lados",
       "high-press": "Pressão alta",
       "counter-attack": "Contra-ataque",
-      "low-block": "Bloco baixo"
+      "low-block": "Bloco baixo",
+      "control-possession": "Controle de posse",
+      "tiki-taka": "Estilo tiki-taka",
+      "vertical-tiki-taka": "Tiki-taka vertical",
+      "gegenpress": "Contra-pressão",
+      "direct-counter": "Contra-ataque direto",
+      "direct-play": "Jogo direto",
+      "mid-block": "Bloco médio",
+      "high-defensive-line": "Linha defensiva alta",
+      "defensive": "Defensivo",
+      "attacking": "Ofensivo",
+      "long-ball": "Bola longa",
+      "park-the-bus": "Estacionar o ônibus",
+      "fast-transition": "Transição rápida"
     },
     "tableInteractionHint": "Clique com o botão direito nos jogadores para ações rápidas.",
     "makeCaptain": "Definir como capitão",
@@ -867,7 +881,20 @@
       "wing-play": "Amplitude natural, apoio mais cedo perto da área e mais corridas à frente da bola.",
       "high-press": "Empurra o bloco para frente, exige pressão agressiva e coloca mais gente no ataque.",
       "counter-attack": "Prioriza transições rápidas a partir de uma base de meio-campo mais segura depois da retomada da posse.",
-      "low-block": "Mais proteção na última linha e uma forma mais compacta ao absorver pressão."
+      "low-block": "Mais proteção na última linha e uma forma mais compacta ao absorver pressão.",
+      "control-possession": "Mantém a bola com circulação curta e paciente e uma estrutura estável no meio-campo.",
+      "tiki-taka": "Usa passes curtos e próximos, com apoio constante, para avançar entre linhas conectadas.",
+      "vertical-tiki-taka": "Combina trocas curtas com linha alta para fazer a bola avançar mais cedo.",
+      "gegenpress": "Pressiona imediatamente após perder a bola com linha alta e pressão pós-perda constante.",
+      "direct-counter": "Defende compacto antes de lançar passes longos e rápidos no espaço do adversário.",
+      "direct-play": "Leva a bola cedo para a frente, com opções abertas e menos passes pelo meio-campo.",
+      "mid-block": "Protege o espaço central em um bloco médio compacto sem recuar demais.",
+      "high-defensive-line": "Mantém o time alto para encurtar o campo e apoiar uma posse mais proativa.",
+      "defensive": "Prioriza uma formação baixa e estreita e a proteção disciplinada da área.",
+      "attacking": "Leva mais jogadores ao ataque com amplitude, linha alta e apoio rápido no terço final.",
+      "long-ball": "Usa uma base baixa e segura antes de lançar bolas longas para ganhar terreno rápido.",
+      "park-the-bus": "Fica muito recuado, estreito e passivo para negar espaço dentro e perto da área.",
+      "fast-transition": "Transforma recuperações em ataques imediatos com transições rápidas e pressão ativa."
     },
     "clearSelection": "Limpar seleção",
     "compareWithSelected": "Comparar com selecionado",
@@ -1509,7 +1536,51 @@
     "registrationFailureInsufficientFunds": "Registro falhou: comprador sem recursos suficientes",
     "registrationFailureLoanConflict": "Registro falhou: conflito com empréstimo",
     "registrationFailurePlayerUnavailable": "Registro falhou: jogador indisponível",
-    "registrationFailureRegistrationBlocked": "Registro bloqueado"
+    "registrationFailureRegistrationBlocked": "Registro bloqueado",
+    "deadline": {
+      "title": "Vigília do fechamento",
+      "phase": {
+        "early": "Janela aberta",
+        "mid": "Janela aberta",
+        "last_week": "Última semana",
+        "last_72h": "Últimas 72 horas",
+        "deadline_day": "Dia do fechamento"
+      },
+      "needsResponse": "{{count}} negociação(ões) aguardam sua resposta",
+      "nothingPending": "Nada aguarda sua resposta.",
+      "lapseWarning": "As conversas sem resposta terminam quando a janela fecha.",
+      "pendingList": "Negociações pendentes",
+      "recentDeals": "Atividade do mercado",
+      "dealLine": "{{player}} saiu do {{from}} para o {{to}} por {{fee}}",
+      "scheduledFor": "registra em {{date}}",
+      "state": {
+        "incoming_offer": "Proposta recebida",
+        "counter_received": "Contraproposta recebida",
+        "awaiting_club": "Aguardando a resposta do clube",
+        "scheduled_registration": "Acordo fechado"
+      }
+    },
+    "promise": {
+      "label": "Promessa de não bloquear uma saída futura",
+      "hint": "Um jogador jovem pode aceitar um salário menor se você prometer não atrapalhar, mais adiante, uma transferência à altura da sua ambição. Recusar uma proposta assim quebra a promessa.",
+      "bidHint": "Ele pode aceitar um clube menor se você prometer não bloquear mais tarde uma saída adequada."
+    },
+    "terms": {
+      "title": "Condições do acordo",
+      "instalments": "Pagamento",
+      "instalmentsSingle": "Pago de uma vez",
+      "instalmentsCount": "{{count}} pagamentos anuais",
+      "sellOn": "Cláusula de revenda (% da próxima venda)",
+      "signingBonus": "Luvas de assinatura (milhões)",
+      "hint": "Um parcelamento mais longo custa mais; uma cláusula de revenda reduz o preço. O jogador recebe as luvas na assinatura.",
+      "bonusHint": "Pagas na assinatura, além do salário, com o caixa e o orçamento de transferências.",
+      "projectionInstalments": "Pague {{now}} agora e depois {{count}} parcela(s) de {{amount}} com um ano de intervalo.",
+      "projectionBonus": "Luvas de {{amount}}, pagas na conclusão.",
+      "signingBonusEuros": "Luvas de assinatura (euros inteiros)",
+      "invalid": "Use de 1 a {{instalments}} parcelas, uma cláusula de revenda de 0 a {{sellOn}}% e luvas de 0 ou mais."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "O jogador recusa a transferência",
+    "transferFeedbackPlayerRefusesDetail": "Os clubes poderiam chegar a um acordo, mas ele não desce para um clube menor sem uma promessa de saída ou luvas de verdade."
   },
   "transferCentreWorld": {
     "title": "Central de transferências",
@@ -1824,7 +1895,14 @@
     "renewalProjectionWageBill": "Folha de salários semanal {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Uso do orçamento salarial {{before}}% → {{after}}%",
     "renewalProjectionRunway": "Reserva de caixa {{before}} → {{after}}",
-    "ratingTrend": "Tendência de avaliação"
+    "ratingTrend": "Tendência de avaliação",
+    "promise": {
+      "title": "Promessa de trampolim",
+      "active": "Ativa até {{date}}: uma proposta adequada de um clube maior não pode ser bloqueada.",
+      "fulfilled": "Cumprida: ele foi liberado para sair.",
+      "lapsed": "Expirou sem ser quebrada.",
+      "breached": "Quebrada: uma proposta adequada foi recusada e, por enquanto, ele não quer falar de contrato."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informações do Clube",
@@ -2652,7 +2730,13 @@
     "nGoals": "{{count}} gols",
     "playerOfYear": "Jogador do Ano",
     "avgRating": "Nota média: {{rating}}",
-    "continueDashboard": "Continuar para o Painel"
+    "continueDashboard": "Continuar para o Painel",
+    "promoted": "Promovido para a {{league}}",
+    "relegated": "Rebaixado para a {{league}}",
+    "stayedUp": "Permanece na {{league}}",
+    "cupResults": "Resultados da copa",
+    "cupWon": "Vocês venceram a {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} levou o troféu"
   },
   "notifications": {
     "attentionRequired": "Atenção Necessária",
@@ -2978,7 +3062,9 @@
         "loanBuyOptionNotAvailable": "Não há opção de compra exercível para este jogador",
         "invalidYouthScoutingRegion": "Região de prospecção de base não suportada.",
         "invalidYouthScoutingObjective": "Objetivo de prospecção de base não suportado.",
-        "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada."
+        "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada.",
+        "invalidDealTerms": "Essas condições do acordo não são permitidas.",
+        "sellOnUnaffordable": "O clube vendedor não consegue pagar a parte que deve ao clube que o vendeu antes."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao seu clube",
@@ -2989,7 +3075,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Encerrar este contrato deixaria seu elenco sem condições de escalar um onze no dia do jogo",
         "noAssistantManagerAssigned": "Nenhum auxiliar técnico foi atribuído ao seu time",
         "playerHasNoTeam": "O jogador não tem time",
-        "boardWagePolicy": "A renovação foi bloqueada pela política salarial da diretoria. Mantenha os salários semanais perto de {{budget}} para se recuperar."
+        "boardWagePolicy": "A renovação foi bloqueada pela política salarial da diretoria. Mantenha os salários semanais perto de {{budget}} para se recuperar.",
+        "promiseNotWanted": "Este jogador não tem interesse em uma promessa de trampolim."
       },
       "scouting": {
         "scoutNotFound": "Olheiro não encontrado",
@@ -3613,7 +3700,23 @@
       "transferInterest": {
         "subject": "Interesse de transferência em {{player}}",
         "body": "Clubes com propostas ativas por {{player}}: {{n}}. Última sondagem: {{team}} ({{fee}}). Veja as propostas na aba Transferências para responder.",
-        "actionReview": "Ver propostas"
+        "actionReview": "Ver propostas",
+        "actionRespond": "Responder à proposta",
+        "option": {
+          "accept": {
+            "label": "Aceitar a proposta",
+            "description": "Vender o jogador a este clube pelo valor oferecido."
+          },
+          "reject": {
+            "label": "Recusar a proposta",
+            "description": "Recusar. O clube pode voltar depois de um período de reflexão."
+          }
+        },
+        "effect": {
+          "accepted": "A venda de {{player}} foi acertada.",
+          "rejected": "A proposta por {{player}} foi recusada.",
+          "expired": "Essa proposta por {{player}} não está mais aberta. Veja a aba de Transferências."
+        }
       },
       "loanAgreed": {
         "subject": "Empréstimo acertado: {{player}}",
@@ -3644,6 +3747,34 @@
       "matchesMoved": {
         "subject": "Jogos reagendados",
         "body": "Alguns dos seus jogos foram alterados para que seus jogadores mantenham o descanso e as datas FIFA sejam respeitadas:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} se sente traído",
+          "body": "Prometeram a {{player}} que o {{team}} não bloquearia uma saída adequada, e uma proposta adequada foi recusada. A confiança e o moral dele caíram, e por enquanto ele não quer discutir um novo contrato."
+        },
+        "fulfilled": {
+          "subject": "{{player}} agradece",
+          "body": "O {{team}} cumpriu a palavra e deixou {{player}} dar o salto para um clube maior."
+        },
+        "lapsed": {
+          "subject": "A promessa a {{player}} chegou ao fim",
+          "body": "A promessa feita a {{player}} expirou sem que o {{team}} jamais bloqueasse uma saída adequada. Ele confia um pouco mais em você por isso."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Fechamento da janela",
+        "body": "A janela fechou. {{count}} negociação(ões) sem resposta caducaram."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Parcela paga por {{player}}",
+          "body": "Parcela {{number}} de {{of}} por {{player}}: {{amount}} pagos a {{club}}."
+        },
+        "received": {
+          "subject": "Parcela recebida por {{player}}",
+          "body": "Parcela {{number}} de {{of}} por {{player}}: {{amount}} recebidos de {{club}}."
+        }
       }
     },
     "news": {
