@@ -138,6 +138,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "apfm-match-lab"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3138,6 +3146,7 @@ dependencies = [
 name = "ofm_core"
 version = "0.3.0"
 dependencies = [
+ "apfm-match-lab",
  "base64 0.22.1",
  "chrono",
  "domain",

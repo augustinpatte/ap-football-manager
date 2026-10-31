@@ -3,6 +3,7 @@ pub mod game_persistence;
 pub mod legacy_migration;
 pub mod manager_profile;
 pub mod migrations;
+pub mod replay_repo;
 pub mod repositories;
 pub mod save_index;
 pub mod save_index_manager;

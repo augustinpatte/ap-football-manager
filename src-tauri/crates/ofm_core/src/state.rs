@@ -1,5 +1,6 @@
 use crate::game::Game;
 use crate::live_match_manager::LiveMatchSession;
+use crate::spatial_runner::PreparedSpatialReplay;
 use domain::stats::StatsState;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -51,6 +52,7 @@ pub struct StateManager {
     active_game: Mutex<Option<Game>>,
     active_stats: Mutex<Option<StatsState>>,
     live_match: Mutex<Option<LiveMatchSession>>,
+    spatial_replay: Mutex<Option<PreparedSpatialReplay>>,
     active_save_id: Mutex<Option<String>>,
     /// Last career token handed out (`next_career_token`); 0 is never issued.
     last_career_token: AtomicU64,
@@ -68,6 +70,7 @@ impl StateManager {
             active_game: Mutex::new(None),
             active_stats: Mutex::new(None),
             live_match: Mutex::new(None),
+            spatial_replay: Mutex::new(None),
             active_save_id: Mutex::new(None),
             last_career_token: AtomicU64::new(0),
         }
@@ -98,6 +101,7 @@ impl StateManager {
         clear_option(&self.active_game);
         clear_option(&self.active_stats);
         clear_option(&self.live_match);
+        clear_option(&self.spatial_replay);
     }
 
     pub fn set_stats_state(&self, stats: StatsState) {
@@ -152,6 +156,14 @@ impl StateManager {
 
     pub fn set_live_match(&self, session: LiveMatchSession) {
         set_option(&self.live_match, session);
+    }
+
+    pub fn set_spatial_replay(&self, replay: PreparedSpatialReplay) {
+        set_option(&self.spatial_replay, replay);
+    }
+
+    pub fn take_spatial_replay(&self) -> Option<PreparedSpatialReplay> {
+        take_option(&self.spatial_replay)
     }
 
     pub fn take_live_match(&self) -> Option<LiveMatchSession> {

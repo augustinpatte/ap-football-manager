@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 60;
+const EXPECTED_MIGRATION_COUNT: usize = 61;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -170,6 +170,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ),
     // V60: Staff posts and FM24 detail attributes; what the manager has delegated
     ("v060_staff_system.sql", include_str!("sql/v060_staff_system.sql")),
+    // V61: Versioned M12 replays, keyed by the stable competition fixture identity
+    ("v061_match_replays.sql", include_str!("sql/v061_match_replays.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -978,6 +980,7 @@ mod tests {
     ("v058_archived_messages.sql", 0x853776cba0dffed1),
     ("v059_legacy_tactics_imported.sql", 0xf2fdbc95bf5fdc99),
     ("v060_staff_system.sql", 0xc2e0d1de48bab8cb),
+    ("v061_match_replays.sql", 0x4c69229a4e657439),
     ];
 
     /// Given the migrations already shipped

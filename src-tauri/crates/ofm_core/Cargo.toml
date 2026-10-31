@@ -21,6 +21,7 @@ zip = { version = "2", features = ["deflate"] }
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+apfm-match-lab = { path = "../../../../../apfm-match-lab" }
 
 [lints]
 workspace = true

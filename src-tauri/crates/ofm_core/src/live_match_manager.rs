@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::game::Game;
+use crate::spatial_adapter::{self, MatchSelection, TeamSelection};
 
 use domain::league::{FixtureStatus, StandingEntry};
 use domain::manager::Manager;
@@ -338,6 +339,13 @@ fn starters_among<'a>(team: &TeamData, club: &[&'a Player]) -> Vec<&'a Player> {
         .collect()
 }
 
+fn bench_among<'a>(bench: &[engine::PlayerData], club: &[&'a Player]) -> Vec<&'a Player> {
+    bench
+        .iter()
+        .filter_map(|entry| club.iter().find(|player| player.id == entry.id).copied())
+        .collect()
+}
+
 /// Create a live match session for a specific fixture.
 pub fn create_live_match(
     game: &Game,
@@ -346,6 +354,55 @@ pub fn create_live_match(
     allows_extra_time: bool,
 ) -> Result<LiveMatchSession, String> {
     create_live_match_with(game, fixture_index, mode, allows_extra_time, None)
+}
+
+/// Builds the spatial-contract input from the exact squad selection used by
+/// the normal match path. It only reads `game`; a failed M12 run therefore
+/// cannot alter the career before its report has passed validation.
+pub fn adapt_spatial_fixture(
+    game: &Game,
+    fixture_index: usize,
+) -> Result<spatial_adapter::AdaptedMatch, String> {
+    let league = game.league.as_ref().ok_or(LIVE_MATCH_NO_LEAGUE_ERROR)?;
+    let fixture = league
+        .fixtures
+        .get(fixture_index)
+        .ok_or(LIVE_MATCH_FIXTURE_NOT_FOUND_ERROR)?;
+    if fixture.status != FixtureStatus::Scheduled {
+        return Err(LIVE_MATCH_FIXTURE_NOT_SCHEDULED_ERROR.into());
+    }
+    let club = |team_id: &str| crate::match_day_eligibility::club_players(&game.players, team_id);
+    let home_club = club(&fixture.home_team_id);
+    let away_club = club(&fixture.away_team_id);
+    let (home_xi, home_bench) =
+        build_team_with_bench_from(game, &fixture.home_team_id, &home_club, None);
+    let (away_xi, away_bench) =
+        build_team_with_bench_from(game, &fixture.away_team_id, &away_club, None);
+    let home_team = game
+        .teams
+        .iter()
+        .find(|team| team.id == fixture.home_team_id)
+        .ok_or(LIVE_MATCH_EMPTY_SQUAD_ERROR)?;
+    let away_team = game
+        .teams
+        .iter()
+        .find(|team| team.id == fixture.away_team_id)
+        .ok_or(LIVE_MATCH_EMPTY_SQUAD_ERROR)?;
+    spatial_adapter::adapt(MatchSelection {
+        fixture,
+        game_seed: game.seed,
+        home: TeamSelection {
+            team: home_team,
+            starters: starters_among(&home_xi, &home_club),
+            bench: bench_among(&home_bench, &home_club),
+        },
+        away: TeamSelection {
+            team: away_team,
+            starters: starters_among(&away_xi, &away_club),
+            bench: bench_among(&away_bench, &away_club),
+        },
+    })
+    .map_err(|error| format!("spatial adapter: {error}"))
 }
 
 /// [`create_live_match`] for a matchday that has already found the clubs with a match soon

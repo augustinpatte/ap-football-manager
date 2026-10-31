@@ -342,6 +342,49 @@ impl SaveManager {
         Ok(())
     }
 
+    /// Stores a replay alongside its owning career, without touching game state.
+    pub fn save_match_replay(
+        &mut self,
+        save_id: &str,
+        competition_id: &str,
+        fixture_id: &str,
+        replay_json: &str,
+    ) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?
+            .clone();
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        let db = GameDatabase::open(&db_path)?;
+        crate::replay_repo::save(db.conn(), competition_id, fixture_id, replay_json)?;
+        drop(db);
+        let checksum = compute_checksum(&db_path)?;
+        self.save_index.update_save(SaveEntry {
+            checksum,
+            last_played_at: Utc::now().to_rfc3339(),
+            ..entry
+        })
+    }
+
+    /// Loads the stored replay only; it never invokes the match engine.
+    pub fn load_match_replay(
+        &mut self,
+        save_id: &str,
+        competition_id: &str,
+        fixture_id: &str,
+    ) -> Result<Option<String>, String> {
+        self.ensure_save_index_ready()?;
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?
+            .clone();
+        let db = GameDatabase::open(&self.saves_dir.join(entry.db_filename))?;
+        crate::replay_repo::load(db.conn(), competition_id, fixture_id)
+    }
+
     pub fn save_stats_state(&mut self, stats: &StatsState, save_id: &str) -> Result<(), String> {
         self.ensure_save_index_ready()?;
 

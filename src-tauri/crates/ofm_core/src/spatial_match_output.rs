@@ -20,6 +20,8 @@ const PITCH_WIDTH_M: f32 = 68.0;
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecodedSpatialOutput {
     pub result: SpatialMatchResult,
+    /// The untouched M12 output document for the versioned replay viewer.
+    pub replay_json: String,
     /// Contract events with no OFM `MatchReport` equivalent are intentionally
     /// retained as type names for callers, not silently presented as OFM facts.
     pub unprojected_event_types: Vec<String>,
@@ -192,6 +194,7 @@ pub fn decode_json(json: &str) -> Result<DecodedSpatialOutput, OutputDecodeError
     };
     Ok(DecodedSpatialOutput {
         result,
+        replay_json: json.to_string(),
         unprojected_event_types,
     })
 }

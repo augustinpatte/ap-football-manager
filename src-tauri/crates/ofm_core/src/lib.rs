@@ -77,6 +77,7 @@ pub mod slices;
 pub mod spatial_adapter;
 pub mod spatial_match_output;
 pub mod spatial_match_projection;
+pub mod spatial_runner;
 pub mod squad_floor;
 pub mod squad_safety;
 pub(crate) mod stable_hash;

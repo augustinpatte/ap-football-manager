@@ -2,8 +2,9 @@ use log::info;
 
 use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
 use domain::league::FixtureStatus;
+use engine::MatchReport;
 use ofm_core::game::Game;
-use ofm_core::live_match_manager::{self, MatchMode};
+use ofm_core::live_match_manager::{self, LiveMatchSession, MatchMode};
 use ofm_core::state::StateManager;
 use ofm_core::turn::{build_cup_round_summaries, CupRoundSummary};
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,28 @@ pub struct FinishLiveMatchResponse {
 }
 
 type FinishedDay = (Game, Option<RoundSummaryDto>, Vec<CupRoundSummary>);
+
+struct FinalizationContext {
+    fixture_index: usize,
+    fixture_id: String,
+    competition_id: String,
+    league_round_context: Option<ofm_core::matchday::LeagueRoundContext>,
+    home_team_id: String,
+    away_team_id: String,
+}
+
+impl From<&LiveMatchSession> for FinalizationContext {
+    fn from(session: &LiveMatchSession) -> Self {
+        Self {
+            fixture_index: session.fixture_index,
+            fixture_id: session.fixture_id.clone(),
+            competition_id: session.competition_id.clone(),
+            league_round_context: session.league_round_context.clone(),
+            home_team_id: session.home_team_id.clone(),
+            away_team_id: session.away_team_id.clone(),
+        }
+    }
+}
 
 pub fn finish_live_match(state: &StateManager) -> Result<FinishLiveMatchResponse, String> {
     let _operation = super::live_session::operation();
@@ -34,14 +57,50 @@ pub fn finish_live_match(state: &StateManager) -> Result<FinishLiveMatchResponse
         session.run_to_completion();
     }
 
-    let fixture_index = session.fixture_index;
-    let fixture_id = session.fixture_id.clone();
-    let competition_id = session.competition_id.clone();
-    let league_round_context = session.league_round_context.clone();
-    let home_team_id = session.home_team_id.clone();
-    let away_team_id = session.away_team_id.clone();
-
+    let context = FinalizationContext::from(&session);
     let report = session.match_state.into_report();
+    finish_taken_live_match(state, context, report)
+}
+
+/// Finalises a report only after the caller has successfully built and
+/// validated it. Both OFM's live engine and M12 use this one path so their
+/// fixture identity checks, match-day sweep and statistics captures cannot
+/// drift apart. The caller holds the live-session operation gate while it
+/// builds and finalises a spatial report.
+pub fn finish_spatial_match(
+    state: &StateManager,
+    report: MatchReport,
+) -> Result<FinishLiveMatchResponse, String> {
+    let session = state
+        .take_live_match()
+        .ok_or("be.error.noActiveLiveMatch")?;
+    let context = FinalizationContext::from(&session);
+    match finish_taken_live_match(state, context, report) {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            // M12 was already validated, but a concurrent/stale fixture can
+            // still fail the authoritative finalisation checks. Keep the
+            // pre-match session available rather than stranding the player.
+            state.set_live_match(session);
+            Err(error)
+        }
+    }
+}
+
+fn finish_taken_live_match(
+    state: &StateManager,
+    context: FinalizationContext,
+    report: MatchReport,
+) -> Result<FinishLiveMatchResponse, String> {
+    let FinalizationContext {
+        fixture_index,
+        fixture_id,
+        competition_id,
+        league_round_context,
+        home_team_id,
+        away_team_id,
+    } = context;
+
     info!(
         "[cmd] finish_live_match: fixture_index={}, competition_id={}, home_team_id={}, away_team_id={}, events= {}",
         fixture_index,
