@@ -21,6 +21,8 @@
 //! * [`fingerprint`] reduces a world to what a replay must reproduce.
 //! * [`reputation`] reports where the S and A players play, by the club's reputation.
 //! * [`invariants`] are the rules, held to after every day and every rollover.
+//! * [`lifecycle`] are the season bookkeeping rules: results applied once, one record and one
+//!   archived champion per season, milestone mail sent once.
 
 pub mod ageing;
 pub mod calendar;
@@ -29,5 +31,6 @@ pub mod driver;
 pub mod fingerprint;
 pub mod fm24;
 pub mod invariants;
+pub mod lifecycle;
 pub mod reputation;
 pub mod worlds;

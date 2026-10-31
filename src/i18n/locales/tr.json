@@ -2709,7 +2709,13 @@
     "nGoals": "{{count}} gol",
     "playerOfYear": "Yılın Oyuncusu",
     "avgRating": "Ort. puan: {{rating}}",
-    "continueDashboard": "Panele Devam Et"
+    "continueDashboard": "Panele Devam Et",
+    "promoted": "{{league}} ligine yükselindi",
+    "relegated": "{{league}} ligine düşüldü",
+    "stayedUp": "{{league}} liginde kalındı",
+    "cupResults": "Kupa sonuçları",
+    "cupWon": "{{cup}} kupasını kazandınız",
+    "cupLost": "{{cup}}: kupayı {{champion}} kazandı"
   },
   "notifications": {
     "attentionRequired": "Dikkat Gerekli",

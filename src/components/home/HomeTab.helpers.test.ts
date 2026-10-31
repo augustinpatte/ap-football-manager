@@ -304,6 +304,41 @@ describe("HomeTab.helpers", (): void => {
     expect(result?.recentForm).toEqual(["W", "D", "W"]);
   });
 
+  // The backend ranks level clubs by the competition's authored tiebreakers and sends the table
+  // in that order; the opponent's position here must be that order, not goal difference.
+  it("reads the opponent's position from the backend's order when tiebreakers are authored", (): void => {
+    const row = (team_id: string, goals_for: number, goals_against: number) => ({
+      team_id,
+      played: 2,
+      won: 0,
+      drawn: 2,
+      lost: 0,
+      goals_for,
+      goals_against,
+      points: 2,
+    });
+    const gameState = createGameState({
+      season_context: inSeasonOnThe3rdOfJanuary,
+      teams: [createTeam(), createTeam({ id: "team-2", name: "Beta FC", short_name: "BET" })],
+      league: {
+        id: "league-1",
+        name: "League",
+        season: 1,
+        rules: {
+          format: "LeagueTable",
+          counts_in_season_flow: true,
+          tiebreakers: ["Points", "HeadToHeadPoints"],
+        },
+        fixtures: [createFixture({ id: "fixture-next", date: "2025-01-12", status: "Scheduled" })],
+        standings: [row("team-1", 2, 2), row("team-2", 5, 2)],
+      },
+    });
+
+    const result = getNextOpponentWidgetData(gameState, i18n.getFixedT("en"));
+
+    expect(result?.standingPosition).toBe(2);
+  });
+
   it("derives the next opponent from the user's competition when game.league is a stale all-teams league", (): void => {
     const gameState = createGameState({
       season_context: inSeasonOnThe3rdOfJanuary,
