@@ -55,6 +55,9 @@ pub struct FreeAgentContractCommandResponse {
 #[derive(Debug, Clone, Serialize)]
 pub struct FreeAgentContractProjectionCommandResponse {
     pub projection: RenewalFinancialProjection,
+    /// Whether this player would value a stepping-stone promise, so the UI offers the option only
+    /// where the backend would accept it.
+    pub stepping_stone_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -125,8 +128,15 @@ pub async fn offer_free_agent_contract(
     player_id: String,
     weekly_wage: u32,
     contract_years: u32,
+    promise_stepping_stone: Option<bool>,
 ) -> Result<FreeAgentContractCommandResponse, String> {
-    offer_free_agent_contract_internal(&state, &player_id, weekly_wage, contract_years)
+    offer_free_agent_contract_internal(
+        &state,
+        &player_id,
+        weekly_wage,
+        contract_years,
+        promise_stepping_stone.unwrap_or(false),
+    )
 }
 
 #[tauri::command]
@@ -262,22 +272,24 @@ pub fn offer_free_agent_contract_internal(
     player_id: &str,
     weekly_wage: u32,
     contract_years: u32,
+    promise_stepping_stone: bool,
 ) -> Result<FreeAgentContractCommandResponse, String> {
     info!(
-        "[cmd] offer_free_agent_contract: player_id={}, weekly_wage={}, contract_years={}",
-        player_id, weekly_wage, contract_years
+        "[cmd] offer_free_agent_contract: player_id={}, weekly_wage={}, contract_years={}, promise={}",
+        player_id, weekly_wage, contract_years, promise_stepping_stone
     );
 
     // offer_free_agent_contract validates (team/player/free-agent) before mutating.
     state
         .update_game(|game| {
-            let outcome = ofm_core::contracts::offer_free_agent_contract(
+            let outcome = ofm_core::contracts::offer_free_agent_contract_with_promise(
                 game,
                 player_id,
                 RenewalOffer {
                     weekly_wage,
                     contract_years,
                 },
+                promise_stepping_stone,
             )?;
             Ok(FreeAgentContractCommandResponse {
                 outcome: outcome.decision,
@@ -303,13 +315,27 @@ pub fn preview_free_agent_contract_impact_internal(
         player_id, weekly_wage
     );
 
-    let projection = state
+    let (projection, stepping_stone_available) = state
         .get_game(|game| {
-            ofm_core::contracts::project_free_agent_contract_impact(game, player_id, weekly_wage)
+            let projection = ofm_core::contracts::project_free_agent_contract_impact(
+                game,
+                player_id,
+                weekly_wage,
+            )?;
+            let today = game.clock.current_date.date_naive();
+            let wants_promise = game
+                .players
+                .iter()
+                .find(|player| player.id == player_id)
+                .is_some_and(|player| ofm_core::transfers::wants_stepping_stone(player, today));
+            Ok::<_, String>((projection, wants_promise))
         })
         .ok_or_else(|| "be.error.noActiveGameSession".to_string())??;
 
-    Ok(FreeAgentContractProjectionCommandResponse { projection })
+    Ok(FreeAgentContractProjectionCommandResponse {
+        projection,
+        stepping_stone_available,
+    })
 }
 
 pub fn set_contract_exit_intent_internal(
@@ -812,8 +838,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_free_agent_game());
 
-        let response =
-            offer_free_agent_contract_internal(&state, "player-1", 4_000, 3).expect("response");
+        let response = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false)
+            .expect("response");
 
         assert!(matches!(response.outcome, RenewalDecision::Accepted));
         assert_eq!(response.session_status, "agreed");
@@ -864,10 +890,60 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_retired_free_agent_game());
 
-        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3)
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false)
             .expect_err("retired players should be rejected");
 
         assert_eq!(error, "be.error.contracts.playerNotFreeAgent");
+    }
+
+    /// Given a free agent young enough to want a way up,
+    /// When the signing preview is read and then an offer carries the promise,
+    /// Then the preview advertises the option and the promise is stored on the signed player.
+    #[test]
+    fn free_agent_promise_is_advertised_by_the_preview_and_recorded_by_the_offer() {
+        let state = StateManager::new();
+        let mut game = make_free_agent_game();
+        game.players[0].ovr = 60;
+        game.players[0].potential = 75;
+        state.set_game(game);
+
+        let preview = preview_free_agent_contract_impact_internal(&state, "player-1", 4_000)
+            .expect("preview");
+        assert!(preview.stepping_stone_available);
+
+        let response =
+            offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, true).expect("offer");
+        let signed = response
+            .game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("player");
+        assert!(signed.morale_core.stepping_stone_promise.is_some());
+    }
+
+    /// Given a free agent with no room to grow,
+    /// When the club still offers the promise,
+    /// Then the command fails with a translation key and the player stays unsigned.
+    #[test]
+    fn free_agent_promise_is_refused_for_a_player_who_does_not_want_it() {
+        let state = StateManager::new();
+        let mut game = make_free_agent_game();
+        game.players[0].ovr = 70;
+        game.players[0].potential = 70;
+        state.set_game(game);
+
+        let preview = preview_free_agent_contract_impact_internal(&state, "player-1", 4_000)
+            .expect("preview");
+        assert!(!preview.stepping_stone_available);
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, true)
+            .expect_err("promise refused");
+
+        assert_eq!(error, "be.error.contracts.promiseNotWanted");
+        let unsigned = state
+            .get_game(|game| game.players[0].team_id.clone())
+            .unwrap();
+        assert_eq!(unsigned, None);
     }
 
     #[test]

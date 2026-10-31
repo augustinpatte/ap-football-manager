@@ -318,6 +318,7 @@ pub fn transfer_free_agent_offer(
         &player_id,
         weekly_wage,
         contract_years,
+        false,
     )?;
 
     {

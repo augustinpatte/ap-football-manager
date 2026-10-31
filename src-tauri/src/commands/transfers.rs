@@ -133,6 +133,21 @@ pub fn preview_transfer_bid_financial_impact(
 }
 
 #[tauri::command]
+pub fn get_transfer_deadline_summary(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<ofm_core::transfers::DeadlineSummary, String> {
+    get_transfer_deadline_summary_internal(&state)
+}
+
+pub fn get_transfer_deadline_summary_internal(
+    state: &StateManager,
+) -> Result<ofm_core::transfers::DeadlineSummary, String> {
+    state
+        .get_game(ofm_core::transfers::transfer_deadline_summary)
+        .ok_or_else(|| "be.error.noActiveGameSession".to_string())
+}
+
+#[tauri::command]
 pub fn get_bid_negotiation_status(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
@@ -514,9 +529,10 @@ fn parse_youth_target_position(value: Option<&str>) -> Result<Option<Position>, 
 mod tests {
     use super::{
         counter_loan_offer_internal, counter_offer_internal, exercise_loan_buy_option_internal,
-        make_loan_offer_internal, make_transfer_bid_internal,
-        preview_transfer_bid_financial_impact_internal, respond_to_loan_offer_internal,
-        respond_to_offer_internal, toggle_loan_list_internal, toggle_transfer_list_internal,
+        get_transfer_deadline_summary_internal, make_loan_offer_internal,
+        make_transfer_bid_internal, preview_transfer_bid_financial_impact_internal,
+        respond_to_loan_offer_internal, respond_to_offer_internal, toggle_loan_list_internal,
+        toggle_transfer_list_internal,
     };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
@@ -1263,5 +1279,16 @@ mod tests {
         let result = super::parse_youth_target_position(Some("Goalkeeper"));
 
         assert_eq!(result.unwrap(), Some(Position::Goalkeeper));
+    }
+
+    /// Given no active game, When the deadline summary is requested,
+    /// Then the command fails with the shared translation key.
+    #[test]
+    fn deadline_summary_without_a_game_reports_the_no_session_key() {
+        let state = StateManager::new();
+
+        let error = get_transfer_deadline_summary_internal(&state).expect_err("no game");
+
+        assert_eq!(error, "be.error.noActiveGameSession");
     }
 }
