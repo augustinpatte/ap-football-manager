@@ -281,6 +281,7 @@ pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
 where
     F: FnMut(StatsState),
 {
+    calendar_sweep::settle_loaded_calendar(game);
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     transfers::process_loan_development_reports(game);
     transfers::process_loan_returns(game);

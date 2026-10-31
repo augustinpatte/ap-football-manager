@@ -51,6 +51,40 @@ pub fn upsert_news(conn: &Connection, article: &NewsArticle) -> Result<(), Strin
     Ok(())
 }
 
+/// Rewrites a stored article in place. `INSERT OR REPLACE` deletes and re-inserts the row, which
+/// would move it to the end of the feed when its id is reused by a later article.
+fn rewrite_news(conn: &Connection, article: &NewsArticle) -> Result<(), String> {
+    let team_ids_json = serde_json::to_string(&article.team_ids)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let player_ids_json = serde_json::to_string(&article.player_ids)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let match_score_json = article
+        .match_score
+        .as_ref()
+        .map(|s| serde_json::to_string(s).unwrap_or_default());
+    let i18n_json = serde_json::to_string(&i18n_value(article))
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "UPDATE news SET headline = ?2, body = ?3, source = ?4, date = ?5, category = ?6,
+         team_ids = ?7, player_ids = ?8, match_score = ?9, read = ?10, i18n = ?11 WHERE id = ?1",
+        params![
+            article.id,
+            article.headline,
+            article.body,
+            article.source,
+            article.date,
+            format!("{:?}", article.category),
+            team_ids_json,
+            player_ids_json,
+            match_score_json,
+            article.read as i32,
+            i18n_json,
+        ],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
 /// Insert or replace multiple news articles.
 pub fn upsert_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(), String> {
     for a in articles {
@@ -73,6 +107,9 @@ pub fn upsert_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(
 /// The stored feed ends up exactly `articles`, each id once. Runs on the caller's connection, which
 /// `save_game` wraps in a transaction, so an interrupted save cannot leave the feed half-written.
 pub fn sync_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(), String> {
+    if stored_order_conflicts_with(conn, articles)? {
+        return rebuild_news(conn, articles);
+    }
     let mut stored = stored_rows(conn)?;
     let wanted: std::collections::HashSet<&str> =
         articles.iter().map(|article| article.id.as_str()).collect();
@@ -90,11 +127,51 @@ pub fn sync_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(),
                 )
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
             }
-            _ => upsert_news(conn, article)?,
+            Some(_) => rewrite_news(conn, article)?,
+            None => upsert_news(conn, article)?,
         }
         stored.insert(article.id.clone(), StoredNews::of(article));
     }
     Ok(())
+}
+
+/// Whether writing only the difference would load back in a different order from `articles`.
+///
+/// The feed loads in insertion order, so it is right when the articles the file already holds
+/// keep their relative order and every new article comes after all of them. A reused id that now
+/// sits behind a new article, or two articles that swapped, fail that, and the feed is rewritten.
+fn stored_order_conflicts_with(
+    conn: &Connection,
+    articles: &[NewsArticle],
+) -> Result<bool, String> {
+    let mut stmt = conn
+        .prepare("SELECT id FROM news ORDER BY rowid")
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+    let stored: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+    let wanted: std::collections::HashSet<&str> =
+        articles.iter().map(|article| article.id.as_str()).collect();
+    let mut survivors = stored.iter().filter(|id| wanted.contains(id.as_str()));
+    let mut a_new_article_was_seen = false;
+    for article in articles {
+        if stored.iter().any(|id| id == &article.id) {
+            if a_new_article_was_seen || survivors.next() != Some(&article.id) {
+                return Ok(true);
+            }
+        } else {
+            a_new_article_was_seen = true;
+        }
+    }
+    Ok(false)
+}
+
+fn rebuild_news(conn: &Connection, articles: &[NewsArticle]) -> Result<(), String> {
+    conn.execute("DELETE FROM news", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    upsert_news_list(conn, articles)
 }
 
 /// What is stored of an article, enough to tell a reused id from an unchanged article.
@@ -161,12 +238,16 @@ fn parse_news_category(s: &str) -> NewsCategory {
     }
 }
 
-/// Load all news articles ordered by date descending.
+/// Load all news articles in the order the game held them in when they were saved.
+///
+/// `sync_news_list` only ever appends new ids and updates existing rows in place, so insertion
+/// order (`rowid`) is the feed's order. The date is not a key: several articles share a day, and
+/// the order they were reported in is the order of the matches that were played.
 pub fn load_all_news(conn: &Connection) -> Result<Vec<NewsArticle>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, headline, body, source, date, category, team_ids, player_ids, match_score, read, i18n
-             FROM news ORDER BY date DESC",
+             FROM news ORDER BY rowid",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
@@ -430,6 +511,69 @@ mod tests {
             stored[0].i18n_params.get("favourite").map(String::as_str),
             Some("New Favourites")
         );
+    }
+
+    /// Given a feed in the order the game holds it, with ties on the date and entries out of date
+    ///       order, saved across several incremental saves (new articles, one read, one whose id
+    ///       is reused with new content in the middle of the feed),
+    /// When it is loaded,
+    /// Then it comes back in exactly the order the game held it.
+    #[test]
+    fn a_reloaded_feed_keeps_the_order_the_game_held_it_in() {
+        let db = test_db();
+        let article = |id: &str, date: &str| {
+            let mut article = sample_article(id);
+            article.date = date.to_string();
+            article
+        };
+        let mut feed = vec![
+            article("a", "2033-07-01"),
+            article("b", "2033-07-15"),
+            article("c", "2033-07-05"),
+        ];
+        sync_news_list(db.conn(), &feed).unwrap();
+
+        feed.push(article("d", "2033-07-05"));
+        feed.push(article("e", "2033-07-05"));
+        feed[0].read = true;
+        sync_news_list(db.conn(), &feed).unwrap();
+
+        feed[1].date = "2033-07-16".to_string();
+        feed[1].headline = "Rewritten under the same id".to_string();
+        feed.push(article("f", "2033-06-30"));
+        sync_news_list(db.conn(), &feed).unwrap();
+
+        let ids: Vec<String> = load_all_news(db.conn())
+            .unwrap()
+            .into_iter()
+            .map(|article| article.id)
+            .collect();
+        assert_eq!(ids, ["a", "b", "c", "d", "e", "f"]);
+    }
+
+    /// Given a saved feed whose article keeps its id but now sits after a new one (the season
+    ///       rollover clears the feed, then pushes the awards article and the preview, whose id is
+    ///       always `season_preview`),
+    /// When it is saved and loaded,
+    /// Then the feed comes back in the game's order, not with the reused id still first.
+    #[test]
+    fn an_article_whose_id_is_reused_later_in_the_feed_keeps_the_games_order() {
+        let db = test_db();
+        let mut preview = sample_article("season_preview");
+        preview.date = "2034-04-18".to_string();
+        sync_news_list(db.conn(), &[preview.clone()]).unwrap();
+
+        let mut awards = sample_article("awards-2034");
+        awards.date = "2035-04-17".to_string();
+        preview.date = "2035-04-18".to_string();
+        sync_news_list(db.conn(), &[awards, preview]).unwrap();
+
+        let ids: Vec<String> = load_all_news(db.conn())
+            .unwrap()
+            .into_iter()
+            .map(|article| article.id)
+            .collect();
+        assert_eq!(ids, ["awards-2034", "season_preview"]);
     }
 
     /// Given a saved feed that the season rollover then clears, when it is saved, then the

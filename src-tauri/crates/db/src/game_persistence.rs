@@ -394,6 +394,7 @@ impl GamePersistenceReader {
             delegation,
             retired_players,
             calendar_fingerprint: None,
+            calendar_repair_pending: false,
             day_start: None,
             retired_managers,
             archived_messages,

@@ -99,12 +99,16 @@ fn parse_priority(s: &str) -> MessagePriority {
     }
 }
 
-/// Load all messages ordered by date descending.
+/// Load all messages in the order the game held them in when they were saved.
+///
+/// `replace_messages` rewrites the table from the in-memory list, so insertion order (`rowid`) is
+/// that list's order. Sorting by date instead reversed the inbox on every reload and left messages
+/// of one day in whatever order SQLite chose; the screens sort for display themselves.
 pub fn load_all_messages(conn: &Connection) -> Result<Vec<InboxMessage>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, subject, body, sender, sender_role, date, read, category, priority, actions, context, i18n
-             FROM messages ORDER BY date DESC",
+             FROM messages ORDER BY rowid",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
@@ -392,5 +396,75 @@ mod tests {
         let result = load_all_messages(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    fn mail(id: &str, date: &str) -> InboxMessage {
+        InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            date.to_string(),
+        )
+    }
+
+    /// Given an inbox in the order the game holds it (oldest first, with out-of-date-order
+    ///       entries and several on one day),
+    /// When it is saved and loaded,
+    /// Then it comes back in that same order: a reload must not reverse or shuffle the inbox.
+    #[test]
+    fn a_reloaded_inbox_keeps_the_order_the_game_held_it_in() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let inbox = vec![
+            mail("a", "2033-07-01"),
+            mail("b", "2033-07-15"),
+            mail("c", "2033-07-05"),
+            mail("d", "2033-07-05"),
+            mail("e", "2033-07-05"),
+            mail("f", "2033-06-30"),
+        ];
+
+        replace_messages(db.conn(), &inbox).unwrap();
+
+        let ids: Vec<String> = load_all_messages(db.conn())
+            .unwrap()
+            .into_iter()
+            .map(|message| message.id)
+            .collect();
+        assert_eq!(ids, ["a", "b", "c", "d", "e", "f"]);
+    }
+
+    /// Given a saved inbox that then loses a message and gains a new one,
+    /// When it is saved again and loaded,
+    /// Then the survivors keep their order and the new message comes last.
+    #[test]
+    fn a_second_save_keeps_the_survivors_in_order_and_appends_the_new_mail() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        replace_messages(
+            db.conn(),
+            &[
+                mail("a", "2033-07-01"),
+                mail("b", "2033-07-02"),
+                mail("c", "2033-07-03"),
+            ],
+        )
+        .unwrap();
+
+        replace_messages(
+            db.conn(),
+            &[
+                mail("a", "2033-07-01"),
+                mail("c", "2033-07-03"),
+                mail("z", "2033-07-02"),
+            ],
+        )
+        .unwrap();
+
+        let ids: Vec<String> = load_all_messages(db.conn())
+            .unwrap()
+            .into_iter()
+            .map(|message| message.id)
+            .collect();
+        assert_eq!(ids, ["a", "c", "z"]);
     }
 }

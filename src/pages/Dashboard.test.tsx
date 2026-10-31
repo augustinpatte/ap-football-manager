@@ -7,6 +7,7 @@ import Dashboard from "./Dashboard";
 import i18n, { i18nReady, SUPPORTED_LANGUAGES } from "../i18n";
 import { useTranslation } from "react-i18next";
 import { createSeasonContext } from "../test-utils/factories";
+import { spyOnLocalStorage } from "../test-utils/storageSpy";
 
 const { listenMock, registeredEventHandlers, matchConfirmState } = vi.hoisted(() => {
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
@@ -941,7 +942,7 @@ describe("Dashboard", () => {
   it("clears a stale active save id when a later refresh cannot load it", async () => {
     const saveStorageKey = "ofm-onboarding-visited-tabs:save:save-1";
     const legacyStorageKey = `ofm-onboarding-visited-tabs:legacy:${gameState.manager.id}:${gameState.clock.start_date}`;
-    const getItemSpy = vi.spyOn(window.localStorage, "getItem");
+    const getItemSpy = spyOnLocalStorage("getItem");
     let saveIdRequestCount = 0;
 
     invokeMock.mockImplementation(async (command: string) => {

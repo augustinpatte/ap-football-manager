@@ -149,6 +149,12 @@ pub struct Game {
     /// always sweeps.
     #[serde(skip)]
     pub calendar_fingerprint: Option<u64>,
+    /// Set by a load: the calendar this save was written with has not been checked against
+    /// today's calendar rules (rest between matches, international windows). The check moves
+    /// matches, so it belongs to the first day played from the loaded state, not to the load:
+    /// `turn::begin_day` and `process_day` run it once and clear this.
+    #[serde(skip)]
+    pub calendar_repair_pending: bool,
     /// The bracket fixtures that existed when the current day began, taken before anything is
     /// played. A round drawn during the day is not among them, however it came to be drawn (the
     /// player's own result, another match): its dates were never shown to the player. Dropped at
@@ -296,6 +302,7 @@ impl Game {
             edition_archive: Vec::new(),
             retired_players: Vec::new(),
             calendar_fingerprint: None,
+            calendar_repair_pending: false,
             day_start: None,
             retired_managers: Vec::new(),
             custom_tactics: Vec::new(),

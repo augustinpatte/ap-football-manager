@@ -15,19 +15,14 @@ use season_harness::invariants::Invariants;
 use season_harness::lifecycle::{self, Lifecycle, Snapshot};
 use season_harness::worlds::WorldSpec;
 
-/// The world as a reload must reproduce it. The save lists the inbox and the news newest first
-/// and the game keeps them oldest first, and the screens sort both, so their order is not part of
-/// the world: those lines are compared as sets. The squad-floor top-up log is a session diagnostic
-/// that is never saved (`Game::squad_floor_top_ups`), so it is left out. Everything else is
-/// compared in order.
+/// The world as a reload must reproduce it, in order. The only line left out is the squad-floor
+/// top-up log, a session diagnostic that is never saved (`Game::squad_floor_top_ups`).
 fn fingerprint(game: &Game) -> String {
-    let all = raw_fingerprint(game);
-    let (mut feed, rest): (Vec<&str>, Vec<&str>) = all
+    raw_fingerprint(game)
         .lines()
         .filter(|line| !line.starts_with("top_up "))
-        .partition(|line| line.starts_with("message ") || line.starts_with("news "));
-    feed.sort_unstable();
-    rest.into_iter().chain(feed).collect::<Vec<_>>().join("\n")
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 const SEASONS: u32 = 4;
@@ -128,7 +123,6 @@ struct Career {
     save_id: String,
     _dir: tempfile::TempDir,
     reloads: Vec<String>,
-    postponed_on_reload: usize,
 }
 
 impl Career {
@@ -145,7 +139,6 @@ impl Career {
             save_id,
             _dir: dir,
             reloads: Vec::new(),
-            postponed_on_reload: 0,
         }
     }
 
@@ -153,13 +146,7 @@ impl Career {
     /// loaded world to be the one that was saved. The loaded world replaces the live one, so the
     /// career goes on from what a player's reload would give them.
     fn save_and_reload(&mut self, season: u32, stage: Stage) {
-        // A load settles every unplayed clash in the calendar and tells the player about their
-        // club's moved matches (`repair_loaded_calendar`). The live game does the same one day at
-        // a time as windows come into view, so a reload may only differ by that postponement.
-        let mut expected = self.game.clone();
-        self.postponed_on_reload +=
-            ofm_core::calendar_repair::repair_loaded_calendar(&mut expected);
-        let before = fingerprint(&expected);
+        let before = fingerprint(&self.game);
         self.manager
             .save_game_with_stats(&self.game, &StatsState::default(), &self.save_id)
             .unwrap_or_else(|error| panic!("season {season} {stage:?}: the save failed: {error}"));
@@ -170,8 +157,7 @@ impl Career {
         let after = fingerprint(&loaded);
         assert!(
             before == after,
-            "season {season} {stage:?}: the reloaded career differs from the saved one (calendar \
-             repair aside): {}",
+            "season {season} {stage:?}: the reloaded career differs from the saved one: {}",
             first_difference(&before, &after)
         );
         self.reloads.push(format!("season {season} {stage:?}"));
@@ -252,6 +238,47 @@ fn a_reloaded_career_plays_on_exactly_like_the_one_never_saved() {
     for day in 61..=90 {
         play_day(&mut original, options, 1, day, &mut quiet).unwrap();
         play_day(&mut twin, options, 1, day, &mut quiet).unwrap();
+    }
+    let (left, right) = (fingerprint(&original), fingerprint(&twin));
+    assert!(
+        left == right,
+        "the reloaded career diverged: {}",
+        first_difference(&left, &right)
+    );
+}
+
+/// Given a career saved and reloaded the instant after a rollover, when the first day's matches
+///       have yet to be played,
+/// When the reloaded copy and the copy that was never saved are both played for forty days,
+/// Then they are the same world: the check of the loaded calendar (which moves matches inside
+///      international windows) happens on the first day and lands where the live sweep puts them.
+///      Saved just after a rollover is the state with the most matches waiting to move.
+#[test]
+fn a_career_reloaded_just_after_a_rollover_plays_on_like_the_one_never_saved() {
+    let mut original = WorldSpec::gate(SEED).build().expect("the world builds");
+    let mut quiet = Invariants::new(&original);
+    run_seasons(&mut original, RunOptions::seasons(1), &mut quiet).expect("a season plays");
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut manager = SaveManager::init(dir.path()).unwrap();
+    let id = manager
+        .create_save_with_stats(&original, &StatsState::default(), "twin")
+        .unwrap();
+    let mut twin = SaveManager::init(dir.path())
+        .unwrap()
+        .load_game(&id)
+        .unwrap();
+    let (left, right) = (fingerprint(&original), fingerprint(&twin));
+    assert!(
+        left == right,
+        "the load itself changed the world: {}",
+        first_difference(&left, &right)
+    );
+
+    let options = RunOptions::seasons(1);
+    for day in 1..=40 {
+        play_day(&mut original, options, 2, day, &mut quiet).unwrap();
+        play_day(&mut twin, options, 2, day, &mut quiet).unwrap();
     }
     let (left, right) = (fingerprint(&original), fingerprint(&twin));
     assert!(

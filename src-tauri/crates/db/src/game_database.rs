@@ -41,6 +41,20 @@ fn verify_layout_matches_version(
     }
 }
 
+/// Where the pre-repair copy of `path` goes: `<save>.db.pre-v063.bak`, or the first numbered
+/// variant of it that is free. A file already there is never overwritten, and never mistaken for a
+/// copy of this save: whatever sits under that name may be an older save's.
+fn unused_backup_path(path: &Path) -> PathBuf {
+    let plain = path.with_extension("db.pre-v063.bak");
+    if !plain.exists() {
+        return plain;
+    }
+    (1..)
+        .map(|n| path.with_extension(format!("db.pre-v063.{n}.bak")))
+        .find(|candidate| !candidate.exists())
+        .unwrap_or(plain)
+}
+
 /// Upgrades a save written by a Run 2 development build (see `migrations::needs_run2_dev_repair`).
 /// A copy of the file is taken first; if it cannot be taken the save is left untouched and the
 /// caller sees the original, unrepaired outcome.
@@ -54,10 +68,8 @@ fn reconcile_run2_dev_save(conn: &mut Connection, path: Option<&Path>) {
         }
     }
     if let Some(path) = path {
-        let backup = path.with_extension("db.pre-v063.bak");
-        if !backup.exists()
-            && let Err(e) = std::fs::copy(path, &backup)
-        {
+        let backup = unused_backup_path(path);
+        if let Err(e) = std::fs::copy(path, &backup) {
             error!("[game_db] no backup of {path:?} ({e}); not repairing the Run 2 save");
             return;
         }
@@ -597,5 +609,314 @@ mod tests {
             })
             .unwrap();
         assert_eq!(formation, "4-3-3");
+    }
+
+    // ── Schema checks that read the tables, not the version number ─────────────────────────────
+
+    type ColumnShape = (String, String, i64, Option<String>, i64);
+
+    /// Every user table with each column's name, declared type, NOT NULL flag, default and
+    /// primary-key position, so an upgrade that ends on the right `user_version` but with a
+    /// differently declared column cannot pass.
+    fn schema_of(conn: &Connection) -> std::collections::BTreeMap<String, Vec<ColumnShape>> {
+        let mut tables = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap();
+        let names: Vec<String> = tables
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        names
+            .into_iter()
+            .map(|name| {
+                let mut info = conn
+                    .prepare("SELECT name, type, \"notnull\", dflt_value, pk FROM pragma_table_xinfo(?1) ORDER BY cid")
+                    .unwrap();
+                let columns = info
+                    .query_map([&name], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                    })
+                    .unwrap()
+                    .collect::<Result<_, _>>()
+                    .unwrap();
+                (name, columns)
+            })
+            .collect()
+    }
+
+    fn index_names(conn: &Connection) -> std::collections::BTreeSet<String> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap();
+        stmt.query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    /// Given each way a save can reach the current schema (a released v61, a Run 1 development
+    ///       save at 62, a Run 2 development save at 62 repaired to 63, and the same through the
+    ///       plain entry point),
+    /// When it has been opened,
+    /// Then its tables, columns (type, NOT NULL, default, primary key) and indexes are exactly
+    ///      those of a database created fresh at the current version.
+    #[test]
+    fn every_upgrade_path_ends_on_the_schema_of_a_fresh_database() {
+        let fresh = GameDatabase::open_in_memory().unwrap();
+        let (fresh_schema, fresh_indexes) = (schema_of(fresh.conn()), index_names(fresh.conn()));
+        assert!(fresh_schema.contains_key("transfer_obligations"));
+        assert!(
+            fresh_schema["teams"]
+                .iter()
+                .any(|column| column.0 == "out_of_possession_formation")
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let upgraded: [(&str, GameDatabase); 4] = [
+            (
+                "released v61",
+                GameDatabase::open_save(&save_claiming_version(dir.path(), 61, TEAM_ROW_SQL))
+                    .unwrap(),
+            ),
+            (
+                "Run 1 development save",
+                GameDatabase::open_save(&run1_dev_save(dir.path())).unwrap(),
+            ),
+            (
+                "Run 2 development save",
+                GameDatabase::open_save(&run2_dev_save(dir.path())).unwrap(),
+            ),
+            ("Run 2 development save, plain open", {
+                let other = tempfile::tempdir().unwrap();
+                let path = run2_dev_save(other.path());
+                let db = GameDatabase::open(&path).unwrap();
+                // The temp directory outlives the assertions below through the open handle.
+                std::mem::forget(other);
+                db
+            }),
+        ];
+        for (label, db) in &upgraded {
+            assert_eq!(
+                db.schema_version().unwrap(),
+                MIGRATION_COUNT as i64,
+                "{label}"
+            );
+            assert_eq!(
+                schema_of(db.conn()),
+                fresh_schema,
+                "{label}: tables or columns differ"
+            );
+            assert_eq!(
+                index_names(db.conn()),
+                fresh_indexes,
+                "{label}: indexes differ"
+            );
+        }
+    }
+
+    fn rows_of(conn: &Connection, table: &str, columns: &[&str]) -> Vec<Vec<String>> {
+        let sql = format!(
+            "SELECT {} FROM \"{table}\" ORDER BY 1",
+            columns
+                .iter()
+                .map(|c| format!("CAST(\"{c}\" AS TEXT)"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let mut stmt = conn.prepare(&sql).unwrap();
+        stmt.query_map([], |row| {
+            (0..columns.len())
+                .map(|i| Ok(row.get::<_, Option<String>>(i)?.unwrap_or_default()))
+                .collect()
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    fn every_table_with_its_rows(
+        path: &Path,
+    ) -> std::collections::BTreeMap<String, (Vec<String>, Vec<Vec<String>>)> {
+        let conn = Connection::open(path).unwrap();
+        schema_of(&conn)
+            .into_iter()
+            .map(|(table, columns)| {
+                let names: Vec<String> = columns.into_iter().map(|c| c.0).collect();
+                let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+                let rows = rows_of(&conn, &table, &refs);
+                (table, (names, rows))
+            })
+            .collect()
+    }
+
+    /// Given a released v61 save holding a team and a message,
+    /// When it is upgraded,
+    /// Then every row of every table it already had is still there, value for value, and the two
+    ///      new structures start empty (no obligations; the defensive shape reads as "none").
+    #[test]
+    fn a_v61_upgrade_keeps_every_row_of_every_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(
+            dir.path(),
+            61,
+            &format!(
+                "{TEAM_ROW_SQL}; INSERT INTO messages (id, subject, body, sender, sender_role, date, read, category, priority, actions, context, i18n) \
+                 VALUES ('m1', 's', 'b', 'x', 'r', '2033-07-01', 0, 'Welcome', 'Normal', '[]', '{{}}', '{{}}')"
+            ),
+        );
+        let before = every_table_with_its_rows(&path);
+        assert!(!before["messages"].1.is_empty() && !before["teams"].1.is_empty());
+
+        drop(GameDatabase::open_save(&path).unwrap());
+        let after = every_table_with_its_rows(&path);
+
+        for (table, (columns, rows)) in &before {
+            let (after_columns, after_rows) = &after[table];
+            let kept: Vec<usize> = columns
+                .iter()
+                .map(|c| {
+                    after_columns
+                        .iter()
+                        .position(|a| a == c)
+                        .unwrap_or_else(|| panic!("{table}.{c} was lost"))
+                })
+                .collect();
+            let projected: Vec<Vec<String>> = after_rows
+                .iter()
+                .map(|row| kept.iter().map(|&i| row[i].clone()).collect())
+                .collect();
+            assert_eq!(&projected, rows, "rows of {table} changed by the upgrade");
+        }
+        assert!(after["transfer_obligations"].1.is_empty());
+    }
+
+    /// Given the Run 2 development save repaired once,
+    /// When it is opened a second and a third time,
+    /// Then the file is byte-identical after the first repair (the repair is idempotent and a
+    ///      plain open never rewrites), and the backup still holds the original.
+    #[test]
+    fn the_run2_repair_is_idempotent_down_to_the_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let original = std::fs::read(&path).unwrap();
+        drop(GameDatabase::open_save(&path).unwrap());
+        let repaired = std::fs::read(&path).unwrap();
+        assert_ne!(repaired, original, "the first open repaired it");
+
+        drop(GameDatabase::open_save(&path).unwrap());
+        drop(GameDatabase::open(&path).unwrap());
+
+        assert_eq!(std::fs::read(&path).unwrap(), repaired);
+        assert_eq!(
+            std::fs::read(dir.path().join("run2.db.pre-v063.bak")).unwrap(),
+            original,
+            "the backup is still the untouched original"
+        );
+    }
+
+    /// Given a Run 2 development save and a backup file that already sits where the repair would
+    ///       write one (left by an earlier save of the same name),
+    /// When the save is repaired,
+    /// Then the existing file is never overwritten and a fresh copy of *this* save is taken
+    ///      before the repair: the pre-repair state is always recoverable.
+    #[test]
+    fn an_existing_backup_is_never_overwritten_and_the_save_is_still_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let stale = dir.path().join("run2.db.pre-v063.bak");
+        std::fs::write(&stale, b"an older, unrelated backup").unwrap();
+        let original = std::fs::read(&path).unwrap();
+
+        drop(GameDatabase::open_save(&path).expect("the save is repaired"));
+
+        assert_eq!(
+            std::fs::read(&stale).unwrap(),
+            b"an older, unrelated backup"
+        );
+        let copies: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|p| {
+                p != &stale
+                    && p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().contains("pre-v063"))
+            })
+            .collect();
+        assert_eq!(copies.len(), 1, "one fresh copy of the save: {copies:?}");
+        assert_eq!(std::fs::read(&copies[0]).unwrap(), original);
+    }
+
+    /// Given a Run 2 development save whose backup cannot be taken (the file is gone from under
+    ///       the open connection),
+    /// When the repair is attempted,
+    /// Then nothing is changed: still version 62, still no obligations table.
+    #[test]
+    fn a_failed_backup_leaves_the_run2_save_unrepaired() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let mut conn = Connection::open(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+
+        reconcile_run2_dev_save(&mut conn, Some(&path));
+
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 62);
+        assert!(
+            !layout_of(&conn)
+                .unwrap()
+                .contains_key("transfer_obligations")
+        );
+    }
+
+    /// Given saves whose tables contradict the version they claim (a v63 without the
+    ///       out-of-possession column, a v62 without the obligations table, a v63 without it),
+    /// When they are opened,
+    /// Then each is refused naming what is missing, and its bytes are untouched.
+    #[test]
+    fn saves_missing_what_their_version_promises_are_refused_untouched() {
+        // One directory per case: `save_claiming_version` names its file after the version only.
+        let dirs: Vec<tempfile::TempDir> = (0..3).map(|_| tempfile::tempdir().unwrap()).collect();
+        let cases = [
+            (
+                save_claiming_version(
+                    dirs[0].path(),
+                    63,
+                    "ALTER TABLE teams DROP COLUMN out_of_possession_formation;",
+                ),
+                "out_of_possession_formation",
+            ),
+            (
+                save_claiming_version(dirs[1].path(), 63, "DROP TABLE transfer_obligations;"),
+                "transfer_obligations",
+            ),
+            (
+                {
+                    // v61's tables, but claiming 62: no obligations table, no column.
+                    let path = save_claiming_version(dirs[2].path(), 61, "");
+                    Connection::open(&path)
+                        .unwrap()
+                        .pragma_update(None, "user_version", 62)
+                        .unwrap();
+                    path
+                },
+                "transfer_obligations",
+            ),
+        ];
+        for (path, missing) in cases {
+            let before = std::fs::read(&path).unwrap();
+            assert_refused_naming(&path, missing);
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                before,
+                "{path:?} was modified"
+            );
+        }
     }
 }
