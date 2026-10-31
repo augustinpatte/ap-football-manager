@@ -25,22 +25,30 @@ use uuid::Uuid;
 mod affordability;
 mod bids;
 mod consts;
+mod deadline;
 mod execution;
 mod lifecycle;
 mod loans;
 mod market;
 mod notifications;
+mod promises;
 mod realism;
 mod registration;
 
 pub(crate) use affordability::{can_afford_fee, fee_block, transfer_fee_ceiling};
 pub use bids::*;
 use consts::*;
+pub use deadline::{
+    DeadlineDeal, DeadlineItem, DeadlineItemKind, DeadlineItemState, DeadlineSummary,
+    expire_negotiations_at_deadline, transfer_deadline_summary,
+};
 pub use execution::*;
 use lifecycle::*;
 pub use loans::*;
 pub use market::*;
 use notifications::*;
+pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
+pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;
 use registration::*;
 pub(crate) use registration::{

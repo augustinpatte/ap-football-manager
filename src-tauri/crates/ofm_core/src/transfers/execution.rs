@@ -456,6 +456,7 @@ pub(super) fn execute_transfer(
             fee,
         },
     );
+    on_player_sold(game, player_id, from_team_id, to_team_id, fee);
 
     Ok(())
 }

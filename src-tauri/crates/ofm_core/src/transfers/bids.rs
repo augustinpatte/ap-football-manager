@@ -765,6 +765,9 @@ pub fn respond_to_offer(
     {
         apply_blocked_move_consequences(player, openness_score);
     }
+    if !accept {
+        on_offer_refused(game, player_id, &from_team_id, fee);
+    }
 
     Ok(())
 }

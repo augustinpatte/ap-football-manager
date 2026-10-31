@@ -454,6 +454,10 @@ pub struct PlayerMoraleCore {
     pub pending_promise: Option<PlayerPromise>,
     pub talk_cooldown_until: Option<String>,
     pub renewal_state: Option<ContractRenewalState>,
+    /// What the signing club promised in order to land him: not to stand in the way of a
+    /// suitable move later. Stored here, with the rest of what he remembers about his manager,
+    /// so it persists in the same JSON column and old saves read it as `None`.
+    pub stepping_stone_promise: Option<SteppingStonePromise>,
 }
 
 impl Default for PlayerMoraleCore {
@@ -465,6 +469,58 @@ impl Default for PlayerMoraleCore {
             pending_promise: None,
             talk_cooldown_until: None,
             renewal_state: None,
+            stepping_stone_promise: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SteppingStonePromiseStatus {
+    /// The club is still bound by it.
+    #[default]
+    Active,
+    /// He was sold to a club that met the terms of the promise.
+    Fulfilled,
+    /// It ran out without the club ever blocking a suitable move.
+    Lapsed,
+    /// The club turned away a suitable offer while bound by it.
+    Breached,
+}
+
+/// A promise not to obstruct a suitable future transfer.
+///
+/// Measurable terms: from `protected_from` until `expires_on`, an offer is *suitable* when the
+/// bidder's reputation is at least `min_buyer_reputation` and the fee is at least
+/// `min_fee_pct_of_value` per cent of his market value on the day. Refusing a suitable offer
+/// breaches the promise; selling to a suitable bidder fulfils it; running out unbroken lapses it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SteppingStonePromise {
+    pub club_id: String,
+    /// `YYYY-MM-DD`.
+    pub made_on: String,
+    /// Before this date the club is not yet bound: a player who has just arrived is not owed an
+    /// immediate exit.
+    pub protected_from: String,
+    pub expires_on: String,
+    pub min_buyer_reputation: u32,
+    pub min_fee_pct_of_value: u8,
+    pub status: SteppingStonePromiseStatus,
+    pub resolved_on: Option<String>,
+}
+
+impl Default for SteppingStonePromise {
+    fn default() -> Self {
+        Self {
+            club_id: String::new(),
+            made_on: String::new(),
+            protected_from: String::new(),
+            expires_on: String::new(),
+            min_buyer_reputation: 0,
+            min_fee_pct_of_value: 80,
+            status: SteppingStonePromiseStatus::Active,
+            resolved_on: None,
         }
     }
 }

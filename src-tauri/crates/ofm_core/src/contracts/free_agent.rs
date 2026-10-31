@@ -42,6 +42,18 @@ pub fn offer_free_agent_contract(
     player_id: &str,
     offer: RenewalOffer,
 ) -> Result<RenewalOutcome, String> {
+    offer_free_agent_contract_with_promise(game, player_id, offer, false)
+}
+
+/// As [`offer_free_agent_contract`], optionally promising the player the club will not stand in
+/// the way of a suitable move later. The promise makes him accept a lower wage and is recorded
+/// on him only if the deal is struck; a player who has no use for it is refused up front.
+pub fn offer_free_agent_contract_with_promise(
+    game: &mut Game,
+    player_id: &str,
+    offer: RenewalOffer,
+    promise_stepping_stone: bool,
+) -> Result<RenewalOutcome, String> {
     let manager_team_id = game
         .manager
         .team_id
@@ -69,7 +81,15 @@ pub fn offer_free_agent_contract(
     let cooled_off = cool_stale_renewal_session(&mut game.players[player_index], current_date);
     let today = current_date.format("%Y-%m-%d").to_string();
     let round = next_renewal_round(&game.players[player_index], Some(today.as_str()));
-    let expected_wage = expected_wage(&game.players[player_index], &team, current_date);
+    if promise_stepping_stone
+        && !crate::transfers::wants_stepping_stone(&game.players[player_index], current_date)
+    {
+        return Err(crate::transfers::ERR_PROMISE_NOT_WANTED.to_string());
+    }
+    let mut expected_wage = expected_wage(&game.players[player_index], &team, current_date);
+    if promise_stepping_stone {
+        expected_wage = crate::transfers::discounted_wage(expected_wage);
+    }
     let expected_years = expected_contract_years(&game.players[player_index], current_date);
     let reference_wage = reference_player_wage(&game.players[player_index]);
     let minimum_wage = minimum_acceptable_wage(reference_wage);
@@ -161,6 +181,11 @@ pub fn offer_free_agent_contract(
             offer.contract_years,
             current_date,
         )?;
+        if promise_stepping_stone {
+            game.players[player_index]
+                .morale_core
+                .stepping_stone_promise = crate::transfers::make_promise(&team, current_date);
+        }
         let player = &game.players[player_index];
 
         game.messages.push(free_agent_signed_message(
