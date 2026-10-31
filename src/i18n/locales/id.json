@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Janji tidak menghalangi kepindahan nanti",
-      "hint": "Pemain muda mungkin menerima gaji lebih rendah jika kamu berjanji tidak menghalangi kepindahan yang layak di kemudian hari. Menolak tawaran seperti itu melanggar janji."
-    }
+      "hint": "Pemain muda mungkin menerima gaji lebih rendah jika kamu berjanji tidak menghalangi kepindahan yang layak di kemudian hari. Menolak tawaran seperti itu melanggar janji.",
+      "bidHint": "Ia mungkin menerima klub yang lebih kecil jika kamu berjanji tidak menghalangi kepindahan yang layak nanti."
+    },
+    "terms": {
+      "title": "Ketentuan kesepakatan",
+      "instalments": "Pembayaran",
+      "instalmentsSingle": "Dibayar sekaligus",
+      "instalmentsCount": "{{count}} cicilan tahunan",
+      "sellOn": "Klausul jual kembali (% dari penjualan berikutnya)",
+      "signingBonus": "Bonus tanda tangan (juta)",
+      "hint": "Rencana cicilan yang lebih panjang lebih mahal; klausul jual kembali menurunkan harga. Pemain menerima bonusnya saat menandatangani.",
+      "bonusHint": "Dibayar saat tanda tangan, di luar gaji, dari kas dan anggaran transfer.",
+      "projectionInstalments": "Bayar {{now}} sekarang, lalu {{count}} cicilan lagi sebesar {{amount}} dengan selang setahun.",
+      "projectionBonus": "Bonus tanda tangan {{amount}}, dibayar saat selesai.",
+      "signingBonusEuros": "Bonus tanda tangan (euro bulat)",
+      "invalid": "Gunakan 1 sampai {{instalments}} cicilan, klausul jual kembali 0 sampai {{sellOn}}%, dan bonus 0 atau lebih."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Pemain menolak kepindahan ini",
+    "transferFeedbackPlayerRefusesDetail": "Kedua klub bisa sepakat, tetapi ia tidak mau turun ke klub yang lebih kecil tanpa janji jalan keluar atau bonus tanda tangan yang nyata."
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -3020,7 +3037,9 @@
         "loanBuyOptionNotAvailable": "Tidak ada opsi pembelian pinjaman yang dapat digunakan untuk pemain ini",
         "invalidYouthScoutingRegion": "Wilayah scouting pemuda tidak didukung.",
         "invalidYouthScoutingObjective": "Sasaran scouting pemuda tidak didukung.",
-        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung."
+        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung.",
+        "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
+        "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "Minat Transfer pada {{player}}",
         "body": "Klub dengan tawaran aktif untuk {{player}}: {{n}}. Pertanyaan terbaru: {{team}} ({{fee}}). Tinjau tawaran di tab Transfer untuk merespons.",
-        "actionReview": "Tinjau Tawaran"
+        "actionReview": "Tinjau Tawaran",
+        "actionRespond": "Jawab tawaran",
+        "option": {
+          "accept": {
+            "label": "Terima tawaran",
+            "description": "Jual pemain ke klub ini dengan harga yang ditawarkan."
+          },
+          "reject": {
+            "label": "Tolak tawaran",
+            "description": "Tolak. Klub dapat kembali setelah masa jeda."
+          }
+        },
+        "effect": {
+          "accepted": "Penjualan {{player}} telah disepakati.",
+          "rejected": "Tawaran untuk {{player}} telah ditolak.",
+          "expired": "Tawaran untuk {{player}} itu sudah tidak terbuka. Lihat tab Transfer."
+        }
       },
       "loanAgreed": {
         "subject": "Pinjaman disepakati: {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Tenggat transfer berlalu",
         "body": "Bursa telah ditutup. {{count}} negosiasi yang belum dijawab gugur."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Cicilan untuk {{player}} dibayar",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} dibayarkan ke {{club}}."
+        },
+        "received": {
+          "subject": "Cicilan untuk {{player}} diterima",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} diterima dari {{club}}."
+        }
       }
     },
     "news": {

@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Versprechen, einen späteren Wechsel nicht zu blockieren",
-      "hint": "Ein junger Spieler akzeptiert womöglich weniger Gehalt, wenn du versprichst, ihm später bei einem passenden Karrieresprung nicht im Weg zu stehen. Ein solches Angebot abzulehnen, bricht das Versprechen."
-    }
+      "hint": "Ein junger Spieler akzeptiert womöglich weniger Gehalt, wenn du versprichst, ihm später bei einem passenden Karrieresprung nicht im Weg zu stehen. Ein solches Angebot abzulehnen, bricht das Versprechen.",
+      "bidHint": "Er nimmt vielleicht einen kleineren Klub, wenn du versprichst, ihm später keinen passenden Wechsel zu verbauen."
+    },
+    "terms": {
+      "title": "Vertragsbedingungen",
+      "instalments": "Zahlung",
+      "instalmentsSingle": "Auf einmal gezahlt",
+      "instalmentsCount": "{{count}} Jahresraten",
+      "sellOn": "Weiterverkaufsklausel (% des nächsten Verkaufs)",
+      "signingBonus": "Handgeld (Millionen)",
+      "hint": "Längere Ratenpläne kosten mehr; eine Weiterverkaufsklausel senkt den Preis. Der Spieler erhält sein Handgeld bei Vertragsabschluss.",
+      "bonusHint": "Bei Vertragsabschluss zusätzlich zum Gehalt, aus Kasse und Transferbudget.",
+      "projectionInstalments": "Zahle jetzt {{now}}, danach {{count}} weitere Rate(n) von {{amount}} im Jahresabstand.",
+      "projectionBonus": "Handgeld von {{amount}}, bei Abschluss gezahlt.",
+      "signingBonusEuros": "Handgeld (ganze Euro)",
+      "invalid": "Verwende 1 bis {{instalments}} Raten, eine Weiterverkaufsklausel von 0 bis {{sellOn}} % und ein Handgeld ab 0."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Der Spieler lehnt den Wechsel ab",
+    "transferFeedbackPlayerRefusesDetail": "Die Klubs könnten sich einigen, aber er wechselt nicht zu einem kleineren Klub ohne Ausstiegsversprechen oder ein echtes Handgeld."
   },
   "transferCentreWorld": {
     "title": "Transferzentrum",
@@ -3012,7 +3029,9 @@
         "loanBuyOptionNotAvailable": "Für diesen Spieler ist keine ausübbare Kaufoption verfügbar",
         "invalidYouthScoutingRegion": "Nicht unterstützte Region für Jugendscouting.",
         "invalidYouthScoutingObjective": "Nicht unterstütztes Ziel für Jugendscouting.",
-        "invalidYouthScoutingTargetPosition": "Nicht unterstützte Zielposition für Jugendscouting."
+        "invalidYouthScoutingTargetPosition": "Nicht unterstützte Zielposition für Jugendscouting.",
+        "invalidDealTerms": "Diese Vertragsbedingungen sind nicht erlaubt.",
+        "sellOnUnaffordable": "Der abgebende Klub kann den Anteil nicht zahlen, den er dem früheren Verkäufer schuldet."
       },
       "contracts": {
         "playerNotOwnedByClub": "Der Spieler gehört nicht zu deinem Verein",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "Transferinteresse an {{player}}",
         "body": "Vereine mit aktiven Geboten für {{player}}: {{n}}. Letzte Anfrage: {{team}} ({{fee}}). Prüfe die Angebote im Transfers-Tab, um zu reagieren.",
-        "actionReview": "Angebote prüfen"
+        "actionReview": "Angebote prüfen",
+        "actionRespond": "Angebot beantworten",
+        "option": {
+          "accept": {
+            "label": "Angebot annehmen",
+            "description": "Den Spieler zur gebotenen Summe an diesen Klub verkaufen."
+          },
+          "reject": {
+            "label": "Angebot ablehnen",
+            "description": "Ablehnen. Der Klub kann nach einer Sperrfrist wiederkommen."
+          }
+        },
+        "effect": {
+          "accepted": "Der Verkauf von {{player}} ist vereinbart.",
+          "rejected": "Das Angebot für {{player}} wurde abgelehnt.",
+          "expired": "Dieses Angebot für {{player}} ist nicht mehr offen. Sieh im Transfer-Tab nach."
+        }
       },
       "loanAgreed": {
         "subject": "Leihe vereinbart: {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Transferfrist abgelaufen",
         "body": "Das Wechselfenster ist geschlossen. {{count}} unbeantwortete Verhandlung(en) sind verfallen."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Rate für {{player}} gezahlt",
+          "body": "Rate {{number}} von {{of}} für {{player}}: {{amount}} an {{club}} gezahlt."
+        },
+        "received": {
+          "subject": "Rate für {{player}} erhalten",
+          "body": "Rate {{number}} von {{of}} für {{player}}: {{amount}} von {{club}} erhalten."
+        }
       }
     },
     "news": {

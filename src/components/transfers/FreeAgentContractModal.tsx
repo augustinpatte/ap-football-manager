@@ -8,6 +8,7 @@ import { Badge, Checkbox, Dialog } from "../ui";
 import { formatExactMoney, formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
+import { resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 
 const MAX_CONTRACT_YEARS = 5;
 
@@ -18,6 +19,11 @@ export interface FreeAgentContractFormProps {
   onWageChange: (value: string) => void;
   contractLength: string;
   onContractLengthChange: (value: string) => void;
+  /** Paid on signing, in whole euros, on top of the wage. */
+  signingBonus?: string;
+  onSigningBonusChange?: (value: string) => void;
+  /** A translation key: why that bonus cannot be paid. */
+  signingBonusError?: string | null;
   /** The player would value the promise; the option is shown only then. */
   steppingStoneAvailable?: boolean;
   promiseSteppingStone?: boolean;
@@ -42,6 +48,9 @@ export function FreeAgentContractForm({
   onWageChange,
   contractLength,
   onContractLengthChange,
+  signingBonus,
+  onSigningBonusChange,
+  signingBonusError = null,
   steppingStoneAvailable = false,
   promiseSteppingStone = false,
   onPromiseSteppingStoneChange,
@@ -124,6 +133,35 @@ export function FreeAgentContractForm({
         onChange={(event) => onContractLengthChange(event.target.value)}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
       />
+
+      {signingBonus !== undefined && onSigningBonusChange ? (
+        <>
+          <label
+            htmlFor="free-agent-bonus"
+            className="text-caption font-heading font-bold uppercase tracking-label text-fg-muted mb-1 block"
+          >
+            {t("transfers.terms.signingBonusEuros")}
+          </label>
+          <input
+            id="free-agent-bonus"
+            type="number"
+            min="0"
+            step="10000"
+            value={signingBonus}
+            onChange={(event) => onSigningBonusChange(event.target.value)}
+            aria-invalid={signingBonusError !== null}
+            aria-describedby={signingBonusError ? "free-agent-bonus-error" : undefined}
+            className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+          />
+          {signingBonusError ? (
+            <p id="free-agent-bonus-error" role="alert" className="mb-2 text-caption text-danger">
+              {resolveTranslatedErrorMessage(signingBonusError, t)}
+            </p>
+          ) : (
+            <p className="mb-3 text-caption text-fg-muted">{t("transfers.terms.bonusHint")}</p>
+          )}
+        </>
+      ) : null}
 
       {steppingStoneAvailable && onPromiseSteppingStoneChange ? (
         <div className="mb-3 flex items-start gap-3 rounded-lg border border-line bg-sunken p-3">

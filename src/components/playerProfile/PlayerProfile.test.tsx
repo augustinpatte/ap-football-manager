@@ -1874,6 +1874,7 @@ describe("PlayerProfile free agent signing", () => {
         weeklyWage: 3000,
         contractYears: 3,
         promiseSteppingStone: false,
+        signingBonus: 0,
       });
       expect(onGameUpdate).toHaveBeenCalled();
     });

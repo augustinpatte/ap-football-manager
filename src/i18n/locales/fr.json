@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Promesse de ne pas bloquer un futur départ",
-      "hint": "Un jeune joueur peut accepter un salaire moindre si vous promettez de ne pas freiner plus tard un transfert à la hauteur de son ambition. Refuser une telle offre rompt la promesse."
-    }
+      "hint": "Un jeune joueur peut accepter un salaire moindre si vous promettez de ne pas freiner plus tard un transfert à la hauteur de son ambition. Refuser une telle offre rompt la promesse.",
+      "bidHint": "Il peut accepter un club plus modeste si vous promettez de ne pas bloquer plus tard un départ convenable."
+    },
+    "terms": {
+      "title": "Conditions de l'accord",
+      "instalments": "Paiement",
+      "instalmentsSingle": "Payé en une fois",
+      "instalmentsCount": "{{count}} paiements annuels",
+      "sellOn": "Clause de revente (% de la prochaine vente)",
+      "signingBonus": "Prime de signature (millions)",
+      "hint": "Un paiement échelonné coûte plus cher ; une clause de revente fait baisser le prix. Le joueur touche sa prime à la signature.",
+      "bonusHint": "Versée à la signature, en plus du salaire, sur la trésorerie et le budget transferts.",
+      "projectionInstalments": "Payez {{now}} maintenant, puis {{count}} paiement(s) de {{amount}} à un an d'intervalle.",
+      "projectionBonus": "Prime de signature de {{amount}}, versée à la conclusion.",
+      "signingBonusEuros": "Prime de signature (euros entiers)",
+      "invalid": "Utilisez de 1 à {{instalments}} paiements, une clause de revente de 0 à {{sellOn}} %, et une prime de 0 ou plus."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Le joueur refuse le transfert",
+    "transferFeedbackPlayerRefusesDetail": "Les clubs pourraient s'entendre, mais il ne descendra pas dans un club plus petit sans promesse de pouvoir partir ou vraie prime de signature."
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",
@@ -3012,7 +3029,9 @@
         "loanBuyOptionNotAvailable": "Aucune option d'achat exerçable n'est disponible pour ce joueur",
         "invalidYouthScoutingRegion": "Région de recrutement des jeunes non prise en charge.",
         "invalidYouthScoutingObjective": "Objectif de recrutement des jeunes non pris en charge.",
-        "invalidYouthScoutingTargetPosition": "Poste cible de recrutement des jeunes non pris en charge."
+        "invalidYouthScoutingTargetPosition": "Poste cible de recrutement des jeunes non pris en charge.",
+        "invalidDealTerms": "Ces conditions d'accord ne sont pas autorisées.",
+        "sellOnUnaffordable": "Le club vendeur ne peut pas verser la part due au club qui l'a vendu auparavant."
       },
       "contracts": {
         "playerNotOwnedByClub": "Le joueur n'appartient pas à votre club",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "Intérêt de transfert pour {{player}}",
         "body": "Clubs avec des offres actives pour {{player}} : {{n}}. Dernière demande : {{team}} ({{fee}}). Consultez les offres dans l’onglet Transferts pour répondre.",
-        "actionReview": "Voir les offres"
+        "actionReview": "Voir les offres",
+        "actionRespond": "Répondre à l'offre",
+        "option": {
+          "accept": {
+            "label": "Accepter l'offre",
+            "description": "Vendre le joueur à ce club au prix proposé."
+          },
+          "reject": {
+            "label": "Refuser l'offre",
+            "description": "Décliner. Le club pourra revenir après un délai de réflexion."
+          }
+        },
+        "effect": {
+          "accepted": "La vente de {{player}} est conclue.",
+          "rejected": "L'offre pour {{player}} a été refusée.",
+          "expired": "Cette offre pour {{player}} n'est plus ouverte. Consultez l'onglet Transferts."
+        }
       },
       "loanAgreed": {
         "subject": "Prêt convenu : {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Fin du mercato",
         "body": "Le mercato est clos. {{count}} négociation(s) sans réponse ont pris fin."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Échéance payée pour {{player}}",
+          "body": "Échéance {{number}} sur {{of}} pour {{player}} : {{amount}} versés à {{club}}."
+        },
+        "received": {
+          "subject": "Échéance reçue pour {{player}}",
+          "body": "Échéance {{number}} sur {{of}} pour {{player}} : {{amount}} reçus de {{club}}."
+        }
       }
     },
     "news": {

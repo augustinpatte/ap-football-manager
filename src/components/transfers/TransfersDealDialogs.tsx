@@ -21,6 +21,8 @@ type ActiveDealWorkspaceProps = {
     | "bidTarget"
     | "bidAmount"
     | "setBidAmount"
+    | "bidTerms"
+    | "setBidTerms"
     | "bidFee"
     | "bidProjection"
     | "bidFeedback"
@@ -61,6 +63,9 @@ type ActiveDealWorkspaceProps = {
     | "contractLength"
     | "setContractLength"
     | "steppingStoneAvailable"
+    | "signingBonus"
+    | "setSigningBonus"
+    | "signingBonusError"
     | "promiseSteppingStone"
     | "setPromiseSteppingStone"
     | "contractProjection"
@@ -80,6 +85,8 @@ type TransferBidDialogProps = {
     | "gameState"
     | "bidAmount"
     | "setBidAmount"
+    | "bidTerms"
+    | "setBidTerms"
     | "myTeam"
     | "bidFee"
     | "bidProjection"
@@ -131,6 +138,9 @@ type FreeAgentDealDialogProps = {
     | "contractLength"
     | "setContractLength"
     | "steppingStoneAvailable"
+    | "signingBonus"
+    | "setSigningBonus"
+    | "signingBonusError"
     | "promiseSteppingStone"
     | "setPromiseSteppingStone"
     | "contractProjection"
@@ -221,6 +231,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidFee,
     bidProjection,
     bidFeedback,
@@ -261,6 +273,9 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     contractLength,
     setContractLength,
     steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
     promiseSteppingStone,
     setPromiseSteppingStone,
     contractProjection,
@@ -292,6 +307,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 teams={gameState.teams}
                 bidAmount={bidAmount}
                 onBidAmountChange={setBidAmount}
+                bidTerms={bidTerms}
+                onBidTermsChange={setBidTerms}
                 myTeam={myTeam ?? null}
                 bidFee={bidFee}
                 bidProjection={bidProjection}
@@ -358,6 +375,9 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 contractLength={contractLength}
                 onContractLengthChange={setContractLength}
                 steppingStoneAvailable={steppingStoneAvailable}
+                signingBonus={signingBonus}
+                onSigningBonusChange={setSigningBonus}
+                signingBonusError={signingBonusError}
                 promiseSteppingStone={promiseSteppingStone}
                 onPromiseSteppingStoneChange={setPromiseSteppingStone}
                 projection={contractProjection}
@@ -391,6 +411,8 @@ export function TransferBidDialog({ state }: TransferBidDialogProps) {
     gameState,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     myTeam,
     bidFee,
     bidProjection,
@@ -416,6 +438,8 @@ export function TransferBidDialog({ state }: TransferBidDialogProps) {
         teams={gameState.teams}
         bidAmount={bidAmount}
         onBidAmountChange={setBidAmount}
+        bidTerms={bidTerms}
+        onBidTermsChange={setBidTerms}
         myTeam={myTeam ?? null}
         bidFee={bidFee}
         bidProjection={bidProjection}
@@ -494,6 +518,9 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
     contractLength,
     setContractLength,
     steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
     promiseSteppingStone,
     setPromiseSteppingStone,
     contractProjection,
@@ -517,6 +544,9 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
         contractLength={contractLength}
         onContractLengthChange={setContractLength}
         steppingStoneAvailable={steppingStoneAvailable}
+        signingBonus={signingBonus}
+        onSigningBonusChange={setSigningBonus}
+        signingBonusError={signingBonusError}
         promiseSteppingStone={promiseSteppingStone}
         onPromiseSteppingStoneChange={setPromiseSteppingStone}
         projection={contractProjection}

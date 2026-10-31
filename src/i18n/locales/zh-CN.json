@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "承诺不阻碍日后转会",
-      "hint": "如果你承诺日后不阻碍他合适的转会，年轻球员可能接受较低薪水。拒绝这样的报价就是违背承诺。"
-    }
+      "hint": "如果你承诺日后不阻碍他合适的转会，年轻球员可能接受较低薪水。拒绝这样的报价就是违背承诺。",
+      "bidHint": "如果你承诺日后不阻碍他合适的转会，他可能接受较小的俱乐部。"
+    },
+    "terms": {
+      "title": "交易条款",
+      "instalments": "付款方式",
+      "instalmentsSingle": "一次付清",
+      "instalmentsCount": "{{count}} 笔年度付款",
+      "sellOn": "转售分成条款（下次转会费的百分比）",
+      "signingBonus": "签字费（百万）",
+      "hint": "分期越长费用越高；转售分成条款会降低价格。球员在签约时领取签字费。",
+      "bonusHint": "签约时在薪水之外支付，从现金和转会预算中扣除。",
+      "projectionInstalments": "现在支付 {{now}}，之后每隔一年再付 {{count}} 笔，每笔 {{amount}}。",
+      "projectionBonus": "签字费 {{amount}}，在完成转会时支付。",
+      "signingBonusEuros": "签字费（整数欧元）",
+      "invalid": "请使用 1 至 {{instalments}} 笔付款、0 至 {{sellOn}}% 的转售分成，以及不小于 0 的签字费。"
+    },
+    "transferFeedbackPlayerRefusesHeadline": "球员拒绝了这次转会",
+    "transferFeedbackPlayerRefusesDetail": "两家俱乐部本可达成一致，但没有离队承诺或像样的签字费，他不会去更小的俱乐部。"
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -3012,7 +3029,9 @@
         "loanBuyOptionNotAvailable": "该球员目前没有可执行的租借买断选项",
         "invalidYouthScoutingRegion": "不支持的青年球探区域。",
         "invalidYouthScoutingObjective": "不支持的青年球探目标。",
-        "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。"
+        "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。",
+        "invalidDealTerms": "这些交易条款不被允许。",
+        "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "对 {{player}} 的转会兴趣",
         "body": "对 {{player}} 提出有效报价的俱乐部：{{n}}。最新询问：{{team}}（{{fee}}）。请在转会标签页查看报价并回应。",
-        "actionReview": "查看报价"
+        "actionReview": "查看报价",
+        "actionRespond": "回复报价",
+        "option": {
+          "accept": {
+            "label": "接受报价",
+            "description": "以报价出售球员给该俱乐部。"
+          },
+          "reject": {
+            "label": "拒绝报价",
+            "description": "拒绝。该俱乐部在冷却期后可能再来。"
+          }
+        },
+        "effect": {
+          "accepted": "{{player}} 的出售已谈妥。",
+          "rejected": "对 {{player}} 的报价已被拒绝。",
+          "expired": "该 {{player}} 的报价已失效。请查看转会页面。"
+        }
       },
       "loanAgreed": {
         "subject": "租借已达成：{{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "转会截止",
         "body": "窗口已关闭。{{count}} 项未答复的谈判已作废。"
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "已支付 {{player}} 的分期款",
+          "body": "{{player}} 第 {{number}}/{{of}} 期：已向 {{club}} 支付 {{amount}}。"
+        },
+        "received": {
+          "subject": "已收到 {{player}} 的分期款",
+          "body": "{{player}} 第 {{number}}/{{of}} 期：已收到 {{club}} 支付的 {{amount}}。"
+        }
       }
     },
     "news": {

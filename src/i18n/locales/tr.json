@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Gelecekteki bir ayrılığı engellememe sözü",
-      "hint": "Genç bir oyuncu, ileride kariyerinde uygun bir basamağa çıkmasına engel olmayacağınıza söz verirseniz daha düşük maaşı kabul edebilir. Böyle bir teklifi reddetmek sözü bozar."
-    }
+      "hint": "Genç bir oyuncu, ileride kariyerinde uygun bir basamağa çıkmasına engel olmayacağınıza söz verirseniz daha düşük maaşı kabul edebilir. Böyle bir teklifi reddetmek sözü bozar.",
+      "bidHint": "Daha sonra uygun bir ayrılığı engellemeyeceğinize söz verirseniz daha küçük bir kulübü kabul edebilir."
+    },
+    "terms": {
+      "title": "Anlaşma şartları",
+      "instalments": "Ödeme",
+      "instalmentsSingle": "Tek seferde ödenir",
+      "instalmentsCount": "{{count}} yıllık taksit",
+      "sellOn": "Yeniden satış maddesi (sonraki satışın %'si)",
+      "signingBonus": "İmza bonusu (milyon)",
+      "hint": "Uzun ödeme planları daha pahalıdır; yeniden satış maddesi fiyatı düşürür. Oyuncu bonusunu imzada alır.",
+      "bonusHint": "İmzada, maaşın üstüne, kasadan ve transfer bütçesinden ödenir.",
+      "projectionInstalments": "Şimdi {{now}} öde, ardından birer yıl arayla {{amount}} tutarında {{count}} taksit daha.",
+      "projectionBonus": "{{amount}} imza bonusu, tamamlanınca ödenir.",
+      "signingBonusEuros": "İmza bonusu (tam euro)",
+      "invalid": "1 ile {{instalments}} arası taksit, %0 ile %{{sellOn}} arası yeniden satış maddesi ve 0 veya daha yüksek bir bonus kullanın."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Oyuncu transferi reddediyor",
+    "transferFeedbackPlayerRefusesDetail": "Kulüpler anlaşabilirdi, ama ayrılma sözü veya gerçek bir imza bonusu olmadan daha küçük bir kulübe düşmeyecek."
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",
@@ -3020,7 +3037,9 @@
         "loanBuyOptionNotAvailable": "Bu oyuncu için kullanılabilir bir satın alma opsiyonu yok",
         "invalidYouthScoutingRegion": "Desteklenmeyen genç oyuncu gözlem bölgesi.",
         "invalidYouthScoutingObjective": "Desteklenmeyen genç oyuncu gözlem hedefi.",
-        "invalidYouthScoutingTargetPosition": "Desteklenmeyen genç oyuncu hedef pozisyonu."
+        "invalidYouthScoutingTargetPosition": "Desteklenmeyen genç oyuncu hedef pozisyonu.",
+        "invalidDealTerms": "Bu anlaşma şartlarına izin verilmiyor.",
+        "sellOnUnaffordable": "Satan kulüp, onu daha önce satan kulübe borçlu olduğu payı ödeyemiyor."
       },
       "contracts": {
         "playerNotOwnedByClub": "Oyuncu kulübünüze ait değil",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "{{player}} için transfer ilgisi",
         "body": "{{player}} için aktif teklifi olan kulüpler: {{n}}. Son başvuru: {{team}} ({{fee}}). Yanıtlamak için teklifleri Transferler sekmesinde inceleyin.",
-        "actionReview": "Teklifleri İncele"
+        "actionReview": "Teklifleri İncele",
+        "actionRespond": "Teklife yanıt ver",
+        "option": {
+          "accept": {
+            "label": "Teklifi kabul et",
+            "description": "Oyuncuyu bu kulübe teklif edilen bedelle sat."
+          },
+          "reject": {
+            "label": "Teklifi reddet",
+            "description": "Reddet. Kulüp bir bekleme süresinden sonra geri dönebilir."
+          }
+        },
+        "effect": {
+          "accepted": "{{player}} satışı kararlaştırıldı.",
+          "rejected": "{{player}} için gelen teklif reddedildi.",
+          "expired": "{{player}} için gelen bu teklif artık açık değil. Transferler sekmesine bakın."
+        }
       },
       "loanAgreed": {
         "subject": "Kiralama anlaşması: {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Transfer dönemi kapandı",
         "body": "Dönem kapandı. Yanıtlanmayan {{count}} görüşme geçersiz oldu."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "{{player}} için taksit ödendi",
+          "body": "{{player}} için {{of}} taksitten {{number}}.: {{club}} kulübüne {{amount}} ödendi."
+        },
+        "received": {
+          "subject": "{{player}} için taksit alındı",
+          "body": "{{player}} için {{of}} taksitten {{number}}.: {{club}} kulübünden {{amount}} alındı."
+        }
       }
     },
     "news": {

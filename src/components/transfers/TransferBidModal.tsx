@@ -16,7 +16,8 @@ import type {
 import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
-import { Badge, Dialog } from "../ui";
+import { Badge, Checkbox, Dialog, Select } from "../ui";
+import { MAX_INSTALMENTS, MAX_SELL_ON_PCT, parseBidTerms, type BidTermsInput } from "./bidTerms";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
 import TransferNegotiationHistory from "./TransferNegotiationHistory";
@@ -27,6 +28,9 @@ export interface TransferBidFormProps {
   teams: TeamData[];
   bidAmount: string;
   onBidAmountChange: (value: string) => void;
+  /** What the manager attaches to the fee: instalments, a sell-on clause, a bonus, a promise. */
+  bidTerms?: BidTermsInput;
+  onBidTermsChange?: (terms: BidTermsInput) => void;
   myTeam: TeamData | null;
   bidFee: number | null;
   bidProjection: TransferBidProjectionData["projection"] | null;
@@ -54,6 +58,8 @@ export function TransferBidForm({
   teams,
   bidAmount,
   onBidAmountChange,
+  bidTerms,
+  onBidTermsChange,
   myTeam,
   bidFee,
   bidProjection,
@@ -77,6 +83,8 @@ export function TransferBidForm({
   // engine refuses a new bid. Surface it here so reaching this form from a
   // profile / squad / scouting action explains itself instead of dead-ending.
   const pendingRegistration = playerHasPendingRegistration(bidTarget);
+  // The form says what is wrong with the terms rather than leaving Submit dead.
+  const termsInvalid = bidTerms ? !parseBidTerms(bidTerms).valid : false;
 
   return (
     <>
@@ -152,6 +160,110 @@ export function TransferBidForm({
             onChange={(event) => onBidAmountChange(event.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
+          {bidTerms && onBidTermsChange ? (
+            <fieldset
+              className="mb-3 rounded-lg border border-line bg-sunken p-3"
+              disabled={bidLoading || bidResult === "accepted"}
+            >
+              <legend className="px-1 text-caption font-heading font-bold uppercase tracking-label text-fg-muted">
+                {t("transfers.terms.title")}
+              </legend>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="bid-instalments"
+                    className="text-caption text-fg-muted block mb-1"
+                  >
+                    {t("transfers.terms.instalments")}
+                  </label>
+                  <Select
+                    id="bid-instalments"
+                    selectSize="sm"
+                    fullWidth
+                    value={bidTerms.instalments}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, instalments: event.target.value })
+                    }
+                  >
+                    {Array.from({ length: MAX_INSTALMENTS }, (_, index) => (
+                      <option key={index + 1} value={String(index + 1)}>
+                        {index === 0
+                          ? t("transfers.terms.instalmentsSingle")
+                          : t("transfers.terms.instalmentsCount", { count: index + 1 })}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label htmlFor="bid-sell-on" className="text-caption text-fg-muted block mb-1">
+                    {t("transfers.terms.sellOn")}
+                  </label>
+                  <input
+                    id="bid-sell-on"
+                    type="number"
+                    min="0"
+                    max={MAX_SELL_ON_PCT}
+                    step="1"
+                    value={bidTerms.sellOnPct}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, sellOnPct: event.target.value })
+                    }
+                    aria-invalid={termsInvalid}
+                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="bid-bonus" className="text-caption text-fg-muted block mb-1">
+                    {t("transfers.terms.signingBonus")}
+                  </label>
+                  <input
+                    id="bid-bonus"
+                    type="number"
+                    min="0"
+                    step="0.05"
+                    value={bidTerms.signingBonusMillions}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, signingBonusMillions: event.target.value })
+                    }
+                    aria-invalid={termsInvalid}
+                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                  />
+                </div>
+              </div>
+              {bidProjection?.stepping_stone_available ? (
+                <div className="mt-3 flex items-start gap-3">
+                  <Checkbox
+                    id="bid-promise"
+                    checked={bidTerms.promise}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, promise: event.target.checked })
+                    }
+                    aria-describedby="bid-promise-hint"
+                  />
+                  <div>
+                    <label htmlFor="bid-promise" className="text-body font-semibold text-fg">
+                      {t("transfers.promise.label")}
+                    </label>
+                    <p id="bid-promise-hint" className="text-caption text-fg-muted">
+                      {t("transfers.promise.bidHint")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              {termsInvalid ? (
+                <p id="bid-terms-error" role="alert" className="mt-2 text-caption text-danger">
+                  {t("transfers.terms.invalid", {
+                    instalments: MAX_INSTALMENTS,
+                    sellOn: MAX_SELL_ON_PCT,
+                  })}
+                </p>
+              ) : (
+                <p className="mt-2 text-caption text-fg-muted">{t("transfers.terms.hint")}</p>
+              )}
+            </fieldset>
+          ) : null}
           {myTeam && bidFee !== null && bidProjection ? (
             <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
               <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -202,6 +314,22 @@ export function TransferBidForm({
                   percent: bidProjection.projected_wage_budget_usage_pct,
                 })}
               </p>
+              {(bidProjection.later_instalments ?? 0) > 0 ? (
+                <p className="text-caption text-fg-muted">
+                  {t("transfers.terms.projectionInstalments", {
+                    now: formatExactMoney(bidProjection.cash_due_on_completion ?? 0),
+                    count: bidProjection.later_instalments ?? 0,
+                    amount: formatExactMoney(bidProjection.later_instalment_amount ?? 0),
+                  })}
+                </p>
+              ) : null}
+              {(bidProjection.signing_bonus ?? 0) > 0 ? (
+                <p className="text-caption text-fg-muted">
+                  {t("transfers.terms.projectionBonus", {
+                    amount: formatExactMoney(bidProjection.signing_bonus ?? 0),
+                  })}
+                </p>
+              ) : null}
               {bidProjection.exceeds_transfer_budget ? (
                 <p className="text-xs text-red-600 dark:text-red-300">
                   {t("transfers.bidImpactOverTransferBudget")}

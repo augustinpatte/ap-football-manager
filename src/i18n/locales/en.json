@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Promise not to block a future move",
-      "hint": "A young player may accept less pay if you promise not to stand in the way of a suitable step up later. Refusing such an offer breaks the promise."
-    }
+      "hint": "A young player may accept less pay if you promise not to stand in the way of a suitable step up later. Refusing such an offer breaks the promise.",
+      "bidHint": "He may accept a lesser club if you promise not to block a suitable move later."
+    },
+    "terms": {
+      "title": "Deal terms",
+      "instalments": "Payment",
+      "instalmentsSingle": "Paid at once",
+      "instalmentsCount": "{{count}} yearly payments",
+      "sellOn": "Sell-on clause (% of the next sale)",
+      "signingBonus": "Signing bonus (millions)",
+      "hint": "Longer payment plans cost more; a sell-on clause lowers the price. The player is paid his bonus on signing.",
+      "bonusHint": "Paid on signing, on top of his wage, out of cash and transfer budget.",
+      "projectionInstalments": "Pay {{now}} now, then {{count}} more payment(s) of {{amount}} a year apart.",
+      "projectionBonus": "Signing bonus of {{amount}}, paid on completion.",
+      "signingBonusEuros": "Signing bonus (whole euros)",
+      "invalid": "Use 1 to {{instalments}} payments, a sell-on clause of 0 to {{sellOn}}%, and a bonus of 0 or more."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "The player turns the move down",
+    "transferFeedbackPlayerRefusesDetail": "The clubs could agree, but he will not drop to a smaller club without a promise of a way out or a real signing bonus."
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -3020,7 +3037,9 @@
         "loanBuyOptionNotAvailable": "No exercisable loan buy option is available for this player",
         "invalidYouthScoutingRegion": "Unsupported youth scouting region.",
         "invalidYouthScoutingObjective": "Unsupported youth scouting objective.",
-        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position."
+        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position.",
+        "invalidDealTerms": "These deal terms are not allowed.",
+        "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "Transfer interest in {{player}}",
         "body": "Clubs with active bids for {{player}}: {{n}}. Latest enquiry: {{team}} ({{fee}}). Review the offers in the Transfers tab to respond.",
-        "actionReview": "Review Offers"
+        "actionReview": "Review Offers",
+        "actionRespond": "Answer the offer",
+        "option": {
+          "accept": {
+            "label": "Accept the offer",
+            "description": "Sell the player to this club at the offered fee."
+          },
+          "reject": {
+            "label": "Turn the offer down",
+            "description": "Decline. The club may come back after a cooling-off period."
+          }
+        },
+        "effect": {
+          "accepted": "{{player}}'s sale has been agreed.",
+          "rejected": "The offer for {{player}} has been turned down.",
+          "expired": "That offer for {{player}} is no longer open. Check the Transfers tab."
+        }
       },
       "loanAgreed": {
         "subject": "Loan agreed: {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Transfer deadline passed",
         "body": "The window has closed. {{count}} unanswered negotiation(s) have lapsed."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Instalment paid for {{player}}",
+          "body": "Instalment {{number}} of {{of}} for {{player}}: {{amount}} paid to {{club}}."
+        },
+        "received": {
+          "subject": "Instalment received for {{player}}",
+          "body": "Instalment {{number}} of {{of}} for {{player}}: {{amount}} received from {{club}}."
+        }
       }
     },
     "news": {

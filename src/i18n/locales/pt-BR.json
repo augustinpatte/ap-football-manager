@@ -1535,8 +1535,25 @@
     },
     "promise": {
       "label": "Promessa de não bloquear uma saída futura",
-      "hint": "Um jogador jovem pode aceitar um salário menor se você prometer não atrapalhar, mais adiante, uma transferência à altura da sua ambição. Recusar uma proposta assim quebra a promessa."
-    }
+      "hint": "Um jogador jovem pode aceitar um salário menor se você prometer não atrapalhar, mais adiante, uma transferência à altura da sua ambição. Recusar uma proposta assim quebra a promessa.",
+      "bidHint": "Ele pode aceitar um clube menor se você prometer não bloquear mais tarde uma saída adequada."
+    },
+    "terms": {
+      "title": "Condições do acordo",
+      "instalments": "Pagamento",
+      "instalmentsSingle": "Pago de uma vez",
+      "instalmentsCount": "{{count}} pagamentos anuais",
+      "sellOn": "Cláusula de revenda (% da próxima venda)",
+      "signingBonus": "Luvas de assinatura (milhões)",
+      "hint": "Um parcelamento mais longo custa mais; uma cláusula de revenda reduz o preço. O jogador recebe as luvas na assinatura.",
+      "bonusHint": "Pagas na assinatura, além do salário, com o caixa e o orçamento de transferências.",
+      "projectionInstalments": "Pague {{now}} agora e depois {{count}} parcela(s) de {{amount}} com um ano de intervalo.",
+      "projectionBonus": "Luvas de {{amount}}, pagas na conclusão.",
+      "signingBonusEuros": "Luvas de assinatura (euros inteiros)",
+      "invalid": "Use de 1 a {{instalments}} parcelas, uma cláusula de revenda de 0 a {{sellOn}}% e luvas de 0 ou mais."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "O jogador recusa a transferência",
+    "transferFeedbackPlayerRefusesDetail": "Os clubes poderiam chegar a um acordo, mas ele não desce para um clube menor sem uma promessa de saída ou luvas de verdade."
   },
   "transferCentreWorld": {
     "title": "Central de transferências",
@@ -3012,7 +3029,9 @@
         "loanBuyOptionNotAvailable": "Não há opção de compra exercível para este jogador",
         "invalidYouthScoutingRegion": "Região de prospecção de base não suportada.",
         "invalidYouthScoutingObjective": "Objetivo de prospecção de base não suportado.",
-        "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada."
+        "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada.",
+        "invalidDealTerms": "Essas condições do acordo não são permitidas.",
+        "sellOnUnaffordable": "O clube vendedor não consegue pagar a parte que deve ao clube que o vendeu antes."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao seu clube",
@@ -3648,7 +3667,23 @@
       "transferInterest": {
         "subject": "Interesse de transferência em {{player}}",
         "body": "Clubes com propostas ativas por {{player}}: {{n}}. Última sondagem: {{team}} ({{fee}}). Veja as propostas na aba Transferências para responder.",
-        "actionReview": "Ver propostas"
+        "actionReview": "Ver propostas",
+        "actionRespond": "Responder à proposta",
+        "option": {
+          "accept": {
+            "label": "Aceitar a proposta",
+            "description": "Vender o jogador a este clube pelo valor oferecido."
+          },
+          "reject": {
+            "label": "Recusar a proposta",
+            "description": "Recusar. O clube pode voltar depois de um período de reflexão."
+          }
+        },
+        "effect": {
+          "accepted": "A venda de {{player}} foi acertada.",
+          "rejected": "A proposta por {{player}} foi recusada.",
+          "expired": "Essa proposta por {{player}} não está mais aberta. Veja a aba de Transferências."
+        }
       },
       "loanAgreed": {
         "subject": "Empréstimo acertado: {{player}}",
@@ -3697,6 +3732,16 @@
       "deadlineExpired": {
         "subject": "Fechamento da janela",
         "body": "A janela fechou. {{count}} negociação(ões) sem resposta caducaram."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Parcela paga por {{player}}",
+          "body": "Parcela {{number}} de {{of}} por {{player}}: {{amount}} pagos a {{club}}."
+        },
+        "received": {
+          "subject": "Parcela recebida por {{player}}",
+          "body": "Parcela {{number}} de {{of}} por {{player}}: {{amount}} recebidos de {{club}}."
+        }
       }
     },
     "news": {

@@ -242,6 +242,135 @@ describe("TransferBidModal", () => {
     expect(screen.queryByText("error")).not.toBeInTheDocument();
   });
 
+  /**
+   * Given a bid form with deal terms wired in, for a player who would value a promise
+   * When the manager changes the payment plan, the clause and the bonus, and ticks the promise
+   * Then each change reaches the parent whole, and the promise option exists only for him.
+   */
+  it("edits the deal terms and offers the promise only where the backend allows it", () => {
+    const onBidTermsChange = vi.fn();
+    const baseProps = {
+      bidTarget: createPlayer(),
+      teams: [createTeam(), createTeam({ id: "team-2", name: "Seller FC" })],
+      bidAmount: "1.0",
+      onBidAmountChange: vi.fn(),
+      bidTerms: {
+        instalments: "1",
+        sellOnPct: "0",
+        signingBonusMillions: "0",
+        promise: false,
+      },
+      onBidTermsChange,
+      myTeam: createTeam(),
+      bidFee: 1000000,
+      bidFeedback: null,
+      activeBidOffer: null,
+      hasExistingOffer: false,
+      bidResult: null,
+      bidLoading: false,
+      bidSubmitDisabled: false,
+      onSubmit: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    const { unmount } = render(
+      <TransferBidModal
+        {...baseProps}
+        bidProjection={createProjection({ stepping_stone_available: false })}
+      />,
+    );
+    expect(screen.queryByLabelText("transfers.promise.label")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("transfers.terms.sellOn"), { target: { value: "15" } });
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({ ...baseProps.bidTerms, sellOnPct: "15" });
+    fireEvent.change(screen.getByLabelText("transfers.terms.signingBonus"), {
+      target: { value: "0.5" },
+    });
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({
+      ...baseProps.bidTerms,
+      signingBonusMillions: "0.5",
+    });
+    unmount();
+
+    render(
+      <TransferBidModal
+        {...baseProps}
+        bidProjection={createProjection({ stepping_stone_available: true })}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("transfers.promise.label"));
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({ ...baseProps.bidTerms, promise: true });
+  });
+
+  /**
+   * Given a projection of a three-payment bid with a bonus
+   * When the form is shown
+   * Then it says what is paid now, what follows, and the bonus.
+   */
+  it("shows what is paid now, what follows and the bonus", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection({
+          cash_due_on_completion: 1000002,
+          later_instalments: 2,
+          later_instalment_amount: 999999,
+          signing_bonus: 250000,
+        })}
+        bidFeedback={null}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult={null}
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.terms\.projectionInstalments/)).toBeInTheDocument();
+    expect(screen.getByText(/transfers\.terms\.projectionBonus/)).toBeInTheDocument();
+  });
+
+  /**
+   * Given deal terms the backend would refuse (a clause of 99%)
+   * When the form is shown
+   * Then it says so in an alert tied to the offending fields, rather than leaving Submit dead.
+   */
+  it("explains invalid deal terms next to the fields", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="1.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={{ instalments: "1", sellOnPct: "99", signingBonusMillions: "0", promise: false }}
+        onBidTermsChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={1000000}
+        bidProjection={createProjection()}
+        bidFeedback={null}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult={null}
+        bidLoading={false}
+        bidSubmitDisabled={true}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("transfers.terms.invalid");
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toHaveAccessibleDescription(
+      /transfers\.terms\.invalid/,
+    );
+  });
+
   it("renders the active negotiation state for an existing offer", () => {
     render(
       <TransferBidModal

@@ -34,6 +34,30 @@ describe("transfersService", () => {
     });
   });
 
+  it("sends deal terms with a bid and with its preview only when given", async () => {
+    mockedInvoke.mockResolvedValue({});
+    const terms = {
+      instalments: 3,
+      sell_on_pct: 10,
+      signing_bonus: 250000,
+      promise_stepping_stone: true,
+    };
+
+    await makeTransferBid("player-1", 3000000, terms);
+    await previewTransferBidFinancialImpact("player-1", 3000000, terms);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("make_transfer_bid", {
+      playerId: "player-1",
+      fee: 3000000,
+      terms,
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("preview_transfer_bid_financial_impact", {
+      playerId: "player-1",
+      fee: 3000000,
+      terms,
+    });
+  });
+
   it("calls the respond to offer backend command", async () => {
     const response = { manager: { id: "manager-1" } };
     mockedInvoke.mockResolvedValueOnce(response);
