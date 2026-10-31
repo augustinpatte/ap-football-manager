@@ -12,6 +12,7 @@ import {
   type TransferNegotiationResponseData,
 } from "../../services/transfersService";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
+import { DEFAULT_BID_TERMS, parseBidTerms, type BidTermsInput } from "./bidTerms";
 import {
   buildResumedBidFeedback,
   normalizeTransferNegotiationFeedback,
@@ -26,6 +27,8 @@ interface UseTransferBidFlowResult {
   bidTarget: PlayerData | null;
   bidAmount: string;
   setBidAmount: (value: string) => void;
+  bidTerms: BidTermsInput;
+  setBidTerms: (terms: BidTermsInput) => void;
   bidResult: TransferNegotiationResponseData["decision"] | "error" | null;
   /** The translated reason a bid failed. Set only when `bidResult` is `"error"`. */
   bidError: string | null;
@@ -58,6 +61,11 @@ export function useTransferBidFlow({
       ? null
       : (gameState.players.find((player) => player.id === bidTargetId) ?? null);
   const [bidAmount, setBidAmount] = useState("");
+  const [bidTerms, setBidTerms] = useState<BidTermsInput>(DEFAULT_BID_TERMS);
+  const parsedTerms = parseBidTerms(bidTerms);
+  const sendableTerms = parsedTerms.valid ? parsedTerms.terms : undefined;
+  // A stable key, so the projection is asked again when the terms change and not on every render.
+  const termsKey = JSON.stringify(sendableTerms ?? null);
   const [bidResult, setBidResult] = useState<
     TransferNegotiationResponseData["decision"] | "error" | null
   >(null);
@@ -129,7 +137,7 @@ export function useTransferBidFlow({
 
     const loadProjection = async (): Promise<void> => {
       try {
-        const result = await previewTransferBidFinancialImpact(bidTarget.id, bidFee);
+        const result = await previewTransferBidFinancialImpact(bidTarget.id, bidFee, sendableTerms);
 
         if (!cancelled) {
           setBidProjection(result.projection ?? null);
@@ -146,13 +154,14 @@ export function useTransferBidFlow({
     return () => {
       cancelled = true;
     };
-  }, [bidFee, bidTarget]);
+  }, [bidFee, bidTarget, parsedTerms.valid, termsKey]);
 
   const openBidNegotiation = (player: PlayerData): void => {
     resumedFor.current = null;
     setOpenings((count) => count + 1);
     setBidTargetId(player.id);
     setBidAmount((player.market_value / 1_000_000).toFixed(1));
+    setBidTerms(DEFAULT_BID_TERMS);
     setBidResult(null);
     setBidError(null);
     setBidFeedback(null);
@@ -164,6 +173,7 @@ export function useTransferBidFlow({
     resumedFor.current = null;
     setBidTargetId(null);
     setBidAmount("");
+    setBidTerms(DEFAULT_BID_TERMS);
     setBidResult(null);
     setBidError(null);
     setBidFeedback(null);
@@ -171,7 +181,7 @@ export function useTransferBidFlow({
   };
 
   const handleMakeBid = async (): Promise<void> => {
-    if (!bidTarget || bidFee === null || bidFee <= 0) {
+    if (!bidTarget || bidFee === null || bidFee <= 0 || !parsedTerms.valid) {
       return;
     }
 
@@ -181,7 +191,7 @@ export function useTransferBidFlow({
     setBidFeedback(null);
 
     try {
-      const response = await makeTransferBid(bidTarget.id, bidFee);
+      const response = await makeTransferBid(bidTarget.id, bidFee, sendableTerms);
       // The player is handled now: an offer the game update brings is this bid's own, and its
       // feedback is the response's, not a "resumed negotiation" one.
       resumedFor.current = bidTarget.id;
@@ -209,6 +219,8 @@ export function useTransferBidFlow({
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidResult,
     bidError,
     bidLoading,
@@ -224,6 +236,7 @@ export function useTransferBidFlow({
       bidResult === "accepted" ||
       bidFee === null ||
       bidFee <= 0 ||
+      !parsedTerms.valid ||
       talksResumeOn !== null ||
       bidProjection === null ||
       bidProjection.exceeds_transfer_budget ||

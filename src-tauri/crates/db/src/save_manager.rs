@@ -4020,6 +4020,81 @@ mod tests {
         );
     }
 
+    /// Given a career owing an unpaid instalment, a paid one and a live sell-on clause, and an
+    /// offer carrying non-default terms,
+    /// When it is saved, loaded, and saved and loaded again,
+    /// Then every obligation and the offer's terms survive both trips unchanged.
+    #[test]
+    fn transfer_obligations_and_offer_terms_survive_save_and_load() {
+        use domain::transfer_terms::{TransferObligation, TransferTerms};
+        let dir = tempfile::tempdir().unwrap();
+        let mut manager = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        game.transfer_obligations = vec![
+            TransferObligation::Instalment {
+                id: "i-1".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2027-08-01".to_string(),
+                number: 2,
+                of: 3,
+                paid_on: None,
+            },
+            TransferObligation::Instalment {
+                id: "i-0".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2026-08-01".to_string(),
+                number: 1,
+                of: 3,
+                paid_on: Some("2026-08-01".to_string()),
+            },
+            TransferObligation::SellOn {
+                id: "s-1".to_string(),
+                player_id: "p1".to_string(),
+                holder_team_id: "team-a".to_string(),
+                beneficiary_team_id: "team-b".to_string(),
+                pct: 20,
+                settled_on: None,
+            },
+        ];
+        let mut offer = domain::player::TransferOffer {
+            id: "o-1".to_string(),
+            from_team_id: "team-a".to_string(),
+            fee: 3_000_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: domain::player::TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-07-01".to_string()),
+            registration_failure_reason: None,
+            closed_on: None,
+            terms: TransferTerms::default(),
+        };
+        offer.terms = TransferTerms {
+            instalments: 3,
+            sell_on_pct: 20,
+            signing_bonus: 250_000,
+            promise_stepping_stone: true,
+        };
+        game.players[0].transfer_offers.push(offer.clone());
+        let id = manager.create_save(&game, "Terms").unwrap();
+
+        let loaded = manager.load_game(&id).unwrap();
+        assert_eq!(loaded.transfer_obligations, game.transfer_obligations);
+        assert_eq!(loaded.players[0].transfer_offers[0].terms, offer.terms);
+
+        manager.save_game(&loaded, &id).unwrap();
+        let reloaded = manager.load_game(&id).unwrap();
+        assert_eq!(reloaded.transfer_obligations, game.transfer_obligations);
+    }
+
     /// Given a saved archive, when the career is loaded, then every field of every record survives.
     #[test]
     fn the_retired_archive_survives_save_and_load() {

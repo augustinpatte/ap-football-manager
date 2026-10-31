@@ -1509,7 +1509,51 @@
     "registrationFailureInsufficientFunds": "Registrace selhala: kupující nemá dost peněz",
     "registrationFailureLoanConflict": "Registrace selhala: konflikt s hostováním",
     "registrationFailurePlayerUnavailable": "Registrace selhala: hráč není dostupný",
-    "registrationFailureRegistrationBlocked": "Registrace zablokována"
+    "registrationFailureRegistrationBlocked": "Registrace zablokována",
+    "deadline": {
+      "title": "Hlídání uzávěrky",
+      "phase": {
+        "early": "Přestupní okno otevřeno",
+        "mid": "Přestupní okno otevřeno",
+        "last_week": "Poslední týden",
+        "last_72h": "Posledních 72 hodin",
+        "deadline_day": "Den uzávěrky"
+      },
+      "needsResponse": "Na vaši odpověď čeká jednání: {{count}}",
+      "nothingPending": "Na vaši odpověď nic nečeká.",
+      "lapseWarning": "Nezodpovězená jednání skončí se zavřením okna.",
+      "pendingList": "Probíhající jednání",
+      "recentDeals": "Dění na trhu",
+      "dealLine": "{{player}} přešel z {{from}} do {{to}} za {{fee}}",
+      "scheduledFor": "registrace {{date}}",
+      "state": {
+        "incoming_offer": "Přijata nabídka",
+        "counter_received": "Přijata protinabídka",
+        "awaiting_club": "Čeká se na odpověď klubu",
+        "scheduled_registration": "Dohoda uzavřena"
+      }
+    },
+    "promise": {
+      "label": "Slib, že nebudete bránit budoucímu odchodu",
+      "hint": "Mladý hráč může přijmout nižší plat, pokud slíbíte, že mu později nebudete bránit v odpovídajícím přestupu. Odmítnutí takové nabídky slib porušuje.",
+      "bidHint": "Může přijmout menší klub, pokud slíbíte, že mu později nezabráníte ve vhodném odchodu."
+    },
+    "terms": {
+      "title": "Podmínky dohody",
+      "instalments": "Platba",
+      "instalmentsSingle": "Zaplaceno najednou",
+      "instalmentsCount": "{{count}} ročních splátek",
+      "sellOn": "Doložka o dalším prodeji (% z příštího prodeje)",
+      "signingBonus": "Podpisový bonus (miliony)",
+      "hint": "Delší splátkový kalendář stojí víc; doložka o dalším prodeji cenu snižuje. Hráč dostane bonus při podpisu.",
+      "bonusHint": "Vyplácí se při podpisu navíc ke mzdě z hotovosti a přestupního rozpočtu.",
+      "projectionInstalments": "Zaplaťte teď {{now}}, poté ještě {{count}} splátku/y po {{amount}} v ročním odstupu.",
+      "projectionBonus": "Podpisový bonus {{amount}}, vyplacený při dokončení.",
+      "signingBonusEuros": "Podpisový bonus (celé eura)",
+      "invalid": "Použijte 1 až {{instalments}} splátek, doložku o dalším prodeji od 0 do {{sellOn}} % a bonus od 0 výše."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Hráč přestup odmítá",
+    "transferFeedbackPlayerRefusesDetail": "Kluby by se mohly dohodnout, ale do menšího klubu nepůjde bez slibu cesty ven nebo skutečného podpisového bonusu."
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -1824,7 +1868,14 @@
     "renewalProjectionTitle": "Předpokládaný finanční dopad",
     "renewalProjectionWageBill": "Týdenní mzdové náklady: {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Využití platového rozpočtu: {{before}} % → {{after}} %",
-    "renewalProjectionRunway": "Finanční rezerva: {{before}} → {{after}}"
+    "renewalProjectionRunway": "Finanční rezerva: {{before}} → {{after}}",
+    "promise": {
+      "title": "Slib odrazového můstku",
+      "active": "Platí do {{date}}: vhodná nabídka většího klubu se nesmí blokovat.",
+      "fulfilled": "Splněn: mohl odejít.",
+      "lapsed": "Vypršel, aniž by byl porušen.",
+      "breached": "Porušen: vhodná nabídka byla odmítnuta a o smlouvě teď nechce mluvit."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informace o klubu",
@@ -2986,7 +3037,9 @@
         "loanBuyOptionNotAvailable": "Pro tohoto hráče není k dispozici žádná uplatnitelná opce na odkup",
         "invalidYouthScoutingRegion": "Nepodporovaný region pro skauting mládeže.",
         "invalidYouthScoutingObjective": "Nepodporovaný cíl skautingu mládeže.",
-        "invalidYouthScoutingTargetPosition": "Nepodporovaná cílová pozice pro skauting mládeže."
+        "invalidYouthScoutingTargetPosition": "Nepodporovaná cílová pozice pro skauting mládeže.",
+        "invalidDealTerms": "Tyto podmínky dohody nejsou povoleny.",
+        "sellOnUnaffordable": "Prodávající klub nemůže zaplatit podíl, který dluží klubu, jenž ho prodal dříve."
       },
       "contracts": {
         "playerNotOwnedByClub": "Hráč nepatří do vašeho klubu",
@@ -2997,7 +3050,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Ukončení této smlouvy by způsobilo, že váš kádr nebude schopen postavit zápasovou jedenáctku",
         "noAssistantManagerAssigned": "K vašemu týmu není přiřazen žádný asistent manažera",
         "playerHasNoTeam": "Hráč nemá žádný tým",
-        "boardWagePolicy": "Prodloužení smlouvy je zablokováno mzdovou politikou představenstva. Pro nápravu udržujte týdenní platy blízko částky {{budget}}."
+        "boardWagePolicy": "Prodloužení smlouvy je zablokováno mzdovou politikou představenstva. Pro nápravu udržujte týdenní platy blízko částky {{budget}}.",
+        "promiseNotWanted": "Tento hráč slib odrazového můstku nepotřebuje."
       },
       "scouting": {
         "scoutNotFound": "Skaut nebyl nalezen",
@@ -3613,7 +3667,23 @@
       "transferInterest": {
         "subject": "Zájem o přestup hráče {{player}}",
         "body": "Kluby s aktivní nabídkou na hráče {{player}}: {{n}}. Nejnovější dotaz: {{team}} ({{fee}}). Pro odpověď zkontrolujte nabídky v záložce Přestupy.",
-        "actionReview": "Zkontrolovat nabídky"
+        "actionReview": "Zkontrolovat nabídky",
+        "actionRespond": "Odpovědět na nabídku",
+        "option": {
+          "accept": {
+            "label": "Přijmout nabídku",
+            "description": "Prodat hráče tomuto klubu za nabízenou částku."
+          },
+          "reject": {
+            "label": "Odmítnout nabídku",
+            "description": "Odmítnout. Klub se může vrátit po ochranné lhůtě."
+          }
+        },
+        "effect": {
+          "accepted": "Prodej hráče {{player}} je dohodnut.",
+          "rejected": "Nabídka na hráče {{player}} byla odmítnuta.",
+          "expired": "Tato nabídka na hráče {{player}} už neplatí. Podívejte se do záložky Přestupy."
+        }
       },
       "loanAgreed": {
         "subject": "Hostování dohodnuto: {{player}}",
@@ -3644,6 +3714,34 @@
       "matchesMoved": {
         "subject": "Zápasy přesunuty",
         "body": "Některé vaše zápasy byly přesunuty, aby si hráči zachovali odpočinek a byly dodrženy reprezentační přestávky:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} se cítí zrazen",
+          "body": "{{player}} dostal slib, že {{team}} nebude bránit vhodnému odchodu, a vhodná nabídka byla odmítnuta. Jeho důvěra i morálka klesly a o nové smlouvě teď nechce jednat."
+        },
+        "fulfilled": {
+          "subject": "{{player}} vám děkuje",
+          "body": "{{team}} dodržel slovo a nechal {{player}} přejít do většího klubu."
+        },
+        "lapsed": {
+          "subject": "Slib pro {{player}} doběhl",
+          "body": "Slib daný hráči {{player}} vypršel, aniž by {{team}} kdy zabránil vhodnému odchodu. Díky tomu vám trochu víc věří."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Přestupní uzávěrka skončila",
+        "body": "Okno se zavřelo. Nezodpovězená jednání ({{count}}) zanikla."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Splátka za hráče {{player}} zaplacena",
+          "body": "Splátka {{number}} z {{of}} za {{player}}: {{amount}} zaplaceno klubu {{club}}."
+        },
+        "received": {
+          "subject": "Splátka za hráče {{player}} přijata",
+          "body": "Splátka {{number}} z {{of}} za {{player}}: {{amount}} přijato od klubu {{club}}."
+        }
       }
     },
     "news": {

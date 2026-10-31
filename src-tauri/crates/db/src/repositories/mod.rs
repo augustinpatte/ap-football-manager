@@ -20,3 +20,4 @@ pub mod staff_repo;
 pub mod stats_repo;
 mod stored_fixtures;
 pub mod team_repo;
+pub mod transfer_obligation_repo;

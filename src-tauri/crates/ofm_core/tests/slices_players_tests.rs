@@ -704,6 +704,7 @@ fn the_market_scope_leaves_out_own_loaned_and_already_agreed_players() {
         registration_date: None,
         registration_failure_reason: None,
         closed_on: None,
+        terms: Default::default(),
     });
     let free = PlayerSpec::new("free", "Free", None).build();
     let ordinary = PlayerSpec::new("ordinary", "Ordinary", Some("other")).build();
@@ -750,6 +751,7 @@ fn transfer_offer_from(from_team_id: &str) -> domain::player::TransferOffer {
         registration_date: None,
         registration_failure_reason: None,
         closed_on: None,
+        terms: Default::default(),
     }
 }
 
