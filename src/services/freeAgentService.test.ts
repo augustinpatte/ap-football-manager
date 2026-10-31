@@ -23,6 +23,22 @@ describe("freeAgentService", () => {
       playerId: "player-1",
       weeklyWage: 4000,
       contractYears: 3,
+      promiseSteppingStone: false,
+      signingBonus: 0,
+    });
+  });
+
+  it("submits the stepping-stone promise only when asked to", async () => {
+    mockedInvoke.mockResolvedValueOnce({ outcome: "accepted" });
+
+    await offerFreeAgentContract("player-1", 4000, 3, true);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("offer_free_agent_contract", {
+      playerId: "player-1",
+      weeklyWage: 4000,
+      contractYears: 3,
+      promiseSteppingStone: true,
+      signingBonus: 0,
     });
   });
 
@@ -34,6 +50,27 @@ describe("freeAgentService", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("preview_free_agent_contract_impact", {
       playerId: "player-1",
       weeklyWage: 4000,
+      signingBonus: 0,
+    });
+  });
+
+  it("sends the signing bonus with the offer and the preview", async () => {
+    mockedInvoke.mockResolvedValue({});
+
+    await offerFreeAgentContract("player-1", 4000, 3, false, 150000);
+    await previewFreeAgentContractImpact("player-1", 4000, 150000);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("offer_free_agent_contract", {
+      playerId: "player-1",
+      weeklyWage: 4000,
+      contractYears: 3,
+      promiseSteppingStone: false,
+      signingBonus: 150000,
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("preview_free_agent_contract_impact", {
+      playerId: "player-1",
+      weeklyWage: 4000,
+      signingBonus: 150000,
     });
   });
 });

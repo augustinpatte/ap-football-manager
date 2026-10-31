@@ -35,7 +35,8 @@ const t = (key: string) => key;
 
 function translateEnglishOfferLabel(key: string): string {
   const name = key.slice("transfers.".length) as keyof typeof en.transfers;
-  return en.transfers[name] ?? key;
+  const label = en.transfers[name];
+  return typeof label === "string" ? label : key;
 }
 
 describe("TransfersTab.helpers", () => {

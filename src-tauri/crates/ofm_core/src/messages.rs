@@ -193,6 +193,51 @@ pub(crate) fn transfer_registration_failed_message(
     .with_sender_i18n("be.sender.transferCommittee", "be.role.directorOfFootball")
 }
 
+/// A later instalment of a transfer fee changed hands. `user_pays` says which side the user's
+/// club is on; `club_name` is the other one.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "an inbox message is built from its eight facts; a struct would only move the assembly to the one caller; owner=run1"
+)]
+pub(crate) fn transfer_instalment_message(
+    player_id: &str,
+    player_name: &str,
+    club_name: &str,
+    amount: u64,
+    number: u8,
+    of: u8,
+    user_pays: bool,
+    date: &str,
+) -> InboxMessage {
+    let side = if user_pays { "paid" } else { "received" };
+    InboxMessage::new(
+        format!("transfer_instalment_{side}_{player_id}_{number}"),
+        String::new(),
+        String::new(),
+        String::new(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Finance)
+    .with_priority(MessagePriority::Normal)
+    .with_sender_role("")
+    .with_context(MessageContext {
+        player_id: Some(player_id.to_string()),
+        ..Default::default()
+    })
+    .with_i18n(
+        &format!("be.msg.transferInstalment.{side}.subject"),
+        &format!("be.msg.transferInstalment.{side}.body"),
+        HashMap::from([
+            ("player".to_string(), player_name.to_string()),
+            ("club".to_string(), club_name.to_string()),
+            ("amount".to_string(), amount.to_string()),
+            ("number".to_string(), number.to_string()),
+            ("of".to_string(), of.to_string()),
+        ]),
+    )
+    .with_sender_i18n("be.sender.transferCommittee", "be.role.directorOfFootball")
+}
+
 pub fn incoming_transfer_offer_message(
     offer_id: &str,
     player_id: &str,
@@ -240,12 +285,16 @@ pub fn incoming_transfer_offer_message(
 /// A single per-player inbox thread that collapses repeated incoming interest
 /// into one updating digest instead of one message per club, capping spam.
 /// The stable id (`transfer_interest_<player_id>`) lets callers upsert it.
+/// Prefix of the inbox action that answers one transfer offer; the rest is the offer's id.
+pub const TRANSFER_OFFER_ACTION_PREFIX: &str = "respond_offer:";
+
 pub fn transfer_interest_digest_message(
     player_id: &str,
     player_name: &str,
     interested_club_count: usize,
     latest_team_name: &str,
     latest_fee: u64,
+    latest_offer_id: &str,
     date: &str,
 ) -> InboxMessage {
     let fee_display = latest_fee.to_string();
@@ -266,6 +315,26 @@ pub fn transfer_interest_digest_message(
         "be.msg.transferInterest.actionReview",
         ActionType::NavigateTo {
             route: "/dashboard?tab=Transfers".to_string(),
+        },
+    ))
+    // Answers the offer the message describes, in place: `apply_transfer_offer_response`.
+    .with_action(action(
+        &format!("{TRANSFER_OFFER_ACTION_PREFIX}{latest_offer_id}"),
+        "",
+        "be.msg.transferInterest.actionRespond",
+        ActionType::ChooseOption {
+            options: ["accept", "reject"]
+                .iter()
+                .map(|option| ActionOption {
+                    id: (*option).to_string(),
+                    label: String::new(),
+                    description: String::new(),
+                    label_key: Some(format!("be.msg.transferInterest.option.{option}.label")),
+                    description_key: Some(format!(
+                        "be.msg.transferInterest.option.{option}.description"
+                    )),
+                })
+                .collect(),
         },
     ))
     .with_context(MessageContext {

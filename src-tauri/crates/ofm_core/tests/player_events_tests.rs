@@ -1030,6 +1030,7 @@ fn unresolved_issue_can_cap_visible_morale_growth() {
         pending_promise: None,
         talk_cooldown_until: None,
         renewal_state: None,
+        stepping_stone_promise: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 
@@ -1059,6 +1060,7 @@ fn trust_changes_even_when_visible_morale_is_capped() {
         pending_promise: None,
         talk_cooldown_until: None,
         renewal_state: None,
+        stepping_stone_promise: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 

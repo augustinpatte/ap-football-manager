@@ -29,6 +29,8 @@ pub enum CashKind {
     PrizeMoney,
     TransferFeeOut,
     TransferFeeIn,
+    /// Paid to a player on joining, on top of his wage.
+    SigningBonus,
     LoanFee,
     ContractTermination,
     BoardSupport,

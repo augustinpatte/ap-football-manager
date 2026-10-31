@@ -812,38 +812,27 @@ pub(crate) fn complete_loan_buy_option_transfer(
     // The option names a fee and nothing else.
     let (buying_club, new_wage, new_contract_end) =
         buyers_contract_terms(game, &player_snapshot, buying_team_id)?;
-    crate::finances::post_all(
-        game,
-        &[
-            crate::finances::PostRequest::new(
-                buying_team_id,
-                -fee_i64,
-                crate::finances::CashKind::TransferFeeOut,
-                date,
-            ),
-            crate::finances::PostRequest::new(
-                parent_team_id,
-                fee_i64,
-                crate::finances::CashKind::TransferFeeIn,
-                date,
-            ),
-        ],
-    )?;
-
+    // The same settlement a permanent sale gets, so a sell-on clause the parent club holds is
+    // paid by this purchase too. An option names a fee and nothing else, hence plain terms.
+    let plain_terms = TransferTerms::default();
+    let deal = terms::Deal {
+        player_id,
+        to_team_id: buying_team_id,
+        from_team_id: parent_team_id,
+        fee,
+        terms: &plain_terms,
+        date,
+    };
+    let settlement = terms::settle_cash(game, &deal)?;
+    // Same rule as a permanent sale: the proceeds replenish this season's transfer envelope, not
+    // only the balance, so a club that sold through an option can spend what it has just earned.
+    terms::apply_budgets(game, &deal, &settlement);
     for team in &mut game.teams {
-        if team.id == buying_team_id {
-            team.transfer_budget -= fee_i64;
-        } else if team.id == parent_team_id {
-            // Same rule as a permanent sale: the proceeds replenish this season's transfer
-            // envelope, not only the balance. The cash reaches the parent through the journal
-            // post above; crediting one and not the other left a club that sold through an
-            // option unable to spend what it had just earned.
-            team.transfer_budget += fee_i64;
-            team.remove_player_references(player_id);
-        } else {
+        if team.id != buying_team_id {
             team.remove_player_references(player_id);
         }
     }
+    terms::record_obligations(game, &deal, &settlement);
 
     if let Some(player) = game
         .players

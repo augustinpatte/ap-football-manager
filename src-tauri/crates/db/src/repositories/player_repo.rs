@@ -938,6 +938,7 @@ mod tests {
             registration_date: None,
             closed_on: Some("2026-08-14".to_string()),
             registration_failure_reason: None,
+            terms: Default::default(),
         });
         player.loan_offers.push(LoanOffer {
             id: "loan-offer-closed".to_string(),
@@ -1469,6 +1470,7 @@ mod tests {
             pending_promise: None,
             talk_cooldown_until: None,
             renewal_state: None,
+            stepping_stone_promise: None,
         };
 
         upsert_player(db.conn(), &player).unwrap();
@@ -1483,6 +1485,32 @@ mod tests {
                 .map(|issue| &issue.category),
             Some(&PlayerIssueCategory::PlayingTime)
         );
+    }
+
+    /// Given a player carrying a breached stepping-stone promise,
+    /// When he is saved and loaded back,
+    /// Then every term of the promise survives in the existing `morale_core` column.
+    #[test]
+    fn test_stepping_stone_promise_roundtrip() {
+        use domain::player::{SteppingStonePromise, SteppingStonePromiseStatus};
+        let db = test_db();
+        let mut player = sample_player("p-promise", Some("team-001"));
+        let promise = SteppingStonePromise {
+            club_id: "team-001".to_string(),
+            made_on: "2026-08-01".to_string(),
+            protected_from: "2027-01-28".to_string(),
+            expires_on: "2029-08-01".to_string(),
+            min_buyer_reputation: 640,
+            min_fee_pct_of_value: 75,
+            status: SteppingStonePromiseStatus::Breached,
+            resolved_on: Some("2027-03-01".to_string()),
+        };
+        player.morale_core.stepping_stone_promise = Some(promise.clone());
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].morale_core.stepping_stone_promise, Some(promise));
     }
 
     #[test]

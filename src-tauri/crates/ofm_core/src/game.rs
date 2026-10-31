@@ -215,6 +215,11 @@ pub struct Game {
     /// Skipped on IPC serde. Persistence is incremental SQL, not Game JSON.
     #[serde(skip)]
     pub cash_journal: CashJournal,
+    /// What completed transfers still owe: later instalments of a fee, clauses on the next sale.
+    /// Persisted in its own table (`transfer_obligations`), not in a player's record, so it
+    /// outlives the offer it came from.
+    #[serde(default)]
+    pub transfer_obligations: Vec<domain::transfer_terms::TransferObligation>,
     /// Ids `post` added since the last successful flush of the live Game.
     /// `SaveManager::save_game` takes `&Game` and cannot clear this; see
     /// `persist_active_game`.
@@ -303,6 +308,7 @@ impl Game {
             seed: 0,
             legacy_world_cup_draw: false,
             cash_journal: CashJournal::default(),
+            transfer_obligations: Vec::new(),
             cash_journal_dirty_ids: Vec::new(),
             squad_floor_top_ups: Vec::new(),
         };
