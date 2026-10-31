@@ -590,16 +590,17 @@ function MatchdayGroupCard({
                     }`}
                     data-testid={`schedule-fixture-${fixture.id}`}
                   >
-                    <span
+                    <button
+                      type="button"
                       onClick={() => onSelectTeam(fixture.home_team_id)}
-                      className={`flex-1 cursor-pointer text-right text-sm font-semibold hover:underline ${
+                      className={`flex-1 bg-transparent p-0 text-right text-sm font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
                         fixture.home_team_id === userTeamId
                           ? "text-primary-600 dark:text-primary-400"
                           : "text-gray-800 dark:text-gray-200"
                       }`}
                     >
                       {fixture.home_team_name}
-                    </span>
+                    </button>
                     <div className="mx-3 w-24 text-center">
                       {completed && fixture.result ? (
                         <span className="font-heading text-lg font-bold text-gray-800 dark:text-gray-100">
@@ -630,16 +631,17 @@ function MatchdayGroupCard({
                         </button>
                       )}
                     </div>
-                    <span
+                    <button
+                      type="button"
                       onClick={() => onSelectTeam(fixture.away_team_id)}
-                      className={`flex-1 cursor-pointer text-left text-sm font-semibold hover:underline ${
+                      className={`flex-1 bg-transparent p-0 text-left text-sm font-semibold hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
                         fixture.away_team_id === userTeamId
                           ? "text-primary-600 dark:text-primary-400"
                           : "text-gray-800 dark:text-gray-200"
                       }`}
                     >
                       {fixture.away_team_name}
-                    </span>
+                    </button>
                   </div>
                 </ContextMenu>
               );
@@ -876,15 +878,18 @@ function StandingsView({
                       >
                         {index + 1}
                       </td>
-                      <td
-                        onClick={() => onSelectTeam(entry.team_id)}
-                        className={`cursor-pointer px-4 py-3 text-sm font-semibold hover:underline ${
-                          isUser
-                            ? "text-primary-600 dark:text-primary-400"
-                            : "text-gray-800 dark:text-gray-200"
-                        }`}
-                      >
-                        {getTeamName(gameState.teams, entry.team_id)}
+                      <td className="px-4 py-3 text-sm font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => onSelectTeam(entry.team_id)}
+                          className={`w-full bg-transparent p-0 text-left hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+                            isUser
+                              ? "text-primary-600 dark:text-primary-400"
+                              : "text-gray-800 dark:text-gray-200"
+                          }`}
+                        >
+                          {getTeamName(gameState.teams, entry.team_id)}
+                        </button>
                       </td>
                       {[
                         entry.played,
