@@ -5,8 +5,17 @@ import type { GameStateData, SeasonAwardsData } from "../store/gameStore";
 import { useGameStore } from "../store/gameStore";
 import { Card, CardBody } from "./ui";
 import { competitionDisplayName } from "../lib/competitionName";
+import { orderStandings } from "../lib/standings";
 import AwardsCeremonyScreen from "./season/AwardsCeremonyScreen";
 import { Trophy, Star, ArrowRight, Crown } from "lucide-react";
+
+interface UserCupResult {
+  competition_id: string;
+  competition_name: string;
+  champion_id: string;
+  champion_name: string;
+  user_won: boolean;
+}
 
 interface EndOfSeasonSummary {
   season: number;
@@ -26,6 +35,11 @@ interface EndOfSeasonSummary {
   poty_rating: number;
   total_teams: number;
   season_awards: SeasonAwardsData;
+  /** Absent from a summary written before promotion and cup results were reported. */
+  user_division_move?: "Stayed" | "Promoted" | "Relegated";
+  user_next_league_id?: string;
+  user_next_league_name?: string;
+  user_cup_results?: UserCupResult[];
 }
 
 interface EndOfSeasonScreenProps {
@@ -44,15 +58,8 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
   const userTeamId = gameState.manager.team_id;
   const userTeam = gameState.teams.find((t) => t.id === userTeamId);
 
-  // Compute standings for display
-  const standings = league
-    ? [...league.standings].sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
-          b.goals_for - a.goals_for,
-      )
-    : [];
+  // The backend sends the table in finishing order for competitions that author tiebreakers.
+  const standings = orderStandings(league);
 
   const userStandingIdx = standings.findIndex((s) => s.team_id === userTeamId);
   const userStanding = standings[userStandingIdx];
@@ -272,9 +279,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
           <h1 className="text-3xl font-heading font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-2">
             {t("endOfSeason.newSeason", { n: summary.season + 1 })}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mb-8">
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
             {t("endOfSeason.newScheduleReleased")}
           </p>
+          <SeasonMilestones summary={summary} gameState={gameState} />
 
           <button
             type="button"
@@ -288,6 +296,62 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
             {t("endOfSeason.continueDashboard")}
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** What the rollover did to the club beyond the table: its division and the cups it entered. */
+function SeasonMilestones({
+  summary,
+  gameState,
+}: {
+  summary: EndOfSeasonSummary;
+  gameState: GameStateData;
+}) {
+  const { t } = useTranslation();
+  const move = summary.user_division_move ?? "Stayed";
+  const cups = summary.user_cup_results ?? [];
+  const competitions = gameState.competitions ?? [];
+  const nextLeague = competitions.find((c) => c.id === summary.user_next_league_id);
+  const leagueName = nextLeague
+    ? competitionDisplayName(nextLeague, t)
+    : (summary.user_next_league_name ?? "");
+  const cupName = (cup: UserCupResult) => {
+    const competition = competitions.find((c) => c.id === cup.competition_id);
+    return competition ? competitionDisplayName(competition, t) : cup.competition_name;
+  };
+  const divisionKey =
+    move === "Promoted"
+      ? "endOfSeason.promoted"
+      : move === "Relegated"
+        ? "endOfSeason.relegated"
+        : "endOfSeason.stayedUp";
+  const divisionTone =
+    move === "Promoted" ? "text-positive" : move === "Relegated" ? "text-danger" : "text-fg-muted";
+
+  return (
+    <div className="mx-auto mb-8 max-w-md space-y-4 text-left">
+      {summary.user_next_league_id ? (
+        <p role="status" className={`text-lead font-heading font-bold ${divisionTone}`}>
+          {t(divisionKey, { league: leagueName })}
+        </p>
+      ) : null}
+      {cups.length > 0 && (
+        <section aria-labelledby="season-cups-heading">
+          <h2 id="season-cups-heading" className="text-body font-heading font-bold text-fg-muted">
+            {t("endOfSeason.cupResults")}
+          </h2>
+          <ul className="mt-1 space-y-1 text-body text-fg">
+            {cups.map((cup) => (
+              <li key={cup.competition_id}>
+                {cup.user_won
+                  ? t("endOfSeason.cupWon", { cup: cupName(cup) })
+                  : t("endOfSeason.cupLost", { cup: cupName(cup), champion: cup.champion_name })}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

@@ -2709,7 +2709,13 @@
     "nGoals": "{{count}} gólů",
     "playerOfYear": "Hráč roku",
     "avgRating": "Prům. hodnocení: {{rating}}",
-    "continueDashboard": "Pokračovat na hlavní panel"
+    "continueDashboard": "Pokračovat na hlavní panel",
+    "promoted": "Postup do soutěže {{league}}",
+    "relegated": "Sestup do soutěže {{league}}",
+    "stayedUp": "Zůstáváte v soutěži {{league}}",
+    "cupResults": "Výsledky pohárů",
+    "cupWon": "Vyhráli jste {{cup}}",
+    "cupLost": "{{cup}}: trofej získal klub {{champion}}"
   },
   "notifications": {
     "attentionRequired": "Vyžaduje pozornost",

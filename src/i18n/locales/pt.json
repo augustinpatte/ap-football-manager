@@ -2709,7 +2709,13 @@
     "nGoals": "{{count}} golos",
     "playerOfYear": "Jogador do Ano",
     "avgRating": "Classificação média: {{rating}}",
-    "continueDashboard": "Continuar para o Painel"
+    "continueDashboard": "Continuar para o Painel",
+    "promoted": "Promovido à {{league}}",
+    "relegated": "Despromovido à {{league}}",
+    "stayedUp": "Mantém-se na {{league}}",
+    "cupResults": "Resultados da taça",
+    "cupWon": "Ganhou a {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} ficou com o troféu"
   },
   "notifications": {
     "attentionRequired": "Atenção Necessária",
