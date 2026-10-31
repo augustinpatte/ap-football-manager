@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formação & Estilo",
     "formation": "Formação",
+    "outOfPossessionFormation": "Sem a bola",
     "playStyle": "Estilo de Jogo",
     "lineupTab": "Escalação",
     "rolesTab": "Bolas paradas & funções",

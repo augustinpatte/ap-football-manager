@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Схема и стиль",
     "formation": "Схема",
+    "outOfPossessionFormation": "Без мяча",
     "playStyle": "Стиль игры",
     "lineupTab": "Расстановка",
     "rolesTab": "Стандарты и роли",

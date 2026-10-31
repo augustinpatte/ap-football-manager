@@ -35,6 +35,7 @@ interface TacticsCommandBarProps {
   activeTactic: TacticsLibraryEntry;
   activePlayStyle: string;
   formation: string;
+  outOfPossessionFormation?: string;
   isDirty: boolean;
   /** Whether pressing Reset would change anything; the library decides, the bar renders. */
   canReset: boolean;
@@ -45,6 +46,7 @@ interface TacticsCommandBarProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onFormationChange: (formation: string) => void;
+  onOutOfPossessionFormationChange?: (formation: string) => void;
   onPlayStyleChange: (playStyle: string) => void;
   onSave: () => void;
   onSelectTactic: (id: string) => void;
@@ -70,6 +72,7 @@ export default function TacticsCommandBar({
   activeTactic,
   activePlayStyle,
   formation,
+  outOfPossessionFormation,
   isDirty,
   canReset,
   onReset,
@@ -78,6 +81,7 @@ export default function TacticsCommandBar({
   onDelete,
   onDuplicate,
   onFormationChange,
+  onOutOfPossessionFormationChange,
   onPlayStyleChange,
   onSave,
   onSelectTactic,
@@ -221,7 +225,7 @@ export default function TacticsCommandBar({
             </div>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)_minmax(0,1.2fr)]">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)_minmax(18rem,0.85fr)_minmax(0,1.2fr)]">
             <div className="relative rounded-2xl border border-gray-200/70 bg-gray-50/80 p-3 dark:border-white/8 dark:bg-navy-900/35">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="text-[11px] font-heading font-bold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
@@ -367,6 +371,28 @@ export default function TacticsCommandBar({
                 onChange={(e) => onFormationChange(e.target.value)}
                 fullWidth
                 aria-label={t("tactics.formation")}
+              >
+                {FORMATIONS.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200/70 bg-gray-50/80 p-3 dark:border-white/8 dark:bg-navy-900/35">
+              <div className="mb-2 text-[11px] font-heading font-bold uppercase tracking-[0.24em] text-gray-500 dark:text-gray-400">
+                {t("tactics.outOfPossessionFormation")}
+              </div>
+              <Select
+                value={
+                  FORMATIONS.includes(outOfPossessionFormation ?? formation)
+                    ? (outOfPossessionFormation ?? formation)
+                    : formation
+                }
+                onChange={(e) => (onOutOfPossessionFormationChange ?? onFormationChange)(e.target.value)}
+                fullWidth
+                aria-label={t("tactics.outOfPossessionFormation")}
               >
                 {FORMATIONS.map((f) => (
                   <option key={f} value={f}>

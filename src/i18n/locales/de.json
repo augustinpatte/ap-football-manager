@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formation & Stil",
     "formation": "Formation",
+    "outOfPossessionFormation": "Gegen den Ball",
     "playStyle": "Spielweise",
     "lineupTab": "Aufstellung",
     "rolesTab": "Standards & Rollen",

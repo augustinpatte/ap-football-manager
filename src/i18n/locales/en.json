@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formation & Style",
     "formation": "Formation",
+    "outOfPossessionFormation": "Out of possession",
     "playStyle": "Play Style",
     "teamIdentity": "Team Identity",
     "presetTactics": "Preset Tactics",

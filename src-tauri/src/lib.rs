@@ -286,6 +286,7 @@ pub fn run() {
             get_contract_warning_stages,
             terminate_contract_now,
             set_formation,
+            set_out_of_possession_formation,
             list_custom_tactics,
             save_custom_tactic,
             delete_custom_tactic,

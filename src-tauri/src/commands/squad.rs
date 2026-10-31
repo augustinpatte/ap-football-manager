@@ -52,6 +52,23 @@ pub fn set_formation_internal(state: &StateManager, formation: &str) -> Result<G
     mutate_active_game(state, |game| apply_formation(game, formation))
 }
 
+/// Sets the formation the M12 positioning planner uses when this side is
+/// defending. Slot i remains the same player in both shapes; M12 moves that
+/// player between the two anchors as possession changes.
+pub fn set_out_of_possession_formation_internal(
+    state: &StateManager,
+    formation: &str,
+) -> Result<Game, String> {
+    if ofm_core::player_rating::parse_formation(formation).is_none() {
+        return Err(ofm_core::custom_tactics::INVALID_FORMATION_ERROR.to_string());
+    }
+    mutate_active_game(state, |game| {
+        let team = user_team_mut(game)?;
+        team.out_of_possession_formation = formation.to_string();
+        Ok(())
+    })
+}
+
 /// Picks a tactic preset: its formation and play style, and the phase blueprint
 /// that style implies (`blueprint_for`, the same one AI clubs take the field with).
 ///
@@ -144,6 +161,15 @@ pub fn set_formation(
 ) -> Result<Game, String> {
     info!("[cmd] set_formation: {}", formation);
     set_formation_internal(&state, &formation)
+}
+
+#[tauri::command]
+pub fn set_out_of_possession_formation(
+    state: State<'_, Arc<StateManager>>,
+    formation: String,
+) -> Result<Game, String> {
+    info!("[cmd] set_out_of_possession_formation: {formation}");
+    set_out_of_possession_formation_internal(&state, &formation)
 }
 
 #[tauri::command]
@@ -738,7 +764,8 @@ mod tests {
     use super::TacticsBlueprintStatus;
     use super::{
         apply_tactic_preset_internal, get_rating_tiers, get_squad_fitness_internal,
-        get_tactics_blueprint_status_internal, set_formation_internal, set_play_style_internal,
+        get_tactics_blueprint_status_internal, set_formation_internal,
+        set_out_of_possession_formation_internal, set_play_style_internal,
         set_player_role_internal, set_player_squad_role_internal,
         set_player_training_focus_internal,
     };
@@ -916,6 +943,24 @@ mod tests {
         state
             .get_game(|game| game.teams[0].clone())
             .expect("stored game")
+    }
+
+    /// Given a managed club
+    /// When a valid defensive shape is selected
+    /// Then it is saved independently, while an unknown shape leaves the prior setting intact.
+    #[test]
+    fn out_of_possession_formation_is_validated_and_persisted() {
+        let state = StateManager::new();
+        state.set_game(make_game(make_player("2000-01-01")));
+
+        set_out_of_possession_formation_internal(&state, "5-4-1").unwrap();
+        assert_eq!(stored_team(&state).out_of_possession_formation, "5-4-1");
+
+        assert_eq!(
+            set_out_of_possession_formation_internal(&state, "not-a-shape").err(),
+            Some(ofm_core::custom_tactics::INVALID_FORMATION_ERROR.to_string())
+        );
+        assert_eq!(stored_team(&state).out_of_possession_formation, "5-4-1");
     }
 
     /// Given a manager with custom dials

@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formasi & Gaya",
     "formation": "Formasi",
+    "outOfPossessionFormation": "Tanpa penguasaan bola",
     "playStyle": "Gaya Bermain",
     "teamIdentity": "Identitas Tim",
     "presetTactics": "Taktik Prasetel",

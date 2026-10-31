@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "阵型与风格",
     "formation": "阵型",
+    "outOfPossessionFormation": "无球时",
     "playStyle": "比赛风格",
     "lineupTab": "首发",
     "rolesTab": "定位球与角色",

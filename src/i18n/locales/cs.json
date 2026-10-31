@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Rozestavení a styl",
     "formation": "Rozestavení",
+    "outOfPossessionFormation": "Bez míče",
     "playStyle": "Herní styl",
     "teamIdentity": "Identita týmu",
     "presetTactics": "Přednastavené taktiky",

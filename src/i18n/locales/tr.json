@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Diziliş ve Stil",
     "formation": "Diziliş",
+    "outOfPossessionFormation": "Top rakipteyken",
     "playStyle": "Oyun Stili",
     "teamIdentity": "Takım Kimliği",
     "presetTactics": "Hazır Taktikler",

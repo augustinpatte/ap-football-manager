@@ -108,8 +108,12 @@ pub struct SpatialTeam {
     pub id: String,
     pub name: String,
     pub formation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_formation: Option<String>,
     pub tactics: Tactics,
     pub lineup: Vec<LineupSlot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_lineup: Option<Vec<LineupSlot>>,
     pub players: Vec<SpatialPlayer>,
     pub bench: Vec<String>,
     pub captain: String,
@@ -333,6 +337,11 @@ fn adapt_team(
     let team = selection.team;
     validate_id("team", &team.id)?;
     let layout = formation_geometry(&team.formation)?;
+    let defensive_formation = (!team.out_of_possession_formation.trim().is_empty())
+        .then(|| team.out_of_possession_formation.trim().to_string());
+    let defensive_layout = defensive_formation
+        .as_deref()
+        .and_then(|formation| formation_geometry(formation).ok());
     if selection.starters.len() != 11 {
         return Err(AdaptationError::WrongStarterCount {
             team_id: team.id.clone(),
@@ -368,6 +377,25 @@ fn adapt_team(
         });
         let _ = shirt;
     }
+    let out_of_possession_lineup = match defensive_layout {
+        Some(defensive_layout) => {
+            let mut defensive_lineup = Vec::with_capacity(defensive_layout.len());
+            for (player, slot) in selection.starters.iter().zip(defensive_layout) {
+                defensive_lineup.push(LineupSlot {
+                    player: player.id.clone(),
+                    role: map_position(&slot.position)?,
+                    base: slot.base,
+                    instructions: role_instructions(
+                        team.player_roles
+                            .get(&player.id)
+                            .unwrap_or(&PlayerRole::Standard),
+                    ),
+                });
+            }
+            Some(defensive_lineup)
+        }
+        None => None,
+    };
     if lineup
         .iter()
         .filter(|slot| slot.role == SpatialPosition::Gk)
@@ -415,8 +443,10 @@ fn adapt_team(
         id: team.id.clone(),
         name: team.name.clone(),
         formation: team.formation.clone(),
+        out_of_possession_formation: defensive_formation,
         tactics: tactics(&team.play_style, &team.tactics_phase),
         lineup,
+        out_of_possession_lineup,
         players,
         bench: selection.bench.iter().map(|p| p.id.clone()).collect(),
         captain: choose(&team.match_roles.captain, auto_captain)?,
@@ -1043,6 +1073,38 @@ mod tests {
         assert_eq!(result.input.home.bench, ["p11"]);
         assert_eq!(result.input.home.players[0].id, "p0");
         assert!(result.input.config.seed <= MAX_SEED);
+    }
+
+    /// Given a club with distinct possession and defensive formations
+    /// When its final XI is adapted for M12
+    /// Then both shapes retain the same player order and expose different anchors.
+    #[test]
+    fn the_adapter_sends_a_slot_aligned_defensive_shape_to_m12() {
+        let (fixture, mut home, away, hp, ap) = selection();
+        home.out_of_possession_formation = "5-3-2".into();
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        let defensive_lineup = result.input.home.out_of_possession_lineup.as_ref().unwrap();
+
+        assert_eq!(
+            result.input.home.out_of_possession_formation.as_deref(),
+            Some("5-3-2")
+        );
+        assert_eq!(defensive_lineup.len(), 11);
+        assert_eq!(
+            defensive_lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>(),
+            result
+                .input
+                .home
+                .lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>()
+        );
+        assert_ne!(defensive_lineup[4].base, result.input.home.lineup[4].base);
     }
     /// Given I1 proxy inputs, when attributes are adapted, then the documented rounded formula is used.
     #[test]

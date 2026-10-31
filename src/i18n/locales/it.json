@@ -728,6 +728,7 @@
   "tactics": {
     "formationStyle": "Formazione e stile",
     "formation": "Formazione",
+    "outOfPossessionFormation": "Senza possesso",
     "playStyle": "Stile di gioco",
     "lineupTab": "Formazione",
     "rolesTab": "Piazzati e ruoli",

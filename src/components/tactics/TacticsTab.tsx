@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useTranslation } from "react-i18next";
-import { setPlayerRole } from "../../services/squadService";
+import { setOutOfPossessionFormation, setPlayerRole } from "../../services/squadService";
 
 import TacticsPitch from "./TacticsPitch";
 import TacticsPlayerList from "./TacticsPlayerList";
@@ -111,6 +111,7 @@ export default function TacticsTab({
         activeTactic={activeTactic}
         activePlayStyle={activePlayStyle}
         formation={formation}
+        outOfPossessionFormation={team.out_of_possession_formation || formation}
         isDirty={isCommandBarDirty}
         canReset={canResetTactic}
         onReset={() => {
@@ -122,6 +123,13 @@ export default function TacticsTab({
         onDuplicate={handleDuplicateTactic}
         onFormationChange={(nextFormation) => {
           void handleFormationChange(nextFormation);
+        }}
+        onOutOfPossessionFormationChange={(nextFormation) => {
+          void setOutOfPossessionFormation(nextFormation)
+            .then(onGameUpdate)
+            .catch((error: unknown) => {
+              console.error("Failed to set out-of-possession formation:", error);
+            });
         }}
         onPlayStyleChange={(playStyle) => {
           void handlePlayStyleChange(playStyle);
