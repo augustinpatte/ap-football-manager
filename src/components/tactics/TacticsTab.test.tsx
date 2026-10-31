@@ -311,8 +311,8 @@ describe("TacticsTab", () => {
     const gameState = makeGameState();
     gameState.teams = [
       makeTeam({
-        formation: "4-4-2",
-        play_style: "Counter",
+        formation: "3-5-2",
+        play_style: "Balanced",
         starting_xi_ids: ["gk1", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"],
       }),
     ];
@@ -339,6 +339,18 @@ describe("TacticsTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: {
+          build_up_style: "Mixed",
+          width: "Normal",
+          tempo: "Direct",
+          defensive_line: "High",
+          pressing_intensity: "Aggressive",
+          defensive_shape: "Normal",
+          marking_style: "Zonal",
+          counter_press_duration: "Long",
+          break_speed: "Medium",
+        },
       });
     });
   });
@@ -620,6 +632,18 @@ describe("TacticsTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: {
+          build_up_style: "Mixed",
+          width: "Normal",
+          tempo: "Direct",
+          defensive_line: "High",
+          pressing_intensity: "Aggressive",
+          defensive_shape: "Normal",
+          marking_style: "Zonal",
+          counter_press_duration: "Long",
+          break_speed: "Medium",
+        },
       });
     });
 

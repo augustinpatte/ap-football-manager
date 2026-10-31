@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formasi & Gaya",
     "formation": "Formasi",
+    "outOfPossessionFormation": "Tanpa penguasaan bola",
     "playStyle": "Gaya Bermain",
     "teamIdentity": "Identitas Tim",
     "presetTactics": "Taktik Prasetel",
@@ -799,14 +800,28 @@
       "wing-play": "Permainan Sayap",
       "high-press": "Pressing Tinggi",
       "counter-attack": "Serangan Balik",
-      "low-block": "Blok Rendah"
+      "low-block": "Blok Rendah",
+      "control-possession": "Kontrol penguasaan", "tiki-taka": "Gaya tiki-taka", "vertical-tiki-taka": "Tiki-taka vertikal", "gegenpress": "Tekanan balik", "direct-counter": "Serangan balik langsung", "direct-play": "Permainan langsung", "mid-block": "Blok menengah", "high-defensive-line": "Garis pertahanan tinggi", "defensive": "Bertahan", "attacking": "Menyerang", "long-ball": "Bola panjang", "park-the-bus": "Parkir bus", "fast-transition": "Transisi cepat"
     },
     "presetDescriptions": {
       "balanced-control": "Garis yang stabil, jangkauan yang andal, dan bentuk yang sederhana untuk sebagian besar skuad.",
       "wing-play": "Lebar alami, dukungan lebih awal di sekitar kotak penalti, dan lebih banyak pemain yang berlari di depan bola.",
       "high-press": "Menaikkan blok lebih tinggi, menuntut tekanan agresif, dan mengerahkan banyak pemain ke depan.",
       "counter-attack": "Mengutamakan serangan balik cepat dari lini tengah yang lebih aman setelah penguasaan bola kembali.",
-      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan."
+      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan.",
+      "control-possession": "Menjaga bola dengan sirkulasi pendek dan sabar serta struktur lini tengah yang stabil.",
+      "tiki-taka": "Memakai umpan pendek rapat dan dukungan dekat untuk maju melalui lini yang terhubung.",
+      "vertical-tiki-taka": "Memadukan kombinasi pendek dengan garis tinggi agar bola lebih cepat maju.",
+      "gegenpress": "Mengejar bola segera setelah kehilangan dengan garis tinggi dan tekanan balik berkelanjutan.",
+      "direct-counter": "Bertahan rapat sebelum melepas umpan panjang cepat ke ruang di belakang lawan.",
+      "direct-play": "Mengirim bola lebih awal ke depan melalui opsi lebar dan lebih sedikit umpan di tengah.",
+      "mid-block": "Melindungi ruang tengah dalam blok menengah yang kompak tanpa terlalu mundur.",
+      "high-defensive-line": "Menahan tim tetap tinggi untuk memadatkan lapangan dan mendukung penguasaan proaktif.",
+      "defensive": "Mengutamakan bentuk rendah dan sempit serta perlindungan area penalti yang disiplin.",
+      "attacking": "Mendorong pemain ke depan dengan lebar, garis tinggi, dan dukungan cepat di sepertiga akhir.",
+      "long-ball": "Memakai dasar rendah dan aman sebelum umpan panjang cepat untuk merebut wilayah.",
+      "park-the-bus": "Bermain sangat dalam, sempit, dan pasif untuk menutup ruang di sekitar kotak penalti.",
+      "fast-transition": "Mengubah perebutan bola menjadi serangan langsung dengan transisi cepat dan tekanan aktif."
     },
     "playerRoles": {
       "Standard": "Standard",

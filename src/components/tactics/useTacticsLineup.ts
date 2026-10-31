@@ -8,6 +8,7 @@ import {
   applyTacticPreset,
   setTacticsPhase as setTacticsPhaseService,
 } from "../../services/squadService";
+import { applyCustomTactic } from "../../services/customTacticsService";
 import { useFetchedSquad } from "../../hooks/useFetchedSquad";
 import { useAutoSetPieces } from "../../hooks/useAutoSetPieces";
 import type { TacticsPhaseSettings } from "../../store/types";
@@ -58,6 +59,8 @@ export function useTacticsLineup({ gameState, onGameUpdate }: UseTacticsLineupAr
     ? findTacticsPresetBySetup(
         initialTeam.formation || "4-4-2",
         initialTeam.play_style || "Balanced",
+        initialTeam.tactics_phase,
+        initialTeam.out_of_possession_formation || initialTeam.formation || "4-4-2",
       )
     : null;
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -210,13 +213,30 @@ export function useTacticsLineup({ gameState, onGameUpdate }: UseTacticsLineupAr
   async function handleApplyTacticPreset(
     nextFormation: string,
     playStyle: string,
+    tacticsPhase?: TacticsPhaseSettings,
+    outOfPossessionFormation?: string,
   ): Promise<boolean> {
     try {
-      const updated = await applyTacticPreset(nextFormation, playStyle);
+      const updated = await applyTacticPreset(
+        nextFormation,
+        playStyle,
+        tacticsPhase,
+        outOfPossessionFormation,
+      );
       onGameUpdate(updated);
       return true;
     } catch (error) {
       console.error("Failed to apply tactic preset:", error);
+      return false;
+    }
+  }
+
+  async function handleApplyCustomTactic(id: string): Promise<boolean> {
+    try {
+      onGameUpdate(await applyCustomTactic(id));
+      return true;
+    } catch (error) {
+      console.error("Failed to apply saved tactic:", error);
       return false;
     }
   }
@@ -467,6 +487,7 @@ export function useTacticsLineup({ gameState, onGameUpdate }: UseTacticsLineupAr
     handleFormationChange,
     handlePlayStyleChange,
     handleApplyTacticPreset,
+    handleApplyCustomTactic,
     handleAssignBestFit,
     handlePromoteBenchPlayer,
     handleDemoteStarter,

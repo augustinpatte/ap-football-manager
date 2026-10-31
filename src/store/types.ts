@@ -148,6 +148,8 @@ export interface TeamData {
   season_expenses: number;
   financial_ledger?: FinancialTransactionData[];
   formation: string;
+  /** Empty in legacy saves: the in-possession formation is reused when defending. */
+  out_of_possession_formation?: string;
   play_style: string;
   training_focus: string;
   training_intensity: string;
