@@ -106,6 +106,7 @@ pub fn transfer_make_bid(
         &ctx.state_manager,
         &player_id,
         fee,
+        domain::transfer_terms::TransferTerms::default(),
     )?;
 
     let bid = BidMade {
@@ -149,6 +150,7 @@ pub fn transfer_preview_bid(
         &ctx.state_manager,
         &player_id,
         fee,
+        &domain::transfer_terms::TransferTerms::default(),
     )?;
     let p = &response.projection;
 
@@ -319,6 +321,7 @@ pub fn transfer_free_agent_offer(
         weekly_wage,
         contract_years,
         false,
+        0,
     )?;
 
     {
@@ -346,6 +349,7 @@ pub fn transfer_free_agent_preview(
         &ctx.state_manager,
         &player_id,
         weekly_wage,
+        0,
     )?;
     let p = &response.projection;
 

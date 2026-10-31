@@ -669,6 +669,12 @@ pub struct TransferOffer {
     /// re-opens talks — so it can never answer "how long ago was this club turned away".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed_on: Option<String>,
+    /// What the buyer attached to the fee. Absent in an older save, which reads as a plain fee.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::transfer_terms::TransferTerms::is_plain"
+    )]
+    pub terms: crate::transfer_terms::TransferTerms,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

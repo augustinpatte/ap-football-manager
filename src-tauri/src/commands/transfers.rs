@@ -1,5 +1,6 @@
 use domain::negotiation::NegotiationFeedback;
 use domain::player::{LoanOfferStatus, Position};
+use domain::transfer_terms::TransferTerms;
 use log::info;
 use std::sync::Arc;
 use tauri::State;
@@ -119,8 +120,9 @@ pub fn make_transfer_bid(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
     fee: u64,
+    terms: Option<TransferTerms>,
 ) -> Result<TransferNegotiationCommandResponse, String> {
-    make_transfer_bid_internal(&state, &player_id, fee)
+    make_transfer_bid_internal(&state, &player_id, fee, terms.unwrap_or_default())
 }
 
 #[tauri::command]
@@ -128,8 +130,14 @@ pub fn preview_transfer_bid_financial_impact(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
     fee: u64,
+    terms: Option<TransferTerms>,
 ) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
-    preview_transfer_bid_financial_impact_internal(&state, &player_id, fee)
+    preview_transfer_bid_financial_impact_internal(
+        &state,
+        &player_id,
+        fee,
+        &terms.unwrap_or_default(),
+    )
 }
 
 #[tauri::command]
@@ -169,17 +177,19 @@ pub fn make_transfer_bid_internal(
     state: &StateManager,
     player_id: &str,
     fee: u64,
+    terms: TransferTerms,
 ) -> Result<TransferNegotiationCommandResponse, String> {
     info!(
-        "[cmd] make_transfer_bid: player_id={}, fee={}",
-        player_id, fee
+        "[cmd] make_transfer_bid: player_id={}, fee={}, terms={:?}",
+        player_id, fee, terms
     );
     // make_transfer_bid validates (window/player/funds) before executing; its
     // only post-mutation error path (player-not-found in execute_transfer) is
     // unreachable here, so in-place mutation is safe.
     state
         .update_game(|game| {
-            let result = ofm_core::transfers::make_transfer_bid(game, player_id, fee)?;
+            let result =
+                ofm_core::transfers::make_transfer_bid_with_terms(game, player_id, fee, terms)?;
             Ok(map_transfer_negotiation_response(result, game.ui_clone()))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
@@ -255,15 +265,18 @@ pub fn preview_transfer_bid_financial_impact_internal(
     state: &StateManager,
     player_id: &str,
     fee: u64,
+    terms: &TransferTerms,
 ) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
     info!(
-        "[cmd] preview_transfer_bid_financial_impact: player_id={}, fee={}",
-        player_id, fee
+        "[cmd] preview_transfer_bid_financial_impact: player_id={}, fee={}, terms={:?}",
+        player_id, fee, terms
     );
 
     let projection = state
         .get_game(|game| {
-            ofm_core::transfers::project_transfer_bid_financial_impact(game, player_id, fee)
+            ofm_core::transfers::project_transfer_bid_financial_impact_with_terms(
+                game, player_id, fee, terms,
+            )
         })
         .ok_or_else(|| "be.error.noActiveGameSession".to_string())??;
 
@@ -628,6 +641,7 @@ mod tests {
             registration_date: None,
             closed_on: None,
             registration_failure_reason: None,
+            terms: Default::default(),
         });
         player
     }
@@ -763,7 +777,13 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
+        let response = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            1_050_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
@@ -793,7 +813,13 @@ mod tests {
         game.season_context.transfer_window.opens_on = Some("2027-01-01".to_string());
         state.set_game(game);
 
-        let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
+        let response = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            1_050_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.registration_date.as_deref(), Some("2027-01-01"));
@@ -876,7 +902,13 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response = make_transfer_bid_internal(&state, "player-2", 900_000).expect("response");
+        let response = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            900_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.decision, TransferNegotiationDecision::CounterOffer);
         assert_eq!(response.suggested_fee, Some(950_000));
@@ -900,11 +932,23 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let first = make_transfer_bid_internal(&state, "player-2", 900_000).expect("first bid");
+        let first = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            900_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("first bid");
         assert_eq!(first.decision, TransferNegotiationDecision::CounterOffer);
         assert_eq!(first.feedback.round, 1);
 
-        let second = make_transfer_bid_internal(&state, "player-2", 950_000).expect("second bid");
+        let second = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            950_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("second bid");
 
         assert_eq!(second.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(second.feedback.round, 2);
@@ -1189,9 +1233,13 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response =
-            preview_transfer_bid_financial_impact_internal(&state, "player-2", 1_000_000)
-                .expect("response");
+        let response = preview_transfer_bid_financial_impact_internal(
+            &state,
+            "player-2",
+            1_000_000,
+            &domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.projection.transfer_budget_before, 2_000_000);
         assert_eq!(response.projection.transfer_budget_after, 1_000_000);
@@ -1234,9 +1282,13 @@ mod tests {
         game.season_context.transfer_window.opens_on = Some("2027-01-02".to_string());
         state.set_game(game);
 
-        let response =
-            preview_transfer_bid_financial_impact_internal(&state, "player-2", 1_000_000)
-                .expect("response");
+        let response = preview_transfer_bid_financial_impact_internal(
+            &state,
+            "player-2",
+            1_000_000,
+            &domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(
             response.projection.pending_registration_date.as_deref(),

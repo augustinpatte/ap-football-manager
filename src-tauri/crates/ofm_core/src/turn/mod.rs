@@ -197,6 +197,8 @@ fn process_day_common(game: &mut Game, today: &str) {
     scouting::process_scouting(game);
     transfers::process_pending_transfer_registrations(game);
     transfers::process_pending_loan_registrations(game);
+    // Later instalments of fees agreed in earlier windows or seasons fall due whatever the window.
+    transfers::process_transfer_obligations(game);
     // AI clubs say whom they would sell before the market looks for what is for sale.
     crate::ai_squad_sales::apply_ai_listing_decisions(game, weekday_num);
     transfers::generate_incoming_transfer_offers(game);

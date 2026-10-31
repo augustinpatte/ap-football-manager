@@ -152,5 +152,6 @@ pub fn pending_offer(game: &mut Game, id: &str, from: &str, fee: u64, date: &str
             registration_date: None,
             closed_on: None,
             registration_failure_reason: None,
+            terms: Default::default(),
         });
 }

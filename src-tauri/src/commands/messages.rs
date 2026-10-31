@@ -245,7 +245,16 @@ pub fn resolve_message_action_internal(
                                     Some(effect.i18n_key),
                                     Some(effect.i18n_params),
                                 ),
-                                None => (None, None, None),
+                                None => match ofm_core::transfers::apply_transfer_offer_response(
+                                    game, message_id, action_id, opt,
+                                ) {
+                                    Some(effect) => (
+                                        Some(effect.message),
+                                        Some(effect.i18n_key),
+                                        Some(effect.i18n_params),
+                                    ),
+                                    None => (None, None, None),
+                                },
                             },
                         }
                     }

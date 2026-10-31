@@ -938,6 +938,7 @@ mod tests {
             registration_date: None,
             closed_on: Some("2026-08-14".to_string()),
             registration_failure_reason: None,
+            terms: Default::default(),
         });
         player.loan_offers.push(LoanOffer {
             id: "loan-offer-closed".to_string(),

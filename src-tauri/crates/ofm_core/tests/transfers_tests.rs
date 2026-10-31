@@ -88,6 +88,7 @@ fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     }
 }
 
@@ -932,6 +933,7 @@ fn stale_outgoing_transfer_negotiation_is_withdrawn_before_new_bid() {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1190,6 +1192,7 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);

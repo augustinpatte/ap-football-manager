@@ -54,6 +54,23 @@ pub fn offer_free_agent_contract_with_promise(
     offer: RenewalOffer,
     promise_stepping_stone: bool,
 ) -> Result<RenewalOutcome, String> {
+    offer_free_agent_contract_with_terms(game, player_id, offer, promise_stepping_stone, 0)
+}
+
+/// Longest contract a bonus is spread over when working out what it is worth a week.
+const WEEKS_PER_YEAR: u64 = 52;
+
+/// A signing bonus counts toward what the player is offered, spread over the contract: he weighs
+/// `wage + bonus / weeks of contract` against what he expects, while the board's wage policy is
+/// still held to the wage alone. The bonus is paid on signing out of the club's cash and
+/// transfer budget, and cannot exceed the wages of the whole contract.
+pub fn offer_free_agent_contract_with_terms(
+    game: &mut Game,
+    player_id: &str,
+    offer: RenewalOffer,
+    promise_stepping_stone: bool,
+    signing_bonus: u64,
+) -> Result<RenewalOutcome, String> {
     let manager_team_id = game
         .manager
         .team_id
@@ -93,6 +110,14 @@ pub fn offer_free_agent_contract_with_promise(
     let expected_years = expected_contract_years(&game.players[player_index], current_date);
     let reference_wage = reference_player_wage(&game.players[player_index]);
     let minimum_wage = minimum_acceptable_wage(reference_wage);
+    let contract_weeks = WEEKS_PER_YEAR * u64::from(offer.contract_years.max(1));
+    if signing_bonus > u64::from(offer.weekly_wage) * contract_weeks {
+        return Err(crate::transfers::ERR_INVALID_DEAL_TERMS.to_string());
+    }
+    // What he weighs against his expectations; the wage alone is what the board polices.
+    let worth_per_week = offer
+        .weekly_wage
+        .saturating_add(u32::try_from(signing_bonus / contract_weeks).unwrap_or(u32::MAX));
 
     if offer.contract_years == 0 || offer.contract_years > MAX_CONTRACT_YEARS {
         return Ok(renewal_outcome(
@@ -114,7 +139,7 @@ pub fn offer_free_agent_contract_with_promise(
         ));
     }
 
-    if is_insulting_wage_offer(reference_wage, expected_wage, offer.weekly_wage) {
+    if is_insulting_wage_offer(reference_wage, expected_wage, worth_per_week) {
         let blocked_until = renewal_blocked_until(current_date);
         let player = &mut game.players[player_index];
         let state = player
@@ -146,7 +171,7 @@ pub fn offer_free_agent_contract_with_promise(
         ));
     }
 
-    if offer.weekly_wage < minimum_wage {
+    if worth_per_week < minimum_wage {
         return Ok(renewal_outcome(
             RenewalDecision::Rejected,
             None,
@@ -166,13 +191,28 @@ pub fn offer_free_agent_contract_with_promise(
         ));
     }
 
-    if offer.weekly_wage >= expected_wage && offer.contract_years >= expected_years {
+    if worth_per_week >= expected_wage && offer.contract_years >= expected_years {
         let player = game.players[player_index].clone();
         let verdict = wage_policy_verdict(game, &team, &player, offer.weekly_wage);
         if !verdict.permits() {
             return Err(renewal_wage_policy_error_message(&team));
         }
 
+        // Before anything is signed: a bonus the club cannot pay refuses the deal whole.
+        let bonus_cash = i64::try_from(signing_bonus)
+            .map_err(|_| "be.error.finance.amountOverflow".to_string())?;
+        if signing_bonus > 0 {
+            crate::transfers::ensure_bonus_affordable(&team, signing_bonus)?;
+            crate::finances::validate_posts(
+                game,
+                &[crate::finances::PostRequest::new(
+                    &team.id,
+                    -bonus_cash,
+                    crate::finances::CashKind::SigningBonus,
+                    current_date,
+                )],
+            )?;
+        }
         sign_free_agent(
             game,
             player_index,
@@ -181,6 +221,20 @@ pub fn offer_free_agent_contract_with_promise(
             offer.contract_years,
             current_date,
         )?;
+        if signing_bonus > 0 {
+            crate::finances::post_all(
+                game,
+                &[crate::finances::PostRequest::new(
+                    &team.id,
+                    -bonus_cash,
+                    crate::finances::CashKind::SigningBonus,
+                    current_date,
+                )],
+            )?;
+            if let Some(club) = game.teams.iter_mut().find(|club| club.id == team.id) {
+                club.transfer_budget -= bonus_cash;
+            }
+        }
         if promise_stepping_stone {
             game.players[player_index]
                 .morale_core

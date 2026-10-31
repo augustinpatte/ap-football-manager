@@ -20,4 +20,5 @@ pub mod staff;
 pub mod stats;
 pub mod table_order;
 pub mod team;
+pub mod transfer_terms;
 pub mod world_history;
