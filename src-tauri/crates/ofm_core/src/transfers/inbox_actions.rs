@@ -42,7 +42,10 @@ pub fn apply_transfer_offer_response(
         "reject" => false,
         _ => return None,
     };
-    let message_index = game.messages.iter().position(|m| m.id == message_id)?;
+    let message_index = game
+        .messages
+        .iter()
+        .position(|message| message.id == message_id)?;
     let action_index = game.messages[message_index]
         .actions
         .iter()
@@ -57,13 +60,31 @@ pub fn apply_transfer_offer_response(
         .find(|player| player.id == player_id)
         .map(|player| player.full_name.clone())?;
 
+    // `respond_to_offer` marks the offer before it moves the player, and `update_game` cannot roll
+    // back: a refusal after that point must not leave an offer agreed with the player still here.
+    let offers_before = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .map(|player| (player.transfer_offers.clone(), player.loan_offers.clone()));
     let (resolved, key) = match respond_to_offer(game, &player_id, &offer_id, accept) {
         Ok(()) if accept => (true, "be.msg.transferInterest.effect.accepted".to_string()),
         Ok(()) => (true, "be.msg.transferInterest.effect.rejected".to_string()),
         Err(error) if error == ERR_OFFER_NOT_PENDING => {
             (true, "be.msg.transferInterest.effect.expired".to_string())
         }
-        Err(error) => (false, error),
+        Err(error) => {
+            if let (Some((transfer_offers, loan_offers)), Some(player)) = (
+                offers_before,
+                game.players
+                    .iter_mut()
+                    .find(|player| player.id == player_id),
+            ) {
+                player.transfer_offers = transfer_offers;
+                player.loan_offers = loan_offers;
+            }
+            (false, error)
+        }
     };
     if resolved {
         game.messages[message_index].actions[action_index].resolved = true;

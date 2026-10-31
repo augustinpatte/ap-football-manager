@@ -427,10 +427,10 @@ pub(super) fn execute_transfer_with_terms(
     // Envelope (transfer_budget) still mutates here. Cash is posted above.
     // Transfer fees do not change season income/expenses (same as develop).
     terms::apply_budgets(game, &deal, &settlement);
-    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id) {
-        if let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id) {
-            t.starting_xi_ids.remove(pos);
-        }
+    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id)
+        && let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id)
+    {
+        t.starting_xi_ids.remove(pos);
     }
 
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == from_team_id) {

@@ -223,6 +223,38 @@ fn instalments_fall_due_once_each_across_seasons_and_add_up_to_the_fee() {
 }
 
 #[test]
+fn the_daily_turn_pays_a_due_instalment_exactly_once() {
+    // Given a two-instalment deal whose second payment falls due on 1 August 2027.
+    let mut game = market_game("small-club", "1999-01-01");
+    bid(&mut game, FEE, terms(2, 0, 0));
+    set_date(&mut game, 2027, 8, 1);
+    let seller_cash = team(&game, "small-club").finance;
+
+    // When the real daily turn runs on that day, and again on the next.
+    ofm_core::turn::process_day(&mut game);
+    let after_due_day = team(&game, "small-club").finance;
+    ofm_core::turn::process_day(&mut game);
+
+    // Then the seller received the instalment on the due day and nothing more on the next.
+    let instalment = (FEE / 2) as i64;
+    assert!(
+        after_due_day - seller_cash >= instalment,
+        "seller gained {} of the {instalment} due",
+        after_due_day - seller_cash
+    );
+    let received: i64 = posts_of(&game, CashKind::TransferFeeIn)
+        .into_iter()
+        .filter(|(club, amount)| club == "small-club" && *amount == instalment)
+        .map(|(_, amount)| amount)
+        .sum();
+    assert_eq!(
+        received,
+        instalment * 2,
+        "first and second instalment, once each"
+    );
+}
+
+#[test]
 fn a_settled_instalment_is_forgotten_after_its_retention() {
     let mut game = market_game("small-club", "1999-01-01");
     bid(&mut game, FEE, terms(2, 0, 0));
@@ -325,6 +357,52 @@ fn a_sell_on_clause_pays_the_original_seller_from_the_next_sale_only() {
 }
 
 #[test]
+fn exercising_a_loan_buy_option_settles_a_sell_on_clause_the_parent_holds() {
+    // Given a player on loan at the user's club from the small club, who holds a 20% clause owed to
+    // the big club, and a 1 000 000 buy option.
+    let mut game = market_game("team-1", "1999-01-01");
+    game.players[0].active_loan = Some(domain::player::ActiveLoan {
+        parent_team_id: "small-club".to_string(),
+        loan_team_id: "team-1".to_string(),
+        loan_team_name: None,
+        start_date: "2026-08-01".to_string(),
+        end_date: "2027-06-30".to_string(),
+        wage_contribution_pct: 50,
+        buy_option_fee: Some(1_000_000),
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    game.transfer_obligations.push(TransferObligation::SellOn {
+        id: "clause".to_string(),
+        player_id: PLAYER_ID.to_string(),
+        holder_team_id: "small-club".to_string(),
+        beneficiary_team_id: "big-club".to_string(),
+        pct: 20,
+        settled_on: None,
+    });
+    let (small_cash, big_cash) = (
+        team(&game, "small-club").finance,
+        team(&game, "big-club").finance,
+    );
+
+    // When the user exercises the option.
+    ofm_core::transfers::exercise_loan_buy_option(&mut game, PLAYER_ID).expect("option exercised");
+
+    // Then the parent was paid the fee less the clause, the big club got its 20%, and it is spent.
+    assert_eq!(team(&game, "small-club").finance, small_cash + 800_000);
+    assert_eq!(team(&game, "big-club").finance, big_cash + 200_000);
+    assert!(matches!(
+        obligations(&game)[0],
+        TransferObligation::SellOn {
+            settled_on: Some(_),
+            ..
+        }
+    ));
+}
+
+#[test]
 fn a_clause_the_seller_cannot_fund_blocks_the_sale_without_moving_money() {
     // Given a clause for the small club, and a user club that cannot pay 20% out of a cheap sale.
     let mut game = market_game("small-club", "1999-01-01");
@@ -359,10 +437,13 @@ fn an_ambitious_player_refuses_to_step_down_unless_promised_a_way_out() {
     // Given a promising player at the big club and a smaller club bidding for him.
     let promising = |promise: bool, bonus: u64| {
         let mut game = market_game("big-club", "2005-01-01");
-        game.players
+        if let Some(promising) = game
+            .players
             .iter_mut()
-            .find(|p| p.id == PLAYER_ID)
-            .map(|p: &mut Player| p.potential = 80);
+            .find(|p: &&mut Player| p.id == PLAYER_ID)
+        {
+            promising.potential = 80;
+        }
         let outcome = make_transfer_bid_with_terms(
             &mut game,
             PLAYER_ID,

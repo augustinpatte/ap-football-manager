@@ -175,6 +175,42 @@ pub fn resolve_message_action(
     resolve_message_action_internal(&state, &message_id, &action_id, option_id.as_deref())
 }
 
+type ResponseEffect = (String, String, std::collections::HashMap<String, String>);
+
+/// Offers the chosen option to each kind of message that can carry one, in turn, until one of
+/// them recognises it: a player conversation, a random event, a job offer, a youth report, a
+/// transfer offer. Each only acts on its own message and action ids, so the order is not a
+/// priority between them.
+fn apply_option_response(
+    game: &mut ofm_core::game::Game,
+    message_id: &str,
+    action_id: &str,
+    option_id: &str,
+) -> Option<ResponseEffect> {
+    ofm_core::player_events::apply_player_response(game, message_id, action_id, option_id)
+        .map(|effect| (effect.message, effect.i18n_key, effect.i18n_params))
+        .or_else(|| {
+            ofm_core::random_events::apply_event_response(game, message_id, action_id, option_id)
+                .map(|effect| (effect.message, effect.i18n_key, effect.i18n_params))
+        })
+        .or_else(|| {
+            ofm_core::job_offers::apply_job_offer_response(game, message_id, action_id, option_id)
+                .map(|effect| (effect.message, effect.i18n_key, effect.i18n_params))
+        })
+        .or_else(|| {
+            ofm_core::scouting::apply_youth_recruitment_response(
+                game, message_id, action_id, option_id,
+            )
+            .map(|effect| (effect.message, effect.i18n_key, effect.i18n_params))
+        })
+        .or_else(|| {
+            ofm_core::transfers::apply_transfer_offer_response(
+                game, message_id, action_id, option_id,
+            )
+            .map(|effect| (effect.message, effect.i18n_key, effect.i18n_params))
+        })
+}
+
 pub fn resolve_message_action_internal(
     state: &StateManager,
     message_id: &str,
@@ -208,56 +244,9 @@ pub fn resolve_message_action_internal(
                 // from the player's side it is not: no effect, nothing resolved.
                 (None, None, None)
             } else if let Some(opt) = option_id {
-                // Try player events first, then random events
-                let player_effect = ofm_core::player_events::apply_player_response(
-                    game, message_id, action_id, opt,
-                );
-                if let Some(player_effect) = player_effect {
-                    (
-                        Some(player_effect.message),
-                        Some(player_effect.i18n_key),
-                        Some(player_effect.i18n_params),
-                    )
-                } else {
-                    let random_effect = ofm_core::random_events::apply_event_response(
-                        game, message_id, action_id, opt,
-                    );
-                    if let Some(effect) = random_effect {
-                        (
-                            Some(effect.message),
-                            Some(effect.i18n_key),
-                            Some(effect.i18n_params),
-                        )
-                    } else {
-                        match ofm_core::job_offers::apply_job_offer_response(
-                            game, message_id, action_id, opt,
-                        ) {
-                            Some(effect) => (
-                                Some(effect.message),
-                                Some(effect.i18n_key),
-                                Some(effect.i18n_params),
-                            ),
-                            None => match ofm_core::scouting::apply_youth_recruitment_response(
-                                game, message_id, action_id, opt,
-                            ) {
-                                Some(effect) => (
-                                    Some(effect.message),
-                                    Some(effect.i18n_key),
-                                    Some(effect.i18n_params),
-                                ),
-                                None => match ofm_core::transfers::apply_transfer_offer_response(
-                                    game, message_id, action_id, opt,
-                                ) {
-                                    Some(effect) => (
-                                        Some(effect.message),
-                                        Some(effect.i18n_key),
-                                        Some(effect.i18n_params),
-                                    ),
-                                    None => (None, None, None),
-                                },
-                            },
-                        }
-                    }
+                match apply_option_response(game, message_id, action_id, opt) {
+                    Some((message, key, params)) => (Some(message), Some(key), Some(params)),
+                    None => (None, None, None),
                 }
             } else {
                 // Standard resolve — just mark action as resolved
@@ -408,6 +397,100 @@ mod tests {
             !action.resolved,
             "an action on a message the player cannot see must not resolve"
         );
+    }
+
+    /// Given a transfer-interest message describing a bid on a user player,
+    /// When the manager rejects it through the IPC entry point,
+    /// Then the offer is closed, the action resolved and the effect key returned to the UI.
+    #[test]
+    fn resolve_message_action_internal_answers_a_transfer_offer_from_the_inbox() {
+        use domain::player::{
+            Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus,
+        };
+        let state = StateManager::new();
+        let mut game = make_game();
+        let mut rival = make_team();
+        rival.id = "team-2".to_string();
+        rival.manager_id = None;
+        game.teams.push(rival);
+        let mut player = Player::new(
+            "p1".to_string(),
+            "P. One".to_string(),
+            "Pat One".to_string(),
+            "2000-01-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            PlayerAttributes {
+                pace: 60,
+                stamina: 60,
+                strength: 60,
+                agility: 60,
+                passing: 60,
+                shooting: 60,
+                tackling: 60,
+                dribbling: 60,
+                defending: 60,
+                positioning: 60,
+                vision: 60,
+                decisions: 60,
+                composure: 60,
+                aggression: 60,
+                teamwork: 60,
+                leadership: 60,
+                handling: 30,
+                reflexes: 30,
+                aerial: 60,
+            },
+        );
+        player.team_id = Some("team-1".to_string());
+        player.transfer_offers.push(TransferOffer {
+            id: "offer-1".to_string(),
+            from_team_id: "team-2".to_string(),
+            fee: 900_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: TransferOfferStatus::Pending,
+            date: "2026-08-20".to_string(),
+            registration_date: None,
+            closed_on: None,
+            registration_failure_reason: None,
+            terms: Default::default(),
+        });
+        game.players.push(player);
+        game.messages = vec![ofm_core::messages::transfer_interest_digest_message(
+            "p1",
+            "Pat One",
+            1,
+            "Rival FC",
+            900_000,
+            "offer-1",
+            "2026-08-20",
+        )];
+        state.set_game(game);
+
+        let response = resolve_message_action_internal(
+            &state,
+            "transfer_interest_p1",
+            "respond_offer:offer-1",
+            Some("reject"),
+        )
+        .expect("response");
+
+        assert_eq!(
+            response["effect_i18n_key"],
+            "be.msg.transferInterest.effect.rejected"
+        );
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(
+            stored.players[0].transfer_offers[0].status,
+            TransferOfferStatus::Rejected
+        );
+        assert!(stored.messages[0]
+            .actions
+            .iter()
+            .any(|action| { action.id == "respond_offer:offer-1" && action.resolved }));
     }
 
     #[test]

@@ -39,15 +39,50 @@ rebid cooldowns). All of it persists through the existing `Player` JSON columns.
 - UI: `TransferDeadlinePanel` above the Transfers tab, shown in the final week or whenever
   something needs an answer.
 
+### Deal terms: signing bonus, instalments, sell-on clause (second pass)
+- `domain::transfer_terms::TransferTerms` rides on `TransferOffer.terms` (serde default, so older
+  saves read a plain fee) and is kept through a counter-offer and through a closed window.
+- **Signing bonus** (free agents and permanent bids). A free agent weighs `wage + bonus / weeks of
+  contract` against what he expects; the board's wage policy is still held to the wage alone. The
+  bonus is paid on signing out of cash *and* transfer budget (`CashKind::SigningBonus`, counted in
+  season expenses), and cannot exceed the wages of the whole contract.
+- **Instalments** (up to 4, one a year apart). The first part (which absorbs the rounding
+  remainder) and any bonus are paid on completion; later parts become `TransferObligation`s in a new
+  `transfer_obligations` table (migration `v062`), paid once on their due date by the daily turn,
+  marked paid in the same step that moves the money, and dropped from the save 120 days later. The
+  buyer's transfer budget is debited the whole fee on completion; the seller's is credited as each
+  payment arrives.
+- **Sell-on clause** (up to 30% of the next fee). Recorded as an obligation held by the buyer for
+  the seller; settled in full from the holder's cash, in the same atomic posting as the next sale's
+  fee, then spent. A sale that would trigger a clause the seller cannot fund is refused before the
+  offer is marked agreed.
+- The seller prices the terms: +4% per extra instalment, -1% per 3% of sell-on.
+- UI: a "deal terms" block in the bid form and a bonus field in the free-agent form, with the
+  cash-now / instalments / bonus lines in the projection.
+
+### Player consent on permanent transfers
+Once the clubs agree, an ambitious player (young, with room to grow) refuses to step down to a club
+whose reputation is more than 100 below his current club's, unless the terms carry the stepping-stone
+promise or a bonus worth at least 26 weeks of his usual wage. The refusal is a non-terminal outcome
+with its own feedback, so the manager can come back with a promise or a bonus. A promise given on a
+permanent bid is recorded when the deal completes, including one that waited for the window.
+
+### Inbox actions
+The per-player transfer-interest message now carries an `accept` / `reject` choice on the offer it
+describes. It runs the same `respond_to_offer` as the Transfers tab (squad floor, wage policy,
+registration date). Answering twice does nothing; an offer already gone closes the action with an
+explanation; a refusal leaves the action open with the reason.
+
 ## Not done, and why
 
 | Item | Status |
 |---|---|
-| Installments, sell-on clauses, signing bonuses | Not in the data model (no field anywhere); adding them touches fees, finances and persistence. Deferred. |
-| Promise on permanent bids / loans | Only free-agent signings give the player a say today; bids are decided by clubs only. |
+| Promise on loans | Loans are decided by clubs only. |
 | Promise effect beyond the player | Outcomes touch that player's trust, morale and renewal willingness. No club-wide "agent trust". |
-| Answering an offer straight from an inbox message | Existing inbox messages are informative; the Transfers tab (and the new panel, which lists the offers) is where answers happen. |
-| MCP tool for the deadline summary / promise | Not added; `offer_free_agent_contract` through MCP passes `promise = false`. |
+| Instalments / clause on incoming AI offers | AI clubs bid a lump sum; only the user's bids carry terms. |
+| Sell-on settled by instalment | A clause is paid in full at the sale, never spread. |
+| Inbox actions for loan offers and counter-offers | Only permanent incoming offers can be answered in place. |
+| MCP tools for the new terms / deadline summary | Not added; MCP bids and signings pass plain terms. |
 | Agentic-FC reference | Studied as inspiration only; no code or runtime imported, no attribution needed. |
 
 ## Verification environment

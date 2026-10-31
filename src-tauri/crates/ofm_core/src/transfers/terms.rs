@@ -114,6 +114,9 @@ pub(crate) fn player_refuses_move(
     !(terms.promise_stepping_stone || bonus_is_a_sweetener)
 }
 
+/// A sell-on clause a sale triggers: `(obligation id, beneficiary club, amount owed)`.
+pub(super) type SellOnDue = (String, String, u64);
+
 /// A completed transfer's money-relevant facts, bundled so the settlement steps share one view.
 #[derive(Clone, Copy)]
 pub(super) struct Deal<'a> {
@@ -129,12 +132,37 @@ pub(super) struct Deal<'a> {
 pub(super) struct Settlement {
     pub first_instalment: u64,
     /// `(obligation id, beneficiary club, amount)` of every sell-on clause this sale triggered.
-    pub sell_on_paid: Vec<(String, String, u64)>,
+    pub sell_on_paid: Vec<SellOnDue>,
 }
 
 /// Posts every cash movement of a completed transfer in one atomic step: the first instalment,
 /// the bonus, and any sell-on clause the sale triggers.
 pub(super) fn settle_cash(game: &mut Game, deal: &Deal) -> Result<Settlement, String> {
+    // Before any money moves: a due date that cannot be computed would otherwise drop an
+    // instalment after the whole fee had been committed.
+    for number in 2..=deal.terms.instalments {
+        if deal
+            .date
+            .checked_add_months(Months::new(12 * u32::from(number - 1)))
+            .is_none()
+        {
+            return Err(ERR_INVALID_DEAL_TERMS.to_string());
+        }
+    }
+    let (requests, sell_on_paid) = completion_requests(game, deal)?;
+    post_all(game, &requests)?;
+    Ok(Settlement {
+        first_instalment: instalment_split(deal.fee, deal.terms.instalments).0,
+        sell_on_paid,
+    })
+}
+
+/// Every cash movement a completion makes, and the clauses it settles: one list, so what is
+/// checked before a deal is agreed and what is posted when it completes cannot drift apart.
+fn completion_requests(
+    game: &Game,
+    deal: &Deal,
+) -> Result<(Vec<PostRequest>, Vec<SellOnDue>), String> {
     let Deal {
         player_id,
         to_team_id,
@@ -159,6 +187,7 @@ pub(super) fn settle_cash(game: &mut Game, deal: &Deal) -> Result<Settlement, St
             date,
         ));
     }
+    ensure_sale_clauses_payable(game, player_id, from_team_id, fee, terms)?;
     let sell_on_paid = sell_on_due(game, player_id, from_team_id, fee);
     for (_, beneficiary, owed) in sell_on_paid.iter().filter(|(_, _, owed)| *owed > 0) {
         requests.push(PostRequest::new(
@@ -174,12 +203,7 @@ pub(super) fn settle_cash(game: &mut Game, deal: &Deal) -> Result<Settlement, St
             date,
         ));
     }
-    ensure_sale_clauses_payable(game, player_id, from_team_id, fee, terms)?;
-    post_all(game, &requests)?;
-    Ok(Settlement {
-        first_instalment: first,
-        sell_on_paid,
-    })
+    Ok((requests, sell_on_paid))
 }
 
 /// Adjusts the transfer-budget envelopes for a settled transfer; see the module notes.
@@ -370,7 +394,8 @@ pub fn process_transfer_obligations(game: &mut Game) {
     });
 }
 
-/// Same checks as the posting, with no mutation: the money due on completion can be posted.
+/// Same requests as the posting, validated with no mutation: the money due on completion can be
+/// posted.
 pub(super) fn ensure_completion_postable(
     game: &Game,
     player_id: &str,
@@ -379,24 +404,15 @@ pub(super) fn ensure_completion_postable(
     fee: u64,
     terms: &TransferTerms,
 ) -> Result<(), String> {
-    ensure_sale_clauses_payable(game, player_id, seller_id, fee, terms)?;
-    let date = game.clock.current_date.date_naive();
-    let to_i64 = |value: u64| {
-        i64::try_from(value).map_err(|_| "be.error.finance.amountOverflow".to_string())
+    let deal = Deal {
+        player_id,
+        to_team_id: buyer_id,
+        from_team_id: seller_id,
+        fee,
+        terms,
+        date: game.clock.current_date.date_naive(),
     };
-    let (first, _) = instalment_split(fee, terms.instalments);
-    let mut requests = vec![
-        PostRequest::new(buyer_id, -to_i64(first)?, CashKind::TransferFeeOut, date),
-        PostRequest::new(seller_id, to_i64(first)?, CashKind::TransferFeeIn, date),
-    ];
-    if terms.signing_bonus > 0 {
-        requests.push(PostRequest::new(
-            buyer_id,
-            -to_i64(terms.signing_bonus)?,
-            CashKind::SigningBonus,
-            date,
-        ));
-    }
+    let (requests, _) = completion_requests(game, &deal)?;
     validate_posts(game, &requests)
 }
 
@@ -413,7 +429,7 @@ pub(super) fn sell_on_due(
     player_id: &str,
     from_team_id: &str,
     fee: u64,
-) -> Vec<(String, String, u64)> {
+) -> Vec<SellOnDue> {
     game.transfer_obligations
         .iter()
         .filter_map(|obligation| match obligation {

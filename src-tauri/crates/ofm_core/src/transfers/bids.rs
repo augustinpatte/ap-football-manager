@@ -189,7 +189,6 @@ pub(crate) fn transfer_negotiation_metrics(
 
     (tension.clamp(20, 90) as u8, patience.clamp(18, 86) as u8)
 }
-#[allow(clippy::too_many_arguments)]
 /// Keeps the terms the buyer attached on the offer itself, so a deal that waits for the window to
 /// open — or for the manager to answer a counter — carries them to completion.
 fn store_offer_terms(game: &mut Game, player_id: &str, offer_id: &str, terms: &TransferTerms) {
@@ -203,6 +202,7 @@ fn store_offer_terms(game: &mut Game, player_id: &str, offer_id: &str, terms: &T
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn upsert_transfer_offer(
     player: &mut domain::player::Player,
     from_team_id: &str,
@@ -458,6 +458,7 @@ pub fn project_transfer_bid_financial_impact_with_terms(
         signing_bonus: terms.signing_bonus,
         later_instalments: terms.instalments.saturating_sub(1),
         later_instalment_amount,
+        stepping_stone_available: wants_stepping_stone(player, current_date),
     })
 }
 /// Submit a transfer bid from user's team for a player.

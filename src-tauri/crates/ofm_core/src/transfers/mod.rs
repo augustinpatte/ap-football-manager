@@ -119,6 +119,9 @@ pub struct TransferBidFinancialProjection {
     pub later_instalments: u8,
     #[serde(default)]
     pub later_instalment_amount: u64,
+    /// The player would value a stepping-stone promise; the bid is refused for anyone else.
+    #[serde(default)]
+    pub stepping_stone_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
