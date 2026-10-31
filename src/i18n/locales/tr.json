@@ -800,14 +800,28 @@
       "wing-play": "Kanat Oyunu",
       "high-press": "Yüksek Pres",
       "counter-attack": "Kontratak",
-      "low-block": "Derin Blok"
+      "low-block": "Derin Blok",
+      "control-possession": "Topa sahip olma kontrolü", "tiki-taka": "Tiki-taka stili", "vertical-tiki-taka": "Dikey tiki-taka", "gegenpress": "Karşı pres", "direct-counter": "Doğrudan kontraatak", "direct-play": "Doğrudan oyun", "mid-block": "Orta blok", "high-defensive-line": "Yüksek savunma çizgisi", "defensive": "Defansif", "attacking": "Hücumcu", "long-ball": "Uzun top", "park-the-bus": "Otobüsü çek", "fast-transition": "Hızlı geçiş"
     },
     "presetDescriptions": {
       "balanced-control": "İstikrarlı hatlar, güvenilir kapsama ve çoğu kadro için sade bir şekil.",
       "wing-play": "Doğal genişlik, ceza sahası çevresinde daha erken destek ve topun önünde daha fazla koşu yapan oyuncu.",
       "high-press": "Bloğu daha yukarı taşır, agresif baskı ister ve ileriye daha fazla oyuncu gönderir.",
       "counter-attack": "Top kazanıldığında daha güvenli bir orta saha temelinden hızlı çıkışlara öncelik verir.",
-      "low-block": "Savunma hattında ekstra koruma ve baskıyı karşılarken daha kompakt bir şekil."
+      "low-block": "Savunma hattında ekstra koruma ve baskıyı karşılarken daha kompakt bir şekil.",
+      "control-possession": "Topu kısa, sabırlı dolaşımla ve istikrarlı bir orta saha yapısıyla tutar.",
+      "tiki-taka": "Birbirine bağlı hatlardan ilerlemek için dar kısa paslar ve yakın destek kullanır.",
+      "vertical-tiki-taka": "Topu daha erken ileri taşımak için kısa kombinasyonları yüksek çizgiyle birleştirir.",
+      "gegenpress": "Top kaybından hemen sonra yüksek çizgi ve sürekli karşı presle topun peşine düşer.",
+      "direct-counter": "Kompakt savunur, ardından rakibin arkasındaki alana hızlı uzun paslar gönderir.",
+      "direct-play": "Geniş çıkışlar ve orta sahada daha az pasla topu erken ileri taşır.",
+      "mid-block": "Tamamen geriye çekilmeden merkezi kompakt orta blokla korur.",
+      "high-defensive-line": "Sahayı daraltmak ve proaktif topa sahip olmayı desteklemek için takımı önde tutar.",
+      "defensive": "Dar, alçak bir düzeni ve ceza sahasının disiplinli korunmasını önceler.",
+      "attacking": "Genişlik, yüksek çizgi ve son üçte hızlı destekle daha çok oyuncuyu ileri iter.",
+      "long-ball": "Hızla alan kazanmak için uzun toplardan önce alçak ve güvenli bir temel kullanır.",
+      "park-the-bus": "Ceza sahası içinde ve çevresinde alan vermemek için çok derinde, dar ve pasif kalır.",
+      "fast-transition": "Top kazanımlarını hızlı geçişler ve aktif baskıyla anında hücuma çevirir."
     },
     "playerRoles": {
       "Standard": "Standart",

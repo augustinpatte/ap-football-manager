@@ -4309,6 +4309,11 @@ mod tests {
             description: "d".to_string(),
             formation: "4-4-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-4-1".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings {
+                width: domain::team::PitchWidth::Wide,
+                ..domain::team::TacticsPhaseSettings::default()
+            }),
             source_preset_name: Some("Counter".to_string()),
         };
         game.custom_tactics = vec![
@@ -4345,6 +4350,8 @@ mod tests {
             description: String::new(),
             formation: "3-5-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-3-2".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: None,
         }];
         let id = manager.create_save(&game, "Source").unwrap();

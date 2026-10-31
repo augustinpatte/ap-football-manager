@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import type { TacticsPhaseSettings } from "../../store/types";
 
 import { Badge, Button, Card, Select } from "../ui";
 import TacticsDeleteDialog from "./TacticsDeleteDialog";
@@ -26,8 +27,10 @@ export interface TacticsLibraryEntry {
   formation: string;
   id: string;
   name: string;
+  outOfPossessionFormation?: string;
   playStyle: string;
   sourcePresetName?: string | null;
+  tacticsPhase?: TacticsPhaseSettings | null;
   type: "preset" | "custom";
 }
 
@@ -65,7 +68,8 @@ const PLAY_STYLES = [
 ] as const;
 
 function summarizeTactic(entry: TacticsLibraryEntry, t: TFunction): string {
-  return `${entry.formation} - ${t(`common.playStyles.${entry.playStyle}`, entry.playStyle)}`;
+  void t;
+  return entry.formation;
 }
 
 export default function TacticsCommandBar({
@@ -287,6 +291,7 @@ export default function TacticsCommandBar({
                               key={entry.id}
                               type="button"
                               role="option"
+                              aria-label={entry.name}
                               aria-selected={entry.id === activeTactic.id}
                               onClick={() => {
                                 onSelectTactic(entry.id);
@@ -328,6 +333,7 @@ export default function TacticsCommandBar({
                             key={entry.id}
                             type="button"
                             role="option"
+                            aria-label={entry.name}
                             aria-selected={entry.id === activeTactic.id}
                             onClick={() => {
                               onSelectTactic(entry.id);
@@ -390,7 +396,9 @@ export default function TacticsCommandBar({
                     ? (outOfPossessionFormation ?? formation)
                     : formation
                 }
-                onChange={(e) => (onOutOfPossessionFormationChange ?? onFormationChange)(e.target.value)}
+                onChange={(e) =>
+                  (onOutOfPossessionFormationChange ?? onFormationChange)(e.target.value)
+                }
                 fullWidth
                 aria-label={t("tactics.outOfPossessionFormation")}
               >

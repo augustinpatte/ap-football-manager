@@ -119,8 +119,30 @@ mod tests {
             description: "  Press high  ".into(),
             formation: "4-4-2".into(),
             play_style: "HighPress".into(),
+            out_of_possession_formation: "4-4-2".into(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: Some("Gegenpress".into()),
         }
+    }
+
+    /// Given a tactic JSON document written before saved instruction blueprints
+    /// When it is loaded into the current domain type
+    /// Then it remains usable and explicitly takes the legacy fallback path.
+    #[test]
+    fn legacy_tactics_default_the_new_configuration_fields() {
+        let tactic: CustomTactic = serde_json::from_str(
+            r#"{
+                "id":"legacy",
+                "name":"Old setup",
+                "description":"",
+                "formation":"4-4-2",
+                "playStyle":"Balanced"
+            }"#,
+        )
+        .expect("legacy tactic JSON loads");
+
+        assert!(tactic.out_of_possession_formation.is_empty());
+        assert_eq!(tactic.tactics_phase, None);
     }
 
     /// Given an empty library

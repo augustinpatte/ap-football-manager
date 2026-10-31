@@ -84,8 +84,15 @@ export async function setPlayerRole(
 export async function applyTacticPreset(
   formation: string,
   playStyle: string,
+  tacticsPhase?: TacticsPhaseSettings,
+  outOfPossessionFormation?: string,
 ): Promise<GameStateData> {
-  return invoke<GameStateData>("apply_tactic_preset", { formation, playStyle });
+  return invoke<GameStateData>("apply_tactic_preset", {
+    formation,
+    playStyle,
+    tacticsPhase,
+    outOfPossessionFormation,
+  });
 }
 
 /** Whether the user's phase dials differ from the blueprint their play style implies. */

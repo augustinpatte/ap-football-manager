@@ -846,7 +846,8 @@
       "wing-play": "边路进攻",
       "high-press": "高位压迫",
       "counter-attack": "防守反击",
-      "low-block": "低位防守"
+      "low-block": "低位防守",
+      "control-possession": "控球控制", "tiki-taka": "Tiki-Taka 风格", "vertical-tiki-taka": "纵向 Tiki-Taka", "gegenpress": "反抢压迫", "direct-counter": "直接反击", "direct-play": "直接打法", "mid-block": "中位防守", "high-defensive-line": "高位防线", "defensive": "防守", "attacking": "进攻", "long-ball": "长传", "park-the-bus": "摆大巴", "fast-transition": "快速转换"
     },
     "tableInteractionHint": "右键点击球员可使用快速操作。",
     "makeCaptain": "设为队长",
@@ -868,7 +869,20 @@
       "wing-play": "提供自然宽度、更早靠近禁区的支援，以及更多前插跑动。",
       "high-press": "将防线整体前提，要求更激进的压迫，并投入更多前场人数。",
       "counter-attack": "在重新获得球权后，依靠更稳妥的中场基础快速发动反击。",
-      "low-block": "为后防线提供更多保护，并在承受压力时保持更紧凑的形态。"
+      "low-block": "为后防线提供更多保护，并在承受压力时保持更紧凑的形态。",
+      "control-possession": "通过短传和耐心的控球，以及稳定的中场保护来掌控比赛。",
+      "tiki-taka": "以紧凑的短传和近距离接应，在彼此衔接的线条间推进。",
+      "vertical-tiki-taka": "将短传配合与高位防线结合，更早地把球向前推进。",
+      "gegenpress": "丢球后立刻以高位防线和持续反抢追逐皮球。",
+      "direct-counter": "先紧凑防守，再快速长传攻击对手身后的空间。",
+      "direct-play": "通过宽度选择和更少的中场传递，尽早将球送向前场。",
+      "mid-block": "以紧凑的中位防守保护中路空间，而不会完全退守。",
+      "high-defensive-line": "让球队保持高位，压缩场地并支持主动控球。",
+      "defensive": "优先采用狭窄低位阵型，并纪律严明地保护禁区。",
+      "attacking": "利用宽度、高位防线和最后三区的快速支援投入更多进攻人数。",
+      "long-ball": "先建立低位稳固基础，再用长传迅速争夺纵深。",
+      "park-the-bus": "极深、狭窄且被动地退守，封堵禁区内外的空间。",
+      "fast-transition": "以快速转换和积极压迫，将夺回球权立刻变成进攻。"
     },
     "clearSelection": "清除选择",
     "compareWithSelected": "与已选球员比较",

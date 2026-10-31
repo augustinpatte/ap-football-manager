@@ -295,6 +295,7 @@ pub fn run() {
             set_starting_xi,
             set_play_style,
             apply_tactic_preset,
+            apply_custom_tactic,
             get_tactics_blueprint_status,
             set_team_match_roles,
             set_training,

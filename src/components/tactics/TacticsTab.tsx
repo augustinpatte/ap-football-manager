@@ -49,6 +49,7 @@ export default function TacticsTab({
     handleFormationChange,
     handlePlayStyleChange,
     handleApplyTacticPreset,
+    handleApplyCustomTactic,
     handleAssignBestFit,
     handlePromoteBenchPlayer,
     handleDemoteStarter,
@@ -90,10 +91,13 @@ export default function TacticsTab({
     gameState,
     formation,
     activePlayStyle,
+    outOfPossessionFormation: team?.out_of_possession_formation || formation,
+    tacticsPhase: team?.tactics_phase,
     initialPreset,
     onFormationChange: handleFormationChange,
     onPlayStyleChange: handlePlayStyleChange,
     onApplyPreset: handleApplyTacticPreset,
+    onApplyCustomTactic: handleApplyCustomTactic,
   });
 
   if (!team) {

@@ -80,14 +80,64 @@ pub fn apply_tactic_preset_internal(
     formation: &str,
     play_style: &str,
 ) -> Result<Game, String> {
+    apply_tactic_preset_configuration_internal(state, formation, play_style, None, None)
+}
+
+fn apply_tactic_preset_configuration_internal(
+    state: &StateManager,
+    formation: &str,
+    play_style: &str,
+    tactics_phase: Option<domain::team::TacticsPhaseSettings>,
+    out_of_possession_formation: Option<String>,
+) -> Result<Game, String> {
     mutate_active_game(state, |game| {
         apply_formation(game, formation)?;
 
         let style = parse_play_style(play_style);
         let team = user_team_mut(game)?;
-        team.tactics_phase = ofm_core::ai_tactics::blueprint_for(&style);
+        if let Some(defensive_formation) = out_of_possession_formation {
+            if ofm_core::player_rating::parse_formation(&defensive_formation).is_none() {
+                return Err(ofm_core::custom_tactics::INVALID_FORMATION_ERROR.to_string());
+            }
+            team.out_of_possession_formation = defensive_formation;
+        }
+        team.tactics_phase =
+            tactics_phase.unwrap_or_else(|| ofm_core::ai_tactics::blueprint_for(&style));
         team.play_style = style;
 
+        Ok(())
+    })
+}
+
+/// Applies a saved tactic as one coherent configuration. Legacy tactics did
+/// not retain editable dials, so they intentionally fall back to their
+/// play-style blueprint rather than inheriting whichever dials were active.
+pub fn apply_custom_tactic_internal(state: &StateManager, id: &str) -> Result<Game, String> {
+    mutate_active_game(state, |game| {
+        let tactic = game
+            .custom_tactics
+            .iter()
+            .find(|tactic| tactic.id == id.trim())
+            .cloned()
+            .ok_or_else(|| ofm_core::custom_tactics::NOT_FOUND_ERROR.to_string())?;
+        apply_formation(game, &tactic.formation)?;
+
+        let defensive_formation = if tactic.out_of_possession_formation.trim().is_empty() {
+            tactic.formation.clone()
+        } else {
+            tactic.out_of_possession_formation
+        };
+        if ofm_core::player_rating::parse_formation(&defensive_formation).is_none() {
+            return Err(ofm_core::custom_tactics::INVALID_FORMATION_ERROR.to_string());
+        }
+
+        let style = parse_play_style(&tactic.play_style);
+        let team = user_team_mut(game)?;
+        team.out_of_possession_formation = defensive_formation;
+        team.tactics_phase = tactic
+            .tactics_phase
+            .unwrap_or_else(|| ofm_core::ai_tactics::blueprint_for(&style));
+        team.play_style = style;
         Ok(())
     })
 }
@@ -97,9 +147,30 @@ pub fn apply_tactic_preset(
     state: State<'_, Arc<StateManager>>,
     formation: String,
     play_style: String,
+    tactics_phase: Option<domain::team::TacticsPhaseSettings>,
+    out_of_possession_formation: Option<String>,
 ) -> Result<Game, String> {
     info!("[cmd] apply_tactic_preset: {} / {}", formation, play_style);
-    apply_tactic_preset_internal(&state, &formation, &play_style)
+    if tactics_phase.is_none() && out_of_possession_formation.is_none() {
+        return apply_tactic_preset_internal(&state, &formation, &play_style);
+    }
+    apply_tactic_preset_configuration_internal(
+        &state,
+        &formation,
+        &play_style,
+        tactics_phase,
+        out_of_possession_formation,
+    )
+}
+
+/// Loads every persisted instruction of a tactic saved in this career.
+#[tauri::command]
+pub fn apply_custom_tactic(
+    state: State<'_, Arc<StateManager>>,
+    id: String,
+) -> Result<Game, String> {
+    info!("[cmd] apply_custom_tactic: {id}");
+    apply_custom_tactic_internal(&state, &id)
 }
 
 /// Whether the manager's phase dials differ from the blueprint their play style implies.
@@ -763,6 +834,7 @@ pub fn set_tactics_phase(
 mod tests {
     use super::TacticsBlueprintStatus;
     use super::{
+        apply_custom_tactic_internal, apply_tactic_preset_configuration_internal,
         apply_tactic_preset_internal, get_rating_tiers, get_squad_fitness_internal,
         get_tactics_blueprint_status_internal, set_formation_internal,
         set_out_of_possession_formation_internal, set_play_style_internal,
@@ -977,6 +1049,67 @@ mod tests {
         assert_eq!(team.formation, "3-4-3");
         assert_eq!(team.play_style, PlayStyle::Defensive);
         assert_eq!(team.tactics_phase, blueprint_for(&PlayStyle::Defensive));
+    }
+
+    /// Given a preset with its own defensive shape and instruction blueprint,
+    /// when it is selected, then all four tactical inputs are saved together.
+    #[test]
+    fn applying_a_complete_preset_keeps_its_defensive_shape_and_dials() {
+        let state = state_with_custom_dials();
+        let phase = domain::team::TacticsPhaseSettings {
+            width: PitchWidth::Narrow,
+            tempo: Tempo::Patient,
+            ..domain::team::TacticsPhaseSettings::default()
+        };
+
+        apply_tactic_preset_configuration_internal(
+            &state,
+            "5-4-1",
+            "Defensive",
+            Some(phase.clone()),
+            Some("5-4-1".to_string()),
+        )
+        .expect("complete preset applies");
+
+        let team = stored_team(&state);
+        assert_eq!(team.formation, "5-4-1");
+        assert_eq!(team.out_of_possession_formation, "5-4-1");
+        assert_eq!(team.play_style, PlayStyle::Defensive);
+        assert_eq!(team.tactics_phase, phase);
+    }
+
+    /// Given a custom tactic with an independently tuned defensive shape and phase dials
+    /// When the manager applies it after changing the active configuration
+    /// Then the exact saved instructions replace the active ones.
+    #[test]
+    fn applying_a_saved_tactic_restores_its_complete_configuration() {
+        let state = state_with_custom_dials();
+        let saved_phase = domain::team::TacticsPhaseSettings {
+            width: PitchWidth::Narrow,
+            tempo: Tempo::Patient,
+            ..domain::team::TacticsPhaseSettings::default()
+        };
+        state.update_game(|game| {
+            game.custom_tactics
+                .push(domain::custom_tactic::CustomTactic {
+                    id: "locked-block".to_string(),
+                    name: "Locked block".to_string(),
+                    description: String::new(),
+                    formation: "4-2-3-1".to_string(),
+                    play_style: "Counter".to_string(),
+                    out_of_possession_formation: "5-4-1".to_string(),
+                    tactics_phase: Some(saved_phase.clone()),
+                    source_preset_name: None,
+                });
+        });
+
+        apply_custom_tactic_internal(&state, "locked-block").expect("saved tactic applies");
+
+        let team = stored_team(&state);
+        assert_eq!(team.formation, "4-2-3-1");
+        assert_eq!(team.out_of_possession_formation, "5-4-1");
+        assert_eq!(team.play_style, PlayStyle::Counter);
+        assert_eq!(team.tactics_phase, saved_phase);
     }
 
     /// Given a manager whose phase dials were tuned away from their style's blueprint
