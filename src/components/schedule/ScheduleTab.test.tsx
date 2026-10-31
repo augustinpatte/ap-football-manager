@@ -12,6 +12,17 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock("../match/M12ReplayViewer", () => ({
+  default: ({ replayJson, onBack }: { replayJson: string; onBack?: () => void }) => (
+    <div data-testid="historical-m12-viewer">
+      {replayJson}
+      <button type="button" data-testid="historical-m12-back" onClick={onBack}>
+        Back
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number> | string) => {
@@ -140,6 +151,16 @@ function makeSlice(overrides: Partial<ScheduleSlice> = {}): ScheduleSlice {
     next_user_match_date: "2026-09-05",
     ...overrides,
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 function makeGameState(withCompetition: boolean): GameStateData {
@@ -644,5 +665,186 @@ describe("ScheduleTab", () => {
 
     expect(screen.getByTestId("schedule-callup-p1")).toBeInTheDocument();
     expect(screen.getByTestId("schedule-international-int-fix-1")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a completed user fixture with a stored M12 replay
+   * When the manager chooses Review match then returns
+   * Then only the persisted replay is loaded and the schedule remains unchanged.
+   */
+  it("opens and closes a stored replay without starting another simulation", async () => {
+    const completedFixture = {
+      ...makeGroup().fixtures[0],
+      id: "replay-1",
+      status: "Completed",
+      result: { home_goals: 2, away_goals: 1 },
+    };
+    const schedule = makeSlice({
+      upcoming_groups: [],
+      past_groups: [makeGroup({ fixtures: [completedFixture] })],
+    });
+    mockedInvoke.mockImplementation((command) =>
+      command === "get_schedule"
+        ? Promise.resolve(schedule)
+        : Promise.resolve({ replay_json: "stored-replay" }),
+    );
+    const onSelectTeam = vi.fn();
+    render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={onSelectTeam} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("load_spatial_replay", {
+        competitionId: "league-1",
+        fixtureId: "replay-1",
+      });
+      expect(screen.getByTestId("historical-m12-viewer")).toHaveTextContent("stored-replay");
+    });
+    expect(mockedInvoke).not.toHaveBeenCalledWith("simulate_spatial_match");
+    expect(mockedInvoke).not.toHaveBeenCalledWith("prepare_spatial_replay");
+
+    fireEvent.click(screen.getByTestId("historical-m12-back"));
+    expect(await screen.findByTestId("schedule-fixture-replay-1")).toBeInTheDocument();
+    expect(onSelectTeam).not.toHaveBeenCalled();
+  });
+
+  /** Given a completed fixture with no persisted replay, when Review match is selected, then the schedule shows an error. */
+  it("reports an unavailable historical replay", async () => {
+    const completedFixture = {
+      ...makeGroup().fixtures[0],
+      id: "missing-replay",
+      status: "Completed",
+      result: { home_goals: 0, away_goals: 0 },
+    };
+    const schedule = makeSlice({
+      upcoming_groups: [],
+      past_groups: [makeGroup({ fixtures: [completedFixture] })],
+    });
+    mockedInvoke.mockImplementation((command) =>
+      command === "get_schedule" ? Promise.resolve(schedule) : Promise.resolve(null),
+    );
+    render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("match.replayUnavailable");
+  });
+
+  /** Given a slow replay read, when Review match is clicked repeatedly, then the Tauri load command is sent once. */
+  it("blocks duplicate historical replay loads while the replay is loading", async () => {
+    const completedFixture = {
+      ...makeGroup().fixtures[0],
+      id: "slow-replay",
+      status: "Completed",
+      result: { home_goals: 1, away_goals: 0 },
+    };
+    const load = deferred<{ replay_json: string } | null>();
+    const schedule = makeSlice({
+      upcoming_groups: [],
+      past_groups: [makeGroup({ fixtures: [completedFixture] })],
+    });
+    mockedInvoke.mockImplementation((command) =>
+      command === "get_schedule" ? Promise.resolve(schedule) : load.promise,
+    );
+    render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+
+    const reviewButton = await screen.findByRole("button", { name: "match.reviewMatch" });
+    fireEvent.click(reviewButton);
+    fireEvent.click(reviewButton);
+    expect(reviewButton).toBeDisabled();
+    expect(reviewButton).toHaveTextContent("dashboard.loading");
+    expect(
+      mockedInvoke.mock.calls.filter(([command]) => command === "load_spatial_replay"),
+    ).toHaveLength(1);
+
+    await act(async () => {
+      load.resolve({ replay_json: "slow-stored-replay" });
+      await Promise.resolve();
+    });
+    expect(await screen.findByTestId("historical-m12-viewer")).toHaveTextContent(
+      "slow-stored-replay",
+    );
+  });
+
+  /** Given Tauri cannot read a historical replay, when Review match is selected, then the error is visible without mutating the career. */
+  it("keeps the calendar visible when historical replay loading fails", async () => {
+    const completedFixture = {
+      ...makeGroup().fixtures[0],
+      id: "broken-replay",
+      status: "Completed",
+      result: { home_goals: 4, away_goals: 3 },
+    };
+    const schedule = makeSlice({
+      upcoming_groups: [],
+      past_groups: [makeGroup({ fixtures: [completedFixture] })],
+    });
+    mockedInvoke.mockImplementation((command) =>
+      command === "get_schedule"
+        ? Promise.resolve(schedule)
+        : Promise.reject(new Error("database error")),
+    );
+    render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("match.replayUnavailable");
+    expect(screen.getByTestId("schedule-fixture-broken-replay")).toBeInTheDocument();
+  });
+
+  /**
+   * Given completed user fixtures in different competitions
+   * When the manager selects the second competition and reviews its match
+   * Then the stored replay is read with that competition's stable identifier.
+   */
+  it("loads a historical replay from the selected competition", async () => {
+    const state = makeGameState(true);
+    const primaryCompetition = state.competitions?.[0];
+    if (!primaryCompetition) throw new Error("expected the primary competition");
+    state.competitions = [
+      primaryCompetition,
+      {
+        id: "cup-1",
+        name: "National Cup",
+        season: 1,
+        participant_ids: ["team-1", "team-2"],
+        fixtures: [],
+        standings: [],
+      },
+    ];
+    state.active_competition_ids = ["league-1", "cup-1"];
+    const cupFixture = {
+      ...makeGroup().fixtures[0],
+      id: "cup-replay",
+      competition: "Cup" as const,
+      competition_id: "cup-1",
+      status: "Completed",
+      result: { home_goals: 1, away_goals: 1 },
+    };
+    mockedInvoke.mockImplementation((command, args) => {
+      if (command === "get_schedule") {
+        const competitionId = (args as { query: { competition_id: string } }).query.competition_id;
+        return Promise.resolve(
+          competitionId === "cup-1"
+            ? makeSlice({
+                competition_id: "cup-1",
+                competition_name: "National Cup",
+                upcoming_groups: [],
+                past_groups: [makeGroup({ competition: "Cup", fixtures: [cupFixture] })],
+              })
+            : makeSlice(),
+        );
+      }
+      return Promise.resolve({ replay_json: "cup-stored-replay" });
+    });
+    render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+
+    const competitionSelect = await screen.findByRole("combobox", { name: "common.competition" });
+    fireEvent.click(competitionSelect);
+    fireEvent.click(await screen.findByRole("option", { name: "National Cup" }));
+    fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("load_spatial_replay", {
+        competitionId: "cup-1",
+        fixtureId: "cup-replay",
+      });
+    });
   });
 });

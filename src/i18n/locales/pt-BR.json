@@ -1971,6 +1971,18 @@
     "keyStats": "Estatísticas-Chave"
   },
   "match": {
+    "simulateWithM12": "Simular com M12",
+    "watchWithM12": "Assistir em 2D com M12",
+    "m12SimulationFailed": "O M12 não conseguiu concluir esta partida.",
+    "replayUnavailable": "Esta repetição não está disponível ou está corrompida.",
+    "replayPitch": "Campo da repetição M12",
+    "pauseReplay": "Pausar",
+    "playReplay": "Reproduzir",
+    "replaySpeed": "Velocidade de reprodução",
+    "replayTimeline": "Linha do tempo da repetição",
+    "goToResult": "Ir ao resultado",
+    "reviewMatch": "Rever partida",
+    "backToSchedule": "Voltar ao calendário",
     "live": "Ao Vivo",
     "paused": "Pausado",
     "events": "Eventos",

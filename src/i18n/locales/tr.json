@@ -2028,6 +2028,18 @@
     "confidence": "Güven"
   },
   "match": {
+    "simulateWithM12": "M12 ile simüle et",
+    "watchWithM12": "M12 ile 2D izle",
+    "m12SimulationFailed": "M12 bu maçı tamamlayamadı.",
+    "replayUnavailable": "Bu tekrar kullanılamıyor veya bozuk.",
+    "replayPitch": "M12 tekrar sahası",
+    "pauseReplay": "Duraklat",
+    "playReplay": "Oynat",
+    "replaySpeed": "Oynatma hızı",
+    "replayTimeline": "Tekrar zaman çizelgesi",
+    "goToResult": "Sonuca git",
+    "reviewMatch": "Maçı izle",
+    "backToSchedule": "Fikstüre dön",
     "live": "Canlı",
     "paused": "Duraklatıldı",
     "events": "Olaylar",

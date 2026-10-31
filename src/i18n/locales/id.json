@@ -2028,6 +2028,18 @@
     "confidence": "Keyakinan"
   },
   "match": {
+    "simulateWithM12": "Simulasikan dengan M12",
+    "watchWithM12": "Tonton 2D dengan M12",
+    "m12SimulationFailed": "M12 tidak dapat menyelesaikan pertandingan ini.",
+    "replayUnavailable": "Tayangan ulang ini tidak tersedia atau rusak.",
+    "replayPitch": "Lapangan tayangan ulang M12",
+    "pauseReplay": "Jeda",
+    "playReplay": "Putar",
+    "replaySpeed": "Kecepatan pemutaran",
+    "replayTimeline": "Linimasa tayangan ulang",
+    "goToResult": "Ke hasil",
+    "reviewMatch": "Tonton ulang pertandingan",
+    "backToSchedule": "Kembali ke jadwal",
     "live": "Langsung",
     "paused": "Dijeda",
     "events": "Peristiwa",

@@ -2028,6 +2028,18 @@
     "confidence": "Confidence"
   },
   "match": {
+    "simulateWithM12": "Simulate with M12",
+    "watchWithM12": "Watch in 2D with M12",
+    "m12SimulationFailed": "M12 could not complete this match.",
+    "replayUnavailable": "This replay is unavailable or corrupted.",
+    "replayPitch": "M12 replay pitch",
+    "pauseReplay": "Pause",
+    "playReplay": "Play",
+    "replaySpeed": "Playback speed",
+    "replayTimeline": "Replay timeline",
+    "goToResult": "Go to result",
+    "reviewMatch": "Review match",
+    "backToSchedule": "Back to schedule",
     "live": "Live",
     "paused": "Paused",
     "events": "Events",

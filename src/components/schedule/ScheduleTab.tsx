@@ -27,6 +27,8 @@ import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import { Badge, Card, CardBody, Select } from "../ui";
 import ScheduleCalendarGrid from "./ScheduleCalendarGrid";
 import MovedFromNote from "./MovedFromNote";
+import M12ReplayViewer from "../match/M12ReplayViewer";
+import { loadMatchReplay } from "../../services/matchReplayService";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -44,6 +46,10 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
   const [slice, setSlice] = useState<ScheduleSlice | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [visiblePastCount, setVisiblePastCount] = useState(PAST_PAGE_SIZE);
+  const [replayJson, setReplayJson] = useState<string | null>(null);
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const [replayLoadingFixture, setReplayLoadingFixture] = useState<string | null>(null);
+  const replayRequestInFlight = useRef(false);
   const groupRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const userTeamId = gameState.manager.team_id;
@@ -56,6 +62,28 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
   const calledUpPlayers = getUserCalledUpPlayers(gameState);
   const seasonContext = gameState.season_context;
   const isPreseason = seasonContext.phase === "Preseason";
+  const openReplay = useCallback(
+    async (competitionId: string, fixtureId: string) => {
+      if (replayRequestInFlight.current) return;
+      replayRequestInFlight.current = true;
+      setReplayLoadingFixture(fixtureId);
+      setReplayError(null);
+      try {
+        const replay = await loadMatchReplay(competitionId, fixtureId);
+        if (!replay) {
+          setReplayError(t("match.replayUnavailable"));
+          return;
+        }
+        setReplayJson(replay.replay_json);
+      } catch {
+        setReplayError(t("match.replayUnavailable"));
+      } finally {
+        replayRequestInFlight.current = false;
+        setReplayLoadingFixture(null);
+      }
+    },
+    [t],
+  );
 
   // Resolve which competition to show.
   const selectedCompetition =
@@ -127,6 +155,17 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
     const id = setTimeout(() => scrollToDate(date), 50);
     return () => clearTimeout(id);
   }, [slice?.competition_id, slice?.next_user_match_date, slice?.past_groups.length, scrollToDate]);
+
+  if (replayJson) {
+    return (
+      <M12ReplayViewer
+        replayJson={replayJson}
+        readOnly
+        onFinish={() => setReplayJson(null)}
+        onBack={() => setReplayJson(null)}
+      />
+    );
+  }
 
   const buildTeamMenuItem = (label: string, teamId: string): ContextMenuItem => ({
     label,
@@ -205,6 +244,11 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
           {fetchError}
         </p>
       )}
+      {replayError && (
+        <p role="alert" className="mb-4 text-body text-danger">
+          {replayError}
+        </p>
+      )}
 
       {view === "calendar" && (
         <CalendarView
@@ -217,6 +261,9 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
           onScrollToDate={scrollToDate}
           onSelectTeam={onSelectTeam}
           buildTeamMenuItem={buildTeamMenuItem}
+          competitionId={selectedCompetition?.id ?? null}
+          onOpenReplay={openReplay}
+          replayLoadingFixture={replayLoadingFixture}
           t={t}
         />
       )}
@@ -229,6 +276,9 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
           groupRefs={groupRefs}
           onSelectTeam={onSelectTeam}
           buildTeamMenuItem={buildTeamMenuItem}
+          competitionId={selectedCompetition?.id ?? null}
+          onOpenReplay={openReplay}
+          replayLoadingFixture={replayLoadingFixture}
           t={t}
         />
       )}
@@ -294,6 +344,9 @@ function CalendarView({
   onScrollToDate,
   onSelectTeam,
   buildTeamMenuItem,
+  competitionId,
+  onOpenReplay,
+  replayLoadingFixture,
   t,
 }: {
   slice: ScheduleSlice | null;
@@ -305,6 +358,9 @@ function CalendarView({
   onScrollToDate: (date: string) => void;
   onSelectTeam: (id: string) => void;
   buildTeamMenuItem: (label: string, teamId: string) => ContextMenuItem;
+  competitionId: string | null;
+  onOpenReplay: (competitionId: string, fixtureId: string) => Promise<void>;
+  replayLoadingFixture: string | null;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   if (!slice) return <LoadingPlaceholder />;
@@ -334,6 +390,9 @@ function CalendarView({
               competitionName={competitionName}
               onSelectTeam={onSelectTeam}
               buildTeamMenuItem={buildTeamMenuItem}
+              competitionId={competitionId}
+              onOpenReplay={onOpenReplay}
+              replayLoadingFixture={replayLoadingFixture}
               t={t}
             />
           ))}
@@ -365,6 +424,9 @@ function CalendarView({
                 dimmed
                 onSelectTeam={onSelectTeam}
                 buildTeamMenuItem={buildTeamMenuItem}
+                competitionId={competitionId}
+                onOpenReplay={onOpenReplay}
+                replayLoadingFixture={replayLoadingFixture}
                 t={t}
               />
             ))}
@@ -391,6 +453,9 @@ function FixturesListView({
   groupRefs,
   onSelectTeam,
   buildTeamMenuItem,
+  competitionId,
+  onOpenReplay,
+  replayLoadingFixture,
   t,
 }: {
   slice: ScheduleSlice | null;
@@ -399,6 +464,9 @@ function FixturesListView({
   groupRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   onSelectTeam: (id: string) => void;
   buildTeamMenuItem: (label: string, teamId: string) => ContextMenuItem;
+  competitionId: string | null;
+  onOpenReplay: (competitionId: string, fixtureId: string) => Promise<void>;
+  replayLoadingFixture: string | null;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   if (!slice) return <LoadingPlaceholder />;
@@ -422,6 +490,9 @@ function FixturesListView({
           competitionName={competitionName}
           onSelectTeam={onSelectTeam}
           buildTeamMenuItem={buildTeamMenuItem}
+          competitionId={competitionId}
+          onOpenReplay={onOpenReplay}
+          replayLoadingFixture={replayLoadingFixture}
           t={t}
         />
       ))}
@@ -454,6 +525,9 @@ function MatchdayGroupCard({
   dimmed = false,
   onSelectTeam,
   buildTeamMenuItem,
+  competitionId,
+  onOpenReplay,
+  replayLoadingFixture,
   t,
 }: {
   group: MatchdayGroup;
@@ -463,6 +537,9 @@ function MatchdayGroupCard({
   dimmed?: boolean;
   onSelectTeam: (id: string) => void;
   buildTeamMenuItem: (label: string, teamId: string) => ContextMenuItem;
+  competitionId: string | null;
+  onOpenReplay: (competitionId: string, fixtureId: string) => Promise<void>;
+  replayLoadingFixture: string | null;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   const setRef = (el: HTMLDivElement | null) => {
@@ -538,6 +615,19 @@ function MatchdayGroupCard({
                           originalDate={fixture.rescheduled_from}
                           testId={`moved-from-${fixture.id}`}
                         />
+                      )}
+                      {completed && isUserMatch && competitionId && (
+                        <button
+                          type="button"
+                          onClick={() => void onOpenReplay(competitionId, fixture.id)}
+                          disabled={replayLoadingFixture !== null}
+                          aria-busy={replayLoadingFixture === fixture.id}
+                          className="mt-1 text-caption text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {replayLoadingFixture === fixture.id
+                            ? t("dashboard.loading")
+                            : t("match.reviewMatch")}
+                        </button>
                       )}
                     </div>
                     <span

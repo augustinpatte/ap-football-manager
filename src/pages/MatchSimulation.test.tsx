@@ -105,13 +105,45 @@ vi.mock("../components/match/HalfTimeBreak", () => ({
 }));
 
 vi.mock("../components/match/PostMatchScreen", () => ({
-  default: ({ onContinue, onFinish }: { onContinue?: () => void; onFinish?: () => void }) => (
+  default: ({
+    onContinue,
+    onFinish,
+    spatialResult,
+  }: {
+    onContinue?: () => void;
+    onFinish?: () => void;
+    spatialResult?: { homeGoals: number; awayGoals: number; events: unknown[] } | null;
+  }) => (
     <div>
+      {spatialResult && (
+        <div data-testid="spatial-postmatch-result">
+          {spatialResult.homeGoals}-{spatialResult.awayGoals}:{spatialResult.events.length}
+        </div>
+      )}
       <button type="button" data-testid="postmatch-continue" onClick={onContinue}>
         Continue
       </button>
       <button type="button" data-testid="postmatch-finish" onClick={onFinish}>
         Finish Match
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("../components/match/M12ReplayViewer", () => ({
+  default: ({
+    onFinish,
+    onBack,
+  }: {
+    onFinish: () => void | Promise<void>;
+    onBack?: () => void;
+  }) => (
+    <div data-testid="m12-viewer">
+      <button type="button" data-testid="m12-go-result" onClick={() => void onFinish()}>
+        Go to result
+      </button>
+      <button type="button" data-testid="m12-back" onClick={onBack}>
+        Back
       </button>
     </div>
   ),
@@ -349,6 +381,16 @@ function makeGameStateWithFriendly(competition = "Friendly") {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("MatchSimulation", (): void => {
   beforeEach(function resetState(): void {
     mockedInvoke.mockReset();
@@ -388,6 +430,138 @@ describe("MatchSimulation", (): void => {
 
     await waitFor((): void => {
       expect(screen.getByTestId("prematch")).toHaveTextContent("Home FC");
+    });
+  });
+
+  /**
+   * Given a prepared live fixture
+   * When the manager chooses the M12 quick simulation
+   * Then the spatial result returned by Tauri replaces the career state and
+   *      opens the post-match flow without calling the OFM live finaliser.
+   */
+  it("finalizes a prepared fixture through the M12 command", async (): Promise<void> => {
+    const finishedGame = makeGameState();
+    mockedInvoke.mockResolvedValueOnce(makeSnapshot()).mockResolvedValueOnce({
+      game: finishedGame,
+      home_goals: 2,
+      away_goals: 1,
+      events: [],
+    });
+
+    render(<MatchSimulation />);
+
+    await waitFor((): void => {
+      expect(screen.getByRole("button", { name: "match.simulateWithM12" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "match.simulateWithM12" }));
+
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenLastCalledWith("simulate_spatial_match");
+      expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
+    });
+    expect(setGameStateMock).toHaveBeenCalledWith(finishedGame);
+    expect(screen.getByTestId("spatial-postmatch-result")).toHaveTextContent("2-1:0");
+  });
+
+  /**
+   * Given a prepared fixture and a slow M12 request
+   * When the manager clicks simulation twice
+   * Then only one production command is sent and the loading affordance blocks both buttons.
+   */
+  it("prevents duplicate M12 quick simulations while the result is loading", async (): Promise<void> => {
+    const response = deferred<{
+      game: Record<string, unknown>;
+      home_goals: number;
+      away_goals: number;
+      events: [];
+    }>();
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockImplementationOnce(() => response.promise);
+
+    render(<MatchSimulation />);
+
+    const quickSimulation = await screen.findByRole("button", {
+      name: "match.simulateWithM12",
+    });
+    fireEvent.click(quickSimulation);
+    fireEvent.click(quickSimulation);
+
+    expect(mockedInvoke).toHaveBeenCalledTimes(2);
+    expect(quickSimulation).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("dashboard.loading");
+
+    response.resolve({ game: makeGameState(), home_goals: 3, away_goals: 2, events: [] });
+    await waitFor(() => {
+      expect(screen.getByTestId("spatial-postmatch-result")).toHaveTextContent("3-2:0");
+    });
+  });
+
+  /**
+   * Given M12 rejects before any finalisation
+   * When the quick simulation is requested
+   * Then the pre-match screen remains usable and exposes the translated failure.
+   */
+  it("keeps the fixture playable when M12 quick simulation fails", async (): Promise<void> => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce(new Error("engine failed"));
+      render(<MatchSimulation />);
+
+      const quickSimulation = await screen.findByRole("button", {
+        name: "match.simulateWithM12",
+      });
+      fireEvent.click(quickSimulation);
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("match.m12SimulationFailed");
+      });
+      expect(quickSimulation).toBeEnabled();
+      expect(screen.getByTestId("prematch")).toBeInTheDocument();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  /**
+   * Given a prepared M12 replay
+   * When the manager opens 2D then goes to the result twice
+   * Then the exact prepared replay is finalised once and the M12 result reaches post-match.
+   */
+  it("opens M12 2D then finalizes the prepared replay exactly once", async (): Promise<void> => {
+    const finalize = deferred<{
+      game: Record<string, unknown>;
+      home_goals: number;
+      away_goals: number;
+      events: [{ event_type: string }];
+    }>();
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockResolvedValueOnce({ replay_json: '{"schema_version":1}' })
+      .mockImplementationOnce(() => finalize.promise);
+    render(<MatchSimulation />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenLastCalledWith("prepare_spatial_replay");
+      expect(screen.getByTestId("m12-viewer")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("m12-go-result"));
+    fireEvent.click(screen.getByTestId("m12-go-result"));
+    expect(mockedInvoke).toHaveBeenCalledTimes(3);
+
+    finalize.resolve({
+      game: makeGameState(),
+      home_goals: 1,
+      away_goals: 0,
+      events: [{ event_type: "Goal" }],
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("spatial-postmatch-result")).toHaveTextContent("1-0:1");
     });
   });
 

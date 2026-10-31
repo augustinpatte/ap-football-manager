@@ -2028,6 +2028,18 @@
     "confidence": "Надёжность"
   },
   "match": {
+    "simulateWithM12": "Симулировать с M12",
+    "watchWithM12": "Смотреть в 2D с M12",
+    "m12SimulationFailed": "M12 не смог завершить этот матч.",
+    "replayUnavailable": "Этот повтор недоступен или повреждён.",
+    "replayPitch": "Поле повтора M12",
+    "pauseReplay": "Пауза",
+    "playReplay": "Воспроизвести",
+    "replaySpeed": "Скорость воспроизведения",
+    "replayTimeline": "Шкала повтора",
+    "goToResult": "К результату",
+    "reviewMatch": "Посмотреть матч",
+    "backToSchedule": "К расписанию",
     "live": "Матч",
     "paused": "Пауза",
     "events": "События",

@@ -2028,6 +2028,18 @@
     "confidence": "置信度"
   },
   "match": {
+    "simulateWithM12": "使用 M12 模拟",
+    "watchWithM12": "使用 M12 观看 2D 比赛",
+    "m12SimulationFailed": "M12 无法完成这场比赛。",
+    "replayUnavailable": "此回放不可用或已损坏。",
+    "replayPitch": "M12 回放球场",
+    "pauseReplay": "暂停",
+    "playReplay": "播放",
+    "replaySpeed": "播放速度",
+    "replayTimeline": "回放时间轴",
+    "goToResult": "查看结果",
+    "reviewMatch": "回看比赛",
+    "backToSchedule": "返回赛程",
     "live": "直播中",
     "paused": "已暂停",
     "events": "事件",

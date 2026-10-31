@@ -2028,6 +2028,18 @@
     "confidence": "Confiance"
   },
   "match": {
+    "simulateWithM12": "Simuler avec M12",
+    "watchWithM12": "Regarder en 2D avec M12",
+    "m12SimulationFailed": "M12 n’a pas pu terminer ce match.",
+    "replayUnavailable": "Ce replay est indisponible ou corrompu.",
+    "replayPitch": "Terrain du replay M12",
+    "pauseReplay": "Mettre en pause",
+    "playReplay": "Lecture",
+    "replaySpeed": "Vitesse de lecture",
+    "replayTimeline": "Chronologie du replay",
+    "goToResult": "Aller au résultat",
+    "reviewMatch": "Revoir le match",
+    "backToSchedule": "Retour au calendrier",
     "live": "En Direct",
     "paused": "En Pause",
     "events": "Événements",

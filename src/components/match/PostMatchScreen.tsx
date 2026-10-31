@@ -33,6 +33,11 @@ interface PostMatchScreenProps {
   userSide: "Home" | "Away" | null;
   isSpectator: boolean;
   importantEvents: MatchEvent[];
+  spatialResult?: {
+    homeGoals: number;
+    awayGoals: number;
+    events: MatchEvent[];
+  } | null;
   onContinue: () => void;
   onFinish: () => void;
 }
@@ -91,6 +96,7 @@ export default function PostMatchScreen({
   userSide,
   isSpectator,
   importantEvents,
+  spatialResult,
   onContinue,
   onFinish,
 }: PostMatchScreenProps) {
@@ -120,8 +126,11 @@ export default function PostMatchScreen({
   const homeTeamColor = homeFullTeam?.colors?.primary || "#10b981";
   const awayTeamColor = awayFullTeam?.colors?.primary || "#6366f1";
 
-  const userScore = userSide === "Home" ? snapshot.home_score : snapshot.away_score;
-  const oppScore = userSide === "Home" ? snapshot.away_score : snapshot.home_score;
+  const homeScore = spatialResult?.homeGoals ?? snapshot.home_score;
+  const awayScore = spatialResult?.awayGoals ?? snapshot.away_score;
+  const reportEvents = spatialResult?.events ?? snapshot.events;
+  const userScore = userSide === "Home" ? homeScore : awayScore;
+  const oppScore = userSide === "Home" ? awayScore : homeScore;
 
   // The match score stays the regulation/ET score; a level tie decided on
   // penalties resolves the verdict via the shootout tally instead.
@@ -152,8 +161,8 @@ export default function PostMatchScreen({
     ].includes(e.event_type),
   );
 
-  const homeEvents = snapshot.events.filter((e) => e.side === "Home");
-  const awayEvents = snapshot.events.filter((e) => e.side === "Away");
+  const homeEvents = reportEvents.filter((e) => e.side === "Home");
+  const awayEvents = reportEvents.filter((e) => e.side === "Away");
   const countType = (events: MatchEvent[], type: string) =>
     events.filter((e) => e.event_type === type).length;
 
@@ -294,7 +303,7 @@ export default function PostMatchScreen({
 
             <div className="flex items-center gap-5">
               <span className="text-5xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
-                {snapshot.home_score}
+                {homeScore}
               </span>
               <div className="text-center">
                 <p className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400">
@@ -310,7 +319,7 @@ export default function PostMatchScreen({
                 )}
               </div>
               <span className="text-5xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
-                {snapshot.away_score}
+                {awayScore}
               </span>
             </div>
 
@@ -689,8 +698,8 @@ export default function PostMatchScreen({
           >
             {/* Goal Sources — spans both columns */}
             {(() => {
-              const homeSrc = computeGoalSources(snapshot.events, "Home");
-              const awaySrc = computeGoalSources(snapshot.events, "Away");
+              const homeSrc = computeGoalSources(reportEvents, "Home");
+              const awaySrc = computeGoalSources(reportEvents, "Away");
               const homeTotal =
                 homeSrc.openPlay + homeSrc.corners + homeSrc.freekicks + homeSrc.penalties || 1;
               const awayTotal =

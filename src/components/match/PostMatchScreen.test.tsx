@@ -246,6 +246,38 @@ describe("PostMatchScreen", (): void => {
     expect(screen.getByText("match.scorers")).toBeInTheDocument();
   });
 
+  /**
+   * Given a post-match snapshot taken before M12 applies its final report
+   * When the M12 projection supplies its exact score and events
+   * Then the post-match scoreboard and verdict use the M12 result.
+   */
+  it("uses the M12 score and events for the final match report", (): void => {
+    const snapshot = { ...makeSnapshot(), home_score: 0, away_score: 0, events: [] };
+    const { container } = render(
+      <ThemeProvider>
+        <PostMatchScreen
+          snapshot={snapshot}
+          gameState={makeGameState()}
+          userSide="Home"
+          isSpectator={false}
+          importantEvents={[]}
+          spatialResult={{
+            homeGoals: 2,
+            awayGoals: 1,
+            events: [makeEvent("Goal", "Home"), makeEvent("Goal", "Away")],
+          }}
+          onContinue={() => {}}
+          onFinish={() => {}}
+        />
+      </ThemeProvider>,
+    );
+
+    const score = container.querySelectorAll(".text-5xl");
+    expect(score[0]).toHaveTextContent("2");
+    expect(score[1]).toHaveTextContent("1");
+    expect(screen.getByText("match.victory")).toBeInTheDocument();
+  });
+
   it("calls onContinue when manager clicks Continue", (): void => {
     const onContinue = vi.fn();
     const onFinish = vi.fn();

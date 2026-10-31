@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,12 @@ import PostMatchScreen from "../components/match/PostMatchScreen";
 import RoundDigestScreen from "../components/match/RoundDigestScreen";
 import PressConference from "../components/match/PressConference";
 import PenaltyShootoutScreen from "../components/match/PenaltyShootoutScreen";
+import M12ReplayViewer from "../components/match/M12ReplayViewer";
+import {
+  finishSpatialReplay as finishPreparedSpatialReplay,
+  prepareSpatialReplay,
+  simulateSpatialMatch,
+} from "../services/matchReplayService";
 
 // ---------------------------------------------------------------------------
 // Multi-stage Match Day Orchestrator
@@ -38,6 +44,13 @@ interface FinishLiveMatchResponse {
   round_summary?: RoundSummary | null;
   cup_round_summaries?: CupRoundSummary[];
 }
+interface SpatialMatchResult {
+  homeGoals: number;
+  awayGoals: number;
+  events: MatchEvent[];
+}
+
+type SpatialAction = "simulating" | "preparing" | "finalizing";
 
 export default function MatchSimulation() {
   const { t } = useTranslation();
@@ -50,6 +63,8 @@ export default function MatchSimulation() {
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(routeState?.snapshot ?? null);
   const [stage, setStage] = useState<MatchDayStage>("prematch");
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
+  const [spatialResult, setSpatialResult] = useState<SpatialMatchResult | null>(null);
+  const [spatialReplay, setSpatialReplay] = useState<string | null>(null);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
   const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
   const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
@@ -57,6 +72,9 @@ export default function MatchSimulation() {
   const [hasFinalizedMatch, setHasFinalizedMatch] = useState(false);
   const [preferredSpeed, setPreferredSpeed] = useState<"slow" | "normal" | "fast">("normal");
   const [hasUserOverriddenSpeed, setHasUserOverriddenSpeed] = useState(false);
+  const [spatialAction, setSpatialAction] = useState<SpatialAction | null>(null);
+  const [spatialError, setSpatialError] = useState<string | null>(null);
+  const spatialActionInFlight = useRef(false);
 
   // Each match screen is a new live session; commands from an earlier one must not hold it up.
   useEffect(() => {
@@ -207,6 +225,78 @@ export default function MatchSimulation() {
     console.info("[MatchSimulation] handleStartMatch");
     setStage("first_half");
   }, []);
+  const beginSpatialAction = useCallback(
+    (action: SpatialAction): boolean => {
+      if (spatialActionInFlight.current || hasFinalizedMatch) return false;
+      spatialActionInFlight.current = true;
+      setSpatialAction(action);
+      setSpatialError(null);
+      return true;
+    },
+    [hasFinalizedMatch],
+  );
+
+  const endSpatialAction = useCallback(() => {
+    spatialActionInFlight.current = false;
+    setSpatialAction(null);
+  }, []);
+
+  const handleSpatialSimulation = useCallback(async () => {
+    if (!beginSpatialAction("simulating")) return;
+    try {
+      const response = await simulateSpatialMatch<GameStateData, MatchEvent>();
+      setGameState(response.game);
+      setImportantEvents(response.events);
+      setSpatialResult({
+        homeGoals: response.home_goals,
+        awayGoals: response.away_goals,
+        events: response.events,
+      });
+      setHasFinalizedMatch(true);
+      setStage("postmatch");
+    } catch (error) {
+      console.error("M12 simulation failed", error);
+      setSpatialError(t("match.m12SimulationFailed"));
+    } finally {
+      endSpatialAction();
+    }
+  }, [beginSpatialAction, endSpatialAction, setGameState, t]);
+
+  const handleSpatialReplay = useCallback(async () => {
+    if (!beginSpatialAction("preparing")) return;
+    try {
+      const response = await prepareSpatialReplay();
+      setSpatialReplay(response.replay_json);
+    } catch (error) {
+      console.error("M12 replay preparation failed", error);
+      setSpatialError(t("match.replayUnavailable"));
+    } finally {
+      endSpatialAction();
+    }
+  }, [beginSpatialAction, endSpatialAction, t]);
+
+  const finishSpatialReplay = useCallback(async () => {
+    if (!beginSpatialAction("finalizing")) return;
+    try {
+      const response = await finishPreparedSpatialReplay<GameStateData, MatchEvent>();
+      setGameState(response.game);
+      setImportantEvents(response.events);
+      setSpatialResult({
+        homeGoals: response.home_goals,
+        awayGoals: response.away_goals,
+        events: response.events,
+      });
+      setHasFinalizedMatch(true);
+      setSpatialReplay(null);
+      setStage("postmatch");
+    } catch (error) {
+      console.error("M12 replay finalization failed", error);
+      setSpatialError(t("match.m12SimulationFailed"));
+      throw error;
+    } finally {
+      endSpatialAction();
+    }
+  }, [beginSpatialAction, endSpatialAction, setGameState, t]);
 
   const handleHalfTime = useCallback((phase: "HalfTime" | "ExtraTimeHalfTime") => {
     console.info("[MatchSimulation] handleHalfTime", { phase });
@@ -318,20 +408,67 @@ export default function MatchSimulation() {
   }
 
   const currentFixture = resolveMatchFixture(gameState, snapshot, routeState ?? undefined);
+  if (spatialReplay) {
+    return (
+      <M12ReplayViewer
+        replayJson={spatialReplay}
+        onFinish={finishSpatialReplay}
+        onBack={() => setSpatialReplay(null)}
+      />
+    );
+  }
 
   // Render the current stage
   switch (stage) {
     case "prematch":
       if (!userSide) return null;
       return (
-        <PreMatchSetup
-          snapshot={snapshot}
-          gameState={gameState}
-          currentFixture={currentFixture}
-          userSide={userSide}
-          onStart={handleStartMatch}
-          onUpdateSnapshot={handleSnapshotUpdate}
-        />
+        <>
+          <div className="fixed right-4 top-4 z-50">
+            <button
+              type="button"
+              onClick={() => void handleSpatialSimulation()}
+              disabled={spatialAction !== null}
+              aria-busy={spatialAction === "simulating"}
+              className="rounded bg-primary-600 px-4 py-2 font-heading text-sm text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {t("match.simulateWithM12")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSpatialReplay()}
+              disabled={spatialAction !== null}
+              aria-busy={spatialAction === "preparing"}
+              className="mt-2 rounded bg-accent-solid px-4 py-2 font-heading text-sm text-on-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-60"
+            >
+              {t("match.watchWithM12")}
+            </button>
+            {spatialAction && (
+              <p
+                className="mt-2 rounded bg-panel px-3 py-2 text-caption text-fg shadow"
+                role="status"
+              >
+                {t("dashboard.loading")}
+              </p>
+            )}
+            {spatialError && (
+              <p
+                className="mt-2 max-w-64 rounded bg-danger-tint px-3 py-2 text-caption text-danger"
+                role="alert"
+              >
+                {spatialError}
+              </p>
+            )}
+          </div>
+          <PreMatchSetup
+            snapshot={snapshot}
+            gameState={gameState}
+            currentFixture={currentFixture}
+            userSide={userSide}
+            onStart={handleStartMatch}
+            onUpdateSnapshot={handleSnapshotUpdate}
+          />
+        </>
       );
 
     case "first_half":
@@ -393,6 +530,7 @@ export default function MatchSimulation() {
           userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
+          spatialResult={spatialResult}
           onContinue={handlePostMatchContinue}
           onFinish={handleFinishMatch}
         />

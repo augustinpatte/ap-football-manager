@@ -2028,6 +2028,18 @@
     "confidence": "Spolehlivost odhadu"
   },
   "match": {
+    "simulateWithM12": "Simulovat s M12",
+    "watchWithM12": "Sledovat ve 2D s M12",
+    "m12SimulationFailed": "M12 nemohl tento zápas dokončit.",
+    "replayUnavailable": "Záznam není dostupný nebo je poškozený.",
+    "replayPitch": "Hřiště záznamu M12",
+    "pauseReplay": "Pauza",
+    "playReplay": "Přehrát",
+    "replaySpeed": "Rychlost přehrávání",
+    "replayTimeline": "Časová osa záznamu",
+    "goToResult": "Přejít na výsledek",
+    "reviewMatch": "Znovu přehrát zápas",
+    "backToSchedule": "Zpět na rozpis",
     "live": "Živě",
     "paused": "Pozastaveno",
     "events": "Události",
