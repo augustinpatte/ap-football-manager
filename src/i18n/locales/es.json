@@ -1509,7 +1509,34 @@
     "registrationFailureInsufficientFunds": "Inscripción fallida: fondos insuficientes del comprador",
     "registrationFailureLoanConflict": "Inscripción fallida: conflicto con una cesión",
     "registrationFailurePlayerUnavailable": "Inscripción fallida: jugador no disponible",
-    "registrationFailureRegistrationBlocked": "Inscripción bloqueada"
+    "registrationFailureRegistrationBlocked": "Inscripción bloqueada",
+    "deadline": {
+      "title": "Vigilancia del cierre",
+      "phase": {
+        "early": "Mercado abierto",
+        "mid": "Mercado abierto",
+        "last_week": "Última semana",
+        "last_72h": "Últimas 72 horas",
+        "deadline_day": "Día del cierre"
+      },
+      "needsResponse": "{{count}} negociación(es) esperan tu respuesta",
+      "nothingPending": "No hay nada pendiente de tu respuesta.",
+      "lapseWarning": "Las conversaciones sin respuesta terminan al cerrarse el mercado.",
+      "pendingList": "Negociaciones pendientes",
+      "recentDeals": "Actividad del mercado",
+      "dealLine": "{{player}} pasó de {{from}} a {{to}} por {{fee}}",
+      "scheduledFor": "se inscribe el {{date}}",
+      "state": {
+        "incoming_offer": "Oferta recibida",
+        "counter_received": "Contraoferta recibida",
+        "awaiting_club": "A la espera de la respuesta del club",
+        "scheduled_registration": "Acuerdo cerrado"
+      }
+    },
+    "promise": {
+      "label": "Promesa de no bloquear una salida futura",
+      "hint": "Un jugador joven puede aceptar menos sueldo si prometes no impedir más adelante un traspaso a la altura de su ambición. Rechazar una oferta así rompe la promesa."
+    }
   },
   "transferCentreWorld": {
     "title": "Centro de fichajes",
@@ -1824,7 +1851,14 @@
     "renewalProjectionWageBill": "Nómina semanal {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Uso del presupuesto salarial {{before}}% → {{after}}%",
     "renewalProjectionRunway": "Reserva de caja {{before}} → {{after}}",
-    "ratingTrend": "Tendencia de calificación"
+    "ratingTrend": "Tendencia de calificación",
+    "promise": {
+      "title": "Promesa de trampolín",
+      "active": "Vigente hasta el {{date}}: no se debe bloquear una oferta adecuada de un club mayor.",
+      "fulfilled": "Cumplida: se le permitió marcharse.",
+      "lapsed": "Caducada sin haberse roto.",
+      "breached": "Rota: se rechazó una oferta adecuada y por ahora no quiere hablar de contrato."
+    }
   },
   "teamProfile": {
     "clubInfo": "Información del Club",
@@ -2989,7 +3023,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Rescindir este contrato dejaría a tu plantilla sin poder presentar un once para el día del partido",
         "noAssistantManagerAssigned": "No hay un segundo entrenador asignado a tu equipo",
         "playerHasNoTeam": "El jugador no tiene equipo",
-        "boardWagePolicy": "La renovación está bloqueada por la política salarial de la directiva. Mantén los salarios semanales cerca de {{budget}} para recuperarte."
+        "boardWagePolicy": "La renovación está bloqueada por la política salarial de la directiva. Mantén los salarios semanales cerca de {{budget}} para recuperarte.",
+        "promiseNotWanted": "A este jugador no le sirve una promesa de trampolín."
       },
       "scouting": {
         "scoutNotFound": "Ojeador no encontrado",
@@ -3644,6 +3679,24 @@
       "matchesMoved": {
         "subject": "Partidos reprogramados",
         "body": "Algunos de sus partidos se han cambiado para que sus jugadores mantengan su descanso y se respeten los parones internacionales:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} se siente traicionado",
+          "body": "A {{player}} se le prometió que {{team}} no bloquearía una salida adecuada, y se rechazó una oferta adecuada. Su confianza y su moral han caído, y por ahora no quiere hablar de un nuevo contrato."
+        },
+        "fulfilled": {
+          "subject": "{{player}} te da las gracias",
+          "body": "{{team}} cumplió su palabra y dejó que {{player}} diera el salto a un club mayor."
+        },
+        "lapsed": {
+          "subject": "La promesa a {{player}} ha llegado a su fin",
+          "body": "La promesa hecha a {{player}} caducó sin que {{team}} bloqueara nunca una salida adecuada. Confía un poco más en ti por ello."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Cierre del mercado",
+        "body": "El mercado ha cerrado. {{count}} negociación(es) sin respuesta han caducado."
       }
     },
     "news": {

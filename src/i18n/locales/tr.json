@@ -1509,7 +1509,34 @@
     "registrationFailureInsufficientFunds": "Tescil başarısız: alıcının fonları yetersiz",
     "registrationFailureLoanConflict": "Tescil başarısız: kiralama çakışması",
     "registrationFailurePlayerUnavailable": "Tescil başarısız: oyuncu uygun değil",
-    "registrationFailureRegistrationBlocked": "Tescil engellendi"
+    "registrationFailureRegistrationBlocked": "Tescil engellendi",
+    "deadline": {
+      "title": "Kapanış takibi",
+      "phase": {
+        "early": "Transfer dönemi açık",
+        "mid": "Transfer dönemi açık",
+        "last_week": "Son hafta",
+        "last_72h": "Son 72 saat",
+        "deadline_day": "Kapanış günü"
+      },
+      "needsResponse": "{{count}} görüşme yanıtınızı bekliyor",
+      "nothingPending": "Yanıtınızı bekleyen bir şey yok.",
+      "lapseWarning": "Yanıtlanmayan görüşmeler dönem kapanınca sona erer.",
+      "pendingList": "Süren görüşmeler",
+      "recentDeals": "Piyasa hareketleri",
+      "dealLine": "{{player}}, {{from}} kulübünden {{to}} kulübüne {{fee}} karşılığında geçti",
+      "scheduledFor": "tescil tarihi: {{date}}",
+      "state": {
+        "incoming_offer": "Teklif alındı",
+        "counter_received": "Karşı teklif alındı",
+        "awaiting_club": "Kulübün yanıtı bekleniyor",
+        "scheduled_registration": "Anlaşma sağlandı"
+      }
+    },
+    "promise": {
+      "label": "Gelecekteki bir ayrılığı engellememe sözü",
+      "hint": "Genç bir oyuncu, ileride kariyerinde uygun bir basamağa çıkmasına engel olmayacağınıza söz verirseniz daha düşük maaşı kabul edebilir. Böyle bir teklifi reddetmek sözü bozar."
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",
@@ -1824,7 +1851,14 @@
     "renewalProjectionTitle": "Öngörülen finansal etki",
     "renewalProjectionWageBill": "Haftalık maaş yükü {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Maaş bütçesi kullanımı %{{before}} → %{{after}}",
-    "renewalProjectionRunway": "Nakit yeterliliği {{before}} → {{after}}"
+    "renewalProjectionRunway": "Nakit yeterliliği {{before}} → {{after}}",
+    "promise": {
+      "title": "Basamak sözü",
+      "active": "{{date}} tarihine kadar geçerli: daha büyük bir kulübün uygun teklifi engellenemez.",
+      "fulfilled": "Tutuldu: ayrılmasına izin verildi.",
+      "lapsed": "Bozulmadan sona erdi.",
+      "breached": "Bozuldu: uygun bir teklif reddedildi ve şimdilik sözleşme konuşmak istemiyor."
+    }
   },
   "teamProfile": {
     "clubInfo": "Kulüp Bilgisi",
@@ -2997,7 +3031,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Bu sözleşmenin feshi, kadronuzu maç günü 11'i çıkaramayacak duruma düşürür",
         "noAssistantManagerAssigned": "Takımınıza atanmış yardımcı antrenör yok",
         "playerHasNoTeam": "Oyuncunun takımı yok",
-        "boardWagePolicy": "Yenileme, yönetimin maaş politikası tarafından engellendi. Toparlanmak için haftalık maaşları {{budget}} civarında tutun."
+        "boardWagePolicy": "Yenileme, yönetimin maaş politikası tarafından engellendi. Toparlanmak için haftalık maaşları {{budget}} civarında tutun.",
+        "promiseNotWanted": "Bu oyuncunun basamak sözüne ihtiyacı yok."
       },
       "scouting": {
         "scoutNotFound": "Gözlemci bulunamadı",
@@ -3644,6 +3679,24 @@
       "matchesMoved": {
         "subject": "Maçlar yeniden planlandı",
         "body": "Oyuncularınızın dinlenme süresini korumak ve milli maç aralarına uyabilmek için bazı maçlarınızın tarihi değiştirildi:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} kendini aldatılmış hissediyor",
+          "body": "{{player}}'a {{team}} kulübünün uygun bir ayrılığı engellemeyeceği söylenmişti, ancak uygun bir teklif reddedildi. Güveni ve morali düştü, şimdilik yeni sözleşme konuşmak istemiyor."
+        },
+        "fulfilled": {
+          "subject": "{{player}} size teşekkür ediyor",
+          "body": "{{team}} sözünü tuttu ve {{player}}'ın daha büyük bir kulübe geçmesine izin verdi."
+        },
+        "lapsed": {
+          "subject": "{{player}} için verilen söz sona erdi",
+          "body": "{{player}}'a verilen söz, {{team}} uygun bir ayrılığı hiç engellemeden sona erdi. Bu yüzden size biraz daha güveniyor."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Transfer dönemi kapandı",
+        "body": "Dönem kapandı. Yanıtlanmayan {{count}} görüşme geçersiz oldu."
       }
     },
     "news": {

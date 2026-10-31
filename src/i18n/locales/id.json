@@ -1509,7 +1509,34 @@
     "registrationFailureInsufficientFunds": "Registrasi gagal: dana pembeli tidak cukup",
     "registrationFailureLoanConflict": "Registrasi gagal: benturan pinjaman",
     "registrationFailurePlayerUnavailable": "Registrasi gagal: pemain tidak tersedia",
-    "registrationFailureRegistrationBlocked": "Registrasi terhalang"
+    "registrationFailureRegistrationBlocked": "Registrasi terhalang",
+    "deadline": {
+      "title": "Pantauan tenggat",
+      "phase": {
+        "early": "Bursa transfer dibuka",
+        "mid": "Bursa transfer dibuka",
+        "last_week": "Minggu terakhir",
+        "last_72h": "72 jam terakhir",
+        "deadline_day": "Hari penutupan"
+      },
+      "needsResponse": "{{count}} negosiasi menunggu jawabanmu",
+      "nothingPending": "Tidak ada yang menunggu jawabanmu.",
+      "lapseWarning": "Pembicaraan yang belum dijawab berakhir saat bursa ditutup.",
+      "pendingList": "Negosiasi yang berjalan",
+      "recentDeals": "Aktivitas pasar",
+      "dealLine": "{{player}} pindah dari {{from}} ke {{to}} seharga {{fee}}",
+      "scheduledFor": "didaftarkan {{date}}",
+      "state": {
+        "incoming_offer": "Tawaran diterima",
+        "counter_received": "Tawaran balasan diterima",
+        "awaiting_club": "Menunggu jawaban klub",
+        "scheduled_registration": "Kesepakatan tercapai"
+      }
+    },
+    "promise": {
+      "label": "Janji tidak menghalangi kepindahan nanti",
+      "hint": "Pemain muda mungkin menerima gaji lebih rendah jika kamu berjanji tidak menghalangi kepindahan yang layak di kemudian hari. Menolak tawaran seperti itu melanggar janji."
+    }
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -1824,7 +1851,14 @@
     "renewalProjectionTitle": "Perkiraan dampak finansial",
     "renewalProjectionWageBill": "Beban gaji mingguan {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Penggunaan anggaran gaji {{before}}% → {{after}}%",
-    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}"
+    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}",
+    "promise": {
+      "title": "Janji batu loncatan",
+      "active": "Berlaku sampai {{date}}: tawaran layak dari klub yang lebih besar tidak boleh dihalangi.",
+      "fulfilled": "Ditepati: ia diizinkan pergi.",
+      "lapsed": "Berakhir tanpa dilanggar.",
+      "breached": "Dilanggar: tawaran layak ditolak, dan untuk sementara ia tidak mau membahas kontrak."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informasi Klub",
@@ -2997,7 +3031,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Mengakhiri kontrak ini akan membuat skuad kamu tidak dapat menurunkan XI pertandingan",
         "noAssistantManagerAssigned": "Tidak ada asisten manajer yang ditugaskan ke tim kamu",
         "playerHasNoTeam": "Pemain tidak memiliki tim",
-        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih."
+        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih.",
+        "promiseNotWanted": "Pemain ini tidak membutuhkan janji batu loncatan."
       },
       "scouting": {
         "scoutNotFound": "Scout tidak ditemukan",
@@ -3644,6 +3679,24 @@
       "matchesMoved": {
         "subject": "Jadwal pertandingan diubah",
         "body": "Beberapa pertandingan kamu dipindahkan agar para pemain kamu tetap mendapat waktu istirahat dan jeda internasional dihormati:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} merasa dikhianati",
+          "body": "{{player}} dijanjikan bahwa {{team}} tidak akan menghalangi kepindahan yang layak, namun tawaran yang layak ditolak. Kepercayaan dan moralnya turun, dan untuk sementara ia tidak mau membahas kontrak baru."
+        },
+        "fulfilled": {
+          "subject": "{{player}} berterima kasih",
+          "body": "{{team}} menepati janji dan membiarkan {{player}} pindah ke klub yang lebih besar."
+        },
+        "lapsed": {
+          "subject": "Janji untuk {{player}} telah berakhir",
+          "body": "Janji yang diberikan kepada {{player}} berakhir tanpa {{team}} pernah menghalangi kepindahan yang layak. Ia jadi sedikit lebih percaya padamu."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Tenggat transfer berlalu",
+        "body": "Bursa telah ditutup. {{count}} negosiasi yang belum dijawab gugur."
       }
     },
     "news": {

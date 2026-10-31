@@ -4,7 +4,7 @@ import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { FreeAgentContractProjection } from "../../services/freeAgentService";
 import type { NegotiationFeedbackPanelData } from "../NegotiationFeedbackPanel";
 import NegotiationFeedbackPanel from "../NegotiationFeedbackPanel";
-import { Badge, Dialog } from "../ui";
+import { Badge, Checkbox, Dialog } from "../ui";
 import { formatExactMoney, formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
@@ -18,6 +18,10 @@ export interface FreeAgentContractFormProps {
   onWageChange: (value: string) => void;
   contractLength: string;
   onContractLengthChange: (value: string) => void;
+  /** The player would value the promise; the option is shown only then. */
+  steppingStoneAvailable?: boolean;
+  promiseSteppingStone?: boolean;
+  onPromiseSteppingStoneChange?: (value: boolean) => void;
   projection: FreeAgentContractProjection | null;
   feedback: NegotiationFeedbackPanelData | null | undefined;
   statusMessage: string | null;
@@ -38,6 +42,9 @@ export function FreeAgentContractForm({
   onWageChange,
   contractLength,
   onContractLengthChange,
+  steppingStoneAvailable = false,
+  promiseSteppingStone = false,
+  onPromiseSteppingStoneChange,
   projection,
   feedback,
   statusMessage,
@@ -117,6 +124,26 @@ export function FreeAgentContractForm({
         onChange={(event) => onContractLengthChange(event.target.value)}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
       />
+
+      {steppingStoneAvailable && onPromiseSteppingStoneChange ? (
+        <div className="mb-3 flex items-start gap-3 rounded-lg border border-line bg-sunken p-3">
+          <Checkbox
+            id="free-agent-stepping-stone"
+            checked={promiseSteppingStone}
+            onChange={(event) => onPromiseSteppingStoneChange(event.target.checked)}
+            disabled={submitting}
+            aria-describedby="free-agent-stepping-stone-hint"
+          />
+          <div>
+            <label htmlFor="free-agent-stepping-stone" className="text-body font-semibold text-fg">
+              {t("transfers.promise.label")}
+            </label>
+            <p id="free-agent-stepping-stone-hint" className="text-caption text-fg-muted">
+              {t("transfers.promise.hint")}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {projection ? (
         <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">

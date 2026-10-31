@@ -1509,7 +1509,34 @@
     "registrationFailureInsufficientFunds": "Enregistrement échoué : fonds insuffisants de l'acheteur",
     "registrationFailureLoanConflict": "Enregistrement échoué : conflit avec un prêt",
     "registrationFailurePlayerUnavailable": "Enregistrement échoué : joueur indisponible",
-    "registrationFailureRegistrationBlocked": "Enregistrement bloqué"
+    "registrationFailureRegistrationBlocked": "Enregistrement bloqué",
+    "deadline": {
+      "title": "Veille de la deadline",
+      "phase": {
+        "early": "Mercato ouvert",
+        "mid": "Mercato ouvert",
+        "last_week": "Dernière semaine",
+        "last_72h": "Dernières 72 heures",
+        "deadline_day": "Jour de clôture"
+      },
+      "needsResponse": "{{count}} négociation(s) attendent votre réponse",
+      "nothingPending": "Aucune réponse n'est attendue de votre part.",
+      "lapseWarning": "Les discussions sans réponse prennent fin à la fermeture du mercato.",
+      "pendingList": "Négociations en cours",
+      "recentDeals": "Activité du marché",
+      "dealLine": "{{player}} est passé de {{from}} à {{to}} pour {{fee}}",
+      "scheduledFor": "enregistré le {{date}}",
+      "state": {
+        "incoming_offer": "Offre reçue",
+        "counter_received": "Contre-offre reçue",
+        "awaiting_club": "En attente de la réponse du club",
+        "scheduled_registration": "Accord conclu"
+      }
+    },
+    "promise": {
+      "label": "Promesse de ne pas bloquer un futur départ",
+      "hint": "Un jeune joueur peut accepter un salaire moindre si vous promettez de ne pas freiner plus tard un transfert à la hauteur de son ambition. Refuser une telle offre rompt la promesse."
+    }
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",
@@ -1824,7 +1851,14 @@
     "renewalProjectionWageBill": "Masse salariale hebdomadaire {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Utilisation du budget salarial {{before}}% → {{after}}%",
     "renewalProjectionRunway": "Réserve de trésorerie {{before}} → {{after}}",
-    "ratingTrend": "Tendance de note"
+    "ratingTrend": "Tendance de note",
+    "promise": {
+      "title": "Promesse de tremplin",
+      "active": "Active jusqu'au {{date}} : une offre convenable d'un plus grand club ne doit pas être bloquée.",
+      "fulfilled": "Tenue : il a pu partir.",
+      "lapsed": "Expirée sans avoir été rompue.",
+      "breached": "Rompue : une offre convenable a été refusée, et il ne veut plus parler contrat pour l'instant."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informations du Club",
@@ -2989,7 +3023,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Résilier ce contrat laisserait votre effectif incapable d'aligner un onze le jour du match",
         "noAssistantManagerAssigned": "Aucun entraîneur adjoint n'est assigné à votre équipe",
         "playerHasNoTeam": "Le joueur n'a pas d'équipe",
-        "boardWagePolicy": "Le renouvellement est bloqué par la politique salariale du conseil. Gardez la masse salariale hebdomadaire proche de {{budget}} pour vous rétablir."
+        "boardWagePolicy": "Le renouvellement est bloqué par la politique salariale du conseil. Gardez la masse salariale hebdomadaire proche de {{budget}} pour vous rétablir.",
+        "promiseNotWanted": "Ce joueur n'a que faire d'une promesse de tremplin."
       },
       "scouting": {
         "scoutNotFound": "Recruteur introuvable",
@@ -3644,6 +3679,24 @@
       "matchesMoved": {
         "subject": "Matchs reprogrammés",
         "body": "Certains de vos matchs ont été déplacés afin que vos joueurs gardent leur repos et que les trêves internationales soient respectées :\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} se sent trahi",
+          "body": "{{player}} avait reçu la promesse que {{team}} ne bloquerait pas un départ convenable, et une offre convenable a été refusée. Sa confiance et son moral ont chuté, et il ne veut plus discuter d'un nouveau contrat pour l'instant."
+        },
+        "fulfilled": {
+          "subject": "{{player}} vous remercie",
+          "body": "{{team}} a tenu parole et laissé {{player}} rejoindre un plus grand club."
+        },
+        "lapsed": {
+          "subject": "La promesse faite à {{player}} est arrivée à terme",
+          "body": "La promesse faite à {{player}} a expiré sans que {{team}} ne bloque jamais un départ convenable. Il vous en est un peu plus reconnaissant."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Fin du mercato",
+        "body": "Le mercato est clos. {{count}} négociation(s) sans réponse ont pris fin."
       }
     },
     "news": {

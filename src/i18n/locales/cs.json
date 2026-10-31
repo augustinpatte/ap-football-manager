@@ -1509,7 +1509,34 @@
     "registrationFailureInsufficientFunds": "Registrace selhala: kupující nemá dost peněz",
     "registrationFailureLoanConflict": "Registrace selhala: konflikt s hostováním",
     "registrationFailurePlayerUnavailable": "Registrace selhala: hráč není dostupný",
-    "registrationFailureRegistrationBlocked": "Registrace zablokována"
+    "registrationFailureRegistrationBlocked": "Registrace zablokována",
+    "deadline": {
+      "title": "Hlídání uzávěrky",
+      "phase": {
+        "early": "Přestupní okno otevřeno",
+        "mid": "Přestupní okno otevřeno",
+        "last_week": "Poslední týden",
+        "last_72h": "Posledních 72 hodin",
+        "deadline_day": "Den uzávěrky"
+      },
+      "needsResponse": "Na vaši odpověď čeká jednání: {{count}}",
+      "nothingPending": "Na vaši odpověď nic nečeká.",
+      "lapseWarning": "Nezodpovězená jednání skončí se zavřením okna.",
+      "pendingList": "Probíhající jednání",
+      "recentDeals": "Dění na trhu",
+      "dealLine": "{{player}} přešel z {{from}} do {{to}} za {{fee}}",
+      "scheduledFor": "registrace {{date}}",
+      "state": {
+        "incoming_offer": "Přijata nabídka",
+        "counter_received": "Přijata protinabídka",
+        "awaiting_club": "Čeká se na odpověď klubu",
+        "scheduled_registration": "Dohoda uzavřena"
+      }
+    },
+    "promise": {
+      "label": "Slib, že nebudete bránit budoucímu odchodu",
+      "hint": "Mladý hráč může přijmout nižší plat, pokud slíbíte, že mu později nebudete bránit v odpovídajícím přestupu. Odmítnutí takové nabídky slib porušuje."
+    }
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -1824,7 +1851,14 @@
     "renewalProjectionTitle": "Předpokládaný finanční dopad",
     "renewalProjectionWageBill": "Týdenní mzdové náklady: {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Využití platového rozpočtu: {{before}} % → {{after}} %",
-    "renewalProjectionRunway": "Finanční rezerva: {{before}} → {{after}}"
+    "renewalProjectionRunway": "Finanční rezerva: {{before}} → {{after}}",
+    "promise": {
+      "title": "Slib odrazového můstku",
+      "active": "Platí do {{date}}: vhodná nabídka většího klubu se nesmí blokovat.",
+      "fulfilled": "Splněn: mohl odejít.",
+      "lapsed": "Vypršel, aniž by byl porušen.",
+      "breached": "Porušen: vhodná nabídka byla odmítnuta a o smlouvě teď nechce mluvit."
+    }
   },
   "teamProfile": {
     "clubInfo": "Informace o klubu",
@@ -2997,7 +3031,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Ukončení této smlouvy by způsobilo, že váš kádr nebude schopen postavit zápasovou jedenáctku",
         "noAssistantManagerAssigned": "K vašemu týmu není přiřazen žádný asistent manažera",
         "playerHasNoTeam": "Hráč nemá žádný tým",
-        "boardWagePolicy": "Prodloužení smlouvy je zablokováno mzdovou politikou představenstva. Pro nápravu udržujte týdenní platy blízko částky {{budget}}."
+        "boardWagePolicy": "Prodloužení smlouvy je zablokováno mzdovou politikou představenstva. Pro nápravu udržujte týdenní platy blízko částky {{budget}}.",
+        "promiseNotWanted": "Tento hráč slib odrazového můstku nepotřebuje."
       },
       "scouting": {
         "scoutNotFound": "Skaut nebyl nalezen",
@@ -3644,6 +3679,24 @@
       "matchesMoved": {
         "subject": "Zápasy přesunuty",
         "body": "Některé vaše zápasy byly přesunuty, aby si hráči zachovali odpočinek a byly dodrženy reprezentační přestávky:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} se cítí zrazen",
+          "body": "{{player}} dostal slib, že {{team}} nebude bránit vhodnému odchodu, a vhodná nabídka byla odmítnuta. Jeho důvěra i morálka klesly a o nové smlouvě teď nechce jednat."
+        },
+        "fulfilled": {
+          "subject": "{{player}} vám děkuje",
+          "body": "{{team}} dodržel slovo a nechal {{player}} přejít do většího klubu."
+        },
+        "lapsed": {
+          "subject": "Slib pro {{player}} doběhl",
+          "body": "Slib daný hráči {{player}} vypršel, aniž by {{team}} kdy zabránil vhodnému odchodu. Díky tomu vám trochu víc věří."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Přestupní uzávěrka skončila",
+        "body": "Okno se zavřelo. Nezodpovězená jednání ({{count}}) zanikla."
       }
     },
     "news": {

@@ -23,6 +23,20 @@ describe("freeAgentService", () => {
       playerId: "player-1",
       weeklyWage: 4000,
       contractYears: 3,
+      promiseSteppingStone: false,
+    });
+  });
+
+  it("submits the stepping-stone promise only when asked to", async () => {
+    mockedInvoke.mockResolvedValueOnce({ outcome: "accepted" });
+
+    await offerFreeAgentContract("player-1", 4000, 3, true);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("offer_free_agent_contract", {
+      playerId: "player-1",
+      weeklyWage: 4000,
+      contractYears: 3,
+      promiseSteppingStone: true,
     });
   });
 

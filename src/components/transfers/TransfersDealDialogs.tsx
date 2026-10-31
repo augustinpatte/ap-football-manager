@@ -60,6 +60,9 @@ type ActiveDealWorkspaceProps = {
     | "setContractWage"
     | "contractLength"
     | "setContractLength"
+    | "steppingStoneAvailable"
+    | "promiseSteppingStone"
+    | "setPromiseSteppingStone"
     | "contractProjection"
     | "contractFeedback"
     | "contractStatusMessage"
@@ -127,6 +130,9 @@ type FreeAgentDealDialogProps = {
     | "setContractWage"
     | "contractLength"
     | "setContractLength"
+    | "steppingStoneAvailable"
+    | "promiseSteppingStone"
+    | "setPromiseSteppingStone"
     | "contractProjection"
     | "contractFeedback"
     | "contractStatusMessage"
@@ -254,6 +260,9 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractProjection,
     contractFeedback,
     contractStatusMessage,
@@ -348,6 +357,9 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 onWageChange={setContractWage}
                 contractLength={contractLength}
                 onContractLengthChange={setContractLength}
+                steppingStoneAvailable={steppingStoneAvailable}
+                promiseSteppingStone={promiseSteppingStone}
+                onPromiseSteppingStoneChange={setPromiseSteppingStone}
                 projection={contractProjection}
                 feedback={contractFeedback}
                 statusMessage={contractStatusMessage(t)}
@@ -481,6 +493,9 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractProjection,
     contractFeedback,
     contractStatusMessage,
@@ -501,6 +516,9 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
         onWageChange={setContractWage}
         contractLength={contractLength}
         onContractLengthChange={setContractLength}
+        steppingStoneAvailable={steppingStoneAvailable}
+        promiseSteppingStone={promiseSteppingStone}
+        onPromiseSteppingStoneChange={setPromiseSteppingStone}
         projection={contractProjection}
         feedback={contractFeedback}
         statusMessage={contractStatusMessage(t)}

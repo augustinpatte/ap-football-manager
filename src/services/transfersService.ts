@@ -170,3 +170,49 @@ export async function toggleLoanList(playerId: string): Promise<GameStateData> {
     playerId,
   });
 }
+
+export type DeadlineItemState =
+  | "incoming_offer"
+  | "counter_received"
+  | "awaiting_club"
+  | "scheduled_registration";
+
+export interface DeadlineItemData {
+  kind: "transfer" | "loan";
+  state: DeadlineItemState;
+  player_id: string;
+  player_name: string;
+  counterparty_team_id: string;
+  counterparty_team_name: string;
+  offer_id: string;
+  /** Absent for a loan, which has no fee. */
+  fee: number | null;
+  /** The user must act, or the negotiation lapses with the window. */
+  needs_response: boolean;
+  registration_date?: string;
+}
+
+export interface DeadlineDealData {
+  player_id: string;
+  player_name: string;
+  from_team_name: string;
+  to_team_name: string;
+  fee: number;
+  date: string;
+}
+
+/** The user's side of the market as the window closes, as the backend reads it. */
+export interface TransferDeadlineSummaryData {
+  window_open: boolean;
+  phase: "early" | "mid" | "last_week" | "last_72h" | "deadline_day";
+  days_remaining: number | null;
+  closes_on: string | null;
+  urgent: boolean;
+  items: DeadlineItemData[];
+  urgent_response_count: number;
+  recent_deals: DeadlineDealData[];
+}
+
+export async function getTransferDeadlineSummary(): Promise<TransferDeadlineSummaryData> {
+  return invoke<TransferDeadlineSummaryData>("get_transfer_deadline_summary");
+}

@@ -314,6 +314,7 @@ export default function PlayerProfile({
           contractRiskLabel={contractRiskLabel}
           isOwnClub={isManagerOwnedProfile}
           isFreeAgent={isFreeAgent}
+          steppingStonePromise={player.morale_core?.stepping_stone_promise}
           hasLetExpireIntent={hasLetExpireIntent}
           actionSubmitting={contractActionSubmitting}
           onOpenRenewal={openRenewalModal}

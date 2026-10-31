@@ -31,6 +31,9 @@ interface UseFreeAgentContractFlowResult {
   setContractWage: (value: string) => void;
   contractLength: string;
   setContractLength: (value: string) => void;
+  steppingStoneAvailable: boolean;
+  promiseSteppingStone: boolean;
+  setPromiseSteppingStone: (value: boolean) => void;
   contractStatus: RenewalStatus;
   contractError: string | null;
   contractFeedback: FreeAgentContractResponseData["feedback"];
@@ -79,6 +82,8 @@ export function useFreeAgentContractFlow({
       : (gameState.players.find((player) => player.id === freeAgentTargetId) ?? null);
   const [contractWage, setContractWage] = useState("");
   const [contractLength, setContractLength] = useState("");
+  const [steppingStoneAvailable, setSteppingStoneAvailable] = useState(false);
+  const [promiseSteppingStone, setPromiseSteppingStone] = useState(false);
   const [contractStatus, setContractStatus] = useState<RenewalStatus>("idle");
   const [contractError, setContractError] = useState<string | null>(null);
   const [contractFeedback, setContractFeedback] =
@@ -115,6 +120,12 @@ export function useFreeAgentContractFlow({
 
         if (!cancelled) {
           setContractProjection(result.projection ?? null);
+          const available = result.stepping_stone_available === true;
+          setSteppingStoneAvailable(available);
+          // A promise the player would not value is refused by the backend: never carry it over.
+          if (!available) {
+            setPromiseSteppingStone(false);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -134,6 +145,8 @@ export function useFreeAgentContractFlow({
     setFreeAgentTargetId(player.id);
     setContractWage(defaultContractWage(player));
     setContractLength(defaultContractYears(player.date_of_birth, gameState.clock.current_date));
+    setPromiseSteppingStone(false);
+    setSteppingStoneAvailable(false);
     setContractStatus("idle");
     setContractError(null);
     setContractFeedback(null);
@@ -152,6 +165,8 @@ export function useFreeAgentContractFlow({
     setFreeAgentTargetId(null);
     setContractWage("");
     setContractLength("");
+    setPromiseSteppingStone(false);
+    setSteppingStoneAvailable(false);
     setContractStatus("idle");
     setContractError(null);
     setContractFeedback(null);
@@ -172,7 +187,12 @@ export function useFreeAgentContractFlow({
     setContractError(null);
 
     try {
-      const result = await offerFreeAgentContract(freeAgentTarget.id, offeredWage, offeredYears);
+      const result = await offerFreeAgentContract(
+        freeAgentTarget.id,
+        offeredWage,
+        offeredYears,
+        promiseSteppingStone,
+      );
 
       onGameUpdate?.(result.game);
       setContractStatus(result.outcome);
@@ -205,6 +225,9 @@ export function useFreeAgentContractFlow({
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractStatus,
     contractError,
     contractFeedback,

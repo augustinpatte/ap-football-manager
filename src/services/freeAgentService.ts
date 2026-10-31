@@ -29,17 +29,21 @@ export interface FreeAgentContractResponseData {
 
 export interface FreeAgentContractProjectionResponseData {
   projection: FreeAgentContractProjection;
+  /** The player would value a stepping-stone promise; the backend refuses it for anyone else. */
+  stepping_stone_available: boolean;
 }
 
 export async function offerFreeAgentContract(
   playerId: string,
   weeklyWage: number,
   contractYears: number,
+  promiseSteppingStone = false,
 ): Promise<FreeAgentContractResponseData> {
   return invoke<FreeAgentContractResponseData>("offer_free_agent_contract", {
     playerId,
     weeklyWage,
     contractYears,
+    promiseSteppingStone,
   });
 }
 
