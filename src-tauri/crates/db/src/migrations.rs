@@ -1039,8 +1039,13 @@ mod tests {
         assert!(MIGRATIONS[61].1.contains("transfer_obligations"));
         assert_eq!(MIGRATIONS[62].0, "v063_out_of_possession_formation.sql");
         assert!(MIGRATIONS[62].1.contains("out_of_possession_formation"));
-        let names: std::collections::BTreeSet<_> = MIGRATIONS.iter().map(|(n, _)| &n[..4]).collect();
-        assert_eq!(names.len(), MIGRATIONS.len(), "a version prefix is used twice");
+        let names: std::collections::BTreeSet<_> =
+            MIGRATIONS.iter().map(|(n, _)| &n[..4]).collect();
+        assert_eq!(
+            names.len(),
+            MIGRATIONS.len(),
+            "a version prefix is used twice"
+        );
     }
 
     /// Given the migrations already shipped

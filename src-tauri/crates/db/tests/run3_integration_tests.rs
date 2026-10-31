@@ -9,11 +9,14 @@ mod market_fixtures;
 use db::save_manager::SaveManager;
 use domain::custom_tactic::CustomTactic;
 use domain::finance::CashKind;
+use domain::season::TransferWindowStatus;
 use domain::team::{DefensiveLine, PitchWidth, TacticsPhaseSettings};
 use domain::transfer_terms::{TransferObligation, TransferTerms};
-use market_fixtures::{PLAYER_ID, game_with, player, prospect, set_date};
+use market_fixtures::{PLAYER_ID, game_with, pending_offer, player, prospect, set_date};
 use ofm_core::game::Game;
-use ofm_core::transfers::{TransferNegotiationDecision, make_transfer_bid_with_terms};
+use ofm_core::transfers::{
+    TransferNegotiationDecision, make_transfer_bid_with_terms, respond_to_offer,
+};
 
 const FEE: u64 = 3_000_000;
 const USER: &str = "team-1";
@@ -60,13 +63,27 @@ fn career_with_tactics() -> Game {
 fn assert_tactics_intact(game: &Game, context: &str) {
     let team = user_team(game);
     assert_eq!(team.formation, "4-3-3", "{context}: attacking shape");
-    assert_eq!(team.out_of_possession_formation, "5-4-1", "{context}: defensive shape");
-    assert_eq!(team.tactics_phase.width, PitchWidth::Wide, "{context}: width");
-    assert_eq!(team.tactics_phase.defensive_line, DefensiveLine::High, "{context}: line");
+    assert_eq!(
+        team.out_of_possession_formation, "5-4-1",
+        "{context}: defensive shape"
+    );
+    assert_eq!(
+        team.tactics_phase.width,
+        PitchWidth::Wide,
+        "{context}: width"
+    );
+    assert_eq!(
+        team.tactics_phase.defensive_line,
+        DefensiveLine::High,
+        "{context}: line"
+    );
     assert_eq!(game.custom_tactics.len(), 1, "{context}: saved tactics");
     assert_eq!(game.custom_tactics[0].out_of_possession_formation, "5-4-1");
     assert_eq!(
-        game.custom_tactics[0].tactics_phase.as_ref().map(|p| &p.width),
+        game.custom_tactics[0]
+            .tactics_phase
+            .as_ref()
+            .map(|p| &p.width),
         Some(&PitchWidth::Narrow),
         "{context}: saved tactic instructions"
     );
@@ -93,7 +110,11 @@ fn a_career_with_open_transfer_obligations_and_custom_tactics_survives_two_round
         .decision;
     assert_eq!(decision, TransferNegotiationDecision::Accepted);
     let obligations_before = game.transfer_obligations.clone();
-    assert_eq!(obligations_before.len(), 3, "two later instalments and one sell-on clause");
+    assert_eq!(
+        obligations_before.len(),
+        3,
+        "two later instalments and one sell-on clause"
+    );
 
     let dir = tempfile::tempdir().unwrap();
     let saves = dir.path().join("saves");
@@ -136,12 +157,17 @@ fn an_instalment_falling_due_after_a_reload_is_paid_once_and_tactics_are_kept() 
         .transfer_obligations
         .iter()
         .filter_map(|o| match o {
-            TransferObligation::Instalment { number: 2, paid_on, .. } => Some(paid_on.clone()),
+            TransferObligation::Instalment {
+                number: 2, paid_on, ..
+            } => Some(paid_on.clone()),
             _ => None,
         })
         .next()
         .expect("the second instalment is still on the books");
-    assert!(first_due.is_some(), "the due instalment was settled by the daily turn");
+    assert!(
+        first_due.is_some(),
+        "the due instalment was settled by the daily turn"
+    );
     let paid_to_seller = |game: &Game| -> i64 {
         game.cash_journal
             .iter()
@@ -163,4 +189,61 @@ fn an_instalment_falling_due_after_a_reload_is_paid_once_and_tactics_are_kept() 
         received,
         "the reloaded career does not pay the same instalment twice"
     );
+}
+
+/// Given the user's club bought the prospect with a 20% sell-on clause and fielded him under a
+/// two-shape tactic,
+/// When he is sold on through an incoming offer answered from the inbox, and the career is saved
+/// and reloaded,
+/// Then he is gone from the XI, the original seller's clause is settled once, and the user's
+/// attacking shape, defensive shape and instructions are exactly as the manager left them.
+#[test]
+fn selling_a_fielded_signing_settles_the_clause_and_leaves_the_tactics_alone() {
+    let mut game = career_with_tactics();
+    make_transfer_bid_with_terms(&mut game, PLAYER_ID, FEE, terms()).unwrap();
+    game.teams
+        .iter_mut()
+        .find(|t| t.id == USER)
+        .unwrap()
+        .starting_xi_ids
+        .push(PLAYER_ID.to_string());
+
+    set_date(&mut game, 2027, 2, 1);
+    game.season_context.transfer_window.status = TransferWindowStatus::Open;
+    pending_offer(&mut game, "resale", "big-club", 4_000_000, "2027-02-01");
+    respond_to_offer(&mut game, PLAYER_ID, "resale", true).unwrap();
+
+    assert_eq!(prospect(&game).team_id.as_deref(), Some("big-club"));
+    assert!(
+        !user_team(&game)
+            .starting_xi_ids
+            .iter()
+            .any(|id| id == PLAYER_ID),
+        "a sold player cannot stay in the XI"
+    );
+    assert!(game.transfer_obligations.iter().any(|o| matches!(
+        o,
+        TransferObligation::SellOn {
+            settled_on: Some(_),
+            ..
+        }
+    )));
+
+    let dir = tempfile::tempdir().unwrap();
+    let saves = dir.path().join("saves");
+    let id = SaveManager::init(&saves)
+        .unwrap()
+        .create_save(&game, "Run 3")
+        .unwrap();
+    let reloaded = SaveManager::init(&saves).unwrap().load_game(&id).unwrap();
+
+    assert_eq!(reloaded.transfer_obligations, game.transfer_obligations);
+    assert_eq!(prospect(&reloaded).team_id.as_deref(), Some("big-club"));
+    assert!(
+        !user_team(&reloaded)
+            .starting_xi_ids
+            .iter()
+            .any(|id| id == PLAYER_ID)
+    );
+    assert_tactics_intact(&reloaded, "after selling a fielded signing");
 }

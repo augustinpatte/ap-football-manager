@@ -497,15 +497,23 @@ mod tests {
         let db = GameDatabase::open_save(&path).expect("a Run 1 dev save loads");
 
         assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
-        assert_eq!(team_defensive_shape(&db), "", "legacy: defend with the attacking shape");
+        assert_eq!(
+            team_defensive_shape(&db),
+            "",
+            "legacy: defend with the attacking shape"
+        );
         let obligations: i64 = db
             .conn()
-            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(obligations, 1);
         let formation: String = db
             .conn()
-            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| r.get(0))
+            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(formation, "4-3-3");
     }
@@ -525,13 +533,19 @@ mod tests {
         assert_eq!(team_defensive_shape(&db), "5-4-1");
         let obligations: i64 = db
             .conn()
-            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(obligations, 0);
         drop(db);
         let backup = dir.path().join("run2.db.pre-v063.bak");
         assert!(backup.exists(), "a pre-repair copy is kept");
-        assert_eq!(user_version(&backup), 62, "the backup is the untouched original");
+        assert_eq!(
+            user_version(&backup),
+            62,
+            "the backup is the untouched original"
+        );
 
         let again = GameDatabase::open_save(&path).expect("reopening works");
         assert_eq!(team_defensive_shape(&again), "5-4-1");
@@ -578,7 +592,9 @@ mod tests {
         assert_eq!(team_defensive_shape(&db), "");
         let formation: String = db
             .conn()
-            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| r.get(0))
+            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(formation, "4-3-3");
     }
