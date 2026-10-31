@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Rozestavení a styl",
     "formation": "Rozestavení",
+    "outOfPossessionFormation": "Bez míče",
     "playStyle": "Herní styl",
     "teamIdentity": "Identita týmu",
     "presetTactics": "Přednastavené taktiky",
@@ -799,14 +800,28 @@
       "wing-play": "Hra po křídlech",
       "high-press": "Vysoký presink",
       "counter-attack": "Protiútoky",
-      "low-block": "Hluboký blok"
+      "low-block": "Hluboký blok",
+      "control-possession": "Kontrola držení", "tiki-taka": "Styl tiki-taka", "vertical-tiki-taka": "Vertikální tiki-taka", "gegenpress": "Proti-pressing", "direct-counter": "Přímý protiútok", "direct-play": "Přímá hra", "mid-block": "Střední blok", "high-defensive-line": "Vysoká obranná linie", "defensive": "Defenzivní", "attacking": "Útočný", "long-ball": "Dlouhý míč", "park-the-bus": "Zaparkovat autobus", "fast-transition": "Rychlý přechod"
     },
     "presetDescriptions": {
       "balanced-control": "Stabilní linie, spolehlivé pokrytí prostoru a přímočaré rozestavení vhodné pro většinu týmů.",
       "wing-play": "Přirozená šířka hry, brzká podpora kolem vápna a více náběhů hráčů před míč.",
       "high-press": "Posouvá herní blok výše, vyžaduje agresivní napadání a zapojuje do útoku velký počet hráčů.",
       "counter-attack": "Upřednostňuje rychlé výpady ze zabezpečeného středu hřiště okamžitě po zisku míče.",
-      "low-block": "Zvýšená ochrana obranné linie a kompaktnější rozestavení při ustávání tlaku soupeře."
+      "low-block": "Zvýšená ochrana obranné linie a kompaktnější rozestavení při ustávání tlaku soupeře.",
+      "control-possession": "Drží míč krátkou trpělivou kombinací a stabilním zajištěním ve středu pole.",
+      "tiki-taka": "Využívá úzké krátké přihrávky a blízkou podporu pro postup přes propojené řady.",
+      "vertical-tiki-taka": "Spojuje krátké kombinace s vysokou linií, aby dostal míč dříve dopředu.",
+      "gegenpress": "Okamžitě po ztrátě míče napadá vysokou linií a vytrvalým proti-pressingem.",
+      "direct-counter": "Brání kompaktně a poté posílá rychlé dlouhé přihrávky do prostoru za soupeřem.",
+      "direct-play": "Posouvá míč brzy vpřed přes široké možnosti a s méně přihrávkami ve středu.",
+      "mid-block": "Chrání střed hřiště v kompaktním středním bloku bez úplného zatažení.",
+      "high-defensive-line": "Drží tým vysoko, aby zmenšil hřiště a podpořil aktivní držení míče.",
+      "defensive": "Upřednostňuje úzký nízký blok a disciplinovanou ochranu pokutového území.",
+      "attacking": "Posílá více hráčů vpřed se šířkou, vysokou linií a rychlou podporou ve finální třetině.",
+      "long-ball": "Vychází z nízkého bezpečného základu a pak hraje dlouhé míče pro rychlý zisk území.",
+      "park-the-bus": "Brání velmi hluboko, úzce a pasivně, aby odepřel prostor v okolí vápna.",
+      "fast-transition": "Mění zisky míče v okamžité útoky rychlým přechodem a aktivním tlakem."
     },
     "playerRoles": {
       "Standard": "Standardní",

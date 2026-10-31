@@ -2,6 +2,7 @@ import { getPlayerOvr } from "../../lib/helpers";
 import { isFirstTeamSquadPlayer } from "../../lib/playerSquad";
 import { naturalPositionOf, normalisePosition, positionGroupRank } from "../../lib/positions";
 import type { PlayerData } from "../../store/gameStore";
+import type { TacticsPhaseSettings } from "../../store/types";
 import {
   buildPitchRows,
   buildStartingXIIds,
@@ -21,8 +22,26 @@ export interface TacticsPresetDefinition {
   descriptionKey: string;
   formation: string;
   id: string;
+  outOfPossessionFormation: string;
   playStyle: string;
+  tacticsPhase: TacticsPhaseSettings;
 }
+
+const BASE_PHASE: TacticsPhaseSettings = {
+  build_up_style: "Mixed",
+  width: "Normal",
+  tempo: "Direct",
+  defensive_line: "Medium",
+  pressing_intensity: "Medium",
+  defensive_shape: "Normal",
+  marking_style: "Zonal",
+  counter_press_duration: "None",
+  break_speed: "Medium",
+};
+const phase = (overrides: Partial<TacticsPhaseSettings>): TacticsPhaseSettings => ({
+  ...BASE_PHASE,
+  ...overrides,
+});
 
 export interface TacticsPitchSlot {
   index: number;
@@ -37,32 +56,163 @@ export const TACTICS_PRESETS: TacticsPresetDefinition[] = [
   {
     id: "balanced-control",
     formation: "4-4-2",
+    outOfPossessionFormation: "4-4-2",
     playStyle: "Balanced",
     descriptionKey: "tactics.presetDescriptions.balanced-control",
+    tacticsPhase: phase({}),
   },
   {
     id: "wing-play",
     formation: "4-3-3",
+    outOfPossessionFormation: "4-4-2",
     playStyle: "Attacking",
     descriptionKey: "tactics.presetDescriptions.wing-play",
+    tacticsPhase: phase({ width: "Wide", defensive_line: "High", break_speed: "Fast" }),
   },
   {
     id: "high-press",
     formation: "3-4-3",
+    outOfPossessionFormation: "4-4-2",
     playStyle: "HighPress",
     descriptionKey: "tactics.presetDescriptions.high-press",
+    tacticsPhase: phase({
+      defensive_line: "High",
+      pressing_intensity: "Aggressive",
+      counter_press_duration: "Long",
+    }),
   },
   {
     id: "counter-attack",
     formation: "4-2-3-1",
+    outOfPossessionFormation: "4-4-2",
     playStyle: "Counter",
     descriptionKey: "tactics.presetDescriptions.counter-attack",
+    tacticsPhase: phase({ build_up_style: "Long", break_speed: "Fast" }),
   },
   {
     id: "low-block",
     formation: "5-3-2",
+    outOfPossessionFormation: "5-4-1",
     playStyle: "Defensive",
     descriptionKey: "tactics.presetDescriptions.low-block",
+    tacticsPhase: phase({ defensive_line: "Low", defensive_shape: "Compact" }),
+  },
+  {
+    id: "control-possession",
+    formation: "4-3-3",
+    outOfPossessionFormation: "4-1-4-1",
+    playStyle: "Possession",
+    descriptionKey: "tactics.presetDescriptions.control-possession",
+    tacticsPhase: phase({ build_up_style: "Short", tempo: "Patient" }),
+  },
+  {
+    id: "tiki-taka",
+    formation: "4-1-4-1",
+    outOfPossessionFormation: "4-1-4-1",
+    playStyle: "Possession",
+    descriptionKey: "tactics.presetDescriptions.tiki-taka",
+    tacticsPhase: phase({ build_up_style: "Short", tempo: "Patient", width: "Narrow" }),
+  },
+  {
+    id: "vertical-tiki-taka",
+    formation: "4-2-3-1",
+    outOfPossessionFormation: "4-4-2",
+    playStyle: "Possession",
+    descriptionKey: "tactics.presetDescriptions.vertical-tiki-taka",
+    tacticsPhase: phase({ build_up_style: "Short", defensive_line: "High" }),
+  },
+  {
+    id: "gegenpress",
+    formation: "4-3-3",
+    outOfPossessionFormation: "4-3-3",
+    playStyle: "HighPress",
+    descriptionKey: "tactics.presetDescriptions.gegenpress",
+    tacticsPhase: phase({
+      defensive_line: "High",
+      pressing_intensity: "Aggressive",
+      counter_press_duration: "Long",
+    }),
+  },
+  {
+    id: "direct-counter",
+    formation: "5-3-2",
+    outOfPossessionFormation: "5-4-1",
+    playStyle: "Counter",
+    descriptionKey: "tactics.presetDescriptions.direct-counter",
+    tacticsPhase: phase({ build_up_style: "Long", defensive_line: "Low", break_speed: "Fast" }),
+  },
+  {
+    id: "direct-play",
+    formation: "4-4-2",
+    outOfPossessionFormation: "4-4-2",
+    playStyle: "Counter",
+    descriptionKey: "tactics.presetDescriptions.direct-play",
+    tacticsPhase: phase({ build_up_style: "Long", width: "Wide" }),
+  },
+  {
+    id: "mid-block",
+    formation: "4-5-1",
+    outOfPossessionFormation: "4-5-1",
+    playStyle: "Defensive",
+    descriptionKey: "tactics.presetDescriptions.mid-block",
+    tacticsPhase: phase({ defensive_shape: "Compact" }),
+  },
+  {
+    id: "high-defensive-line",
+    formation: "4-1-4-1",
+    outOfPossessionFormation: "4-1-4-1",
+    playStyle: "Balanced",
+    descriptionKey: "tactics.presetDescriptions.high-defensive-line",
+    tacticsPhase: phase({ defensive_line: "High" }),
+  },
+  {
+    id: "defensive",
+    formation: "5-4-1",
+    outOfPossessionFormation: "5-4-1",
+    playStyle: "Defensive",
+    descriptionKey: "tactics.presetDescriptions.defensive",
+    tacticsPhase: phase({ defensive_line: "Low", width: "Narrow", defensive_shape: "Compact" }),
+  },
+  {
+    id: "attacking",
+    formation: "3-5-2",
+    outOfPossessionFormation: "4-3-3",
+    playStyle: "Attacking",
+    descriptionKey: "tactics.presetDescriptions.attacking",
+    tacticsPhase: phase({ width: "Wide", defensive_line: "High", break_speed: "Fast" }),
+  },
+  {
+    id: "long-ball",
+    formation: "5-4-1",
+    outOfPossessionFormation: "5-4-1",
+    playStyle: "Counter",
+    descriptionKey: "tactics.presetDescriptions.long-ball",
+    tacticsPhase: phase({ build_up_style: "Long", defensive_line: "Low" }),
+  },
+  {
+    id: "park-the-bus",
+    formation: "5-4-1",
+    outOfPossessionFormation: "5-4-1",
+    playStyle: "Defensive",
+    descriptionKey: "tactics.presetDescriptions.park-the-bus",
+    tacticsPhase: phase({
+      width: "Narrow",
+      defensive_line: "VeryLow",
+      pressing_intensity: "Passive",
+      defensive_shape: "Compact",
+    }),
+  },
+  {
+    id: "fast-transition",
+    formation: "4-2-3-1",
+    outOfPossessionFormation: "4-4-2",
+    playStyle: "Counter",
+    descriptionKey: "tactics.presetDescriptions.fast-transition",
+    tacticsPhase: phase({
+      pressing_intensity: "Aggressive",
+      counter_press_duration: "Short",
+      break_speed: "Fast",
+    }),
   },
 ];
 
@@ -302,10 +452,20 @@ export function buildTacticsPitchSlots(rows: PitchSlotRow[]): TacticsPitchSlot[]
 export function findTacticsPresetBySetup(
   formation: string,
   playStyle: string,
+  tacticsPhase?: TacticsPhaseSettings,
+  outOfPossessionFormation?: string,
 ): TacticsPresetDefinition | null {
-  return (
-    TACTICS_PRESETS.find(
-      (preset) => preset.formation === formation && preset.playStyle === playStyle,
-    ) ?? null
+  const matchingFormationAndStyle = TACTICS_PRESETS.filter(
+    (preset) => preset.formation === formation && preset.playStyle === playStyle,
   );
+  if (tacticsPhase && outOfPossessionFormation) {
+    return (
+      matchingFormationAndStyle.find(
+        (preset) =>
+          preset.outOfPossessionFormation === outOfPossessionFormation &&
+          JSON.stringify(preset.tacticsPhase) === JSON.stringify(tacticsPhase),
+      ) ?? null
+    );
+  }
+  return matchingFormationAndStyle.length === 1 ? matchingFormationAndStyle[0] : null;
 }

@@ -34,6 +34,10 @@ pub struct Team {
 
     // Tactical
     pub formation: String,
+    /// Defensive shape used while the side is out of possession. An empty
+    /// legacy value means the in-possession formation is used for both phases.
+    #[serde(default)]
+    pub out_of_possession_formation: String,
     pub play_style: PlayStyle,
     /// Per-player tactical role assignments. Keyed by player ID.
     /// Missing entries default to the position's standard role.
@@ -484,6 +488,7 @@ impl Team {
             sponsorship: None,
             facilities: Facilities::default(),
             formation: "4-4-2".to_string(),
+            out_of_possession_formation: String::new(),
             play_style: PlayStyle::Balanced,
             player_roles: HashMap::new(),
             tactics_phase: TacticsPhaseSettings::default(),

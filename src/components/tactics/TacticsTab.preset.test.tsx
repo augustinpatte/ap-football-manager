@@ -164,7 +164,7 @@ function seedSavedTactics(
 
 function fakeBackend(failPreset = false) {
   mockedInvoke.mockImplementation(async (command: string, args?: unknown) => {
-    const params = (args ?? {}) as Record<string, string>;
+    const params = (args ?? {}) as Record<string, unknown>;
     if (command === "get_squad") return backend.players;
     if (command === "list_custom_tactics") return structuredClone(savedTactics);
     if (command === "save_custom_tactic") {
@@ -179,20 +179,20 @@ function fakeBackend(failPreset = false) {
     if (command === "set_tactics_phase") {
       team.tactics_phase = {
         ...(team.tactics_phase as object),
-        width: params.width,
+        width: params.width as string,
       } as TeamData["tactics_phase"];
       blueprintModified = true;
     }
     if (command === "apply_tactic_preset") {
       if (failPreset) throw new Error("boom");
-      team.formation = params.formation;
-      team.play_style = params.playStyle;
-      // The real command puts the dials back to the style's blueprint.
-      team.tactics_phase = {} as TeamData["tactics_phase"];
+      team.formation = params.formation as string;
+      team.play_style = params.playStyle as string;
+      team.out_of_possession_formation = params.outOfPossessionFormation as string;
+      team.tactics_phase = params.tacticsPhase as TeamData["tactics_phase"];
       blueprintModified = false;
     }
-    if (command === "set_formation") team.formation = params.formation;
-    if (command === "set_play_style") team.play_style = params.playStyle;
+    if (command === "set_formation") team.formation = params.formation as string;
+    if (command === "set_play_style") team.play_style = params.playStyle as string;
     return structuredClone(backend);
   });
 }
@@ -246,6 +246,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       });
     });
     expect(commandsCalled()).not.toContain("set_formation");
@@ -266,6 +268,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
   });
@@ -373,6 +377,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
     expect(screen.getByRole("button", { name: "Choose tactic" })).toHaveTextContent(
@@ -416,6 +422,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
     await waitFor(() => expect(screen.getByText("Synced")).toBeInTheDocument());

@@ -709,6 +709,7 @@
   "tactics": {
     "formationStyle": "Formation & Stil",
     "formation": "Formation",
+    "outOfPossessionFormation": "Gegen den Ball",
     "playStyle": "Spielweise",
     "lineupTab": "Aufstellung",
     "rolesTab": "Standards & Rollen",
@@ -845,7 +846,8 @@
       "wing-play": "Flügelspiel",
       "high-press": "Hohes Pressing",
       "counter-attack": "Konterangriff",
-      "low-block": "Tiefer Block"
+      "low-block": "Tiefer Block",
+      "control-possession": "Ballbesitzkontrolle", "tiki-taka": "Tiki-Taka-Stil", "vertical-tiki-taka": "Vertikales Tiki-Taka", "gegenpress": "Gegenpressing", "direct-counter": "Direkter Konter", "direct-play": "Direktes Spiel", "mid-block": "Mittlerer Block", "high-defensive-line": "Hohe Abwehrlinie", "defensive": "Defensiv", "attacking": "Offensiv", "long-ball": "Langer Ball", "park-the-bus": "Abwehrbollwerk", "fast-transition": "Schneller Übergang"
     },
     "tableInteractionHint": "Rechtsklicke auf Spieler für Schnellaktionen.",
     "makeCaptain": "Zum Kapitän machen",
@@ -867,7 +869,20 @@
       "wing-play": "Natürliche Breite, frühere Unterstützung rund um den Strafraum und mehr Läufe vor dem Ball.",
       "high-press": "Schiebt den Block höher, fordert aggressiven Druck und bringt mehr Spieler nach vorn.",
       "counter-attack": "Setzt nach Ballgewinnen auf schnelle Umschaltmomente aus einer sichereren Mittelfeldbasis.",
-      "low-block": "Mehr Schutz in der letzten Linie und eine kompaktere Form beim Verteidigen tiefer Räume."
+      "low-block": "Mehr Schutz in der letzten Linie und eine kompaktere Form beim Verteidigen tiefer Räume.",
+      "control-possession": "Hält den Ball mit kurzen, geduldigen Pässen und einer stabilen Mittelfeldabsicherung.",
+      "tiki-taka": "Nutzen enge Kurzpässe und nahe Anspielstationen, um durch verbundene Linien vorzurücken.",
+      "vertical-tiki-taka": "Verbindet kurze Kombinationen mit einer hohen Linie, um den Ball früher nach vorn zu bringen.",
+      "gegenpress": "Jagt den Ball sofort nach Verlust mit hoher Linie und anhaltendem Gegenpressing.",
+      "direct-counter": "Verteidigt kompakt und spielt dann schnelle lange Pässe in den Raum hinter dem Gegner.",
+      "direct-play": "Bringt den Ball früh mit breiten Optionen und weniger Mittelfeldpässen nach vorn.",
+      "mid-block": "Schützt das Zentrum in einem kompakten mittleren Block, ohne sich ganz zurückzuziehen.",
+      "high-defensive-line": "Hält die Mannschaft hoch, um das Feld zu verdichten und aktiven Ballbesitz zu stützen.",
+      "defensive": "Priorisiert eine enge, tiefe Ordnung und disziplinierten Schutz des Strafraums.",
+      "attacking": "Schiebt mit Breite, hoher Linie und schneller Unterstützung im letzten Drittel nach vorn.",
+      "long-ball": "Nutzt eine tiefe, sichere Basis, bevor lange Bälle schnell Raumgewinn bringen sollen.",
+      "park-the-bus": "Steht extrem tief, eng und passiv, um Raum im und am Strafraum zu verwehren.",
+      "fast-transition": "Macht Ballgewinne mit schnellen Umschaltmomenten und aktivem Druck sofort gefährlich."
     },
     "clearSelection": "Auswahl aufheben",
     "compareWithSelected": "Mit Auswahl vergleichen",
