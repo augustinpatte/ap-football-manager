@@ -2775,7 +2775,13 @@
     "nGoals": "{{count}} 个进球",
     "playerOfYear": "年度最佳球员",
     "avgRating": "平均评分：{{rating}}",
-    "continueDashboard": "继续至主控台"
+    "continueDashboard": "继续至主控台",
+    "promoted": "升入{{league}}",
+    "relegated": "降入{{league}}",
+    "stayedUp": "留在{{league}}",
+    "cupResults": "杯赛结果",
+    "cupWon": "你们赢得了{{cup}}",
+    "cupLost": "{{cup}}：{{champion}}夺得冠军"
   },
   "notifications": {
     "attentionRequired": "需要关注",

@@ -2775,7 +2775,13 @@
     "nGoals": "{{count}} Tore",
     "playerOfYear": "Spieler des Jahres",
     "avgRating": "Durchschnittsbewertung: {{rating}}",
-    "continueDashboard": "Weiter zum Dashboard"
+    "continueDashboard": "Weiter zum Dashboard",
+    "promoted": "Aufstieg in die {{league}}",
+    "relegated": "Abstieg in die {{league}}",
+    "stayedUp": "Verbleib in der {{league}}",
+    "cupResults": "Pokalergebnisse",
+    "cupWon": "Ihr habt den {{cup}} gewonnen",
+    "cupLost": "{{cup}}: {{champion}} holte den Pokal"
   },
   "notifications": {
     "attentionRequired": "Aufmerksamkeit erforderlich",

@@ -2775,7 +2775,13 @@
     "nGoals": "{{count}} gol",
     "playerOfYear": "Pemain Terbaik Tahun Ini",
     "avgRating": "Rating rata-rata: {{rating}}",
-    "continueDashboard": "Lanjut ke Dashboard"
+    "continueDashboard": "Lanjut ke Dashboard",
+    "promoted": "Promosi ke {{league}}",
+    "relegated": "Degradasi ke {{league}}",
+    "stayedUp": "Bertahan di {{league}}",
+    "cupResults": "Hasil piala",
+    "cupWon": "Kalian memenangkan {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} merebut trofi"
   },
   "notifications": {
     "attentionRequired": "Perlu Perhatian",

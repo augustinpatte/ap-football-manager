@@ -2730,7 +2730,13 @@
     "nGoals": "{{count}} gols",
     "playerOfYear": "Jogador do Ano",
     "avgRating": "Nota média: {{rating}}",
-    "continueDashboard": "Continuar para o Painel"
+    "continueDashboard": "Continuar para o Painel",
+    "promoted": "Promovido para a {{league}}",
+    "relegated": "Rebaixado para a {{league}}",
+    "stayedUp": "Permanece na {{league}}",
+    "cupResults": "Resultados da copa",
+    "cupWon": "Vocês venceram a {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} levou o troféu"
   },
   "notifications": {
     "attentionRequired": "Atenção Necessária",

@@ -2787,7 +2787,13 @@
     "nGoals": "{{count}} goals",
     "playerOfYear": "Player of the Year",
     "avgRating": "Avg rating: {{rating}}",
-    "continueDashboard": "Continue to Dashboard"
+    "continueDashboard": "Continue to Dashboard",
+    "promoted": "Promoted to {{league}}",
+    "relegated": "Relegated to {{league}}",
+    "stayedUp": "Staying in {{league}}",
+    "cupResults": "Cup results",
+    "cupWon": "You won the {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} took the trophy"
   },
   "notifications": {
     "attentionRequired": "Attention Required",

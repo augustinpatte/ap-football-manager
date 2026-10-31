@@ -7,6 +7,7 @@ import {
 } from "../../lib/helpers";
 import type { TFunction } from "i18next";
 import { hasCompetitiveStandings } from "../../lib/seasonContext";
+import { orderStandings } from "../../lib/standings";
 import type {
   FixtureData,
   GameStateData,
@@ -64,17 +65,8 @@ export interface HomeRecentResult {
 }
 
 function getStandingPosition(league: LeagueData, teamId: string): number | null {
-  // Tiebreak matches the standings table (points → goal difference → goals
-  // for) so the opponent's position shown here can't disagree with it.
-  const sortedStandings = [...league.standings].sort((leftEntry, rightEntry) => {
-    return (
-      rightEntry.points - leftEntry.points ||
-      rightEntry.goals_for -
-        rightEntry.goals_against -
-        (leftEntry.goals_for - leftEntry.goals_against) ||
-      rightEntry.goals_for - leftEntry.goals_for
-    );
-  });
+  // Same order as the standings table, so the opponent's position can't disagree with it.
+  const sortedStandings = orderStandings(league);
   const standingIndex = sortedStandings.findIndex((entry) => entry.team_id === teamId);
 
   if (standingIndex === -1) {

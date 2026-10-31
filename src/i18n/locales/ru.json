@@ -2775,7 +2775,13 @@
     "nGoals": "{{count}} голов",
     "playerOfYear": "Игрок года",
     "avgRating": "Средний рейтинг: {{rating}}",
-    "continueDashboard": "Продолжить в дашборд"
+    "continueDashboard": "Продолжить в дашборд",
+    "promoted": "Повышение: {{league}}",
+    "relegated": "Вылет: {{league}}",
+    "stayedUp": "Остаётесь в лиге: {{league}}",
+    "cupResults": "Результаты в кубках",
+    "cupWon": "Вы выиграли {{cup}}",
+    "cupLost": "{{cup}}: трофей достался клубу {{champion}}"
   },
   "notifications": {
     "attentionRequired": "Требуется внимание",

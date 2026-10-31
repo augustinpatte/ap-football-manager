@@ -314,7 +314,13 @@
     "nGoals": "{{count}} gol",
     "playerOfYear": "Giocatore dell'anno",
     "avgRating": "Valutazione media: {{rating}}",
-    "continueDashboard": "Continua alla dashboard"
+    "continueDashboard": "Continua alla dashboard",
+    "promoted": "Promosso in {{league}}",
+    "relegated": "Retrocesso in {{league}}",
+    "stayedUp": "Resta in {{league}}",
+    "cupResults": "Risultati di coppa",
+    "cupWon": "Avete vinto la {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} ha vinto il trofeo"
   },
   "teamSelect": {
     "title": "Scegli il tuo club",

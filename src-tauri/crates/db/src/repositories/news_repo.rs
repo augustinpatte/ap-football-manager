@@ -4,6 +4,15 @@ use rusqlite::{Connection, params};
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
 const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
 
+fn i18n_value(article: &NewsArticle) -> serde_json::Value {
+    serde_json::json!({
+        "headline_key": article.headline_key,
+        "body_key": article.body_key,
+        "source_key": article.source_key,
+        "i18n_params": article.i18n_params,
+    })
+}
+
 /// Insert or replace a news article row.
 pub fn upsert_news(conn: &Connection, article: &NewsArticle) -> Result<(), String> {
     let team_ids_json = serde_json::to_string(&article.team_ids)
@@ -16,12 +25,7 @@ pub fn upsert_news(conn: &Connection, article: &NewsArticle) -> Result<(), Strin
         .map(|s| serde_json::to_string(s).unwrap_or_default());
     let category_str = format!("{:?}", article.category);
 
-    let i18n = serde_json::json!({
-        "headline_key": article.headline_key,
-        "body_key": article.body_key,
-        "source_key": article.source_key,
-        "i18n_params": article.i18n_params,
-    });
+    let i18n = i18n_value(article);
     let i18n_json =
         serde_json::to_string(&i18n).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
@@ -63,11 +67,13 @@ pub fn upsert_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(
 ///
 /// An article is written once and then only ever marked read, and the season rollover retires
 /// the whole feed, so the difference is small: new ids are inserted, a changed read flag is
-/// updated, and ids the feed no longer holds are deleted. The stored feed ends up exactly
-/// `articles`, each id once. Runs on the caller's connection, which `save_game` wraps in a transaction,
-/// so an interrupted save cannot leave the feed half-written.
+/// updated, and ids the feed no longer holds are deleted. An id the feed still holds is *not*
+/// necessarily the same article: the season preview is always `season_preview`, so next season's
+/// reuses last season's id. An id whose stored date or text differs is rewritten in full.
+/// The stored feed ends up exactly `articles`, each id once. Runs on the caller's connection, which
+/// `save_game` wraps in a transaction, so an interrupted save cannot leave the feed half-written.
 pub fn sync_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(), String> {
-    let mut stored = stored_read_flags(conn)?;
+    let mut stored = stored_rows(conn)?;
     let wanted: std::collections::HashSet<&str> =
         articles.iter().map(|article| article.id.as_str()).collect();
     for retired in stored.keys().filter(|id| !wanted.contains(id.as_str())) {
@@ -76,27 +82,65 @@ pub fn sync_news_list(conn: &Connection, articles: &[NewsArticle]) -> Result<(),
     }
     for article in articles {
         match stored.get(&article.id) {
-            Some(read) if *read == article.read => {}
-            Some(_) => {
+            Some(row) if row.same_content_as(article) && row.read == article.read => {}
+            Some(row) if row.same_content_as(article) => {
                 conn.execute(
                     "UPDATE news SET read = ?2 WHERE id = ?1",
                     params![article.id, article.read as i32],
                 )
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
             }
-            None => upsert_news(conn, article)?,
+            _ => upsert_news(conn, article)?,
         }
-        stored.insert(article.id.clone(), article.read);
+        stored.insert(article.id.clone(), StoredNews::of(article));
     }
     Ok(())
 }
 
-fn stored_read_flags(conn: &Connection) -> Result<std::collections::HashMap<String, bool>, String> {
+/// What is stored of an article, enough to tell a reused id from an unchanged article.
+struct StoredNews {
+    read: bool,
+    date: String,
+    headline: String,
+    body: String,
+    i18n: serde_json::Value,
+}
+
+impl StoredNews {
+    fn of(article: &NewsArticle) -> Self {
+        Self {
+            read: article.read,
+            date: article.date.clone(),
+            headline: article.headline.clone(),
+            body: article.body.clone(),
+            i18n: i18n_value(article),
+        }
+    }
+
+    fn same_content_as(&self, article: &NewsArticle) -> bool {
+        self.date == article.date
+            && self.headline == article.headline
+            && self.body == article.body
+            && self.i18n == i18n_value(article)
+    }
+}
+
+fn stored_rows(conn: &Connection) -> Result<std::collections::HashMap<String, StoredNews>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, read FROM news")
+        .prepare("SELECT id, read, date, headline, body, i18n FROM news")
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? != 0))
+        let i18n: String = row.get(5)?;
+        Ok((
+            row.get::<_, String>(0)?,
+            StoredNews {
+                read: row.get::<_, i32>(1)? != 0,
+                date: row.get(2)?,
+                headline: row.get(3)?,
+                body: row.get(4)?,
+                i18n: serde_json::from_str(&i18n).unwrap_or_default(),
+            },
+        ))
     })
     .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?
     .map(|row| row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string()))
@@ -353,6 +397,39 @@ mod tests {
         let stored = load_all_news(db.conn()).unwrap();
         assert_eq!(stored.iter().filter(|a| a.read).count(), 1);
         assert!(stored.iter().find(|a| a.id == "news-0007").unwrap().read);
+    }
+
+    /// Given a saved feed holding an article whose id is reused by a later season (the season
+    /// preview is always `season_preview`), when the new season's article is saved, then the file
+    /// holds the new article and not last season's: the id alone does not say it is unchanged.
+    #[test]
+    fn an_article_reusing_an_id_replaces_the_stored_one() {
+        let db = test_db();
+        let mut last_season = sample_article("season_preview");
+        last_season.date = "2034-04-18".to_string();
+        last_season.headline_key = Some("be.news.seasonPreview.headline1".to_string());
+        last_season
+            .i18n_params
+            .insert("favourite".to_string(), "Old Favourites".to_string());
+        sync_news_list(db.conn(), &[last_season.clone()]).unwrap();
+
+        let mut next_season = last_season;
+        next_season.date = "2035-04-18".to_string();
+        next_season
+            .i18n_params
+            .insert("favourite".to_string(), "New Favourites".to_string());
+        let written = rows_written_by(db.conn(), || {
+            sync_news_list(db.conn(), &[next_season.clone()]).unwrap()
+        });
+
+        assert_eq!(written, 1);
+        let stored = load_all_news(db.conn()).unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].date, "2035-04-18");
+        assert_eq!(
+            stored[0].i18n_params.get("favourite").map(String::as_str),
+            Some("New Favourites")
+        );
     }
 
     /// Given a saved feed that the season rollover then clears, when it is saved, then the
