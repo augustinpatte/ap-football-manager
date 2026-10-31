@@ -941,7 +941,7 @@ describe("Dashboard", () => {
   it("clears a stale active save id when a later refresh cannot load it", async () => {
     const saveStorageKey = "ofm-onboarding-visited-tabs:save:save-1";
     const legacyStorageKey = `ofm-onboarding-visited-tabs:legacy:${gameState.manager.id}:${gameState.clock.start_date}`;
-    const getItemSpy = vi.spyOn(Storage.prototype, "getItem");
+    const getItemSpy = vi.spyOn(window.localStorage, "getItem");
     let saveIdRequestCount = 0;
 
     invokeMock.mockImplementation(async (command: string) => {
