@@ -247,8 +247,11 @@ export default function TacticsTab({
       {/* Inspector modal — only when both players are selected for comparison */}
       {selectedPlayer && comparePlayer && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="fixed inset-0 z-40 cursor-default bg-black/50 backdrop-blur-sm"
             onClick={clearLineupSelection}
           />
           <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">

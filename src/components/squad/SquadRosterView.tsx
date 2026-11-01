@@ -898,7 +898,11 @@ export default function SquadRosterView({
                         </div>
                       </td>
                       {/* Actions (last column) */}
-                      <td className="py-2.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="py-2.5 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={(e) => {

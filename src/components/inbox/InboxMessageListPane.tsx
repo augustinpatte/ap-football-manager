@@ -2,6 +2,7 @@ import { Mail, MailOpen } from "lucide-react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { activatable } from "../../lib/activatable";
 import { formatDateShort } from "../../lib/helpers";
 import type { MessageData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
@@ -81,15 +82,12 @@ export default function InboxMessageListPane({
             return (
               <ContextMenu items={contextItems} key={message.id}>
                 <div
-                  onClick={() => onSelectMessage(message.id)}
+                  {...activatable(() => onSelectMessage(message.id))}
                   className={getMessageRowClassName(isSelected, message.read)}
                   data-testid={`inbox-row-${message.id}`}
                 >
                   {bulkSelectionEnabled ? (
-                    <div
-                      className="mt-1 flex shrink-0 items-center"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                    <div className="mt-1 flex shrink-0 items-center">
                       <Checkbox
                         checked={selectedMessageIds.includes(message.id)}
                         onChange={() => onToggleMessageSelection(message.id)}
