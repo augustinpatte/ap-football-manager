@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronDown } from "lucide-react";
 import type { CountryFlag } from "../ui/CountryFlag";
@@ -58,6 +58,9 @@ export default function CreateManagerNationalityField({
 }: CreateManagerNationalityFieldProps) {
   const { t } = useTranslation();
   const nationalityRef = useRef<HTMLDivElement>(null);
+  // The trigger is named by its label and its current value, so a screen reader hears both.
+  const labelId = useId();
+  const valueId = useId();
   const [isOpen, setIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [resources, setResources] = useState<CountryResources | null>(null);
@@ -151,12 +154,16 @@ export default function CreateManagerNationalityField({
       ref={nationalityRef}
       className={isOpen ? "relative z-50" : undefined}
     >
-      <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <span
+        id={labelId}
+        className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+      >
         {t("createManager.countryOfOrigin")}
-      </label>
+      </span>
       <div className="relative">
         <button
           type="button"
+          aria-labelledby={`${labelId} ${valueId}`}
           onMouseDown={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -170,6 +177,7 @@ export default function CreateManagerNationalityField({
           className={triggerClassName}
         >
           <span
+            id={valueId}
             className={
               nationality ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"
             }

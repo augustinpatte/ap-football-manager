@@ -84,9 +84,9 @@ export function LabeledSelect({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
-        <label id={labelId} className={labelClass}>
+        <span id={labelId} className={labelClass}>
           {label}
-        </label>
+        </span>
         {help && <InlineHelp text={help} />}
       </div>
       <Select

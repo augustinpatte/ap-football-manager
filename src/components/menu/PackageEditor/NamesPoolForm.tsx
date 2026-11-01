@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { X, Plus } from "lucide-react";
 import { EntityFormShell } from "./shared";
@@ -27,6 +27,7 @@ interface NameChipListProps {
 function NameChipList({ label, names, addPlaceholder, addLabel, onChange }: NameChipListProps) {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const labelClass =
     "text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400";
 
@@ -44,7 +45,9 @@ function NameChipList({ label, names, addPlaceholder, addLabel, onChange }: Name
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className={labelClass}>{label}</label>
+      <label htmlFor={inputId} className={labelClass}>
+        {label}
+      </label>
       {names.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {names.map((name) => (
@@ -68,6 +71,7 @@ function NameChipList({ label, names, addPlaceholder, addLabel, onChange }: Name
       <div className="flex gap-2">
         <input
           ref={inputRef}
+          id={inputId}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}

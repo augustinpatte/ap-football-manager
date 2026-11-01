@@ -37,6 +37,7 @@ export function StaffForm({
 }: StaffFormProps) {
   const { t } = useTranslation();
   const dobLabelId = useId();
+  const fieldIdPrefix = useId();
   const [useAttributes, setUseAttributes] = useState(editing.attributes !== null);
   const [idAutoMode, setIdAutoMode] = useState(editingIndex === null && !editing.id);
   const attrs = editing.attributes;
@@ -110,9 +111,12 @@ export function StaffForm({
     >
       {/* ID */}
       <div className="flex flex-col gap-1">
-        <label className={labelClass}>{t("worldEditor.staffId")}</label>
+        <label htmlFor={`${fieldIdPrefix}-id`} className={labelClass}>
+          {t("worldEditor.staffId")}
+        </label>
         <div className="flex gap-2 items-center">
           <input
+            id={`${fieldIdPrefix}-id`}
             className="flex-1 rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-400 transition"
             value={editing.id}
             onChange={(e) => {
@@ -196,9 +200,9 @@ export function StaffForm({
 
       {/* Date of Birth */}
       <div className="flex flex-col gap-1">
-        <label id={dobLabelId} className={labelClass}>
+        <span id={dobLabelId} className={labelClass}>
           {t("worldEditor.staffDateOfBirth")}
-        </label>
+        </span>
         <DatePicker
           labelledBy={dobLabelId}
           value={editing.dateOfBirth ?? ""}
@@ -219,10 +223,11 @@ export function StaffForm({
           <div className="grid grid-cols-2 gap-3">
             {STAFF_ATTR_KEYS.map((key) => (
               <div key={key} className="flex flex-col gap-1">
-                <label className={labelClass}>
+                <label htmlFor={`${fieldIdPrefix}-attr-${key}`} className={labelClass}>
                   {t(`worldEditor.staffAttr.${key}`, { defaultValue: key })}
                 </label>
                 <input
+                  id={`${fieldIdPrefix}-attr-${key}`}
                   type="number"
                   min={1}
                   max={99}

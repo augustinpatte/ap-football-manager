@@ -399,16 +399,19 @@ export default function PreMatchSetup({
       <div className="grid grid-cols-2 gap-3">
         {setPieceItems.map(({ role, label, Icon, current }) => (
           <div key={role}>
-            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            <label
+              htmlFor={`set-piece-taker-${role}`}
+              className="mb-1.5 flex items-center gap-1 text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400"
+            >
               <Icon className="h-3 w-3" />
               {label}
             </label>
             <Select
+              id={`set-piece-taker-${role}`}
               value={current ?? ""}
               onChange={(e) => handleSetPieceTaker(role, e.target.value)}
               selectSize="xs"
               fullWidth
-              aria-label={label}
             >
               <option value="">—</option>
               {sortedForRole(role).map((p) => (
