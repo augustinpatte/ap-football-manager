@@ -94,8 +94,7 @@ function PositionGroupChip({ group, chosen, open, onPress, onToggle }: PositionG
         )}
       </button>
       {refinable && open && (
-        <div
-          role="group"
+        <fieldset
           aria-label={t("transfers.refinePositionGroup", { group: label })}
           className="absolute left-0 top-full mt-1 z-20 min-w-[180px] p-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 shadow-lg"
         >
@@ -118,7 +117,7 @@ function PositionGroupChip({ group, chosen, open, onPress, onToggle }: PositionG
               );
             })}
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   );

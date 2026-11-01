@@ -234,12 +234,10 @@ export function DatePicker({ value, onChange, error, labelledBy }: DatePickerPro
   const selectedMonthLabel = getSelectedMonthLabel(month, months, t("date.month"));
 
   return (
-    <div
-      className="flex gap-2 w-full"
-      // Unconditional: ARIA does not allow `aria-labelledby` on an element with no role, and a
-      // conditional role cannot be paired with it by any checker. A `group` with no label is
-      // valid and describes what this is — three fields that belong together — either way.
-      role="group"
+    <fieldset
+      className="flex w-full min-w-0 gap-2"
+      // A `fieldset` is a `group` with no label until `aria-labelledby` names it: three fields
+      // that belong together either way.
       aria-labelledby={labelledBy}
     >
       {/* Day */}
@@ -353,6 +351,6 @@ export function DatePicker({ value, onChange, error, labelledBy }: DatePickerPro
           }`}
         />
       </div>
-    </div>
+    </fieldset>
   );
 }

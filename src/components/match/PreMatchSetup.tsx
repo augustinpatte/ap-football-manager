@@ -167,6 +167,7 @@ export default function PreMatchSetup({
             number: sp?.jersey_number,
           }}
         >
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: not a control; it only keeps the select's mouse and key events from starting a drag or a slot click on the parent. */}
           <div
             draggable={false}
             onClick={(e) => e.stopPropagation()}

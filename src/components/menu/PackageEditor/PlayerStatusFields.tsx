@@ -62,7 +62,7 @@ export function PlayerStatusFields({ editing, updateField }: PlayerStatusFieldsP
           onChange={(v) => updateField("weakFoot", parseOptionalWhole(v, WIRE_MAX.u8))}
         />
       </div>
-      <div role="group" aria-labelledby={alternatesLabelId} className="flex flex-col gap-1.5">
+      <fieldset aria-labelledby={alternatesLabelId} className="flex min-w-0 flex-col gap-1.5">
         <div className="flex items-center gap-1.5">
           <p id={alternatesLabelId} className={labelClass}>
             {t("worldEditor.playerAlternatePositions")}
@@ -85,7 +85,7 @@ export function PlayerStatusFields({ editing, updateField }: PlayerStatusFieldsP
             );
           })}
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 }

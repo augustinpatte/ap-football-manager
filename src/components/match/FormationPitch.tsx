@@ -301,6 +301,7 @@ export function FormationPitch({
           // interactive controls (e.g. the role combobox), which HTML forbids
           // inside a real <button>.
           return (
+            // biome-ignore lint/a11y/useSemanticElements: a rich token can embed interactive controls (the role select), which HTML forbids inside a <button>; focus, Enter and Space are handled below.
             <div
               key={p.id}
               role="button"

@@ -406,6 +406,7 @@ export function SubPanel({
                       const isSubOn = subbedOnIds.has(p.id);
                       const isQueuedOff = queuedOffIds.has(p.id);
                       const row = (
+                        // biome-ignore lint/a11y/useSemanticElements: a table row cannot be a <button>; Enter and Space are handled by handleInteractiveRowKeyDown.
                         <tr
                           key={p.id}
                           data-testid={`sub-panel-off-${p.id}`}
@@ -532,6 +533,7 @@ export function SubPanel({
                           ? p.position === selectedPlayer.position
                           : true;
                         const benchRow = (
+                          // biome-ignore lint/a11y/useSemanticElements: a table row cannot be a <button>; Enter and Space are handled by handleInteractiveRowKeyDown.
                           <tr
                             key={p.id}
                             data-testid={`sub-panel-bench-${p.id}`}

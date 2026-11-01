@@ -343,7 +343,7 @@ export default function DashboardHeader({
 
       {/* The search folds when the focus leaves the field and its results, not when it moves from
           the field into a result: a keyboard player tabs into the results to pick one. */}
-      <div
+      <search
         data-search-field
         className={`relative min-w-0 flex-1 ${searchExpanded ? "" : "hidden @3xl/header:block"}`}
         onBlur={(event) => {
@@ -375,7 +375,7 @@ export default function DashboardHeader({
             })}
           </div>
         )}
-      </div>
+      </search>
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
         {searchExpanded ? null : (
