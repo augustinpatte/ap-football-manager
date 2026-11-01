@@ -7,7 +7,10 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-expected="$(cd "$root/src-tauri/crates/ofm_core" && realpath -m ../../../../../apfm-match-lab)"
+# macOS `realpath` has no GNU `-m` flag.  The parent directory always exists in
+# the supported checkout layout, so resolving it with `cd` is both portable and
+# gives the canonical engine path before we test for its manifest.
+expected="$(cd "$root/src-tauri/crates/ofm_core/../../../../../" && pwd)/apfm-match-lab"
 
 if [ ! -f "$expected/Cargo.toml" ]; then
   if [ -n "${APFM_MATCH_LAB:-}" ] && [ -f "$APFM_MATCH_LAB/Cargo.toml" ]; then

@@ -1,5 +1,7 @@
 use log::{debug, error, info};
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
+use std::fs::{self, File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::migrations::{
@@ -41,9 +43,9 @@ fn verify_layout_matches_version(
     }
 }
 
-/// Where the pre-repair copy of `path` goes: `<save>.db.pre-v063.bak`, or the first numbered
-/// variant of it that is free. A file already there is never overwritten, and never mistaken for a
-/// copy of this save: whatever sits under that name may be an older save's.
+/// Where the pre-v063 copy of `path` goes: `<save>.db.pre-v063.bak`, or the first numbered variant
+/// of it that is free. A file already there is never overwritten, and never mistaken for a copy of
+/// this save: whatever sits under that name may be an older save's.
 fn unused_backup_path(path: &Path) -> PathBuf {
     let plain = path.with_extension("db.pre-v063.bak");
     if !plain.exists() {
@@ -55,29 +57,110 @@ fn unused_backup_path(path: &Path) -> PathBuf {
         .unwrap_or(plain)
 }
 
+fn remove_incomplete_backup(path: &Path) {
+    if let Err(error) = fs::remove_file(path) {
+        error!("[game_db] could not remove incomplete backup {path:?}: {error}");
+    }
+}
+
+/// Copy a save without overwriting another backup, then prove the copy stayed byte-identical while
+/// it was made. The source digest is read both before and after the copy: a concurrently changed
+/// save is not a usable pre-migration recovery point.
+fn copy_verified_backup(source: &Path, backup: &Path) -> Result<(), String> {
+    let source_checksum = crate::save_index::compute_checksum(source)
+        .map_err(|_| format!("cannot checksum source save {source:?}"))?;
+    let source_size = fs::metadata(source)
+        .map_err(|error| format!("cannot inspect source save {source:?}: {error}"))?
+        .len();
+    let mut source_file = File::open(source)
+        .map_err(|error| format!("cannot open source save {source:?}: {error}"))?;
+    let mut backup_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(backup)
+        .map_err(|error| format!("cannot create backup {backup:?}: {error}"))?;
+
+    let copied = match io::copy(&mut source_file, &mut backup_file) {
+        Ok(copied) => copied,
+        Err(error) => {
+            drop(backup_file);
+            remove_incomplete_backup(backup);
+            return Err(format!(
+                "cannot copy save {source:?} to {backup:?}: {error}"
+            ));
+        }
+    };
+    if copied != source_size {
+        drop(backup_file);
+        remove_incomplete_backup(backup);
+        return Err(format!(
+            "backup {backup:?} copied {copied} bytes but source save {source:?} has {source_size}"
+        ));
+    }
+    if let Err(error) = backup_file.sync_all() {
+        drop(backup_file);
+        remove_incomplete_backup(backup);
+        return Err(format!("cannot sync backup {backup:?}: {error}"));
+    }
+    drop(backup_file);
+
+    let verification = (|| {
+        let current_source_checksum = crate::save_index::compute_checksum(source)
+            .map_err(|_| format!("cannot re-check source save {source:?}"))?;
+        let backup_checksum = crate::save_index::compute_checksum(backup)
+            .map_err(|_| format!("cannot checksum backup {backup:?}"))?;
+        let backup_size = fs::metadata(backup)
+            .map_err(|error| format!("cannot inspect backup {backup:?}: {error}"))?
+            .len();
+        if source_checksum != current_source_checksum
+            || current_source_checksum != backup_checksum
+            || source_size != backup_size
+        {
+            return Err(format!(
+                "backup {backup:?} does not exactly match save {source:?}"
+            ));
+        }
+        Ok(())
+    })();
+    if verification.is_err() {
+        remove_incomplete_backup(backup);
+    }
+    verification
+}
+
+/// Preserve a verified recovery copy before any schema-changing operation. Returns whether the
+/// save needs an ordinary migration after a possible Run 2 numbering repair.
+fn backup_before_schema_change(conn: &Connection, path: &Path) -> Result<bool, String> {
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|error| format!("cannot read schema version of {path:?}: {error}"))?;
+    if version >= MIGRATION_COUNT as i64 {
+        return Ok(false);
+    }
+
+    let backup = unused_backup_path(path);
+    copy_verified_backup(path, &backup)?;
+    info!("[game_db] verified pre-migration backup {path:?} -> {backup:?}");
+    Ok(true)
+}
+
 /// Upgrades a save written by a Run 2 development build (see `migrations::needs_run2_dev_repair`).
-/// A copy of the file is taken first; if it cannot be taken the save is left untouched and the
-/// caller sees the original, unrepaired outcome.
-fn reconcile_run2_dev_save(conn: &mut Connection, path: Option<&Path>) {
+/// Its caller takes the verified pre-migration backup before calling this function.
+fn reconcile_run2_dev_save(conn: &mut Connection, path: Option<&Path>) -> Result<bool, String> {
     match needs_run2_dev_repair(conn) {
         Ok(true) => {}
-        Ok(false) => return,
+        Ok(false) => return Ok(false),
         Err(e) => {
             error!("[game_db] cannot inspect {path:?} for a Run 2 development save: {e}");
-            return;
+            return Err(e);
         }
     }
-    if let Some(path) = path {
-        let backup = unused_backup_path(path);
-        if let Err(e) = std::fs::copy(path, &backup) {
-            error!("[game_db] no backup of {path:?} ({e}); not repairing the Run 2 save");
-            return;
-        }
-    }
-    match repair_run2_dev_save(conn) {
-        Ok(()) => info!("[game_db] repaired the Run 2 development save {path:?} to v063"),
-        Err(e) => error!("[game_db] repairing the Run 2 development save {path:?} failed: {e}"),
-    }
+    repair_run2_dev_save(conn).map_err(|error| {
+        error!("[game_db] repairing the Run 2 development save {path:?} failed: {error}");
+        error
+    })?;
+    info!("[game_db] repaired the Run 2 development save {path:?} to v063");
+    Ok(true)
 }
 
 /// Represents an open per-save game database with migrations applied.
@@ -90,12 +173,22 @@ impl GameDatabase {
     /// Open (or create) a game database at the given path and apply all migrations.
     pub fn open(path: &Path) -> Result<Self, String> {
         debug!("[game_db] opening database at {:?}", path);
+        let existed_before_open = path.exists();
         let mut conn = Connection::open(path).map_err(|e| {
             error!("[game_db] failed to open database at {:?}: {}", path, e);
             GAME_DATABASE_OPEN_FAILED.to_string()
         })?;
 
-        reconcile_run2_dev_save(&mut conn, Some(path));
+        if existed_before_open {
+            backup_before_schema_change(&conn, path).map_err(|error| {
+                error!("[game_db] refusing to migrate {path:?} without a verified backup: {error}");
+                GAME_DATABASE_MIGRATION_FAILED.to_string()
+            })?;
+        }
+        reconcile_run2_dev_save(&mut conn, Some(path)).map_err(|error| {
+            error!("[game_db] cannot repair Run 2 save {path:?}: {error}");
+            GAME_DATABASE_MIGRATION_FAILED.to_string()
+        })?;
         let migrations = all_migrations();
         migrations.to_latest(&mut conn).map_err(|e| {
             error!("[game_db] migration failed for {:?}: {}", path, e);
@@ -114,17 +207,21 @@ impl GameDatabase {
     /// by the save-loading path; other callers use [`GameDatabase::open`].
     pub fn open_save(path: &Path) -> Result<Self, SaveLoadError> {
         debug!("[game_db] opening save at {:?}", path);
-        let mut conn = Connection::open(path).map_err(|e| {
-            error!("[game_db] failed to open save at {:?}: {}", path, e);
-            SaveLoadError::Corrupted
-        })?;
+        let mut conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+            .map_err(|e| {
+                error!("[game_db] failed to open save at {:?}: {}", path, e);
+                SaveLoadError::Corrupted
+            })?;
 
         // A save from a newer build carries a higher schema version than we can
         // apply; detect it before migrating so the failure is explainable rather
         // than a generic migration error.
         let save_version: i64 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap_or(0);
+            .map_err(|error| {
+                error!("[game_db] cannot read schema version of save {path:?}: {error}");
+                SaveLoadError::Corrupted
+            })?;
         if save_version > MIGRATION_COUNT as i64 {
             return Err(SaveLoadError::IncompatibleVersion {
                 save_version,
@@ -132,7 +229,14 @@ impl GameDatabase {
             });
         }
 
-        reconcile_run2_dev_save(&mut conn, Some(path));
+        backup_before_schema_change(&conn, path).map_err(|error| {
+            error!("[game_db] refusing to migrate {path:?} without a verified backup: {error}");
+            SaveLoadError::Unknown
+        })?;
+        reconcile_run2_dev_save(&mut conn, Some(path)).map_err(|error| {
+            error!("[game_db] cannot repair Run 2 save {path:?}: {error}");
+            SaveLoadError::Unknown
+        })?;
         let save_version: i64 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap_or(save_version);
@@ -355,10 +459,47 @@ mod tests {
     fn open_save_migrates_an_honest_older_save() {
         let dir = tempfile::tempdir().unwrap();
         let path = save_claiming_version(dir.path(), MIGRATION_COUNT - 3, "");
+        let original = std::fs::read(&path).unwrap();
 
         let db = GameDatabase::open_save(&path).expect("an honest older save loads");
 
         assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(
+            std::fs::read(path.with_extension("db.pre-v063.bak")).unwrap(),
+            original,
+            "every migrated user save retains a byte-for-byte pre-migration backup"
+        );
+    }
+
+    /// Given an indexed save that disappeared before it can be opened,
+    /// When the load path tries to open it,
+    /// Then it reports corruption and never creates a blank replacement database.
+    #[test]
+    fn open_save_never_creates_a_missing_save_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing.db");
+
+        assert!(matches!(
+            GameDatabase::open_save(&path),
+            Err(SaveLoadError::Corrupted)
+        ));
+        assert!(
+            !path.exists(),
+            "a failed load must not replace a missing save"
+        );
+    }
+
+    /// Given a path that cannot be copied,
+    /// When the backup helper is asked to make the pre-migration copy,
+    /// Then it fails and leaves no deceptive backup behind.
+    #[test]
+    fn an_unreadable_save_cannot_produce_a_verified_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("missing.db");
+        let backup = unused_backup_path(&source);
+
+        assert!(copy_verified_backup(&source, &backup).is_err());
+        assert!(!backup.exists(), "a failed copy must not look recoverable");
     }
 
     /// Given a save at version N that lacks a column migration N built
@@ -862,7 +1003,7 @@ mod tests {
         let mut conn = Connection::open(&path).unwrap();
         std::fs::remove_file(&path).unwrap();
 
-        reconcile_run2_dev_save(&mut conn, Some(&path));
+        assert!(reconcile_run2_dev_save(&mut conn, Some(&path)).is_err());
 
         let version: i64 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
