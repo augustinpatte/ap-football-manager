@@ -299,12 +299,13 @@ export default function PlayersListTab({
                       : availableScouts.length === 0
                         ? "unavailable"
                         : "ready";
+                  const teamId = summary.team_id;
                   const contextItems = [
                     buildViewProfileMenuItem(t, () => onSelectPlayer(summary.id)),
-                    ...(summary.team_id
+                    ...(teamId
                       ? [
                           buildViewTeamMenuItem(t, () => {
-                            onSelectTeam(summary.team_id!);
+                            onSelectTeam(teamId);
                           }),
                         ]
                       : []),
@@ -391,12 +392,12 @@ export default function PlayersListTab({
                         <CountryFlag code={summary.nationality} className="text-lg leading-none" />
                       </td>
                       <td className="py-2.5 px-4">
-                        {summary.team_id ? (
+                        {teamId ? (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onSelectTeam(summary.team_id!);
+                              onSelectTeam(teamId);
                             }}
                             className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
                           >

@@ -197,10 +197,9 @@ function renderSearchResults(props: {
               buildViewProfileMenuItem(t, () => onSelectSearchPlayer(player.id)),
             ];
 
-            if (player.team_id) {
-              contextItems.push(
-                buildViewTeamMenuItem(t, () => onSelectSearchTeam(player.team_id!)),
-              );
+            const teamId = player.team_id;
+            if (teamId) {
+              contextItems.push(buildViewTeamMenuItem(t, () => onSelectSearchTeam(teamId)));
             }
 
             return (

@@ -42,6 +42,7 @@ import {
   transferTestTranslation,
 } from "./TransfersTab.testFixtures";
 import type { PlayerData } from "../../store/gameStore";
+import { defined } from "../../test-utils/defined";
 
 describe("TransfersTab", (): void => {
   let marketPlayers: PlayerData[] = [];
@@ -423,7 +424,7 @@ describe("TransfersTab", (): void => {
         transfer_offers: [],
       }),
     ]);
-    state.season_context!.transfer_window = {
+    defined(state.season_context, "season context").transfer_window = {
       status: "Closed",
       opens_on: "2027-01-01",
       closes_on: null,
@@ -498,7 +499,7 @@ describe("TransfersTab", (): void => {
         market_value: 1_000_000,
       }),
     ]);
-    state.season_context!.transfer_window = {
+    defined(state.season_context, "season context").transfer_window = {
       status: "Closed",
       opens_on: "2027-01-01",
       closes_on: null,
@@ -608,7 +609,7 @@ describe("TransfersTab", (): void => {
       }),
     ]);
     state.clock.current_date = "2026-09-15T12:00:00Z";
-    state.season_context!.transfer_window = {
+    defined(state.season_context, "season context").transfer_window = {
       status: "Closed",
       opens_on: "2026-07-02",
       closes_on: "2026-08-31",

@@ -39,6 +39,7 @@ export function StaffForm({
   const dobLabelId = useId();
   const [useAttributes, setUseAttributes] = useState(editing.attributes !== null);
   const [idAutoMode, setIdAutoMode] = useState(editingIndex === null && !editing.id);
+  const attrs = editing.attributes;
 
   useEffect(() => {
     setUseAttributes(editing.attributes !== null);
@@ -214,30 +215,25 @@ export function StaffForm({
           />
           <span className={labelClass}>{t("worldEditor.staffUseAttributes")}</span>
         </div>
-        {useAttributes &&
-          editing.attributes != null &&
-          (() => {
-            const attrs = editing.attributes!;
-            return (
-              <div className="grid grid-cols-2 gap-3">
-                {STAFF_ATTR_KEYS.map((key) => (
-                  <div key={key} className="flex flex-col gap-1">
-                    <label className={labelClass}>
-                      {t(`worldEditor.staffAttr.${key}`, { defaultValue: key })}
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-400 transition"
-                      value={attrs[key]}
-                      onChange={(e) => handleAttrChange(key, e.target.value)}
-                    />
-                  </div>
-                ))}
+        {useAttributes && attrs != null && (
+          <div className="grid grid-cols-2 gap-3">
+            {STAFF_ATTR_KEYS.map((key) => (
+              <div key={key} className="flex flex-col gap-1">
+                <label className={labelClass}>
+                  {t(`worldEditor.staffAttr.${key}`, { defaultValue: key })}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-400 transition"
+                  value={attrs[key]}
+                  onChange={(e) => handleAttrChange(key, e.target.value)}
+                />
               </div>
-            );
-          })()}
+            ))}
+          </div>
+        )}
       </div>
     </EntityFormShell>
   );

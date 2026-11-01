@@ -10,6 +10,7 @@ import type {
   TeamData,
 } from "../../store/gameStore";
 import { createSeasonContext, createSquadFitness } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 const squadMocks = vi.hoisted(() => ({
   getSquad: vi.fn().mockResolvedValue([]),
@@ -474,7 +475,7 @@ describe("HomeTab", (): void => {
       },
     });
     const newsBefore = gameState.news;
-    const standingsBefore = gameState.league!.standings;
+    const standingsBefore = defined(gameState.league, "league").standings;
     const newsOrder = newsBefore.map((article) => article.id);
     const standingsOrder = standingsBefore.map((entry) => entry.team_id);
 
@@ -482,7 +483,9 @@ describe("HomeTab", (): void => {
 
     expect(gameState.news).toBe(newsBefore);
     expect(gameState.news.map((article) => article.id)).toEqual(newsOrder);
-    expect(gameState.league!.standings).toBe(standingsBefore);
-    expect(gameState.league!.standings.map((entry) => entry.team_id)).toEqual(standingsOrder);
+    expect(defined(gameState.league, "league").standings).toBe(standingsBefore);
+    expect(defined(gameState.league, "league").standings.map((entry) => entry.team_id)).toEqual(
+      standingsOrder,
+    );
   });
 });

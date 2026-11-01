@@ -9,6 +9,7 @@ import { resetPackageAssetRoot } from "../../hooks/usePackageAssetSrc";
 import PlayersListTab from "./PlayersListTab";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { createSeasonContext } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("../../hooks/useRatingTiers", async () => {
   const { cannedRatingTiersModule } = await import("../../test-utils/ratingTiers");
@@ -348,7 +349,7 @@ type InvokeOverrides = Record<string, (args: unknown) => unknown>;
 function setupSliceMock(gameState: GameStateData, overrides: InvokeOverrides = {}) {
   mockedInvoke.mockImplementation(async (cmd: string, args?: unknown) => {
     if (cmd in overrides) {
-      const result = overrides[cmd]!(args);
+      const result = defined(overrides[cmd], cmd)(args);
       if (result instanceof Error) throw result;
       return result;
     }
