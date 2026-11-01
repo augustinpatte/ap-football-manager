@@ -7,6 +7,7 @@ mod main_window;
 mod platform;
 mod report;
 mod save_location;
+mod test_isolation;
 use commands::*;
 
 #[cfg(feature = "mcp")]
@@ -30,6 +31,18 @@ pub fn run() {
         return;
     }
 
+    // Before anything reads the home directory: an opt-in GUI-test mode that moves every persistent
+    // location (saves, databases, preferences, logs, webview storage) into a throw-away folder.
+    // A no-op unless `APFM_TEST_DATA_ROOT` is set, and a refusal to start if it names real data.
+    // See `test_isolation` and `scripts/gui-validation/`.
+    let isolated_root = match test_isolation::activate() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("[isolation] {error}");
+            std::process::exit(2);
+        }
+    };
+
     // First of all, so that everything below is covered — including plugin registration and the
     // graphics configuration, where a panic would otherwise leave nothing at all behind. The hook
     // has no file to write to yet; `setup` gives it one as soon as the app data directory
@@ -42,6 +55,14 @@ pub fn run() {
     platform::configure_graphics(main_window::headless_requested());
 
     let state_manager = Arc::new(StateManager::new());
+
+    let mut context = tauri::generate_context!();
+    if isolated_root.is_some() {
+        // A test session keeps no cookies, local storage or cache between launches.
+        for window in context.config_mut().app.windows.iter_mut() {
+            window.incognito = true;
+        }
+    }
 
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -75,6 +96,12 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
+            if let Some(root) = isolated_root.as_deref() {
+                // Before the first write: a redirect the platform ignored must not reach real data.
+                test_isolation::verify_app_data_inside(root, &app_data_dir)
+                    .map_err(|error| std::io::Error::other(error.to_string()))?;
+                log::info!("[isolation] app data dir: {}", app_data_dir.display());
+            }
             std::fs::create_dir_all(&app_data_dir)
                 .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
 
@@ -405,7 +432,7 @@ pub fn run() {
             commands::report::crash_notice,
             commands::report::dismiss_crash_notice
         ])
-        .run(tauri::generate_context!());
+        .run(context);
 
     if let Err(error) = result {
         // `panic_any(error)` used to be the whole of this. It carried a `tauri::Error`, which no
