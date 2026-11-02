@@ -801,7 +801,19 @@
       "high-press": "Yüksek Pres",
       "counter-attack": "Kontratak",
       "low-block": "Derin Blok",
-      "control-possession": "Topa sahip olma kontrolü", "tiki-taka": "Tiki-taka stili", "vertical-tiki-taka": "Dikey tiki-taka", "gegenpress": "Karşı pres", "direct-counter": "Doğrudan kontraatak", "direct-play": "Doğrudan oyun", "mid-block": "Orta blok", "high-defensive-line": "Yüksek savunma çizgisi", "defensive": "Defansif", "attacking": "Hücumcu", "long-ball": "Uzun top", "park-the-bus": "Otobüsü çek", "fast-transition": "Hızlı geçiş"
+      "control-possession": "Topa sahip olma kontrolü",
+      "tiki-taka": "Tiki-taka stili",
+      "vertical-tiki-taka": "Dikey tiki-taka",
+      "gegenpress": "Karşı pres",
+      "direct-counter": "Doğrudan kontraatak",
+      "direct-play": "Doğrudan oyun",
+      "mid-block": "Orta blok",
+      "high-defensive-line": "Yüksek savunma çizgisi",
+      "defensive": "Defansif",
+      "attacking": "Hücumcu",
+      "long-ball": "Uzun top",
+      "park-the-bus": "Otobüsü çek",
+      "fast-transition": "Hızlı geçiş"
     },
     "presetDescriptions": {
       "balanced-control": "İstikrarlı hatlar, güvenilir kapsama ve çoğu kadro için sade bir şekil.",
@@ -1146,31 +1158,31 @@
       "log": "Son kararlar",
       "noLog": "Henüz karar alınmadı.",
       "mode": {
-          "title": "Yetki devri modu",
-          "manual": "Manuel",
-          "approval": "Onaylı",
-          "full": "Tam",
-          "custom": "Özel",
-          "manualDesc": "Tüm kararları siz verirsiniz. Yardımcı yalnızca tavsiye eder.",
-          "approvalDesc": "Yardımcı rutin işleri yürütür, her önemli kararı size getirir.",
-          "fullDesc": "Yardımcı her şeyi aşağıdaki sınırlar içinde yürütür. Sınırı aşan her şey yine size gelir.",
-          "customDesc": "Görevler aşağıda tek tek ayarlanır."
-        },
+        "title": "Yetki devri modu",
+        "manual": "Manuel",
+        "approval": "Onaylı",
+        "full": "Tam",
+        "custom": "Özel",
+        "manualDesc": "Tüm kararları siz verirsiniz. Yardımcı yalnızca tavsiye eder.",
+        "approvalDesc": "Yardımcı rutin işleri yürütür, her önemli kararı size getirir.",
+        "fullDesc": "Yardımcı her şeyi aşağıdaki sınırlar içinde yürütür. Sınırı aşan her şey yine size gelir.",
+        "customDesc": "Görevler aşağıda tek tek ayarlanır."
+      },
       "limits": {
-          "title": "Harcama sınırları",
-          "intro": "Yardımcının sormadan taahhüt edebileceği tutar. Üstü size öneri olarak gelir.",
-          "max_staff_wage": "Personel maaşı, haftalık",
-          "max_player_wage": "Oyuncu yenileme maaşı, haftalık",
-          "max_commitment": "Tek sözleşmenin toplamı",
-          "max_transfer_fee": "Transfer bedeli",
-          "transferNote": "Transfer bedeli sınırının 0 olması her transferin size ait olduğu anlamına gelir.",
-          "save": "Sınırları kaydet"
-        },
+        "title": "Harcama sınırları",
+        "intro": "Yardımcının sormadan taahhüt edebileceği tutar. Üstü size öneri olarak gelir.",
+        "max_staff_wage": "Personel maaşı, haftalık",
+        "max_player_wage": "Oyuncu yenileme maaşı, haftalık",
+        "max_commitment": "Tek sözleşmenin toplamı",
+        "max_transfer_fee": "Transfer bedeli",
+        "transferNote": "Transfer bedeli sınırının 0 olması her transferin size ait olduğu anlamına gelir.",
+        "save": "Sınırları kaydet"
+      },
       "outcome": {
-          "approved": "onaylandı",
-          "declined": "reddedildi",
-          "leftToManager": "size bırakıldı"
-        }
+        "approved": "onaylandı",
+        "declined": "reddedildi",
+        "leftToManager": "size bırakıldı"
+      }
     },
     "assistant": {
       "title": "Yardımcının tavsiyeleri",
@@ -2830,60 +2842,8 @@
   "squadCompare": {
     "compare": "Karşılaştır"
   },
-    "freeAgents": {
-      "talk": {
-        "title": "Pazarlık",
-        "interest": {
-          "keen": "Bu şartları büyük olasılıkla kabul edecek.",
-          "hesitant": "Kararsız; farklı şartlar isteyebilir.",
-          "unlikely": "Bu şartları kabul etmesi pek olası değil."
-        },
-        "expects": "Haftada yaklaşık {{wage}} ve {{years}} yıl bekliyor.",
-        "place": {
-          "key": "Kulübünde kilit oyuncu olurdu.",
-          "starter": "Kulübünde ilk 11'in düzenli oyuncusu olurdu.",
-          "rotation": "Kulübünde rotasyonun bir parçası olurdu.",
-          "backup": "Kulübünde yedek oyuncu olurdu."
-        },
-        "responseTime": "Tekliften {{min}} ile {{max}} gün sonra yanıt verir.",
-        "awaiting": "Teklif gönderildi. {{date}} tarihinde yanıt verecek.",
-        "counter": "Haftada {{wage}} ve {{years}} yıl istiyor. Şartları {{date}} tarihine kadar geçerli.",
-        "acceptCounter": "Şartlarını kabul et",
-        "withdraw": "Teklifi geri çek",
-        "rivals": "Başka kulüpler de onunla görüşüyor: {{clubs}}.",
-        "ended": {
-          "rejected": "Teklifi reddetti.",
-          "withdrawn": "Teklifi geri çektin.",
-          "lost_to_rival": "Başka bir kulübe imza attı.",
-          "lapsed": "Teklifin süresi doldu."
-        },
-        "offerPending": "Teklif bekliyor"
-      },
-      "reason": {
-        "wage_too_low": "Maaş, isteyebileceği düzeyin altında.",
-        "club_below_his_level": "Kulübün onun seviyesinin çok altında.",
-        "no_place_in_side_for_him": "Takımında düzenli oynamayacak.",
-        "contract_too_short": "Sözleşme istediğinden kısa.",
-        "offer_insulting": "Teklifi hakaret saydı ve iki hafta seninle konuşmayacak.",
-        "talks_broken_off": "Görüşmelerde sabrı tükendi.",
-        "better_offer_elsewhere": "Başka bir kulüp ona daha iyi bir teklif yaptı.",
-        "club_cannot_afford": "Kulübün bu anlaşmayı artık karşılayamıyor.",
-        "manager_withdrew": "Teklifi geri çektin.",
-        "counter_expired": "Karşı teklifine zamanında yanıt verilmedi."
-      }
-    },
   "be": {
     "error": {
-        "freeAgents": {
-          "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
-          "talksBrokenOff": "Bu oyuncu şimdilik kulübünle konuşmayacak.",
-          "tooManyOpenTalks": "Çok fazla açık pazarlığın var. Yanıtları bekle ya da bir teklifi geri çek.",
-          "squadFull": "A takım kadron dolu. Yenisini almadan önce bir oyuncuyu gönder.",
-          "noCounterToAnswer": "Bu oyuncunun yanıtlanacak bir karşı teklifi yok.",
-          "counterExpired": "Karşı teklifinin süresi doldu.",
-          "noOpenTalk": "Bu oyuncuyla açık bir teklifin yok.",
-          "invalidOffer": "Bu geçerli bir sözleşme teklifi değil."
-        },
       "squadFloor": {
         "wouldLeaveShort": "Bu oyuncu ayrılamaz: kadro, bir kulübün koruması gereken asgari sayının altına düşer. Etkilenen bölge: {{group}}.",
         "wouldLeaveSeniorsShort": "Bu oyuncu ayrılamaz: kulübün A takımında {{floor}} oyuncudan az kalır, bu da bir kulübün koruması gereken asgari sayıdır."
@@ -3195,6 +3155,23 @@
         "invalidMode": "Bu yetki devri modu uygulanamaz.",
         "invalidLimits": "Harcama sınırları negatif olamaz.",
         "wagePolicy": "Yönetim kurulunun maaş politikası artık bu şartlara izin vermiyor."
+      },
+      "freeAgents": {
+        "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
+        "talksBrokenOff": "Bu oyuncu şimdilik kulübünle konuşmayacak.",
+        "tooManyOpenTalks": "Çok fazla açık pazarlığın var. Yanıtları bekle ya da bir teklifi geri çek.",
+        "squadFull": "A takım kadron dolu. Yenisini almadan önce bir oyuncuyu gönder.",
+        "noCounterToAnswer": "Bu oyuncunun yanıtlanacak bir karşı teklifi yok.",
+        "counterExpired": "Karşı teklifinin süresi doldu.",
+        "noOpenTalk": "Bu oyuncuyla açık bir teklifin yok.",
+        "invalidOffer": "Bu geçerli bir sözleşme teklifi değil."
+      },
+      "fastForward": {
+        "invalidDate": "Bu geçerli bir tarih değil.",
+        "targetNotInFuture": "Bugünden sonraki bir tarih seç.",
+        "targetTooFar": "Bu tarih tek seferde oynanamayacak kadar uzak.",
+        "alreadyRunning": "Başka bir ilerleme zaten sürüyor.",
+        "careerChanged": "İlerleme sırasında kariyer değişti, bu yüzden durduruldu."
       }
     },
     "sender": {
@@ -3237,24 +3214,24 @@
       "sportsDaily": "Günlük Spor"
     },
     "msg": {
-        "freeAgentTalk": {
-          "counter": {
-            "subject": "{{player}} farklı şartlar istiyor",
-            "body": "{{player}}, {{team}} kulübünün teklifine karşı teklifle yanıt verdi: haftada {{wage}}, {{years}} yıl. Şartları {{days}} gün geçerli."
-          },
-          "rejected": {
-            "subject": "{{player}}, {{team}} teklifini reddetti",
-            "body": "{{player}}, {{team}} kulübünün teklifini geri çevirdi. Nedenini görmek için profiline bak."
-          },
-          "lost": {
-            "subject": "{{player}}, {{team}} ile imzaladı",
-            "body": "{{player}}, teklifin yerine başka bir kulübü, {{team}} kulübünü seçti."
-          },
-          "lapsed": {
-            "subject": "{{player}} için yapılan teklif geçersiz kaldı",
-            "body": "{{player}} için yapılan teklif sonuçsuz kaldı: karşı teklifine zamanında yanıt verilmedi ya da kulüp anlaşmayı artık karşılayamadı."
-          }
+      "freeAgentTalk": {
+        "counter": {
+          "subject": "{{player}} farklı şartlar istiyor",
+          "body": "{{player}}, {{team}} kulübünün teklifine karşı teklifle yanıt verdi: haftada {{wage}}, {{years}} yıl. Şartları {{days}} gün geçerli."
         },
+        "rejected": {
+          "subject": "{{player}}, {{team}} teklifini reddetti",
+          "body": "{{player}}, {{team}} kulübünün teklifini geri çevirdi. Nedenini görmek için profiline bak."
+        },
+        "lost": {
+          "subject": "{{player}}, {{team}} ile imzaladı",
+          "body": "{{player}}, teklifin yerine başka bir kulübü, {{team}} kulübünü seçti."
+        },
+        "lapsed": {
+          "subject": "{{player}} için yapılan teklif geçersiz kaldı",
+          "body": "{{player}} için yapılan teklif sonuçsuz kaldı: karşı teklifine zamanında yanıt verilmedi ya da kulüp anlaşmayı artık karşılayamadı."
+        }
+      },
       "world": {
         "randomName": "Rastgele Dünya",
         "randomDescription": "Avrupa genelinde {{teamCount}} takımlı rastgele oluşturulmuş lig",
@@ -4787,5 +4764,96 @@
       "playerRenewed": "{{player}} haftalık {{wage}} ile {{years}} yıl için yenilendi",
       "playerRenewalLeft": "{{player}} sözleşmesi size bırakıldı"
     }
+  },
+  "freeAgents": {
+    "talk": {
+      "title": "Pazarlık",
+      "interest": {
+        "keen": "Bu şartları büyük olasılıkla kabul edecek.",
+        "hesitant": "Kararsız; farklı şartlar isteyebilir.",
+        "unlikely": "Bu şartları kabul etmesi pek olası değil."
+      },
+      "expects": "Haftada yaklaşık {{wage}} ve {{years}} yıl bekliyor.",
+      "place": {
+        "key": "Kulübünde kilit oyuncu olurdu.",
+        "starter": "Kulübünde ilk 11'in düzenli oyuncusu olurdu.",
+        "rotation": "Kulübünde rotasyonun bir parçası olurdu.",
+        "backup": "Kulübünde yedek oyuncu olurdu."
+      },
+      "responseTime": "Tekliften {{min}} ile {{max}} gün sonra yanıt verir.",
+      "awaiting": "Teklif gönderildi. {{date}} tarihinde yanıt verecek.",
+      "counter": "Haftada {{wage}} ve {{years}} yıl istiyor. Şartları {{date}} tarihine kadar geçerli.",
+      "acceptCounter": "Şartlarını kabul et",
+      "withdraw": "Teklifi geri çek",
+      "rivals": "Başka kulüpler de onunla görüşüyor: {{clubs}}.",
+      "ended": {
+        "rejected": "Teklifi reddetti.",
+        "withdrawn": "Teklifi geri çektin.",
+        "lost_to_rival": "Başka bir kulübe imza attı.",
+        "lapsed": "Teklifin süresi doldu."
+      },
+      "offerPending": "Teklif bekliyor"
+    },
+    "reason": {
+      "wage_too_low": "Maaş, isteyebileceği düzeyin altında.",
+      "club_below_his_level": "Kulübün onun seviyesinin çok altında.",
+      "no_place_in_side_for_him": "Takımında düzenli oynamayacak.",
+      "contract_too_short": "Sözleşme istediğinden kısa.",
+      "offer_insulting": "Teklifi hakaret saydı ve iki hafta seninle konuşmayacak.",
+      "talks_broken_off": "Görüşmelerde sabrı tükendi.",
+      "better_offer_elsewhere": "Başka bir kulüp ona daha iyi bir teklif yaptı.",
+      "club_cannot_afford": "Kulübün bu anlaşmayı artık karşılayamıyor.",
+      "manager_withdrew": "Teklifi geri çektin.",
+      "counter_expired": "Karşı teklifine zamanında yanıt verilmedi."
+    }
+  },
+  "fastForward": {
+    "menuTitle": "Bir tarihe kadar ilerle",
+    "menuDesc": "Günleri, haftaları veya ayları tek seferde oyna",
+    "title": "Bir tarihe kadar ilerle",
+    "targetLabel": "Şu tarihe kadar ilerle",
+    "preset": {
+      "week": "+1 hafta",
+      "month": "+1 ay",
+      "threeMonths": "+3 ay"
+    },
+    "daysAhead": "Oynanacak gün: {{days}}",
+    "invalidTarget": "Bugünden sonraki bir tarih seç.",
+    "policyLabel": "Şu durumda dur",
+    "policy": {
+      "decisions": "Yalnızca kararlarda",
+      "decisionsDesc": "Maçların senin yerine oynanır. Onayın gereken bir şey olduğunda durur.",
+      "nextMatch": "Bir sonraki maçımdan önce",
+      "nextMatchDesc": "Bir sonraki maçının günü, maç oynanmadan önce durur.",
+      "target": "Doğrudan tarihe",
+      "targetDesc": "Hiçbir karar için durmaz: maçlar oynanır, sezonlar kapatılır, atlananlar sonra listelenir."
+    },
+    "start": "Başlat",
+    "progressDays": "Gün {{done}} / {{total}}",
+    "progressMatches": "Oynanan maçların: {{matches}}",
+    "stop": "Durdur",
+    "stopping": "Bugünden sonra duruluyor…",
+    "result": {
+      "targetReached": "{{date}} tarihine ulaşıldı",
+      "nextMatch": "Bir sonraki maçından önce durdu",
+      "decisions": "Durdu: kararın gerekiyor",
+      "seasonComplete": "Sezon bitti: devam etmek için sezonu kapat",
+      "managerFired": "Görevden alındın",
+      "cancelled": "İsteğin üzerine durdu",
+      "dayLimit": "Durdu: tek seferde çok fazla gün",
+      "error": "İlerleme tamamlanamadı"
+    },
+    "summary": "{{days}} gün oynandı, {{from}} ile {{to}} arası",
+    "seasonsRolled": "Kapatılan sezonlar: {{seasons}}",
+    "decisionsTitle": "Dikkatini gerektiriyor",
+    "passedTitle": "Yolda atlananlar",
+    "decision": {
+      "blocker": "Kadro veya sözleşme sorunu",
+      "delegationProposal": "Yardımcından bir öneri",
+      "incomingTransferOffer": "Oyuncularından biri için bir teklif",
+      "incomingLoanOffer": "Oyuncularından biri için bir kiralama talebi",
+      "transferDeadline": "Transfer dönemi, görüşmeler sürerken kapanıyor"
+    },
+    "resume": "Devam et"
   }
 }

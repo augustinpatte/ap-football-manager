@@ -38,10 +38,17 @@ const LEAVING_HORIZON_DAYS: i64 = 365;
 /// Run the listing decisions of every AI club whose review falls on this weekday.
 pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
     let current_date = game.clock.current_date.date_naive();
-    for team_id in crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num) {
+    let reviewing = crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num);
+    // Every wage bill, in one pass over the players. Asked per club it scanned all of them for
+    // each one (`calc_wages`), which was the largest cost of this review in a full world. A club's
+    // bill is read before the review touches its squad, and the only contract this pass ends is
+    // one of the reviewing club's own, so no other club's bill moves under it.
+    let bills = crate::finances::wage_bills_by_club(game);
+    for team_id in reviewing {
         let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
             continue;
         };
+        let bill = bills.get(&team_id).copied().unwrap_or(0);
         let previously_listed: std::collections::HashSet<String> = game
             .players
             .iter()
@@ -50,11 +57,11 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
             })
             .map(|player| player.id.clone())
             .collect();
-        let decisions = list_decisions(game, &team, current_date);
+        let decisions = list_decisions(game, &team, bill, current_date);
         for (index, listed) in decisions {
             game.players[index].transfer_listed = listed;
         }
-        release_unsold_surplus(game, &team, &previously_listed, current_date);
+        release_unsold_surplus(game, &team, bill, &previously_listed, current_date);
         // Young reserves for loan, as the opening market lists them: a loan returns its player and
         // the club lists the next.
         crate::transfers::top_up_loan_listings(game, &team_id);
@@ -79,13 +86,13 @@ const RELEASE_MAX_CASH_SHARE_PCT: i64 = 2;
 fn release_unsold_surplus(
     game: &mut Game,
     team: &Team,
+    bill: i64,
     previously_listed: &std::collections::HashSet<String>,
     current_date: chrono::NaiveDate,
 ) -> Option<String> {
     if previously_listed.is_empty() || team.finance <= 0 || team.wage_budget <= 0 {
         return None;
     }
-    let bill = crate::finances::calc_wages(game, &team.id);
     if bill * 100 <= team.wage_budget * RELEASE_OVER_BUDGET_PCT {
         return None;
     }
@@ -147,7 +154,12 @@ fn release_unsold_surplus(
 
 /// Whom the club lists and whom it takes off the list, as (index in `game.players`, listed).
 /// Only the changes.
-fn list_decisions(game: &Game, team: &Team, current_date: chrono::NaiveDate) -> Vec<(usize, bool)> {
+fn list_decisions(
+    game: &Game,
+    team: &Team,
+    bill: i64,
+    current_date: chrono::NaiveDate,
+) -> Vec<(usize, bool)> {
     let seniors: Vec<usize> = game
         .players
         .iter()
@@ -179,7 +191,6 @@ fn list_decisions(game: &Game, team: &Team, current_date: chrono::NaiveDate) -> 
         }
     }
 
-    let bill = crate::finances::calc_wages(game, &team.id);
     let in_trouble = bill > team.wage_budget || team.finance < 0;
     let facts = SquadFacts::of(game, &team.id);
     let mut sellable: Vec<(usize, Reason)> = seniors
@@ -371,7 +382,12 @@ mod tests {
 
     fn decide(game: &mut Game) {
         let team = game.teams[0].clone();
-        for (index, flag) in list_decisions(game, &team, today()) {
+        for (index, flag) in list_decisions(
+            game,
+            &team,
+            crate::finances::calc_wages(game, &team.id),
+            today(),
+        ) {
             game.players[index].transfer_listed = flag;
         }
     }
@@ -502,7 +518,9 @@ mod tests {
         let team = game.teams[0].clone();
         let listed: std::collections::HashSet<String> = ["Midfielder5".to_string()].into();
 
-        let released = release_unsold_surplus(&mut game, &team, &listed, today());
+        let bill = crate::finances::calc_wages(&game, &team.id);
+
+        let released = release_unsold_surplus(&mut game, &team, bill, &listed, today());
 
         assert_eq!(released.as_deref(), Some("Midfielder5"));
         let gone = game.players.iter().find(|p| p.id == "Midfielder5").unwrap();
@@ -537,7 +555,8 @@ mod tests {
         };
         let attempt = |mut game: Game, listed: &std::collections::HashSet<String>| {
             let team = game.teams[0].clone();
-            release_unsold_surplus(&mut game, &team, listed, today())
+            let bill = crate::finances::calc_wages(&game, &team.id);
+            release_unsold_surplus(&mut game, &team, bill, listed, today())
         };
         assert_eq!(attempt(fresh(10_000_000, 900, 100_000_000), &listed), None);
         assert_eq!(

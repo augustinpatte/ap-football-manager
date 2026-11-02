@@ -1158,31 +1158,31 @@
       "log": "Decisões recentes",
       "noLog": "Nada decidido ainda.",
       "mode": {
-          "title": "Modo de delegação",
-          "manual": "Manual",
-          "approval": "Com aprovação",
-          "full": "Total",
-          "custom": "Personalizado",
-          "manualDesc": "Você toma todas as decisões. O auxiliar apenas aconselha.",
-          "approvalDesc": "O auxiliar cuida da rotina e traz a você cada decisão importante.",
-          "fullDesc": "O auxiliar cuida de tudo dentro dos limites abaixo. O que passar deles continua chegando a você.",
-          "customDesc": "As tarefas são definidas uma a uma abaixo."
-        },
+        "title": "Modo de delegação",
+        "manual": "Manual",
+        "approval": "Com aprovação",
+        "full": "Total",
+        "custom": "Personalizado",
+        "manualDesc": "Você toma todas as decisões. O auxiliar apenas aconselha.",
+        "approvalDesc": "O auxiliar cuida da rotina e traz a você cada decisão importante.",
+        "fullDesc": "O auxiliar cuida de tudo dentro dos limites abaixo. O que passar deles continua chegando a você.",
+        "customDesc": "As tarefas são definidas uma a uma abaixo."
+      },
       "limits": {
-          "title": "Limites de gastos",
-          "intro": "O que o auxiliar pode comprometer sem perguntar. O que passar vem a você como proposta.",
-          "max_staff_wage": "Salário da comissão técnica, por semana",
-          "max_player_wage": "Salário de renovação de jogador, por semana",
-          "max_commitment": "Total de um contrato",
-          "max_transfer_fee": "Valor da transferência",
-          "transferNote": "Um limite de transferência igual a 0 significa que toda transferência é sua.",
-          "save": "Salvar limites"
-        },
+        "title": "Limites de gastos",
+        "intro": "O que o auxiliar pode comprometer sem perguntar. O que passar vem a você como proposta.",
+        "max_staff_wage": "Salário da comissão técnica, por semana",
+        "max_player_wage": "Salário de renovação de jogador, por semana",
+        "max_commitment": "Total de um contrato",
+        "max_transfer_fee": "Valor da transferência",
+        "transferNote": "Um limite de transferência igual a 0 significa que toda transferência é sua.",
+        "save": "Salvar limites"
+      },
       "outcome": {
-          "approved": "aprovado",
-          "declined": "recusado",
-          "leftToManager": "deixado com você"
-        }
+        "approved": "aprovado",
+        "declined": "recusado",
+        "leftToManager": "deixado com você"
+      }
     },
     "assistant": {
       "title": "Conselhos do auxiliar",
@@ -2842,60 +2842,8 @@
     "undiscovered": "Não descoberto",
     "confidence": "Confiança"
   },
-    "freeAgents": {
-      "talk": {
-        "title": "Negociação",
-        "interest": {
-          "keen": "Provavelmente ele vai aceitar estas condições.",
-          "hesitant": "Ele está indeciso e pode pedir outras condições.",
-          "unlikely": "É pouco provável que ele aceite estas condições."
-        },
-        "expects": "Ele espera cerca de {{wage}} por semana por {{years}} anos.",
-        "place": {
-          "key": "No seu clube, ele seria um jogador-chave.",
-          "starter": "No seu clube, ele seria titular absoluto.",
-          "rotation": "No seu clube, ele faria parte do rodízio.",
-          "backup": "No seu clube, ele seria reserva."
-        },
-        "responseTime": "Ele responde de {{min}} a {{max}} dias depois de uma proposta.",
-        "awaiting": "Proposta enviada. Ele responde em {{date}}.",
-        "counter": "Ele pede {{wage}} por semana por {{years}} anos. As condições dele valem até {{date}}.",
-        "acceptCounter": "Aceitar as condições dele",
-        "withdraw": "Retirar a proposta",
-        "rivals": "Outros clubes também estão conversando com ele: {{clubs}}.",
-        "ended": {
-          "rejected": "Ele recusou a proposta.",
-          "withdrawn": "Você retirou a proposta.",
-          "lost_to_rival": "Ele assinou com outro clube.",
-          "lapsed": "A proposta caducou."
-        },
-        "offerPending": "Proposta pendente"
-      },
-      "reason": {
-        "wage_too_low": "O salário está abaixo do que ele pode exigir.",
-        "club_below_his_level": "Seu clube está bem abaixo do nível dele.",
-        "no_place_in_side_for_him": "Ele não seria titular no seu time.",
-        "contract_too_short": "O contrato é mais curto do que ele quer.",
-        "offer_insulting": "Ele achou a proposta um insulto e não vai falar com você por duas semanas.",
-        "talks_broken_off": "Ele perdeu a paciência com as conversas.",
-        "better_offer_elsewhere": "Outro clube fez uma proposta melhor.",
-        "club_cannot_afford": "Seu clube não pode mais pagar o acordo.",
-        "manager_withdrew": "Você retirou a proposta.",
-        "counter_expired": "A contraproposta dele não foi respondida a tempo."
-      }
-    },
   "be": {
     "error": {
-        "freeAgents": {
-          "talkAlreadyOpen": "Você já tem uma proposta com este jogador. Espere a resposta dele ou retire-a.",
-          "talksBrokenOff": "Este jogador não vai falar com seu clube por enquanto.",
-          "tooManyOpenTalks": "Você tem negociações demais abertas. Espere respostas ou retire uma proposta.",
-          "squadFull": "Seu elenco principal está completo. Dispense um jogador antes de contratar outro.",
-          "noCounterToAnswer": "Este jogador não tem nenhuma contraproposta para responder.",
-          "counterExpired": "A contraproposta dele expirou.",
-          "noOpenTalk": "Você não tem nenhuma proposta aberta com este jogador.",
-          "invalidOffer": "Essa proposta de contrato não é válida."
-        },
       "squadFloor": {
         "wouldLeaveShort": "Este jogador não pode sair: o elenco ficaria abaixo do mínimo que um clube precisa manter. Setor afetado: {{group}}.",
         "wouldLeaveSeniorsShort": "Este jogador não pode sair: o clube ficaria com menos de {{floor}} jogadores no elenco profissional, o mínimo que um clube precisa manter."
@@ -3207,6 +3155,23 @@
         "invalidMode": "Esse modo de delegação não pode ser aplicado.",
         "invalidLimits": "Os limites de gastos não podem ser negativos.",
         "wagePolicy": "A política salarial da diretoria não permite mais essas condições."
+      },
+      "freeAgents": {
+        "talkAlreadyOpen": "Você já tem uma proposta com este jogador. Espere a resposta dele ou retire-a.",
+        "talksBrokenOff": "Este jogador não vai falar com seu clube por enquanto.",
+        "tooManyOpenTalks": "Você tem negociações demais abertas. Espere respostas ou retire uma proposta.",
+        "squadFull": "Seu elenco principal está completo. Dispense um jogador antes de contratar outro.",
+        "noCounterToAnswer": "Este jogador não tem nenhuma contraproposta para responder.",
+        "counterExpired": "A contraproposta dele expirou.",
+        "noOpenTalk": "Você não tem nenhuma proposta aberta com este jogador.",
+        "invalidOffer": "Essa proposta de contrato não é válida."
+      },
+      "fastForward": {
+        "invalidDate": "Essa não é uma data válida.",
+        "targetNotInFuture": "Escolha uma data posterior a hoje.",
+        "targetTooFar": "Essa data está longe demais para ser jogada de uma vez.",
+        "alreadyRunning": "Já existe outro avanço em andamento.",
+        "careerChanged": "A carreira mudou durante o avanço, então ele foi interrompido."
       }
     },
     "sender": {
@@ -3249,24 +3214,24 @@
       "sportsDaily": "Diário Esportivo"
     },
     "msg": {
-        "freeAgentTalk": {
-          "counter": {
-            "subject": "{{player}} quer outras condições",
-            "body": "{{player}} respondeu à proposta de {{team}} com uma contraproposta: {{wage}} por semana por {{years}} anos. As condições dele valem por {{days}} dias."
-          },
-          "rejected": {
-            "subject": "{{player}} recusou {{team}}",
-            "body": "{{player}} recusou a proposta de {{team}}. Abra o perfil dele para ver o motivo."
-          },
-          "lost": {
-            "subject": "{{player}} assinou com {{team}}",
-            "body": "{{player}} escolheu outro clube, {{team}}, em vez da sua proposta."
-          },
-          "lapsed": {
-            "subject": "A proposta a {{player}} caducou",
-            "body": "A proposta a {{player}} deu em nada: a contraproposta dele não foi respondida a tempo ou o clube não podia mais pagar o acordo."
-          }
+      "freeAgentTalk": {
+        "counter": {
+          "subject": "{{player}} quer outras condições",
+          "body": "{{player}} respondeu à proposta de {{team}} com uma contraproposta: {{wage}} por semana por {{years}} anos. As condições dele valem por {{days}} dias."
         },
+        "rejected": {
+          "subject": "{{player}} recusou {{team}}",
+          "body": "{{player}} recusou a proposta de {{team}}. Abra o perfil dele para ver o motivo."
+        },
+        "lost": {
+          "subject": "{{player}} assinou com {{team}}",
+          "body": "{{player}} escolheu outro clube, {{team}}, em vez da sua proposta."
+        },
+        "lapsed": {
+          "subject": "A proposta a {{player}} caducou",
+          "body": "A proposta a {{player}} deu em nada: a contraproposta dele não foi respondida a tempo ou o clube não podia mais pagar o acordo."
+        }
+      },
       "world": {
         "randomName": "Mundo Aleatório",
         "randomDescription": "Liga gerada aleatoriamente com {{teamCount}} times por toda a Europa",
@@ -4799,5 +4764,96 @@
       "playerRenewed": "{{player}} renovado por {{wage}} semanais durante {{years}} anos",
       "playerRenewalLeft": "O contrato de {{player}} ficou com você"
     }
+  },
+  "freeAgents": {
+    "talk": {
+      "title": "Negociação",
+      "interest": {
+        "keen": "Provavelmente ele vai aceitar estas condições.",
+        "hesitant": "Ele está indeciso e pode pedir outras condições.",
+        "unlikely": "É pouco provável que ele aceite estas condições."
+      },
+      "expects": "Ele espera cerca de {{wage}} por semana por {{years}} anos.",
+      "place": {
+        "key": "No seu clube, ele seria um jogador-chave.",
+        "starter": "No seu clube, ele seria titular absoluto.",
+        "rotation": "No seu clube, ele faria parte do rodízio.",
+        "backup": "No seu clube, ele seria reserva."
+      },
+      "responseTime": "Ele responde de {{min}} a {{max}} dias depois de uma proposta.",
+      "awaiting": "Proposta enviada. Ele responde em {{date}}.",
+      "counter": "Ele pede {{wage}} por semana por {{years}} anos. As condições dele valem até {{date}}.",
+      "acceptCounter": "Aceitar as condições dele",
+      "withdraw": "Retirar a proposta",
+      "rivals": "Outros clubes também estão conversando com ele: {{clubs}}.",
+      "ended": {
+        "rejected": "Ele recusou a proposta.",
+        "withdrawn": "Você retirou a proposta.",
+        "lost_to_rival": "Ele assinou com outro clube.",
+        "lapsed": "A proposta caducou."
+      },
+      "offerPending": "Proposta pendente"
+    },
+    "reason": {
+      "wage_too_low": "O salário está abaixo do que ele pode exigir.",
+      "club_below_his_level": "Seu clube está bem abaixo do nível dele.",
+      "no_place_in_side_for_him": "Ele não seria titular no seu time.",
+      "contract_too_short": "O contrato é mais curto do que ele quer.",
+      "offer_insulting": "Ele achou a proposta um insulto e não vai falar com você por duas semanas.",
+      "talks_broken_off": "Ele perdeu a paciência com as conversas.",
+      "better_offer_elsewhere": "Outro clube fez uma proposta melhor.",
+      "club_cannot_afford": "Seu clube não pode mais pagar o acordo.",
+      "manager_withdrew": "Você retirou a proposta.",
+      "counter_expired": "A contraproposta dele não foi respondida a tempo."
+    }
+  },
+  "fastForward": {
+    "menuTitle": "Avançar até uma data",
+    "menuDesc": "Jogue dias, semanas ou meses de uma vez",
+    "title": "Avançar até uma data",
+    "targetLabel": "Avançar até",
+    "preset": {
+      "week": "+1 semana",
+      "month": "+1 mês",
+      "threeMonths": "+3 meses"
+    },
+    "daysAhead": "Dias a jogar: {{days}}",
+    "invalidTarget": "Escolha uma data posterior a hoje.",
+    "policyLabel": "Parar quando",
+    "policy": {
+      "decisions": "Só em decisões",
+      "decisionsDesc": "Suas partidas são jogadas por você. Para quando algo precisar da sua aprovação.",
+      "nextMatch": "Antes da minha próxima partida",
+      "nextMatchDesc": "Para no dia da sua próxima partida, antes de ela ser jogada.",
+      "target": "Direto para a data",
+      "targetDesc": "Nunca para por uma decisão: as partidas são jogadas, as temporadas encerradas e o que foi ultrapassado é listado depois."
+    },
+    "start": "Iniciar",
+    "progressDays": "Dia {{done}} de {{total}}",
+    "progressMatches": "Suas partidas jogadas: {{matches}}",
+    "stop": "Parar",
+    "stopping": "Parando depois de hoje…",
+    "result": {
+      "targetReached": "Chegou em {{date}}",
+      "nextMatch": "Parou antes da sua próxima partida",
+      "decisions": "Parou: sua decisão é necessária",
+      "seasonComplete": "A temporada acabou: encerre-a para continuar",
+      "managerFired": "Você foi demitido",
+      "cancelled": "Parou a seu pedido",
+      "dayLimit": "Parou: dias demais de uma vez",
+      "error": "Não foi possível concluir o avanço"
+    },
+    "summary": "{{days}} dias jogados, de {{from}} a {{to}}",
+    "seasonsRolled": "Temporadas encerradas: {{seasons}}",
+    "decisionsTitle": "Precisa da sua atenção",
+    "passedTitle": "Ultrapassado pelo caminho",
+    "decision": {
+      "blocker": "Um problema de elenco ou de contrato",
+      "delegationProposal": "Uma proposta do seu auxiliar",
+      "incomingTransferOffer": "Uma oferta por um dos seus jogadores",
+      "incomingLoanOffer": "Um pedido de empréstimo por um dos seus jogadores",
+      "transferDeadline": "A janela fecha com negociações ainda abertas"
+    },
+    "resume": "Continuar"
   }
 }

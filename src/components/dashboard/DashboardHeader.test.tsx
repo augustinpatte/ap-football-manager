@@ -466,4 +466,22 @@ describe("DashboardHeader in a narrow window (layout rule L5)", () => {
     );
     for (const item of items) expect(item).toHaveClass("focus-visible:ring-focus");
   });
+
+  /**
+   * Given the Continue menu open and a fast-forward handler
+   * When the "advance until date" item is chosen
+   * Then the handler runs, and without a handler the item is not offered.
+   */
+  it("offers advance-until-date in the Continue menu only when it can open the dialog", () => {
+    const onFastForward = vi.fn();
+    const { unmount } = renderHeader({ showContinueMenu: true, onFastForward });
+    const item = screen.getByRole("button", { name: /fastForward.menuTitle/ });
+    expect(item).toHaveClass("focus-visible:ring-focus");
+    fireEvent.click(item);
+    expect(onFastForward).toHaveBeenCalledTimes(1);
+    unmount();
+
+    renderHeader({ showContinueMenu: true });
+    expect(screen.queryByRole("button", { name: /fastForward.menuTitle/ })).toBeNull();
+  });
 });

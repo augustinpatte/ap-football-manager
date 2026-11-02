@@ -1158,31 +1158,31 @@
       "log": "Recent decisions",
       "noLog": "Nothing decided yet.",
       "mode": {
-          "title": "Delegation mode",
-          "manual": "Manual",
-          "approval": "With approval",
-          "full": "Full",
-          "custom": "Custom",
-          "manualDesc": "You make every decision. The assistant only advises.",
-          "approvalDesc": "The assistant runs the routine and brings every major decision to you.",
-          "fullDesc": "The assistant runs everything within the limits below. Anything above a limit still comes to you.",
-          "customDesc": "Duties are set one by one below."
-        },
+        "title": "Delegation mode",
+        "manual": "Manual",
+        "approval": "With approval",
+        "full": "Full",
+        "custom": "Custom",
+        "manualDesc": "You make every decision. The assistant only advises.",
+        "approvalDesc": "The assistant runs the routine and brings every major decision to you.",
+        "fullDesc": "The assistant runs everything within the limits below. Anything above a limit still comes to you.",
+        "customDesc": "Duties are set one by one below."
+      },
       "limits": {
-          "title": "Spending limits",
-          "intro": "What the assistant may commit without asking. Anything above goes to you as a proposal.",
-          "max_staff_wage": "Staff wage, per week",
-          "max_player_wage": "Player renewal wage, per week",
-          "max_commitment": "Total of one contract",
-          "max_transfer_fee": "Transfer fee",
-          "transferNote": "A transfer fee limit of 0 means every transfer is yours.",
-          "save": "Save limits"
-        },
+        "title": "Spending limits",
+        "intro": "What the assistant may commit without asking. Anything above goes to you as a proposal.",
+        "max_staff_wage": "Staff wage, per week",
+        "max_player_wage": "Player renewal wage, per week",
+        "max_commitment": "Total of one contract",
+        "max_transfer_fee": "Transfer fee",
+        "transferNote": "A transfer fee limit of 0 means every transfer is yours.",
+        "save": "Save limits"
+      },
       "outcome": {
-          "approved": "approved",
-          "declined": "declined",
-          "leftToManager": "left to you"
-        }
+        "approved": "approved",
+        "declined": "declined",
+        "leftToManager": "left to you"
+      }
     },
     "assistant": {
       "title": "Assistant's advice",
@@ -2842,60 +2842,8 @@
   "squadCompare": {
     "compare": "Compare"
   },
-    "freeAgents": {
-      "talk": {
-        "title": "Negotiation",
-        "interest": {
-          "keen": "He is likely to accept these terms.",
-          "hesitant": "He is undecided and may ask for different terms.",
-          "unlikely": "He is unlikely to accept these terms."
-        },
-        "expects": "He expects about {{wage}} a week over {{years}} years.",
-        "place": {
-          "key": "At your club he would be a key player.",
-          "starter": "At your club he would be a regular starter.",
-          "rotation": "At your club he would be part of the rotation.",
-          "backup": "At your club he would be a backup."
-        },
-        "responseTime": "He answers {{min}} to {{max}} days after an offer.",
-        "awaiting": "Offer sent. He will answer on {{date}}.",
-        "counter": "He asks for {{wage}} a week over {{years}} years. His terms stand until {{date}}.",
-        "acceptCounter": "Accept his terms",
-        "withdraw": "Withdraw offer",
-        "rivals": "Other clubs are also talking to him: {{clubs}}.",
-        "ended": {
-          "rejected": "He turned the offer down.",
-          "withdrawn": "You withdrew the offer.",
-          "lost_to_rival": "He signed with another club.",
-          "lapsed": "The offer lapsed."
-        },
-        "offerPending": "Offer pending"
-      },
-      "reason": {
-        "wage_too_low": "The pay is below what he can command.",
-        "club_below_his_level": "Your club is well below his level.",
-        "no_place_in_side_for_him": "He would not be a regular in your side.",
-        "contract_too_short": "The contract is shorter than he wants.",
-        "offer_insulting": "He found the offer insulting and will not talk to you for two weeks.",
-        "talks_broken_off": "He has run out of patience with the talks.",
-        "better_offer_elsewhere": "Another club made him a better offer.",
-        "club_cannot_afford": "Your club can no longer afford the deal.",
-        "manager_withdrew": "You took the offer back.",
-        "counter_expired": "His counter-offer was not answered in time."
-      }
-    },
   "be": {
     "error": {
-        "freeAgents": {
-          "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
-          "talksBrokenOff": "This player will not talk to your club for now.",
-          "tooManyOpenTalks": "You have too many negotiations open. Wait for answers or withdraw an offer.",
-          "squadFull": "Your senior squad is full. Release a player before signing another.",
-          "noCounterToAnswer": "There is no counter-offer from this player to answer.",
-          "counterExpired": "His counter-offer has expired.",
-          "noOpenTalk": "You have no open offer with this player.",
-          "invalidOffer": "That is not a valid contract offer."
-        },
       "squadFloor": {
         "wouldLeaveShort": "This player cannot leave: the squad would fall below the minimum a club must keep. Position group affected: {{group}}.",
         "wouldLeaveSeniorsShort": "This player cannot leave: the club would be left with fewer than {{floor}} senior players, the minimum a club must keep."
@@ -3207,6 +3155,23 @@
         "invalidMode": "That delegation mode cannot be applied.",
         "invalidLimits": "Spending limits cannot be negative.",
         "wagePolicy": "The board's wage policy no longer allows these terms."
+      },
+      "freeAgents": {
+        "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
+        "talksBrokenOff": "This player will not talk to your club for now.",
+        "tooManyOpenTalks": "You have too many negotiations open. Wait for answers or withdraw an offer.",
+        "squadFull": "Your senior squad is full. Release a player before signing another.",
+        "noCounterToAnswer": "There is no counter-offer from this player to answer.",
+        "counterExpired": "His counter-offer has expired.",
+        "noOpenTalk": "You have no open offer with this player.",
+        "invalidOffer": "That is not a valid contract offer."
+      },
+      "fastForward": {
+        "invalidDate": "That is not a valid date.",
+        "targetNotInFuture": "Choose a date after today.",
+        "targetTooFar": "That date is too far ahead to play in one go.",
+        "alreadyRunning": "Another advance is already running.",
+        "careerChanged": "The career changed during the advance, so it was stopped."
       }
     },
     "sender": {
@@ -3249,24 +3214,24 @@
       "sportsDaily": "Sports Daily"
     },
     "msg": {
-        "freeAgentTalk": {
-          "counter": {
-            "subject": "{{player}} wants different terms",
-            "body": "{{player}} has answered {{team}}'s offer with a counter: {{wage}} a week for {{years}} years. His terms stand for {{days}} days."
-          },
-          "rejected": {
-            "subject": "{{player}} turned down {{team}}",
-            "body": "{{player}} has declined {{team}}'s offer. Open his profile to see why."
-          },
-          "lost": {
-            "subject": "{{player}} signed with {{team}}",
-            "body": "{{player}} chose another club, {{team}}, over your offer."
-          },
-          "lapsed": {
-            "subject": "Offer to {{player}} lapsed",
-            "body": "The offer to {{player}} came to nothing: either his counter-offer was not answered in time or the club could no longer afford the deal."
-          }
+      "freeAgentTalk": {
+        "counter": {
+          "subject": "{{player}} wants different terms",
+          "body": "{{player}} has answered {{team}}'s offer with a counter: {{wage}} a week for {{years}} years. His terms stand for {{days}} days."
         },
+        "rejected": {
+          "subject": "{{player}} turned down {{team}}",
+          "body": "{{player}} has declined {{team}}'s offer. Open his profile to see why."
+        },
+        "lost": {
+          "subject": "{{player}} signed with {{team}}",
+          "body": "{{player}} chose another club, {{team}}, over your offer."
+        },
+        "lapsed": {
+          "subject": "Offer to {{player}} lapsed",
+          "body": "The offer to {{player}} came to nothing: either his counter-offer was not answered in time or the club could no longer afford the deal."
+        }
+      },
       "world": {
         "randomName": "Random World",
         "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
@@ -4799,5 +4764,96 @@
       "playerRenewed": "Renewed {{player}} at {{wage}} a week for {{years}} years",
       "playerRenewalLeft": "Left {{player}}'s contract for you to settle"
     }
+  },
+  "freeAgents": {
+    "talk": {
+      "title": "Negotiation",
+      "interest": {
+        "keen": "He is likely to accept these terms.",
+        "hesitant": "He is undecided and may ask for different terms.",
+        "unlikely": "He is unlikely to accept these terms."
+      },
+      "expects": "He expects about {{wage}} a week over {{years}} years.",
+      "place": {
+        "key": "At your club he would be a key player.",
+        "starter": "At your club he would be a regular starter.",
+        "rotation": "At your club he would be part of the rotation.",
+        "backup": "At your club he would be a backup."
+      },
+      "responseTime": "He answers {{min}} to {{max}} days after an offer.",
+      "awaiting": "Offer sent. He will answer on {{date}}.",
+      "counter": "He asks for {{wage}} a week over {{years}} years. His terms stand until {{date}}.",
+      "acceptCounter": "Accept his terms",
+      "withdraw": "Withdraw offer",
+      "rivals": "Other clubs are also talking to him: {{clubs}}.",
+      "ended": {
+        "rejected": "He turned the offer down.",
+        "withdrawn": "You withdrew the offer.",
+        "lost_to_rival": "He signed with another club.",
+        "lapsed": "The offer lapsed."
+      },
+      "offerPending": "Offer pending"
+    },
+    "reason": {
+      "wage_too_low": "The pay is below what he can command.",
+      "club_below_his_level": "Your club is well below his level.",
+      "no_place_in_side_for_him": "He would not be a regular in your side.",
+      "contract_too_short": "The contract is shorter than he wants.",
+      "offer_insulting": "He found the offer insulting and will not talk to you for two weeks.",
+      "talks_broken_off": "He has run out of patience with the talks.",
+      "better_offer_elsewhere": "Another club made him a better offer.",
+      "club_cannot_afford": "Your club can no longer afford the deal.",
+      "manager_withdrew": "You took the offer back.",
+      "counter_expired": "His counter-offer was not answered in time."
+    }
+  },
+  "fastForward": {
+    "menuTitle": "Advance until date",
+    "menuDesc": "Play days, weeks or months in one go",
+    "title": "Advance until date",
+    "targetLabel": "Advance until",
+    "preset": {
+      "week": "+1 week",
+      "month": "+1 month",
+      "threeMonths": "+3 months"
+    },
+    "daysAhead": "Days to play: {{days}}",
+    "invalidTarget": "Choose a date after today.",
+    "policyLabel": "Stop when",
+    "policy": {
+      "decisions": "Only for decisions",
+      "decisionsDesc": "Your matches are played for you. Stops when something needs your approval.",
+      "nextMatch": "Before my next match",
+      "nextMatchDesc": "Stops on the day of your next match, before it is played.",
+      "target": "Straight to the date",
+      "targetDesc": "Never stops for a decision: matches are played, seasons rolled over, and what was passed is listed afterwards."
+    },
+    "start": "Start",
+    "progressDays": "Day {{done}} of {{total}}",
+    "progressMatches": "Your matches played: {{matches}}",
+    "stop": "Stop",
+    "stopping": "Stopping after today…",
+    "result": {
+      "targetReached": "Reached {{date}}",
+      "nextMatch": "Stopped before your next match",
+      "decisions": "Stopped: your decision is needed",
+      "seasonComplete": "The season is over: roll it over to carry on",
+      "managerFired": "You have been dismissed",
+      "cancelled": "Stopped at your request",
+      "dayLimit": "Stopped: too many days in one go",
+      "error": "The run could not finish"
+    },
+    "summary": "{{days}} days played, from {{from}} to {{to}}",
+    "seasonsRolled": "Seasons rolled over: {{seasons}}",
+    "decisionsTitle": "Needs your attention",
+    "passedTitle": "Passed along the way",
+    "decision": {
+      "blocker": "A squad or contract problem",
+      "delegationProposal": "A proposal from your assistant",
+      "incomingTransferOffer": "An offer for one of your players",
+      "incomingLoanOffer": "A loan request for one of your players",
+      "transferDeadline": "The transfer window closes with talks still open"
+    },
+    "resume": "Carry on"
   }
 }
