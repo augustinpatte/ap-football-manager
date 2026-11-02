@@ -1144,7 +1144,9 @@
         "Scouting": "Recrutement",
         "Youth": "Jeunes",
         "StaffRecruitment": "Recrutement du staff",
-        "StaffRenewals": "Prolongations du staff"
+        "StaffRenewals": "Prolongations du staff",
+        "Lineup": "Composition et rotation",
+        "PlayerRenewals": "Renouvellements de joueurs"
       },
       "confirmMajor": "Me consulter pour les décisions importantes",
       "delegate": "Déléguer",
@@ -1154,7 +1156,33 @@
       "accept": "Accepter",
       "decline": "Refuser",
       "log": "Décisions récentes",
-      "noLog": "Rien de décidé pour l'instant."
+      "noLog": "Rien de décidé pour l'instant.",
+      "mode": {
+          "title": "Mode de délégation",
+          "manual": "Manuel",
+          "approval": "Avec approbation",
+          "full": "Total",
+          "custom": "Personnalisé",
+          "manualDesc": "Vous prenez toutes les décisions. L'adjoint ne fait que conseiller.",
+          "approvalDesc": "L'adjoint gère le quotidien et vous soumet chaque décision importante.",
+          "fullDesc": "L'adjoint gère tout dans les limites ci-dessous. Ce qui les dépasse vous revient toujours.",
+          "customDesc": "Les tâches sont réglées une par une ci-dessous."
+        },
+      "limits": {
+          "title": "Plafonds de dépense",
+          "intro": "Ce que l'adjoint peut engager sans vous demander. Tout ce qui dépasse vous est proposé.",
+          "max_staff_wage": "Salaire du staff, par semaine",
+          "max_player_wage": "Salaire d'un joueur prolongé, par semaine",
+          "max_commitment": "Total d'un contrat",
+          "max_transfer_fee": "Indemnité de transfert",
+          "transferNote": "Un plafond de transfert à 0 signifie que tous les transferts sont pour vous.",
+          "save": "Enregistrer les plafonds"
+        },
+      "outcome": {
+          "approved": "approuvé",
+          "declined": "refusé",
+          "leftToManager": "laissé à vous"
+        }
     },
     "assistant": {
       "title": "Conseils de l'adjoint",
@@ -3123,7 +3151,10 @@
       },
       "delegation": {
         "noAssistant": "Il faut un entraîneur adjoint pour déléguer.",
-        "proposalNotFound": "Cette proposition n'existe plus."
+        "proposalNotFound": "Cette proposition n'existe plus.",
+        "invalidMode": "Ce mode de délégation ne peut pas être appliqué.",
+        "invalidLimits": "Les plafonds de dépense ne peuvent pas être négatifs.",
+        "wagePolicy": "La politique salariale du conseil n'autorise plus ces conditions."
       }
     },
     "sender": {
@@ -3591,6 +3622,18 @@
         "body": "Coach, nous n'avons pas pu compléter l'effectif et il n'y avait personne à faire venir. {{group}} : {{have}} sur les {{floor}} qu'un club doit conserver, et ni notre centre de formation ni le marché des joueurs libres n'ont de quoi combler le manque.",
         "totalSubject": "Personne de disponible pour compléter l'effectif",
         "totalBody": "Coach, il ne nous reste que {{have}} joueurs dans l'effectif professionnel, moins que les {{floor}} qu'un club doit conserver, et ni notre centre de formation ni le marché des joueurs libres n'ont de quoi combler le manque."
+      },
+      "assistantDigest": {
+        "subject": "Rapport de l'adjoint",
+        "body": "Chef, depuis mon dernier rapport j'ai pris {{done}} décision(s) et vous en ai laissé {{left}}. {{waiting}} proposition(s) attendent votre réponse."
+      },
+      "assistantProposals": {
+        "subject": "Propositions en attente",
+        "body": "Chef, {{count}} proposition(s) attendent votre réponse dans l'onglet Staff."
+      },
+      "assistantMissing": {
+        "subject": "Plus d'adjoint pour appliquer votre délégation",
+        "body": "Le poste d'adjoint est vacant : les tâches déléguées ne sont plus exécutées. Recrutez un nouvel adjoint pour reprendre."
       },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",
@@ -4667,19 +4710,24 @@
       "hire": "Recruter {{name}} ({{post}}) à {{wage}} par semaine",
       "upgradeRelease": "Se séparer de {{replaces}} (niveau {{current}})",
       "upgradeHire": "Remplacer par {{name}} (niveau {{ovr}})",
-      "renew": "Prolonger {{name}} à {{wage}} par semaine sur {{years}} ans"
+      "renew": "Prolonger {{name}} à {{wage}} par semaine sur {{years}} ans",
+      "renewPlayer": "Prolonger {{player}} à {{wage}} par semaine pour {{years}} ans"
     },
     "reason": {
       "vacancy": "Un poste obligatoire est vide.",
       "upgrade": "Un candidat nettement meilleur est disponible.",
-      "contractEnding": "Le contrat arrive à échéance."
+      "contractEnding": "Le contrat arrive à échéance.",
+      "aboveLimit": "Cela dépasse un plafond de dépense que vous avez fixé à l'adjoint."
     },
     "log": {
       "hired": "A recruté {{name}} ({{post}}) à {{wage}} par semaine",
       "promoted": "A promu {{player}} depuis la formation",
       "recoveryOrdered": "A basculé l'entraînement en récupération",
       "renewed": "A prolongé {{name}} à {{wage}} par semaine sur {{years}} ans",
-      "scoutSent": "A envoyé un recruteur voir {{player}}"
+      "scoutSent": "A envoyé un recruteur voir {{player}}",
+      "lineupChosen": "Composition du prochain match arrêtée ({{changes}} changements)",
+      "playerRenewed": "{{player}} prolongé à {{wage}} par semaine pour {{years}} ans",
+      "playerRenewalLeft": "Contrat de {{player}} laissé à votre décision"
     }
   }
 }

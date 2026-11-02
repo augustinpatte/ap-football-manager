@@ -343,6 +343,8 @@ pub fn run() {
             renew_staff_contract,
             release_staff,
             set_duty_delegation,
+            set_delegation_mode,
+            set_delegation_limits,
             resolve_delegation_proposal,
             get_assistant_recommendations,
             apply_assistant_recommendation,

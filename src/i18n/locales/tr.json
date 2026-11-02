@@ -1132,7 +1132,9 @@
         "Scouting": "Gözlem",
         "Youth": "Altyapı",
         "StaffRecruitment": "Kadro alımı",
-        "StaffRenewals": "Kadro yenilemeleri"
+        "StaffRenewals": "Kadro yenilemeleri",
+        "Lineup": "Kadro ve rotasyon",
+        "PlayerRenewals": "Oyuncu sözleşme yenilemeleri"
       },
       "confirmMajor": "Büyük kararlarda bana sor",
       "delegate": "Devret",
@@ -1142,7 +1144,33 @@
       "accept": "Kabul et",
       "decline": "Reddet",
       "log": "Son kararlar",
-      "noLog": "Henüz karar alınmadı."
+      "noLog": "Henüz karar alınmadı.",
+      "mode": {
+          "title": "Yetki devri modu",
+          "manual": "Manuel",
+          "approval": "Onaylı",
+          "full": "Tam",
+          "custom": "Özel",
+          "manualDesc": "Tüm kararları siz verirsiniz. Yardımcı yalnızca tavsiye eder.",
+          "approvalDesc": "Yardımcı rutin işleri yürütür, her önemli kararı size getirir.",
+          "fullDesc": "Yardımcı her şeyi aşağıdaki sınırlar içinde yürütür. Sınırı aşan her şey yine size gelir.",
+          "customDesc": "Görevler aşağıda tek tek ayarlanır."
+        },
+      "limits": {
+          "title": "Harcama sınırları",
+          "intro": "Yardımcının sormadan taahhüt edebileceği tutar. Üstü size öneri olarak gelir.",
+          "max_staff_wage": "Personel maaşı, haftalık",
+          "max_player_wage": "Oyuncu yenileme maaşı, haftalık",
+          "max_commitment": "Tek sözleşmenin toplamı",
+          "max_transfer_fee": "Transfer bedeli",
+          "transferNote": "Transfer bedeli sınırının 0 olması her transferin size ait olduğu anlamına gelir.",
+          "save": "Sınırları kaydet"
+        },
+      "outcome": {
+          "approved": "onaylandı",
+          "declined": "reddedildi",
+          "leftToManager": "size bırakıldı"
+        }
     },
     "assistant": {
       "title": "Yardımcının tavsiyeleri",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "Görev devretmek için yardımcı teknik direktör gerekir.",
-        "proposalNotFound": "Bu öneri artık yok."
+        "proposalNotFound": "Bu öneri artık yok.",
+        "invalidMode": "Bu yetki devri modu uygulanamaz.",
+        "invalidLimits": "Harcama sınırları negatif olamaz.",
+        "wagePolicy": "Yönetim kurulunun maaş politikası artık bu şartlara izin vermiyor."
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "Hocam, kadroyu tamamlayamadık ve alabileceğimiz kimse yoktu. {{group}}: bir kulübün koruması gereken {{floor}} oyuncudan {{have}} tanesi var; ne altyapımızda ne de serbest oyuncu piyasasında bu açığı kapatacak kimse var.",
         "totalSubject": "Kadroyu Tamamlayacak Oyuncu Yok",
         "totalBody": "Hocam, A takımda yalnızca {{have}} oyuncumuz kaldı, bu da bir kulübün koruması gereken {{floor}} oyuncunun altında; ne altyapımızda ne de serbest oyuncu piyasasında bu açığı kapatacak kimse var."
+      },
+      "assistantDigest": {
+        "subject": "Yardımcı raporu",
+        "body": "Patron, son raporumdan beri {{done}} karar aldım, {{left}} kararı size bıraktım. {{waiting}} öneri yanıtınızı bekliyor."
+      },
+      "assistantProposals": {
+        "subject": "Bekleyen öneriler",
+        "body": "Patron, Kadro ekibi sekmesinde {{count}} öneri yanıtınızı bekliyor."
+      },
+      "assistantMissing": {
+        "subject": "Yetki devrinizi yürütecek yardımcı yok",
+        "body": "Yardımcı antrenör kadrosu boş, bu yüzden devrettiğiniz görevler yürütülmüyor. Devam etmek için yeni bir yardımcı alın."
       },
       "delegatedRenewals": {
         "subject": "Yardımcı Raporu — Sözleşme Yenilemeleri",
@@ -4655,19 +4698,24 @@
       "hire": "{{name}} ({{post}}) haftalık {{wage}} ile işe alınsın",
       "upgradeRelease": "{{replaces}} görevden alınsın (seviye {{current}})",
       "upgradeHire": "{{name}} ile değiştir (seviye {{ovr}})",
-      "renew": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilensin"
+      "renew": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilensin",
+      "renewPlayer": "{{player}} sözleşmesini haftalık {{wage}} ile {{years}} yıl yenile"
     },
     "reason": {
       "vacancy": "Zorunlu bir kadro boş.",
       "upgrade": "Belirgin biçimde daha iyi bir aday mevcut.",
-      "contractEnding": "Sözleşme bitmek üzere."
+      "contractEnding": "Sözleşme bitmek üzere.",
+      "aboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırının üzerinde."
     },
     "log": {
       "hired": "{{name}} ({{post}}) haftalık {{wage}} ile işe alındı",
       "promoted": "{{player}} altyapıdan yükseltildi",
       "recoveryOrdered": "Antrenmanı toparlanmaya çevirdi",
       "renewed": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilendi",
-      "scoutSent": "{{player}} için gözlemci gönderdi"
+      "scoutSent": "{{player}} için gözlemci gönderdi",
+      "lineupChosen": "Sonraki maçın ilk 11'i belirlendi ({{changes}} değişiklik)",
+      "playerRenewed": "{{player}} haftalık {{wage}} ile {{years}} yıl için yenilendi",
+      "playerRenewalLeft": "{{player}} sözleşmesi size bırakıldı"
     }
   }
 }

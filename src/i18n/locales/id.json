@@ -1132,7 +1132,9 @@
         "Scouting": "Pemanduan bakat",
         "Youth": "Akademi",
         "StaffRecruitment": "Perekrutan staf",
-        "StaffRenewals": "Perpanjangan staf"
+        "StaffRenewals": "Perpanjangan staf",
+        "Lineup": "Susunan pemain & rotasi",
+        "PlayerRenewals": "Perpanjangan kontrak pemain"
       },
       "confirmMajor": "Tanya saya untuk keputusan besar",
       "delegate": "Delegasikan",
@@ -1142,7 +1144,33 @@
       "accept": "Terima",
       "decline": "Tolak",
       "log": "Keputusan terbaru",
-      "noLog": "Belum ada keputusan."
+      "noLog": "Belum ada keputusan.",
+      "mode": {
+          "title": "Mode delegasi",
+          "manual": "Manual",
+          "approval": "Dengan persetujuan",
+          "full": "Penuh",
+          "custom": "Kustom",
+          "manualDesc": "Anda membuat semua keputusan. Asisten hanya memberi saran.",
+          "approvalDesc": "Asisten menjalankan urusan rutin dan membawa setiap keputusan penting kepada Anda.",
+          "fullDesc": "Asisten menjalankan semuanya dalam batas di bawah. Yang melewati batas tetap datang kepada Anda.",
+          "customDesc": "Tugas diatur satu per satu di bawah."
+        },
+      "limits": {
+          "title": "Batas pengeluaran",
+          "intro": "Yang boleh dikomitmenkan asisten tanpa bertanya. Yang melebihi batas datang sebagai usulan.",
+          "max_staff_wage": "Gaji staf, per minggu",
+          "max_player_wage": "Gaji perpanjangan pemain, per minggu",
+          "max_commitment": "Total satu kontrak",
+          "max_transfer_fee": "Biaya transfer",
+          "transferNote": "Batas biaya transfer 0 berarti semua transfer menjadi urusan Anda.",
+          "save": "Simpan batas"
+        },
+      "outcome": {
+          "approved": "disetujui",
+          "declined": "ditolak",
+          "leftToManager": "diserahkan kepada Anda"
+        }
     },
     "assistant": {
       "title": "Saran asisten",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "Anda perlu asisten manajer untuk mendelegasikan.",
-        "proposalNotFound": "Usulan itu sudah tidak ada."
+        "proposalNotFound": "Usulan itu sudah tidak ada.",
+        "invalidMode": "Mode delegasi itu tidak dapat diterapkan.",
+        "invalidLimits": "Batas pengeluaran tidak boleh negatif.",
+        "wagePolicy": "Kebijakan gaji dewan tidak lagi mengizinkan persyaratan ini."
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "Bos, kita tidak bisa melengkapi skuad dan tidak ada yang bisa didatangkan. {{group}}: {{have}} dari {{floor}} yang harus dipertahankan klub, dan baik akademi kita maupun pasar agen bebas tidak punya siapa pun untuk menutup kekurangan itu.",
         "totalSubject": "Tidak Ada yang Tersedia untuk Melengkapi Skuad",
         "totalBody": "Bos, di tim utama kita tinggal {{have}} pemain, kurang dari {{floor}} yang harus dipertahankan klub, dan baik akademi kita maupun pasar agen bebas tidak punya siapa pun untuk menutup kekurangan itu."
+      },
+      "assistantDigest": {
+        "subject": "Laporan asisten",
+        "body": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda."
+      },
+      "assistantProposals": {
+        "subject": "Usulan menunggu",
+        "body": "Bos, {{count}} usulan menunggu jawaban Anda di tab Staf."
+      },
+      "assistantMissing": {
+        "subject": "Tidak ada asisten untuk menjalankan delegasi Anda",
+        "body": "Posisi asisten pelatih kosong, jadi tugas yang didelegasikan tidak dijalankan. Rekrut asisten baru untuk melanjutkan."
       },
       "delegatedRenewals": {
         "subject": "Laporan Asisten — Perpanjangan Kontrak",
@@ -4655,19 +4698,24 @@
       "hire": "Rekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
       "upgradeRelease": "Berhentikan {{replaces}} (level {{current}})",
       "upgradeHire": "Ganti dengan {{name}} (level {{ovr}})",
-      "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun"
+      "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
+      "renewPlayer": "Perpanjang {{player}} dengan {{wage}} per minggu selama {{years}} tahun"
     },
     "reason": {
       "vacancy": "Posisi wajib masih kosong.",
       "upgrade": "Tersedia kandidat yang jelas lebih baik.",
-      "contractEnding": "Kontrak hampir berakhir."
+      "contractEnding": "Kontrak hampir berakhir.",
+      "aboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten."
     },
     "log": {
       "hired": "Merekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
       "promoted": "Mempromosikan {{player}} dari akademi",
       "recoveryOrdered": "Mengalihkan latihan ke pemulihan",
       "renewed": "Memperpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
-      "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}"
+      "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}",
+      "lineupChosen": "Susunan sebelas pemain laga berikutnya ditetapkan ({{changes}} perubahan)",
+      "playerRenewed": "{{player}} diperpanjang dengan {{wage}} per minggu selama {{years}} tahun",
+      "playerRenewalLeft": "Kontrak {{player}} diserahkan kepada Anda"
     }
   }
 }

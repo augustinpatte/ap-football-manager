@@ -1157,7 +1157,9 @@
         "Scouting": "Osservazione",
         "Youth": "Giovani",
         "StaffRecruitment": "Ingaggio dello staff",
-        "StaffRenewals": "Rinnovi dello staff"
+        "StaffRenewals": "Rinnovi dello staff",
+        "Lineup": "Formazione e turnover",
+        "PlayerRenewals": "Rinnovi dei giocatori"
       },
       "confirmMajor": "Chiedimi per le decisioni importanti",
       "delegate": "Delega",
@@ -1167,7 +1169,33 @@
       "accept": "Accetta",
       "decline": "Rifiuta",
       "log": "Decisioni recenti",
-      "noLog": "Ancora nessuna decisione."
+      "noLog": "Ancora nessuna decisione.",
+      "mode": {
+          "title": "Modalità di delega",
+          "manual": "Manuale",
+          "approval": "Con approvazione",
+          "full": "Totale",
+          "custom": "Personalizzata",
+          "manualDesc": "Prendi tu ogni decisione. Il vice si limita a consigliare.",
+          "approvalDesc": "Il vice gestisce l'ordinaria amministrazione e ti porta ogni decisione importante.",
+          "fullDesc": "Il vice gestisce tutto entro i limiti qui sotto. Ciò che li supera arriva comunque a te.",
+          "customDesc": "I compiti si impostano uno per uno qui sotto."
+        },
+      "limits": {
+          "title": "Limiti di spesa",
+          "intro": "Quanto il vice può impegnare senza chiedere. Ciò che supera il limite ti arriva come proposta.",
+          "max_staff_wage": "Stipendio dello staff, a settimana",
+          "max_player_wage": "Stipendio del giocatore rinnovato, a settimana",
+          "max_commitment": "Totale di un contratto",
+          "max_transfer_fee": "Costo del trasferimento",
+          "transferNote": "Un limite di 0 per i trasferimenti significa che ogni trasferimento spetta a te.",
+          "save": "Salva i limiti"
+        },
+      "outcome": {
+          "approved": "approvato",
+          "declined": "rifiutato",
+          "leftToManager": "lasciato a te"
+        }
     },
     "assistant": {
       "title": "Consigli del vice",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "Serve un vice allenatore per delegare.",
-        "proposalNotFound": "Quella proposta non esiste più."
+        "proposalNotFound": "Quella proposta non esiste più.",
+        "invalidMode": "Questa modalità di delega non può essere applicata.",
+        "invalidLimits": "I limiti di spesa non possono essere negativi.",
+        "wagePolicy": "La politica salariale del consiglio non consente più queste condizioni."
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "Mister, non siamo riusciti a completare la rosa e non c'era nessuno da portare in squadra. {{group}}: {{have}} dei {{floor}} che un club deve mantenere, e né il nostro settore giovanile né il mercato degli svincolati hanno qualcuno per colmare il vuoto.",
         "totalSubject": "Nessuno disponibile per completare la rosa",
         "totalBody": "Mister, in prima squadra ci restano solo {{have}} giocatori, meno dei {{floor}} che un club deve mantenere, e né il nostro settore giovanile né il mercato degli svincolati hanno qualcuno per colmare il vuoto."
+      },
+      "assistantDigest": {
+        "subject": "Rapporto del vice",
+        "body": "Capo, dal mio ultimo rapporto ho preso {{done}} decisione/i e ne ho lasciate {{left}} a te. {{waiting}} proposta/e attendono la tua risposta."
+      },
+      "assistantProposals": {
+        "subject": "Proposte in attesa",
+        "body": "Capo, {{count}} proposta/e attendono la tua risposta nella scheda Staff."
+      },
+      "assistantMissing": {
+        "subject": "Nessun vice per eseguire la tua delega",
+        "body": "Il posto di vice allenatore è vacante, quindi i compiti delegati non vengono eseguiti. Assumi un nuovo vice per riprendere."
       },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
@@ -4655,19 +4698,24 @@
       "hire": "Ingaggiare {{name}} ({{post}}) a {{wage}} a settimana",
       "upgradeRelease": "Licenziare {{replaces}} (valore {{current}})",
       "upgradeHire": "Sostituire con {{name}} (valore {{ovr}})",
-      "renew": "Rinnovare {{name}} a {{wage}} a settimana per {{years}} anni"
+      "renew": "Rinnovare {{name}} a {{wage}} a settimana per {{years}} anni",
+      "renewPlayer": "Rinnovare {{player}} a {{wage}} a settimana per {{years}} anni"
     },
     "reason": {
       "vacancy": "Un ruolo obbligatorio è vuoto.",
       "upgrade": "È disponibile un candidato nettamente migliore.",
-      "contractEnding": "Il contratto sta per scadere."
+      "contractEnding": "Il contratto sta per scadere.",
+      "aboveLimit": "Supera un limite di spesa che hai fissato al vice."
     },
     "log": {
       "hired": "Ha ingaggiato {{name}} ({{post}}) a {{wage}} a settimana",
       "promoted": "Ha promosso {{player}} dal settore giovanile",
       "recoveryOrdered": "Ha portato l'allenamento sul recupero",
       "renewed": "Ha rinnovato {{name}} a {{wage}} a settimana per {{years}} anni",
-      "scoutSent": "Ha mandato un osservatore a vedere {{player}}"
+      "scoutSent": "Ha mandato un osservatore a vedere {{player}}",
+      "lineupChosen": "Undici del prossimo match scelto ({{changes}} cambi)",
+      "playerRenewed": "{{player}} rinnovato a {{wage}} a settimana per {{years}} anni",
+      "playerRenewalLeft": "Il contratto di {{player}} resta a te"
     }
   }
 }

@@ -1144,7 +1144,9 @@
         "Scouting": "Ojeo",
         "Youth": "Cantera",
         "StaffRecruitment": "Fichajes del personal",
-        "StaffRenewals": "Renovaciones del personal"
+        "StaffRenewals": "Renovaciones del personal",
+        "Lineup": "Alineación y rotación",
+        "PlayerRenewals": "Renovaciones de jugadores"
       },
       "confirmMajor": "Consultarme las decisiones importantes",
       "delegate": "Delegar",
@@ -1154,7 +1156,33 @@
       "accept": "Aceptar",
       "decline": "Rechazar",
       "log": "Decisiones recientes",
-      "noLog": "Aún no se ha decidido nada."
+      "noLog": "Aún no se ha decidido nada.",
+      "mode": {
+          "title": "Modo de delegación",
+          "manual": "Manual",
+          "approval": "Con aprobación",
+          "full": "Total",
+          "custom": "Personalizado",
+          "manualDesc": "Tú tomas todas las decisiones. El ayudante solo aconseja.",
+          "approvalDesc": "El ayudante lleva lo rutinario y te consulta cada decisión importante.",
+          "fullDesc": "El ayudante lo gestiona todo dentro de los límites de abajo. Lo que los supere sigue llegándote a ti.",
+          "customDesc": "Las tareas se ajustan una a una abajo."
+        },
+      "limits": {
+          "title": "Límites de gasto",
+          "intro": "Lo que el ayudante puede comprometer sin consultarte. Lo que lo supere te llega como propuesta.",
+          "max_staff_wage": "Salario del personal, por semana",
+          "max_player_wage": "Salario de renovación de jugador, por semana",
+          "max_commitment": "Total de un contrato",
+          "max_transfer_fee": "Traspaso",
+          "transferNote": "Un límite de traspaso de 0 significa que todos los traspasos son tuyos.",
+          "save": "Guardar límites"
+        },
+      "outcome": {
+          "approved": "aprobado",
+          "declined": "rechazado",
+          "leftToManager": "dejado en tus manos"
+        }
     },
     "assistant": {
       "title": "Consejos del segundo entrenador",
@@ -3123,7 +3151,10 @@
       },
       "delegation": {
         "noAssistant": "Necesitas un segundo entrenador para delegar.",
-        "proposalNotFound": "Esa propuesta ya no existe."
+        "proposalNotFound": "Esa propuesta ya no existe.",
+        "invalidMode": "Ese modo de delegación no se puede aplicar.",
+        "invalidLimits": "Los límites de gasto no pueden ser negativos.",
+        "wagePolicy": "La política salarial de la directiva ya no permite estas condiciones."
       }
     },
     "sender": {
@@ -3591,6 +3622,18 @@
         "body": "Míster, no pudimos completar la plantilla y no había nadie a quien incorporar. {{group}}: {{have}} de los {{floor}} que un club debe mantener, y ni nuestra cantera ni el mercado de agentes libres tienen a nadie para cubrir el hueco.",
         "totalSubject": "Nadie disponible para completar la plantilla",
         "totalBody": "Míster, nos quedan solo {{have}} jugadores en la primera plantilla, menos de los {{floor}} que un club debe mantener, y ni nuestra cantera ni el mercado de agentes libres tienen a nadie para cubrir el hueco."
+      },
+      "assistantDigest": {
+        "subject": "Informe del ayudante",
+        "body": "Jefe, desde mi último informe tomé {{done}} decisión(es) y dejé {{left}} para ti. {{waiting}} propuesta(s) esperan tu respuesta."
+      },
+      "assistantProposals": {
+        "subject": "Propuestas pendientes",
+        "body": "Jefe, {{count}} propuesta(s) esperan tu respuesta en la pestaña de Personal."
+      },
+      "assistantMissing": {
+        "subject": "No hay ayudante para aplicar tu delegación",
+        "body": "El puesto de ayudante está vacío, así que las tareas delegadas no se ejecutan. Ficha a un nuevo ayudante para retomarlas."
       },
       "delegatedRenewals": {
         "subject": "Informe del asistente — Renovaciones",
@@ -4667,19 +4710,24 @@
       "hire": "Fichar a {{name}} ({{post}}) por {{wage}} semanales",
       "upgradeRelease": "Despedir a {{replaces}} (nivel {{current}})",
       "upgradeHire": "Sustituir por {{name}} (nivel {{ovr}})",
-      "renew": "Renovar a {{name}} con {{wage}} semanales por {{years}} años"
+      "renew": "Renovar a {{name}} con {{wage}} semanales por {{years}} años",
+      "renewPlayer": "Renovar a {{player}} con {{wage}} semanales durante {{years}} años"
     },
     "reason": {
       "vacancy": "Un puesto obligatorio está vacío.",
       "upgrade": "Hay un candidato claramente mejor.",
-      "contractEnding": "El contrato está a punto de terminar."
+      "contractEnding": "El contrato está a punto de terminar.",
+      "aboveLimit": "Esto supera un límite de gasto que fijaste al ayudante."
     },
     "log": {
       "hired": "Fichó a {{name}} ({{post}}) por {{wage}} semanales",
       "promoted": "Promocionó a {{player}} desde la cantera",
       "recoveryOrdered": "Pasó el entrenamiento a recuperación",
       "renewed": "Renovó a {{name}} con {{wage}} semanales por {{years}} años",
-      "scoutSent": "Envió a un ojeador a ver a {{player}}"
+      "scoutSent": "Envió a un ojeador a ver a {{player}}",
+      "lineupChosen": "Once titular del próximo partido decidido ({{changes}} cambios)",
+      "playerRenewed": "{{player}} renovado con {{wage}} semanales durante {{years}} años",
+      "playerRenewalLeft": "El contrato de {{player}} queda en tus manos"
     }
   }
 }

@@ -138,6 +138,42 @@ pub(crate) fn build_team_with_bench_from(
     (team_data, bench)
 }
 
+/// Least management quality the user's assistant picks a side with. Below it, the position-group
+/// rotation thresholds are so lax that a tired eleven keeps playing, and the misjudgement of
+/// who can deputise grows to a size no manager would put his name to.
+const ASSISTANT_QUALITY_FLOOR: f64 = 0.6;
+
+/// The slot-aligned eleven the user's assistant would send out at the next match: the club's best
+/// fit side, with tired starters rested the way an AI club's manager would rest them.
+///
+/// Deterministic for a given game state: the only variation, the assistant's misjudgement of
+/// who can deputise, is seeded from the club and the date. Returns nothing when fewer fit
+/// players than the formation has slots are available, so a short side is never saved over a
+/// manager's own (the kick-off fills it from the treatment room instead).
+pub(crate) fn delegated_eleven(game: &Game, team_id: &str, assistant_rating: f64) -> Vec<String> {
+    let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
+        return Vec::new();
+    };
+    let club = crate::match_day_eligibility::club_players(&game.players, team_id);
+    let available: Vec<&domain::player::Player> =
+        crate::match_day_eligibility::eligible_among(&club)
+            .into_iter()
+            .filter(|p| p.injury.is_none())
+            .collect();
+    let quality = management_quality_from_rating(assistant_rating.clamp(0.0, 100.0).round() as u8)
+        .max(ASSISTANT_QUALITY_FLOOR);
+    let seed = selection_seed(
+        team_id,
+        &game.clock.current_date.format("%Y-%m-%d").to_string(),
+    );
+    let load = fixture_load(game, team_id);
+    let eleven = ai_select_starting_xi(&available, &team.formation, quality, seed, load);
+    if eleven.len() < formation_slots(&team.formation).len().min(11) {
+        return Vec::new();
+    }
+    eleven.into_iter().map(|p| p.id.clone()).collect()
+}
+
 /// Replace, in place, only the saved starters the pool policy benches (youth outside the
 /// match-day pool). Injured seniors keep their slot: the kick-off side's one-match
 /// replacement for them must not become the manager's saved lineup.

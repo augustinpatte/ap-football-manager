@@ -2,7 +2,7 @@ use log::info;
 use std::sync::Arc;
 use tauri::State;
 
-use domain::delegation::{DelegationState, Duty};
+use domain::delegation::{DelegationLimits, DelegationMode, DelegationState, Duty};
 use domain::staff::{Staff, StaffPost};
 use ofm_core::game::Game;
 use ofm_core::staff_system::assistant::{self, Recommendation};
@@ -48,6 +48,8 @@ pub struct StaffOverview {
     pub members: Vec<MemberView>,
     pub budget: StaffBudgetView,
     pub delegation: DelegationState,
+    /// The preset the duty settings amount to (derived: it is not stored).
+    pub delegation_mode: DelegationMode,
     pub has_assistant: bool,
 }
 
@@ -109,6 +111,7 @@ pub fn staff_overview_of(game: &Game) -> Result<StaffOverview, String> {
             severance_pct: market::SEVERANCE_PCT,
         },
         delegation: game.delegation.clone(),
+        delegation_mode: game.delegation.mode(),
         has_assistant: members
             .iter()
             .any(|s| s.post() == StaffPost::AssistantManager),
@@ -288,6 +291,52 @@ pub fn set_duty(
         return Err("be.error.delegation.noAssistant".to_string());
     }
     game.delegation.set(duty, delegated, confirm_major);
+    Ok(())
+}
+
+/// Hands the whole job to the assistant (or takes it all back) in one of the three presets.
+#[tauri::command]
+pub fn set_delegation_mode(
+    state: State<'_, Arc<StateManager>>,
+    mode: DelegationMode,
+) -> Result<Game, String> {
+    info!("[cmd] set_delegation_mode: {mode:?}");
+    mutate_active_game(&state, |game| set_mode(game, mode))
+}
+
+/// Applies a preset. Delegating needs an assistant; taking everything back never does. `Custom`
+/// only describes duties set one by one, so it is not something to apply.
+pub fn set_mode(game: &mut Game, mode: DelegationMode) -> Result<(), String> {
+    let team_id = user_team_id(game)?;
+    if mode == DelegationMode::Custom {
+        return Err("be.error.delegation.invalidMode".to_string());
+    }
+    let has_assistant = profile::team_staff(game, &team_id)
+        .iter()
+        .any(|s| s.post() == StaffPost::AssistantManager);
+    if mode != DelegationMode::Manual && !has_assistant {
+        return Err("be.error.delegation.noAssistant".to_string());
+    }
+    game.delegation.apply_mode(mode);
+    Ok(())
+}
+
+/// Sets what the assistant may commit without asking.
+#[tauri::command]
+pub fn set_delegation_limits(
+    state: State<'_, Arc<StateManager>>,
+    limits: DelegationLimits,
+) -> Result<Game, String> {
+    info!("[cmd] set_delegation_limits: {limits:?}");
+    mutate_active_game(&state, |game| set_limits(game, limits))
+}
+
+pub fn set_limits(game: &mut Game, limits: DelegationLimits) -> Result<(), String> {
+    user_team_id(game)?;
+    if limits.max_commitment < 0 || limits.max_transfer_fee < 0 {
+        return Err("be.error.delegation.invalidLimits".to_string());
+    }
+    game.delegation.limits = limits;
     Ok(())
 }
 
@@ -621,6 +670,64 @@ mod tests {
         game.staff.clear();
         set_duty(&mut game, Duty::Training, false, false).unwrap();
         assert!(!game.delegation.is_delegated(Duty::Training));
+    }
+
+    /// Given a club with no assistant, when the manager picks a preset, then delegating is
+    /// refused and taking back is not; with one, each preset is applied to every duty and the
+    /// overview reads it back.
+    #[test]
+    fn presets_need_an_assistant_to_delegate_and_never_to_take_back() {
+        let mut game = with_posts(make_game(), &[("p1", StaffPost::Physio, 50, 2_000, true)]);
+        assert_eq!(
+            set_mode(&mut game, DelegationMode::Full),
+            Err("be.error.delegation.noAssistant".to_string())
+        );
+        assert_eq!(game.delegation.mode(), DelegationMode::Manual);
+        let mut game = with_posts(
+            game,
+            &[("a1", StaffPost::AssistantManager, 60, 3_000, true)],
+        );
+        set_mode(&mut game, DelegationMode::Approval).unwrap();
+        assert_eq!(
+            staff_overview_of(&game).unwrap().delegation_mode,
+            DelegationMode::Approval
+        );
+        set_mode(&mut game, DelegationMode::Full).unwrap();
+        assert!(Duty::ALL.iter().all(|d| game.delegation.is_delegated(*d)));
+        assert!(Duty::ALL
+            .iter()
+            .all(|d| !game.delegation.needs_confirmation(*d)));
+        assert_eq!(
+            set_mode(&mut game, DelegationMode::Custom),
+            Err("be.error.delegation.invalidMode".to_string())
+        );
+        game.staff.clear();
+        set_mode(&mut game, DelegationMode::Manual).unwrap();
+        assert_eq!(game.delegation.mode(), DelegationMode::Manual);
+    }
+
+    /// Given spending limits, when they are set, then they are kept; a negative ceiling is
+    /// refused and leaves the old limits alone.
+    #[test]
+    fn spending_limits_are_kept_and_nonsense_is_refused() {
+        let mut game = make_game();
+        let limits = DelegationLimits {
+            max_staff_wage: 2_500,
+            max_player_wage: 9_000,
+            max_commitment: 1_000_000,
+            max_transfer_fee: 250_000,
+        };
+        set_limits(&mut game, limits.clone()).unwrap();
+        assert_eq!(game.delegation.limits, limits);
+        let bad = DelegationLimits {
+            max_commitment: -1,
+            ..limits.clone()
+        };
+        assert_eq!(
+            set_limits(&mut game, bad),
+            Err("be.error.delegation.invalidLimits".to_string())
+        );
+        assert_eq!(game.delegation.limits, limits);
     }
 
     #[test]
