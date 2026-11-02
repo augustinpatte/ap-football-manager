@@ -2827,7 +2827,8 @@
     "resume": "Resume",
     "pausedResumesAt": "Paused · resumes at {{speed}}",
     "playingAt": "Playing at {{speed}}",
-    "spaceKey": "Space"
+    "spaceKey": "Space",
+    "replayPreparationFailed": "The 2D match could not be prepared. Nothing was changed."
   },
   "endOfSeason": {
     "seasonComplete": "Season Complete",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "That date is too far ahead to play in one go.",
         "alreadyRunning": "Another advance is already running.",
         "careerChanged": "The career changed during the advance, so it was stopped."
+      },
+      "spatialReplay": {
+        "inputRejected": "The 2D match could not be prepared: the lineups were rejected ({{code}}). Nothing was changed.",
+        "engineFailed": "The 2D match engine could not run this match: {{detail}}. Nothing was changed.",
+        "outputInvalid": "The 2D match engine returned a result that failed validation ({{code}}). Nothing was changed.",
+        "notPrepared": "No 2D match has been prepared. Open the 2D view again before going to the result."
       }
     },
     "sender": {

@@ -23,6 +23,14 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+// The real resolver needs the full i18n instance; its own behaviour is tested in backendI18n.test.ts.
+vi.mock("../utils/backendI18n", () => ({
+  resolveBackendKeyError: (error: unknown, fallback: string) => {
+    const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+    return message.startsWith("be.error.") ? `resolved:${message}` : fallback;
+  },
+}));
+
 vi.mock("react-router-dom", () => ({
   useNavigate: () => navigateMock,
   useLocation: () => ({ state: locationState }),
@@ -534,6 +542,56 @@ describe("MatchSimulation", (): void => {
       });
       expect(quickSimulation).toBeEnabled();
       expect(screen.getByTestId("prematch")).toBeInTheDocument();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  /**
+   * Given the backend refuses to prepare the 2D match for a stated reason
+   * When the manager asks to watch it in 2D
+   * Then the reason is shown, not "unavailable or corrupted", and the pre-match screen stays usable.
+   */
+  it("says why the 2D match could not be prepared instead of calling the replay corrupted", async (): Promise<void> => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce("be.error.spatialReplay.inputRejected?code=WrongStarterCount");
+      render(<MatchSimulation />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "resolved:be.error.spatialReplay.inputRejected?code=WrongStarterCount",
+        );
+      });
+      expect(screen.getByRole("alert")).not.toHaveTextContent("match.replayUnavailable");
+      expect(screen.getByTestId("prematch")).toBeInTheDocument();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  /**
+   * Given an unexpected preparation failure with no translation key
+   * When the manager asks to watch in 2D
+   * Then the generic preparation failure is shown, not the corrupted-replay message.
+   */
+  it("uses the preparation wording, not the corrupted-replay one, for an unknown failure", async (): Promise<void> => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce(new Error("engine exploded"));
+      render(<MatchSimulation />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("match.replayPreparationFailed");
+      });
     } finally {
       errorSpy.mockRestore();
     }

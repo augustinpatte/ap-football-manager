@@ -2827,7 +2827,8 @@
     "resume": "继续",
     "pausedResumesAt": "已暂停 · 将以{{speed}}继续",
     "playingAt": "正在以{{speed}}进行",
-    "spaceKey": "空格"
+    "spaceKey": "空格",
+    "replayPreparationFailed": "无法准备 2D 比赛。未做任何更改。"
   },
   "endOfSeason": {
     "seasonComplete": "赛季结束",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "该日期太远，无法一次性推进。",
         "alreadyRunning": "已有另一次快进正在进行。",
         "careerChanged": "快进期间生涯发生了变化，因此已停止。"
+      },
+      "spatialReplay": {
+        "inputRejected": "无法准备 2D 比赛：阵容被拒绝（{{code}}）。未做任何更改。",
+        "engineFailed": "2D 比赛引擎无法运行此比赛：{{detail}}。未做任何更改。",
+        "outputInvalid": "2D 比赛引擎返回的结果未通过验证（{{code}}）。未做任何更改。",
+        "notPrepared": "尚未准备 2D 比赛。请先重新打开 2D 视图，再查看结果。"
       }
     },
     "sender": {

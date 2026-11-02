@@ -2827,7 +2827,8 @@
     "resume": "Pokračovat",
     "pausedResumesAt": "Pozastaveno · pokračuje: {{speed}}",
     "playingAt": "Běží: {{speed}}",
-    "spaceKey": "Mezerník"
+    "spaceKey": "Mezerník",
+    "replayPreparationFailed": "Zápas ve 2D se nepodařilo připravit. Nic se nezměnilo."
   },
   "endOfSeason": {
     "seasonComplete": "Sezóna dokončena",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Toto datum je příliš daleko, než aby šlo odehrát naráz.",
         "alreadyRunning": "Jiný posun již probíhá.",
         "careerChanged": "Kariéra se během posunu změnila, proto byl zastaven."
+      },
+      "spatialReplay": {
+        "inputRejected": "Zápas ve 2D se nepodařilo připravit: sestavy byly odmítnuty ({{code}}). Nic se nezměnilo.",
+        "engineFailed": "Engine zápasu ve 2D tento zápas nedokázal odehrát: {{detail}}. Nic se nezměnilo.",
+        "outputInvalid": "Engine zápasu ve 2D vrátil výsledek, který neprošel kontrolou ({{code}}). Nic se nezměnilo.",
+        "notPrepared": "Zápas ve 2D není připraven. Před přechodem k výsledku znovu otevřete 2D zobrazení."
       }
     },
     "sender": {

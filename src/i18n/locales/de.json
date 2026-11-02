@@ -2827,7 +2827,8 @@
     "resume": "Fortsetzen",
     "pausedResumesAt": "Pausiert · weiter mit {{speed}}",
     "playingAt": "Läuft mit {{speed}}",
-    "spaceKey": "Leertaste"
+    "spaceKey": "Leertaste",
+    "replayPreparationFailed": "Das 2D-Spiel konnte nicht vorbereitet werden. Es wurde nichts geändert."
   },
   "endOfSeason": {
     "seasonComplete": "Saison beendet",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Dieses Datum liegt zu weit in der Zukunft, um es auf einmal zu spielen.",
         "alreadyRunning": "Ein anderer Vorlauf läuft bereits.",
         "careerChanged": "Die Karriere hat sich während des Vorlaufs geändert, daher wurde er angehalten."
+      },
+      "spatialReplay": {
+        "inputRejected": "Das 2D-Spiel konnte nicht vorbereitet werden: Die Aufstellungen wurden abgelehnt ({{code}}). Es wurde nichts geändert.",
+        "engineFailed": "Die 2D-Spielengine konnte dieses Spiel nicht ausführen: {{detail}}. Es wurde nichts geändert.",
+        "outputInvalid": "Die 2D-Spielengine lieferte ein Ergebnis, das die Prüfung nicht bestand ({{code}}). Es wurde nichts geändert.",
+        "notPrepared": "Es wurde kein 2D-Spiel vorbereitet. Öffne die 2D-Ansicht erneut, bevor du zum Ergebnis gehst."
       }
     },
     "sender": {

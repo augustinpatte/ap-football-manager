@@ -251,7 +251,6 @@ pub enum AdaptationError {
     PlayerOnBothTeams(String),
     TeamDoesNotMatchFixture { expected: String, found: String },
     PlayerMissingFromTeam { player_id: String, team_id: String },
-    DuplicateShirtNumber { team_id: String, number: u8 },
     InvalidCaptainOrTaker { team_id: String, player_id: String },
     NoGoalkeeper { team_id: String },
     RatingOutOfBounds { player_id: String },
@@ -361,7 +360,7 @@ fn adapt_team(
             return Err(AdaptationError::DuplicatePlayerId(player.id.clone()));
         }
     }
-    let shirts = shirt_numbers(&selection.starters, &selection.bench, &team.id, defaults)?;
+    let shirts = shirt_numbers(&selection.starters, &selection.bench, defaults);
     let mut lineup = Vec::with_capacity(11);
     for ((player, slot), shirt) in selection.starters.iter().zip(layout).zip(shirts.iter()) {
         let role = map_position(&slot.position)?;
@@ -599,39 +598,57 @@ fn spatial_seed(game_seed: u64, fixture_id: &str) -> u64 {
     stable_hash(fixture_id.as_bytes(), game_seed) % (MAX_SEED + 1)
 }
 
+/// One shirt per player, starters first.
+///
+/// Numbers the game assigned are honoured first, and only then are free numbers handed out. The
+/// reverse order broke on real squads: a world imported without shirts gives a signing the lowest
+/// free number (1), and handing out defaults in squad order took that number for an earlier player
+/// before the signing was reached, so the whole match failed as a "duplicate shirt". A number held
+/// by two players is the game's data being wrong, not a reason to refuse the match: the first
+/// holder keeps it, the other is renumbered, and every number made up is reported in `defaults`.
 fn shirt_numbers(
     starters: &[&Player],
     bench: &[&Player],
-    team_id: &str,
     defaults: &mut Vec<AppliedDefault>,
-) -> Result<Vec<u8>, AdaptationError> {
+) -> Vec<u8> {
+    let squad: Vec<&Player> = starters.iter().chain(bench).copied().collect();
     let mut used = HashSet::new();
-    let mut next = 1_u8;
-    let mut result = Vec::new();
-    for player in starters.iter().chain(bench) {
-        let number = if let Some(number) = player.jersey_number {
-            number
-        } else {
-            while used.contains(&next) {
-                next = next.saturating_add(1);
+    let mut shirts: Vec<Option<u8>> = Vec::with_capacity(squad.len());
+    let mut duplicated = HashSet::new();
+    for (index, player) in squad.iter().enumerate() {
+        match player.jersey_number {
+            Some(number) if used.insert(number) => shirts.push(Some(number)),
+            Some(_) => {
+                duplicated.insert(index);
+                shirts.push(None);
             }
-            defaults.push(AppliedDefault {
-                field: "shirt_number",
-                subject_id: Some(player.id.clone()),
-                provenance: "OFM jersey_number missing",
-                value: format!("{next} (deterministic generated number)"),
-            });
-            next
-        };
-        if !used.insert(number) {
-            return Err(AdaptationError::DuplicateShirtNumber {
-                team_id: team_id.to_string(),
-                number,
-            });
+            None => shirts.push(None),
         }
-        result.push(number);
     }
-    Ok(result)
+    let mut next = 1_u8;
+    let mut result = Vec::with_capacity(squad.len());
+    for (index, (player, shirt)) in squad.iter().zip(shirts).enumerate() {
+        if let Some(number) = shirt {
+            result.push(number);
+            continue;
+        }
+        while used.contains(&next) {
+            next = next.saturating_add(1);
+        }
+        used.insert(next);
+        defaults.push(AppliedDefault {
+            field: "shirt_number",
+            subject_id: Some(player.id.clone()),
+            provenance: if duplicated.contains(&index) {
+                "OFM jersey_number held by another player of the squad"
+            } else {
+                "OFM jersey_number missing"
+            },
+            value: format!("{next} (deterministic generated number)"),
+        });
+        result.push(next);
+    }
+    result
 }
 
 fn map_position(position: &OfmPosition) -> Result<SpatialPosition, AdaptationError> {
@@ -1460,5 +1477,67 @@ mod tests {
             adapted(&fixture, &home, &away, &invalid_players, &ap),
             Err(AdaptationError::RatingOutOfBounds { .. })
         ));
+    }
+    fn shirts_of(team: &SpatialTeam) -> Vec<u8> {
+        team.players
+            .iter()
+            .map(|player| player.shirt_number)
+            .collect()
+    }
+
+    /// Given a squad imported without shirt numbers in which one player, signed later, was given
+    /// number 3 (the lowest free number of a squad that had none)
+    /// When the match is adapted
+    /// Then the unnumbered players are numbered around him instead of the whole match failing
+    /// with a duplicate number, and he keeps number 3.
+    #[test]
+    fn a_player_with_a_shirt_among_unnumbered_players_does_not_abort_the_match() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        for player in &mut hp {
+            player.jersey_number = None;
+        }
+        hp[11].jersey_number = Some(3);
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap)
+            .expect("explicit shirt numbers are reserved before defaults are handed out");
+
+        let shirts = shirts_of(&result.input.home);
+        assert_eq!(shirts[11], 3, "the explicit number is kept");
+        let unique: HashSet<_> = shirts.iter().collect();
+        assert_eq!(
+            unique.len(),
+            shirts.len(),
+            "every shirt is distinct: {shirts:?}"
+        );
+        assert!(
+            result
+                .metadata
+                .defaults
+                .iter()
+                .any(|default| default.field == "shirt_number"),
+            "the numbers made up are reported, not hidden"
+        );
+    }
+
+    /// Given two players of one squad holding the same shirt number
+    /// When the match is adapted
+    /// Then the first keeps it, the second is renumbered and the change is reported.
+    #[test]
+    fn two_players_with_the_same_shirt_are_renumbered_not_fatal() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        hp[5].jersey_number = Some(7);
+        hp[6].jersey_number = Some(7);
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap)
+            .expect("a duplicated shirt is repaired for the match, not fatal");
+
+        let shirts = shirts_of(&result.input.home);
+        assert_eq!(shirts[5], 7, "the first holder keeps the number");
+        assert_ne!(shirts[6], 7);
+        let unique: HashSet<_> = shirts.iter().collect();
+        assert_eq!(unique.len(), shirts.len(), "{shirts:?}");
+        assert!(result.metadata.defaults.iter().any(|default| {
+            default.field == "shirt_number" && default.subject_id.as_deref() == Some("p6")
+        }));
     }
 }

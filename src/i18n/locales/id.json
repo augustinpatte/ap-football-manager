@@ -2827,7 +2827,8 @@
     "resume": "Lanjutkan",
     "pausedResumesAt": "Dijeda · lanjut dengan {{speed}}",
     "playingAt": "Berjalan dengan {{speed}}",
-    "spaceKey": "Spasi"
+    "spaceKey": "Spasi",
+    "replayPreparationFailed": "Pertandingan 2D tidak dapat disiapkan. Tidak ada yang diubah."
   },
   "endOfSeason": {
     "seasonComplete": "Musim Selesai",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Tanggal itu terlalu jauh untuk dimainkan sekaligus.",
         "alreadyRunning": "Proses maju lain sedang berjalan.",
         "careerChanged": "Karier berubah selama proses maju, jadi dihentikan."
+      },
+      "spatialReplay": {
+        "inputRejected": "Pertandingan 2D tidak dapat disiapkan: susunan pemain ditolak ({{code}}). Tidak ada yang diubah.",
+        "engineFailed": "Mesin pertandingan 2D tidak dapat menjalankan pertandingan ini: {{detail}}. Tidak ada yang diubah.",
+        "outputInvalid": "Mesin pertandingan 2D mengembalikan hasil yang gagal divalidasi ({{code}}). Tidak ada yang diubah.",
+        "notPrepared": "Belum ada pertandingan 2D yang disiapkan. Buka tampilan 2D lagi sebelum menuju hasil."
       }
     },
     "sender": {

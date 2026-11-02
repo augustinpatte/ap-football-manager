@@ -2827,7 +2827,8 @@
     "resume": "Devam et",
     "pausedResumesAt": "Duraklatıldı · {{speed}} hızında sürecek",
     "playingAt": "{{speed}} hızında oynanıyor",
-    "spaceKey": "Boşluk"
+    "spaceKey": "Boşluk",
+    "replayPreparationFailed": "2D maç hazırlanamadı. Hiçbir şey değiştirilmedi."
   },
   "endOfSeason": {
     "seasonComplete": "Sezon Tamamlandı",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Bu tarih tek seferde oynanamayacak kadar uzak.",
         "alreadyRunning": "Başka bir ilerleme zaten sürüyor.",
         "careerChanged": "İlerleme sırasında kariyer değişti, bu yüzden durduruldu."
+      },
+      "spatialReplay": {
+        "inputRejected": "2D maç hazırlanamadı: kadrolar reddedildi ({{code}}). Hiçbir şey değiştirilmedi.",
+        "engineFailed": "2D maç motoru bu maçı çalıştıramadı: {{detail}}. Hiçbir şey değiştirilmedi.",
+        "outputInvalid": "2D maç motoru doğrulamadan geçemeyen bir sonuç döndürdü ({{code}}). Hiçbir şey değiştirilmedi.",
+        "notPrepared": "Hazırlanmış bir 2D maç yok. Sonuca geçmeden önce 2D görünümü yeniden açın."
       }
     },
     "sender": {

@@ -2852,7 +2852,8 @@
     "resume": "Riprendi",
     "pausedResumesAt": "In pausa · riprende a {{speed}}",
     "playingAt": "In corso a {{speed}}",
-    "spaceKey": "Spazio"
+    "spaceKey": "Spazio",
+    "replayPreparationFailed": "Impossibile preparare la partita in 2D. Non è stato modificato nulla."
   },
   "notifications": {
     "attentionRequired": "Attenzione Richiesta",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Questa data è troppo lontana per essere giocata in un colpo solo.",
         "alreadyRunning": "Un altro avanzamento è già in corso.",
         "careerChanged": "La carriera è cambiata durante l'avanzamento, quindi è stato fermato."
+      },
+      "spatialReplay": {
+        "inputRejected": "Impossibile preparare la partita in 2D: le formazioni sono state rifiutate ({{code}}). Non è stato modificato nulla.",
+        "engineFailed": "Il motore di gioco 2D non è riuscito a eseguire questa partita: {{detail}}. Non è stato modificato nulla.",
+        "outputInvalid": "Il motore di gioco 2D ha restituito un risultato che non ha superato la validazione ({{code}}). Non è stato modificato nulla.",
+        "notPrepared": "Nessuna partita in 2D è stata preparata. Riapri la vista 2D prima di passare al risultato."
       }
     },
     "sender": {

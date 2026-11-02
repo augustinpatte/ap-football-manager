@@ -39,6 +39,60 @@ impl std::fmt::Display for SpatialRunError {
 }
 impl std::error::Error for SpatialRunError {}
 
+/// First identifier of a technical message (`"spatial adapter: WrongStarterCount { .. }"` gives
+/// `WrongStarterCount`), safe to carry in a translation key's query string.
+fn technical_code(message: &str) -> String {
+    let message = message.strip_prefix("spatial adapter: ").unwrap_or(message);
+    let code: String = message
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+        .collect();
+    if code.is_empty() {
+        "unknown".to_string()
+    } else {
+        code
+    }
+}
+
+/// Percent-encodes `text` for a translation key's query string (the front end reads it with
+/// `URLSearchParams`), cut to a length a message can show.
+fn query_value(text: &str) -> String {
+    const MAX_CHARS: usize = 160;
+    let mut encoded = String::new();
+    for byte in text.chars().take(MAX_CHARS).collect::<String>().bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+impl SpatialRunError {
+    /// The error as the player is told about it: a translation key with the technical cause, so a
+    /// 2D match that cannot start says *why* instead of being reported as a corrupted replay.
+    /// The engine never ran on a rejected input, and no replay is invented in its place.
+    pub fn translation_key(&self) -> String {
+        match self {
+            // The match-day layer already speaks in keys (`be.error.liveMatch.*`): keep them.
+            Self::InputContract(message) if message.starts_with("be.error.") => message.clone(),
+            Self::InputContract(message) => format!(
+                "be.error.spatialReplay.inputRejected?code={}",
+                technical_code(message)
+            ),
+            Self::Engine(message) => format!(
+                "be.error.spatialReplay.engineFailed?detail={}",
+                query_value(message)
+            ),
+            Self::Output(error) => format!(
+                "be.error.spatialReplay.outputInvalid?code={}",
+                technical_code(&format!("{error:?}"))
+            ),
+        }
+    }
+}
+
 /// Runs M12 from an already validated OFM adaptation. This function has no
 /// access to `Game`, persistence, or post-match finalisation.
 pub fn simulate(adapted: &AdaptedMatch) -> Result<DecodedSpatialOutput, SpatialRunError> {
@@ -120,14 +174,15 @@ pub fn build_selected_fixture_replay(
             .find(|competition| competition.id == competition_id)
             .cloned()
             .ok_or_else(|| {
-                SpatialRunError::InputContract("selected competition not found".to_string())
+                SpatialRunError::InputContract("SelectedCompetitionNotFound".to_string())
             })?;
-        let fixture = competition.fixtures.get(fixture_index).ok_or_else(|| {
-            SpatialRunError::InputContract("selected fixture not found".to_string())
-        })?;
+        let fixture = competition
+            .fixtures
+            .get(fixture_index)
+            .ok_or_else(|| SpatialRunError::InputContract("SelectedFixtureNotFound".to_string()))?;
         if fixture.id != fixture_id {
             return Err(SpatialRunError::InputContract(
-                "selected fixture identity does not match".to_string(),
+                "SelectedFixtureIdentityMismatch".to_string(),
             ));
         }
         selected_game.league = Some(competition);
@@ -167,7 +222,8 @@ pub fn play_fixture(game: &mut Game, fixture_index: usize) -> Result<MatchReport
 
 #[cfg(test)]
 mod tests {
-    use super::build_selected_fixture_replay;
+    use super::{SpatialRunError, build_selected_fixture_replay};
+    use crate::spatial_match_output::OutputDecodeError;
     use crate::{clock::GameClock, game::Game};
     use chrono::{TimeZone, Utc};
     use domain::{
@@ -357,6 +413,39 @@ mod tests {
                 player_id.starts_with("home-") || player_id.starts_with("away-")
             }),
             "projection only attributes statistics to selected fixture players"
+        );
+    }
+    /// Given the three ways preparing a 2D match can fail
+    /// When they are reported to the player
+    /// Then each has its own translation key and technical code, never the generic
+    /// "replay unavailable or corrupted" and never the Debug text of the error.
+    #[test]
+    fn a_failed_preparation_is_reported_with_its_own_key_and_code() {
+        assert_eq!(
+            SpatialRunError::InputContract(
+                "spatial adapter: WrongStarterCount { found: 10 }".into()
+            )
+            .translation_key(),
+            "be.error.spatialReplay.inputRejected?code=WrongStarterCount"
+        );
+        assert_eq!(
+            SpatialRunError::InputContract("SelectedFixtureNotFound".into()).translation_key(),
+            "be.error.spatialReplay.inputRejected?code=SelectedFixtureNotFound"
+        );
+        assert_eq!(
+            SpatialRunError::InputContract("be.error.liveMatch.fixtureNotScheduled".into())
+                .translation_key(),
+            "be.error.liveMatch.fixtureNotScheduled",
+            "a key from the match-day layer is passed through"
+        );
+        assert_eq!(
+            SpatialRunError::Engine("M12 stub: real M12 engine unavailable".into())
+                .translation_key(),
+            "be.error.spatialReplay.engineFailed?detail=M12%20stub%3A%20real%20M12%20engine%20unavailable"
+        );
+        assert_eq!(
+            SpatialRunError::Output(OutputDecodeError::InvalidJson).translation_key(),
+            "be.error.spatialReplay.outputInvalid?code=InvalidJson"
         );
     }
 }

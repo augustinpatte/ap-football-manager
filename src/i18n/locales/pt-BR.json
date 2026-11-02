@@ -2770,7 +2770,8 @@
     "resume": "Retomar",
     "pausedResumesAt": "Pausado · retoma em {{speed}}",
     "playingAt": "Jogando em {{speed}}",
-    "spaceKey": "Espaço"
+    "spaceKey": "Espaço",
+    "replayPreparationFailed": "Não foi possível preparar a partida em 2D. Nada foi alterado."
   },
   "endOfSeason": {
     "seasonComplete": "Temporada Encerrada",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Essa data está longe demais para ser jogada de uma vez.",
         "alreadyRunning": "Já existe outro avanço em andamento.",
         "careerChanged": "A carreira mudou durante o avanço, então ele foi interrompido."
+      },
+      "spatialReplay": {
+        "inputRejected": "Não foi possível preparar a partida em 2D: as escalações foram rejeitadas ({{code}}). Nada foi alterado.",
+        "engineFailed": "O motor de partida 2D não conseguiu executar esta partida: {{detail}}. Nada foi alterado.",
+        "outputInvalid": "O motor de partida 2D devolveu um resultado que falhou na validação ({{code}}). Nada foi alterado.",
+        "notPrepared": "Nenhuma partida em 2D foi preparada. Abra a visualização 2D novamente antes de ir ao resultado."
       }
     },
     "sender": {

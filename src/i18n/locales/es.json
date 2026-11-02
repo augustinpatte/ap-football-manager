@@ -2827,7 +2827,8 @@
     "resume": "Reanudar",
     "pausedResumesAt": "En pausa · se reanuda a {{speed}}",
     "playingAt": "Jugando a {{speed}}",
-    "spaceKey": "Espacio"
+    "spaceKey": "Espacio",
+    "replayPreparationFailed": "No se pudo preparar el partido en 2D. No se cambió nada."
   },
   "endOfSeason": {
     "seasonComplete": "Temporada Completa",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Esa fecha está demasiado lejos para jugarla de una vez.",
         "alreadyRunning": "Ya hay otro avance en marcha.",
         "careerChanged": "La carrera cambió durante el avance, así que se detuvo."
+      },
+      "spatialReplay": {
+        "inputRejected": "No se pudo preparar el partido en 2D: se rechazaron las alineaciones ({{code}}). No se cambió nada.",
+        "engineFailed": "El motor de partidos 2D no pudo ejecutar este partido: {{detail}}. No se cambió nada.",
+        "outputInvalid": "El motor de partidos 2D devolvió un resultado que no superó la validación ({{code}}). No se cambió nada.",
+        "notPrepared": "No hay ningún partido en 2D preparado. Abre de nuevo la vista 2D antes de ir al resultado."
       }
     },
     "sender": {

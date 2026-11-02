@@ -2827,7 +2827,8 @@
     "resume": "Reprendre",
     "pausedResumesAt": "En pause · reprend en {{speed}}",
     "playingAt": "En cours en {{speed}}",
-    "spaceKey": "Espace"
+    "spaceKey": "Espace",
+    "replayPreparationFailed": "Le match en 2D n'a pas pu être préparé. Rien n'a été modifié."
   },
   "endOfSeason": {
     "seasonComplete": "Saison Terminée",
@@ -3206,6 +3207,12 @@
         "targetTooFar": "Cette date est trop lointaine pour être jouée d'un coup.",
         "alreadyRunning": "Une autre progression est déjà en cours.",
         "careerChanged": "La carrière a changé pendant la progression, elle a donc été arrêtée."
+      },
+      "spatialReplay": {
+        "inputRejected": "Le match en 2D n'a pas pu être préparé : les compositions ont été refusées ({{code}}). Rien n'a été modifié.",
+        "engineFailed": "Le moteur de match 2D n'a pas pu jouer ce match : {{detail}}. Rien n'a été modifié.",
+        "outputInvalid": "Le moteur de match 2D a renvoyé un résultat qui n'a pas passé la validation ({{code}}). Rien n'a été modifié.",
+        "notPrepared": "Aucun match en 2D n'a été préparé. Rouvrez la vue 2D avant d'aller au résultat."
       }
     },
     "sender": {
