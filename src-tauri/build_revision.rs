@@ -42,13 +42,10 @@ pub fn app_paths() -> Vec<String> {
     paths
 }
 
-/// Names the sources of the app, so a binary can be told apart from the tree it is run against.
+/// Lists the working-tree files linked into the app, in stable byte order.
 ///
-/// It is a digest of the working-tree *content* of the files in [`app_paths`] that git lists
-/// (tracked, or untracked and not ignored), so it follows what would be compiled and nothing else:
-/// committing, staging or switching branches over identical files leaves it alone, and so does a
-/// change to docs, tests, the frontend or the test crate. `None` when git cannot list the files
-/// (no git, a source tarball), in which case the build has no revision.
+/// The list includes tracked and non-ignored untracked files below [`app_paths`]. `None` means git
+/// cannot identify this checkout, so the caller cannot calculate a source revision.
 pub fn source_files(src_tauri: &std::path::Path) -> Option<std::collections::BTreeSet<Vec<u8>>> {
     use std::process::Command;
 
@@ -91,10 +88,10 @@ pub fn source_files(src_tauri: &std::path::Path) -> Option<std::collections::BTr
     Some(
         output
             .stdout
-        .split(|byte| *byte == 0)
-        .filter(|name| !name.is_empty())
-        .map(ToOwned::to_owned)
-        .collect(),
+            .split(|byte| *byte == 0)
+            .filter(|name| !name.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
     )
 }
 

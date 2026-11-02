@@ -43,8 +43,8 @@ function renderPane(overrides: Partial<Parameters<typeof InboxMessageListPane>[0
 describe("InboxMessageListPane rows", () => {
   /**
    * Given a message in the list
-   * When a keyboard user focuses its row and presses Enter, then Space
-   * Then the message is opened each time.
+   * When the player activates its semantic button
+   * Then the message is opened.
    */
   it("uses a native button to open a message", () => {
     const { onSelectMessage } = renderPane();
