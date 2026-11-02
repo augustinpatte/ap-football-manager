@@ -10,11 +10,14 @@ import {
   applyAssistantRecommendation,
   getAssistantRecommendations,
   resolveDelegationProposal,
+  setDelegationLimits,
+  setDelegationMode,
   setDutyDelegation,
 } from "../../services/staffService";
 import { resolveBackendError } from "../../utils/backendI18n";
 import { formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
+import DelegationModeCard from "./DelegationModeCard";
 
 interface StaffManagementPanelProps {
   overview: StaffOverview | null;
@@ -28,6 +31,8 @@ const DUTIES: Duty[] = [
   "Youth",
   "StaffRecruitment",
   "StaffRenewals",
+  "Lineup",
+  "PlayerRenewals",
 ];
 
 /** Backend params carry raw enum names; the ones that name a post or a position are translated. */
@@ -129,6 +134,15 @@ export default function StaffManagementPanel({
           </ul>
         </CardBody>
       </Card>
+
+      <DelegationModeCard
+        mode={overview.delegation_mode}
+        limits={delegation.limits}
+        hasAssistant={overview.has_assistant}
+        busy={busy !== null}
+        onModeChange={(mode) => void run("mode", () => setDelegationMode(mode))}
+        onLimitsSave={(limits) => void run("limits", () => setDelegationLimits(limits))}
+      />
 
       <Card>
         <CardBody>
@@ -238,6 +252,12 @@ export default function StaffManagementPanel({
                 .map((entry, index) => (
                   <li key={`${entry.date}-${index}`}>
                     {entry.date.slice(0, 10)} · {logTitle(entry)}
+                    {entry.outcome === "executed" ? null : (
+                      <>
+                        {" · "}
+                        <span>{t(`staff.delegation.outcome.${entry.outcome}`)}</span>
+                      </>
+                    )}
                   </li>
                 ))}
             </ul>

@@ -399,7 +399,8 @@
     "worldEditor.staffClub",
     "worldEditor.staffSpecialization.Fitness",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual"
   ],
   "pt-BR": [
     "nations.pt",
@@ -444,7 +445,8 @@
     "squad.kitPatterns.Diagonal",
     "packageBuild.patches",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual"
   ],
   "pt": [
     "nations.pt",
@@ -487,7 +489,8 @@
     "squad.kitPatterns.Diagonal",
     "packageBuild.patches",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual"
   ],
   "ru": ["dashboard.recapTransferLine"],
   "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
@@ -730,6 +733,7 @@
     "youthAcademy.pos",
     "youthAcademy.traits",
     "tournaments.history.runnerUp",
-    "tournaments.history.final"
+    "tournaments.history.final",
+    "staff.delegation.mode.manual"
   ]
 }

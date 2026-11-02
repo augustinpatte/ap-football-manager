@@ -1132,7 +1132,9 @@
         "Scouting": "球探",
         "Youth": "青训",
         "StaffRecruitment": "员工招募",
-        "StaffRenewals": "员工续约"
+        "StaffRenewals": "员工续约",
+        "Lineup": "阵容与轮换",
+        "PlayerRenewals": "球员续约"
       },
       "confirmMajor": "重大决定前先征求我",
       "delegate": "委派",
@@ -1142,7 +1144,33 @@
       "accept": "接受",
       "decline": "拒绝",
       "log": "近期决定",
-      "noLog": "暂无决定。"
+      "noLog": "暂无决定。",
+      "mode": {
+          "title": "委托模式",
+          "manual": "手动",
+          "approval": "需批准",
+          "full": "完全",
+          "custom": "自定义",
+          "manualDesc": "所有决定都由你做。助理教练只提供建议。",
+          "approvalDesc": "助理教练处理日常事务，每个重大决定都交给你。",
+          "fullDesc": "助理教练在下方限额内处理一切。超出限额的事仍交给你。",
+          "customDesc": "下方逐项设置各项职责。"
+        },
+      "limits": {
+          "title": "支出限额",
+          "intro": "助理教练无需询问即可承诺的金额。超出部分将作为提案交给你。",
+          "max_staff_wage": "员工周薪",
+          "max_player_wage": "球员续约周薪",
+          "max_commitment": "单份合同总额",
+          "max_transfer_fee": "转会费",
+          "transferNote": "转会费限额为 0 表示所有转会都由你决定。",
+          "save": "保存限额"
+        },
+      "outcome": {
+          "approved": "已批准",
+          "declined": "已拒绝",
+          "leftToManager": "留给你"
+        }
     },
     "assistant": {
       "title": "助理教练的建议",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "委派事务需要一名助理教练。",
-        "proposalNotFound": "该提案已不存在。"
+        "proposalNotFound": "该提案已不存在。",
+        "invalidMode": "无法应用该委托模式。",
+        "invalidLimits": "支出限额不能为负数。",
+        "wagePolicy": "董事会的薪资政策不再允许这些条件。"
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "老板，我们无法补齐阵容，也没有可以引进的人。{{group}}：俱乐部必须保留 {{floor}} 人，目前只有 {{have}} 人，而青训和自由球员市场都没有人能填补空缺。",
         "totalSubject": "无人可补齐阵容",
         "totalBody": "老板，一线队只剩 {{have}} 名球员，少于俱乐部必须保留的 {{floor}} 人，而青训和自由球员市场都没有人能填补空缺。"
+      },
+      "assistantDigest": {
+        "subject": "助理教练报告",
+        "body": "老板，自上次报告以来，我做了 {{done}} 项决定，留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。"
+      },
+      "assistantProposals": {
+        "subject": "提案待处理",
+        "body": "老板，职员页签中有 {{count}} 项提案等你答复。"
+      },
+      "assistantMissing": {
+        "subject": "没有助理教练执行你的委托",
+        "body": "助理教练职位空缺，因此已委托的职责无法执行。请聘请新的助理教练以恢复。"
       },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",
@@ -4655,19 +4698,24 @@
       "hire": "以每周 {{wage}} 聘请 {{name}}（{{post}}）",
       "upgradeRelease": "解雇 {{replaces}}（能力 {{current}}）",
       "upgradeHire": "由 {{name}} 接替（能力 {{ovr}}）",
-      "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年"
+      "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
+      "renewPlayer": "以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年"
     },
     "reason": {
       "vacancy": "必需职位空缺。",
       "upgrade": "有明显更优的候选人。",
-      "contractEnding": "合同即将到期。"
+      "contractEnding": "合同即将到期。",
+      "aboveLimit": "这超出了你为助理教练设定的支出限额。"
     },
     "log": {
       "hired": "已以每周 {{wage}} 聘请 {{name}}（{{post}}）",
       "promoted": "已将 {{player}} 从青训提拔",
       "recoveryOrdered": "已将训练改为恢复",
       "renewed": "已以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
-      "scoutSent": "已派球探观察 {{player}}"
+      "scoutSent": "已派球探观察 {{player}}",
+      "lineupChosen": "已确定下一场比赛的首发十一人（{{changes}} 处变动）",
+      "playerRenewed": "已以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
+      "playerRenewalLeft": "{{player}} 的合同留给你处理"
     }
   }
 }

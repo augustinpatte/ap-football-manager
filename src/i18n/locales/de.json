@@ -1132,7 +1132,9 @@
         "Scouting": "Spielerbeobachtung",
         "Youth": "Jugend",
         "StaffRecruitment": "Staff-Verpflichtungen",
-        "StaffRenewals": "Staff-Verlängerungen"
+        "StaffRenewals": "Staff-Verlängerungen",
+        "Lineup": "Aufstellung & Rotation",
+        "PlayerRenewals": "Spielerverlängerungen"
       },
       "confirmMajor": "Bei großen Entscheidungen fragen",
       "delegate": "Delegieren",
@@ -1142,7 +1144,33 @@
       "accept": "Annehmen",
       "decline": "Ablehnen",
       "log": "Letzte Entscheidungen",
-      "noLog": "Noch nichts entschieden."
+      "noLog": "Noch nichts entschieden.",
+      "mode": {
+          "title": "Delegationsmodus",
+          "manual": "Manuell",
+          "approval": "Mit Freigabe",
+          "full": "Voll",
+          "custom": "Individuell",
+          "manualDesc": "Du triffst jede Entscheidung. Der Co-Trainer berät nur.",
+          "approvalDesc": "Der Co-Trainer erledigt das Tagesgeschäft und legt dir jede wichtige Entscheidung vor.",
+          "fullDesc": "Der Co-Trainer erledigt alles innerhalb der Grenzen unten. Was darüber liegt, kommt weiter zu dir.",
+          "customDesc": "Die Aufgaben werden unten einzeln eingestellt."
+        },
+      "limits": {
+          "title": "Ausgabengrenzen",
+          "intro": "Was der Co-Trainer ohne Rückfrage binden darf. Alles darüber bekommst du als Vorschlag.",
+          "max_staff_wage": "Stabsgehalt, pro Woche",
+          "max_player_wage": "Gehalt bei Spielerverlängerung, pro Woche",
+          "max_commitment": "Gesamtwert eines Vertrags",
+          "max_transfer_fee": "Ablösesumme",
+          "transferNote": "Eine Ablösegrenze von 0 heißt: Jeder Transfer liegt bei dir.",
+          "save": "Grenzen speichern"
+        },
+      "outcome": {
+          "approved": "genehmigt",
+          "declined": "abgelehnt",
+          "leftToManager": "dir überlassen"
+        }
     },
     "assistant": {
       "title": "Rat des Co-Trainers",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "Zum Delegieren brauchst du einen Co-Trainer.",
-        "proposalNotFound": "Dieser Vorschlag existiert nicht mehr."
+        "proposalNotFound": "Dieser Vorschlag existiert nicht mehr.",
+        "invalidMode": "Dieser Delegationsmodus kann nicht angewendet werden.",
+        "invalidLimits": "Ausgabengrenzen dürfen nicht negativ sein.",
+        "wagePolicy": "Die Gehaltspolitik des Vorstands erlaubt diese Konditionen nicht mehr."
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "Boss, wir konnten keinen vollständigen Kader stellen, und es war niemand zu holen. {{group}}: {{have}} von den {{floor}}, die ein Verein halten muss, und weder unsere Jugend noch der Markt der vereinslosen Spieler hat jemanden, der die Lücke füllt.",
         "totalSubject": "Niemand verfügbar, um den Kader aufzufüllen",
         "totalBody": "Boss, wir haben nur noch {{have}} Spieler im Profikader, weniger als die {{floor}}, die ein Verein halten muss, und weder unsere Jugend noch der Markt der vereinslosen Spieler hat jemanden, der die Lücke füllt."
+      },
+      "assistantDigest": {
+        "subject": "Bericht des Co-Trainers",
+        "body": "Chef, seit meinem letzten Bericht habe ich {{done}} Entscheidung(en) getroffen und {{left}} dir überlassen. {{waiting}} Vorschlag/Vorschläge warten auf deine Antwort."
+      },
+      "assistantProposals": {
+        "subject": "Offene Vorschläge",
+        "body": "Chef, {{count}} Vorschlag/Vorschläge warten im Reiter Stab auf deine Antwort."
+      },
+      "assistantMissing": {
+        "subject": "Kein Co-Trainer für deine Delegation",
+        "body": "Die Stelle des Co-Trainers ist unbesetzt, daher werden die übertragenen Aufgaben nicht ausgeführt. Stelle einen neuen Co-Trainer ein, um fortzufahren."
       },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",
@@ -4655,19 +4698,24 @@
       "hire": "{{name}} ({{post}}) für {{wage}} pro Woche verpflichten",
       "upgradeRelease": "{{replaces}} (Stärke {{current}}) entlassen",
       "upgradeHire": "Durch {{name}} ersetzen (Stärke {{ovr}})",
-      "renew": "{{name}} für {{wage}} pro Woche um {{years}} Jahre verlängern"
+      "renew": "{{name}} für {{wage}} pro Woche um {{years}} Jahre verlängern",
+      "renewPlayer": "{{player}} für {{years}} Jahre zu {{wage}} pro Woche verlängern"
     },
     "reason": {
       "vacancy": "Eine Pflichtstelle ist unbesetzt.",
       "upgrade": "Ein deutlich besserer Kandidat ist verfügbar.",
-      "contractEnding": "Der Vertrag läuft bald aus."
+      "contractEnding": "Der Vertrag läuft bald aus.",
+      "aboveLimit": "Das liegt über einer Ausgabengrenze, die du dem Co-Trainer gesetzt hast."
     },
     "log": {
       "hired": "Hat {{name}} ({{post}}) für {{wage}} pro Woche verpflichtet",
       "promoted": "Hat {{player}} aus der Jugend befördert",
       "recoveryOrdered": "Hat das Training auf Erholung umgestellt",
       "renewed": "Hat {{name}} für {{wage}} pro Woche um {{years}} Jahre verlängert",
-      "scoutSent": "Hat einen Scout zu {{player}} geschickt"
+      "scoutSent": "Hat einen Scout zu {{player}} geschickt",
+      "lineupChosen": "Elf für das nächste Spiel bestimmt ({{changes}} Änderungen)",
+      "playerRenewed": "{{player}} für {{years}} Jahre zu {{wage}} pro Woche verlängert",
+      "playerRenewalLeft": "Vertrag von {{player}} bleibt dir überlassen"
     }
   }
 }

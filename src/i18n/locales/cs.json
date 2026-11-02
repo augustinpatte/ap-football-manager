@@ -1132,7 +1132,9 @@
         "Scouting": "Skauting",
         "Youth": "Mládež",
         "StaffRecruitment": "Najímání týmu",
-        "StaffRenewals": "Prodlužování smluv týmu"
+        "StaffRenewals": "Prodlužování smluv týmu",
+        "Lineup": "Sestava a rotace",
+        "PlayerRenewals": "Prodlužování smluv hráčů"
       },
       "confirmMajor": "Ptát se mě u důležitých rozhodnutí",
       "delegate": "Delegovat",
@@ -1142,7 +1144,33 @@
       "accept": "Přijmout",
       "decline": "Odmítnout",
       "log": "Poslední rozhodnutí",
-      "noLog": "Zatím nic nerozhodnuto."
+      "noLog": "Zatím nic nerozhodnuto.",
+      "mode": {
+          "title": "Režim delegování",
+          "manual": "Ruční",
+          "approval": "Se schválením",
+          "full": "Plný",
+          "custom": "Vlastní",
+          "manualDesc": "Všechna rozhodnutí děláš ty. Asistent pouze radí.",
+          "approvalDesc": "Asistent zvládá rutinu a každé důležité rozhodnutí předkládá tobě.",
+          "fullDesc": "Asistent řeší vše v mezích níže. Co je překročí, stále míří k tobě.",
+          "customDesc": "Úkoly se nastavují jednotlivě níže."
+        },
+      "limits": {
+          "title": "Limity výdajů",
+          "intro": "Co asistent smí uzavřít bez ptaní. Cokoli nad to dostaneš jako návrh.",
+          "max_staff_wage": "Mzda realizačního týmu, týdně",
+          "max_player_wage": "Mzda při prodloužení hráče, týdně",
+          "max_commitment": "Celkem za jednu smlouvu",
+          "max_transfer_fee": "Přestupová částka",
+          "transferNote": "Limit přestupu 0 znamená, že každý přestup je na tobě.",
+          "save": "Uložit limity"
+        },
+      "outcome": {
+          "approved": "schváleno",
+          "declined": "zamítnuto",
+          "leftToManager": "ponecháno tobě"
+        }
     },
     "assistant": {
       "title": "Rady asistenta",
@@ -3111,7 +3139,10 @@
       },
       "delegation": {
         "noAssistant": "K delegování potřebujete asistenta trenéra.",
-        "proposalNotFound": "Tento návrh už neexistuje."
+        "proposalNotFound": "Tento návrh už neexistuje.",
+        "invalidMode": "Tento režim delegování nelze použít.",
+        "invalidLimits": "Limity výdajů nesmí být záporné.",
+        "wagePolicy": "Mzdová politika vedení tyto podmínky už nepovoluje."
       }
     },
     "sender": {
@@ -3579,6 +3610,18 @@
         "body": "Šéfe, nepodařilo se nám doplnit kádr a nebylo koho přivést. {{group}}: {{have}} z {{floor}}, které musí klub udržet, a ani naše akademie, ani trh volných hráčů nemá nikoho, kdo by mezeru zaplnil.",
         "totalSubject": "Nikdo k dispozici pro doplnění kádru",
         "totalBody": "Šéfe, v A-týmu nám zbývá jen {{have}} hráčů, méně než {{floor}}, které musí klub udržet, a ani naše akademie, ani trh volných hráčů nemá nikoho, kdo by mezeru zaplnil."
+      },
+      "assistantDigest": {
+        "subject": "Zpráva asistenta",
+        "body": "Šéfe, od poslední zprávy jsem učinil {{done}} rozhodnutí a {{left}} nechal tobě. Na tvou odpověď čeká {{waiting}} návrh(ů)."
+      },
+      "assistantProposals": {
+        "subject": "Návrhy čekají",
+        "body": "Šéfe, v záložce Realizační tým na tvou odpověď čeká {{count}} návrh(ů)."
+      },
+      "assistantMissing": {
+        "subject": "Chybí asistent, který by plnil tvé delegování",
+        "body": "Post asistenta trenéra je prázdný, takže delegované úkoly se neplní. Najmi nového asistenta, aby pokračovaly."
       },
       "delegatedRenewals": {
         "subject": "Zpráva asistenta — Prodloužení smluv",
@@ -4655,19 +4698,24 @@
       "hire": "Najmout {{name}} ({{post}}) za {{wage}} týdně",
       "upgradeRelease": "Propustit {{replaces}} (úroveň {{current}})",
       "upgradeHire": "Nahradit osobou {{name}} (úroveň {{ovr}})",
-      "renew": "Prodloužit {{name}} za {{wage}} týdně na {{years}} let"
+      "renew": "Prodloužit {{name}} za {{wage}} týdně na {{years}} let",
+      "renewPlayer": "Prodloužit {{player}} za {{wage}} týdně na {{years}} let"
     },
     "reason": {
       "vacancy": "Povinné místo je prázdné.",
       "upgrade": "K dispozici je výrazně lepší kandidát.",
-      "contractEnding": "Smlouva brzy končí."
+      "contractEnding": "Smlouva brzy končí.",
+      "aboveLimit": "Tohle překračuje limit výdajů, který jsi asistentovi nastavil."
     },
     "log": {
       "hired": "Najal {{name}} ({{post}}) za {{wage}} týdně",
       "promoted": "Povýšil {{player}} z akademie",
       "recoveryOrdered": "Přepnul trénink na regeneraci",
       "renewed": "Prodloužil {{name}} za {{wage}} týdně na {{years}} let",
-      "scoutSent": "Poslal skauta sledovat {{player}}"
+      "scoutSent": "Poslal skauta sledovat {{player}}",
+      "lineupChosen": "Základní jedenáctka na příští zápas určena ({{changes}} změn)",
+      "playerRenewed": "{{player}} prodloužen za {{wage}} týdně na {{years}} let",
+      "playerRenewalLeft": "Smlouva hráče {{player}} zůstává na tobě"
     }
   }
 }
