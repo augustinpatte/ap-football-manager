@@ -258,6 +258,16 @@ pub fn wage_bills_by_club(game: &Game) -> HashMap<String, i64> {
 /// This club's share of `player.wage` this week (loan split, otherwise the
 /// employing club).
 pub fn player_weekly_wage_for_team(player: &domain::player::Player, team_id: &str) -> i64 {
+    // The wage is read from the contract ledger, which is the dear part, and `calc_wages` asks it
+    // of every player in the world for every club it prices. Only his club, or the two sides of a
+    // loan, can be paying him (`weekly_share` answers 0 for anyone else): decide that first.
+    let could_be_paying = match &player.active_loan {
+        Some(loan) => loan.loan_team_id == team_id || loan.parent_team_id == team_id,
+        None => player.team_id.as_deref() == Some(team_id),
+    };
+    if !could_be_paying {
+        return 0;
+    }
     weekly_share(player, team_id, i64::from(player.wage()), false)
 }
 

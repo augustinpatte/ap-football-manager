@@ -200,6 +200,55 @@
     "matchDayTitle": "Giorno partita",
     "delegateWarning": "Il tuo assistente gestirà la partita. Non potrai intervenire."
   },
+  "fastForward": {
+    "menuTitle": "Avanza fino a una data",
+    "menuDesc": "Gioca giorni, settimane o mesi in un colpo solo",
+    "title": "Avanza fino a una data",
+    "targetLabel": "Avanza fino al",
+    "preset": {
+      "week": "+1 settimana",
+      "month": "+1 mese",
+      "threeMonths": "+3 mesi"
+    },
+    "daysAhead": "Giorni da giocare: {{days}}",
+    "invalidTarget": "Scegli una data successiva a oggi.",
+    "policyLabel": "Fermati quando",
+    "policy": {
+      "decisions": "Solo per le decisioni",
+      "decisionsDesc": "Le tue partite vengono giocate per te. Si ferma quando serve la tua approvazione.",
+      "nextMatch": "Prima della mia prossima partita",
+      "nextMatchDesc": "Si ferma il giorno della tua prossima partita, prima che venga giocata.",
+      "target": "Dritto alla data",
+      "targetDesc": "Non si ferma mai per una decisione: le partite si giocano, le stagioni si chiudono e ciò che è stato superato viene elencato dopo."
+    },
+    "start": "Avvia",
+    "progressDays": "Giorno {{done}} di {{total}}",
+    "progressMatches": "Le tue partite giocate: {{matches}}",
+    "stop": "Ferma",
+    "stopping": "Mi fermo dopo oggi…",
+    "result": {
+      "targetReached": "Raggiunto il {{date}}",
+      "nextMatch": "Fermato prima della tua prossima partita",
+      "decisions": "Fermato: serve la tua decisione",
+      "seasonComplete": "La stagione è finita: chiudila per proseguire",
+      "managerFired": "Sei stato esonerato",
+      "cancelled": "Fermato su tua richiesta",
+      "dayLimit": "Fermato: troppi giorni in un colpo solo",
+      "error": "Non è stato possibile completare l'avanzamento"
+    },
+    "summary": "{{days}} giorni giocati, dal {{from}} al {{to}}",
+    "seasonsRolled": "Stagioni chiuse: {{seasons}}",
+    "decisionsTitle": "Richiede la tua attenzione",
+    "passedTitle": "Superato lungo il percorso",
+    "decision": {
+      "blocker": "Un problema di rosa o di contratto",
+      "delegationProposal": "Una proposta del tuo assistente",
+      "incomingTransferOffer": "Un'offerta per uno dei tuoi giocatori",
+      "incomingLoanOffer": "Una richiesta di prestito per uno dei tuoi giocatori",
+      "transferDeadline": "Il mercato chiude con trattative ancora aperte"
+    },
+    "resume": "Prosegui"
+  },
   "exitConfirm": {
     "title": "Uscire al menu principale?",
     "message": "La tua partita verrà salvata automaticamente prima di tornare al menu principale.",
@@ -872,7 +921,19 @@
       "high-press": "Pressing alto",
       "counter-attack": "Contropiede",
       "low-block": "Blocco basso",
-      "control-possession": "Controllo del possesso", "tiki-taka": "Stile tiki-taka", "vertical-tiki-taka": "Tiki-taka verticale", "gegenpress": "Contropressing", "direct-counter": "Contropiede diretto", "direct-play": "Gioco diretto", "mid-block": "Blocco medio", "high-defensive-line": "Linea difensiva alta", "defensive": "Difensivo", "attacking": "Offensivo", "long-ball": "Palla lunga", "park-the-bus": "Parcheggia il bus", "fast-transition": "Transizione rapida"
+      "control-possession": "Controllo del possesso",
+      "tiki-taka": "Stile tiki-taka",
+      "vertical-tiki-taka": "Tiki-taka verticale",
+      "gegenpress": "Contropressing",
+      "direct-counter": "Contropiede diretto",
+      "direct-play": "Gioco diretto",
+      "mid-block": "Blocco medio",
+      "high-defensive-line": "Linea difensiva alta",
+      "defensive": "Difensivo",
+      "attacking": "Offensivo",
+      "long-ball": "Palla lunga",
+      "park-the-bus": "Parcheggia il bus",
+      "fast-transition": "Transizione rapida"
     },
     "tableInteractionHint": "Fai clic destro sui giocatori per azioni rapide.",
     "makeCaptain": "Nomina capitano",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "Serve un vice allenatore per delegare.",
         "proposalNotFound": "Quella proposta non esiste più."
+      },
+      "fastForward": {
+        "invalidDate": "Questa non è una data valida.",
+        "targetNotInFuture": "Scegli una data successiva a oggi.",
+        "targetTooFar": "Questa data è troppo lontana per essere giocata in un colpo solo.",
+        "alreadyRunning": "Un altro avanzamento è già in corso.",
+        "careerChanged": "La carriera è cambiata durante l'avanzamento, quindi è stato fermato."
       }
     },
     "sender": {

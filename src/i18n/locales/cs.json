@@ -200,6 +200,55 @@
     "matchDayTitle": "Zápasový den",
     "delegateWarning": "Zápas odřídí váš asistent. Nebudete moci do průběhu zasahovat."
   },
+  "fastForward": {
+    "menuTitle": "Posunout do data",
+    "menuDesc": "Odehrajte dny, týdny nebo měsíce naráz",
+    "title": "Posunout do data",
+    "targetLabel": "Posunout do",
+    "preset": {
+      "week": "+1 týden",
+      "month": "+1 měsíc",
+      "threeMonths": "+3 měsíce"
+    },
+    "daysAhead": "Dnů k odehrání: {{days}}",
+    "invalidTarget": "Vyberte datum po dnešku.",
+    "policyLabel": "Zastavit, když",
+    "policy": {
+      "decisions": "Jen u rozhodnutí",
+      "decisionsDesc": "Vaše zápasy odehraje počítač za vás. Zastaví se, když něco potřebuje vaše schválení.",
+      "nextMatch": "Před mým dalším zápasem",
+      "nextMatchDesc": "Zastaví se v den vašeho dalšího zápasu, před jeho odehráním.",
+      "target": "Rovnou do data",
+      "targetDesc": "Nezastaví se kvůli žádnému rozhodnutí: zápasy se odehrají, sezóny se uzavřou a to, co bylo přeskočeno, se vypíše potom."
+    },
+    "start": "Spustit",
+    "progressDays": "Den {{done}} z {{total}}",
+    "progressMatches": "Odehrané zápasy vašeho týmu: {{matches}}",
+    "stop": "Zastavit",
+    "stopping": "Zastavuji po dnešku…",
+    "result": {
+      "targetReached": "Dosaženo {{date}}",
+      "nextMatch": "Zastaveno před vaším dalším zápasem",
+      "decisions": "Zastaveno: je potřeba vaše rozhodnutí",
+      "seasonComplete": "Sezóna skončila: uzavřete ji a pokračujte",
+      "managerFired": "Byli jste odvoláni",
+      "cancelled": "Zastaveno na vaši žádost",
+      "dayLimit": "Zastaveno: příliš mnoho dnů naráz",
+      "error": "Posun se nepodařilo dokončit"
+    },
+    "summary": "Odehráno dnů: {{days}}, od {{from}} do {{to}}",
+    "seasonsRolled": "Uzavřené sezóny: {{seasons}}",
+    "decisionsTitle": "Vyžaduje vaši pozornost",
+    "passedTitle": "Přeskočeno cestou",
+    "decision": {
+      "blocker": "Problém se kádrem nebo smlouvou",
+      "delegationProposal": "Návrh vašeho asistenta",
+      "incomingTransferOffer": "Nabídka na jednoho z vašich hráčů",
+      "incomingLoanOffer": "Žádost o hostování jednoho z vašich hráčů",
+      "transferDeadline": "Přestupové okno se zavírá, ale jednání stále běží"
+    },
+    "resume": "Pokračovat"
+  },
   "exitConfirm": {
     "title": "Odejít do hlavního menu?",
     "message": "Před návratem do hlavního menu se vaše hra automaticky uloží.",
@@ -801,7 +850,19 @@
       "high-press": "Vysoký presink",
       "counter-attack": "Protiútoky",
       "low-block": "Hluboký blok",
-      "control-possession": "Kontrola držení", "tiki-taka": "Styl tiki-taka", "vertical-tiki-taka": "Vertikální tiki-taka", "gegenpress": "Proti-pressing", "direct-counter": "Přímý protiútok", "direct-play": "Přímá hra", "mid-block": "Střední blok", "high-defensive-line": "Vysoká obranná linie", "defensive": "Defenzivní", "attacking": "Útočný", "long-ball": "Dlouhý míč", "park-the-bus": "Zaparkovat autobus", "fast-transition": "Rychlý přechod"
+      "control-possession": "Kontrola držení",
+      "tiki-taka": "Styl tiki-taka",
+      "vertical-tiki-taka": "Vertikální tiki-taka",
+      "gegenpress": "Proti-pressing",
+      "direct-counter": "Přímý protiútok",
+      "direct-play": "Přímá hra",
+      "mid-block": "Střední blok",
+      "high-defensive-line": "Vysoká obranná linie",
+      "defensive": "Defenzivní",
+      "attacking": "Útočný",
+      "long-ball": "Dlouhý míč",
+      "park-the-bus": "Zaparkovat autobus",
+      "fast-transition": "Rychlý přechod"
     },
     "presetDescriptions": {
       "balanced-control": "Stabilní linie, spolehlivé pokrytí prostoru a přímočaré rozestavení vhodné pro většinu týmů.",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "K delegování potřebujete asistenta trenéra.",
         "proposalNotFound": "Tento návrh už neexistuje."
+      },
+      "fastForward": {
+        "invalidDate": "Toto není platné datum.",
+        "targetNotInFuture": "Vyberte datum po dnešku.",
+        "targetTooFar": "Toto datum je příliš daleko, než aby šlo odehrát naráz.",
+        "alreadyRunning": "Jiný posun již probíhá.",
+        "careerChanged": "Kariéra se během posunu změnila, proto byl zastaven."
       }
     },
     "sender": {

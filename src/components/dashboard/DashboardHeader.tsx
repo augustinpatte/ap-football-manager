@@ -53,6 +53,8 @@ interface DashboardHeaderProps {
   onSelectSearchPlayer: (playerId: string) => void;
   onSelectSearchTeam: (teamId: string) => void;
   onSkipToMatchDay: () => void;
+  /** Opens the "advance until date" dialog; the menu offers it only when given. */
+  onFastForward?: () => void;
   onToggleContinueMenu: () => void;
   saveFlash: boolean;
   searchOpen: boolean;
@@ -260,6 +262,7 @@ export default function DashboardHeader({
   onSelectSearchPlayer,
   onSelectSearchTeam,
   onSkipToMatchDay,
+  onFastForward,
   onToggleContinueMenu,
   saveFlash,
   searchOpen,
@@ -480,6 +483,18 @@ export default function DashboardHeader({
                     {t("continueMenu.skipToMatchDayDesc")}
                   </p>
                 </button>
+                {onFastForward ? (
+                  <button
+                    type="button"
+                    onClick={onFastForward}
+                    className={`w-full px-4 py-2.5 text-left transition-colors hover:bg-hover ${MENU_FOCUS}`}
+                  >
+                    <span className="font-heading text-body font-bold uppercase tracking-label text-fg">
+                      {t("fastForward.menuTitle")}
+                    </span>
+                    <p className="mt-0.5 text-caption text-fg-muted">{t("fastForward.menuDesc")}</p>
+                  </button>
+                ) : null}
               </div>
             )}
           </div>

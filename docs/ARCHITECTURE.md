@@ -191,6 +191,8 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `advance_time` | — | `Game` | Advance one day |
 | `advance_time_with_mode` | mode | `{action, game?, snapshot?}` | Advance with match mode preference |
 | `skip_to_match_day` | — | `Game` | Fast-forward to next fixture |
+| `fast_forward_to_date` | `request: { target_date, policy }` | `FastForwardResponse` | Play every day up to a date; emits `fast-forward-progress`. See [`FAST_FORWARD.md`](FAST_FORWARD.md) |
+| `cancel_fast_forward` | — | `bool` | Stop the running fast-forward at the next day boundary |
 | `save_game` | — | — | Persist current game |
 | `load_game` | save_id | — | Load a saved game |
 | `exit_to_menu` | — | — | Save and clear active game |
