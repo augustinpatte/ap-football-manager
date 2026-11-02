@@ -1303,6 +1303,52 @@ mod tests {
         assert_eq!(team2.len(), 1);
     }
 
+    /// Given a career with a generated season and a played one, when saved and reloaded, then
+    /// each keeps its `synthetic` flag.
+    #[test]
+    fn test_career_entry_synthetic_flag_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-career", Some("team-001"));
+        let entry = |season: u32, synthetic: bool| domain::player::CareerEntry {
+            season,
+            team_id: "team-001".into(),
+            team_name: "Team".into(),
+            appearances: 20,
+            goals: 3,
+            assists: 2,
+            synthetic,
+        };
+        player.career = vec![entry(2024, true), entry(2025, false)];
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        let flags: Vec<bool> = loaded[0].career.iter().map(|e| e.synthetic).collect();
+        assert_eq!(flags, vec![true, false]);
+    }
+
+    /// Given a save written before `synthetic` existed, when it is loaded, then the career is
+    /// still there (the column falls back to an EMPTY career on any parse failure, so a missing
+    /// serde default would silently erase it) and its entries read as not synthetic.
+    #[test]
+    fn test_career_written_before_the_synthetic_flag_still_loads() {
+        let db = test_db();
+        let player = sample_player("p-legacy", Some("team-001"));
+        upsert_player(db.conn(), &player).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE players SET career = ?1 WHERE id = 'p-legacy'",
+                [r#"[{"season":2020,"team_id":"t","team_name":"T","appearances":9,"goals":1,"assists":0}]"#],
+            )
+            .unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].career.len(), 1);
+        assert_eq!(loaded[0].career[0].appearances, 9);
+        assert!(!loaded[0].career[0].synthetic);
+    }
+
     #[test]
     fn test_player_alternate_positions_roundtrip() {
         let db = test_db();

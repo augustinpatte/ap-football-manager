@@ -1,139 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  eventPlayerId,
+  frameAtOrBefore,
+  isKnownReplayEventType,
+  parseM12Replay,
+  playersOnPitch,
+  type PitchPlayer,
+  type ReplayEvent,
+  type ReplayFrame,
+  type ReplayRejection,
+} from "./m12Replay";
 
 const PLAYBACK_INTERVAL_MS = 100;
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4] as const;
-
-type FramePlayer = {
-  x: number;
-  y: number;
-  heading: number;
-  on_pitch: boolean;
-};
-
-type ReplayFrame = {
-  t_ms: number;
-  period: string;
-  ball: { x: number; y: number; z: number };
-  score: { home: number; away: number };
-  players: FramePlayer[];
-};
-
-type ReplayEvent = {
-  t_ms: number;
-  type: string;
-  scorer?: string;
-};
-
-type Replay = {
-  schema_version: number;
-  home_team: string;
-  away_team: string;
-  roster: string[];
-  frames: ReplayFrame[];
-  events: ReplayEvent[];
-};
+const VISIBLE_EVENTS = 6;
 
 interface M12ReplayViewerProps {
   replayJson: string;
   onFinish: () => void | Promise<void>;
   onBack?: () => void;
+  /** A completed match: "back" only closes the viewer, nothing is finalised. */
   readOnly?: boolean;
+  /** Player id -> display name. Ids are shown only when a name is unknown. */
+  playerNames?: Readonly<Record<string, string>>;
+  /** Ids of the home side's players, when the roster order cannot be trusted. */
+  homePlayerIds?: ReadonlySet<string>;
 }
 
-function isNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isFramePlayer(value: unknown): value is FramePlayer {
-  if (!value || typeof value !== "object") return false;
-  const player = value as Partial<FramePlayer>;
-  return (
-    isNumber(player.x) &&
-    isNumber(player.y) &&
-    isNumber(player.heading) &&
-    typeof player.on_pitch === "boolean"
-  );
-}
-
-function isReplayFrame(value: unknown): value is ReplayFrame {
-  if (!value || typeof value !== "object") return false;
-  const frame = value as Partial<ReplayFrame>;
-  return (
-    isNumber(frame.t_ms) &&
-    typeof frame.period === "string" &&
-    !!frame.ball &&
-    isNumber(frame.ball.x) &&
-    isNumber(frame.ball.y) &&
-    isNumber(frame.ball.z) &&
-    !!frame.score &&
-    isNumber(frame.score.home) &&
-    isNumber(frame.score.away) &&
-    Array.isArray(frame.players) &&
-    frame.players.every(isFramePlayer)
-  );
-}
-
-function parseReplay(source: string): Replay | null {
-  try {
-    const parsed: unknown = JSON.parse(source);
-    if (!parsed || typeof parsed !== "object") return null;
-    const replay = parsed as Partial<Replay>;
-    const roster = replay.roster;
-    const frames = replay.frames;
-    const events = replay.events;
-    if (
-      replay.schema_version !== 1 ||
-      typeof replay.home_team !== "string" ||
-      typeof replay.away_team !== "string" ||
-      !Array.isArray(roster) ||
-      !roster.every((player) => typeof player === "string") ||
-      !Array.isArray(frames) ||
-      frames.length < 2 ||
-      !frames.every(isReplayFrame) ||
-      !Array.isArray(events)
-    ) {
-      return null;
-    }
-    if (
-      frames.some(
-        (frame, index) =>
-          frame.players.length !== roster.length ||
-          (index > 0 && frame.t_ms < frames[index - 1].t_ms),
-      )
-    ) {
-      return null;
-    }
-    return {
-      schema_version: replay.schema_version,
-      home_team: replay.home_team,
-      away_team: replay.away_team,
-      roster,
-      frames,
-      events: events as ReplayEvent[],
-    };
-  } catch {
-    return null;
-  }
-}
-
-function frameAtOrBefore(frames: ReplayFrame[], time: number): ReplayFrame {
-  let low = 0;
-  let high = frames.length - 1;
-  while (low < high) {
-    const middle = Math.ceil((low + high) / 2);
-    if (frames[middle].t_ms <= time) low = middle;
-    else high = middle - 1;
-  }
-  return frames[low];
-}
+const REJECTION_MESSAGE_KEY: Record<ReplayRejection, string> = {
+  unreadable: "match.replayUnavailable",
+  malformed: "match.replayUnavailable",
+  inconsistentFrames: "match.replayUnavailable",
+  unsupportedSchema: "match.replayUnsupportedSchema",
+  noFrames: "match.replayNoFrames",
+};
 
 function drawPitch(
   context: CanvasRenderingContext2D,
   width: number,
   height: number,
   frame: ReplayFrame,
-  roster: string[],
+  onPitch: PitchPlayer[],
 ) {
   const scale = Math.min(width / 113, height / 76);
   const originX = (width - 105 * scale) / 2;
@@ -158,10 +66,8 @@ function drawPitch(
   context.arc(x(52.5), y(34), 9.15 * scale, 0, Math.PI * 2);
   context.stroke();
 
-  frame.players.forEach((player, index) => {
-    if (!player.on_pitch) return;
-    const homePlayer = index < roster.length / 2;
-    context.fillStyle = homePlayer ? "#2f7bf6" : "#f2744a";
+  onPitch.forEach((player) => {
+    context.fillStyle = player.side === "home" ? "#2f7bf6" : "#f2744a";
     context.beginPath();
     context.arc(x(player.x), y(player.y), Math.max(5, scale), 0, Math.PI * 2);
     context.fill();
@@ -169,7 +75,7 @@ function drawPitch(
     context.font = `${Math.max(9, scale)}px sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(String((index % (roster.length / 2)) + 1), x(player.x), y(player.y));
+    context.fillText(String(player.label), x(player.x), y(player.y));
   });
 
   const lift = Math.max(0, frame.ball.z) * scale * 0.25;
@@ -181,14 +87,40 @@ function drawPitch(
   context.stroke();
 }
 
+function ReplayUnavailable({ messageKey, onClose }: { messageKey: string; onClose?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <main className="min-h-screen bg-page p-4 text-fg">
+      <div
+        className="mx-auto max-w-2xl rounded border border-danger-solid bg-danger-tint p-4"
+        role="alert"
+      >
+        <p>{t(messageKey)}</p>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 rounded bg-panel px-4 py-2 text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          >
+            {t("match.backToSchedule")}
+          </button>
+        )}
+      </div>
+    </main>
+  );
+}
+
 export default function M12ReplayViewer({
   replayJson,
   onFinish,
   onBack,
   readOnly = false,
+  playerNames,
+  homePlayerIds,
 }: M12ReplayViewerProps) {
   const { t } = useTranslation();
-  const replay = useMemo(() => parseReplay(replayJson), [replayJson]);
+  const parsed = useMemo(() => parseM12Replay(replayJson), [replayJson]);
+  const replay = parsed.ok ? parsed.replay : null;
   const canvas = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState<(typeof PLAYBACK_SPEEDS)[number]>(1);
@@ -206,6 +138,12 @@ export default function M12ReplayViewer({
 
   const frame = replay ? frameAtOrBefore(replay.frames, time) : null;
   const end = replay?.frames[replay.frames.length - 1]?.t_ms ?? 0;
+  const onPitch = useMemo(
+    () => (replay && frame ? playersOnPitch(frame, replay.roster, homePlayerIds) : []),
+    [frame, replay, homePlayerIds],
+  );
+  const homeOnPitch = onPitch.filter((player) => player.side === "home").length;
+  const awayOnPitch = onPitch.length - homeOnPitch;
 
   useEffect(() => {
     if (!playing || !replay || time >= end) return;
@@ -220,7 +158,7 @@ export default function M12ReplayViewer({
   }, [end, playing, time]);
 
   const render = useCallback(() => {
-    if (!canvas.current || !frame || !replay) return;
+    if (!canvas.current || !frame) return;
     const rectangle = canvas.current.getBoundingClientRect();
     const width = rectangle.width || 960;
     const height = rectangle.height || 540;
@@ -230,8 +168,8 @@ export default function M12ReplayViewer({
     const context = canvas.current.getContext("2d");
     if (!context) return;
     context.scale(ratio, ratio);
-    drawPitch(context, width, height, frame, replay.roster);
-  }, [frame, replay]);
+    drawPitch(context, width, height, frame, onPitch);
+  }, [frame, onPitch]);
 
   useEffect(() => {
     render();
@@ -253,29 +191,29 @@ export default function M12ReplayViewer({
   }, [onFinish]);
 
   const closeViewer = onBack ?? (readOnly ? onFinish : undefined);
-  if (!replay || !frame) {
+  if (!parsed.ok || !replay || !frame) {
+    const reason: ReplayRejection = parsed.ok ? "malformed" : parsed.reason;
     return (
-      <main className="min-h-screen bg-page p-4 text-fg">
-        <div
-          className="mx-auto max-w-2xl rounded border border-danger-solid bg-danger-tint p-4"
-          role="alert"
-        >
-          <p>{t("match.replayUnavailable")}</p>
-          {closeViewer && (
-            <button
-              type="button"
-              onClick={closeViewer}
-              className="mt-3 rounded bg-panel px-4 py-2 text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            >
-              {t("match.backToSchedule")}
-            </button>
-          )}
-        </div>
-      </main>
+      <ReplayUnavailable
+        messageKey={REJECTION_MESSAGE_KEY[reason]}
+        onClose={closeViewer ? () => void closeViewer() : undefined}
+      />
     );
   }
 
-  const events = replay.events.filter((event) => event.t_ms <= time).slice(-4);
+  const nameOf = (playerId: string | undefined): string | undefined =>
+    playerId === undefined ? undefined : (playerNames?.[playerId] ?? playerId);
+  const describeEvent = (event: ReplayEvent): string => {
+    const label = isKnownReplayEventType(event.type)
+      ? t(`match.replayEventType.${event.type}`)
+      : event.type.replace(/_/g, " ");
+    const subject =
+      event.type === "substitution" && event.player_off && event.player_on
+        ? `${nameOf(event.player_off)} → ${nameOf(event.player_on)}`
+        : nameOf(eventPlayerId(event));
+    return `${Math.floor(event.t_ms / 60_000)}' · ${label}${subject ? ` · ${subject}` : ""}`;
+  };
+  const events = replay.events.filter((event) => event.t_ms <= time).slice(-VISIBLE_EVENTS);
 
   return (
     <main className="min-h-screen bg-page p-4 text-fg">
@@ -291,6 +229,13 @@ export default function M12ReplayViewer({
           aria-label={t("match.replayPitch")}
           className="h-[60vh] min-h-72 w-full rounded bg-sunken"
         />
+        <p className="mt-2 text-caption text-fg-muted" data-testid="replay-players-on-pitch">
+          {t("match.replayPlayersOnPitch", {
+            home: homeOnPitch,
+            away: awayOnPitch,
+            total: onPitch.length,
+          })}
+        </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -345,10 +290,7 @@ export default function M12ReplayViewer({
         )}
         <ul aria-live="polite" className="mt-3 text-body text-fg-muted">
           {events.map((event, index) => (
-            <li key={`${event.t_ms}-${index}`}>
-              {Math.floor(event.t_ms / 60_000)}' · {event.type}
-              {event.scorer ? ` · ${event.scorer}` : ""}
-            </li>
+            <li key={`${event.t_ms}-${index}`}>{describeEvent(event)}</li>
           ))}
         </ul>
       </section>

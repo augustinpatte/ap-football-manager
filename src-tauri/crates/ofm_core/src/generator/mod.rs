@@ -7,6 +7,7 @@ mod generation;
 pub mod package;
 mod package_warnings;
 pub mod scaffold;
+mod unique_identity;
 pub mod world_io;
 mod youth;
 
@@ -658,6 +659,15 @@ pub fn replenish_manager_and_scout_market(game: &mut crate::game::Game) {
 // ---------------------------------------------------------------------------
 // World generation
 // ---------------------------------------------------------------------------
+
+/// Clubs in the standard generated world (`WorldGenConfig::standard`).
+pub const STANDARD_WORLD_TEAM_COUNT: usize = 440;
+
+/// People registered in the standard generated world: every club's squad and academy, plus the
+/// opening free agents. The world list quotes this number to the player; it used to be a
+/// hand-kept 9,680 (440 x 22) that fell behind the generator, which builds 23 per club and adds
+/// 1,760 free agents. `the_standard_world_matches_its_advertised_size` keeps the two in step.
+pub const STANDARD_WORLD_PLAYER_COUNT: usize = 11_880;
 
 /// Generate a random world (raw tuple — used by `generate_world_data`).
 /// Generates the full standard world — every generation nation with a real
@@ -1497,6 +1507,11 @@ fn generate_world_with_rng(
         staff.push(s);
     }
 
+    let moved = unique_identity::ensure_distinct_identities(&mut players);
+    if moved > 0 {
+        info!("[generator] moved {moved} birth date(s) so no two players share an identity");
+    }
+
     info!(
         "[generator] world generated: {} teams, {} players, {} staff",
         teams_out.len(),
@@ -1516,6 +1531,16 @@ mod tests {
 
     /// Opening year for tests that need *an* era, not a specific one.
     const TEST_OPENING_YEAR: u32 = 2026;
+
+    /// Given the standard generation config, when a world is generated, then the club and player
+    /// counts the world list advertises are the counts it really has.
+    #[test]
+    fn the_standard_world_matches_its_advertised_size() {
+        let (teams, players, _staff) =
+            generate_world_seeded(11, &definitions::DefinitionSources::embedded_only());
+        assert_eq!(teams.len(), STANDARD_WORLD_TEAM_COUNT);
+        assert_eq!(players.len(), STANDARD_WORLD_PLAYER_COUNT);
+    }
 
     /// The season the motivating historical world models.
     const HISTORICAL_OPENING_YEAR: u32 = 1962;

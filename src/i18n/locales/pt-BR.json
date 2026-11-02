@@ -1888,6 +1888,8 @@
     "avgRating": "Nota Média",
     "careerHistory": "Histórico da Carreira",
     "noCareer": "Sem histórico de carreira ainda — primeira temporada.",
+    "careerSimulated": "Simulado",
+    "careerSimulatedNote": "As temporadas marcadas como Simulado foram geradas quando este mundo foi criado. Não são registros reais deste jogador.",
     "movementHistory": "Histórico de Movimentações",
     "noMovementHistory": "Ainda não há transferências ou empréstimos registrados.",
     "movementPermanentTransfer": "Transferência",
@@ -2077,17 +2079,33 @@
     "keyStats": "Estatísticas-Chave"
   },
   "match": {
-    "simulateWithM12": "Simular com M12",
-    "watchWithM12": "Assistir em 2D com M12",
-    "m12SimulationFailed": "O M12 não conseguiu concluir esta partida.",
+    "simulateWithM12": "Simulação rápida",
+    "watchWithM12": "Assistir em 2D",
+    "m12SimulationFailed": "Não foi possível simular a partida. Nada foi alterado.",
     "replayUnavailable": "Esta repetição não está disponível ou está corrompida.",
-    "replayPitch": "Campo da repetição M12",
+    "replayPitch": "Campo da partida em 2D",
     "pauseReplay": "Pausar",
     "playReplay": "Reproduzir",
     "replaySpeed": "Velocidade de reprodução",
     "replayTimeline": "Linha do tempo da repetição",
     "goToResult": "Ir ao resultado",
-    "reviewMatch": "Rever partida",
+    "reviewMatch": "Rever em 2D",
+    "viewMode": {
+      "heading": "Escolha como jogar esta partida",
+      "liveDesc": "Acompanhe a partida minuto a minuto com comentários e faça mudanças enquanto ela acontece. Usa o motor clássico: não há campo em 2D.",
+      "watchDesc": "Veja os 22 jogadores e a bola se movendo no campo. O resultado só vale quando você escolhe «Ir ao resultado».",
+      "quickDesc": "Jogue a partida instantaneamente e vá direto ao resultado. A reprise em 2D fica salva, então você ainda pode assisti-la depois."
+    },
+    "replayNotRecorded": "Nenhuma reprise em 2D foi gravada para esta partida. Só as partidas jogadas com «Assistir em 2D» ou «Simulação rápida» guardam uma; partidas ao vivo e delegadas não.",
+    "replayUnsupportedSchema": "Esta reprise foi salva em um formato que esta versão não consegue reproduzir.",
+    "replayNoFrames": "Esta partida não tem dados de movimento dos jogadores, então não pode ser exibida em 2D. O resultado e as estatísticas não são afetados.",
+    "replayPlayersOnPitch": "Jogadores em campo: {{home}} da casa · {{away}} visitantes ({{total}} no total)",
+    "replayEventType": {
+      "goal": "Gol",
+      "card": "Cartão",
+      "substitution": "Substituição",
+      "injury": "Lesão"
+    },
     "backToSchedule": "Voltar ao calendário",
     "live": "Ao Vivo",
     "paused": "Pausado",
@@ -3234,7 +3252,7 @@
       },
       "world": {
         "randomName": "Mundo Aleatório",
-        "randomDescription": "Liga gerada aleatoriamente com {{teamCount}} times por toda a Europa",
+        "randomDescription": "Um mundo totalmente fictício de {{teamCount}} clubes gerados. Todos os clubes, jogadores e nomes são inventados.",
         "exportedName": "Mundo Exportado",
         "exportedDescription": "Mundo com {{teamCount}} times exportado de um jogo salvo"
       },

@@ -61,6 +61,7 @@ mod tests {
                 appearances: 10,
                 goals: 1,
                 assists: 2,
+                synthetic: false,
             });
             player
                 .record_movement(PlayerMovementEntry::new(

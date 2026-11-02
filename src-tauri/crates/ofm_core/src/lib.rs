@@ -91,4 +91,5 @@ pub mod transfers;
 pub mod turn;
 pub mod world;
 pub mod world_cup;
+pub mod world_integrity;
 pub mod youth_intake;

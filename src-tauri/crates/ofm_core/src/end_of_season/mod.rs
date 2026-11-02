@@ -1062,6 +1062,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 appearances: player.stats.appearances,
                 goals: player.stats.goals,
                 assists: player.stats.assists,
+                synthetic: false,
             });
         }
     }

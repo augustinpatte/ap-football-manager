@@ -214,6 +214,8 @@ export interface CareerEntry {
   appearances: number;
   goals: number;
   assists: number;
+  /** Generated with the world, not a played or authored record. Absent in older saves. */
+  synthetic?: boolean;
 }
 
 export type PlayerMovementKind =

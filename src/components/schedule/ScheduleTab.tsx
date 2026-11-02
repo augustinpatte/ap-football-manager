@@ -71,7 +71,9 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
       try {
         const replay = await loadMatchReplay(competitionId, fixtureId);
         if (!replay) {
-          setReplayError(t("match.replayUnavailable"));
+          // Nothing stored is a normal outcome (live, delegated and pre-M12 matches keep no
+          // spatial data); it must not read like a corrupted file.
+          setReplayError(t("match.replayNotRecorded"));
           return;
         }
         setReplayJson(replay.replay_json);

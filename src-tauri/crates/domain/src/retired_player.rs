@@ -169,6 +169,7 @@ mod tests {
             appearances: 31,
             goals: 4,
             assists: 9,
+            synthetic: false,
         });
         player
             .record_movement(PlayerMovementEntry {

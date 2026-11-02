@@ -1888,6 +1888,8 @@
     "avgRating": "平均评分",
     "careerHistory": "职业生涯",
     "noCareer": "暂无职业履历 — 首个赛季。",
+    "careerSimulated": "模拟",
+    "careerSimulatedNote": "标记为“模拟”的赛季是在创建此世界时生成的，并非该球员的真实记录。",
     "movementHistory": "转会流动历史",
     "noMovementHistory": "还没有记录转会或租借流动。",
     "movementPermanentTransfer": "转会",
@@ -2134,17 +2136,33 @@
     "confidence": "置信度"
   },
   "match": {
-    "simulateWithM12": "使用 M12 模拟",
-    "watchWithM12": "使用 M12 观看 2D 比赛",
-    "m12SimulationFailed": "M12 无法完成这场比赛。",
+    "simulateWithM12": "快速模拟",
+    "watchWithM12": "观看 2D 比赛",
+    "m12SimulationFailed": "无法模拟这场比赛，未做任何更改。",
     "replayUnavailable": "此回放不可用或已损坏。",
-    "replayPitch": "M12 回放球场",
+    "replayPitch": "2D 比赛球场",
     "pauseReplay": "暂停",
     "playReplay": "播放",
     "replaySpeed": "播放速度",
     "replayTimeline": "回放时间轴",
     "goToResult": "查看结果",
-    "reviewMatch": "回看比赛",
+    "reviewMatch": "2D 回放",
+    "viewMode": {
+      "heading": "选择这场比赛的进行方式",
+      "liveDesc": "通过文字解说逐分钟跟进比赛，并可随时调整。此模式使用经典引擎，没有 2D 球场。",
+      "watchDesc": "观看全部 22 名球员和足球在球场上的移动。只有选择“查看结果”后，结果才会生效。",
+      "quickDesc": "立即完成比赛并直接查看结果。2D 回放会被保存，之后仍可观看。"
+    },
+    "replayNotRecorded": "这场比赛没有记录 2D 回放。只有通过“观看 2D 比赛”或“快速模拟”进行的比赛才会保留回放；实时比赛和委托比赛没有。",
+    "replayUnsupportedSchema": "此回放的保存格式无法被当前版本播放。",
+    "replayNoFrames": "这场比赛没有球员移动数据，因此无法以 2D 显示。比赛结果和统计数据不受影响。",
+    "replayPlayersOnPitch": "场上球员：主队 {{home}} 人 · 客队 {{away}} 人（共 {{total}} 人）",
+    "replayEventType": {
+      "goal": "进球",
+      "card": "红黄牌",
+      "substitution": "换人",
+      "injury": "伤病"
+    },
     "backToSchedule": "返回赛程",
     "live": "直播中",
     "paused": "已暂停",
@@ -3234,7 +3252,7 @@
       },
       "world": {
         "randomName": "随机世界",
-        "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",
+        "randomDescription": "一个完全虚构的世界，包含 {{teamCount}} 家生成的俱乐部。所有俱乐部、球员和姓名均为虚构。",
         "exportedName": "导出的世界",
         "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队"
       },

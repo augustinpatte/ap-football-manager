@@ -3888,6 +3888,7 @@ fn make_retired_player(id: &str) -> domain::player::Player {
         appearances: 30,
         goals: 5,
         assists: 8,
+        synthetic: false,
     });
     p
 }

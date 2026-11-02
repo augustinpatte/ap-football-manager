@@ -585,6 +585,13 @@ pub struct CareerEntry {
     pub appearances: u32,
     pub goals: u32,
     pub assists: u32,
+    /// True when the world generator made this season up (`history_generation`) rather than it
+    /// being played in this game or authored in a world file. A player is shown at his current club
+    /// for every past season of a generated history, with invented appearances; this flag is the
+    /// only thing that tells that apart from a real record. Absent in older saves, which therefore
+    /// read as not synthetic: they cannot be told apart after the fact.
+    #[serde(default)]
+    pub synthetic: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
