@@ -96,19 +96,28 @@ impl SpatialRunError {
 /// Runs M12 from an already validated OFM adaptation. This function has no
 /// access to `Game`, persistence, or post-match finalisation.
 pub fn simulate(adapted: &AdaptedMatch) -> Result<DecodedSpatialOutput, SpatialRunError> {
+    simulate_recording(adapted, REPLAY_CONDITION_SAMPLE_MS)
+}
+
+/// How often M12 writes each player's match condition into the replay, in milliseconds. A recorder
+/// only: with it off or on the match, its events and its statistics are the same (a test proves
+/// it), so the condition view reads real engine data and the result is unaffected.
+const REPLAY_CONDITION_SAMPLE_MS: u32 = 1_000;
+
+fn simulate_recording(
+    adapted: &AdaptedMatch,
+    condition_sample_ms: u32,
+) -> Result<DecodedSpatialOutput, SpatialRunError> {
     let json = serde_json::to_string(&adapted.input)
         .map_err(|error| SpatialRunError::InputContract(error.to_string()))?;
     let input = MatchInput::from_json(&json)
         .map_err(|error| SpatialRunError::InputContract(error.to_string()))?;
     let config = SimulationConfig::from_input(&input);
-    let output = simulate_autonomous_with(
-        &input,
-        config,
-        MotionConfig::default(),
-        FootballConfig::full_match_m12(),
-        |_| {},
-    )
-    .map_err(|error| SpatialRunError::Engine(error.to_string()))?;
+    let mut football = FootballConfig::full_match_m12();
+    football.m11.replay_interval_ms = condition_sample_ms;
+    let output =
+        simulate_autonomous_with(&input, config, MotionConfig::default(), football, |_| {})
+            .map_err(|error| SpatialRunError::Engine(error.to_string()))?;
     let json = output
         .output
         .to_json()
@@ -491,6 +500,48 @@ mod tests {
             "projection only attributes statistics to selected fixture players"
         );
     }
+    /// Given the same complete fixture simulated with the condition recorder off and on
+    /// When both replay documents are compared apart from the recorded condition
+    /// Then they are identical (frames, events, statistics, end state), and only the second carries
+    ///      a condition for every player on the pitch: recording does not change the match.
+    #[test]
+    fn recording_player_condition_does_not_change_the_match() {
+        let game = game_with_complete_m12_fixture();
+        let adapted =
+            crate::live_match_manager::adapt_spatial_fixture(&game, 0).expect("the fixture adapts");
+
+        let plain = super::simulate_recording(&adapted, 0).expect("M12 runs without the recorder");
+        let recorded =
+            super::simulate_recording(&adapted, 1_000).expect("M12 runs with the recorder");
+
+        let strip = |json: &str| -> serde_json::Value {
+            let mut value: serde_json::Value = serde_json::from_str(json).expect("json");
+            if let Some(frames) = value["frames"].as_array_mut() {
+                for frame in frames {
+                    if let Some(object) = frame.as_object_mut() {
+                        object.remove("extras");
+                    }
+                }
+            }
+            value
+        };
+        let plain_value = strip(&plain.replay_json);
+        let recorded_value = strip(&recorded.replay_json);
+        assert_eq!(
+            plain_value, recorded_value,
+            "same match, with or without it"
+        );
+        let plain_doc: serde_json::Value = serde_json::from_str(&plain.replay_json).unwrap();
+        let recorded_doc: serde_json::Value = serde_json::from_str(&recorded.replay_json).unwrap();
+        let has_condition = |doc: &serde_json::Value| {
+            doc["frames"]
+                .as_array()
+                .is_some_and(|frames| frames.iter().any(|f| f["extras"]["agents"].is_array()))
+        };
+        assert!(!has_condition(&plain_doc));
+        assert!(has_condition(&recorded_doc));
+    }
+
     /// Given the three ways preparing a 2D match can fail
     /// When they are reported to the player
     /// Then each has its own translation key and technical code, never the generic
