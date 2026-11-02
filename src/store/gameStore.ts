@@ -127,7 +127,6 @@ export type {
   TransferOfferData,
   FreeAgentTalkData,
   FreeAgentTalkReason,
-  FreeAgentTalkStatus,
   LoanOfferData,
   ActiveLoanData,
   StaffData,
