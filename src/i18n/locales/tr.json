@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Bu tekrar, bu sürümün oynatamayacağı bir biçimde kaydedilmiş.",
     "replayNoFrames": "Bu maçta oyuncu hareket verisi yok, bu yüzden 2D gösterilemez. Sonuç ve istatistikler etkilenmez.",
     "replayPlayersOnPitch": "Sahadaki oyuncular: {{home}} ev sahibi · {{away}} deplasman (toplam {{total}})",
-    "replayEventType": {
-      "goal": "Gol",
-      "card": "Kart",
-      "substitution": "Oyuncu değişikliği",
-      "injury": "Sakatlık"
-    },
     "backToSchedule": "Fikstüre dön",
     "live": "Canlı",
     "paused": "Duraklatıldı",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Duraklatıldı · {{speed}} hızında sürecek",
     "playingAt": "{{speed}} hızında oynanıyor",
     "spaceKey": "Boşluk",
-    "replayPreparationFailed": "2D maç hazırlanamadı. Hiçbir şey değiştirilmedi."
+    "replayPreparationFailed": "2D maç hazırlanamadı. Hiçbir şey değiştirilmedi.",
+    "replayViews": "Maç görünümleri",
+    "replayTab": {
+      "pitch": "2D saha",
+      "condition": "Kondisyon",
+      "stats": "İstatistikler",
+      "lineup": "Kadrolar ve değişiklikler"
+    },
+    "replayTeam": {
+      "home": "Ev sahibi",
+      "away": "Deplasman"
+    },
+    "replayUnknownPlayer": "Bir oyuncu",
+    "replayGoalBanner": "Gol! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Maç olayları",
+    "replayFeed": {
+      "kickoff": "Başlama vuruşu",
+      "halfTime": "Devre arası",
+      "secondHalfStart": "İkinci yarı başlıyor",
+      "fullTime": "Maç sona erdi",
+      "goal": "Gol: {{player}}",
+      "ownGoal": "Kendi kalesine gol: {{player}}",
+      "shotSaved": "Şut kurtarıldı: {{player}}",
+      "shotOffTarget": "Şut dışarı: {{player}}",
+      "shotBlocked": "Şut engellendi: {{player}}",
+      "woodwork": "Direkten döndü: {{player}}",
+      "yellowCard": "Sarı kart: {{player}}",
+      "secondYellow": "İkinci sarı, oyundan atıldı: {{player}}",
+      "redCard": "Kırmızı kart: {{player}}",
+      "substitution": "Oyuncu değişikliği: {{player}}, {{other}} yerine",
+      "injury": "Sakatlık: {{player}}",
+      "corner": "Korner",
+      "foul": "{{player}} faul yaptı",
+      "offside": "Ofsayt: {{player}}"
+    },
+    "replayStats": {
+      "title": "{{minute}}. dakikaya kadar istatistikler",
+      "possession": "Topa sahip olma",
+      "goals": "Goller",
+      "shots": "Şutlar",
+      "shotsOnTarget": "İsabetli şutlar",
+      "corners": "Kornerler",
+      "fouls": "Fauller",
+      "offsides": "Ofsaytlar",
+      "yellowCards": "Sarı kartlar",
+      "redCards": "Kırmızı kartlar"
+    },
+    "replayCondition": {
+      "title": "Oyuncu kondisyonu",
+      "hint": "100 tamamen dinç demektir. Maç motoru her saniye kaydeder.",
+      "none": "Bu tekrar için oyuncu kondisyonu kaydedilmedi."
+    },
+    "replayLineup": {
+      "onPitch": "Sahada",
+      "bench": "Yedekler",
+      "gone": "Maçtan çıkanlar",
+      "substituted": "oyundan çıktı",
+      "sentOff": "oyundan atıldı",
+      "replayOnly": "Bu, tamamlanmış bir simülasyonun tekrarıdır. Taktik ve oyuncu değişiklikleri canlı maçta belirlenir; burada yapılan hiçbir şey sonucu değiştirmez."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Sezon Tamamlandı",

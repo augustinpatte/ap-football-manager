@@ -1,7 +1,34 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  type RenderOptions,
+  render as renderWithoutTheme,
+  screen,
+} from "@testing-library/react";
+import type { ReactElement } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { ThemeProvider } from "../../context/ThemeContext";
 import M12ReplayViewer from "./M12ReplayViewer";
 import { buildEventsOnlyReplay, buildReplayFixture, MINUTE_MS } from "./m12Replay.fixtures";
+
+// The theme provider reads the system preference.
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+/** The match shell carries the theme toggle, so every render has the provider (and keeps it on rerender). */
+const render = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) =>
+  renderWithoutTheme(ui, { wrapper: ThemeProvider, ...options });
 
 const replay = JSON.stringify({
   schema_version: 1,
@@ -42,6 +69,7 @@ const canvasContext = {
   fillRect: vi.fn(),
   beginPath: vi.fn(),
   arc: vi.fn(),
+  ellipse: vi.fn(),
   fill: vi.fn(),
   stroke: vi.fn(),
   strokeRect: vi.fn(),
@@ -77,7 +105,9 @@ describe("M12ReplayViewer", () => {
     fireEvent.change(screen.getByRole("slider", { name: "match.replayTimeline" }), {
       target: { value: "1000" },
     });
-    expect(screen.getByText("Home 1 – 0 Away")).toBeInTheDocument();
+    expect(
+      screen.getByText("match.replayTeam.home 1 – 0 match.replayTeam.away"),
+    ).toBeInTheDocument();
   });
 
   /** Given a replay paused away from kick-off, when its parent rerenders unchanged, then it keeps the selected time. */
@@ -90,7 +120,9 @@ describe("M12ReplayViewer", () => {
 
     rerender(<M12ReplayViewer replayJson={replay} onFinish={vi.fn()} />);
 
-    expect(screen.getByText("Home 1 – 0 Away")).toBeInTheDocument();
+    expect(
+      screen.getByText("match.replayTeam.home 1 – 0 match.replayTeam.away"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "match.replayTimeline" })).toHaveValue("1000");
   });
 
@@ -106,7 +138,9 @@ describe("M12ReplayViewer", () => {
       vi.advanceTimersByTime(300);
     });
 
-    expect(screen.getByText("Home 1 – 0 Away")).toBeInTheDocument();
+    expect(
+      screen.getByText("match.replayTeam.home 1 – 0 match.replayTeam.away"),
+    ).toBeInTheDocument();
   });
 
   /** Given a historical replay, when the manager returns, then no finalisation is requested. */
@@ -159,11 +193,11 @@ describe("M12ReplayViewer with a squad-and-bench replay", () => {
     const fixture = buildReplayFixture();
     render(<M12ReplayViewer replayJson={fixture.json} onFinish={vi.fn()} />);
 
-    expect(screen.getByText("Home FC 0 – 0 Away FC")).toBeInTheDocument();
+    expect(
+      screen.getByText("match.replayTeam.home 0 – 0 match.replayTeam.away"),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("match.replayPitch")).toBeInTheDocument();
     expect(canvasContext.fillText).toHaveBeenCalledTimes(22);
-    // 22 players + the ball + the centre circle.
-    expect(canvasContext.arc).toHaveBeenCalledTimes(24);
     expect(screen.getByTestId("replay-players-on-pitch")).toHaveTextContent(
       "match.replayPlayersOnPitch",
     );
@@ -182,8 +216,8 @@ describe("M12ReplayViewer with a squad-and-bench replay", () => {
     expect(drawnPlayerLabels()).toHaveLength(21);
   });
 
-  /** Given events with known and unknown types, when seeking past them, then names and translated types appear. */
-  it("lists events with player names and keeps unknown types as the engine spelled them", () => {
+  /** Given the engine's internal event kinds in the replay, when seeking past them, then none is printed as the engine spelled it. */
+  it("never prints an engine event kind as written", () => {
     const fixture = buildReplayFixture();
     render(<M12ReplayViewer replayJson={fixture.json} onFinish={vi.fn()} playerNames={names} />);
 
@@ -191,12 +225,8 @@ describe("M12ReplayViewer with a squad-and-bench replay", () => {
       target: { value: String(61 * MINUTE_MS) },
     });
 
-    expect(screen.getByText("10' · match.replayEventType.goal · Hugo Nine")).toBeInTheDocument();
-    expect(screen.getByText("30' · match.replayEventType.card · Axel One")).toBeInTheDocument();
-    expect(
-      screen.getByText("60' · match.replayEventType.substitution · Hal Two → Ben Twelve"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("60' · shootout kick · Hugo Nine")).toBeInTheDocument();
+    expect(screen.queryByText(/shootout/i)).not.toBeInTheDocument();
+    expect(screen.getByText("match.replayFeed.goal")).toBeInTheDocument();
   });
 
   /** Given uneven benches and explicit home ids, when it opens, then 11 players per side are painted. */

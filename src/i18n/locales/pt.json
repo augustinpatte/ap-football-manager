@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Esta repetição foi guardada num formato que esta versão não consegue reproduzir.",
     "replayNoFrames": "Este jogo não tem dados de movimento dos jogadores, por isso não pode ser mostrado em 2D. O resultado e as estatísticas não são afetados.",
     "replayPlayersOnPitch": "Jogadores em campo: {{home}} da casa · {{away}} visitantes ({{total}} no total)",
-    "replayEventType": {
-      "goal": "Golo",
-      "card": "Cartão",
-      "substitution": "Substituição",
-      "injury": "Lesão"
-    },
     "backToSchedule": "Voltar ao calendário",
     "live": "Ao Vivo",
     "paused": "Pausado",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Em pausa · retoma a {{speed}}",
     "playingAt": "A jogar a {{speed}}",
     "spaceKey": "Espaço",
-    "replayPreparationFailed": "Não foi possível preparar o jogo em 2D. Nada foi alterado."
+    "replayPreparationFailed": "Não foi possível preparar o jogo em 2D. Nada foi alterado.",
+    "replayViews": "Vistas do jogo",
+    "replayTab": {
+      "pitch": "Campo 2D",
+      "condition": "Condição física",
+      "stats": "Estatísticas",
+      "lineup": "Onzes e substituições"
+    },
+    "replayTeam": {
+      "home": "Casa",
+      "away": "Visitante"
+    },
+    "replayUnknownPlayer": "Um jogador",
+    "replayGoalBanner": "Golo! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Eventos do jogo",
+    "replayFeed": {
+      "kickoff": "Pontapé de saída",
+      "halfTime": "Intervalo",
+      "secondHalfStart": "Começa a segunda parte",
+      "fullTime": "Fim do jogo",
+      "goal": "Golo: {{player}}",
+      "ownGoal": "Autogolo: {{player}}",
+      "shotSaved": "Remate defendido: {{player}}",
+      "shotOffTarget": "Remate ao lado: {{player}}",
+      "shotBlocked": "Remate bloqueado: {{player}}",
+      "woodwork": "Na trave: {{player}}",
+      "yellowCard": "Cartão amarelo: {{player}}",
+      "secondYellow": "Segundo amarelo, expulso: {{player}}",
+      "redCard": "Cartão vermelho: {{player}}",
+      "substitution": "Substituição: {{player}} entra para o lugar de {{other}}",
+      "injury": "Lesão: {{player}}",
+      "corner": "Canto",
+      "foul": "Falta de {{player}}",
+      "offside": "Fora de jogo: {{player}}"
+    },
+    "replayStats": {
+      "title": "Estatísticas até ao minuto {{minute}}",
+      "possession": "Posse de bola",
+      "goals": "Golos",
+      "shots": "Remates",
+      "shotsOnTarget": "Remates à baliza",
+      "corners": "Cantos",
+      "fouls": "Faltas",
+      "offsides": "Foras de jogo",
+      "yellowCards": "Cartões amarelos",
+      "redCards": "Cartões vermelhos"
+    },
+    "replayCondition": {
+      "title": "Condição física dos jogadores",
+      "hint": "100 é totalmente descansado. Registado pelo motor de jogo a cada segundo.",
+      "none": "A condição física não foi registada neste replay."
+    },
+    "replayLineup": {
+      "onPitch": "Em campo",
+      "bench": "Banco",
+      "gone": "Saíram do jogo",
+      "substituted": "substituído",
+      "sentOff": "expulso",
+      "replayOnly": "Este é o replay de uma simulação concluída. A tática e as substituições decidem-se num jogo em direto; nada aqui altera o resultado."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Época Completa",

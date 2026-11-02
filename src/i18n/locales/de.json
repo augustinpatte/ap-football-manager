@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Diese Wiederholung wurde in einem Format gespeichert, das diese Version nicht abspielen kann.",
     "replayNoFrames": "Dieses Spiel enthält keine Bewegungsdaten der Spieler und kann daher nicht in 2D gezeigt werden. Ergebnis und Statistiken bleiben unberührt.",
     "replayPlayersOnPitch": "Spieler auf dem Platz: {{home}} Heim · {{away}} Gast ({{total}} insgesamt)",
-    "replayEventType": {
-      "goal": "Tor",
-      "card": "Karte",
-      "substitution": "Auswechslung",
-      "injury": "Verletzung"
-    },
     "backToSchedule": "Zurück zum Spielplan",
     "live": "Live",
     "paused": "Pausiert",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Pausiert · weiter mit {{speed}}",
     "playingAt": "Läuft mit {{speed}}",
     "spaceKey": "Leertaste",
-    "replayPreparationFailed": "Das 2D-Spiel konnte nicht vorbereitet werden. Es wurde nichts geändert."
+    "replayPreparationFailed": "Das 2D-Spiel konnte nicht vorbereitet werden. Es wurde nichts geändert.",
+    "replayViews": "Spielansichten",
+    "replayTab": {
+      "pitch": "2D-Spielfeld",
+      "condition": "Kondition",
+      "stats": "Statistiken",
+      "lineup": "Aufstellungen und Wechsel"
+    },
+    "replayTeam": {
+      "home": "Heim",
+      "away": "Gast"
+    },
+    "replayUnknownPlayer": "Ein Spieler",
+    "replayGoalBanner": "Tor! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Spielereignisse",
+    "replayFeed": {
+      "kickoff": "Anstoß",
+      "halfTime": "Halbzeit",
+      "secondHalfStart": "Die zweite Halbzeit beginnt",
+      "fullTime": "Abpfiff",
+      "goal": "Tor: {{player}}",
+      "ownGoal": "Eigentor: {{player}}",
+      "shotSaved": "Schuss gehalten: {{player}}",
+      "shotOffTarget": "Schuss daneben: {{player}}",
+      "shotBlocked": "Schuss geblockt: {{player}}",
+      "woodwork": "Pfosten oder Latte: {{player}}",
+      "yellowCard": "Gelbe Karte: {{player}}",
+      "secondYellow": "Gelb-Rot: {{player}}",
+      "redCard": "Rote Karte: {{player}}",
+      "substitution": "Wechsel: {{player}} für {{other}}",
+      "injury": "Verletzung: {{player}}",
+      "corner": "Ecke",
+      "foul": "Foul von {{player}}",
+      "offside": "Abseits: {{player}}"
+    },
+    "replayStats": {
+      "title": "Statistiken bis zur {{minute}}. Minute",
+      "possession": "Ballbesitz",
+      "goals": "Tore",
+      "shots": "Schüsse",
+      "shotsOnTarget": "Schüsse aufs Tor",
+      "corners": "Ecken",
+      "fouls": "Fouls",
+      "offsides": "Abseitsstellungen",
+      "yellowCards": "Gelbe Karten",
+      "redCards": "Rote Karten"
+    },
+    "replayCondition": {
+      "title": "Kondition der Spieler",
+      "hint": "100 bedeutet völlig frisch. Wird von der Spiel-Engine jede Sekunde aufgezeichnet.",
+      "none": "Für diese Wiederholung wurde keine Kondition aufgezeichnet."
+    },
+    "replayLineup": {
+      "onPitch": "Auf dem Platz",
+      "bench": "Bank",
+      "gone": "Haben das Spiel verlassen",
+      "substituted": "ausgewechselt",
+      "sentOff": "vom Platz gestellt",
+      "replayOnly": "Dies ist die Wiederholung einer abgeschlossenen Simulation. Taktik und Wechsel werden in einem Live-Spiel entschieden; nichts hier ändert das Ergebnis."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Saison beendet",

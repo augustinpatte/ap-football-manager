@@ -7,7 +7,11 @@ import DealRestrictionNotice from "./DealRestrictionNotice";
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string>) =>
-      params ? `${key}|${Object.entries(params).map(([k, v]) => `${k}=${v}`).join(",")}` : key,
+      params
+        ? `${key}|${Object.entries(params)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(",")}`
+        : key,
     i18n: { language: "en" },
   }),
 }));
@@ -70,6 +74,8 @@ describe("DealRestrictionNotice", () => {
         teams={teams}
       />,
     );
-    expect(screen.getByRole("status")).toHaveTextContent("transfers.restriction.pendingDetailNoDate");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "transfers.restriction.pendingDetailNoDate",
+    );
   });
 });

@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  eventPlayerId,
-  frameAtOrBefore,
-  isKnownReplayEventType,
-  parseM12Replay,
-  playersOnPitch,
-  type PitchPlayer,
-  type ReplayEvent,
-  type ReplayFrame,
-  type ReplayRejection,
-} from "./m12Replay";
+import type { TeamData } from "../../store/gameStore";
+import { TabPanel, Tabs } from "../ui";
+import MatchScreenLayout from "./MatchScreenLayout";
+import { frameAtOrBefore, parseM12Replay, playersOnPitch, type ReplayRejection } from "./m12Replay";
+import ReplayEventFeed from "./ReplayEventFeed";
+import { ReplayConditionPanel, ReplayLineupPanel, ReplayStatsPanel } from "./ReplayPanels";
+import { buildFeed, conditionsAt, feedAt, lineupAt, statsAt } from "./replayDerived";
+import { resolveReplayTeamName } from "./replayNames";
+import { drawPitch } from "./replayPitch";
 
 const PLAYBACK_INTERVAL_MS = 100;
 const PLAYBACK_SPEEDS = [0.5, 1, 2, 4] as const;
-const VISIBLE_EVENTS = 6;
+const VISIBLE_EVENTS = 8;
+/** How long a goal stays announced above the pitch, in replay time. */
+const GOAL_BANNER_MS = 8_000;
+const VIEWS = ["pitch", "condition", "stats", "lineup"] as const;
+type ViewId = (typeof VIEWS)[number];
 
 interface M12ReplayViewerProps {
   replayJson: string;
@@ -26,6 +28,8 @@ interface M12ReplayViewerProps {
   playerNames?: Readonly<Record<string, string>>;
   /** Ids of the home side's players, when the roster order cannot be trusted. */
   homePlayerIds?: ReadonlySet<string>;
+  /** The game's clubs, to put names on the scoreboard in place of the ids the replay carries. */
+  teams?: ReadonlyArray<Pick<TeamData, "id" | "name">>;
 }
 
 const REJECTION_MESSAGE_KEY: Record<ReplayRejection, string> = {
@@ -35,57 +39,6 @@ const REJECTION_MESSAGE_KEY: Record<ReplayRejection, string> = {
   unsupportedSchema: "match.replayUnsupportedSchema",
   noFrames: "match.replayNoFrames",
 };
-
-function drawPitch(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  frame: ReplayFrame,
-  onPitch: PitchPlayer[],
-) {
-  const scale = Math.min(width / 113, height / 76);
-  const originX = (width - 105 * scale) / 2;
-  const originY = (height - 68 * scale) / 2;
-  const x = (value: number) => originX + value * scale;
-  const y = (value: number) => originY + (68 - value) * scale;
-
-  context.fillStyle = "#16301f";
-  context.fillRect(0, 0, width, height);
-  for (let stripe = 0; stripe < 14; stripe += 1) {
-    context.fillStyle = stripe % 2 ? "#2b6a3b" : "#2f7340";
-    context.fillRect(x(stripe * 7.5), y(68), 7.6 * scale, 68 * scale);
-  }
-  context.strokeStyle = "#e9f3e5";
-  context.lineWidth = Math.max(1, scale * 0.14);
-  context.strokeRect(x(0), y(68), 105 * scale, 68 * scale);
-  context.beginPath();
-  context.moveTo(x(52.5), y(0));
-  context.lineTo(x(52.5), y(68));
-  context.stroke();
-  context.beginPath();
-  context.arc(x(52.5), y(34), 9.15 * scale, 0, Math.PI * 2);
-  context.stroke();
-
-  onPitch.forEach((player) => {
-    context.fillStyle = player.side === "home" ? "#2f7bf6" : "#f2744a";
-    context.beginPath();
-    context.arc(x(player.x), y(player.y), Math.max(5, scale), 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#ffffff";
-    context.font = `${Math.max(9, scale)}px sans-serif`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(String(player.label), x(player.x), y(player.y));
-  });
-
-  const lift = Math.max(0, frame.ball.z) * scale * 0.25;
-  context.fillStyle = "#ffffff";
-  context.beginPath();
-  context.arc(x(frame.ball.x), y(frame.ball.y) - lift, Math.max(3, scale * 0.4), 0, Math.PI * 2);
-  context.fill();
-  context.strokeStyle = "#111111";
-  context.stroke();
-}
 
 function ReplayUnavailable({ messageKey, onClose }: { messageKey: string; onClose?: () => void }) {
   const { t } = useTranslation();
@@ -117,8 +70,11 @@ export default function M12ReplayViewer({
   readOnly = false,
   playerNames,
   homePlayerIds,
+  teams = [],
 }: M12ReplayViewerProps) {
   const { t } = useTranslation();
+  const tabsId = useId();
+  const [view, setView] = useState<ViewId>("pitch");
   const parsed = useMemo(() => parseM12Replay(replayJson), [replayJson]);
   const replay = parsed.ok ? parsed.replay : null;
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -144,6 +100,15 @@ export default function M12ReplayViewer({
   );
   const homeOnPitch = onPitch.filter((player) => player.side === "home").length;
   const awayOnPitch = onPitch.length - homeOnPitch;
+  const feed = useMemo(() => (replay ? buildFeed(replay) : []), [replay]);
+  // The goal crossed in the last few seconds of replay time, to announce it and light its goal.
+  const recentGoal = useMemo(() => {
+    if (!replay) return null;
+    const goals = replay.events.filter((event) => event.type === "goal" && event.t_ms <= time);
+    const last = goals[goals.length - 1];
+    return last && time - last.t_ms <= GOAL_BANNER_MS ? last : null;
+  }, [replay, time]);
+  const flashGoalX = recentGoal?.position ? (recentGoal.position.x < 52.5 ? 0 : 105) : undefined;
 
   useEffect(() => {
     if (!playing || !replay || time >= end) return;
@@ -168,8 +133,8 @@ export default function M12ReplayViewer({
     const context = canvas.current.getContext("2d");
     if (!context) return;
     context.scale(ratio, ratio);
-    drawPitch(context, width, height, frame, onPitch);
-  }, [frame, onPitch]);
+    drawPitch(context, width, height, { frame, onPitch, flashGoalX });
+  }, [frame, onPitch, flashGoalX]);
 
   useEffect(() => {
     render();
@@ -201,41 +166,96 @@ export default function M12ReplayViewer({
     );
   }
 
-  const nameOf = (playerId: string | undefined): string | undefined =>
-    playerId === undefined ? undefined : (playerNames?.[playerId] ?? playerId);
-  const describeEvent = (event: ReplayEvent): string => {
-    const label = isKnownReplayEventType(event.type)
-      ? t(`match.replayEventType.${event.type}`)
-      : event.type.replace(/_/g, " ");
-    const subject =
-      event.type === "substitution" && event.player_off && event.player_on
-        ? `${nameOf(event.player_off)} → ${nameOf(event.player_on)}`
-        : nameOf(eventPlayerId(event));
-    return `${Math.floor(event.t_ms / 60_000)}' · ${label}${subject ? ` · ${subject}` : ""}`;
+  const teamNames = {
+    home: resolveReplayTeamName(replay.home_team, teams) ?? t("match.replayTeam.home"),
+    away: resolveReplayTeamName(replay.away_team, teams) ?? t("match.replayTeam.away"),
   };
-  const events = replay.events.filter((event) => event.t_ms <= time).slice(-VISIBLE_EVENTS);
+  // An id is never shown: a player the game cannot name is "a player".
+  const nameOf = (playerId: string | undefined): string =>
+    (playerId !== undefined ? playerNames?.[playerId] : undefined) ??
+    t("match.replayUnknownPlayer");
+  const minute = Math.floor(time / 60_000);
+  const entries = feedAt(feed, time, VISIBLE_EVENTS);
+  const header = (
+    <div className="flex items-center justify-between py-3 font-heading text-title uppercase tracking-label">
+      <span>
+        {teamNames.home} {frame.score.home} – {frame.score.away} {teamNames.away}
+      </span>
+      <span>{minute}'</span>
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-page p-4 text-fg">
-      <section className="mx-auto max-w-6xl rounded border border-line bg-panel p-4">
-        <header className="mb-3 flex items-center justify-between font-heading text-title uppercase tracking-label">
-          <span>
-            {replay.home_team} {frame.score.home} – {frame.score.away} {replay.away_team}
-          </span>
-          <span>{Math.floor(time / 60_000)}'</span>
-        </header>
-        <canvas
-          ref={canvas}
-          aria-label={t("match.replayPitch")}
-          className="h-[60vh] min-h-72 w-full rounded bg-sunken"
+    <MatchScreenLayout
+      header={header}
+      headerContentClassName="max-w-7xl"
+      contentClassName="px-6 py-4"
+    >
+      <section className="mx-auto max-w-7xl rounded border border-line bg-panel p-4 text-fg">
+        {recentGoal ? (
+          <p
+            role="status"
+            className="mb-3 rounded bg-warning-tint px-3 py-2 text-center font-heading text-heading font-bold uppercase tracking-label"
+          >
+            {t("match.replayGoalBanner", {
+              player: nameOf(recentGoal.scorer),
+              minute: Math.floor(recentGoal.t_ms / 60_000),
+            })}
+          </p>
+        ) : null}
+        <Tabs
+          idPrefix={tabsId}
+          label={t("match.replayViews")}
+          tabs={VIEWS.map((id) => ({ id, label: t(`match.replayTab.${id}`) }))}
+          selectedId={view}
+          onSelect={(id) => setView(id as ViewId)}
         />
-        <p className="mt-2 text-caption text-fg-muted" data-testid="replay-players-on-pitch">
-          {t("match.replayPlayersOnPitch", {
-            home: homeOnPitch,
-            away: awayOnPitch,
-            total: onPitch.length,
-          })}
-        </p>
+        <TabPanel idPrefix={tabsId} tabId="pitch" hidden={view !== "pitch"} className="pt-3">
+          <canvas
+            ref={canvas}
+            aria-label={t("match.replayPitch")}
+            className="h-[68vh] min-h-96 w-full rounded bg-sunken"
+          />
+          <p className="mt-2 text-caption text-fg-muted" data-testid="replay-players-on-pitch">
+            {t("match.replayPlayersOnPitch", {
+              home: homeOnPitch,
+              away: awayOnPitch,
+              total: onPitch.length,
+            })}
+          </p>
+        </TabPanel>
+        <TabPanel
+          idPrefix={tabsId}
+          tabId="condition"
+          hidden={view !== "condition"}
+          className="pt-3"
+        >
+          {view === "condition" ? (
+            <ReplayConditionPanel
+              entries={conditionsAt(replay, frame, homePlayerIds)}
+              teamNames={teamNames}
+              nameOf={nameOf}
+            />
+          ) : null}
+        </TabPanel>
+        <TabPanel idPrefix={tabsId} tabId="stats" hidden={view !== "stats"} className="pt-3">
+          {view === "stats" ? (
+            <ReplayStatsPanel
+              stats={statsAt(replay, time, frame, homePlayerIds)}
+              teamNames={teamNames}
+              minute={minute}
+            />
+          ) : null}
+        </TabPanel>
+        <TabPanel idPrefix={tabsId} tabId="lineup" hidden={view !== "lineup"} className="pt-3">
+          {view === "lineup" ? (
+            <ReplayLineupPanel
+              lineup={lineupAt(replay, frame, time, homePlayerIds)}
+              teamNames={teamNames}
+              nameOf={nameOf}
+            />
+          ) : null}
+        </TabPanel>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -288,12 +308,10 @@ export default function M12ReplayViewer({
             {t("match.m12SimulationFailed")}
           </p>
         )}
-        <ul aria-live="polite" className="mt-3 text-body text-fg-muted">
-          {events.map((event, index) => (
-            <li key={`${event.t_ms}-${index}`}>{describeEvent(event)}</li>
-          ))}
-        </ul>
+        <div className="mt-4 border-t border-line pt-3">
+          <ReplayEventFeed entries={entries} teamNames={teamNames} nameOf={nameOf} />
+        </div>
       </section>
-    </main>
+    </MatchScreenLayout>
   );
 }

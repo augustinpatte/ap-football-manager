@@ -542,6 +542,21 @@ mod tests {
         assert!(has_condition(&recorded_doc));
     }
 
+    /// Writes the real M12 replay document of the complete fixture to `APFM_REPLAY_OUT`, for the
+    /// viewer's real-data validation (`APFM_REAL_REPLAY` in `src/components/match`). Not a test of
+    /// anything: it is the way to obtain a genuine document, and is ignored unless asked for.
+    #[test]
+    #[ignore = "writes a file: set APFM_REPLAY_OUT to the destination"]
+    fn export_a_real_replay_for_the_viewer_validation() {
+        let Some(out) = std::env::var_os("APFM_REPLAY_OUT") else {
+            return;
+        };
+        let game = game_with_complete_m12_fixture();
+        let replay = build_selected_fixture_replay(&game, 0, "competition-m12-1", "fixture-m12-1")
+            .expect("M12 runs");
+        std::fs::write(out, replay.replay_json).expect("the replay is written");
+    }
+
     /// Given the three ways preparing a 2D match can fail
     /// When they are reported to the player
     /// Then each has its own translation key and technical code, never the generic

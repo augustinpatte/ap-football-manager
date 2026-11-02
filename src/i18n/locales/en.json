@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "This replay was saved in a format this version cannot play.",
     "replayNoFrames": "This match has no player-movement data, so it cannot be shown in 2D. Its result and statistics are unaffected.",
     "replayPlayersOnPitch": "Players on the pitch: {{home}} home · {{away}} away ({{total}} in total)",
-    "replayEventType": {
-      "goal": "Goal",
-      "card": "Card",
-      "substitution": "Substitution",
-      "injury": "Injury"
-    },
     "backToSchedule": "Back to schedule",
     "live": "Live",
     "paused": "Paused",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Paused · resumes at {{speed}}",
     "playingAt": "Playing at {{speed}}",
     "spaceKey": "Space",
-    "replayPreparationFailed": "The 2D match could not be prepared. Nothing was changed."
+    "replayPreparationFailed": "The 2D match could not be prepared. Nothing was changed.",
+    "replayViews": "Match views",
+    "replayTab": {
+      "pitch": "2D pitch",
+      "condition": "Condition",
+      "stats": "Statistics",
+      "lineup": "Line-ups and substitutions"
+    },
+    "replayTeam": {
+      "home": "Home",
+      "away": "Away"
+    },
+    "replayUnknownPlayer": "A player",
+    "replayGoalBanner": "Goal! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Match events",
+    "replayFeed": {
+      "kickoff": "Kick-off",
+      "halfTime": "Half time",
+      "secondHalfStart": "Second half begins",
+      "fullTime": "Full time",
+      "goal": "Goal: {{player}}",
+      "ownGoal": "Own goal: {{player}}",
+      "shotSaved": "Shot saved: {{player}}",
+      "shotOffTarget": "Shot wide: {{player}}",
+      "shotBlocked": "Shot blocked: {{player}}",
+      "woodwork": "Hits the woodwork: {{player}}",
+      "yellowCard": "Yellow card: {{player}}",
+      "secondYellow": "Second yellow, sent off: {{player}}",
+      "redCard": "Red card: {{player}}",
+      "substitution": "Substitution: {{player}} on for {{other}}",
+      "injury": "Injury: {{player}}",
+      "corner": "Corner",
+      "foul": "Foul by {{player}}",
+      "offside": "Offside: {{player}}"
+    },
+    "replayStats": {
+      "title": "Statistics up to minute {{minute}}",
+      "possession": "Possession",
+      "goals": "Goals",
+      "shots": "Shots",
+      "shotsOnTarget": "Shots on target",
+      "corners": "Corners",
+      "fouls": "Fouls",
+      "offsides": "Offsides",
+      "yellowCards": "Yellow cards",
+      "redCards": "Red cards"
+    },
+    "replayCondition": {
+      "title": "Player condition",
+      "hint": "100 is fully fresh. Recorded by the match engine every second.",
+      "none": "Player condition was not recorded for this replay."
+    },
+    "replayLineup": {
+      "onPitch": "On the pitch",
+      "bench": "Bench",
+      "gone": "Left the match",
+      "substituted": "substituted",
+      "sentOff": "sent off",
+      "replayOnly": "This is a replay of a finished simulation. Tactics and substitutions are decided in a live match; nothing done here changes the result."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Season Complete",

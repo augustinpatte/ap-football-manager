@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Этот повтор сохранён в формате, который эта версия не может воспроизвести.",
     "replayNoFrames": "У этого матча нет данных о перемещении игроков, поэтому показать его в 2D нельзя. Результат и статистика не затронуты.",
     "replayPlayersOnPitch": "Игроков на поле: {{home}} хозяев · {{away}} гостей (всего {{total}})",
-    "replayEventType": {
-      "goal": "Гол",
-      "card": "Карточка",
-      "substitution": "Замена",
-      "injury": "Травма"
-    },
     "backToSchedule": "К расписанию",
     "live": "Матч",
     "paused": "Пауза",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Пауза · продолжится: {{speed}}",
     "playingAt": "Идёт: {{speed}}",
     "spaceKey": "Пробел",
-    "replayPreparationFailed": "Не удалось подготовить матч в 2D. Ничего не изменено."
+    "replayPreparationFailed": "Не удалось подготовить матч в 2D. Ничего не изменено.",
+    "replayViews": "Виды матча",
+    "replayTab": {
+      "pitch": "2D-поле",
+      "condition": "Состояние",
+      "stats": "Статистика",
+      "lineup": "Составы и замены"
+    },
+    "replayTeam": {
+      "home": "Хозяева",
+      "away": "Гости"
+    },
+    "replayUnknownPlayer": "Игрок",
+    "replayGoalBanner": "Гол! {{player}} · {{minute}}'",
+    "replayFeedTitle": "События матча",
+    "replayFeed": {
+      "kickoff": "Начало матча",
+      "halfTime": "Перерыв",
+      "secondHalfStart": "Начало второго тайма",
+      "fullTime": "Конец матча",
+      "goal": "Гол: {{player}}",
+      "ownGoal": "Автогол: {{player}}",
+      "shotSaved": "Удар отражён: {{player}}",
+      "shotOffTarget": "Удар мимо: {{player}}",
+      "shotBlocked": "Удар заблокирован: {{player}}",
+      "woodwork": "Штанга или перекладина: {{player}}",
+      "yellowCard": "Жёлтая карточка: {{player}}",
+      "secondYellow": "Вторая жёлтая, удалён: {{player}}",
+      "redCard": "Красная карточка: {{player}}",
+      "substitution": "Замена: {{player}} вместо {{other}}",
+      "injury": "Травма: {{player}}",
+      "corner": "Угловой",
+      "foul": "Фол: {{player}}",
+      "offside": "Офсайд: {{player}}"
+    },
+    "replayStats": {
+      "title": "Статистика до {{minute}}-й минуты",
+      "possession": "Владение мячом",
+      "goals": "Голы",
+      "shots": "Удары",
+      "shotsOnTarget": "Удары в створ",
+      "corners": "Угловые",
+      "fouls": "Фолы",
+      "offsides": "Офсайды",
+      "yellowCards": "Жёлтые карточки",
+      "redCards": "Красные карточки"
+    },
+    "replayCondition": {
+      "title": "Состояние игроков",
+      "hint": "100 — полностью свеж. Движок записывает значение каждую секунду.",
+      "none": "Состояние игроков для этого повтора не записывалось."
+    },
+    "replayLineup": {
+      "onPitch": "На поле",
+      "bench": "Скамейка",
+      "gone": "Покинули матч",
+      "substituted": "заменён",
+      "sentOff": "удалён",
+      "replayOnly": "Это повтор завершённой симуляции. Тактика и замены решаются в матче в реальном времени; ничто здесь не изменит результат."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Сезон завершён",

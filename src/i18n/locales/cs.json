@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Tento záznam byl uložen ve formátu, který tato verze nedokáže přehrát.",
     "replayNoFrames": "Tento zápas neobsahuje data o pohybu hráčů, a nelze jej proto zobrazit ve 2D. Výsledek ani statistiky to neovlivní.",
     "replayPlayersOnPitch": "Hráči na hřišti: {{home}} domácí · {{away}} hosté (celkem {{total}})",
-    "replayEventType": {
-      "goal": "Gól",
-      "card": "Karta",
-      "substitution": "Střídání",
-      "injury": "Zranění"
-    },
     "backToSchedule": "Zpět na rozpis",
     "live": "Živě",
     "paused": "Pozastaveno",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Pozastaveno · pokračuje: {{speed}}",
     "playingAt": "Běží: {{speed}}",
     "spaceKey": "Mezerník",
-    "replayPreparationFailed": "Zápas ve 2D se nepodařilo připravit. Nic se nezměnilo."
+    "replayPreparationFailed": "Zápas ve 2D se nepodařilo připravit. Nic se nezměnilo.",
+    "replayViews": "Pohledy na zápas",
+    "replayTab": {
+      "pitch": "2D hřiště",
+      "condition": "Kondice",
+      "stats": "Statistiky",
+      "lineup": "Sestavy a střídání"
+    },
+    "replayTeam": {
+      "home": "Domácí",
+      "away": "Hosté"
+    },
+    "replayUnknownPlayer": "Hráč",
+    "replayGoalBanner": "Gól! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Události zápasu",
+    "replayFeed": {
+      "kickoff": "Výkop",
+      "halfTime": "Poločas",
+      "secondHalfStart": "Začátek druhého poločasu",
+      "fullTime": "Konec zápasu",
+      "goal": "Gól: {{player}}",
+      "ownGoal": "Vlastní gól: {{player}}",
+      "shotSaved": "Střela chycena: {{player}}",
+      "shotOffTarget": "Střela mimo: {{player}}",
+      "shotBlocked": "Střela zblokována: {{player}}",
+      "woodwork": "Tyč nebo břevno: {{player}}",
+      "yellowCard": "Žlutá karta: {{player}}",
+      "secondYellow": "Druhá žlutá, vyloučen: {{player}}",
+      "redCard": "Červená karta: {{player}}",
+      "substitution": "Střídání: {{player}} za {{other}}",
+      "injury": "Zranění: {{player}}",
+      "corner": "Roh",
+      "foul": "Faul: {{player}}",
+      "offside": "Ofsajd: {{player}}"
+    },
+    "replayStats": {
+      "title": "Statistiky do {{minute}}. minuty",
+      "possession": "Držení míče",
+      "goals": "Góly",
+      "shots": "Střely",
+      "shotsOnTarget": "Střely na branku",
+      "corners": "Rohy",
+      "fouls": "Fauly",
+      "offsides": "Ofsajdy",
+      "yellowCards": "Žluté karty",
+      "redCards": "Červené karty"
+    },
+    "replayCondition": {
+      "title": "Kondice hráčů",
+      "hint": "100 znamená plně odpočatý. Zaznamenáváno simulací každou sekundu.",
+      "none": "Kondice hráčů se u tohoto záznamu nezaznamenávala."
+    },
+    "replayLineup": {
+      "onPitch": "Na hřišti",
+      "bench": "Lavička",
+      "gone": "Opustili zápas",
+      "substituted": "střídán",
+      "sentOff": "vyloučen",
+      "replayOnly": "Toto je záznam dokončené simulace. Taktika a střídání se rozhodují v živém zápase; nic zde výsledek nezmění."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Sezóna dokončena",

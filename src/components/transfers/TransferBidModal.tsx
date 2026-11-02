@@ -181,185 +181,176 @@ export function TransferBidForm({
             className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
           <fieldset
-              className="mb-3 rounded-lg border border-line bg-sunken p-3"
-              disabled={bidLoading || bidResult === "accepted"}
-            >
-              <legend className="px-1 text-caption font-heading font-bold uppercase tracking-label text-fg-muted">
-                {t("transfers.terms.title")}
-              </legend>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="bid-instalments"
-                    className="text-caption text-fg-muted block mb-1"
-                  >
-                    {t("transfers.terms.instalments")}
-                  </label>
-                  <Select
-                    id="bid-instalments"
-                    selectSize="sm"
-                    fullWidth
-                    value={bidTerms.instalments}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, instalments: event.target.value })
-                    }
-                  >
-                    {Array.from({ length: MAX_INSTALMENTS }, (_, index) => (
-                      <option key={index + 1} value={String(index + 1)}>
-                        {index === 0
-                          ? t("transfers.terms.instalmentsSingle")
-                          : t("transfers.terms.instalmentsCount", { count: index + 1 })}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div>
-                  <label htmlFor="bid-sell-on" className="text-caption text-fg-muted block mb-1">
-                    {t("transfers.terms.sellOn")}
-                  </label>
-                  <input
-                    id="bid-sell-on"
-                    type="number"
-                    min="0"
-                    max={MAX_SELL_ON_PCT}
-                    step="1"
-                    value={bidTerms.sellOnPct}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, sellOnPct: event.target.value })
-                    }
-                    aria-invalid={termsInvalid}
-                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
-                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label htmlFor="bid-bonus" className="text-caption text-fg-muted block mb-1">
-                    {t("transfers.terms.signingBonus")}
-                  </label>
-                  <input
-                    id="bid-bonus"
-                    type="number"
-                    min="0"
-                    step="0.05"
-                    value={bidTerms.signingBonusMillions}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, signingBonusMillions: event.target.value })
-                    }
-                    aria-invalid={termsInvalid}
-                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
-                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
-                  />
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="bid-player-wage"
-                    className="text-caption text-fg-muted block mb-1"
-                  >
-                    {t("transfers.playerTerms.wage")}
-                  </label>
-                  <input
-                    id="bid-player-wage"
-                    type="number"
-                    min="0"
-                    step="100"
-                    placeholder={outlook ? String(outlook.expected_wage) : undefined}
-                    value={bidTerms.playerWage}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, playerWage: event.target.value })
-                    }
-                    aria-invalid={termsInvalid}
-                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
-                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="bid-player-years"
-                    className="text-caption text-fg-muted block mb-1"
-                  >
-                    {t("transfers.playerTerms.years")}
-                  </label>
-                  <input
-                    id="bid-player-years"
-                    type="number"
-                    min="0"
-                    max={MAX_PLAYER_CONTRACT_YEARS}
-                    step="1"
-                    placeholder={outlook ? String(outlook.expected_years) : undefined}
-                    value={bidTerms.playerYears}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, playerYears: event.target.value })
-                    }
-                    aria-invalid={termsInvalid}
-                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
-                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
-                  />
-                </div>
-              </div>
-              {outlook ? (
-                <p role="status" className="mt-2 text-caption text-fg-muted">
-                  {t(
-                    outlook.interest === "keen"
-                      ? "transfers.playerTerms.outlookKeen"
-                      : outlook.interest === "hesitant"
-                        ? "transfers.playerTerms.outlookHesitant"
-                        : "transfers.playerTerms.outlookUnlikely",
-                  )}{" "}
-                  {t("transfers.playerTerms.expects", {
-                    wage: formatExactMoney(outlook.expected_wage),
-                    years: outlook.expected_years,
-                  })}
-                </p>
-              ) : null}
-              {playerAsks ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onBidTermsChange({
-                      ...bidTerms,
-                      playerWage: String(demandedWage),
-                      playerYears: String(demandedYears),
-                    })
+            className="mb-3 rounded-lg border border-line bg-sunken p-3"
+            disabled={bidLoading || bidResult === "accepted"}
+          >
+            <legend className="px-1 text-caption font-heading font-bold uppercase tracking-label text-fg-muted">
+              {t("transfers.terms.title")}
+            </legend>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="bid-instalments" className="text-caption text-fg-muted block mb-1">
+                  {t("transfers.terms.instalments")}
+                </label>
+                <Select
+                  id="bid-instalments"
+                  selectSize="sm"
+                  fullWidth
+                  value={bidTerms.instalments}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, instalments: event.target.value })
                   }
-                  className="mt-2 rounded-lg bg-primary-700 px-3 py-1.5 text-caption font-heading font-bold uppercase tracking-label text-white hover:bg-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken"
                 >
-                  {t("transfers.playerTerms.meetTerms")}
-                </button>
-              ) : null}
-              {bidProjection?.stepping_stone_available ? (
-                <div className="mt-3 flex items-start gap-3">
-                  <Checkbox
-                    id="bid-promise"
-                    checked={bidTerms.promise}
-                    onChange={(event) =>
-                      onBidTermsChange({ ...bidTerms, promise: event.target.checked })
-                    }
-                    aria-describedby="bid-promise-hint"
-                  />
-                  <div>
-                    <label htmlFor="bid-promise" className="text-body font-semibold text-fg">
-                      {t("transfers.promise.label")}
-                    </label>
-                    <p id="bid-promise-hint" className="text-caption text-fg-muted">
-                      {t("transfers.promise.bidHint")}
-                    </p>
-                  </div>
+                  {Array.from({ length: MAX_INSTALMENTS }, (_, index) => (
+                    <option key={index + 1} value={String(index + 1)}>
+                      {index === 0
+                        ? t("transfers.terms.instalmentsSingle")
+                        : t("transfers.terms.instalmentsCount", { count: index + 1 })}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="bid-sell-on" className="text-caption text-fg-muted block mb-1">
+                  {t("transfers.terms.sellOn")}
+                </label>
+                <input
+                  id="bid-sell-on"
+                  type="number"
+                  min="0"
+                  max={MAX_SELL_ON_PCT}
+                  step="1"
+                  value={bidTerms.sellOnPct}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, sellOnPct: event.target.value })
+                  }
+                  aria-invalid={termsInvalid}
+                  aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                  className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                />
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="bid-bonus" className="text-caption text-fg-muted block mb-1">
+                  {t("transfers.terms.signingBonus")}
+                </label>
+                <input
+                  id="bid-bonus"
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  value={bidTerms.signingBonusMillions}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, signingBonusMillions: event.target.value })
+                  }
+                  aria-invalid={termsInvalid}
+                  aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                  className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="bid-player-wage" className="text-caption text-fg-muted block mb-1">
+                  {t("transfers.playerTerms.wage")}
+                </label>
+                <input
+                  id="bid-player-wage"
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder={outlook ? String(outlook.expected_wage) : undefined}
+                  value={bidTerms.playerWage}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, playerWage: event.target.value })
+                  }
+                  aria-invalid={termsInvalid}
+                  aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                  className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label htmlFor="bid-player-years" className="text-caption text-fg-muted block mb-1">
+                  {t("transfers.playerTerms.years")}
+                </label>
+                <input
+                  id="bid-player-years"
+                  type="number"
+                  min="0"
+                  max={MAX_PLAYER_CONTRACT_YEARS}
+                  step="1"
+                  placeholder={outlook ? String(outlook.expected_years) : undefined}
+                  value={bidTerms.playerYears}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, playerYears: event.target.value })
+                  }
+                  aria-invalid={termsInvalid}
+                  aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                  className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                />
+              </div>
+            </div>
+            {outlook ? (
+              <p role="status" className="mt-2 text-caption text-fg-muted">
+                {t(
+                  outlook.interest === "keen"
+                    ? "transfers.playerTerms.outlookKeen"
+                    : outlook.interest === "hesitant"
+                      ? "transfers.playerTerms.outlookHesitant"
+                      : "transfers.playerTerms.outlookUnlikely",
+                )}{" "}
+                {t("transfers.playerTerms.expects", {
+                  wage: formatExactMoney(outlook.expected_wage),
+                  years: outlook.expected_years,
+                })}
+              </p>
+            ) : null}
+            {playerAsks ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onBidTermsChange({
+                    ...bidTerms,
+                    playerWage: String(demandedWage),
+                    playerYears: String(demandedYears),
+                  })
+                }
+                className="mt-2 rounded-lg bg-primary-700 px-3 py-1.5 text-caption font-heading font-bold uppercase tracking-label text-white hover:bg-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken"
+              >
+                {t("transfers.playerTerms.meetTerms")}
+              </button>
+            ) : null}
+            {bidProjection?.stepping_stone_available ? (
+              <div className="mt-3 flex items-start gap-3">
+                <Checkbox
+                  id="bid-promise"
+                  checked={bidTerms.promise}
+                  onChange={(event) =>
+                    onBidTermsChange({ ...bidTerms, promise: event.target.checked })
+                  }
+                  aria-describedby="bid-promise-hint"
+                />
+                <div>
+                  <label htmlFor="bid-promise" className="text-body font-semibold text-fg">
+                    {t("transfers.promise.label")}
+                  </label>
+                  <p id="bid-promise-hint" className="text-caption text-fg-muted">
+                    {t("transfers.promise.bidHint")}
+                  </p>
                 </div>
-              ) : null}
-              {termsInvalid ? (
-                <p id="bid-terms-error" role="alert" className="mt-2 text-caption text-danger">
-                  {t("transfers.terms.invalid", {
-                    instalments: MAX_INSTALMENTS,
-                    sellOn: MAX_SELL_ON_PCT,
-                  })}
-                </p>
-              ) : (
-                <p className="mt-2 text-caption text-fg-muted">
-                  {t("transfers.terms.hint")} {t("transfers.playerTerms.hint")}
-                </p>
-              )}
+              </div>
+            ) : null}
+            {termsInvalid ? (
+              <p id="bid-terms-error" role="alert" className="mt-2 text-caption text-danger">
+                {t("transfers.terms.invalid", {
+                  instalments: MAX_INSTALMENTS,
+                  sellOn: MAX_SELL_ON_PCT,
+                })}
+              </p>
+            ) : (
+              <p className="mt-2 text-caption text-fg-muted">
+                {t("transfers.terms.hint")} {t("transfers.playerTerms.hint")}
+              </p>
+            )}
           </fieldset>
           {myTeam && bidFee !== null && bidProjection ? (
             <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
@@ -475,7 +466,9 @@ export function TransferBidForm({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={bidSubmitDisabled || pendingRegistration || dealRestrictionOf(bidTarget) !== null}
+            disabled={
+              bidSubmitDisabled || pendingRegistration || dealRestrictionOf(bidTarget) !== null
+            }
             className="flex-1 py-2 bg-primary-700 hover:bg-primary-800 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
           >
             {bidLoading

@@ -9,23 +9,62 @@ export type FramePlayer = {
   on_pitch: boolean;
 };
 
+/** What M12 records about one player on the pitch (`m11.replay_interval_ms`): `cond` is 0-100, 100 fresh. */
+export type FrameAgent = { id: string; cond: number; act: number };
+
+export type FrameExtras = { phase: [number, number]; agents: FrameAgent[] };
+
 export type ReplayFrame = {
   t_ms: number;
   period: string;
   ball: { x: number; y: number; z: number };
   score: { home: number; away: number };
   players: FramePlayer[];
+  /** The player on the ball; absent while it is free or in flight. */
+  possession?: string | null;
+  /** Absent in a replay recorded before conditions were sampled. */
+  extras?: FrameExtras | null;
 };
 
 export type ReplayEvent = {
   t_ms: number;
   type: string;
+  period?: string;
   side?: string;
   scorer?: string;
+  assist?: string | null;
+  own_goal?: boolean;
   player?: string;
   player_off?: string;
   player_on?: string;
   colour?: string;
+  outcome?: string;
+  offender?: string;
+  victim?: string;
+  /** Where on the pitch it happened, in metres; a goal's is the goal line it crossed. */
+  position?: { x: number; y: number };
+};
+
+/** The engine's own full-time totals for a side. */
+export type TeamTotals = {
+  possession_pct: number;
+  shots: number;
+  shots_on_target: number;
+  corners: number;
+  fouls: number;
+  offsides: number;
+  yellow_cards: number;
+  red_cards: number;
+};
+
+export type PlayerTotals = {
+  id: string;
+  minutes_played: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  distance_m: number;
+  sprints: number;
 };
 
 export type Replay = {
@@ -35,6 +74,9 @@ export type Replay = {
   roster: string[];
   frames: ReplayFrame[];
   events: ReplayEvent[];
+  home_stats?: TeamTotals;
+  away_stats?: TeamTotals;
+  player_stats?: PlayerTotals[];
 };
 
 /** Why a stored document cannot be played. Each reason has its own player-facing message. */
@@ -137,6 +179,9 @@ export function parseM12Replay(source: string): ReplayParseResult {
       roster,
       frames,
       events,
+      home_stats: replay.home_stats,
+      away_stats: replay.away_stats,
+      player_stats: Array.isArray(replay.player_stats) ? replay.player_stats : undefined,
     },
   };
 }
@@ -205,19 +250,4 @@ export function playersOnPitch(
     });
   });
   return result;
-}
-
-// Only the event types the M12 output contract names (spatial_match_output.rs tests) are
-// translated; any other type is shown as the engine spelled it rather than guessed at.
-export const REPLAY_EVENT_TYPES = ["goal", "card", "substitution", "injury"] as const;
-
-export type KnownReplayEventType = (typeof REPLAY_EVENT_TYPES)[number];
-
-export function isKnownReplayEventType(type: string): type is KnownReplayEventType {
-  return (REPLAY_EVENT_TYPES as readonly string[]).includes(type);
-}
-
-/** The player an event is mainly about, for the name shown next to it. */
-export function eventPlayerId(event: ReplayEvent): string | undefined {
-  return event.scorer ?? event.player ?? event.player_on;
 }

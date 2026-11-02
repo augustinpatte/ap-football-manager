@@ -143,7 +143,8 @@
     "staff.posts.Scout",
     "staff.posts.Analyst",
     "staff.delegation.title",
-    "staff.delegation.duties.Training"
+    "staff.delegation.duties.Training",
+    "match.replayStats.fouls"
   ],
   "fr": [
     "match.formationFit",
@@ -268,7 +269,10 @@
     "packageBuild.patches",
     "staff.mgmt.vacant",
     "staff.assistant.severity.2",
-    "staff.assistant.severity.3"
+    "staff.assistant.severity.3",
+    "match.replayFeed.corner",
+    "match.replayStats.possession",
+    "match.replayStats.corners"
   ],
   "it": [
     "nations.ru",
@@ -734,6 +738,8 @@
     "youthAcademy.traits",
     "tournaments.history.runnerUp",
     "tournaments.history.final",
-    "staff.delegation.mode.manual"
+    "staff.delegation.mode.manual",
+    "match.replayFeed.kickoff",
+    "match.replayFeed.offside"
   ]
 }

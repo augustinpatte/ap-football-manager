@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "此回放的保存格式无法被当前版本播放。",
     "replayNoFrames": "这场比赛没有球员移动数据，因此无法以 2D 显示。比赛结果和统计数据不受影响。",
     "replayPlayersOnPitch": "场上球员：主队 {{home}} 人 · 客队 {{away}} 人（共 {{total}} 人）",
-    "replayEventType": {
-      "goal": "进球",
-      "card": "红黄牌",
-      "substitution": "换人",
-      "injury": "伤病"
-    },
     "backToSchedule": "返回赛程",
     "live": "直播中",
     "paused": "已暂停",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "已暂停 · 将以{{speed}}继续",
     "playingAt": "正在以{{speed}}进行",
     "spaceKey": "空格",
-    "replayPreparationFailed": "无法准备 2D 比赛。未做任何更改。"
+    "replayPreparationFailed": "无法准备 2D 比赛。未做任何更改。",
+    "replayViews": "比赛视图",
+    "replayTab": {
+      "pitch": "2D 球场",
+      "condition": "体能状态",
+      "stats": "统计",
+      "lineup": "阵容与换人"
+    },
+    "replayTeam": {
+      "home": "主队",
+      "away": "客队"
+    },
+    "replayUnknownPlayer": "一名球员",
+    "replayGoalBanner": "进球！{{player}} · {{minute}}'",
+    "replayFeedTitle": "比赛事件",
+    "replayFeed": {
+      "kickoff": "开球",
+      "halfTime": "中场休息",
+      "secondHalfStart": "下半场开始",
+      "fullTime": "全场结束",
+      "goal": "进球：{{player}}",
+      "ownGoal": "乌龙球：{{player}}",
+      "shotSaved": "射门被扑出：{{player}}",
+      "shotOffTarget": "射门偏出：{{player}}",
+      "shotBlocked": "射门被封堵：{{player}}",
+      "woodwork": "击中门框：{{player}}",
+      "yellowCard": "黄牌：{{player}}",
+      "secondYellow": "两黄变红被罚下：{{player}}",
+      "redCard": "红牌：{{player}}",
+      "substitution": "换人：{{player}} 替换 {{other}}",
+      "injury": "受伤：{{player}}",
+      "corner": "角球",
+      "foul": "{{player}} 犯规",
+      "offside": "越位：{{player}}"
+    },
+    "replayStats": {
+      "title": "截至第 {{minute}} 分钟的统计",
+      "possession": "控球率",
+      "goals": "进球",
+      "shots": "射门",
+      "shotsOnTarget": "射正",
+      "corners": "角球",
+      "fouls": "犯规",
+      "offsides": "越位",
+      "yellowCards": "黄牌",
+      "redCards": "红牌"
+    },
+    "replayCondition": {
+      "title": "球员体能状态",
+      "hint": "100 表示体力充沛。比赛引擎每秒记录一次。",
+      "none": "此回放未记录球员体能状态。"
+    },
+    "replayLineup": {
+      "onPitch": "场上",
+      "bench": "替补席",
+      "gone": "已离场",
+      "substituted": "被换下",
+      "sentOff": "被罚下",
+      "replayOnly": "这是已完成模拟的回放。战术与换人需在实时比赛中决定；此处的任何操作都不会改变结果。"
+    }
   },
   "endOfSeason": {
     "seasonComplete": "赛季结束",

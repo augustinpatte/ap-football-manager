@@ -2186,12 +2186,6 @@
     "replayUnsupportedSchema": "Tayangan ulang ini disimpan dalam format yang tidak bisa diputar oleh versi ini.",
     "replayNoFrames": "Pertandingan ini tidak memiliki data pergerakan pemain, sehingga tidak dapat ditampilkan dalam 2D. Hasil dan statistiknya tidak terpengaruh.",
     "replayPlayersOnPitch": "Pemain di lapangan: {{home}} tuan rumah · {{away}} tamu (total {{total}})",
-    "replayEventType": {
-      "goal": "Gol",
-      "card": "Kartu",
-      "substitution": "Pergantian pemain",
-      "injury": "Cedera"
-    },
     "backToSchedule": "Kembali ke jadwal",
     "live": "Langsung",
     "paused": "Dijeda",
@@ -2844,7 +2838,66 @@
     "pausedResumesAt": "Dijeda · lanjut dengan {{speed}}",
     "playingAt": "Berjalan dengan {{speed}}",
     "spaceKey": "Spasi",
-    "replayPreparationFailed": "Pertandingan 2D tidak dapat disiapkan. Tidak ada yang diubah."
+    "replayPreparationFailed": "Pertandingan 2D tidak dapat disiapkan. Tidak ada yang diubah.",
+    "replayViews": "Tampilan pertandingan",
+    "replayTab": {
+      "pitch": "Lapangan 2D",
+      "condition": "Kondisi",
+      "stats": "Statistik",
+      "lineup": "Susunan pemain dan pergantian"
+    },
+    "replayTeam": {
+      "home": "Tuan rumah",
+      "away": "Tamu"
+    },
+    "replayUnknownPlayer": "Seorang pemain",
+    "replayGoalBanner": "Gol! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Peristiwa pertandingan",
+    "replayFeed": {
+      "kickoff": "Kick-off",
+      "halfTime": "Babak pertama usai",
+      "secondHalfStart": "Babak kedua dimulai",
+      "fullTime": "Pertandingan usai",
+      "goal": "Gol: {{player}}",
+      "ownGoal": "Gol bunuh diri: {{player}}",
+      "shotSaved": "Tembakan ditepis: {{player}}",
+      "shotOffTarget": "Tembakan melebar: {{player}}",
+      "shotBlocked": "Tembakan diblok: {{player}}",
+      "woodwork": "Mengenai tiang gawang: {{player}}",
+      "yellowCard": "Kartu kuning: {{player}}",
+      "secondYellow": "Kuning kedua, diusir: {{player}}",
+      "redCard": "Kartu merah: {{player}}",
+      "substitution": "Pergantian: {{player}} masuk menggantikan {{other}}",
+      "injury": "Cedera: {{player}}",
+      "corner": "Tendangan sudut",
+      "foul": "Pelanggaran oleh {{player}}",
+      "offside": "Offside: {{player}}"
+    },
+    "replayStats": {
+      "title": "Statistik hingga menit ke-{{minute}}",
+      "possession": "Penguasaan bola",
+      "goals": "Gol",
+      "shots": "Tembakan",
+      "shotsOnTarget": "Tembakan tepat sasaran",
+      "corners": "Tendangan sudut",
+      "fouls": "Pelanggaran",
+      "offsides": "Offside",
+      "yellowCards": "Kartu kuning",
+      "redCards": "Kartu merah"
+    },
+    "replayCondition": {
+      "title": "Kondisi pemain",
+      "hint": "100 berarti sangat segar. Dicatat oleh mesin pertandingan setiap detik.",
+      "none": "Kondisi pemain tidak direkam untuk tayangan ulang ini."
+    },
+    "replayLineup": {
+      "onPitch": "Di lapangan",
+      "bench": "Bangku cadangan",
+      "gone": "Meninggalkan pertandingan",
+      "substituted": "diganti",
+      "sentOff": "diusir",
+      "replayOnly": "Ini adalah tayangan ulang simulasi yang sudah selesai. Taktik dan pergantian diputuskan dalam pertandingan langsung; tidak ada yang mengubah hasil di sini."
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Musim Selesai",

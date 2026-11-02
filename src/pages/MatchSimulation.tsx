@@ -71,6 +71,15 @@ function snapshotPlayerNames(snapshot: MatchSnapshot): Record<string, string> {
   return Object.fromEntries(everyone.map((player) => [player.id, player.name]));
 }
 
+/** Every player the game knows, so a stored replay (which has no match snapshot) is still named. */
+function gamePlayerNames(
+  players: ReadonlyArray<{ id: string; match_name?: string; full_name: string }>,
+): Record<string, string> {
+  return Object.fromEntries(
+    players.map((player) => [player.id, player.match_name || player.full_name]),
+  );
+}
+
 function snapshotHomePlayerIds(snapshot: MatchSnapshot): ReadonlySet<string> {
   return new Set([...snapshot.home_team.players, ...snapshot.home_bench].map((p) => p.id));
 }
@@ -466,7 +475,8 @@ export default function MatchSimulation() {
         readOnly={spatialReplay.readOnly}
         onFinish={spatialReplay.readOnly ? closeReplay : finishSpatialReplay}
         onBack={closeReplay}
-        playerNames={snapshotPlayerNames(snapshot)}
+        playerNames={{ ...gamePlayerNames(gameState.players), ...snapshotPlayerNames(snapshot) }}
+        teams={gameState.teams}
         homePlayerIds={spatialReplay.readOnly ? undefined : snapshotHomePlayerIds(snapshot)}
       />
     );
