@@ -186,6 +186,10 @@ pub const PROPOSAL_CAPACITY: usize = 24;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DelegationState {
     pub settings: Vec<DutySetting>,
+    /// Duty settings before the manager temporarily takes every responsibility back. Restored on
+    /// the next preset so a manual pause does not erase deliberate per-duty choices.
+    #[serde(default)]
+    pub suspended_settings: Option<Vec<DutySetting>>,
     #[serde(default)]
     pub proposals: Vec<Proposal>,
     #[serde(default)]
@@ -216,6 +220,7 @@ impl Default for DelegationState {
                     confirm_major: true,
                 })
                 .collect(),
+            suspended_settings: None,
             proposals: Vec::new(),
             log: Vec::new(),
             last_run: Vec::new(),
@@ -283,17 +288,32 @@ impl DelegationState {
         }
     }
 
-    /// Applies a preset to every duty. `Custom` is a description, not a preset: it changes
-    /// nothing.
+    /// Applies a preset to every duty. A temporary manual pause retains the prior individual
+    /// choices so the next preset resumes them. `Custom` is a description, not a preset.
     pub fn apply_mode(&mut self, mode: DelegationMode) {
-        let (delegated, confirm_major) = match mode {
-            DelegationMode::Manual => (false, true),
-            DelegationMode::Approval => (true, true),
-            DelegationMode::Full => (true, false),
-            DelegationMode::Custom => return,
+        if mode == DelegationMode::Custom {
+            return;
+        }
+        if mode == DelegationMode::Manual {
+            if self.mode() != DelegationMode::Manual {
+                self.suspended_settings = Some(self.settings.clone());
+            }
+            for duty in Duty::ALL {
+                self.set(duty, false, true);
+            }
+            return;
+        }
+        if let Some(settings) = self.suspended_settings.take() {
+            self.settings = settings;
+            return;
+        }
+        let confirm_major = match mode {
+            DelegationMode::Approval => true,
+            DelegationMode::Full => false,
+            DelegationMode::Manual | DelegationMode::Custom => return,
         };
         for duty in Duty::ALL {
-            self.set(duty, delegated, confirm_major);
+            self.set(duty, true, confirm_major);
         }
     }
 
@@ -419,6 +439,21 @@ mod tests {
         assert_eq!(state.mode(), DelegationMode::Custom);
         state.apply_mode(DelegationMode::Manual);
         assert_eq!(state.mode(), DelegationMode::Manual);
+    }
+
+    /// Given individual delegation choices, when manual mode is only a temporary pause and full
+    /// delegation is selected again, then the original choices are restored unchanged.
+    #[test]
+    fn a_temporary_manual_pause_preserves_individual_duty_settings() {
+        let mut state = DelegationState::default();
+        state.set(Duty::Training, true, false);
+        state.set(Duty::StaffRenewals, true, true);
+        let before = state.settings.clone();
+
+        state.apply_mode(DelegationMode::Manual);
+        state.apply_mode(DelegationMode::Full);
+
+        assert_eq!(state.settings, before);
     }
 
     /// Given a state saved before modes, limits and outcomes existed, when it is read, then it

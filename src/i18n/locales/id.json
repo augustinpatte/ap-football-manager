@@ -4870,6 +4870,7 @@
       "delegationProposal": "Usulan dari asistenmu",
       "incomingTransferOffer": "Tawaran untuk salah satu pemainmu",
       "incomingLoanOffer": "Permintaan pinjaman untuk salah satu pemainmu",
+      "freeAgentCounterOffer": "Agen bebas telah mengajukan tawaran balik",
       "transferDeadline": "Bursa transfer ditutup saat negosiasi masih berjalan"
     },
     "resume": "Lanjutkan"

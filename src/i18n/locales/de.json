@@ -4870,6 +4870,7 @@
       "delegationProposal": "Ein Vorschlag deines Assistenten",
       "incomingTransferOffer": "Ein Angebot für einen deiner Spieler",
       "incomingLoanOffer": "Eine Leihanfrage für einen deiner Spieler",
+      "freeAgentCounterOffer": "Ein vertragsloser Spieler hat ein Gegenangebot gemacht",
       "transferDeadline": "Das Transferfenster schließt, während noch Verhandlungen laufen"
     },
     "resume": "Weitermachen"

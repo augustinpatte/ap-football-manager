@@ -4870,6 +4870,7 @@
       "delegationProposal": "A proposal from your assistant",
       "incomingTransferOffer": "An offer for one of your players",
       "incomingLoanOffer": "A loan request for one of your players",
+      "freeAgentCounterOffer": "A free agent has made a counter-offer",
       "transferDeadline": "The transfer window closes with talks still open"
     },
     "resume": "Carry on"

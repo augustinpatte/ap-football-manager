@@ -4870,6 +4870,7 @@
       "delegationProposal": "Návrh vašeho asistenta",
       "incomingTransferOffer": "Nabídka na jednoho z vašich hráčů",
       "incomingLoanOffer": "Žádost o hostování jednoho z vašich hráčů",
+      "freeAgentCounterOffer": "Volný hráč předložil protinabídku",
       "transferDeadline": "Přestupové okno se zavírá, ale jednání stále běží"
     },
     "resume": "Pokračovat"

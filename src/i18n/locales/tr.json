@@ -4870,6 +4870,7 @@
       "delegationProposal": "Yardımcından bir öneri",
       "incomingTransferOffer": "Oyuncularından biri için bir teklif",
       "incomingLoanOffer": "Oyuncularından biri için bir kiralama talebi",
+      "freeAgentCounterOffer": "Serbest bir oyuncu karşı teklif yaptı",
       "transferDeadline": "Transfer dönemi, görüşmeler sürerken kapanıyor"
     },
     "resume": "Devam et"

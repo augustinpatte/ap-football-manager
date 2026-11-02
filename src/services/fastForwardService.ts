@@ -18,6 +18,7 @@ export type FastForwardDecisionKind =
   | "delegation_proposal"
   | "incoming_transfer_offer"
   | "incoming_loan_offer"
+  | "free_agent_counter_offer"
   | "transfer_deadline";
 
 export interface FastForwardDecision {

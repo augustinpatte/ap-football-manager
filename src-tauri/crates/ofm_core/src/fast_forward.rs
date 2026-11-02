@@ -80,6 +80,8 @@ pub enum DecisionKind {
     IncomingTransferOffer,
     /// A club's pending loan request for one of the user's players.
     IncomingLoanOffer,
+    /// A free agent answered the manager's offer with terms that require an answer.
+    FreeAgentCounterOffer,
     /// The window closes today and talks involving the user's club are still open: they end
     /// unanswered when the day is played.
     TransferDeadline,
@@ -406,6 +408,24 @@ pub fn pending_decisions(game: &Game) -> Vec<PendingDecision> {
             }
         }
     }
+    for player in &game.players {
+        for talk in player.morale_core.free_agent_talks.iter().filter(|talk| {
+            talk.made_by_manager
+                && talk.status == domain::free_agent_talk::FreeAgentTalkStatus::CounterOffered
+        }) {
+            decisions.push(PendingDecision {
+                kind: DecisionKind::FreeAgentCounterOffer,
+                id: talk.id.clone(),
+                params: BTreeMap::from([
+                    ("player_id".to_string(), player.id.clone()),
+                    (
+                        "expires_on".to_string(),
+                        talk.counter_expires_on.clone().unwrap_or_default(),
+                    ),
+                ]),
+            });
+        }
+    }
     decisions
 }
 
@@ -472,7 +492,9 @@ pub fn run(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkStatus};
     use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position};
     use domain::team::Team;
 
     use crate::clock::GameClock;
@@ -510,6 +532,30 @@ mod tests {
         FastForwardRequest {
             target_date: target.to_string(),
             policy,
+        }
+    }
+
+    fn player_attributes() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 30,
+            reflexes: 30,
+            aerial: 60,
         }
     }
 
@@ -651,6 +697,45 @@ mod tests {
         assert_eq!(summary.stop, StopReason::TargetReached);
         assert_eq!(summary.passed_decisions.len(), 1);
         assert_eq!(summary.passed_decisions[0].decision.id, "p1");
+    }
+
+    /// Given a player counter-offers while a decision-mode advance is running, when the next
+    /// boundary is reached, then the run stops before any further day can let the counter lapse.
+    #[test]
+    fn a_free_agent_counter_offer_stops_an_advance_for_decisions() {
+        let mut game = game_on((2025, 6, 15));
+        let mut run_state = FastForward::begin(
+            &game,
+            &request("2025-06-20", InterruptPolicy::StopForDecisions),
+            &mut no_host,
+        )
+        .unwrap();
+        let mut player = Player::new(
+            "free-agent".into(),
+            "Free".into(),
+            "Agent".into(),
+            "1995-01-01".into(),
+            "England".into(),
+            Position::Midfielder,
+            player_attributes(),
+        );
+        player.morale_core.free_agent_talks.push(FreeAgentTalk {
+            id: "counter-1".into(),
+            club_id: "team1".into(),
+            status: FreeAgentTalkStatus::CounterOffered,
+            made_by_manager: true,
+            counter_expires_on: Some("2025-06-18".into()),
+            ..FreeAgentTalk::default()
+        });
+        game.players.push(player);
+
+        let stop = run_state.step(&mut game, &mut no_host, &mut |_| {});
+
+        assert!(matches!(stop, Some(StopReason::Decisions { decisions })
+            if decisions.iter().any(|decision|
+                decision.kind == DecisionKind::FreeAgentCounterOffer
+                    && decision.id == "counter-1")));
+        assert_eq!(day_text(&game), "2025-06-15");
     }
 
     /// Given a user match on the first day, when the policy is to stop at the next match, then

@@ -53,6 +53,7 @@ const DECISION_LABELS: Record<FastForwardDecisionKind, string> = {
   delegation_proposal: "fastForward.decision.delegationProposal",
   incoming_transfer_offer: "fastForward.decision.incomingTransferOffer",
   incoming_loan_offer: "fastForward.decision.incomingLoanOffer",
+  free_agent_counter_offer: "fastForward.decision.freeAgentCounterOffer",
   transfer_deadline: "fastForward.decision.transferDeadline",
 };
 

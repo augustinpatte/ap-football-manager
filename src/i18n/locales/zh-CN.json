@@ -4870,6 +4870,7 @@
       "delegationProposal": "助理的提议",
       "incomingTransferOffer": "有人对你的一名球员报价",
       "incomingLoanOffer": "有人想租借你的一名球员",
+      "freeAgentCounterOffer": "一名自由球员提出了还价",
       "transferDeadline": "转会窗口关闭时仍有谈判未结束"
     },
     "resume": "继续"

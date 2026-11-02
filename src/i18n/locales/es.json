@@ -4870,6 +4870,7 @@
       "delegationProposal": "Una propuesta de tu ayudante",
       "incomingTransferOffer": "Una oferta por uno de tus jugadores",
       "incomingLoanOffer": "Una petición de cesión por uno de tus jugadores",
+      "freeAgentCounterOffer": "Un agente libre ha hecho una contraoferta",
       "transferDeadline": "El mercado cierra con negociaciones aún abiertas"
     },
     "resume": "Continuar"
