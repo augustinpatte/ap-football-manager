@@ -9,7 +9,9 @@
 use db::save_manager::SaveManager;
 use domain::player::Player;
 use domain::stats::StatsState;
-use ofm_core::contracts::{RenewalDecision, RenewalOffer, offer_free_agent_contract};
+use ofm_core::contracts::{
+    FreeAgentOfferDecision, OfferTerms, process_free_agent_talks, submit_free_agent_offer,
+};
 use ofm_core::finances::calc_wages;
 use ofm_core::game::Game;
 use season_harness::driver::{RunOptions, run_seasons};
@@ -83,17 +85,23 @@ fn the_player_can_sign_an_fm24_free_agent_at_the_wage_he_asks() {
 
     // His ask is a floor: he wants a little more than he last had. Offer 40 % over.
     let wage = target.1 + target.1 * 2 / 5;
-    let outcome = offer_free_agent_contract(
+    let outcome = submit_free_agent_offer(
         &mut game,
         &target.0,
-        RenewalOffer {
+        OfferTerms {
             weekly_wage: wage,
             contract_years: 3,
+            signing_bonus: 0,
+            promise_stepping_stone: false,
         },
     )
-    .expect("the offer is judged");
+    .expect("the offer is taken");
+    assert_eq!(outcome.decision, FreeAgentOfferDecision::Pending);
+    for _ in 0..3 {
+        game.clock.current_date += chrono::Duration::days(1);
+        process_free_agent_talks(&mut game);
+    }
 
-    assert_eq!(outcome.decision, RenewalDecision::Accepted);
     let signed = game.players.iter().find(|p| p.id == target.0).unwrap();
     assert_eq!(signed.team_id.as_deref(), Some(LENS));
     assert_eq!(signed.wage(), wage);

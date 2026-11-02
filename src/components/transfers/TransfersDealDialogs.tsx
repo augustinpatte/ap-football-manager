@@ -69,9 +69,8 @@ type ActiveDealWorkspaceProps = {
     | "promiseSteppingStone"
     | "setPromiseSteppingStone"
     | "contractProjection"
-    | "contractFeedback"
-    | "contractStatusMessage"
-    | "contractStatusClassName"
+    | "talkPanel"
+    | "contractError"
     | "contractSubmitting"
     | "contractSubmitDisabled"
     | "submitFreeAgentContract"
@@ -144,10 +143,8 @@ type FreeAgentDealDialogProps = {
     | "promiseSteppingStone"
     | "setPromiseSteppingStone"
     | "contractProjection"
-    | "contractFeedback"
-    | "contractStatusMessage"
-    | "t"
-    | "contractStatusClassName"
+    | "talkPanel"
+    | "contractError"
     | "contractSubmitting"
     | "contractSubmitDisabled"
     | "submitFreeAgentContract"
@@ -279,9 +276,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     promiseSteppingStone,
     setPromiseSteppingStone,
     contractProjection,
-    contractFeedback,
-    contractStatusMessage,
-    contractStatusClassName,
+    talkPanel,
+    contractError,
     contractSubmitting,
     contractSubmitDisabled,
     submitFreeAgentContract,
@@ -381,9 +377,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 promiseSteppingStone={promiseSteppingStone}
                 onPromiseSteppingStoneChange={setPromiseSteppingStone}
                 projection={contractProjection}
-                feedback={contractFeedback}
-                statusMessage={contractStatusMessage(t)}
-                statusClassName={contractStatusClassName}
+                talkPanel={talkPanel}
+                errorMessage={contractError}
                 submitting={contractSubmitting}
                 submitDisabled={contractSubmitDisabled}
                 showPlayerSummary={false}
@@ -524,10 +519,8 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
     promiseSteppingStone,
     setPromiseSteppingStone,
     contractProjection,
-    contractFeedback,
-    contractStatusMessage,
-    t,
-    contractStatusClassName,
+    talkPanel,
+    contractError,
     contractSubmitting,
     contractSubmitDisabled,
     submitFreeAgentContract,
@@ -550,9 +543,8 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
         promiseSteppingStone={promiseSteppingStone}
         onPromiseSteppingStoneChange={setPromiseSteppingStone}
         projection={contractProjection}
-        feedback={contractFeedback}
-        statusMessage={contractStatusMessage(t)}
-        statusClassName={contractStatusClassName}
+        talkPanel={talkPanel}
+        errorMessage={contractError}
         submitting={contractSubmitting}
         submitDisabled={contractSubmitDisabled}
         onSubmit={submitFreeAgentContract}

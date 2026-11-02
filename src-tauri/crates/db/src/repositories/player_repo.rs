@@ -1471,6 +1471,7 @@ mod tests {
             talk_cooldown_until: None,
             renewal_state: None,
             stepping_stone_promise: None,
+            free_agent_talks: Vec::new(),
         };
 
         upsert_player(db.conn(), &player).unwrap();
@@ -1484,6 +1485,59 @@ mod tests {
                 .as_ref()
                 .map(|issue| &issue.category),
             Some(&PlayerIssueCategory::PlayingTime)
+        );
+    }
+
+    /// Given a free agent with one open talk awaiting an answer, one counter on the table and one
+    ///       closed talk, none of them with default values
+    /// When he is saved to SQLite and read back
+    /// Then every talk comes back whole: club, terms, status, deadlines and reason.
+    #[test]
+    fn free_agent_talks_survive_a_sqlite_round_trip() {
+        use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkReason, FreeAgentTalkStatus};
+        let db = test_db();
+        let mut player = sample_player("p-fa", None);
+        player.morale_core.free_agent_talks = vec![
+            FreeAgentTalk {
+                id: "fat:p-fa:club-a:2026-08-01".to_string(),
+                club_id: "club-a".to_string(),
+                weekly_wage: 41_500,
+                contract_years: 4,
+                signing_bonus: 250_000,
+                promise_stepping_stone: true,
+                round: 2,
+                opened_on: "2026-08-01".to_string(),
+                updated_on: "2026-08-02".to_string(),
+                respond_on: Some("2026-08-04".to_string()),
+                made_by_manager: true,
+                ..FreeAgentTalk::default()
+            },
+            FreeAgentTalk {
+                id: "fat:p-fa:club-b:2026-08-01".to_string(),
+                club_id: "club-b".to_string(),
+                status: FreeAgentTalkStatus::CounterOffered,
+                counter_wage: Some(52_000),
+                counter_years: Some(3),
+                counter_expires_on: Some("2026-08-06".to_string()),
+                reason: Some(FreeAgentTalkReason::ClubBelowHisLevel),
+                ..FreeAgentTalk::default()
+            },
+            FreeAgentTalk {
+                id: "fat:p-fa:club-c:2026-07-20".to_string(),
+                club_id: "club-c".to_string(),
+                status: FreeAgentTalkStatus::LostToRival,
+                closed_on: Some("2026-07-25".to_string()),
+                reason: Some(FreeAgentTalkReason::BetterOfferElsewhere),
+                ..FreeAgentTalk::default()
+            },
+        ];
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(
+            loaded[0].morale_core.free_agent_talks,
+            player.morale_core.free_agent_talks
         );
     }
 

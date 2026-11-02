@@ -167,8 +167,8 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | `transfer_counter_offer` | Counter an incoming offer with a different fee |
 | `transfer_toggle_listed` | Toggle a player's transfer-listed status |
 | `transfer_toggle_loan` | Toggle a player's loan-listed status |
-| `transfer_free_agent_offer` | Offer a contract to a free agent |
-| `transfer_free_agent_preview` | Preview free agent contract financial impact |
+| `transfer_free_agent_offer` | Offer a contract to a free agent. Opens a negotiation: he answers in 1–3 game days (it never signs on the spot) |
+| `transfer_free_agent_preview` | Preview a free-agent signing: financial impact, how interested he is, the club's open talk (and his counter-offer), rival bids |
 
 ### Contracts (7 tools)
 

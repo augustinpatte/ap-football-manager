@@ -2802,8 +2802,60 @@
   "squadCompare": {
     "compare": "Confronta"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "Trattativa",
+        "interest": {
+          "keen": "Probabilmente accetterà queste condizioni.",
+          "hesitant": "È indeciso e potrebbe chiedere condizioni diverse.",
+          "unlikely": "È improbabile che accetti queste condizioni."
+        },
+        "expects": "Si aspetta circa {{wage}} a settimana per {{years}} anni.",
+        "place": {
+          "key": "Nel tuo club sarebbe un giocatore chiave.",
+          "starter": "Nel tuo club sarebbe titolare fisso.",
+          "rotation": "Nel tuo club farebbe parte della rotazione.",
+          "backup": "Nel tuo club sarebbe una riserva."
+        },
+        "responseTime": "Risponde da {{min}} a {{max}} giorni dopo un'offerta.",
+        "awaiting": "Offerta inviata. Risponderà il {{date}}.",
+        "counter": "Chiede {{wage}} a settimana per {{years}} anni. Le sue condizioni valgono fino al {{date}}.",
+        "acceptCounter": "Accetta le sue condizioni",
+        "withdraw": "Ritira l'offerta",
+        "rivals": "Anche altri club stanno trattando con lui: {{clubs}}.",
+        "ended": {
+          "rejected": "Ha rifiutato l'offerta.",
+          "withdrawn": "Hai ritirato l'offerta.",
+          "lost_to_rival": "Ha firmato con un altro club.",
+          "lapsed": "L'offerta è scaduta."
+        },
+        "offerPending": "Offerta in attesa"
+      },
+      "reason": {
+        "wage_too_low": "Lo stipendio è inferiore a quello che può pretendere.",
+        "club_below_his_level": "Il tuo club è molto al di sotto del suo livello.",
+        "no_place_in_side_for_him": "Non sarebbe titolare nella tua squadra.",
+        "contract_too_short": "Il contratto è più breve di quanto voglia.",
+        "offer_insulting": "Ha trovato l'offerta offensiva e non ti parlerà per due settimane.",
+        "talks_broken_off": "Ha perso la pazienza con le trattative.",
+        "better_offer_elsewhere": "Un altro club gli ha fatto un'offerta migliore.",
+        "club_cannot_afford": "Il tuo club non può più permettersi l'accordo.",
+        "manager_withdrew": "Hai ritirato l'offerta.",
+        "counter_expired": "La sua controproposta non ha ricevuto risposta in tempo."
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "Hai già un'offerta aperta con questo giocatore. Aspetta la sua risposta o ritirala.",
+          "talksBrokenOff": "Questo giocatore per ora non parlerà con il tuo club.",
+          "tooManyOpenTalks": "Hai troppe trattative aperte. Aspetta le risposte o ritira un'offerta.",
+          "squadFull": "La tua rosa di prima squadra è al completo. Libera un giocatore prima di firmarne un altro.",
+          "noCounterToAnswer": "Questo giocatore non ha nessuna controproposta a cui rispondere.",
+          "counterExpired": "La sua controproposta è scaduta.",
+          "noOpenTalk": "Non hai nessuna offerta aperta con questo giocatore.",
+          "invalidOffer": "Questa non è un'offerta di contratto valida."
+        },
       "squadFloor": {
         "wouldLeaveShort": "Questo giocatore non può partire: la rosa scenderebbe sotto il minimo che un club deve mantenere. Reparto interessato: {{group}}.",
         "wouldLeaveSeniorsShort": "Questo giocatore non può partire: il club resterebbe con meno di {{floor}} giocatori in prima squadra, il minimo che un club deve mantenere."
@@ -3154,6 +3206,24 @@
       "sportsDaily": "Quotidiano Sportivo"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} vuole condizioni diverse",
+            "body": "{{player}} ha risposto all'offerta di {{team}} con una controproposta: {{wage}} a settimana per {{years}} anni. Le sue condizioni valgono {{days}} giorni."
+          },
+          "rejected": {
+            "subject": "{{player}} ha rifiutato {{team}}",
+            "body": "{{player}} ha rifiutato l'offerta di {{team}}. Apri la sua scheda per vedere perché."
+          },
+          "lost": {
+            "subject": "{{player}} ha firmato con {{team}}",
+            "body": "{{player}} ha scelto un altro club, {{team}}, al posto della tua offerta."
+          },
+          "lapsed": {
+            "subject": "Offerta a {{player}} scaduta",
+            "body": "L'offerta a {{player}} non ha portato a nulla: la sua controproposta non ha ricevuto risposta in tempo oppure il club non poteva più permettersi l'accordo."
+          }
+        },
       "world": {
         "randomName": "Mondo casuale",
         "randomDescription": "Campionato generato casualmente con {{teamCount}} squadre in tutta Europa",

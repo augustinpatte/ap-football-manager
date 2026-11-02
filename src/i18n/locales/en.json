@@ -2814,8 +2814,60 @@
   "squadCompare": {
     "compare": "Compare"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "Negotiation",
+        "interest": {
+          "keen": "He is likely to accept these terms.",
+          "hesitant": "He is undecided and may ask for different terms.",
+          "unlikely": "He is unlikely to accept these terms."
+        },
+        "expects": "He expects about {{wage}} a week over {{years}} years.",
+        "place": {
+          "key": "At your club he would be a key player.",
+          "starter": "At your club he would be a regular starter.",
+          "rotation": "At your club he would be part of the rotation.",
+          "backup": "At your club he would be a backup."
+        },
+        "responseTime": "He answers {{min}} to {{max}} days after an offer.",
+        "awaiting": "Offer sent. He will answer on {{date}}.",
+        "counter": "He asks for {{wage}} a week over {{years}} years. His terms stand until {{date}}.",
+        "acceptCounter": "Accept his terms",
+        "withdraw": "Withdraw offer",
+        "rivals": "Other clubs are also talking to him: {{clubs}}.",
+        "ended": {
+          "rejected": "He turned the offer down.",
+          "withdrawn": "You withdrew the offer.",
+          "lost_to_rival": "He signed with another club.",
+          "lapsed": "The offer lapsed."
+        },
+        "offerPending": "Offer pending"
+      },
+      "reason": {
+        "wage_too_low": "The pay is below what he can command.",
+        "club_below_his_level": "Your club is well below his level.",
+        "no_place_in_side_for_him": "He would not be a regular in your side.",
+        "contract_too_short": "The contract is shorter than he wants.",
+        "offer_insulting": "He found the offer insulting and will not talk to you for two weeks.",
+        "talks_broken_off": "He has run out of patience with the talks.",
+        "better_offer_elsewhere": "Another club made him a better offer.",
+        "club_cannot_afford": "Your club can no longer afford the deal.",
+        "manager_withdrew": "You took the offer back.",
+        "counter_expired": "His counter-offer was not answered in time."
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
+          "talksBrokenOff": "This player will not talk to your club for now.",
+          "tooManyOpenTalks": "You have too many negotiations open. Wait for answers or withdraw an offer.",
+          "squadFull": "Your senior squad is full. Release a player before signing another.",
+          "noCounterToAnswer": "There is no counter-offer from this player to answer.",
+          "counterExpired": "His counter-offer has expired.",
+          "noOpenTalk": "You have no open offer with this player.",
+          "invalidOffer": "That is not a valid contract offer."
+        },
       "squadFloor": {
         "wouldLeaveShort": "This player cannot leave: the squad would fall below the minimum a club must keep. Position group affected: {{group}}.",
         "wouldLeaveSeniorsShort": "This player cannot leave: the club would be left with fewer than {{floor}} senior players, the minimum a club must keep."
@@ -3166,6 +3218,24 @@
       "sportsDaily": "Sports Daily"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} wants different terms",
+            "body": "{{player}} has answered {{team}}'s offer with a counter: {{wage}} a week for {{years}} years. His terms stand for {{days}} days."
+          },
+          "rejected": {
+            "subject": "{{player}} turned down {{team}}",
+            "body": "{{player}} has declined {{team}}'s offer. Open his profile to see why."
+          },
+          "lost": {
+            "subject": "{{player}} signed with {{team}}",
+            "body": "{{player}} chose another club, {{team}}, over your offer."
+          },
+          "lapsed": {
+            "subject": "Offer to {{player}} lapsed",
+            "body": "The offer to {{player}} came to nothing: either his counter-offer was not answered in time or the club could no longer afford the deal."
+          }
+        },
       "world": {
         "randomName": "Random World",
         "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
