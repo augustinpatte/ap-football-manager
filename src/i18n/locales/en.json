@@ -1621,7 +1621,16 @@
       "outlookHesitant": "He is hesitant: expect him to ask for better terms.",
       "outlookUnlikely": "He is unlikely to join this club.",
       "expects": "He expects about {{wage}} a week over {{years}} years."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Senior squad list: {{count}} / {{max}} · youth squad {{youth}} · loaned in {{loanedIn}} · loaned out {{loanedOut}}",
+      "room": "{{free}} place(s) left on the senior squad list.",
+      "full": "No place left on the list: free {{release}} before signing. This is the club's registration limit, not a refusal from the player."
+    },
+    "transferFeedbackPlayerTermsHeadline": "The clubs agree — now the player must agree",
+    "transferFeedbackPlayerTermsDetail": "The clubs agree on {{fee}}. Nothing is completed yet: he would sign for {{wage}} a week over {{years}} years. Put a contract to him to close the deal, or change the terms.",
+    "bidPlayerTalks": "Clubs agreed. Now agree his contract.",
+    "submitPlayerTerms": "Put contract to player"
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -2827,7 +2836,8 @@
     "resume": "Resume",
     "pausedResumesAt": "Paused · resumes at {{speed}}",
     "playingAt": "Playing at {{speed}}",
-    "spaceKey": "Space"
+    "spaceKey": "Space",
+    "replayPreparationFailed": "The 2D match could not be prepared. Nothing was changed."
   },
   "endOfSeason": {
     "seasonComplete": "Season Complete",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
         "talksBrokenOff": "This player will not talk to your club for now.",
         "tooManyOpenTalks": "You have too many negotiations open. Wait for answers or withdraw an offer.",
-        "squadFull": "Your senior squad is full. Release a player before signing another.",
+        "squadFull": "Your senior squad list is full: {{count}} of {{max}} places are taken. Free {{release}} place(s) before signing another player: release, sell, loan out or move a player to the youth squad.",
         "noCounterToAnswer": "There is no counter-offer from this player to answer.",
         "counterExpired": "His counter-offer has expired.",
         "noOpenTalk": "You have no open offer with this player.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "That date is too far ahead to play in one go.",
         "alreadyRunning": "Another advance is already running.",
         "careerChanged": "The career changed during the advance, so it was stopped."
+      },
+      "spatialReplay": {
+        "inputRejected": "The 2D match could not be prepared: the lineups were rejected ({{code}}). Nothing was changed.",
+        "engineFailed": "The 2D match engine could not run this match: {{detail}}. Nothing was changed.",
+        "outputInvalid": "The 2D match engine returned a result that failed validation ({{code}}). Nothing was changed.",
+        "notPrepared": "No 2D match has been prepared. Open the 2D view again before going to the result."
       }
     },
     "sender": {

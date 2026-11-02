@@ -15,6 +15,7 @@
 use super::*;
 
 mod appeal;
+mod capacity;
 mod consts;
 mod rivals;
 mod workflow;
@@ -23,6 +24,7 @@ pub use appeal::{Appeal, OfferTerms, PlaceInSide, Verdict};
 pub(crate) use appeal::{
     AppealFacts, ClubSquad, Incumbent, appeal_of, club_standing, counter_terms,
 };
+pub use capacity::{SquadCapacity, squad_capacity};
 pub(crate) use consts::ACCEPT_AT;
 pub(crate) use consts::{
     PUSH_CLUB_IN_TROUBLE, PUSH_CONTRACT_ENDING, PUSH_CONTRACT_RUNNING_DOWN, PUSH_DISCONTENT,

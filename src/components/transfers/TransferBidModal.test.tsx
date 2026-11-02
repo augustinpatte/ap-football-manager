@@ -359,6 +359,49 @@ describe("TransferBidModal", () => {
   });
 
   /**
+   * Given the clubs have agreed and the player's step is next
+   * When the form is shown
+   * Then it says the clubs agreed and the contract is next, the contract the player would sign is
+   * in the fields, and the button now puts that contract to him (it is not "accepted").
+   */
+  it("shows the player's step after the clubs agree and offers to put the contract to him", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={{ ...DEFAULT_BID_TERMS, playerWage: "13000", playerYears: "3" }}
+        onBidTermsChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection()}
+        bidFeedback={{
+          mood: "positive",
+          headline_key: "transfers.transferFeedbackPlayerTermsHeadline",
+          detail_key: "transfers.transferFeedbackPlayerTermsDetail",
+          tension: 20,
+          patience: 70,
+          round: 1,
+          params: { fee: "3000000", wage: "13000", years: "3" },
+        }}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult="player_talks"
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("transfers.bidPlayerTalks")).toBeInTheDocument();
+    expect(screen.queryByText("Bid accepted")).toBeNull();
+    expect(screen.getByRole("button", { name: "transfers.submitPlayerTerms" })).toBeEnabled();
+    expect(screen.getByLabelText("transfers.playerTerms.wage")).toHaveValue(13000);
+  });
+
+  /**
    * Given a projection of a three-payment bid with a bonus
    * When the form is shown
    * Then it says what is paid now, what follows, and the bonus.

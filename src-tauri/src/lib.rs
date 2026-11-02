@@ -399,6 +399,7 @@ pub fn run() {
             skip_to_match_day,
             advance_to_next_event,
             advance_one_day,
+            acknowledge_contract_warnings,
             commands::fast_forward::fast_forward_to_date,
             commands::fast_forward::cancel_fast_forward,
             check_blocking_actions,

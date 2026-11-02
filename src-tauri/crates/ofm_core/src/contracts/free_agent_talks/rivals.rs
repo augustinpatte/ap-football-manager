@@ -59,8 +59,7 @@ pub(super) fn generate_rival_interest(game: &mut Game, today: NaiveDate) {
         .iter()
         .enumerate()
         .filter(|(_, player)| {
-            player.team_id.is_none()
-                && !player.retired
+            player.is_on_free_market()
                 && player.ovr >= ATTRACTIVE_FREE_AGENT_OVR
                 && player.injury.is_none()
         })

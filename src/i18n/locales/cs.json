@@ -1621,7 +1621,16 @@
       "outlookHesitant": "Váhá: počítejte s tím, že bude chtít lepší podmínky.",
       "outlookUnlikely": "Do tohoto klubu pravděpodobně nepůjde.",
       "expects": "Očekává zhruba {{wage}} týdně na {{years}} let."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Soupiska prvního týmu: {{count}} / {{max}} · mládež {{youth}} · hostující u klubu {{loanedIn}} · poslaní na hostování {{loanedOut}}",
+      "room": "V soupisce prvního týmu zbývá {{free}} místo/míst.",
+      "full": "V soupisce není místo: před podpisem uvolněte {{release}}. Jde o registrační limit klubu, ne o odmítnutí hráče."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kluby se dohodly — nyní musí souhlasit hráč",
+    "transferFeedbackPlayerTermsDetail": "Kluby se dohodly na {{fee}}. Zatím není nic dokončeno: podepsal by za {{wage}} týdně na {{years}} let. Předložte mu smlouvu a dohodu uzavřete, nebo změňte podmínky.",
+    "bidPlayerTalks": "Kluby se dohodly. Nyní smlouva hráče.",
+    "submitPlayerTerms": "Předložit smlouvu hráči"
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -2827,7 +2836,8 @@
     "resume": "Pokračovat",
     "pausedResumesAt": "Pozastaveno · pokračuje: {{speed}}",
     "playingAt": "Běží: {{speed}}",
-    "spaceKey": "Mezerník"
+    "spaceKey": "Mezerník",
+    "replayPreparationFailed": "Zápas ve 2D se nepodařilo připravit. Nic se nezměnilo."
   },
   "endOfSeason": {
     "seasonComplete": "Sezóna dokončena",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "S tímto hráčem už nabídku máš. Počkej na jeho odpověď, nebo ji stáhni.",
         "talksBrokenOff": "Tento hráč s tvým klubem zatím nebude jednat.",
         "tooManyOpenTalks": "Máš otevřeno příliš mnoho jednání. Počkej na odpovědi, nebo stáhni nabídku.",
-        "squadFull": "Tvůj kádr je plný. Před podpisem dalšího hráče někoho uvolni.",
+        "squadFull": "Soupiska prvního týmu je plná: obsazeno {{count}} z {{max}} míst. Před podpisem dalšího hráče uvolněte {{release}} místo/míst: ukončete smlouvu, prodejte, pošlete na hostování nebo přesuňte hráče do mládeže.",
         "noCounterToAnswer": "Tento hráč nemá žádný protinávrh, na který bys mohl odpovědět.",
         "counterExpired": "Jeho protinávrh vypršel.",
         "noOpenTalk": "S tímto hráčem nemáš žádnou otevřenou nabídku.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "Toto datum je příliš daleko, než aby šlo odehrát naráz.",
         "alreadyRunning": "Jiný posun již probíhá.",
         "careerChanged": "Kariéra se během posunu změnila, proto byl zastaven."
+      },
+      "spatialReplay": {
+        "inputRejected": "Zápas ve 2D se nepodařilo připravit: sestavy byly odmítnuty ({{code}}). Nic se nezměnilo.",
+        "engineFailed": "Engine zápasu ve 2D tento zápas nedokázal odehrát: {{detail}}. Nic se nezměnilo.",
+        "outputInvalid": "Engine zápasu ve 2D vrátil výsledek, který neprošel kontrolou ({{code}}). Nic se nezměnilo.",
+        "notPrepared": "Zápas ve 2D není připraven. Před přechodem k výsledku znovu otevřete 2D zobrazení."
       }
     },
     "sender": {

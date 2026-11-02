@@ -1621,7 +1621,16 @@
       "outlookHesitant": "他有些犹豫：预计他会要求更好的条件。",
       "outlookUnlikely": "他不太可能加盟这家俱乐部。",
       "expects": "他期望每周约 {{wage}}，合同 {{years}} 年。"
-    }
+    },
+    "squadCapacity": {
+      "summary": "一线队名单：{{count}} / {{max}} · 青年队 {{youth}} · 租入 {{loanedIn}} · 外租 {{loanedOut}}",
+      "room": "一线队名单还剩 {{free}} 个名额。",
+      "full": "名单已无空位：签约前请腾出 {{release}} 个。这是俱乐部的注册上限，并非球员拒绝。"
+    },
+    "transferFeedbackPlayerTermsHeadline": "俱乐部已达成一致——现在需要球员同意",
+    "transferFeedbackPlayerTermsDetail": "两家俱乐部就 {{fee}} 达成一致。目前尚未完成任何手续：他愿意以每周 {{wage}}、为期 {{years}} 年签约。请向他提交合同以完成交易，或修改条件。",
+    "bidPlayerTalks": "俱乐部已达成一致，现在敲定球员合同。",
+    "submitPlayerTerms": "向球员提交合同"
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -2827,7 +2836,8 @@
     "resume": "继续",
     "pausedResumesAt": "已暂停 · 将以{{speed}}继续",
     "playingAt": "正在以{{speed}}进行",
-    "spaceKey": "空格"
+    "spaceKey": "空格",
+    "replayPreparationFailed": "无法准备 2D 比赛。未做任何更改。"
   },
   "endOfSeason": {
     "seasonComplete": "赛季结束",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
         "talksBrokenOff": "该球员暂时不会与你的俱乐部谈判。",
         "tooManyOpenTalks": "你开启的谈判太多。请等待答复或撤回一份报价。",
-        "squadFull": "你的一线队名单已满。请先放走一名球员再签新人。",
+        "squadFull": "一线队名单已满：{{max}} 个名额已占用 {{count}} 个。签下新球员前请先腾出 {{release}} 个名额：解约、出售、外租或将球员调入青年队。",
         "noCounterToAnswer": "该球员没有需要你答复的还价。",
         "counterExpired": "他的还价已过期。",
         "noOpenTalk": "你没有与该球员的进行中报价。",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "该日期太远，无法一次性推进。",
         "alreadyRunning": "已有另一次快进正在进行。",
         "careerChanged": "快进期间生涯发生了变化，因此已停止。"
+      },
+      "spatialReplay": {
+        "inputRejected": "无法准备 2D 比赛：阵容被拒绝（{{code}}）。未做任何更改。",
+        "engineFailed": "2D 比赛引擎无法运行此比赛：{{detail}}。未做任何更改。",
+        "outputInvalid": "2D 比赛引擎返回的结果未通过验证（{{code}}）。未做任何更改。",
+        "notPrepared": "尚未准备 2D 比赛。请先重新打开 2D 视图，再查看结果。"
       }
     },
     "sender": {

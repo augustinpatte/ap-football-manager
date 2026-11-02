@@ -75,7 +75,7 @@ pub fn simulate_spatial_match(
             )
         })
         .ok_or("be.error.noActiveGameSession")?
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| error.translation_key())?;
     let finalized =
         crate::application::live_match::finish_spatial_match(&state, prepared.report.clone())?;
     persist_replay(
@@ -110,7 +110,7 @@ pub fn prepare_spatial_replay(
             )
         })
         .ok_or("be.error.noActiveGameSession")?
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| error.translation_key())?;
     let replay_json = prepared.replay_json.clone();
     state.set_spatial_replay(prepared);
     Ok(SpatialReplayResponse { replay_json })

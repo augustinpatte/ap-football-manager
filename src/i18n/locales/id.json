@@ -1621,7 +1621,16 @@
       "outlookHesitant": "Ia ragu: bersiaplah ia meminta persyaratan yang lebih baik.",
       "outlookUnlikely": "Ia kecil kemungkinan mau bergabung dengan klub ini.",
       "expects": "Ia mengharapkan sekitar {{wage}} per minggu selama {{years}} tahun."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Daftar skuad utama: {{count}} / {{max}} · tim muda {{youth}} · dipinjam klub {{loanedIn}} · dipinjamkan {{loanedOut}}",
+      "room": "Sisa {{free}} tempat di daftar skuad utama.",
+      "full": "Tidak ada tempat di daftar: kosongkan {{release}} sebelum merekrut. Ini batas pendaftaran klub, bukan penolakan pemain."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kedua klub sepakat — sekarang pemain harus setuju",
+    "transferFeedbackPlayerTermsDetail": "Kedua klub sepakat di {{fee}}. Belum ada yang selesai: ia akan menandatangani dengan {{wage}} per minggu selama {{years}} tahun. Tawarkan kontrak kepadanya untuk menutup kesepakatan, atau ubah persyaratan.",
+    "bidPlayerTalks": "Klub sepakat. Sekarang kontrak pemain.",
+    "submitPlayerTerms": "Tawarkan kontrak ke pemain"
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -2827,7 +2836,8 @@
     "resume": "Lanjutkan",
     "pausedResumesAt": "Dijeda · lanjut dengan {{speed}}",
     "playingAt": "Berjalan dengan {{speed}}",
-    "spaceKey": "Spasi"
+    "spaceKey": "Spasi",
+    "replayPreparationFailed": "Pertandingan 2D tidak dapat disiapkan. Tidak ada yang diubah."
   },
   "endOfSeason": {
     "seasonComplete": "Musim Selesai",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
         "talksBrokenOff": "Pemain ini tidak mau berbicara dengan klubmu untuk saat ini.",
         "tooManyOpenTalks": "Kamu punya terlalu banyak negosiasi terbuka. Tunggu jawaban atau tarik satu tawaran.",
-        "squadFull": "Skuad seniormu penuh. Lepas satu pemain sebelum merekrut yang lain.",
+        "squadFull": "Daftar skuad utama penuh: {{count}} dari {{max}} tempat terisi. Kosongkan {{release}} tempat sebelum merekrut pemain lain: putus kontrak, jual, pinjamkan, atau pindahkan pemain ke tim muda.",
         "noCounterToAnswer": "Pemain ini tidak punya tawaran balik yang perlu dijawab.",
         "counterExpired": "Tawaran baliknya sudah kedaluwarsa.",
         "noOpenTalk": "Kamu tidak punya tawaran terbuka untuk pemain ini.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "Tanggal itu terlalu jauh untuk dimainkan sekaligus.",
         "alreadyRunning": "Proses maju lain sedang berjalan.",
         "careerChanged": "Karier berubah selama proses maju, jadi dihentikan."
+      },
+      "spatialReplay": {
+        "inputRejected": "Pertandingan 2D tidak dapat disiapkan: susunan pemain ditolak ({{code}}). Tidak ada yang diubah.",
+        "engineFailed": "Mesin pertandingan 2D tidak dapat menjalankan pertandingan ini: {{detail}}. Tidak ada yang diubah.",
+        "outputInvalid": "Mesin pertandingan 2D mengembalikan hasil yang gagal divalidasi ({{code}}). Tidak ada yang diubah.",
+        "notPrepared": "Belum ada pertandingan 2D yang disiapkan. Buka tampilan 2D lagi sebelum menuju hasil."
       }
     },
     "sender": {

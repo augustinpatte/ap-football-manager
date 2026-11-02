@@ -78,6 +78,10 @@ pub enum TransferNegotiationDecision {
     Accepted,
     Rejected,
     CounterOffer,
+    /// The clubs agree on the fee and nothing has moved: the player is next. `player_demand`
+    /// carries the contract he would sign, and the deal completes only on a bid that puts
+    /// contract terms to him and that he accepts.
+    PlayerTalks,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

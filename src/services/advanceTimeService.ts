@@ -86,6 +86,17 @@ export interface OneDayResponse {
  * *before* advancing so the frontend digest loop can surface per-day events
  * without ever auto-simulating the user's own match.
  */
-export async function advanceOneDay(): Promise<OneDayResponse> {
-  return invoke<OneDayResponse>("advance_one_day");
+export async function advanceOneDay(ignoreBlockers = false): Promise<OneDayResponse> {
+  // `ignoreBlockers` is the manager's "continue anyway": today is played whatever blocks it.
+  return ignoreBlockers
+    ? invoke<OneDayResponse>("advance_one_day", { ignoreBlockers: true })
+    : invoke<OneDayResponse>("advance_one_day");
+}
+
+/**
+ * The manager chose to carry on past the contract warnings showing: they are dealt with until
+ * the player's contract reaches its next stage, instead of being raised again every day.
+ */
+export async function acknowledgeContractWarnings(): Promise<number> {
+  return invoke<number>("acknowledge_contract_warnings");
 }

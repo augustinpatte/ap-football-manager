@@ -900,7 +900,7 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_make_bid
     custom_tool!(
         "transfer_make_bid",
-        "Make a transfer bid; includes negotiation feedback. The player has his own say: if the clubs agree and he asks for other terms, the answer names them; bid again with player_weekly_wage / player_contract_years",
+        "Make a transfer bid; includes negotiation feedback. The player has his own say: when the clubs agree the answer is decision `player_talks` (nothing is completed) with the contract he would sign, or names the terms he wants instead; bid again with player_weekly_wage / player_contract_years to put a contract to him",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID to bid on"),

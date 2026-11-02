@@ -337,6 +337,73 @@ fn an_offer_the_club_can_no_longer_pay_lapses_instead_of_signing() {
     assert_eq!(talk.reason, Some(FreeAgentTalkReason::ClubCannotAfford));
 }
 
+/// Run F1, anomaly 2. Given the user's club holds 33 senior players and a free agent who would
+/// sign
+/// When the manager releases three players and offers again
+/// Then the refusal still stands, but says "30 of 30, free 1 place" instead of only "full"; one
+/// more release opens the list and the offer is accepted as an ordinary talk.
+#[test]
+fn a_full_senior_list_says_how_full_it_is_and_opens_after_exactly_enough_releases() {
+    let mut game = world(free_agent("fa", 58, "1998-01-01", 400_000, 3_000), 300, 58);
+    let own: Vec<usize> = game
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.team_id.as_deref() == Some(USER))
+        .map(|(index, _)| index)
+        .collect();
+    let seniors_now = ofm_core::contracts::squad_capacity(&game, USER).registered_seniors;
+    assert!(
+        seniors_now < 33,
+        "the fixture starts below the squad it needs"
+    );
+    // Pad the club to 33 seniors with inert players.
+    let template = game.players[own[0]].clone();
+    for extra in seniors_now..33 {
+        let mut padding = template.clone();
+        padding.id = format!("padding-{extra}");
+        padding.match_name = padding.id.clone();
+        padding.full_name = padding.id.clone();
+        game.players.push(padding);
+    }
+    assert_eq!(
+        ofm_core::contracts::squad_capacity(&game, USER).registered_seniors,
+        33
+    );
+
+    for released in 0..3 {
+        let id = format!("padding-{}", seniors_now + released);
+        let index = game.players.iter().position(|p| p.id == id).unwrap();
+        game.players[index].team_id = None;
+    }
+    let capacity = ofm_core::contracts::squad_capacity(&game, USER);
+    assert_eq!(
+        (capacity.registered_seniors, capacity.releases_needed),
+        (30, 1)
+    );
+
+    let error = submit_free_agent_offer(&mut game, "fa", terms(4_000, 3)).unwrap_err();
+    assert_eq!(
+        error,
+        "be.error.freeAgents.squadFull?count=30&max=30&release=1"
+    );
+    assert!(
+        talks(&game, "fa").is_empty(),
+        "a refused offer opens no talk"
+    );
+
+    let index = game
+        .players
+        .iter()
+        .position(|p| p.id == format!("padding-{}", seniors_now + 3))
+        .unwrap();
+    game.players[index].team_id = None;
+    let outcome = submit_free_agent_offer(&mut game, "fa", terms(4_000, 3))
+        .expect("with a place free the offer is made");
+    assert_eq!(talks(&game, "fa").len(), 1);
+    assert_ne!(outcome.decision, FreeAgentOfferDecision::Rejected);
+}
+
 /// Scenario 3. Given a player a little below the club's level
 /// When the manager offers his ask
 /// Then he answers within three days and signs once: one club, one contract, one record.

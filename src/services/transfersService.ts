@@ -13,7 +13,7 @@ export interface TransferNegotiationFeedbackData {
 }
 
 export interface TransferNegotiationResponseData {
-  decision: "accepted" | "rejected" | "counter_offer";
+  decision: "accepted" | "rejected" | "counter_offer" | "player_talks";
   suggested_fee: number | null;
   is_terminal: boolean;
   registration_date?: string | null;

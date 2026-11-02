@@ -1621,7 +1621,16 @@
       "outlookHesitant": "Il hésite : attendez-vous à ce qu'il demande de meilleures conditions.",
       "outlookUnlikely": "Il est peu probable qu'il rejoigne ce club.",
       "expects": "Il attend environ {{wage}} par semaine sur {{years}} ans."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Liste du groupe pro : {{count}} / {{max}} · jeunes {{youth}} · prêtés au club {{loanedIn}} · prêtés ailleurs {{loanedOut}}",
+      "room": "Il reste {{free}} place(s) sur la liste du groupe pro.",
+      "full": "Plus de place sur la liste : libérez-en {{release}} avant de recruter. C'est la limite d'enregistrement du club, pas un refus du joueur."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Les clubs s'accordent — au joueur de donner son accord",
+    "transferFeedbackPlayerTermsDetail": "Les clubs s'accordent sur {{fee}}. Rien n'est encore conclu : il signerait pour {{wage}} par semaine sur {{years}} ans. Proposez-lui un contrat pour conclure, ou modifiez les conditions.",
+    "bidPlayerTalks": "Clubs d'accord. Place au contrat du joueur.",
+    "submitPlayerTerms": "Proposer le contrat au joueur"
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",
@@ -2827,7 +2836,8 @@
     "resume": "Reprendre",
     "pausedResumesAt": "En pause · reprend en {{speed}}",
     "playingAt": "En cours en {{speed}}",
-    "spaceKey": "Espace"
+    "spaceKey": "Espace",
+    "replayPreparationFailed": "Le match en 2D n'a pas pu être préparé. Rien n'a été modifié."
   },
   "endOfSeason": {
     "seasonComplete": "Saison Terminée",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "Vous avez déjà une offre en cours avec ce joueur. Attendez sa réponse ou retirez-la.",
         "talksBrokenOff": "Ce joueur ne veut plus discuter avec votre club pour le moment.",
         "tooManyOpenTalks": "Vous avez trop de négociations ouvertes. Attendez des réponses ou retirez une offre.",
-        "squadFull": "Votre effectif professionnel est complet. Libérez un joueur avant d'en signer un autre.",
+        "squadFull": "La liste du groupe professionnel est pleine : {{count}} places sur {{max}} occupées. Libérez {{release}} place(s) avant de recruter un autre joueur : résiliez, vendez, prêtez ou renvoyez un joueur chez les jeunes.",
         "noCounterToAnswer": "Ce joueur n'a aucune contre-proposition à laquelle répondre.",
         "counterExpired": "Sa contre-proposition a expiré.",
         "noOpenTalk": "Vous n'avez aucune offre en cours avec ce joueur.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "Cette date est trop lointaine pour être jouée d'un coup.",
         "alreadyRunning": "Une autre progression est déjà en cours.",
         "careerChanged": "La carrière a changé pendant la progression, elle a donc été arrêtée."
+      },
+      "spatialReplay": {
+        "inputRejected": "Le match en 2D n'a pas pu être préparé : les compositions ont été refusées ({{code}}). Rien n'a été modifié.",
+        "engineFailed": "Le moteur de match 2D n'a pas pu jouer ce match : {{detail}}. Rien n'a été modifié.",
+        "outputInvalid": "Le moteur de match 2D a renvoyé un résultat qui n'a pas passé la validation ({{code}}). Rien n'a été modifié.",
+        "notPrepared": "Aucun match en 2D n'a été préparé. Rouvrez la vue 2D avant d'aller au résultat."
       }
     },
     "sender": {

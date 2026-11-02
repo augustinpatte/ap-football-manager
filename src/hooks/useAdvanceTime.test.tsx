@@ -21,6 +21,7 @@ const mockedInvoke = vi.mocked(invoke);
 function HookHarness(props: {
   defaultMatchMode?: "live" | "spectator" | "delegate";
   hasMatchToday: boolean;
+  continueToNextEvent?: boolean;
 }): JSX.Element {
   const [, setGameState] = useState<GameStateData | null>(null);
   const {
@@ -35,6 +36,7 @@ function HookHarness(props: {
     props.defaultMatchMode,
     true,
     false,
+    props.continueToNextEvent ?? false,
   );
 
   return (
@@ -47,6 +49,9 @@ function HookHarness(props: {
       </button>
       <button type="button" onClick={() => void handleSkipToMatchDay()}>
         Skip
+      </button>
+      <button type="button" onClick={() => blockerModal?.pendingAction?.()}>
+        Continue anyway
       </button>
       <div data-testid="show-match-confirm">{String(showMatchConfirm)}</div>
       <div data-testid="blocker-count">{blockerModal?.blockers.length ?? 0}</div>
@@ -212,6 +217,74 @@ describe("useAdvanceTime", (): void => {
       expect(
         mockedInvoke.mock.calls.filter(([command]) => command === "skip_to_match_day"),
       ).toHaveLength(1);
+    });
+  });
+
+  /**
+   * Given a contract warning that blocks skipping to the match day
+   * When the manager chooses "continue anyway"
+   * Then the warning is recorded as dealt with before the skip runs, so the skip is not stopped
+   * by the same warning on its first day.
+   */
+  it("records the contract warnings as dealt with before continuing a skip anyway", async (): Promise<void> => {
+    const calls: string[] = [];
+    mockedInvoke.mockImplementation(async (command: string) => {
+      calls.push(command);
+      if (command === "check_blocking_actions") {
+        return [{ id: "key_contract_risk", severity: "warn", tab: "Squad", text: "x" }];
+      }
+      if (command === "acknowledge_contract_warnings") return 2;
+      if (command === "skip_to_match_day") {
+        return {
+          action: "arrived",
+          days_skipped: 3,
+          results: [],
+          game: { clock: { current_date: "2026-07-05T00:00:00Z" } },
+        };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    await waitFor((): void => {
+      expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+
+    await waitFor((): void => {
+      expect(calls).toContain("skip_to_match_day");
+    });
+    expect(calls.indexOf("acknowledge_contract_warnings")).toBeGreaterThan(-1);
+    expect(calls.indexOf("acknowledge_contract_warnings")).toBeLessThan(
+      calls.indexOf("skip_to_match_day"),
+    );
+  });
+
+  /**
+   * Given the day-by-day run is blocked on its first day
+   * When the manager chooses "continue anyway"
+   * Then the backend is told to play that day past the blockers.
+   */
+  it("tells the backend to play the first day when a day-by-day run continues anyway", async (): Promise<void> => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") {
+        return [{ id: "key_contract_risk", severity: "warn", tab: "Squad", text: "x" }];
+      }
+      if (command === "advance_one_day")
+        return { action: "match_day", date: "2026-07-05", results: [] };
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" continueToNextEvent />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor((): void => {
+      expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenCalledWith("advance_one_day", { ignoreBlockers: true });
     });
   });
 });

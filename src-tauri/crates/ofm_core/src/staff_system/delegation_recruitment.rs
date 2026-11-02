@@ -513,16 +513,20 @@ fn apply_outcome(
         TransferNegotiationDecision::Rejected if outcome.is_terminal => {
             give_up(game, approach, name, ShelveReason::ClubRefused);
         }
-        TransferNegotiationDecision::Rejected => match &outcome.player_demand {
-            // The clubs agree; the player wants other terms. They are put to the authorisation
-            // like any other, on the next visit.
-            Some(demand) => {
-                approach.wage = demand.weekly_wage;
-                approach.years = u8::try_from(demand.contract_years).unwrap_or(0);
-                game.delegation.recruitment.replace(approach.clone());
+        // The assistant bids through the path that never stops to hear the player, so this is
+        // not produced for him; read like a demand if it ever is.
+        TransferNegotiationDecision::Rejected | TransferNegotiationDecision::PlayerTalks => {
+            match &outcome.player_demand {
+                // The clubs agree; the player wants other terms. They are put to the authorisation
+                // like any other, on the next visit.
+                Some(demand) => {
+                    approach.wage = demand.weekly_wage;
+                    approach.years = u8::try_from(demand.contract_years).unwrap_or(0);
+                    game.delegation.recruitment.replace(approach.clone());
+                }
+                None => give_up(game, approach, name, ShelveReason::PlayerRefused),
             }
-            None => give_up(game, approach, name, ShelveReason::PlayerRefused),
-        },
+        }
     }
 }
 
@@ -631,15 +635,17 @@ pub(super) fn sign_approved(
         TransferNegotiationDecision::Rejected if outcome.is_terminal => {
             Err("be.error.delegation.signingRefusedByClub".to_string())
         }
-        TransferNegotiationDecision::Rejected => match outcome.player_demand {
-            Some(demand) => {
-                approach.wage = demand.weekly_wage;
-                approach.years = u8::try_from(demand.contract_years).unwrap_or(0);
-                game.delegation.recruitment.replace(approach);
-                Ok(())
+        TransferNegotiationDecision::Rejected | TransferNegotiationDecision::PlayerTalks => {
+            match outcome.player_demand {
+                Some(demand) => {
+                    approach.wage = demand.weekly_wage;
+                    approach.years = u8::try_from(demand.contract_years).unwrap_or(0);
+                    game.delegation.recruitment.replace(approach);
+                    Ok(())
+                }
+                None => Err("be.error.delegation.signingRefusedByPlayer".to_string()),
             }
-            None => Err("be.error.delegation.signingRefusedByPlayer".to_string()),
-        },
+        }
     }
     .inspect_err(|_| {
         let until = after(game, SHELVE_CLUB_REFUSED_DAYS);

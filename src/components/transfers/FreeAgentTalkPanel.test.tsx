@@ -38,6 +38,7 @@ function talk(overrides: Partial<FreeAgentTalkData> = {}): FreeAgentTalkData {
 
 function panel(overrides: Partial<FreeAgentTalkPanelData> = {}): FreeAgentTalkPanelData {
   return {
+    squadCapacity: null,
     interest: null,
     talk: null,
     rivals: [],
@@ -147,5 +148,63 @@ describe("FreeAgentTalkPanel", () => {
 
     expect(screen.getByText(/freeAgents\.talk\.ended\.lost_to_rival/)).toBeInTheDocument();
     expect(screen.getByText(/freeAgents\.talk\.rivals/)).toHaveTextContent("Big FC");
+  });
+
+  /**
+   * Given a squad list that is over its limit after three releases (33 registered, limit 30)
+   * When the panel renders
+   * Then it gives the exact numbers, the places still to free, and says it is the club's
+   * registration limit rather than the player's refusal.
+   */
+  it("explains a full senior squad list with its numbers", () => {
+    render(
+      <FreeAgentTalkPanel
+        panel={panel({
+          squadCapacity: {
+            registered_seniors: 30,
+            senior_limit: 30,
+            youth: 6,
+            loaned_in: 1,
+            loaned_out: 2,
+            free_places: 0,
+            releases_needed: 1,
+            blocks_signing: true,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.squadCapacity\.summary/)).toHaveTextContent(
+      '"count":30,"max":30,"youth":6,"loanedIn":1,"loanedOut":2',
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("transfers.squadCapacity.full");
+    expect(screen.getByRole("alert")).toHaveTextContent('"release":1');
+  });
+
+  /**
+   * Given a squad list with room
+   * When the panel renders
+   * Then it says how many places remain and raises no alert.
+   */
+  it("shows the places left, without an alert, when the list has room", () => {
+    render(
+      <FreeAgentTalkPanel
+        panel={panel({
+          squadCapacity: {
+            registered_seniors: 27,
+            senior_limit: 30,
+            youth: 4,
+            loaned_in: 0,
+            loaned_out: 0,
+            free_places: 3,
+            releases_needed: 0,
+            blocks_signing: false,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.squadCapacity\.room/)).toHaveTextContent('"free":3');
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

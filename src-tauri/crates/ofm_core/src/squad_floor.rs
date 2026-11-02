@@ -692,7 +692,7 @@ impl SigningContext {
         let by_group = self.free_agents.get_or_insert_with(|| {
             let mut by_group: [Vec<usize>; 4] = Default::default();
             for (index, player) in game.players.iter().enumerate() {
-                if player.team_id.is_none() && !player.retired {
+                if player.is_on_free_market() {
                     by_group[group_index(&player.position)].push(index);
                 }
             }

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useGameStore, type GameStateData } from "../store/gameStore";
 import { useSettingsStore } from "../store/settingsStore";
+import { resolveBackendKeyError } from "../utils/backendI18n";
 import type {
   MatchSnapshot,
   MatchEvent,
@@ -285,7 +286,7 @@ export default function MatchSimulation() {
       setStage("postmatch");
     } catch (error) {
       console.error("M12 simulation failed", error);
-      setSpatialError(t("match.m12SimulationFailed"));
+      setSpatialError(resolveBackendKeyError(error, t("match.m12SimulationFailed")));
     } finally {
       endSpatialAction();
     }
@@ -298,7 +299,8 @@ export default function MatchSimulation() {
       setSpatialReplay({ json: response.replay_json, readOnly: false });
     } catch (error) {
       console.error("M12 replay preparation failed", error);
-      setSpatialError(t("match.replayUnavailable"));
+      // A match that could not be prepared is not a corrupted replay: say what was refused.
+      setSpatialError(resolveBackendKeyError(error, t("match.replayPreparationFailed")));
     } finally {
       endSpatialAction();
     }

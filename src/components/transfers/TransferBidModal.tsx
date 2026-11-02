@@ -461,7 +461,9 @@ export function TransferBidForm({
               ? t("transfers.bidRejected")
               : bidResult === "counter_offer"
                 ? t("transfers.bidCountered")
-                : bidError}
+                : bidResult === "player_talks"
+                  ? t("transfers.bidPlayerTalks")
+                  : bidError}
         </div>
       ) : null}
       <div className="flex gap-2">
@@ -472,7 +474,11 @@ export function TransferBidForm({
             disabled={bidSubmitDisabled || pendingRegistration}
             className="flex-1 py-2 bg-primary-700 hover:bg-primary-800 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
           >
-            {bidLoading ? t("transfers.submitting") : t("transfers.submitBid")}
+            {bidLoading
+              ? t("transfers.submitting")
+              : bidResult === "player_talks"
+                ? t("transfers.submitPlayerTerms")
+                : t("transfers.submitBid")}
           </button>
         )}
         <button

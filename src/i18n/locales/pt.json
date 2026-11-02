@@ -1621,7 +1621,16 @@
       "outlookHesitant": "Ele hesita: espere que peça melhores condições.",
       "outlookUnlikely": "É improvável que ele se junte a este clube.",
       "expects": "Ele espera cerca de {{wage}} por semana durante {{years}} anos."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Lista do plantel: {{count}} / {{max}} · equipa de jovens {{youth}} · emprestados ao clube {{loanedIn}} · emprestados a outros {{loanedOut}}",
+      "room": "Restam {{free}} vaga(s) na lista do plantel.",
+      "full": "Não há vaga na lista: liberte {{release}} antes de contratar. É o limite de inscrição do clube, não uma recusa do jogador."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Os clubes chegaram a acordo — agora o jogador tem de aceitar",
+    "transferFeedbackPlayerTermsDetail": "Os clubes acordam {{fee}}. Ainda nada foi concluído: ele assinaria por {{wage}} por semana durante {{years}} anos. Apresente-lhe um contrato para fechar o negócio ou altere as condições.",
+    "bidPlayerTalks": "Clubes de acordo. Agora, o contrato do jogador.",
+    "submitPlayerTerms": "Apresentar contrato ao jogador"
   },
   "transferCentreWorld": {
     "title": "Centro de transferências",
@@ -2827,7 +2836,8 @@
     "resume": "Retomar",
     "pausedResumesAt": "Em pausa · retoma a {{speed}}",
     "playingAt": "A jogar a {{speed}}",
-    "spaceKey": "Espaço"
+    "spaceKey": "Espaço",
+    "replayPreparationFailed": "Não foi possível preparar o jogo em 2D. Nada foi alterado."
   },
   "endOfSeason": {
     "seasonComplete": "Época Completa",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "Já tens uma proposta com este jogador. Espera pela resposta dele ou retira-a.",
         "talksBrokenOff": "Este jogador não falará com o teu clube por agora.",
         "tooManyOpenTalks": "Tens demasiadas negociações abertas. Espera por respostas ou retira uma proposta.",
-        "squadFull": "O teu plantel principal está completo. Dispensa um jogador antes de contratar outro.",
+        "squadFull": "A lista do plantel principal está cheia: {{count}} de {{max}} vagas ocupadas. Liberte {{release}} vaga(s) antes de contratar outro jogador: rescinda, venda, empreste ou passe um jogador para a equipa de jovens.",
         "noCounterToAnswer": "Este jogador não tem nenhuma contraproposta por responder.",
         "counterExpired": "A contraproposta dele caducou.",
         "noOpenTalk": "Não tens nenhuma proposta aberta com este jogador.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "Essa data está demasiado longe para ser jogada de uma vez.",
         "alreadyRunning": "Já está a decorrer outro avanço.",
         "careerChanged": "A carreira mudou durante o avanço, por isso foi parado."
+      },
+      "spatialReplay": {
+        "inputRejected": "Não foi possível preparar o jogo em 2D: as formações foram rejeitadas ({{code}}). Nada foi alterado.",
+        "engineFailed": "O motor de jogo 2D não conseguiu executar esta partida: {{detail}}. Nada foi alterado.",
+        "outputInvalid": "O motor de jogo 2D devolveu um resultado que falhou na validação ({{code}}). Nada foi alterado.",
+        "notPrepared": "Nenhum jogo em 2D foi preparado. Abra novamente a vista 2D antes de ir ao resultado."
       }
     },
     "sender": {

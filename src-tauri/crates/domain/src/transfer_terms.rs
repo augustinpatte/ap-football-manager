@@ -46,6 +46,12 @@ impl Default for TransferTerms {
 }
 
 impl TransferTerms {
+    /// Whether the manager has put a contract to the player: a wage or a length of his own,
+    /// rather than leaving the buyer's standard ones to be assumed.
+    pub fn names_player_terms(&self) -> bool {
+        self.player_weekly_wage > 0 || self.player_contract_years > 0
+    }
+
     /// Nothing but a fee paid at once: what every offer was before terms existed.
     pub fn is_plain(&self) -> bool {
         *self == Self::default()

@@ -194,6 +194,9 @@ fn a_realistic_transfer_succeeds_after_negotiation() {
         TransferNegotiationDecision::Accepted => 9_400_000,
         TransferNegotiationDecision::CounterOffer => first.suggested_fee.expect("a price"),
         TransferNegotiationDecision::Rejected => panic!("a fair bid is not thrown out"),
+        TransferNegotiationDecision::PlayerTalks => {
+            panic!("the plain path assumes the standard contract and never stops for the player")
+        }
     };
     if first.decision == TransferNegotiationDecision::CounterOffer {
         let second = bid(&mut game, fee);

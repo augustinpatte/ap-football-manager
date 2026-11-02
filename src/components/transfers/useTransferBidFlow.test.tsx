@@ -239,6 +239,7 @@ function HookHarness({
       <output aria-label="resume-on">{talksResumeOn ?? "none"}</output>
       <output aria-label="submit-disabled">{String(bidSubmitDisabled)}</output>
       <output aria-label="bid-result">{bidResult ?? "idle"}</output>
+      <output aria-label="player-contract">{`${bidTerms.playerWage}x${bidTerms.playerYears}`}</output>
     </div>
   );
 }
@@ -521,6 +522,59 @@ describe("useTransferBidFlow", (): void => {
 
     await waitFor((): void => {
       expect(mockedMakeTransferBid).toHaveBeenCalledWith(target.id, 1500000, terms);
+    });
+  });
+
+  /**
+   * Given the clubs agree and the backend answers that the player's step comes next, with the
+   * contract he would sign
+   * When the manager submits
+   * Then the contract is put into the form (nothing was completed, the bid is not "accepted"),
+   * and the next submit sends exactly that contract to the player.
+   */
+  it("carries the player's contract into the next bid when the clubs have agreed", async (): Promise<void> => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedMakeTransferBid
+      .mockResolvedValueOnce({
+        decision: "player_talks",
+        suggested_fee: null,
+        is_terminal: false,
+        feedback: { mood: "positive", headline_key: "h", tension: 0, patience: 0, round: 1 },
+        player_demand: { weekly_wage: 13000, contract_years: 3 },
+        game: gameState,
+      })
+      .mockResolvedValueOnce({
+        decision: "accepted",
+        suggested_fee: null,
+        is_terminal: true,
+        feedback: { mood: "positive", headline_key: "h", tension: 0, patience: 0, round: 1 },
+        game: gameState,
+      });
+    render(<HookHarness gameState={gameState} target={target} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await waitFor((): void => {
+      expect(mockedPreviewTransferBidFinancialImpact).toHaveBeenCalled();
+    });
+    await act(async () => {});
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor((): void => {
+      expect(screen.getByLabelText("bid-result")).toHaveTextContent("player_talks");
+    });
+    expect(screen.getByLabelText("player-contract")).toHaveTextContent("13000x3");
+    expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor((): void => {
+      expect(mockedMakeTransferBid).toHaveBeenLastCalledWith(
+        target.id,
+        expect.any(Number),
+        expect.objectContaining({ player_weekly_wage: 13000, player_contract_years: 3 }),
+      );
+    });
+    await waitFor((): void => {
+      expect(screen.getByLabelText("bid-result")).toHaveTextContent("accepted");
     });
   });
 

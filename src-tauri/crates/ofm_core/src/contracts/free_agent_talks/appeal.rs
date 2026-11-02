@@ -66,7 +66,10 @@ impl ClubSquad {
     }
 
     pub(crate) fn add(&mut self, player: &Player, team_id: &str) {
-        if player.team_id.as_deref() == Some(team_id) && player.squad_role == SquadRole::Senior {
+        if player.team_id.as_deref() == Some(team_id)
+            && player.squad_role == SquadRole::Senior
+            && !player.retired
+        {
             self.groups[group_index(&player.position)].push(player.ovr);
         }
     }

@@ -1621,7 +1621,16 @@
       "outlookHesitant": "Duda: espera que pida mejores condiciones.",
       "outlookUnlikely": "Es poco probable que fiche por este club.",
       "expects": "Espera unos {{wage}} semanales durante {{years}} años."
-    }
+    },
+    "squadCapacity": {
+      "summary": "Lista de plantilla: {{count}} / {{max}} · equipo juvenil {{youth}} · cedidos a tu club {{loanedIn}} · cedidos a otros {{loanedOut}}",
+      "room": "Quedan {{free}} plaza(s) en la lista de plantilla.",
+      "full": "No queda plaza en la lista: libera {{release}} antes de fichar. Es el límite de inscripción del club, no un rechazo del jugador."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Los clubes se ponen de acuerdo: ahora debe aceptar el jugador",
+    "transferFeedbackPlayerTermsDetail": "Los clubes acuerdan {{fee}}. Aún no se ha completado nada: firmaría por {{wage}} a la semana durante {{years}} años. Preséntale un contrato para cerrar el trato o cambia las condiciones.",
+    "bidPlayerTalks": "Clubes de acuerdo. Ahora, el contrato del jugador.",
+    "submitPlayerTerms": "Presentar contrato al jugador"
   },
   "transferCentreWorld": {
     "title": "Centro de fichajes",
@@ -2827,7 +2836,8 @@
     "resume": "Reanudar",
     "pausedResumesAt": "En pausa · se reanuda a {{speed}}",
     "playingAt": "Jugando a {{speed}}",
-    "spaceKey": "Espacio"
+    "spaceKey": "Espacio",
+    "replayPreparationFailed": "No se pudo preparar el partido en 2D. No se cambió nada."
   },
   "endOfSeason": {
     "seasonComplete": "Temporada Completa",
@@ -3194,7 +3204,7 @@
         "talkAlreadyOpen": "Ya tienes una oferta con este jugador. Espera su respuesta o retírala.",
         "talksBrokenOff": "Este jugador no hablará con tu club por ahora.",
         "tooManyOpenTalks": "Tienes demasiadas negociaciones abiertas. Espera respuestas o retira una oferta.",
-        "squadFull": "Tu plantilla principal está completa. Da de baja a un jugador antes de fichar a otro.",
+        "squadFull": "La lista de plantilla del primer equipo está llena: {{count}} de {{max}} plazas ocupadas. Libera {{release}} plaza(s) antes de fichar a otro jugador: rescinde, vende, cede o pasa a un jugador al equipo juvenil.",
         "noCounterToAnswer": "Este jugador no tiene ninguna contraoferta que responder.",
         "counterExpired": "Su contraoferta ha caducado.",
         "noOpenTalk": "No tienes ninguna oferta abierta con este jugador.",
@@ -3206,6 +3216,12 @@
         "targetTooFar": "Esa fecha está demasiado lejos para jugarla de una vez.",
         "alreadyRunning": "Ya hay otro avance en marcha.",
         "careerChanged": "La carrera cambió durante el avance, así que se detuvo."
+      },
+      "spatialReplay": {
+        "inputRejected": "No se pudo preparar el partido en 2D: se rechazaron las alineaciones ({{code}}). No se cambió nada.",
+        "engineFailed": "El motor de partidos 2D no pudo ejecutar este partido: {{detail}}. No se cambió nada.",
+        "outputInvalid": "El motor de partidos 2D devolvió un resultado que no superó la validación ({{code}}). No se cambió nada.",
+        "notPrepared": "No hay ningún partido en 2D preparado. Abre de nuevo la vista 2D antes de ir al resultado."
       }
     },
     "sender": {

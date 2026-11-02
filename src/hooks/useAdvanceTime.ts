@@ -4,6 +4,7 @@ import type { GameStateData } from "../store/gameStore";
 import { useGameStore } from "../store/gameStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
+  acknowledgeContractWarnings,
   advanceTimeWithMode,
   checkBlockingActions,
   skipToMatchDay,
@@ -104,9 +105,21 @@ export function useAdvanceTime(
     setBlockerModal(options?.blockerModal ?? null);
   }
 
-  const runStreamingDigest = (options?: { resume?: boolean }) => {
-    resumeAfterBlockerRef.current = () => void startDigest({ resume: true });
+  const runStreamingDigest = (options?: { resume?: boolean; ignoreBlockers?: boolean }) => {
+    resumeAfterBlockerRef.current = () => void startDigest({ resume: true, ignoreBlockers: true });
     void startDigest(options);
+  };
+
+  // "Continue anyway" on a blocker list: the contract warnings in it are dealt with, so they
+  // are not raised again the next day, then the flow carries on. A failure to record it must
+  // not trap the manager behind the blocker, so it is logged and the flow carries on.
+  const continueAnyway = async (run: () => void): Promise<void> => {
+    try {
+      await acknowledgeContractWarnings();
+    } catch (err) {
+      console.warn("[useAdvanceTime] continueAnyway:acknowledgeFailed", err);
+    }
+    run();
   };
 
   const doAdvance = async (effectiveMode: string) => {
@@ -186,7 +199,13 @@ export function useAdvanceTime(
       : () => doAdvance(resolvedMode);
     const blockers = await checkBlockingActions("handleContinue");
     if (blockers.length > 0) {
-      setBlockerModal({ blockers, pendingAction: runContinue });
+      setBlockerModal({
+        blockers,
+        // The day-by-day run asks the backend again, which would block on the same list.
+        pendingAction: continueToNextEvent
+          ? () => runStreamingDigest({ ignoreBlockers: true })
+          : () => void continueAnyway(runContinue),
+      });
       return;
     }
     runContinue();
@@ -202,7 +221,10 @@ export function useAdvanceTime(
     console.info("[useAdvanceTime] handleSkipToMatchDay:start");
     const blockers = await checkBlockingActions("handleSkipToMatchDay");
     if (blockers.length > 0) {
-      setBlockerModal({ blockers, pendingAction: () => doSkipToMatchDay() });
+      setBlockerModal({
+        blockers,
+        pendingAction: () => void continueAnyway(() => void doSkipToMatchDay()),
+      });
       return;
     }
     doSkipToMatchDay();
@@ -266,7 +288,8 @@ export function useAdvanceTime(
   };
 
   const doSkipToMatchDay = (options?: { append?: boolean }) => {
-    resumeAfterBlockerRef.current = () => void doSkipToMatchDay({ append: true });
+    resumeAfterBlockerRef.current = () =>
+      void continueAnyway(() => void doSkipToMatchDay({ append: true }));
     return runMultiDayAdvance(skipToMatchDay, "doSkipToMatchDay", options);
   };
 

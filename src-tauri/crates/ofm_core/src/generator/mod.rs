@@ -75,6 +75,29 @@ const OPENING_FREE_AGENTS_PER_CLUB: [(Position, usize); 4] = [
     (Position::Forward, 1),
 ];
 
+/// An opening free agent is never better than this percentile of the players the world's clubs
+/// hold. Before, they were drawn from the same unconditional distribution as the club squads, so
+/// the unemployed were *better* than the employed on average (median 66 against 63) and a few
+/// dozen were 79+ and worth millions: players no club had thought worth a contract, in a world
+/// where every club has a hole to fill. Three quarters of the squads are at or under this line.
+const OPENING_FREE_AGENT_CEILING_PERCENTILE: usize = 75;
+/// Draws spent on one free agent to find one under the ceiling; the weakest is kept after that.
+const OPENING_FREE_AGENT_DRAWS: usize = 12;
+
+/// The rating `percentile` percent of `players` do not exceed.
+fn ovr_percentile(players: &[Player], percentile: usize) -> u8 {
+    let mut ovrs: Vec<u8> = players
+        .iter()
+        .filter(|player| player.team_id.is_some())
+        .map(|player| player.ovr)
+        .collect();
+    if ovrs.is_empty() {
+        return u8::MAX;
+    }
+    ovrs.sort_unstable();
+    ovrs[(ovrs.len() - 1) * percentile / 100]
+}
+
 fn target_wage_usage_percent(reputation: u32) -> i64 {
     if reputation >= 750 {
         95
@@ -287,6 +310,9 @@ pub fn generate_national_team_player(
         rng,
     );
     let mut agent = as_free_agent(player);
+    // Not a free agent of the market: he exists so a national squad has a full bench. The prefix
+    // is what keeps him out of every club's reach (`Player::is_on_free_market`).
+    agent.id = format!("{}{}", domain::player::NATIONAL_POOL_ID_PREFIX, agent.id);
     // Specific from the start, like every other player made after the world is built.
     crate::player_identity::upgrade_player_identity(&mut agent, None);
     agent
@@ -858,21 +884,39 @@ fn generate_opening_free_agents(
     country_codes: &[String],
     opening_year: u32,
     names_def: &NamesDefinition,
+    ovr_ceiling: u8,
     rng: &mut impl rand::Rng,
 ) -> Vec<Player> {
     let mut free_agents = Vec::new();
     for (group, per_club) in OPENING_FREE_AGENTS_PER_CLUB {
         for _ in 0..club_count * per_club {
             let nationality = &country_codes[rng.random_range(0..country_codes.len())];
-            let player = generate_random_player_from_def(
-                "",
-                senior_slot_for(&group),
-                nationality,
-                opening_year,
-                None,
-                names_def,
-                rng,
-            );
+            let mut draws = (0..OPENING_FREE_AGENT_DRAWS).map(|_| {
+                generate_random_player_from_def(
+                    "",
+                    senior_slot_for(&group),
+                    nationality,
+                    opening_year,
+                    None,
+                    names_def,
+                    rng,
+                )
+            });
+            // The first draw under the ceiling; if the dice never allow one, the weakest drawn.
+            let mut weakest: Option<Player> = None;
+            let mut chosen = None;
+            for candidate in draws.by_ref() {
+                if candidate.ovr <= ovr_ceiling {
+                    chosen = Some(candidate);
+                    break;
+                }
+                if weakest.as_ref().is_none_or(|best| candidate.ovr < best.ovr) {
+                    weakest = Some(candidate);
+                }
+            }
+            let Some(player) = chosen.or(weakest) else {
+                continue;
+            };
             let mut agent = as_free_agent(player);
             agent.jersey_number = None;
             free_agents.push(agent);
@@ -1486,11 +1530,13 @@ fn generate_world_with_rng(
         teams_out.push(team);
     }
 
+    let ovr_ceiling = ovr_percentile(&players, OPENING_FREE_AGENT_CEILING_PERCENTILE);
     players.extend(generate_opening_free_agents(
         team_defs.len(),
         country_codes,
         opening_year,
         &names_def,
+        ovr_ceiling,
         &mut rng,
     ));
 

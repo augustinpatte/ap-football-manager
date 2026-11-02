@@ -203,4 +203,28 @@ describe("useDigestAdvance", () => {
     expect(result.current.stopReason).toBeNull();
     expect(result.current.isVisible).toBe(false);
   });
+
+  /**
+   * Given a run that stopped on a blocker and the manager chose "continue anyway"
+   * When the run resumes
+   * Then the first day is advanced past the blockers (the backend is told so), and the following
+   * days are checked as usual.
+   */
+  it("passes the manager's 'continue anyway' to the first day only", async () => {
+    mockedAdvanceOneDay
+      .mockResolvedValueOnce(makeAdvancedResponse("2026-09-01"))
+      .mockResolvedValueOnce(makeAdvancedResponse("2026-09-02"))
+      .mockResolvedValueOnce({ action: "match_day", date: "2026-09-03", results: [] });
+
+    const { result } = renderHook(() => useDigestAdvance(setGameState, onFired));
+    await act(async () => {
+      await result.current.startDigest({ resume: true, ignoreBlockers: true });
+    });
+
+    expect(mockedAdvanceOneDay.mock.calls.map((call) => call[0] ?? false)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
 });

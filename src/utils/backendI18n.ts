@@ -112,6 +112,17 @@ export function resolveBackendError(error: unknown): string {
   return resolve(parsed.key, parsed.fallback, resolveParamValues(parsed.params, "exact"));
 }
 
+/**
+ * The backend's own explanation when it sent a translation key, otherwise `fallback`.
+ * A raw English message from an unexpected failure is not shown to a player; the generic wording
+ * the caller passes is.
+ */
+export function resolveBackendKeyError(error: unknown, fallback: string): string {
+  const message = extractErrorMessage(error).trim();
+  if (!message.startsWith("be.error.")) return fallback;
+  return resolveBackendError(message) || fallback;
+}
+
 function boardObjectiveFallback(objective: BoardObjective): string {
   switch (objective.objective_type) {
     case "LeaguePosition":

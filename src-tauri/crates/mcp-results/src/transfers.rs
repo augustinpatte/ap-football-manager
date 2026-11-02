@@ -103,7 +103,7 @@ impl fmt::Display for BidMade {
         ) {
             writeln!(
                 f,
-                "**Player asks**: {wage} a week for {years} years (the clubs agree; bid again with `player_weekly_wage` and `player_contract_years`)"
+                "**Player asks**: {wage} a week for {years} years (the clubs agree; nothing is completed until you bid again with `player_weekly_wage` and `player_contract_years`)"
             )?;
         }
         if self.is_terminal {
