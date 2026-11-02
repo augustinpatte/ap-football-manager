@@ -48,9 +48,11 @@ root, and when you close the window checks from the outside that:
 2. no protected folder changed (fingerprint of every file's path, mtime and size, before and after);
 3. your `world.db` is byte-identical (SHA-256).
 
-It exits non-zero and keeps the folder if any check fails. Other options: `--no-build`,
-`--binary PATH`, `--no-install`, `--keep`, `--smoke SECONDS` (launch, wait, close; for a quick
-sanity run).
+It exits non-zero and keeps the folder if any check fails. `--no-build` refuses the default
+target binary unless it reports the current source revision, so a stale executable cannot bypass
+the isolation startup. `--binary PATH` is for a separately verified executable (and controlled
+test fixtures). Other options: `--no-install`, `--keep`, `--smoke SECONDS` (launch, wait, close;
+for a quick sanity run).
 
 The harness itself is tested without a display or any real data:
 

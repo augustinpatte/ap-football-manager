@@ -30,6 +30,44 @@ fingerprint() {
   fi
 }
 
+# Does this binary identify itself as built from the source revision the harness expects? The
+# probe returns before Tauri, the crash hook or a display is touched, so a stale default binary is
+# rejected before it can write outside a test root.
+binary_matches_revision() {
+  local binary="$1" expected="$2" reported
+  reported="$("$binary" --build-revision 2>/dev/null)" || return 1
+  case "$reported" in
+    *+"$expected") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# A source or bundled frontend file newer than the default binary means it cannot represent this
+# checkout, even if Cargo's build-script cache still has an older revision token.
+binary_has_no_newer_inputs() {
+  local binary="$1" input
+  shift
+  for input in "$@"; do
+    [ -e "$input" ] || continue
+    if [ -f "$input" ]; then
+      [ "$input" -nt "$binary" ] && return 1
+    elif find "$input" -type f -newer "$binary" -print -quit 2>/dev/null | grep -q .; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# The app's build-script output has a directory named `openfootmanager-<hash>`. Do not match the
+# repository path: it also contains "openfootmanager" and would accidentally select another
+# dependency's newer output.
+latest_build_revision() {
+  local build_dir="$1" output
+  output="$(find "$build_dir" -path '*/openfootmanager-*/output' -type f -exec stat -f '%m|%N' {} \; 2>/dev/null | LC_ALL=C sort -nr | head -n 1 | cut -d'|' -f2-)"
+  [ -n "$output" ] || return 1
+  sed -n 's/^cargo:rustc-env=OFM_BUILD_REVISION=//p' "$output" | tail -n 1
+}
+
 # The places a test session must never touch, one per line, for the real account `$1`.
 # `$2` is the player's own APFM_SAVES_DIR, if any.
 protected_paths() {

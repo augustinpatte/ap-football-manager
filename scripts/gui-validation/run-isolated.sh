@@ -17,11 +17,11 @@ root_dir="$(cd "$here/../.." && pwd)"
 # shellcheck source=lib.sh
 . "$here/lib.sh"
 
-world_db=""; binary=""; build=1; install=1; keep=0; smoke=0
+world_db=""; binary=""; binary_was_provided=0; build=1; install=1; keep=0; smoke=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --world-db) world_db="${2:?--world-db needs a path}"; shift 2 ;;
-    --binary) binary="${2:?--binary needs a path}"; build=0; shift 2 ;;
+    --binary) binary="${2:?--binary needs a path}"; binary_was_provided=1; build=0; shift 2 ;;
     --no-build) build=0; shift ;;
     --no-install) install=0; shift ;;
     --keep) keep=1; shift ;;
@@ -50,6 +50,32 @@ if [ "$build" -eq 1 ]; then
 fi
 [ -n "$binary" ] || binary="$root_dir/src-tauri/target/debug/openfootmanager"
 [ -x "$binary" ] || { echo "binary not found or not executable: $binary" >&2; exit 2; }
+
+# `--no-build` otherwise picks the default target binary. It must be the binary Cargo most
+# recently built from these sources: an old target lacks APFM_TEST_DATA_ROOT and could touch the
+# account before the harness gets a chance to compare fingerprints. An explicit --binary is kept
+# for controlled fixtures and for a binary an operator has separately verified.
+if [ "$build" -eq 0 ] && [ "$binary_was_provided" -eq 0 ]; then
+  expected_revision="$(latest_build_revision "$root_dir/src-tauri/target/debug/build" || true)"
+  build_inputs=(
+    "$root_dir/dist"
+    "$root_dir/src-tauri/src"
+    "$root_dir/src-tauri/crates"
+    "$root_dir/src-tauri/capabilities"
+    "$root_dir/src-tauri/assets"
+    "$root_dir/src-tauri/data"
+    "$root_dir/src-tauri/databases"
+    "$root_dir/src-tauri/Cargo.toml"
+    "$root_dir/src-tauri/Cargo.lock"
+    "$root_dir/src-tauri/tauri.conf.json"
+    "$root_dir/src-tauri/build.rs"
+    "$root_dir/src-tauri/build_revision.rs"
+  )
+  if [ -z "$expected_revision" ] || ! binary_matches_revision "$binary" "$expected_revision" || ! binary_has_no_newer_inputs "$binary" "${build_inputs[@]}"; then
+    echo "refusing --no-build: the default binary is not built from the current source revision; run without --no-build or pass an explicitly verified --binary." >&2
+    exit 3
+  fi
+fi
 
 # --- 3. The throw-away root, refused if it could touch real data ------------------------------
 sandbox="$(mktemp -d "${TMPDIR:-/tmp}/apfm-gui-test.XXXXXX")"

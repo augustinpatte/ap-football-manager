@@ -37,6 +37,28 @@ check_not "accepts an unrelated temp folder" overlaps_protected "$work/sandbox" 
 ln -s "$fake_home/apfootballmanager" "$work/innocent"
 check "refuses a symlink into protected data" overlaps_protected "$work/innocent" "$fake_home"
 
+# Given a default binary built from another revision / When --no-build is requested / Then the
+# harness can reject it before it opens a real-data session.
+current_binary="$work/current-binary"
+stale_binary="$work/stale-binary"
+printf '#!/usr/bin/env bash\necho "0.3.0+current"\n' > "$current_binary"
+printf '#!/usr/bin/env bash\necho "0.3.0+stale"\n' > "$stale_binary"
+chmod +x "$current_binary" "$stale_binary"
+check "a binary built from the current revision is accepted" binary_matches_revision "$current_binary" current
+check_not "a stale binary is refused before launch" binary_matches_revision "$stale_binary" current
+build_outputs="$work/build-outputs"
+mkdir -p "$build_outputs/openfootmanager-current" "$build_outputs/zstd-safe-newer"
+printf 'cargo:rustc-env=OFM_BUILD_REVISION=current\n' > "$build_outputs/openfootmanager-current/output"
+printf 'unrelated\n' > "$build_outputs/zstd-safe-newer/output"
+touch "$build_outputs/zstd-safe-newer/output"
+[ "$(latest_build_revision "$build_outputs")" = "current" ] && pass "reads the app build revision instead of another crate's output" || fail "reads the app build revision instead of another crate's output"
+build_input="$work/build-input"
+mkdir -p "$build_input"
+touch -t 202001010000 "$build_input/older-than-binary"
+check "a binary newer than every build input is accepted" binary_has_no_newer_inputs "$current_binary" "$build_input"
+touch "$build_input/newer-than-binary"
+check_not "a binary older than a build input is refused" binary_has_no_newer_inputs "$current_binary" "$build_input"
+
 # End to end with a fake game. It writes where APFM_TEST_DATA_ROOT says, like the real one.
 good="$work/good-game"
 cat > "$good" <<'GAME'
