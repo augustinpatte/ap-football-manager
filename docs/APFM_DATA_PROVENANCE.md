@@ -40,10 +40,12 @@ cargo test --manifest-path src-tauri/Cargo.toml -p ofm_core --test generated_wor
   brussels_fc_is_a_generated_club_with_a_full_generated_roster
 ```
 
-Seed `20260820` yields "Brussels FC" (country BE) with 23 players, among them *Timothy Laurent*,
-*Romelu Goossens*, *Sime Livakovic* (HR), *Anderson Santos* (UY) and *Gruffydd Rees* (a Welsh name
-given the nationality EG). All are generated; the test asserts they carry generator ids, not
-imported `fm-p-` ids. **The user's observation was right: those players are fictional, by design.**
+Seed `20260820` yields "Brussels FC" (country BE) with 23 players (19 seniors, 4 academy). All are
+generated: the test asserts they carry generator ids, not imported `fm-p-` ids, and that the roster
+passes the audit. Before the fixes below, the same seed gave this club a *Simon Simon* and, among
+others, a Welsh name (*Gruffydd Rees*) with the nationality EG. Names change with the generator; the
+test pins the provenance, not the names. **The user's observation was right: those players are
+fictional, by design.**
 The game's world picker described this world as "a randomly generated league … across Europe", which
 undersold it (the world spans every nation). The description now says every club, player and name is
 invented.

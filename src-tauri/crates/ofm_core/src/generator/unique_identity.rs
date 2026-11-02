@@ -29,18 +29,18 @@ pub(super) fn ensure_distinct_identities(players: &mut [Player]) -> usize {
     let mut moved = 0;
     for player in players.iter_mut() {
         let mut key = identity_key(player, &player.date_of_birth);
-        if taken.contains(&key) {
-            if let Ok(mut date) = NaiveDate::parse_from_str(&player.date_of_birth, "%Y-%m-%d") {
-                while taken.contains(&key) {
-                    let Some(next) = date.checked_add_days(Days::new(1)) else {
-                        break;
-                    };
-                    date = next;
-                    key = identity_key(player, &date.format("%Y-%m-%d").to_string());
-                }
-                player.date_of_birth = date.format("%Y-%m-%d").to_string();
-                moved += 1;
+        if taken.contains(&key)
+            && let Ok(mut date) = NaiveDate::parse_from_str(&player.date_of_birth, "%Y-%m-%d")
+        {
+            while taken.contains(&key) {
+                let Some(next) = date.checked_add_days(Days::new(1)) else {
+                    break;
+                };
+                date = next;
+                key = identity_key(player, &date.format("%Y-%m-%d").to_string());
             }
+            player.date_of_birth = date.format("%Y-%m-%d").to_string();
+            moved += 1;
         }
         taken.insert(key);
     }
