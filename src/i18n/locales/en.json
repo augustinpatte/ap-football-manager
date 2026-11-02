@@ -1144,7 +1144,9 @@
         "Scouting": "Scouting",
         "Youth": "Youth",
         "StaffRecruitment": "Staff recruitment",
-        "StaffRenewals": "Staff renewals"
+        "StaffRenewals": "Staff renewals",
+        "Lineup": "Lineup & rotation",
+        "PlayerRenewals": "Player renewals"
       },
       "confirmMajor": "Ask me before major decisions",
       "delegate": "Delegate",
@@ -1154,7 +1156,33 @@
       "accept": "Accept",
       "decline": "Decline",
       "log": "Recent decisions",
-      "noLog": "Nothing decided yet."
+      "noLog": "Nothing decided yet.",
+      "mode": {
+          "title": "Delegation mode",
+          "manual": "Manual",
+          "approval": "With approval",
+          "full": "Full",
+          "custom": "Custom",
+          "manualDesc": "You make every decision. The assistant only advises.",
+          "approvalDesc": "The assistant runs the routine and brings every major decision to you.",
+          "fullDesc": "The assistant runs everything within the limits below. Anything above a limit still comes to you.",
+          "customDesc": "Duties are set one by one below."
+        },
+      "limits": {
+          "title": "Spending limits",
+          "intro": "What the assistant may commit without asking. Anything above goes to you as a proposal.",
+          "max_staff_wage": "Staff wage, per week",
+          "max_player_wage": "Player renewal wage, per week",
+          "max_commitment": "Total of one contract",
+          "max_transfer_fee": "Transfer fee",
+          "transferNote": "A transfer fee limit of 0 means every transfer is yours.",
+          "save": "Save limits"
+        },
+      "outcome": {
+          "approved": "approved",
+          "declined": "declined",
+          "leftToManager": "left to you"
+        }
     },
     "assistant": {
       "title": "Assistant's advice",
@@ -3123,7 +3151,10 @@
       },
       "delegation": {
         "noAssistant": "You need an assistant manager to delegate.",
-        "proposalNotFound": "That proposal no longer exists."
+        "proposalNotFound": "That proposal no longer exists.",
+        "invalidMode": "That delegation mode cannot be applied.",
+        "invalidLimits": "Spending limits cannot be negative.",
+        "wagePolicy": "The board's wage policy no longer allows these terms."
       }
     },
     "sender": {
@@ -3591,6 +3622,18 @@
         "body": "Boss, we could not field a full squad and there was nobody to bring in. {{group}}: {{have}} of the {{floor}} a club must keep, and neither our academy nor the free-agent market has anyone to fill the gap.",
         "totalSubject": "No One Available to Complete the Squad",
         "totalBody": "Boss, we are down to {{have}} senior players, below the {{floor}} a club must keep, and neither our academy nor the free-agent market has anyone to fill the gap."
+      },
+      "assistantDigest": {
+        "subject": "Assistant report",
+        "body": "Boss, since my last report I made {{done}} decision(s) and left {{left}} to you. {{waiting}} proposal(s) are waiting for your answer."
+      },
+      "assistantProposals": {
+        "subject": "Proposals waiting",
+        "body": "Boss, {{count}} proposal(s) are waiting for your answer in the Staff tab."
+      },
+      "assistantMissing": {
+        "subject": "No assistant to carry out your delegation",
+        "body": "The assistant manager's post is empty, so the duties you handed over are not being carried out. Hire a new assistant manager to resume."
       },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",
@@ -4667,19 +4710,24 @@
       "hire": "Hire {{name}} ({{post}}) at {{wage}} a week",
       "upgradeRelease": "Release {{replaces}} (rated {{current}})",
       "upgradeHire": "Replace with {{name}} (rated {{ovr}})",
-      "renew": "Renew {{name}} at {{wage}} a week for {{years}} years"
+      "renew": "Renew {{name}} at {{wage}} a week for {{years}} years",
+      "renewPlayer": "Renew {{player}} at {{wage}} a week for {{years}} years"
     },
     "reason": {
       "vacancy": "A required seat is empty.",
       "upgrade": "A clearly better candidate is available.",
-      "contractEnding": "The contract is about to end."
+      "contractEnding": "The contract is about to end.",
+      "aboveLimit": "This is above a spending limit you set for the assistant."
     },
     "log": {
       "hired": "Hired {{name}} ({{post}}) at {{wage}} a week",
       "promoted": "Promoted {{player}} from the academy",
       "recoveryOrdered": "Switched training to recovery",
       "renewed": "Renewed {{name}} at {{wage}} a week for {{years}} years",
-      "scoutSent": "Sent a scout to watch {{player}}"
+      "scoutSent": "Sent a scout to watch {{player}}",
+      "lineupChosen": "Named the eleven for the next match ({{changes}} changes)",
+      "playerRenewed": "Renewed {{player}} at {{wage}} a week for {{years}} years",
+      "playerRenewalLeft": "Left {{player}}'s contract for you to settle"
     }
   }
 }

@@ -39,7 +39,26 @@ export type Duty =
   | "Scouting"
   | "Youth"
   | "MatchPreparation"
-  | "StaffRenewals";
+  | "StaffRenewals"
+  | "Lineup"
+  | "PlayerRenewals";
+
+/** The presets the duty settings amount to. `custom` is derived, never chosen. */
+export type DelegationMode = "manual" | "approval" | "full" | "custom";
+
+export type DecisionOutcome = "executed" | "approved" | "declined" | "leftToManager";
+
+/** What the assistant may commit without asking; each figure caps one decision. */
+export interface DelegationLimits {
+  /** Highest weekly wage for a staff hire or renewal. */
+  max_staff_wage: number;
+  /** Highest weekly wage for a player renewal. */
+  max_player_wage: number;
+  /** Highest weekly wage x 52 x years of a single contract. */
+  max_commitment: number;
+  /** Highest transfer fee; 0 sends every transfer to the manager. */
+  max_transfer_fee: number;
+}
 
 export interface PostStatus {
   post: StaffPost;
@@ -90,12 +109,14 @@ export interface DelegationLogEntry {
   duty: Duty;
   title_key: string;
   params: [string, string][];
+  outcome: DecisionOutcome;
 }
 
 export interface DelegationState {
   settings: DutySetting[];
   proposals: DelegationProposal[];
   log: DelegationLogEntry[];
+  limits: DelegationLimits;
 }
 
 export interface StaffOverview {
@@ -104,6 +125,7 @@ export interface StaffOverview {
   members: MemberView[];
   budget: StaffBudgetView;
   delegation: DelegationState;
+  delegation_mode: DelegationMode;
   has_assistant: boolean;
 }
 
@@ -170,6 +192,14 @@ export async function setDutyDelegation(
   confirmMajor: boolean,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("set_duty_delegation", { duty, delegated, confirmMajor });
+}
+
+export async function setDelegationMode(mode: DelegationMode): Promise<GameStateData> {
+  return invoke<GameStateData>("set_delegation_mode", { mode });
+}
+
+export async function setDelegationLimits(limits: DelegationLimits): Promise<GameStateData> {
+  return invoke<GameStateData>("set_delegation_limits", { limits });
 }
 
 export async function resolveDelegationProposal(

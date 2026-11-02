@@ -21,24 +21,30 @@ pub enum Duty {
     MatchPreparation,
     /// Renewing the contracts of staff that are running down.
     StaffRenewals,
+    /// Naming the eleven (and resting the tired) the day before a match.
+    Lineup,
+    /// Renewing the contracts of players that are running down.
+    PlayerRenewals,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 6] = [
+    pub const ALL: [Duty; 8] = [
         Duty::Training,
         Duty::StaffRecruitment,
         Duty::Scouting,
         Duty::Youth,
         Duty::MatchPreparation,
         Duty::StaffRenewals,
+        Duty::Lineup,
+        Duty::PlayerRenewals,
     ];
 
     /// Days between two runs of a delegated duty.
     pub fn period_days(self) -> i64 {
         match self {
-            Duty::Training | Duty::MatchPreparation => 1,
+            Duty::Training | Duty::MatchPreparation | Duty::Lineup => 1,
             Duty::Scouting => 3,
-            Duty::Youth | Duty::StaffRecruitment | Duty::StaffRenewals => 7,
+            Duty::Youth | Duty::StaffRecruitment | Duty::StaffRenewals | Duty::PlayerRenewals => 7,
         }
     }
 }
@@ -70,6 +76,12 @@ pub enum ProposalAction {
     ReleaseStaff {
         staff_id: String,
     },
+    /// Renew a player's contract on the terms the assistant worked out.
+    RenewPlayer {
+        player_id: String,
+        wage: u32,
+        years: u8,
+    },
     SetTraining {
         focus: TrainingFocus,
         intensity: TrainingIntensity,
@@ -98,16 +110,77 @@ pub struct Proposal {
     pub reason_key: String,
 }
 
-/// A step the staff took on its own (or one the manager confirmed), kept for the report.
+/// What became of a decision in the history.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DecisionOutcome {
+    /// The assistant did it within what the manager allowed.
+    #[default]
+    Executed,
+    /// The assistant proposed it and the manager said yes.
+    Approved,
+    /// The assistant proposed it and the manager said no.
+    Declined,
+    /// The assistant could not or would not do it by himself; it is left to the manager.
+    LeftToManager,
+}
+
+/// A step the staff took on its own (or one the manager answered), kept for the report.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DelegationLogEntry {
     pub date: String,
     pub duty: Duty,
     pub title_key: String,
     pub params: Vec<(String, String)>,
+    #[serde(default)]
+    pub outcome: DecisionOutcome,
 }
 
-pub const LOG_CAPACITY: usize = 60;
+/// How much of the job the manager has handed over, as a whole.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum DelegationMode {
+    /// The manager does everything; the assistant only advises.
+    Manual,
+    /// The assistant runs the routine and brings every major decision to the manager.
+    Approval,
+    /// The assistant runs everything within the manager's spending limits.
+    Full,
+    /// Duties are set one by one and match none of the three presets.
+    Custom,
+}
+
+/// What the assistant may commit without asking. Every figure is a ceiling on one decision.
+///
+/// Anything above a ceiling is proposed to the manager instead of being done, whatever the duty's
+/// own setting says.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct DelegationLimits {
+    /// Highest weekly wage the assistant may sign a staff member (hire or renewal) at.
+    pub max_staff_wage: u32,
+    /// Highest weekly wage the assistant may renew a player at.
+    pub max_player_wage: u32,
+    /// Highest total a single contract may commit the club to: weekly wage x 52 x years.
+    pub max_commitment: i64,
+    /// Highest fee the assistant may pay for a transfer. Zero: every transfer is the manager's.
+    /// Read through `ofm_core::staff_system::delegation_policy::authorize`; the transfer engine
+    /// is the caller.
+    pub max_transfer_fee: i64,
+}
+
+impl Default for DelegationLimits {
+    fn default() -> Self {
+        Self {
+            max_staff_wage: 5_000,
+            max_player_wage: 15_000,
+            max_commitment: 3_000_000,
+            max_transfer_fee: 0,
+        }
+    }
+}
+
+pub const LOG_CAPACITY: usize = 120;
 pub const PROPOSAL_CAPACITY: usize = 24;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -122,6 +195,14 @@ pub struct DelegationState {
     pub last_run: Vec<(Duty, String)>,
     #[serde(default)]
     pub next_proposal: u64,
+    #[serde(default)]
+    pub limits: DelegationLimits,
+    /// Day the last weekly digest covered up to; entries dated after it are still unreported.
+    #[serde(default)]
+    pub last_digest: Option<String>,
+    /// Day the manager was last told proposals were waiting, so the notice is not daily.
+    #[serde(default)]
+    pub last_proposal_notice: Option<String>,
 }
 
 impl Default for DelegationState {
@@ -139,6 +220,9 @@ impl Default for DelegationState {
             log: Vec::new(),
             last_run: Vec::new(),
             next_proposal: 0,
+            limits: DelegationLimits::default(),
+            last_digest: None,
+            last_proposal_notice: None,
         }
     }
 }
@@ -169,6 +253,47 @@ impl DelegationState {
                 delegated,
                 confirm_major,
             }),
+        }
+    }
+
+    /// Which preset the duty settings amount to. Derived, never stored, so it cannot disagree
+    /// with the settings it summarises.
+    pub fn mode(&self) -> DelegationMode {
+        let delegated = |s: &&DutySetting| s.delegated;
+        if !self.settings.iter().any(|s| s.delegated) {
+            return DelegationMode::Manual;
+        }
+        let every_duty = Duty::ALL
+            .iter()
+            .all(|d| self.setting(*d).is_some_and(|s| s.delegated));
+        let asks = self
+            .settings
+            .iter()
+            .filter(delegated)
+            .all(|s| s.confirm_major);
+        let acts = self
+            .settings
+            .iter()
+            .filter(delegated)
+            .all(|s| !s.confirm_major);
+        match (every_duty, asks, acts) {
+            (true, true, _) => DelegationMode::Approval,
+            (true, _, true) => DelegationMode::Full,
+            _ => DelegationMode::Custom,
+        }
+    }
+
+    /// Applies a preset to every duty. `Custom` is a description, not a preset: it changes
+    /// nothing.
+    pub fn apply_mode(&mut self, mode: DelegationMode) {
+        let (delegated, confirm_major) = match mode {
+            DelegationMode::Manual => (false, true),
+            DelegationMode::Approval => (true, true),
+            DelegationMode::Full => (true, false),
+            DelegationMode::Custom => return,
+        };
+        for duty in Duty::ALL {
+            self.set(duty, delegated, confirm_major);
         }
     }
 
@@ -271,9 +396,41 @@ mod tests {
                 duty: Duty::Training,
                 title_key: "t".into(),
                 params: vec![],
+                outcome: DecisionOutcome::Executed,
             });
         }
         assert_eq!(state.log.len(), LOG_CAPACITY);
         assert_eq!(state.log[0].date, "d5");
+    }
+
+    /// Given a fresh state, when each preset is applied, then `mode()` reads it back; editing one
+    /// duty afterwards makes the state `Custom` rather than pretending to be a preset.
+    #[test]
+    fn the_mode_is_derived_from_the_duty_settings() {
+        let mut state = DelegationState::default();
+        assert_eq!(state.mode(), DelegationMode::Manual);
+        state.apply_mode(DelegationMode::Approval);
+        assert_eq!(state.mode(), DelegationMode::Approval);
+        state.apply_mode(DelegationMode::Full);
+        assert_eq!(state.mode(), DelegationMode::Full);
+        assert!(Duty::ALL.iter().all(|d| state.is_delegated(*d)));
+        assert!(Duty::ALL.iter().all(|d| !state.needs_confirmation(*d)));
+        state.set(Duty::PlayerRenewals, true, true);
+        assert_eq!(state.mode(), DelegationMode::Custom);
+        state.apply_mode(DelegationMode::Manual);
+        assert_eq!(state.mode(), DelegationMode::Manual);
+    }
+
+    /// Given a state saved before modes, limits and outcomes existed, when it is read, then it
+    /// loads with the defaults and keeps what the manager had delegated.
+    #[test]
+    fn a_state_from_before_the_assistant_coach_still_loads() {
+        let old = r#"{"settings":[{"duty":"Training","delegated":true,"confirm_major":false}],
+            "log":[{"date":"2026-08-01","duty":"Training","title_key":"k","params":[]}]}"#;
+        let state: DelegationState = serde_json::from_str(old).unwrap();
+        assert!(state.is_delegated(Duty::Training));
+        assert_eq!(state.limits, DelegationLimits::default());
+        assert_eq!(state.log[0].outcome, DecisionOutcome::Executed);
+        assert_eq!(state.mode(), DelegationMode::Custom);
     }
 }

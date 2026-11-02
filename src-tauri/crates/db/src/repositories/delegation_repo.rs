@@ -64,6 +64,35 @@ mod tests {
             vec![("name".into(), "X".into())],
             "r",
         );
+        // The assistant coach's additions, at values that are not their defaults.
+        state.apply_mode(domain::delegation::DelegationMode::Full);
+        state.limits = domain::delegation::DelegationLimits {
+            max_staff_wage: 1_111,
+            max_player_wage: 2_222,
+            max_commitment: 3_333_333,
+            max_transfer_fee: 444_444,
+        };
+        state.last_digest = Some("2026-08-14".into());
+        state.last_proposal_notice = Some("2026-08-10".into());
+        state.propose(
+            Duty::PlayerRenewals,
+            "2026-08-03",
+            ProposalAction::RenewPlayer {
+                player_id: "p9".into(),
+                wage: 7_000,
+                years: 3,
+            },
+            "delegation.proposal.renewPlayer",
+            vec![],
+            "delegation.reason.aboveLimit",
+        );
+        state.push_log(domain::delegation::DelegationLogEntry {
+            date: "2026-08-04".into(),
+            duty: Duty::Lineup,
+            title_key: "delegation.log.lineupChosen".into(),
+            params: vec![("changes".into(), "2".into())],
+            outcome: domain::delegation::DecisionOutcome::Declined,
+        });
         replace_delegation(db.conn(), &state).unwrap();
         replace_delegation(db.conn(), &state).unwrap();
         assert_eq!(load_delegation(db.conn()).unwrap(), state);
