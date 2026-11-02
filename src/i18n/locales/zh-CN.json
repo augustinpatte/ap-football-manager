@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "俱乐部已达成一致——现在需要球员同意",
     "transferFeedbackPlayerTermsDetail": "两家俱乐部就 {{fee}} 达成一致。目前尚未完成任何手续：他愿意以每周 {{wage}}、为期 {{years}} 年签约。请向他提交合同以完成交易，或修改条件。",
     "bidPlayerTalks": "俱乐部已达成一致，现在敲定球员合同。",
-    "submitPlayerTerms": "向球员提交合同"
+    "submitPlayerTerms": "向球员提交合同",
+    "restriction": {
+      "onLoanTitle": "租借中",
+      "onLoanDetail": "他租借在{{club}}，至 {{date}} 为止，在此之前无法接洽。",
+      "pendingTitle": "已达成转会协议",
+      "pendingDetail": "他的转会将于 {{date}} 办理注册。",
+      "pendingDetailNoDate": "他的转会正在等待办理注册。"
+    }
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -3134,7 +3141,8 @@
         "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。",
         "invalidDealTerms": "这些交易条款不被允许。",
         "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。",
-        "playerRefusesMove": "球员不愿加盟那家俱乐部。"
+        "playerRefusesMove": "球员不愿加盟那家俱乐部。",
+        "playerRefusesLoan": "球员不愿租借到那家俱乐部。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",

@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "Kluby se dohodly — nyní musí souhlasit hráč",
     "transferFeedbackPlayerTermsDetail": "Kluby se dohodly na {{fee}}. Zatím není nic dokončeno: podepsal by za {{wage}} týdně na {{years}} let. Předložte mu smlouvu a dohodu uzavřete, nebo změňte podmínky.",
     "bidPlayerTalks": "Kluby se dohodly. Nyní smlouva hráče.",
-    "submitPlayerTerms": "Předložit smlouvu hráči"
+    "submitPlayerTerms": "Předložit smlouvu hráči",
+    "restriction": {
+      "onLoanTitle": "Na hostování",
+      "onLoanDetail": "Je na hostování v klubu {{club}} do {{date}} a do té doby ho nelze oslovit.",
+      "pendingTitle": "Přestup už je dohodnutý",
+      "pendingDetail": "Jeho přestup čeká na registraci dne {{date}}.",
+      "pendingDetailNoDate": "Jeho přestup čeká na registraci."
+    }
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -3142,7 +3149,8 @@
         "invalidYouthScoutingTargetPosition": "Nepodporovaná cílová pozice pro skauting mládeže.",
         "invalidDealTerms": "Tyto podmínky dohody nejsou povoleny.",
         "sellOnUnaffordable": "Prodávající klub nemůže zaplatit podíl, který dluží klubu, jenž ho prodal dříve.",
-        "playerRefusesMove": "Hráč do toho klubu nechce."
+        "playerRefusesMove": "Hráč do toho klubu nechce.",
+        "playerRefusesLoan": "Hráč nechce do toho klubu na hostování."
       },
       "contracts": {
         "playerNotOwnedByClub": "Hráč nepatří do vašeho klubu",

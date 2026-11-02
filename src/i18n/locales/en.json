@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "The clubs agree — now the player must agree",
     "transferFeedbackPlayerTermsDetail": "The clubs agree on {{fee}}. Nothing is completed yet: he would sign for {{wage}} a week over {{years}} years. Put a contract to him to close the deal, or change the terms.",
     "bidPlayerTalks": "Clubs agreed. Now agree his contract.",
-    "submitPlayerTerms": "Put contract to player"
+    "submitPlayerTerms": "Put contract to player",
+    "restriction": {
+      "onLoanTitle": "Out on loan",
+      "onLoanDetail": "He is on loan at {{club}} until {{date}} and cannot be approached before then.",
+      "pendingTitle": "A move is already agreed",
+      "pendingDetail": "His move is waiting for registration on {{date}}.",
+      "pendingDetailNoDate": "His move is waiting for registration."
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -3142,7 +3149,8 @@
         "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position.",
         "invalidDealTerms": "These deal terms are not allowed.",
         "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier.",
-        "playerRefusesMove": "The player does not want to join that club."
+        "playerRefusesMove": "The player does not want to join that club.",
+        "playerRefusesLoan": "The player does not want to go on loan to that club."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",

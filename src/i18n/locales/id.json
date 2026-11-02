@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "Kedua klub sepakat — sekarang pemain harus setuju",
     "transferFeedbackPlayerTermsDetail": "Kedua klub sepakat di {{fee}}. Belum ada yang selesai: ia akan menandatangani dengan {{wage}} per minggu selama {{years}} tahun. Tawarkan kontrak kepadanya untuk menutup kesepakatan, atau ubah persyaratan.",
     "bidPlayerTalks": "Klub sepakat. Sekarang kontrak pemain.",
-    "submitPlayerTerms": "Tawarkan kontrak ke pemain"
+    "submitPlayerTerms": "Tawarkan kontrak ke pemain",
+    "restriction": {
+      "onLoanTitle": "Sedang dipinjamkan",
+      "onLoanDetail": "Dia dipinjamkan ke {{club}} hingga {{date}} dan tidak bisa didekati sebelum itu.",
+      "pendingTitle": "Perpindahan sudah disepakati",
+      "pendingDetail": "Perpindahannya menunggu registrasi pada {{date}}.",
+      "pendingDetailNoDate": "Perpindahannya menunggu registrasi."
+    }
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -3142,7 +3149,8 @@
         "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung.",
         "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
         "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya.",
-        "playerRefusesMove": "Pemain tidak mau bergabung dengan klub itu."
+        "playerRefusesMove": "Pemain tidak mau bergabung dengan klub itu.",
+        "playerRefusesLoan": "Pemain tidak mau dipinjamkan ke klub itu."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",

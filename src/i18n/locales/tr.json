@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "Kulüpler anlaştı — şimdi oyuncunun onaylaması gerekiyor",
     "transferFeedbackPlayerTermsDetail": "Kulüpler {{fee}} üzerinde anlaştı. Henüz hiçbir şey tamamlanmadı: haftada {{wage}} ile {{years}} yıllığına imzalar. Anlaşmayı kapatmak için ona bir sözleşme sunun veya şartları değiştirin.",
     "bidPlayerTalks": "Kulüpler anlaştı. Şimdi oyuncunun sözleşmesi.",
-    "submitPlayerTerms": "Sözleşmeyi oyuncuya sun"
+    "submitPlayerTerms": "Sözleşmeyi oyuncuya sun",
+    "restriction": {
+      "onLoanTitle": "Kiralık olarak başka kulüpte",
+      "onLoanDetail": "{{club}} kulübüne {{date}} tarihine kadar kiralık; o zamana kadar kendisiyle görüşülemez.",
+      "pendingTitle": "Bir transfer zaten kararlaştırıldı",
+      "pendingDetail": "Transferi {{date}} tarihinde tescil edilmeyi bekliyor.",
+      "pendingDetailNoDate": "Transferi tescil edilmeyi bekliyor."
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",
@@ -3142,7 +3149,8 @@
         "invalidYouthScoutingTargetPosition": "Desteklenmeyen genç oyuncu hedef pozisyonu.",
         "invalidDealTerms": "Bu anlaşma şartlarına izin verilmiyor.",
         "sellOnUnaffordable": "Satan kulüp, onu daha önce satan kulübe borçlu olduğu payı ödeyemiyor.",
-        "playerRefusesMove": "Oyuncu o kulübe katılmak istemiyor."
+        "playerRefusesMove": "Oyuncu o kulübe katılmak istemiyor.",
+        "playerRefusesLoan": "Oyuncu o kulübe kiralık gitmek istemiyor."
       },
       "contracts": {
         "playerNotOwnedByClub": "Oyuncu kulübünüze ait değil",

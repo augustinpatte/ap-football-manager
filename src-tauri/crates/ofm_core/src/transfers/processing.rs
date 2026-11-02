@@ -100,6 +100,25 @@ pub(crate) fn deal_registration_date(
     Ok(today + Duration::days(processing_days(&key, &shape).min(left)))
 }
 
+/// When an agreed loan of `player` to `borrower_team_id` starts: the same administration as a
+/// permanent move, quicker for a plain loan (a loan with a purchase option has a contract to draw
+/// up, so it takes as long as a small fee does).
+pub(crate) fn loan_deal_registration_date(
+    game: &Game,
+    player: &Player,
+    borrower_team_id: &str,
+    has_buy_option: bool,
+) -> Result<NaiveDate, String> {
+    let fee = if has_buy_option { SMALL_FEE } else { 0 };
+    deal_registration_date(
+        game,
+        player,
+        borrower_team_id,
+        fee,
+        &TransferTerms::default(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

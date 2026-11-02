@@ -59,7 +59,7 @@ use lifecycle::*;
 pub use loans::*;
 pub use market::*;
 use notifications::*;
-use processing::deal_registration_date;
+use processing::{deal_registration_date, loan_deal_registration_date};
 pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
 pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;

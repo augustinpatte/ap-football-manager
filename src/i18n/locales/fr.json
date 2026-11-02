@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "Les clubs s'accordent — au joueur de donner son accord",
     "transferFeedbackPlayerTermsDetail": "Les clubs s'accordent sur {{fee}}. Rien n'est encore conclu : il signerait pour {{wage}} par semaine sur {{years}} ans. Proposez-lui un contrat pour conclure, ou modifiez les conditions.",
     "bidPlayerTalks": "Clubs d'accord. Place au contrat du joueur.",
-    "submitPlayerTerms": "Proposer le contrat au joueur"
+    "submitPlayerTerms": "Proposer le contrat au joueur",
+    "restriction": {
+      "onLoanTitle": "Prêté",
+      "onLoanDetail": "Il est prêté à {{club}} jusqu'au {{date}} et ne peut pas être approché avant.",
+      "pendingTitle": "Un transfert est déjà convenu",
+      "pendingDetail": "Son transfert attend l'enregistrement le {{date}}.",
+      "pendingDetailNoDate": "Son transfert attend l'enregistrement."
+    }
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",
@@ -3134,7 +3141,8 @@
         "invalidYouthScoutingTargetPosition": "Poste cible de recrutement des jeunes non pris en charge.",
         "invalidDealTerms": "Ces conditions d'accord ne sont pas autorisées.",
         "sellOnUnaffordable": "Le club vendeur ne peut pas verser la part due au club qui l'a vendu auparavant.",
-        "playerRefusesMove": "Le joueur ne veut pas rejoindre ce club."
+        "playerRefusesMove": "Le joueur ne veut pas rejoindre ce club.",
+        "playerRefusesLoan": "Le joueur ne veut pas être prêté à ce club."
       },
       "contracts": {
         "playerNotOwnedByClub": "Le joueur n'appartient pas à votre club",

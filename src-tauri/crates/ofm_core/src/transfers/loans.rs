@@ -5,7 +5,9 @@
 //! the negotiation itself.
 
 use super::*;
+use consent::ensure_player_agrees_to_loan;
 
+mod consent;
 mod incoming;
 pub use incoming::{counter_loan_offer, respond_to_loan_offer};
 
@@ -605,12 +607,8 @@ pub fn make_loan_offer(
     }
 
     let current_date = game.clock.current_date.date_naive();
-    let registration_date = loan_registration_date(game)?;
-    let register_immediately = registration_date == current_date;
-    let end_date = parse_valid_loan_end_date(registration_date, end_date)?;
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-    let start_date_string = registration_date.format("%Y-%m-%d").to_string();
-    let end_date_string = end_date.format("%Y-%m-%d").to_string();
+    // The window must be open (or about to open) before anything else is asked.
+    loan_registration_date(game)?;
 
     let user_team_id = game
         .manager
@@ -623,6 +621,13 @@ pub fn make_loan_offer(
         .iter()
         .find(|player| player.id == player_id)
         .ok_or("be.error.playerNotFound")?;
+    let registration_date =
+        loan_deal_registration_date(game, player, &user_team_id, buy_option_fee.is_some())?;
+    let register_immediately = registration_date == current_date;
+    let end_date = parse_valid_loan_end_date(registration_date, end_date)?;
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let start_date_string = registration_date.format("%Y-%m-%d").to_string();
+    let end_date_string = end_date.format("%Y-%m-%d").to_string();
 
     if player.team_id.as_deref() == Some(&user_team_id) {
         return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.into());
@@ -666,6 +671,8 @@ pub fn make_loan_offer(
     let accepted = wage_contribution_pct >= adjusted_minimum_contribution && buy_option_accepted;
 
     if accepted {
+        // The clubs agree; the player still has to. Before the offer is marked agreed.
+        ensure_player_agrees_to_loan(game, player_id, &user_team_id)?;
         validate_loan_borrower_affordability(game, &user_team_id, player, wage_contribution_pct)?;
         // Before the offer is marked agreed, like every other refusal here.
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;

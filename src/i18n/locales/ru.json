@@ -1630,7 +1630,14 @@
     "transferFeedbackPlayerTermsHeadline": "Клубы договорились — теперь должен согласиться игрок",
     "transferFeedbackPlayerTermsDetail": "Клубы договорились о {{fee}}. Пока ничего не завершено: он подпишет контракт на {{wage}} в неделю на {{years}} лет. Предложите ему контракт, чтобы закрыть сделку, или измените условия.",
     "bidPlayerTalks": "Клубы договорились. Теперь — контракт игрока.",
-    "submitPlayerTerms": "Предложить контракт игроку"
+    "submitPlayerTerms": "Предложить контракт игроку",
+    "restriction": {
+      "onLoanTitle": "В аренде",
+      "onLoanDetail": "Он в аренде в клубе {{club}} до {{date}}, до этого момента переговоры с ним невозможны.",
+      "pendingTitle": "Переход уже согласован",
+      "pendingDetail": "Его переход ожидает регистрации {{date}}.",
+      "pendingDetailNoDate": "Его переход ожидает регистрации."
+    }
   },
   "transferCentreWorld": {
     "title": "Трансферный центр",
@@ -3134,7 +3141,8 @@
         "invalidYouthScoutingTargetPosition": "Неподдерживаемая молодежь ищет целевую позицию.",
         "invalidDealTerms": "Такие условия сделки недопустимы.",
         "sellOnUnaffordable": "Продающий клуб не может выплатить долю, причитающуюся клубу, который продал его раньше.",
-        "playerRefusesMove": "Игрок не хочет переходить в этот клуб."
+        "playerRefusesMove": "Игрок не хочет переходить в этот клуб.",
+        "playerRefusesLoan": "Игрок не хочет идти в аренду в этот клуб."
       },
       "contracts": {
         "playerNotOwnedByClub": "Игрок не принадлежит к вашему клубу",
