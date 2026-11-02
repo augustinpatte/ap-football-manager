@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TeamData } from "../../store/gameStore";
-import { TabPanel, Tabs } from "../ui";
 import MatchScreenLayout from "./MatchScreenLayout";
 import { frameAtOrBefore, parseM12Replay, playersOnPitch, type ReplayRejection } from "./m12Replay";
 import ReplayEventFeed from "./ReplayEventFeed";
-import { ReplayConditionPanel, ReplayLineupPanel, ReplayStatsPanel } from "./ReplayPanels";
-import { buildFeed, conditionsAt, feedAt, lineupAt, statsAt } from "./replayDerived";
+import ReplayPlaybackBar from "./ReplayPlaybackBar";
+import ReplayViews, { type ViewId } from "./ReplayViews";
+import { buildFeed, feedAt } from "./replayDerived";
 import { resolveReplayTeamName } from "./replayNames";
 import { drawPitch } from "./replayPitch";
 
@@ -15,8 +15,6 @@ const PLAYBACK_SPEEDS = [0.5, 1, 2, 4] as const;
 const VISIBLE_EVENTS = 8;
 /** How long a goal stays announced above the pitch, in replay time. */
 const GOAL_BANNER_MS = 8_000;
-const VIEWS = ["pitch", "condition", "stats", "lineup"] as const;
-type ViewId = (typeof VIEWS)[number];
 
 interface M12ReplayViewerProps {
   replayJson: string;
@@ -73,7 +71,6 @@ export default function M12ReplayViewer({
   teams = [],
 }: M12ReplayViewerProps) {
   const { t } = useTranslation();
-  const tabsId = useId();
   const [view, setView] = useState<ViewId>("pitch");
   const parsed = useMemo(() => parseM12Replay(replayJson), [replayJson]);
   const replay = parsed.ok ? parsed.replay : null;
@@ -203,106 +200,35 @@ export default function M12ReplayViewer({
             })}
           </p>
         ) : null}
-        <Tabs
-          idPrefix={tabsId}
-          label={t("match.replayViews")}
-          tabs={VIEWS.map((id) => ({ id, label: t(`match.replayTab.${id}`) }))}
-          selectedId={view}
-          onSelect={(id) => setView(id as ViewId)}
+        <ReplayViews
+          replay={replay}
+          frame={frame}
+          time={time}
+          view={view}
+          onViewChange={setView}
+          canvasRef={canvas}
+          playersOnPitch={{ home: homeOnPitch, away: awayOnPitch }}
+          homePlayerIds={homePlayerIds}
+          teamNames={teamNames}
+          nameOf={nameOf}
         />
-        <TabPanel idPrefix={tabsId} tabId="pitch" hidden={view !== "pitch"} className="pt-3">
-          <canvas
-            ref={canvas}
-            aria-label={t("match.replayPitch")}
-            className="h-[68vh] min-h-96 w-full rounded bg-sunken"
-          />
-          <p className="mt-2 text-caption text-fg-muted" data-testid="replay-players-on-pitch">
-            {t("match.replayPlayersOnPitch", {
-              home: homeOnPitch,
-              away: awayOnPitch,
-              total: onPitch.length,
-            })}
-          </p>
-        </TabPanel>
-        <TabPanel
-          idPrefix={tabsId}
-          tabId="condition"
-          hidden={view !== "condition"}
-          className="pt-3"
-        >
-          {view === "condition" ? (
-            <ReplayConditionPanel
-              entries={conditionsAt(replay, frame, homePlayerIds)}
-              teamNames={teamNames}
-              nameOf={nameOf}
-            />
-          ) : null}
-        </TabPanel>
-        <TabPanel idPrefix={tabsId} tabId="stats" hidden={view !== "stats"} className="pt-3">
-          {view === "stats" ? (
-            <ReplayStatsPanel
-              stats={statsAt(replay, time, frame, homePlayerIds)}
-              teamNames={teamNames}
-              minute={minute}
-            />
-          ) : null}
-        </TabPanel>
-        <TabPanel idPrefix={tabsId} tabId="lineup" hidden={view !== "lineup"} className="pt-3">
-          {view === "lineup" ? (
-            <ReplayLineupPanel
-              lineup={lineupAt(replay, frame, time, homePlayerIds)}
-              teamNames={teamNames}
-              nameOf={nameOf}
-            />
-          ) : null}
-        </TabPanel>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPlaying((value) => !value)}
-            disabled={time >= end}
-            className="rounded bg-primary-solid px-4 py-2 text-on-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {playing ? t("match.pauseReplay") : t("match.playReplay")}
-          </button>
-          <label className="text-body">
-            {t("match.replaySpeed")}
-            <select
-              value={speed}
-              onChange={(event) =>
-                setSpeed(Number(event.target.value) as (typeof PLAYBACK_SPEEDS)[number])
-              }
-              className="ml-2 rounded border border-line bg-panel p-2"
-            >
-              {PLAYBACK_SPEEDS.map((value) => (
-                <option key={value} value={value}>
-                  {value}×
-                </option>
-              ))}
-            </select>
-          </label>
-          <input
-            aria-label={t("match.replayTimeline")}
-            type="range"
-            min={replay.frames[0].t_ms}
-            max={end}
-            value={time}
-            onChange={(event) => {
-              setPlaying(false);
-              setTime(Number(event.target.value));
-            }}
-            className="min-w-48 flex-1"
-          />
-          <button
-            type="button"
-            onClick={() => void handleFinish()}
-            disabled={finishing}
-            aria-busy={finishing}
-            className="rounded bg-accent-solid px-4 py-2 text-on-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-60"
-          >
-            {t(readOnly ? "match.backToSchedule" : "match.goToResult")}
-          </button>
-        </div>
+        <ReplayPlaybackBar
+          playing={playing}
+          onTogglePlaying={() => setPlaying((value) => !value)}
+          speed={speed}
+          speeds={PLAYBACK_SPEEDS}
+          onSpeedChange={setSpeed}
+          time={time}
+          start={replay.frames[0].t_ms}
+          end={end}
+          onSeek={(value) => {
+            setPlaying(false);
+            setTime(value);
+          }}
+          finishing={finishing}
+          finishLabelKey={readOnly ? "match.backToSchedule" : "match.goToResult"}
+          onFinish={() => void handleFinish()}
+        />
         {finishError && (
           <p className="mt-3 text-body text-danger" role="alert">
             {t("match.m12SimulationFailed")}
