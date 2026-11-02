@@ -2802,8 +2802,60 @@
   "squadCompare": {
     "compare": "比较"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "谈判",
+        "interest": {
+          "keen": "他很可能接受这些条件。",
+          "hesitant": "他犹豫不决，可能会要求其他条件。",
+          "unlikely": "他不太可能接受这些条件。"
+        },
+        "expects": "他期望每周约 {{wage}}，合同 {{years}} 年。",
+        "place": {
+          "key": "在你的俱乐部，他将是核心球员。",
+          "starter": "在你的俱乐部，他将是主力。",
+          "rotation": "在你的俱乐部，他将是轮换球员。",
+          "backup": "在你的俱乐部，他将是替补。"
+        },
+        "responseTime": "报价后他会在 {{min}} 至 {{max}} 天内答复。",
+        "awaiting": "报价已发出。他将在 {{date}} 答复。",
+        "counter": "他要求每周 {{wage}}，合同 {{years}} 年。他的条件有效至 {{date}}。",
+        "acceptCounter": "接受他的条件",
+        "withdraw": "撤回报价",
+        "rivals": "还有其他俱乐部在与他谈判：{{clubs}}。",
+        "ended": {
+          "rejected": "他拒绝了报价。",
+          "withdrawn": "你撤回了报价。",
+          "lost_to_rival": "他已与其他俱乐部签约。",
+          "lapsed": "报价已失效。"
+        },
+        "offerPending": "报价待答复"
+      },
+      "reason": {
+        "wage_too_low": "薪资低于他能争取到的水平。",
+        "club_below_his_level": "你的俱乐部远低于他的水平。",
+        "no_place_in_side_for_him": "他在你的球队里无法成为主力。",
+        "contract_too_short": "合同比他想要的短。",
+        "offer_insulting": "他认为报价是一种侮辱，两周内不会与你谈。",
+        "talks_broken_off": "他对谈判已失去耐心。",
+        "better_offer_elsewhere": "其他俱乐部给出了更好的报价。",
+        "club_cannot_afford": "你的俱乐部已负担不起这笔交易。",
+        "manager_withdrew": "你撤回了报价。",
+        "counter_expired": "他的还价没有及时得到答复。"
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
+          "talksBrokenOff": "该球员暂时不会与你的俱乐部谈判。",
+          "tooManyOpenTalks": "你开启的谈判太多。请等待答复或撤回一份报价。",
+          "squadFull": "你的一线队名单已满。请先放走一名球员再签新人。",
+          "noCounterToAnswer": "该球员没有需要你答复的还价。",
+          "counterExpired": "他的还价已过期。",
+          "noOpenTalk": "你没有与该球员的进行中报价。",
+          "invalidOffer": "这不是有效的合同报价。"
+        },
       "squadFloor": {
         "wouldLeaveShort": "该球员无法离队：阵容将低于俱乐部必须保留的最低人数。涉及位置：{{group}}。",
         "wouldLeaveSeniorsShort": "该球员无法离队：俱乐部一线队将少于 {{floor}} 名球员，低于俱乐部必须保留的最低人数。"
@@ -3154,6 +3206,24 @@
       "sportsDaily": "体育日报"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} 想要其他条件",
+            "body": "{{player}} 对 {{team}} 的报价作出还价：每周 {{wage}}，合同 {{years}} 年。他的条件有效 {{days}} 天。"
+          },
+          "rejected": {
+            "subject": "{{player}} 拒绝了 {{team}}",
+            "body": "{{player}} 拒绝了 {{team}} 的报价。打开他的档案查看原因。"
+          },
+          "lost": {
+            "subject": "{{player}} 已与 {{team}} 签约",
+            "body": "{{player}} 选择了另一家俱乐部 {{team}}，而不是你的报价。"
+          },
+          "lapsed": {
+            "subject": "对 {{player}} 的报价已失效",
+            "body": "对 {{player}} 的报价无果而终：他的还价没有及时得到答复，或者俱乐部已负担不起这笔交易。"
+          }
+        },
       "world": {
         "randomName": "随机世界",
         "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",

@@ -2802,8 +2802,60 @@
   "squadCompare": {
     "compare": "Karşılaştır"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "Pazarlık",
+        "interest": {
+          "keen": "Bu şartları büyük olasılıkla kabul edecek.",
+          "hesitant": "Kararsız; farklı şartlar isteyebilir.",
+          "unlikely": "Bu şartları kabul etmesi pek olası değil."
+        },
+        "expects": "Haftada yaklaşık {{wage}} ve {{years}} yıl bekliyor.",
+        "place": {
+          "key": "Kulübünde kilit oyuncu olurdu.",
+          "starter": "Kulübünde ilk 11'in düzenli oyuncusu olurdu.",
+          "rotation": "Kulübünde rotasyonun bir parçası olurdu.",
+          "backup": "Kulübünde yedek oyuncu olurdu."
+        },
+        "responseTime": "Tekliften {{min}} ile {{max}} gün sonra yanıt verir.",
+        "awaiting": "Teklif gönderildi. {{date}} tarihinde yanıt verecek.",
+        "counter": "Haftada {{wage}} ve {{years}} yıl istiyor. Şartları {{date}} tarihine kadar geçerli.",
+        "acceptCounter": "Şartlarını kabul et",
+        "withdraw": "Teklifi geri çek",
+        "rivals": "Başka kulüpler de onunla görüşüyor: {{clubs}}.",
+        "ended": {
+          "rejected": "Teklifi reddetti.",
+          "withdrawn": "Teklifi geri çektin.",
+          "lost_to_rival": "Başka bir kulübe imza attı.",
+          "lapsed": "Teklifin süresi doldu."
+        },
+        "offerPending": "Teklif bekliyor"
+      },
+      "reason": {
+        "wage_too_low": "Maaş, isteyebileceği düzeyin altında.",
+        "club_below_his_level": "Kulübün onun seviyesinin çok altında.",
+        "no_place_in_side_for_him": "Takımında düzenli oynamayacak.",
+        "contract_too_short": "Sözleşme istediğinden kısa.",
+        "offer_insulting": "Teklifi hakaret saydı ve iki hafta seninle konuşmayacak.",
+        "talks_broken_off": "Görüşmelerde sabrı tükendi.",
+        "better_offer_elsewhere": "Başka bir kulüp ona daha iyi bir teklif yaptı.",
+        "club_cannot_afford": "Kulübün bu anlaşmayı artık karşılayamıyor.",
+        "manager_withdrew": "Teklifi geri çektin.",
+        "counter_expired": "Karşı teklifine zamanında yanıt verilmedi."
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
+          "talksBrokenOff": "Bu oyuncu şimdilik kulübünle konuşmayacak.",
+          "tooManyOpenTalks": "Çok fazla açık pazarlığın var. Yanıtları bekle ya da bir teklifi geri çek.",
+          "squadFull": "A takım kadron dolu. Yenisini almadan önce bir oyuncuyu gönder.",
+          "noCounterToAnswer": "Bu oyuncunun yanıtlanacak bir karşı teklifi yok.",
+          "counterExpired": "Karşı teklifinin süresi doldu.",
+          "noOpenTalk": "Bu oyuncuyla açık bir teklifin yok.",
+          "invalidOffer": "Bu geçerli bir sözleşme teklifi değil."
+        },
       "squadFloor": {
         "wouldLeaveShort": "Bu oyuncu ayrılamaz: kadro, bir kulübün koruması gereken asgari sayının altına düşer. Etkilenen bölge: {{group}}.",
         "wouldLeaveSeniorsShort": "Bu oyuncu ayrılamaz: kulübün A takımında {{floor}} oyuncudan az kalır, bu da bir kulübün koruması gereken asgari sayıdır."
@@ -3154,6 +3206,24 @@
       "sportsDaily": "Günlük Spor"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} farklı şartlar istiyor",
+            "body": "{{player}}, {{team}} kulübünün teklifine karşı teklifle yanıt verdi: haftada {{wage}}, {{years}} yıl. Şartları {{days}} gün geçerli."
+          },
+          "rejected": {
+            "subject": "{{player}}, {{team}} teklifini reddetti",
+            "body": "{{player}}, {{team}} kulübünün teklifini geri çevirdi. Nedenini görmek için profiline bak."
+          },
+          "lost": {
+            "subject": "{{player}}, {{team}} ile imzaladı",
+            "body": "{{player}}, teklifin yerine başka bir kulübü, {{team}} kulübünü seçti."
+          },
+          "lapsed": {
+            "subject": "{{player}} için yapılan teklif geçersiz kaldı",
+            "body": "{{player}} için yapılan teklif sonuçsuz kaldı: karşı teklifine zamanında yanıt verilmedi ya da kulüp anlaşmayı artık karşılayamadı."
+          }
+        },
       "world": {
         "randomName": "Rastgele Dünya",
         "randomDescription": "Avrupa genelinde {{teamCount}} takımlı rastgele oluşturulmuş lig",

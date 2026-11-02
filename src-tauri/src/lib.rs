@@ -279,6 +279,8 @@ pub fn run() {
             delegate_renewals,
             preview_renewal_financial_impact,
             offer_free_agent_contract,
+            accept_free_agent_counter,
+            withdraw_free_agent_offer,
             preview_free_agent_contract_impact,
             set_contract_exit_intent,
             clear_contract_exit_intent,

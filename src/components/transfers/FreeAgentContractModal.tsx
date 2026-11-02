@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { FreeAgentContractProjection } from "../../services/freeAgentService";
-import type { NegotiationFeedbackPanelData } from "../NegotiationFeedbackPanel";
-import NegotiationFeedbackPanel from "../NegotiationFeedbackPanel";
+import FreeAgentTalkPanel from "./FreeAgentTalkPanel";
+import type { FreeAgentTalkPanelData } from "./useFreeAgentContractFlow";
 import { Badge, Checkbox, Dialog } from "../ui";
 import { formatExactMoney, formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
@@ -29,9 +29,10 @@ export interface FreeAgentContractFormProps {
   promiseSteppingStone?: boolean;
   onPromiseSteppingStoneChange?: (value: boolean) => void;
   projection: FreeAgentContractProjection | null;
-  feedback: NegotiationFeedbackPanelData | null | undefined;
-  statusMessage: string | null;
-  statusClassName: string;
+  /** The negotiation: how he would take the terms, where the talk stands, who else is bidding. */
+  talkPanel: FreeAgentTalkPanelData;
+  /** A resolved error from the last action, if it failed. */
+  errorMessage: string | null;
   submitting: boolean;
   submitDisabled: boolean;
   showPlayerSummary?: boolean;
@@ -55,9 +56,8 @@ export function FreeAgentContractForm({
   promiseSteppingStone = false,
   onPromiseSteppingStoneChange,
   projection,
-  feedback,
-  statusMessage,
-  statusClassName,
+  talkPanel,
+  errorMessage,
   submitting,
   submitDisabled,
   showPlayerSummary = true,
@@ -221,20 +221,11 @@ export function FreeAgentContractForm({
         </div>
       ) : null}
 
-      <NegotiationFeedbackPanel
-        feedback={feedback ?? null}
-        titleKey="playerProfile.renewalConversationTitle"
-        roundKey="playerProfile.renewalRound"
-        patienceKey="playerProfile.renewalPatience"
-        tensionKey="playerProfile.renewalTension"
-        className="mb-3"
-      />
+      <FreeAgentTalkPanel panel={talkPanel} />
 
-      {statusMessage ? (
-        <div
-          className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${statusClassName}`}
-        >
-          {statusMessage}
+      {errorMessage ? (
+        <div role="alert" className="text-caption font-semibold text-danger mb-3">
+          {errorMessage}
         </div>
       ) : null}
 
@@ -245,7 +236,11 @@ export function FreeAgentContractForm({
           disabled={submitDisabled}
           className="flex-1 py-2 bg-primary-700 hover:bg-primary-800 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
         >
-          {submitting ? t("transfers.submitting") : t("playerProfile.renewalSubmit")}
+          {submitting
+            ? t("transfers.submitting")
+            : talkPanel.talk?.status === "awaiting_response"
+              ? t("freeAgents.talk.offerPending")
+              : t("playerProfile.renewalSubmit")}
         </button>
         <button
           type="button"

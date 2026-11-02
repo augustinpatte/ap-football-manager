@@ -458,6 +458,10 @@ pub struct PlayerMoraleCore {
     /// suitable move later. Stored here, with the rest of what he remembers about his manager,
     /// so it persists in the same JSON column and old saves read it as `None`.
     pub stepping_stone_promise: Option<SteppingStonePromise>,
+    /// Contract talks with clubs while he has none. Kept here, in the JSON column that already
+    /// holds the rest of his morale record, so a save written mid-negotiation reloads intact and
+    /// an older save reads it as empty.
+    pub free_agent_talks: Vec<crate::free_agent_talk::FreeAgentTalk>,
 }
 
 impl Default for PlayerMoraleCore {
@@ -470,6 +474,7 @@ impl Default for PlayerMoraleCore {
             talk_cooldown_until: None,
             renewal_state: None,
             stepping_stone_promise: None,
+            free_agent_talks: Vec::new(),
         }
     }
 }

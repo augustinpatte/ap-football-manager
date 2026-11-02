@@ -286,6 +286,52 @@ export interface SteppingStonePromiseData {
   resolved_on?: string | null;
 }
 
+export type FreeAgentTalkStatus =
+  | "awaiting_response"
+  | "counter_offered"
+  | "signed"
+  | "rejected"
+  | "withdrawn"
+  | "lost_to_rival"
+  | "lapsed";
+
+/** The biggest factor in a player's answer; the translation key is `freeAgents.reason.<value>`. */
+export type FreeAgentTalkReason =
+  | "wage_too_low"
+  | "club_below_his_level"
+  | "no_place_in_side_for_him"
+  | "contract_too_short"
+  | "offer_insulting"
+  | "talks_broken_off"
+  | "better_offer_elsewhere"
+  | "club_cannot_afford"
+  | "manager_withdrew"
+  | "counter_expired";
+
+/** One club's offer to a player without a club, and where the talk stands. */
+export interface FreeAgentTalkData {
+  id: string;
+  club_id: string;
+  status: FreeAgentTalkStatus;
+  weekly_wage: number;
+  contract_years: number;
+  signing_bonus: number;
+  promise_stepping_stone: boolean;
+  round: number;
+  opened_on: string;
+  updated_on: string;
+  /** While awaiting a response: the day he answers. */
+  respond_on: string | null;
+  /** While a counter is on the table: what he asks for, and the last day it stands. */
+  counter_wage: number | null;
+  counter_years: number | null;
+  counter_expires_on: string | null;
+  closed_on: string | null;
+  reason: FreeAgentTalkReason | null;
+  /** True for the manager's club's talks; false for those the game makes for rival clubs. */
+  made_by_manager: boolean;
+}
+
 export interface PlayerMoraleCoreData {
   manager_trust: number;
   renewal_state?: ContractRenewalStateData | null;
@@ -295,6 +341,8 @@ export interface PlayerMoraleCoreData {
   talk_cooldown_until?: string | null;
   /** The club's promise not to obstruct a suitable future move; see `SteppingStonePromiseData`. */
   stepping_stone_promise?: SteppingStonePromiseData | null;
+  /** Contract talks with clubs while the player has none: the manager's and rival clubs'. */
+  free_agent_talks?: FreeAgentTalkData[];
   /** Sent by the backend; the frontend doesn't read them from the game state. */
   unresolved_issue?: unknown;
   recent_treatment?: unknown;

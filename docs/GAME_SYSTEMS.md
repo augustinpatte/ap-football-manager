@@ -604,3 +604,14 @@ Measured on a seeded compact world with a league: the world opens below the inta
 grows for about a dozen seasons, and then holds at about a fifth above its opening size, with around
 six academy players and seven free agents per club. `tests/squad_floor_seasons.rs` asserts that
 band over twelve seasons on three seeds.
+
+## Free-agent negotiations
+
+A manager's offer to a player without a club is a *talk*, not a signing: the player answers one to three game
+days later, weighing the pay against what he can command, the club's standing and squad level against his own,
+the place he would have in the side, the length of the contract, how long he has been out of work and any rival
+offers; he accepts, asks for other terms (a counter-offer that stands three days), or refuses. AI clubs bid for
+the best free agents through the same talks, and every signing — negotiated, rival or squad-floor — ends in
+`contracts::sign_free_agent`, which refuses a player who already has a club and closes every other open talk.
+The daily step is `contracts::process_free_agent_talks`. Rules, numbers, before/after scenarios and limits:
+[`APFM_FREE_AGENT_NEGOTIATIONS.md`](APFM_FREE_AGENT_NEGOTIATIONS.md).

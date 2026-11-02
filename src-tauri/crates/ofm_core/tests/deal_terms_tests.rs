@@ -1,14 +1,18 @@
 //! Signing bonuses, fee instalments, sell-on clauses and the player's own say on a permanent
 //! transfer: what moves, when, and that it moves once.
 
+#[path = "support/free_agent_talks.rs"]
+mod free_agent_support;
 mod market_fixtures;
 
 use domain::finance::CashKind;
+use domain::free_agent_talk::FreeAgentTalkStatus;
 use domain::player::{Player, TransferOfferStatus};
 use domain::season::TransferWindowStatus;
 use domain::transfer_terms::{TransferObligation, TransferTerms};
+use free_agent_support::{DAYS_TO_AN_ANSWER, run_days};
 use market_fixtures::{PLAYER_ID, game_with, pending_offer, player, prospect, set_date};
-use ofm_core::contracts::{RenewalDecision, RenewalOffer, offer_free_agent_contract_with_terms};
+use ofm_core::contracts::{FreeAgentOfferOutcome, OfferTerms, submit_free_agent_offer};
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     TransferNegotiationDecision, make_transfer_bid_with_terms,
@@ -59,40 +63,60 @@ fn obligations(game: &Game) -> Vec<&TransferObligation> {
     game.transfer_obligations.iter().collect()
 }
 
+/// The prospect's club: a little below his level, so that the pay he is offered decides whether he
+/// comes (he would be its first choice up front, which is worth something to him).
+fn prospect_game() -> Game {
+    let mut game = game_with(player("2005-01-01"));
+    game.teams[0].reputation = 270;
+    game
+}
+
 fn free_agent_offer(
     game: &mut Game,
     wage: u32,
     bonus: u64,
-) -> Result<ofm_core::contracts::RenewalOutcome, String> {
-    offer_free_agent_contract_with_terms(
+) -> Result<FreeAgentOfferOutcome, String> {
+    submit_free_agent_offer(
         game,
         PLAYER_ID,
-        RenewalOffer {
+        OfferTerms {
             weekly_wage: wage,
             contract_years: 4,
+            signing_bonus: bonus,
+            promise_stepping_stone: false,
         },
-        false,
-        bonus,
     )
+}
+
+/// How the free agent's talk stands once he has had time to answer.
+fn status_after_his_answer(game: &mut Game) -> FreeAgentTalkStatus {
+    run_days(game, DAYS_TO_AN_ANSWER);
+    prospect(game).morale_core.free_agent_talks[0].status
 }
 
 #[test]
 fn a_signing_bonus_tips_a_free_agent_who_would_otherwise_only_counter() {
     // Given his usual ask is 6 400 a week, and 6 000 is only countered.
-    let mut plain = game_with(player("2005-01-01"));
+    let mut plain = prospect_game();
+    free_agent_offer(&mut plain, 6_000, 0).unwrap();
     assert_eq!(
-        free_agent_offer(&mut plain, 6_000, 0).unwrap().decision,
-        RenewalDecision::CounterOffer
+        status_after_his_answer(&mut plain),
+        FreeAgentTalkStatus::CounterOffered
     );
 
     // When the same wage comes with a bonus worth the difference over the contract.
-    let mut game = game_with(player("2005-01-01"));
+    let mut game = prospect_game();
     let cash_before = team(&game, "team-1").finance;
     let budget_before = team(&game, "team-1").transfer_budget;
-    let outcome = free_agent_offer(&mut game, 6_000, 100_000).unwrap();
+    free_agent_offer(&mut game, 6_000, 100_000).unwrap();
+    assert_eq!(
+        game.teams[0].finance, cash_before,
+        "nothing is paid before he answers"
+    );
+    let status = status_after_his_answer(&mut game);
 
     // Then he signs at the wage, and the bonus left the club's cash and transfer budget once.
-    assert_eq!(outcome.decision, RenewalDecision::Accepted);
+    assert_eq!(status, FreeAgentTalkStatus::Signed);
     assert_eq!(prospect(&game).wage(), 6_000);
     assert_eq!(team(&game, "team-1").finance, cash_before - 100_000);
     assert_eq!(
@@ -127,7 +151,7 @@ fn a_bonus_beyond_the_wages_of_the_contract_is_not_a_valid_offer() {
 
     let error = free_agent_offer(&mut game, 6_000, 6_000 * 52 * 4 + 1).unwrap_err();
 
-    assert_eq!(error, "be.error.transfers.invalidDealTerms");
+    assert_eq!(error, "be.error.freeAgents.invalidOffer");
     assert!(prospect(&game).team_id.is_none());
 }
 

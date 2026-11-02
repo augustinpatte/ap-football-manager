@@ -249,7 +249,13 @@ impl fmt::Display for TransferMarket {
 pub struct FreeAgentOffered {
     pub weekly_wage: u32,
     pub contract_years: u32,
+    /// `pending` (the player answers on `respond_on`), `rejected` (he refused outright) or `accepted`.
+    /// An offer is never signed on the spot.
     pub outcome: String,
+    #[serde(default)]
+    pub respond_on: Option<String>,
+    #[serde(default)]
+    pub reason: Option<String>,
 }
 
 impl fmt::Display for FreeAgentOffered {
@@ -258,7 +264,14 @@ impl fmt::Display for FreeAgentOffered {
             f,
             "## Free Agent Offer\n\n**Wage**: {}/wk × {}yr\n**Outcome**: {}",
             self.weekly_wage, self.contract_years, self.outcome
-        )
+        )?;
+        if let Some(day) = &self.respond_on {
+            write!(f, "\n**He answers on**: {day} (call `transfer_free_agent_preview` to read his answer)")?;
+        }
+        if let Some(reason) = &self.reason {
+            write!(f, "\n**Reason**: {reason}")?;
+        }
+        Ok(())
     }
 }
 
@@ -273,6 +286,28 @@ pub struct FreeAgentPreview {
     pub projected_cash_runway_weeks: Option<i64>,
     pub currently_over_budget: bool,
     pub policy_allows: bool,
+    /// `keen`, `hesitant` or `unlikely`: how he would take these terms today.
+    #[serde(default)]
+    pub interest: String,
+    #[serde(default)]
+    pub main_obstacle: Option<String>,
+    #[serde(default)]
+    pub expected_wage: u32,
+    #[serde(default)]
+    pub expected_years: u32,
+    /// The state of the club's own talk with him: `awaiting_response`, `counter_offered`, ...
+    #[serde(default)]
+    pub talk_status: Option<String>,
+    #[serde(default)]
+    pub respond_on: Option<String>,
+    /// While he has countered: the terms he asks for. Offer them (or better) to sign him.
+    #[serde(default)]
+    pub counter_wage: Option<u32>,
+    #[serde(default)]
+    pub counter_years: Option<u32>,
+    /// Other clubs with an open offer to him.
+    #[serde(default)]
+    pub rival_clubs: Vec<String>,
 }
 
 impl fmt::Display for FreeAgentPreview {
@@ -290,7 +325,32 @@ impl fmt::Display for FreeAgentPreview {
             weeks(self.projected_cash_runway_weeks),
             yes_no(self.currently_over_budget),
             yes_no(self.policy_allows),
-        )
+        )?;
+        write!(
+            f,
+            "\n\n**Interest**: {} (he expects about {}/wk over {}yr)",
+            self.interest, self.expected_wage, self.expected_years
+        )?;
+        if let Some(obstacle) = &self.main_obstacle {
+            write!(f, "\n**Main obstacle**: {obstacle}")?;
+        }
+        if let Some(status) = &self.talk_status {
+            write!(f, "\n**Your talk**: {status}")?;
+            if let Some(day) = &self.respond_on {
+                write!(f, ", he answers on {day}")?;
+            }
+            if let (Some(wage), Some(years)) = (self.counter_wage, self.counter_years) {
+                write!(f, "; he asks {wage}/wk over {years}yr")?;
+            }
+        }
+        if !self.rival_clubs.is_empty() {
+            write!(
+                f,
+                "\n**Rival clubs bidding**: {}",
+                self.rival_clubs.join(", ")
+            )?;
+        }
+        Ok(())
     }
 }
 

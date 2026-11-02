@@ -875,6 +875,12 @@ fn best_signing(
         if !required && i64::from(least_he_asks) > affordable_wage {
             continue;
         }
+        // And one who would not come: an elite free agent does not drop to a far smaller club
+        // because its squad planning happened to look at him first. A club that must fill its
+        // floor takes who it can, as it always has.
+        if !required && crate::contracts::declines_on_standing(player, team, current_date) {
+            continue;
+        }
         let wage = crate::contracts::expected_wage(player, team, current_date);
         if !wage_facts.purchase_verdict(team, player, wage).permits() {
             continue;

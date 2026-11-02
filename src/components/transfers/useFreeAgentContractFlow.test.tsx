@@ -2,18 +2,22 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { JSX } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
+import type { FreeAgentTalkData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import {
+  acceptFreeAgentCounter,
   offerFreeAgentContract,
   previewFreeAgentContractImpact,
+  withdrawFreeAgentOffer,
 } from "../../services/freeAgentService";
 import { resolveBackendError } from "../../utils/backendI18n";
 import { useFreeAgentContractFlow } from "./useFreeAgentContractFlow";
 import { createSeasonContext } from "../../test-utils/factories";
 
 vi.mock("../../services/freeAgentService", () => ({
+  acceptFreeAgentCounter: vi.fn(),
   offerFreeAgentContract: vi.fn(),
   previewFreeAgentContractImpact: vi.fn(),
+  withdrawFreeAgentOffer: vi.fn(),
 }));
 
 vi.mock("../../utils/backendI18n", () => ({
@@ -24,6 +28,8 @@ vi.mock("../../utils/backendI18n", () => ({
 
 const mockedOfferFreeAgentContract = vi.mocked(offerFreeAgentContract);
 const mockedPreviewFreeAgentContractImpact = vi.mocked(previewFreeAgentContractImpact);
+const mockedAcceptFreeAgentCounter = vi.mocked(acceptFreeAgentCounter);
+const mockedWithdrawFreeAgentOffer = vi.mocked(withdrawFreeAgentOffer);
 const mockedResolveBackendError = vi.mocked(resolveBackendError);
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
@@ -234,8 +240,22 @@ describe("useFreeAgentContractFlow", () => {
     mockedOfferFreeAgentContract.mockReset();
     mockedPreviewFreeAgentContractImpact.mockReset();
     mockedResolveBackendError.mockClear();
+    mockedAcceptFreeAgentCounter.mockReset();
+    mockedWithdrawFreeAgentOffer.mockReset();
     mockedPreviewFreeAgentContractImpact.mockResolvedValue({
       stepping_stone_available: false,
+      interest: {
+        verdict: "keen",
+        main_obstacle: null,
+        expected_wage: 4000,
+        expected_years: 3,
+        place_in_side: "starter",
+        days_unattached: 0,
+        min_response_days: 1,
+        max_response_days: 3,
+        rival_clubs: [],
+        open_talk: null,
+      },
       projection: {
         current_annual_wage_bill: 0,
         projected_annual_wage_bill: 4000,
@@ -260,7 +280,13 @@ describe("useFreeAgentContractFlow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
 
     await waitFor(() => {
-      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(target.id, 3000, 0);
+      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(
+        target.id,
+        3000,
+        0,
+        3,
+        false,
+      );
     });
 
     fireEvent.change(screen.getByLabelText("Wage"), {
@@ -277,13 +303,13 @@ describe("useFreeAgentContractFlow", () => {
     const target = createPlayer();
     const gameState = createGameState([target]);
     mockedOfferFreeAgentContract.mockResolvedValue({
-      outcome: "counter_offer",
+      outcome: "pending",
       game: gameState,
-      suggested_wage: 4000,
-      suggested_years: 3,
-      session_status: "open",
-      is_terminal: false,
-      feedback: null,
+      talk: null,
+      respond_on: "2026-08-03",
+      reason: null,
+      suggested_wage: null,
+      suggested_years: null,
     });
 
     render(<HookHarness gameState={gameState} target={target} />);
@@ -329,6 +355,18 @@ describe("useFreeAgentContractFlow", () => {
     const gameState = createGameState([target]);
     mockedPreviewFreeAgentContractImpact.mockResolvedValue({
       stepping_stone_available: true,
+      interest: {
+        verdict: "keen",
+        main_obstacle: null,
+        expected_wage: 4000,
+        expected_years: 3,
+        place_in_side: "starter",
+        days_unattached: 0,
+        min_response_days: 1,
+        max_response_days: 3,
+        rival_clubs: [],
+        open_talk: null,
+      },
       projection: {
         current_annual_wage_bill: 0,
         projected_annual_wage_bill: 4000,
@@ -343,13 +381,13 @@ describe("useFreeAgentContractFlow", () => {
       },
     });
     mockedOfferFreeAgentContract.mockResolvedValue({
-      outcome: "accepted",
+      outcome: "pending",
       game: gameState,
+      talk: null,
+      respond_on: "2026-08-03",
+      reason: null,
       suggested_wage: null,
       suggested_years: null,
-      session_status: "agreed",
-      is_terminal: true,
-      feedback: null,
     });
     render(<HookHarness gameState={gameState} target={target} />);
 
@@ -373,13 +411,13 @@ describe("useFreeAgentContractFlow", () => {
     const target = createPlayer();
     const gameState = createGameState([target]);
     mockedOfferFreeAgentContract.mockResolvedValue({
-      outcome: "accepted",
+      outcome: "pending",
       game: gameState,
+      talk: null,
+      respond_on: "2026-08-03",
+      reason: null,
       suggested_wage: null,
       suggested_years: null,
-      session_status: "agreed",
-      is_terminal: true,
-      feedback: null,
     });
     render(<HookHarness gameState={gameState} target={target} />);
 
@@ -389,7 +427,13 @@ describe("useFreeAgentContractFlow", () => {
     fireEvent.change(screen.getByLabelText("Bonus"), { target: { value: "100000" } });
 
     await waitFor(() => {
-      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(target.id, 4000, 100000);
+      expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalledWith(
+        target.id,
+        4000,
+        100000,
+        3,
+        false,
+      );
     });
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => {
@@ -407,6 +451,18 @@ describe("useFreeAgentContractFlow", () => {
     mockedPreviewFreeAgentContractImpact.mockResolvedValue({
       stepping_stone_available: false,
       signing_bonus_error: "be.error.transfers.insufficientFunds",
+      interest: {
+        verdict: "keen",
+        main_obstacle: null,
+        expected_wage: 4000,
+        expected_years: 3,
+        place_in_side: "starter",
+        days_unattached: 0,
+        min_response_days: 1,
+        max_response_days: 3,
+        rival_clubs: [],
+        open_talk: null,
+      },
       projection: {
         current_annual_wage_bill: 0,
         projected_annual_wage_bill: 4000,
@@ -503,6 +559,177 @@ describe("useFreeAgentContractFlow", () => {
           message: "be.error.contracts.boardWagePolicy?budget=50000",
         }),
       );
+    });
+  });
+
+  describe("negotiation state", () => {
+    function talk(overrides: Partial<FreeAgentTalkData> = {}): FreeAgentTalkData {
+      return {
+        id: "fat:1",
+        club_id: "team-1",
+        status: "awaiting_response",
+        weekly_wage: 4000,
+        contract_years: 3,
+        signing_bonus: 0,
+        promise_stepping_stone: false,
+        round: 1,
+        opened_on: "2026-08-01",
+        updated_on: "2026-08-01",
+        respond_on: "2026-08-03",
+        counter_wage: null,
+        counter_years: null,
+        counter_expires_on: null,
+        closed_on: null,
+        reason: null,
+        made_by_manager: true,
+        ...overrides,
+      };
+    }
+
+    function withTalks(talks: FreeAgentTalkData[]): {
+      target: PlayerData;
+      gameState: GameStateData;
+    } {
+      const target = createPlayer({
+        morale_core: { manager_trust: 50, free_agent_talks: talks },
+      });
+      return { target, gameState: createGameState([target]) };
+    }
+
+    function NegotiationHarness({
+      gameState,
+      target,
+      onGameUpdate,
+    }: {
+      gameState: GameStateData;
+      target: PlayerData;
+      onGameUpdate?: (game: GameStateData) => void;
+    }): JSX.Element {
+      const flow = useFreeAgentContractFlow({ gameState, onGameUpdate });
+      return (
+        <div>
+          <button type="button" onClick={() => flow.openFreeAgentContract(target)}>
+            Open
+          </button>
+          <button type="button" onClick={() => void flow.submitFreeAgentContract()}>
+            Submit
+          </button>
+          <button type="button" onClick={flow.talkPanel.onAcceptCounter}>
+            Accept counter
+          </button>
+          <button type="button" onClick={flow.talkPanel.onWithdraw}>
+            Withdraw
+          </button>
+          <output aria-label="wage">{flow.contractWage}</output>
+          <output aria-label="years">{flow.contractLength}</output>
+          <output aria-label="submit-disabled">{String(flow.contractSubmitDisabled)}</output>
+          <output aria-label="error">{flow.contractError ?? "none"}</output>
+          <output aria-label="rivals">
+            {flow.talkPanel.rivals.map((rival) => rival.club_name).join(",")}
+          </output>
+        </div>
+      );
+    }
+
+    /**
+     * Given an offer the player has not answered
+     * When the form opens and the manager submits again
+     * Then submit is disabled and nothing is sent (no duplicate offer from a second click).
+     */
+    it("blocks a second offer while the first awaits an answer", async () => {
+      const { target, gameState } = withTalks([talk()]);
+      render(<NegotiationHarness gameState={gameState} target={target} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await waitFor(() => expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalled());
+      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+      expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("true");
+      expect(mockedOfferFreeAgentContract).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Given a counter-offer on the table
+     * When the form opens
+     * Then it starts from his terms, and accepting them publishes the game the backend returns.
+     */
+    it("starts from the counter-offer and accepts it through the backend", async () => {
+      const onGameUpdate = vi.fn();
+      const { target, gameState } = withTalks([
+        talk({
+          status: "counter_offered",
+          respond_on: null,
+          counter_wage: 5200,
+          counter_years: 4,
+          counter_expires_on: "2026-08-06",
+        }),
+      ]);
+      mockedAcceptFreeAgentCounter.mockResolvedValue({
+        outcome: "accepted",
+        game: gameState,
+        talk: null,
+        respond_on: null,
+        reason: null,
+        suggested_wage: null,
+        suggested_years: null,
+      });
+      render(
+        <NegotiationHarness gameState={gameState} target={target} onGameUpdate={onGameUpdate} />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      expect(screen.getByLabelText("wage")).toHaveTextContent("5200");
+      expect(screen.getByLabelText("years")).toHaveTextContent("4");
+      fireEvent.click(screen.getByRole("button", { name: "Accept counter" }));
+
+      await waitFor(() => expect(onGameUpdate).toHaveBeenCalledWith(gameState));
+      expect(mockedAcceptFreeAgentCounter).toHaveBeenCalledWith(target.id);
+    });
+
+    /**
+     * Given an open offer
+     * When the manager withdraws and the backend refuses
+     * Then the resolved error is shown and the game is not replaced.
+     */
+    it("shows the backend's error when a withdrawal is refused", async () => {
+      const onGameUpdate = vi.fn();
+      const { target, gameState } = withTalks([talk()]);
+      mockedWithdrawFreeAgentOffer.mockRejectedValue(new Error("be.error.freeAgents.noOpenTalk"));
+      mockedResolveBackendError.mockReturnValue("No open talk");
+      render(
+        <NegotiationHarness gameState={gameState} target={target} onGameUpdate={onGameUpdate} />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      fireEvent.click(screen.getByRole("button", { name: "Withdraw" }));
+
+      await waitFor(() => expect(screen.getByLabelText("error")).toHaveTextContent("No open talk"));
+      expect(onGameUpdate).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Given another club's offer open for the same player
+     * When the form is open
+     * Then that club is named as a rival, and a closed talk of ours does not block a new offer.
+     */
+    it("names rival clubs and lets a new offer follow an ended talk", async () => {
+      const { target, gameState } = withTalks([
+        talk({ id: "fat:rival", club_id: "team-9", made_by_manager: false }),
+        talk({
+          status: "rejected",
+          respond_on: null,
+          closed_on: "2026-08-02",
+          reason: "wage_too_low",
+        }),
+      ]);
+      gameState.teams.push({ ...gameState.teams[0], id: "team-9", name: "Rival FC" });
+      render(<NegotiationHarness gameState={gameState} target={target} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Open" }));
+      await waitFor(() => expect(mockedPreviewFreeAgentContractImpact).toHaveBeenCalled());
+
+      expect(screen.getByLabelText("rivals")).toHaveTextContent("Rival FC");
+      expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("false");
     });
   });
 });

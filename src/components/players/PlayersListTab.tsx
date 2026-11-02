@@ -127,12 +127,11 @@ export default function PlayersListTab({
     setContractWage,
     contractLength,
     setContractLength,
-    contractFeedback,
+    talkPanel,
     contractProjection,
     contractSubmitting,
     contractSubmitDisabled,
-    contractStatusMessage,
-    contractStatusClassName,
+    contractError,
     openFreeAgentContract,
     closeFreeAgentContract,
     submitFreeAgentContract,
@@ -531,9 +530,8 @@ export default function PlayersListTab({
           contractLength={contractLength}
           onContractLengthChange={setContractLength}
           projection={contractProjection}
-          feedback={contractFeedback}
-          statusMessage={contractStatusMessage(t)}
-          statusClassName={contractStatusClassName}
+          talkPanel={talkPanel}
+          errorMessage={contractError}
           submitting={contractSubmitting}
           submitDisabled={contractSubmitDisabled}
           onSubmit={submitFreeAgentContract}

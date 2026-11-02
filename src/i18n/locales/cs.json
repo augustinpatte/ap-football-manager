@@ -2802,8 +2802,60 @@
   "squadCompare": {
     "compare": "Porovnat"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "Vyjednávání",
+        "interest": {
+          "keen": "Tyto podmínky pravděpodobně přijme.",
+          "hesitant": "Váhá a může požadovat jiné podmínky.",
+          "unlikely": "Tyto podmínky pravděpodobně nepřijme."
+        },
+        "expects": "Očekává zhruba {{wage}} týdně na {{years}} let.",
+        "place": {
+          "key": "V tvém klubu by byl klíčovým hráčem.",
+          "starter": "V tvém klubu by byl stabilním členem základní sestavy.",
+          "rotation": "V tvém klubu by patřil do rotace.",
+          "backup": "V tvém klubu by byl náhradníkem."
+        },
+        "responseTime": "Odpovídá {{min}} až {{max}} dní po nabídce.",
+        "awaiting": "Nabídka odeslána. Odpoví {{date}}.",
+        "counter": "Žádá {{wage}} týdně na {{years}} let. Jeho podmínky platí do {{date}}.",
+        "acceptCounter": "Přijmout jeho podmínky",
+        "withdraw": "Stáhnout nabídku",
+        "rivals": "S ním jednají i další kluby: {{clubs}}.",
+        "ended": {
+          "rejected": "Nabídku odmítl.",
+          "withdrawn": "Nabídku jsi stáhl.",
+          "lost_to_rival": "Podepsal u jiného klubu.",
+          "lapsed": "Nabídka propadla."
+        },
+        "offerPending": "Nabídka čeká na odpověď"
+      },
+      "reason": {
+        "wage_too_low": "Plat je nižší, než jaký může žádat.",
+        "club_below_his_level": "Tvůj klub je hluboko pod jeho úrovní.",
+        "no_place_in_side_for_him": "V tvém týmu by nebyl stabilním členem sestavy.",
+        "contract_too_short": "Smlouva je kratší, než chce.",
+        "offer_insulting": "Nabídku považoval za urážku a dva týdny s tebou nebude mluvit.",
+        "talks_broken_off": "Došla mu trpělivost s jednáním.",
+        "better_offer_elsewhere": "Jiný klub mu dal lepší nabídku.",
+        "club_cannot_afford": "Tvůj klub si tuto dohodu už nemůže dovolit.",
+        "manager_withdrew": "Nabídku jsi stáhl.",
+        "counter_expired": "Na jeho protinávrh se včas neodpovědělo."
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "S tímto hráčem už nabídku máš. Počkej na jeho odpověď, nebo ji stáhni.",
+          "talksBrokenOff": "Tento hráč s tvým klubem zatím nebude jednat.",
+          "tooManyOpenTalks": "Máš otevřeno příliš mnoho jednání. Počkej na odpovědi, nebo stáhni nabídku.",
+          "squadFull": "Tvůj kádr je plný. Před podpisem dalšího hráče někoho uvolni.",
+          "noCounterToAnswer": "Tento hráč nemá žádný protinávrh, na který bys mohl odpovědět.",
+          "counterExpired": "Jeho protinávrh vypršel.",
+          "noOpenTalk": "S tímto hráčem nemáš žádnou otevřenou nabídku.",
+          "invalidOffer": "To není platná nabídka smlouvy."
+        },
       "squadFloor": {
         "wouldLeaveShort": "Tento hráč nemůže odejít: kádr by klesl pod minimum, které musí klub udržet. Dotčená řada: {{group}}.",
         "wouldLeaveSeniorsShort": "Tento hráč nemůže odejít: klubu by v A-týmu zůstalo méně než {{floor}} hráčů, což je minimum, které musí klub udržet."
@@ -3154,6 +3206,24 @@
       "sportsDaily": "Sportovní deník"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} chce jiné podmínky",
+            "body": "{{player}} odpověděl na nabídku klubu {{team}} protinávrhem: {{wage}} týdně na {{years}} let. Jeho podmínky platí {{days}} dní."
+          },
+          "rejected": {
+            "subject": "{{player}} odmítl klub {{team}}",
+            "body": "{{player}} odmítl nabídku klubu {{team}}. Důvod zjistíš v jeho profilu."
+          },
+          "lost": {
+            "subject": "{{player}} podepsal za {{team}}",
+            "body": "{{player}} si místo tvé nabídky vybral jiný klub, {{team}}."
+          },
+          "lapsed": {
+            "subject": "Nabídka hráči {{player}} propadla",
+            "body": "Nabídka hráči {{player}} skončila ničím: na jeho protinávrh se včas neodpovědělo, nebo si klub dohodu už nemohl dovolit."
+          }
+        },
       "world": {
         "randomName": "Náhodný svět",
         "randomDescription": "Náhodně vygenerovaná liga s {{teamCount}} týmy napříč Evropou",

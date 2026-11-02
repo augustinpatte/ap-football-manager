@@ -6,6 +6,7 @@ pub mod custom_tactic;
 pub mod delegation;
 pub mod edition_archive;
 pub mod finance;
+pub mod free_agent_talk;
 pub mod identity;
 pub mod league;
 pub mod manager;
