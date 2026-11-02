@@ -362,6 +362,82 @@ mod tests {
         game
     }
 
+    /// The fixture's game with each club given `extra` more players than an eleven, the user's
+    /// club (`home`) fielding the eleven it chose by hand.
+    fn game_with_substitutes(available_subs: usize) -> Game {
+        let mut game = game_with_complete_m12_fixture();
+        for team_id in ["home", "away"] {
+            game.players
+                .retain(|p| p.team_id.as_deref() != Some(team_id));
+            let mut squad = squad(team_id);
+            squad.truncate(11);
+            let shape = [
+                Position::Goalkeeper,
+                Position::Defender,
+                Position::Midfielder,
+                Position::Forward,
+            ];
+            for index in 0..available_subs {
+                squad.push(player(
+                    format!("{team_id}-sub{index:02}"),
+                    team_id,
+                    shape[index % shape.len()].clone(),
+                ));
+            }
+            game.players.extend(squad);
+        }
+        let chosen_by_hand: Vec<String> = (0..11).map(|i| format!("home-p{}", 10 - i)).collect();
+        game.teams[0].starting_xi_ids = chosen_by_hand;
+        game
+    }
+
+    /// Given each club with 0, 7, 12, 13, 15 or 20 substitutes available behind a hand-picked
+    /// eleven (the user's) and an AI-picked one
+    /// When the match is adapted for M12
+    /// Then it is accepted for both teams with at most twelve on each bench, the user's eleven is
+    /// exactly the one he chose, and nobody leaves the permanent squad.
+    #[test]
+    fn a_squad_bigger_than_the_bench_never_makes_the_match_invalid() {
+        for available in [0, 7, 12, 13, 15, 20] {
+            let game = game_with_substitutes(available);
+            let squad_size_before = game.players.len();
+
+            let adapted = crate::live_match_manager::adapt_spatial_fixture(&game, 0)
+                .unwrap_or_else(|error| panic!("{available} substitutes: {error}"));
+
+            for side in [&adapted.input.home, &adapted.input.away] {
+                assert_eq!(side.lineup.len(), 11);
+                assert_eq!(side.bench.len(), available.min(12), "{available} available");
+            }
+            let user_xi: Vec<&str> = adapted
+                .input
+                .home
+                .lineup
+                .iter()
+                .map(|slot| slot.player.as_str())
+                .collect();
+            let chosen: Vec<String> = (0..11).map(|i| format!("home-p{}", 10 - i)).collect();
+            assert_eq!(user_xi, chosen, "the user's eleven is not changed");
+            assert_eq!(game.players.len(), squad_size_before, "no one is removed");
+        }
+    }
+
+    /// Given the same game adapted twice
+    /// When the bench is trimmed
+    /// Then both calls name the same twelve in the same order.
+    #[test]
+    fn the_trimmed_bench_is_the_same_every_time() {
+        let game = game_with_substitutes(20);
+        let first = crate::live_match_manager::adapt_spatial_fixture(&game, 0).unwrap();
+        let second = crate::live_match_manager::adapt_spatial_fixture(&game, 0).unwrap();
+        assert_eq!(first.input.home.bench, second.input.home.bench);
+        assert_eq!(first.input.away.bench, second.input.away.bench);
+        assert!(
+            first.input.home.bench.iter().any(|id| id.contains("sub00")),
+            "the best-covering twelve keep a goalkeeper"
+        );
+    }
+
     /// Given complete OFM squads, tactics, fixture identifiers and a fixed seed,
     /// when M12 runs through the production adapter and projection, then it yields a validated,
     /// coherent and deterministic native match report.

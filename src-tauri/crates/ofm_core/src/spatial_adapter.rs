@@ -329,11 +329,41 @@ pub fn adapt(selection: MatchSelection<'_>) -> Result<AdaptedMatch, AdaptationEr
     })
 }
 
+/// A bench longer than the engine accepts is the *available* squad, not a sheet: the best-covering
+/// twelve are named and the others are reported as left out (they stay in the squad). The match is
+/// never refused for having more fit players than places.
+fn limit_bench<'a>(
+    bench: Vec<&'a Player>,
+    team_id: &str,
+    defaults: &mut Vec<AppliedDefault>,
+) -> Vec<&'a Player> {
+    if bench.len() <= crate::matchday_bench::M12_MAX_BENCH {
+        return bench;
+    }
+    let mut ranked = bench;
+    crate::matchday_bench::rank_for_bench(&mut ranked);
+    let named =
+        crate::matchday_bench::select_matchday_bench(&ranked, crate::matchday_bench::M12_MAX_BENCH);
+    for left_out in ranked
+        .iter()
+        .filter(|player| !named.iter().any(|kept| kept.id == player.id))
+    {
+        defaults.push(AppliedDefault {
+            field: "bench",
+            subject_id: Some(left_out.id.clone()),
+            provenance: "matchday bench limited to the engine maximum; the player stays in the squad",
+            value: format!("omitted from the {team_id} bench"),
+        });
+    }
+    named
+}
+
 fn adapt_team(
-    selection: TeamSelection<'_>,
+    mut selection: TeamSelection<'_>,
     defaults: &mut Vec<AppliedDefault>,
 ) -> Result<SpatialTeam, AdaptationError> {
     let team = selection.team;
+    selection.bench = limit_bench(std::mem::take(&mut selection.bench), &team.id, defaults);
     validate_id("team", &team.id)?;
     let layout = formation_geometry(&team.formation)?;
     let defensive_formation = (!team.out_of_possession_formation.trim().is_empty())

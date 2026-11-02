@@ -1,6 +1,6 @@
 use crate::game::Game;
 use crate::player_rating::{
-    effective_rating_for_assignment, formation_slots, natural_ovr, positional_fit_for_assignment,
+    effective_rating_for_assignment, formation_slots, positional_fit_for_assignment,
 };
 use crate::stable_hash::stable_hash;
 use domain::player::Position as DomainPosition;
@@ -116,15 +116,15 @@ pub(crate) fn build_team_with_bench_from(
         .into_iter()
         .filter(|player| !used_ids.contains(&player.id))
         .collect();
-    bench_domain.sort_by(|left, right| {
-        natural_ovr(right)
-            .partial_cmp(&natural_ovr(left))
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let bench = bench_domain
-        .into_iter()
-        .map(|p| convert_player(p, None))
-        .collect();
+    // Everyone fit and not starting is *available*; the match sheet names a bounded bench.
+    crate::matchday_bench::rank_for_bench(&mut bench_domain);
+    let bench = crate::matchday_bench::select_matchday_bench(
+        &bench_domain,
+        crate::matchday_bench::M12_MAX_BENCH,
+    )
+    .into_iter()
+    .map(|p| convert_player(p, None))
+    .collect();
 
     let team_data = TeamData {
         id: team_id.to_string(),

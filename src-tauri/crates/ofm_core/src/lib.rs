@@ -53,6 +53,7 @@ pub mod manager_retirement;
 mod match_day_eligibility;
 pub mod match_rating;
 pub mod matchday;
+pub mod matchday_bench;
 pub mod messages;
 pub mod national_team;
 pub mod nations;
