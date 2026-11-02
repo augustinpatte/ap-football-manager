@@ -1,6 +1,7 @@
 pub mod club;
 pub mod contracts;
 pub mod custom_tactics;
+pub mod fast_forward;
 pub mod finances;
 pub mod fm24_world;
 pub mod game;
