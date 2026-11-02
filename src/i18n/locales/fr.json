@@ -1860,6 +1860,8 @@
     "avgRating": "Note Moyenne",
     "careerHistory": "Historique de Carrière",
     "noCareer": "Aucun historique de carrière — première saison.",
+    "careerSimulated": "Simulé",
+    "careerSimulatedNote": "Les saisons marquées « Simulé » ont été générées à la création de ce monde. Ce ne sont pas des données réelles de ce joueur.",
     "movementHistory": "Historique des mouvements",
     "noMovementHistory": "Aucun transfert ou prêt enregistré pour le moment.",
     "movementPermanentTransfer": "Transfert",
@@ -2106,17 +2108,33 @@
     "confidence": "Confiance"
   },
   "match": {
-    "simulateWithM12": "Simuler avec M12",
-    "watchWithM12": "Regarder en 2D avec M12",
-    "m12SimulationFailed": "M12 n’a pas pu terminer ce match.",
+    "simulateWithM12": "Simulation rapide",
+    "watchWithM12": "Regarder en 2D",
+    "m12SimulationFailed": "Le match n’a pas pu être simulé. Rien n’a été modifié.",
     "replayUnavailable": "Ce replay est indisponible ou corrompu.",
-    "replayPitch": "Terrain du replay M12",
+    "replayPitch": "Terrain du match en 2D",
     "pauseReplay": "Mettre en pause",
     "playReplay": "Lecture",
     "replaySpeed": "Vitesse de lecture",
     "replayTimeline": "Chronologie du replay",
     "goToResult": "Aller au résultat",
-    "reviewMatch": "Revoir le match",
+    "reviewMatch": "Revoir en 2D",
+    "viewMode": {
+      "heading": "Choisissez comment jouer ce match",
+      "liveDesc": "Suivez le match minute par minute avec les commentaires et modifiez votre équipe en cours de jeu. Ce mode utilise le moteur classique : il n’y a pas de terrain en 2D.",
+      "watchDesc": "Regardez les 22 joueurs et le ballon évoluer sur le terrain. Le résultat ne compte qu’une fois que vous choisissez « Aller au résultat ».",
+      "quickDesc": "Jouez le match instantanément et passez directement au résultat. Son replay 2D est enregistré : vous pourrez le regarder ensuite."
+    },
+    "replayNotRecorded": "Aucun replay 2D n’a été enregistré pour ce match. Seuls les matchs joués avec « Regarder en 2D » ou « Simulation rapide » en conservent un ; les matchs en direct et délégués n’en ont pas.",
+    "replayUnsupportedSchema": "Ce replay a été enregistré dans un format que cette version ne peut pas lire.",
+    "replayNoFrames": "Ce match ne contient aucune donnée de déplacement des joueurs : il ne peut pas être affiché en 2D. Son résultat et ses statistiques ne sont pas affectés.",
+    "replayPlayersOnPitch": "Joueurs sur le terrain : {{home}} à domicile · {{away}} à l’extérieur ({{total}} au total)",
+    "replayEventType": {
+      "goal": "But",
+      "card": "Carton",
+      "substitution": "Remplacement",
+      "injury": "Blessure"
+    },
     "backToSchedule": "Retour au calendrier",
     "live": "En Direct",
     "paused": "En Pause",
@@ -3168,7 +3186,7 @@
     "msg": {
       "world": {
         "randomName": "Monde aléatoire",
-        "randomDescription": "Championnat généré aléatoirement avec {{teamCount}} équipes à travers l'Europe",
+        "randomDescription": "Un monde entièrement fictif de {{teamCount}} clubs générés. Chaque club, joueur et nom est inventé.",
         "exportedName": "Monde exporté",
         "exportedDescription": "Monde avec {{teamCount}} équipes exporté depuis une sauvegarde"
       },

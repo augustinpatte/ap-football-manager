@@ -502,6 +502,30 @@ fn the_integrity_checks_pass_except_the_240_club_perimeter_of_the_real_world() {
     );
 }
 
+/// Given a finished run in which one player appears twice under different ids, when the checks
+/// run, then the roster audit names the duplicate identity and, being advisory, does not block.
+#[test]
+fn the_roster_audit_reports_a_duplicate_identity_without_blocking_the_world() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut run = run_once(dir.path());
+    let mut twin = run.world.players[0].clone();
+    twin.id = "fm-p-twin".into();
+    run.world.players.push(twin);
+
+    let audit = checks::run_checks(&run)
+        .into_iter()
+        .find(|check| check.name == "integrity.world_audit")
+        .expect("the roster audit is part of the checks");
+
+    assert!(!audit.ok);
+    assert!(!audit.blocking);
+    assert!(
+        audit.detail.contains("duplicate_identity"),
+        "{}",
+        audit.detail
+    );
+}
+
 #[test]
 fn registered_teams_decide_senior_academy_and_loans() {
     let dir = tempfile::tempdir().unwrap();

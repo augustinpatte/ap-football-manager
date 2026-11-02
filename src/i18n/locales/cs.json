@@ -1849,6 +1849,8 @@
     "avgRating": "Prům. hodnocení",
     "careerHistory": "Historie kariéry",
     "noCareer": "Zatím žádná historie kariéry — první sezóna.",
+    "careerSimulated": "Simulováno",
+    "careerSimulatedNote": "Sezóny označené jako Simulováno vznikly při vytvoření tohoto světa. Nejsou to skutečné záznamy tohoto hráče.",
     "movementHistory": "Historie přestupů",
     "noMovementHistory": "Zatím nebyly zaznamenány žádné přestupy ani hostování.",
     "movementPermanentTransfer": "Přestup",
@@ -2094,17 +2096,33 @@
     "confidence": "Spolehlivost odhadu"
   },
   "match": {
-    "simulateWithM12": "Simulovat s M12",
-    "watchWithM12": "Sledovat ve 2D s M12",
-    "m12SimulationFailed": "M12 nemohl tento zápas dokončit.",
+    "simulateWithM12": "Rychlá simulace",
+    "watchWithM12": "Sledovat ve 2D",
+    "m12SimulationFailed": "Zápas se nepodařilo nasimulovat. Nic se nezměnilo.",
     "replayUnavailable": "Záznam není dostupný nebo je poškozený.",
-    "replayPitch": "Hřiště záznamu M12",
+    "replayPitch": "Hřiště zápasu ve 2D",
     "pauseReplay": "Pauza",
     "playReplay": "Přehrát",
     "replaySpeed": "Rychlost přehrávání",
     "replayTimeline": "Časová osa záznamu",
     "goToResult": "Přejít na výsledek",
-    "reviewMatch": "Znovu přehrát zápas",
+    "reviewMatch": "Přehrát ve 2D",
+    "viewMode": {
+      "heading": "Vyberte, jak chcete tento zápas odehrát",
+      "liveDesc": "Sledujte zápas minutu po minutě s komentářem a během hry provádějte změny. Používá se klasický engine: 2D hřiště není k dispozici.",
+      "watchDesc": "Sledujte všech 22 hráčů a míč na hřišti. Výsledek se počítá, až když zvolíte Přejít na výsledek.",
+      "quickDesc": "Odehrajte zápas okamžitě a přejděte rovnou na výsledek. 2D záznam se uloží, takže si ho můžete pustit později."
+    },
+    "replayNotRecorded": "Pro tento zápas nebyl zaznamenán žádný 2D záznam. Uchovávají ho jen zápasy odehrané přes Sledovat ve 2D nebo Rychlá simulace; živé a delegované zápasy ne.",
+    "replayUnsupportedSchema": "Tento záznam byl uložen ve formátu, který tato verze nedokáže přehrát.",
+    "replayNoFrames": "Tento zápas neobsahuje data o pohybu hráčů, a nelze jej proto zobrazit ve 2D. Výsledek ani statistiky to neovlivní.",
+    "replayPlayersOnPitch": "Hráči na hřišti: {{home}} domácí · {{away}} hosté (celkem {{total}})",
+    "replayEventType": {
+      "goal": "Gól",
+      "card": "Karta",
+      "substitution": "Střídání",
+      "injury": "Zranění"
+    },
     "backToSchedule": "Zpět na rozpis",
     "live": "Živě",
     "paused": "Pozastaveno",
@@ -3156,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "Náhodný svět",
-        "randomDescription": "Náhodně vygenerovaná liga s {{teamCount}} týmy napříč Evropou",
+        "randomDescription": "Zcela fiktivní svět s {{teamCount}} vygenerovanými kluby. Každý klub, hráč i jméno jsou vymyšlené.",
         "exportedName": "Exportovaný svět",
         "exportedDescription": "Svět s {{teamCount}} týmy exportovaný z uložené hry"
       },
