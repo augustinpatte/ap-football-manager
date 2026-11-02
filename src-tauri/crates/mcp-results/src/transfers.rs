@@ -79,6 +79,10 @@ pub struct BidMade {
     /// The contract length he asks for, in years.
     #[serde(default)]
     pub player_asks_contract_years: Option<u32>,
+    /// When an accepted deal is registered. Until that day the player is still at his club and
+    /// nothing has been paid: `accepted` means agreed, not completed.
+    #[serde(default)]
+    pub registration_date: Option<String>,
 }
 
 impl fmt::Display for BidMade {
@@ -104,6 +108,12 @@ impl fmt::Display for BidMade {
             writeln!(
                 f,
                 "**Player asks**: {wage} a week for {years} years (the clubs agree; nothing is completed until you bid again with `player_weekly_wage` and `player_contract_years`)"
+            )?;
+        }
+        if let Some(date) = &self.registration_date {
+            writeln!(
+                f,
+                "**Registration**: {date} (the deal is agreed; the player stays at his club and nothing is paid until that day)"
             )?;
         }
         if self.is_terminal {

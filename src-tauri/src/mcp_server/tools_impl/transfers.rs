@@ -126,6 +126,7 @@ pub fn transfer_make_bid(
         round: response.feedback.round,
         player_asks_weekly_wage: response.player_demand.as_ref().map(|d| d.weekly_wage),
         player_asks_contract_years: response.player_demand.as_ref().map(|d| d.contract_years),
+        registration_date: response.registration_date.clone(),
     };
 
     {

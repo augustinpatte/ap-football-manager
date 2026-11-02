@@ -179,11 +179,11 @@ fn a_delegated_career_recruits_within_its_ceiling_and_remembers_across_reloads()
             reload(&mut game, "inside the first window");
         }
         if day == 60 {
-            signed_by_day_60 = game
-                .delegation
-                .log
+            // Arrived, not merely agreed: a deal waits for its registration date, and the log
+            // says "scheduled" until then.
+            signed_by_day_60 = user_moves(&game)
                 .iter()
-                .filter(|e| e.title_key == "delegation.log.recruitSigned")
+                .filter(|(_, _, to, _)| *to == user)
                 .count();
         }
     }

@@ -15,7 +15,9 @@ use domain::season::TransferWindowStatus;
 use domain::stats::StatsState;
 use ofm_core::finances::calc_wages;
 use ofm_core::game::Game;
-use ofm_core::transfers::{LoanOfferDecision, make_loan_offer, respond_to_loan_offer};
+use ofm_core::transfers::{
+    LoanOfferDecision, make_loan_offer, process_pending_loan_registrations, respond_to_loan_offer,
+};
 use season_harness::driver::{RunOptions, play_day};
 use season_harness::fm24::{build_fm24_career, world_path_from_env};
 use season_harness::invariants::Invariants;
@@ -46,6 +48,21 @@ fn play_days(game: &mut Game, invariants: &mut Invariants, day: &mut u32, days: 
     for _ in 0..days {
         *day += 1;
         play_day(game, RunOptions::seasons(1), 1, *day, invariants).expect("a day plays");
+    }
+}
+
+/// An agreed loan waits for the day it starts (a plain loan takes up to a day to register, one
+/// with a purchase option up to two). Moves to that day and runs the registration the turn runs,
+/// so what follows is judged on the first day of the loan and not on a day of other business.
+fn start_the_agreed_loan(game: &mut Game, id: &str) {
+    let start = player(game, id)
+        .loan_offers
+        .iter()
+        .find(|offer| offer.status == LoanOfferStatus::PendingRegistration)
+        .and_then(|offer| NaiveDate::parse_from_str(&offer.start_date, "%Y-%m-%d").ok());
+    if let Some(start) = start {
+        game.clock.current_date += Duration::days((start - today(game)).num_days());
+        process_pending_loan_registrations(game);
     }
 }
 
@@ -120,6 +137,7 @@ fn an_ai_club_refuses_a_stingy_loan_and_accepts_a_fair_one() {
 
     let accepted = make_loan_offer(&mut game, &id, &end, 100, None).expect("the offer is judged");
     assert_eq!(accepted.decision, LoanOfferDecision::Accepted);
+    start_the_agreed_loan(&mut game, &id);
     assert!(on_loan_to(&game, &id, LENS));
     assert!(invariants.is_clean(), "{}", invariants.report());
 }
@@ -154,6 +172,7 @@ fn a_loan_runs_its_course_and_the_player_goes_home() {
         let outcome = make_loan_offer(&mut game, &id, &end, 100, None).expect("judged");
         assert_eq!(outcome.decision, LoanOfferDecision::Accepted);
     }
+    start_the_agreed_loan(&mut game, &id);
     let agreed = player(&game, &id)
         .active_loan
         .as_ref()
