@@ -246,3 +246,50 @@ does not mute a squad problem; the next stage stops the advance again), `useDige
   Run on the Mac: `scripts/apfm/run-m12-tests.sh`, then play one match with "Watch in 2D" on a club that has signed a player.
 * The user's FM24 `world.db` and saves were not touched or read.
 * The Tauri window was not run; the UI is covered by vitest, the type check and the build.
+* The project's read-only reviewers (`ofm-architecture-reviewer`, `i18n-auditor`, `ofm-test-reviewer`,
+  `ofm-dedup-reviewer`, `ui-accessibility-reviewer`) were **not run**. The translations for the 12 locales were written without a
+  native review; `localeCoverage` / `frontendKeyCoverage` pass.
+
+## 8. Verification actually run
+
+Rust 1.95.0 (pinned), Node 22, M12 = the always-failing stub described above.
+
+| Command | Result |
+|---|---|
+| `cargo test --workspace --locked --no-fail-fast -- --skip <the 6 M12 tests, by name>` | 4,273 passed, 0 failed, 54 ignored |
+| `cargo test --lib --locked --features mcp -- --skip <the M12 tests>` (Tauri commands + MCP) | 638 passed, 0 failed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings` (default, and `--features mcp`) | clean |
+| `cargo fmt --all -- --check` | clean |
+| `npm test` | 322 files / 2,857 tests passed |
+| `npm run lint`, `npm run format:check`, `npm run knip`, `npm run build` (tsc + vite) | clean |
+
+The six skipped tests execute the engine and fail by construction against the stub:
+`spatial_runner::tests::m12_execution_projects_a_deterministic_coherent_match_report` and the five
+`commands::spatial_match` finalisation tests. They were not run as evidence.
+
+**Regression effectiveness** (fix removed in place, named test seen failing, fix restored):
+
+| Fix removed | Failing test |
+|---|---|
+| `is_on_free_market` ignoring fillers | `national_squad_fillers_never_reach_the_free_agent_market`, `an_older_save_keeps_its_released_players_and_hides_its_fillers` |
+| no ceiling on opening free agents | `the_opening_free_agents_are_not_better_than_the_players_clubs_hold` (seed 20260820: best free agent 84 against a clubs' P75 of 69) |
+| contract blockers without memory | `continuing_anyway_does_not_raise_the_same_contract_warning_every_day`, `a_dealt_with_contract_warning_returns_at_the_next_stage` |
+| the manager's bid on the assumed-contract path | `make_transfer_bid_internal_*` (3), and `the_assistants_path_still_judges_the_standard_contract_on_the_spot` shows the old behaviour on the same fixture |
+| shirt numbers in squad order | both `spatial_adapter` shirt tests failed with `DuplicateShirtNumber` before the fix (run before it was written) |
+
+Three existing `commands::transfers` tests described the old behaviour (a plain bid completing at once) and were rewritten to go
+through the player's step; one exhaustive `match` in `paid_transfer_consent_tests` gained an arm. No other existing test was changed
+apart from adding `warning_handled: None` to five struct literals.
+
+## 9. Local commands
+
+```bash
+scripts/apfm/run-m12-tests.sh
+```
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --workspace
+```
+
+Then play one match with "Watch in 2D" in a club that has just signed a player into an FM24 squad, and read the message if it fails: it
+now names the cause (`be.error.spatialReplay.*` with a code).
