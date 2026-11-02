@@ -2094,17 +2094,33 @@
     "confidence": "Keyakinan"
   },
   "match": {
-    "simulateWithM12": "Simulasikan dengan M12",
-    "watchWithM12": "Tonton 2D dengan M12",
-    "m12SimulationFailed": "M12 tidak dapat menyelesaikan pertandingan ini.",
+    "simulateWithM12": "Simulasi cepat",
+    "watchWithM12": "Tonton 2D",
+    "m12SimulationFailed": "Pertandingan tidak dapat disimulasikan. Tidak ada yang diubah.",
     "replayUnavailable": "Tayangan ulang ini tidak tersedia atau rusak.",
-    "replayPitch": "Lapangan tayangan ulang M12",
+    "replayPitch": "Lapangan pertandingan 2D",
     "pauseReplay": "Jeda",
     "playReplay": "Putar",
     "replaySpeed": "Kecepatan pemutaran",
     "replayTimeline": "Linimasa tayangan ulang",
     "goToResult": "Ke hasil",
-    "reviewMatch": "Tonton ulang pertandingan",
+    "reviewMatch": "Putar ulang 2D",
+    "viewMode": {
+      "heading": "Pilih cara memainkan pertandingan ini",
+      "liveDesc": "Ikuti pertandingan menit demi menit dengan komentar dan lakukan perubahan saat berlangsung. Mode ini memakai mesin klasik: tidak ada lapangan 2D.",
+      "watchDesc": "Tonton ke-22 pemain dan bola bergerak di lapangan. Hasil baru berlaku setelah Anda memilih Ke hasil.",
+      "quickDesc": "Mainkan pertandingan seketika dan langsung ke hasilnya. Tayangan ulang 2D disimpan sehingga tetap bisa ditonton setelahnya."
+    },
+    "replayNotRecorded": "Tidak ada tayangan ulang 2D yang direkam untuk pertandingan ini. Hanya pertandingan yang dimainkan lewat Tonton 2D atau Simulasi cepat yang menyimpannya; pertandingan langsung dan yang didelegasikan tidak.",
+    "replayUnsupportedSchema": "Tayangan ulang ini disimpan dalam format yang tidak bisa diputar oleh versi ini.",
+    "replayNoFrames": "Pertandingan ini tidak memiliki data pergerakan pemain, sehingga tidak dapat ditampilkan dalam 2D. Hasil dan statistiknya tidak terpengaruh.",
+    "replayPlayersOnPitch": "Pemain di lapangan: {{home}} tuan rumah · {{away}} tamu (total {{total}})",
+    "replayEventType": {
+      "goal": "Gol",
+      "card": "Kartu",
+      "substitution": "Pergantian pemain",
+      "injury": "Cedera"
+    },
     "backToSchedule": "Kembali ke jadwal",
     "live": "Langsung",
     "paused": "Dijeda",

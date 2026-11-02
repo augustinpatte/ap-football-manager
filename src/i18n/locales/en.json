@@ -2106,17 +2106,33 @@
     "confidence": "Confidence"
   },
   "match": {
-    "simulateWithM12": "Simulate with M12",
-    "watchWithM12": "Watch in 2D with M12",
-    "m12SimulationFailed": "M12 could not complete this match.",
+    "simulateWithM12": "Quick simulation",
+    "watchWithM12": "Watch in 2D",
+    "m12SimulationFailed": "The match could not be simulated. Nothing was changed.",
     "replayUnavailable": "This replay is unavailable or corrupted.",
-    "replayPitch": "M12 replay pitch",
+    "replayPitch": "2D match pitch",
     "pauseReplay": "Pause",
     "playReplay": "Play",
     "replaySpeed": "Playback speed",
     "replayTimeline": "Replay timeline",
     "goToResult": "Go to result",
-    "reviewMatch": "Review match",
+    "reviewMatch": "Replay in 2D",
+    "viewMode": {
+      "heading": "Choose how to play this match",
+      "liveDesc": "Follow the match minute by minute with commentary and make changes as it unfolds. This uses the classic engine: there is no 2D pitch.",
+      "watchDesc": "Watch all 22 players and the ball move on the pitch. The result only counts once you choose Go to result.",
+      "quickDesc": "Play the match instantly and jump to the result. Its 2D replay is saved, so you can still watch it afterwards."
+    },
+    "replayNotRecorded": "No 2D replay was recorded for this match. Only matches played with Watch in 2D or Quick simulation keep one; live and delegated matches do not.",
+    "replayUnsupportedSchema": "This replay was saved in a format this version cannot play.",
+    "replayNoFrames": "This match has no player-movement data, so it cannot be shown in 2D. Its result and statistics are unaffected.",
+    "replayPlayersOnPitch": "Players on the pitch: {{home}} home · {{away}} away ({{total}} in total)",
+    "replayEventType": {
+      "goal": "Goal",
+      "card": "Card",
+      "substitution": "Substitution",
+      "injury": "Injury"
+    },
     "backToSchedule": "Back to schedule",
     "live": "Live",
     "paused": "Paused",

@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import M12ReplayViewer from "./M12ReplayViewer";
+import { buildEventsOnlyReplay, buildReplayFixture, MINUTE_MS } from "./m12Replay.fixtures";
 
 const replay = JSON.stringify({
   schema_version: 1,
@@ -36,19 +37,35 @@ const replay = JSON.stringify({
   ],
 });
 
+const canvasContext = {
+  scale: vi.fn(),
+  fillRect: vi.fn(),
+  beginPath: vi.fn(),
+  arc: vi.fn(),
+  fill: vi.fn(),
+  stroke: vi.fn(),
+  strokeRect: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  fillText: vi.fn(),
+};
+
+/** Shirt labels drawn on the last paint: one per player on the pitch. */
+function drawnPlayerLabels(): string[] {
+  return canvasContext.fillText.mock.calls.slice(-30).map(([label]) => String(label));
+}
+
 beforeAll(() => {
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
-    scale: vi.fn(),
-    fillRect: vi.fn(),
-    beginPath: vi.fn(),
-    arc: vi.fn(),
-    fill: vi.fn(),
-    stroke: vi.fn(),
-    strokeRect: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    fillText: vi.fn(),
-  })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = vi.fn(
+    () => canvasContext,
+  ) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+});
+
+beforeEach(() => {
+  // The viewer also assigns style strings onto this object; only the spies need clearing.
+  Object.values(canvasContext).forEach((value) => {
+    if (typeof value === "function") value.mockClear();
+  });
 });
 
 describe("M12ReplayViewer", () => {
@@ -117,10 +134,120 @@ describe("M12ReplayViewer", () => {
         onFinish={vi.fn()}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent("match.replayUnavailable");
+    expect(screen.getByRole("alert")).toHaveTextContent("match.replayUnsupportedSchema");
   });
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+});
+
+describe("M12ReplayViewer with a squad-and-bench replay", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const names = {
+    "home-9": "Hugo Nine",
+    "away-1": "Axel One",
+    "home-2": "Hal Two",
+    "home-12": "Ben Twelve",
+  };
+
+  /** Given a replay with benches, when it opens, then 22 players and the ball are painted and the scoreboard shows the teams. */
+  it("paints exactly the 22 players on the pitch, the ball and the scoreboard", () => {
+    const fixture = buildReplayFixture();
+    render(<M12ReplayViewer replayJson={fixture.json} onFinish={vi.fn()} />);
+
+    expect(screen.getByText("Home FC 0 – 0 Away FC")).toBeInTheDocument();
+    expect(screen.getByLabelText("match.replayPitch")).toBeInTheDocument();
+    expect(canvasContext.fillText).toHaveBeenCalledTimes(22);
+    // 22 players + the ball + the centre circle.
+    expect(canvasContext.arc).toHaveBeenCalledTimes(24);
+    expect(screen.getByTestId("replay-players-on-pitch")).toHaveTextContent(
+      "match.replayPlayersOnPitch",
+    );
+  });
+
+  /** Given a red card in the replay, when the timeline is moved past it, then 21 players are painted. */
+  it("paints 21 players after a sending-off when seeking past it", () => {
+    const fixture = buildReplayFixture();
+    render(<M12ReplayViewer replayJson={fixture.json} onFinish={vi.fn()} />);
+    canvasContext.fillText.mockClear();
+
+    fireEvent.change(screen.getByRole("slider", { name: "match.replayTimeline" }), {
+      target: { value: String(31 * MINUTE_MS) },
+    });
+
+    expect(drawnPlayerLabels()).toHaveLength(21);
+  });
+
+  /** Given events with known and unknown types, when seeking past them, then names and translated types appear. */
+  it("lists events with player names and keeps unknown types as the engine spelled them", () => {
+    const fixture = buildReplayFixture();
+    render(<M12ReplayViewer replayJson={fixture.json} onFinish={vi.fn()} playerNames={names} />);
+
+    fireEvent.change(screen.getByRole("slider", { name: "match.replayTimeline" }), {
+      target: { value: String(61 * MINUTE_MS) },
+    });
+
+    expect(screen.getByText("10' · match.replayEventType.goal · Hugo Nine")).toBeInTheDocument();
+    expect(screen.getByText("30' · match.replayEventType.card · Axel One")).toBeInTheDocument();
+    expect(
+      screen.getByText("60' · match.replayEventType.substitution · Hal Two → Ben Twelve"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("60' · shootout kick · Hugo Nine")).toBeInTheDocument();
+  });
+
+  /** Given uneven benches and explicit home ids, when it opens, then 11 players per side are painted. */
+  it("uses the supplied home ids instead of splitting the roster in half", () => {
+    const fixture = buildReplayFixture({ homeBench: 0, awayBench: 8 });
+    render(
+      <M12ReplayViewer
+        replayJson={fixture.json}
+        onFinish={vi.fn()}
+        homePlayerIds={new Set(fixture.homeIds)}
+      />,
+    );
+    expect(screen.getByTestId("replay-players-on-pitch")).toBeInTheDocument();
+    // Labels restart at 1 for each side, so a correct split paints 1..11 twice.
+    const labels = drawnPlayerLabels().sort((a, b) => Number(a) - Number(b));
+    expect(labels).toEqual(
+      Array.from({ length: 11 }, (_, index) => String(index + 1))
+        .flatMap((label) => [label, label])
+        .sort((a, b) => Number(a) - Number(b)),
+    );
+  });
+
+  /** Given a result with events but no frames, when opened, then the viewer says so instead of showing an empty pitch. */
+  it("explains a replay that has no player-movement data", () => {
+    const back = vi.fn();
+    render(<M12ReplayViewer replayJson={buildEventsOnlyReplay()} readOnly onFinish={back} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("match.replayNoFrames");
+    expect(screen.queryByLabelText("match.replayPitch")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "match.backToSchedule" }));
+    expect(back).toHaveBeenCalledOnce();
+  });
+
+  /** Given a read-only replay, when it plays to the end and the manager leaves, then only the close callback fires. */
+  it("plays a historical replay to its end without asking to finalise anything", () => {
+    vi.useFakeTimers();
+    const close = vi.fn();
+    const fixture = buildReplayFixture();
+    render(<M12ReplayViewer replayJson={fixture.json} readOnly onFinish={close} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "4" } });
+
+    act(() => {
+      vi.advanceTimersByTime(60 * MINUTE_MS);
+    });
+
+    expect(screen.getByRole("slider", { name: "match.replayTimeline" })).toHaveValue(
+      String(60 * MINUTE_MS),
+    );
+    expect(screen.queryByRole("button", { name: "match.goToResult" })).not.toBeInTheDocument();
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "match.backToSchedule" }));
+    expect(close).toHaveBeenCalledOnce();
   });
 });

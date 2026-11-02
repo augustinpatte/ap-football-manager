@@ -2094,17 +2094,33 @@
     "confidence": "Güven"
   },
   "match": {
-    "simulateWithM12": "M12 ile simüle et",
-    "watchWithM12": "M12 ile 2D izle",
-    "m12SimulationFailed": "M12 bu maçı tamamlayamadı.",
+    "simulateWithM12": "Hızlı simülasyon",
+    "watchWithM12": "2D izle",
+    "m12SimulationFailed": "Maç simüle edilemedi. Hiçbir şey değiştirilmedi.",
     "replayUnavailable": "Bu tekrar kullanılamıyor veya bozuk.",
-    "replayPitch": "M12 tekrar sahası",
+    "replayPitch": "2D maç sahası",
     "pauseReplay": "Duraklat",
     "playReplay": "Oynat",
     "replaySpeed": "Oynatma hızı",
     "replayTimeline": "Tekrar zaman çizelgesi",
     "goToResult": "Sonuca git",
-    "reviewMatch": "Maçı izle",
+    "reviewMatch": "2D tekrar izle",
+    "viewMode": {
+      "heading": "Bu maçı nasıl oynayacağınızı seçin",
+      "liveDesc": "Maçı dakika dakika anlatımla takip edin ve oyun sürerken değişiklik yapın. Klasik motoru kullanır: 2D saha yoktur.",
+      "watchDesc": "22 oyuncunun ve topun sahada hareketini izleyin. Sonuç, yalnızca Sonuca git’i seçtiğinizde geçerli olur.",
+      "quickDesc": "Maçı anında oynayıp doğrudan sonuca geçin. 2D tekrarı kaydedilir, böylece sonradan izleyebilirsiniz."
+    },
+    "replayNotRecorded": "Bu maç için 2D tekrar kaydedilmedi. Yalnızca 2D izle veya Hızlı simülasyon ile oynanan maçlarda tekrar saklanır; canlı ve devredilen maçlarda saklanmaz.",
+    "replayUnsupportedSchema": "Bu tekrar, bu sürümün oynatamayacağı bir biçimde kaydedilmiş.",
+    "replayNoFrames": "Bu maçta oyuncu hareket verisi yok, bu yüzden 2D gösterilemez. Sonuç ve istatistikler etkilenmez.",
+    "replayPlayersOnPitch": "Sahadaki oyuncular: {{home}} ev sahibi · {{away}} deplasman (toplam {{total}})",
+    "replayEventType": {
+      "goal": "Gol",
+      "card": "Kart",
+      "substitution": "Oyuncu değişikliği",
+      "injury": "Sakatlık"
+    },
     "backToSchedule": "Fikstüre dön",
     "live": "Canlı",
     "paused": "Duraklatıldı",

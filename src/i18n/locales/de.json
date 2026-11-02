@@ -2094,17 +2094,33 @@
     "confidence": "Zuverlässigkeit"
   },
   "match": {
-    "simulateWithM12": "Mit M12 simulieren",
-    "watchWithM12": "Mit M12 in 2D ansehen",
-    "m12SimulationFailed": "M12 konnte dieses Spiel nicht abschließen.",
+    "simulateWithM12": "Schnellsimulation",
+    "watchWithM12": "In 2D ansehen",
+    "m12SimulationFailed": "Das Spiel konnte nicht simuliert werden. Es wurde nichts verändert.",
     "replayUnavailable": "Dieses Replay ist nicht verfügbar oder beschädigt.",
-    "replayPitch": "M12-Replay-Spielfeld",
+    "replayPitch": "2D-Spielfeld",
     "pauseReplay": "Pausieren",
     "playReplay": "Wiedergabe",
     "replaySpeed": "Wiedergabegeschwindigkeit",
     "replayTimeline": "Replay-Zeitachse",
     "goToResult": "Zum Ergebnis",
-    "reviewMatch": "Spiel ansehen",
+    "reviewMatch": "Wiederholung in 2D",
+    "viewMode": {
+      "heading": "Wähle, wie du dieses Spiel spielst",
+      "liveDesc": "Verfolge das Spiel Minute für Minute mit Kommentar und nimm Änderungen währenddessen vor. Das nutzt die klassische Engine: Es gibt kein 2D-Spielfeld.",
+      "watchDesc": "Sieh alle 22 Spieler und den Ball auf dem Platz. Das Ergebnis zählt erst, wenn du „Zum Ergebnis“ wählst.",
+      "quickDesc": "Spiele das Spiel sofort und springe direkt zum Ergebnis. Die 2D-Wiederholung wird gespeichert, du kannst sie also später ansehen."
+    },
+    "replayNotRecorded": "Für dieses Spiel wurde keine 2D-Wiederholung aufgezeichnet. Nur Spiele mit „In 2D ansehen“ oder „Schnellsimulation“ behalten eine; Live- und delegierte Spiele nicht.",
+    "replayUnsupportedSchema": "Diese Wiederholung wurde in einem Format gespeichert, das diese Version nicht abspielen kann.",
+    "replayNoFrames": "Dieses Spiel enthält keine Bewegungsdaten der Spieler und kann daher nicht in 2D gezeigt werden. Ergebnis und Statistiken bleiben unberührt.",
+    "replayPlayersOnPitch": "Spieler auf dem Platz: {{home}} Heim · {{away}} Gast ({{total}} insgesamt)",
+    "replayEventType": {
+      "goal": "Tor",
+      "card": "Karte",
+      "substitution": "Auswechslung",
+      "injury": "Verletzung"
+    },
     "backToSchedule": "Zurück zum Spielplan",
     "live": "Live",
     "paused": "Pausiert",

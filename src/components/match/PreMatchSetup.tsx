@@ -1,6 +1,6 @@
 import { useRatingTiers } from "../../hooks/useRatingTiers";
 import { ratingTierClass } from "../../lib/ratingTier";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { FixtureData, GameStateData } from "../../store/gameStore";
@@ -36,6 +36,8 @@ interface PreMatchSetupProps {
   userSide: "Home" | "Away";
   onStart: () => void;
   onUpdateSnapshot: (snap: MatchSnapshot) => void;
+  /** Rendered between the header and the tabs: the other ways to play this match. */
+  viewModeSlot?: ReactNode;
 }
 
 export default function PreMatchSetup({
@@ -45,6 +47,7 @@ export default function PreMatchSetup({
   userSide,
   onStart,
   onUpdateSnapshot,
+  viewModeSlot,
 }: PreMatchSetupProps) {
   const tierOf = useRatingTiers();
   const { t } = useTranslation();
@@ -692,6 +695,8 @@ export default function PreMatchSetup({
           </div>
         </div>
       </header>
+
+      {viewModeSlot}
 
       {/* Your Team / Opponent tabs */}
       <div className="shrink-0 flex items-center gap-1 border-b border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/50 px-4">
