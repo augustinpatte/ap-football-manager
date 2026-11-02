@@ -880,7 +880,30 @@ pub fn compute_traits(attrs: &PlayerAttributes, _position: &Position) -> Vec<Pla
     traits
 }
 
+/// Prefix of the id of a player the World Cup made up to fill a thin national squad. The id is the
+/// only mark: it is a plain string every save already stores, so no column or migration is needed.
+pub const NATIONAL_POOL_ID_PREFIX: &str = "np-";
+
 impl Player {
+    /// A player invented to complete a national squad, who belongs to the national team's pool and
+    /// to no club's market. Recognised by his id, or, for a save written before ids carried the
+    /// prefix, by what only such a player looks like: unattached, still wearing the shirt number
+    /// the generator gave him, and with no recorded movement. A released or sold player has a
+    /// movement, and neither the FM24 import nor a package gives a free agent a shirt, so no
+    /// player of the world matches the second test.
+    pub fn is_national_pool_filler(&self) -> bool {
+        self.id.starts_with(NATIONAL_POOL_ID_PREFIX)
+            || (self.team_id.is_none()
+                && self.jersey_number.is_some()
+                && self.movement_history.is_empty())
+    }
+
+    /// Whether a club could sign him today as a free agent: unattached, not retired, and not one
+    /// of the players made up for a national squad.
+    pub fn is_on_free_market(&self) -> bool {
+        self.team_id.is_none() && !self.retired && !self.is_national_pool_filler()
+    }
+
     pub fn new(
         id: String,
         match_name: String,
@@ -1024,5 +1047,63 @@ mod tests {
         assert_eq!(player.natural_position, Position::Midfielder);
         assert!(!player.retired);
         assert!(player.movement_history.is_empty());
+    }
+
+    fn bare_player(id: &str) -> Player {
+        Player::new(
+            id.into(),
+            id.into(),
+            id.into(),
+            "2000-01-01".into(),
+            "GB".into(),
+            Position::Midfielder,
+            sample_attributes(),
+        )
+    }
+
+    /// Given a player whose id carries the national-pool prefix
+    /// When the market is asked about him
+    /// Then he is a filler and not a free agent.
+    #[test]
+    fn a_national_pool_id_marks_a_filler_that_is_not_on_the_market() {
+        let filler = bare_player("np-1234");
+        assert!(filler.is_national_pool_filler());
+        assert!(!filler.is_on_free_market());
+    }
+
+    /// Given an ordinary unattached player (no shirt, no history)
+    /// When the market is asked about him
+    /// Then he is a free agent; retired, or signed, he is not.
+    #[test]
+    fn an_ordinary_unattached_player_is_on_the_market_until_retired_or_signed() {
+        let mut agent = bare_player("fa-1");
+        assert!(agent.is_on_free_market());
+        agent.retired = true;
+        assert!(!agent.is_on_free_market());
+        agent.retired = false;
+        agent.team_id = Some("club".into());
+        assert!(!agent.is_on_free_market());
+    }
+
+    /// Given a save written before filler ids carried a prefix: an unattached player still wearing
+    /// the generator's shirt number with no movement history
+    /// When the market is asked about him
+    /// Then he is recognised as a filler, while the same player once released (a movement
+    /// recorded) is a genuine free agent.
+    #[test]
+    fn a_filler_from_an_older_save_is_recognised_by_shirt_and_empty_history() {
+        let mut legacy = bare_player("6f9619ff-8b86-d011-b42d-00c04fc964ff");
+        legacy.jersey_number = Some(9);
+        assert!(legacy.is_national_pool_filler());
+
+        let mut released = legacy.clone();
+        released
+            .record_movement(PlayerMovementEntry::new(
+                "2026-07-01",
+                PlayerMovementKind::Released,
+            ))
+            .expect("a release is recordable");
+        assert!(!released.is_national_pool_filler());
+        assert!(released.is_on_free_market());
     }
 }
