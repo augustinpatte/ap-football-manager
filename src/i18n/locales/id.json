@@ -200,6 +200,55 @@
     "matchDayTitle": "Hari Pertandingan",
     "delegateWarning": "Asisten akan menangani pertandingan ini. Kamu tidak dapat ikut campur."
   },
+  "fastForward": {
+    "menuTitle": "Maju hingga tanggal",
+    "menuDesc": "Mainkan berhari-hari, berminggu-minggu, atau berbulan-bulan sekaligus",
+    "title": "Maju hingga tanggal",
+    "targetLabel": "Maju hingga",
+    "preset": {
+      "week": "+1 minggu",
+      "month": "+1 bulan",
+      "threeMonths": "+3 bulan"
+    },
+    "daysAhead": "Hari yang dimainkan: {{days}}",
+    "invalidTarget": "Pilih tanggal setelah hari ini.",
+    "policyLabel": "Berhenti saat",
+    "policy": {
+      "decisions": "Hanya untuk keputusan",
+      "decisionsDesc": "Pertandinganmu dimainkan untukmu. Berhenti saat ada yang perlu persetujuanmu.",
+      "nextMatch": "Sebelum pertandingan berikutnya",
+      "nextMatchDesc": "Berhenti pada hari pertandingan berikutnya, sebelum dimainkan.",
+      "target": "Langsung ke tanggal",
+      "targetDesc": "Tidak pernah berhenti untuk keputusan: pertandingan dimainkan, musim ditutup, dan yang terlewat dicantumkan setelahnya."
+    },
+    "start": "Mulai",
+    "progressDays": "Hari {{done}} dari {{total}}",
+    "progressMatches": "Pertandinganmu yang dimainkan: {{matches}}",
+    "stop": "Hentikan",
+    "stopping": "Berhenti setelah hari ini…",
+    "result": {
+      "targetReached": "Mencapai {{date}}",
+      "nextMatch": "Berhenti sebelum pertandingan berikutnya",
+      "decisions": "Berhenti: keputusanmu diperlukan",
+      "seasonComplete": "Musim telah berakhir: tutup musim untuk melanjutkan",
+      "managerFired": "Kamu telah dipecat",
+      "cancelled": "Dihentikan atas permintaanmu",
+      "dayLimit": "Berhenti: terlalu banyak hari sekaligus",
+      "error": "Proses maju tidak dapat diselesaikan"
+    },
+    "summary": "{{days}} hari dimainkan, dari {{from}} sampai {{to}}",
+    "seasonsRolled": "Musim yang ditutup: {{seasons}}",
+    "decisionsTitle": "Perlu perhatianmu",
+    "passedTitle": "Terlewati di tengah jalan",
+    "decision": {
+      "blocker": "Masalah skuad atau kontrak",
+      "delegationProposal": "Usulan dari asistenmu",
+      "incomingTransferOffer": "Tawaran untuk salah satu pemainmu",
+      "incomingLoanOffer": "Permintaan pinjaman untuk salah satu pemainmu",
+      "transferDeadline": "Bursa transfer ditutup saat negosiasi masih berjalan"
+    },
+    "resume": "Lanjutkan"
+  },
   "exitConfirm": {
     "title": "Keluar ke Menu Utama?",
     "message": "Permainan akan disimpan secara otomatis sebelum kembali ke menu utama.",
@@ -801,7 +850,19 @@
       "high-press": "Pressing Tinggi",
       "counter-attack": "Serangan Balik",
       "low-block": "Blok Rendah",
-      "control-possession": "Kontrol penguasaan", "tiki-taka": "Gaya tiki-taka", "vertical-tiki-taka": "Tiki-taka vertikal", "gegenpress": "Tekanan balik", "direct-counter": "Serangan balik langsung", "direct-play": "Permainan langsung", "mid-block": "Blok menengah", "high-defensive-line": "Garis pertahanan tinggi", "defensive": "Bertahan", "attacking": "Menyerang", "long-ball": "Bola panjang", "park-the-bus": "Parkir bus", "fast-transition": "Transisi cepat"
+      "control-possession": "Kontrol penguasaan",
+      "tiki-taka": "Gaya tiki-taka",
+      "vertical-tiki-taka": "Tiki-taka vertikal",
+      "gegenpress": "Tekanan balik",
+      "direct-counter": "Serangan balik langsung",
+      "direct-play": "Permainan langsung",
+      "mid-block": "Blok menengah",
+      "high-defensive-line": "Garis pertahanan tinggi",
+      "defensive": "Bertahan",
+      "attacking": "Menyerang",
+      "long-ball": "Bola panjang",
+      "park-the-bus": "Parkir bus",
+      "fast-transition": "Transisi cepat"
     },
     "presetDescriptions": {
       "balanced-control": "Garis yang stabil, jangkauan yang andal, dan bentuk yang sederhana untuk sebagian besar skuad.",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "Anda perlu asisten manajer untuk mendelegasikan.",
         "proposalNotFound": "Usulan itu sudah tidak ada."
+      },
+      "fastForward": {
+        "invalidDate": "Itu bukan tanggal yang valid.",
+        "targetNotInFuture": "Pilih tanggal setelah hari ini.",
+        "targetTooFar": "Tanggal itu terlalu jauh untuk dimainkan sekaligus.",
+        "alreadyRunning": "Proses maju lain sedang berjalan.",
+        "careerChanged": "Karier berubah selama proses maju, jadi dihentikan."
       }
     },
     "sender": {

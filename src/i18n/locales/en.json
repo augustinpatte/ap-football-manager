@@ -200,6 +200,55 @@
     "matchDayTitle": "Match Day",
     "delegateWarning": "Your assistant will manage the match. You won't be able to intervene."
   },
+  "fastForward": {
+    "menuTitle": "Advance until date",
+    "menuDesc": "Play days, weeks or months in one go",
+    "title": "Advance until date",
+    "targetLabel": "Advance until",
+    "preset": {
+      "week": "+1 week",
+      "month": "+1 month",
+      "threeMonths": "+3 months"
+    },
+    "daysAhead": "Days to play: {{days}}",
+    "invalidTarget": "Choose a date after today.",
+    "policyLabel": "Stop when",
+    "policy": {
+      "decisions": "Only for decisions",
+      "decisionsDesc": "Your matches are played for you. Stops when something needs your approval.",
+      "nextMatch": "Before my next match",
+      "nextMatchDesc": "Stops on the day of your next match, before it is played.",
+      "target": "Straight to the date",
+      "targetDesc": "Never stops for a decision: matches are played, seasons rolled over, and what was passed is listed afterwards."
+    },
+    "start": "Start",
+    "progressDays": "Day {{done}} of {{total}}",
+    "progressMatches": "Your matches played: {{matches}}",
+    "stop": "Stop",
+    "stopping": "Stopping after today…",
+    "result": {
+      "targetReached": "Reached {{date}}",
+      "nextMatch": "Stopped before your next match",
+      "decisions": "Stopped: your decision is needed",
+      "seasonComplete": "The season is over: roll it over to carry on",
+      "managerFired": "You have been dismissed",
+      "cancelled": "Stopped at your request",
+      "dayLimit": "Stopped: too many days in one go",
+      "error": "The run could not finish"
+    },
+    "summary": "{{days}} days played, from {{from}} to {{to}}",
+    "seasonsRolled": "Seasons rolled over: {{seasons}}",
+    "decisionsTitle": "Needs your attention",
+    "passedTitle": "Passed along the way",
+    "decision": {
+      "blocker": "A squad or contract problem",
+      "delegationProposal": "A proposal from your assistant",
+      "incomingTransferOffer": "An offer for one of your players",
+      "incomingLoanOffer": "A loan request for one of your players",
+      "transferDeadline": "The transfer window closes with talks still open"
+    },
+    "resume": "Carry on"
+  },
   "exitConfirm": {
     "title": "Exit to Main Menu?",
     "message": "Your game will be saved automatically before returning to the main menu.",
@@ -3124,6 +3173,13 @@
       "delegation": {
         "noAssistant": "You need an assistant manager to delegate.",
         "proposalNotFound": "That proposal no longer exists."
+      },
+      "fastForward": {
+        "invalidDate": "That is not a valid date.",
+        "targetNotInFuture": "Choose a date after today.",
+        "targetTooFar": "That date is too far ahead to play in one go.",
+        "alreadyRunning": "Another advance is already running.",
+        "careerChanged": "The career changed during the advance, so it was stopped."
       }
     },
     "sender": {

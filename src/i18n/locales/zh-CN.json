@@ -200,6 +200,55 @@
     "matchDayTitle": "比赛日",
     "delegateWarning": "助理教练将接管比赛。您将无法介入。"
   },
+  "fastForward": {
+    "menuTitle": "快进到指定日期",
+    "menuDesc": "一次性推进数天、数周或数月",
+    "title": "快进到指定日期",
+    "targetLabel": "快进至",
+    "preset": {
+      "week": "+1 周",
+      "month": "+1 个月",
+      "threeMonths": "+3 个月"
+    },
+    "daysAhead": "需推进天数：{{days}}",
+    "invalidTarget": "请选择今天之后的日期。",
+    "policyLabel": "停止条件",
+    "policy": {
+      "decisions": "仅在需要决定时",
+      "decisionsDesc": "你的比赛由系统代打。有事需要你批准时停止。",
+      "nextMatch": "我的下一场比赛之前",
+      "nextMatchDesc": "在你下一场比赛当天、开赛之前停止。",
+      "target": "直达该日期",
+      "targetDesc": "绝不因决定而停下：比赛照常进行、赛季自动结算，事后会列出被略过的事项。"
+    },
+    "start": "开始",
+    "progressDays": "第 {{done}} 天，共 {{total}} 天",
+    "progressMatches": "已进行的你的比赛：{{matches}}",
+    "stop": "停止",
+    "stopping": "今天结束后停止…",
+    "result": {
+      "targetReached": "已到达 {{date}}",
+      "nextMatch": "已在你的下一场比赛前停止",
+      "decisions": "已停止：需要你做出决定",
+      "seasonComplete": "赛季已结束：请结算赛季以继续",
+      "managerFired": "你已被解雇",
+      "cancelled": "应你的要求已停止",
+      "dayLimit": "已停止：一次推进的天数过多",
+      "error": "快进未能完成"
+    },
+    "summary": "已进行 {{days}} 天，从 {{from}} 到 {{to}}",
+    "seasonsRolled": "已结算赛季：{{seasons}}",
+    "decisionsTitle": "需要你关注",
+    "passedTitle": "途中被略过",
+    "decision": {
+      "blocker": "阵容或合同问题",
+      "delegationProposal": "助理的提议",
+      "incomingTransferOffer": "有人对你的一名球员报价",
+      "incomingLoanOffer": "有人想租借你的一名球员",
+      "transferDeadline": "转会窗口关闭时仍有谈判未结束"
+    },
+    "resume": "继续"
+  },
   "exitConfirm": {
     "title": "返回主菜单？",
     "message": "返回主菜单前，您的游戏将会自动保存。",
@@ -847,7 +896,19 @@
       "high-press": "高位压迫",
       "counter-attack": "防守反击",
       "low-block": "低位防守",
-      "control-possession": "控球控制", "tiki-taka": "Tiki-Taka 风格", "vertical-tiki-taka": "纵向 Tiki-Taka", "gegenpress": "反抢压迫", "direct-counter": "直接反击", "direct-play": "直接打法", "mid-block": "中位防守", "high-defensive-line": "高位防线", "defensive": "防守", "attacking": "进攻", "long-ball": "长传", "park-the-bus": "摆大巴", "fast-transition": "快速转换"
+      "control-possession": "控球控制",
+      "tiki-taka": "Tiki-Taka 风格",
+      "vertical-tiki-taka": "纵向 Tiki-Taka",
+      "gegenpress": "反抢压迫",
+      "direct-counter": "直接反击",
+      "direct-play": "直接打法",
+      "mid-block": "中位防守",
+      "high-defensive-line": "高位防线",
+      "defensive": "防守",
+      "attacking": "进攻",
+      "long-ball": "长传",
+      "park-the-bus": "摆大巴",
+      "fast-transition": "快速转换"
     },
     "tableInteractionHint": "右键点击球员可使用快速操作。",
     "makeCaptain": "设为队长",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "委派事务需要一名助理教练。",
         "proposalNotFound": "该提案已不存在。"
+      },
+      "fastForward": {
+        "invalidDate": "这不是有效的日期。",
+        "targetNotInFuture": "请选择今天之后的日期。",
+        "targetTooFar": "该日期太远，无法一次性推进。",
+        "alreadyRunning": "已有另一次快进正在进行。",
+        "careerChanged": "快进期间生涯发生了变化，因此已停止。"
       }
     },
     "sender": {

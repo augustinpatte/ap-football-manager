@@ -200,6 +200,55 @@
     "matchDayTitle": "Jour de Match",
     "delegateWarning": "Votre assistant gérera le match. Vous ne pourrez pas intervenir."
   },
+  "fastForward": {
+    "menuTitle": "Avancer jusqu'à une date",
+    "menuDesc": "Jouer des jours, des semaines ou des mois d'un coup",
+    "title": "Avancer jusqu'à une date",
+    "targetLabel": "Avancer jusqu'au",
+    "preset": {
+      "week": "+1 semaine",
+      "month": "+1 mois",
+      "threeMonths": "+3 mois"
+    },
+    "daysAhead": "Jours à jouer : {{days}}",
+    "invalidTarget": "Choisissez une date postérieure à aujourd'hui.",
+    "policyLabel": "S'arrêter",
+    "policy": {
+      "decisions": "Seulement pour les décisions",
+      "decisionsDesc": "Vos matchs sont joués pour vous. S'arrête quand quelque chose demande votre accord.",
+      "nextMatch": "Avant mon prochain match",
+      "nextMatchDesc": "S'arrête le jour de votre prochain match, avant qu'il ne soit joué.",
+      "target": "Directement à la date",
+      "targetDesc": "Ne s'arrête jamais pour une décision : les matchs sont joués, les saisons bouclées, et ce qui a été dépassé est listé ensuite."
+    },
+    "start": "Lancer",
+    "progressDays": "Jour {{done}} sur {{total}}",
+    "progressMatches": "Vos matchs joués : {{matches}}",
+    "stop": "Arrêter",
+    "stopping": "Arrêt après aujourd'hui…",
+    "result": {
+      "targetReached": "Arrivé au {{date}}",
+      "nextMatch": "Arrêt avant votre prochain match",
+      "decisions": "Arrêt : votre décision est nécessaire",
+      "seasonComplete": "La saison est terminée : passez à la suivante pour continuer",
+      "managerFired": "Vous avez été limogé",
+      "cancelled": "Arrêté à votre demande",
+      "dayLimit": "Arrêt : trop de jours d'un seul coup",
+      "error": "L'avance n'a pas pu aboutir"
+    },
+    "summary": "{{days}} jours joués, du {{from}} au {{to}}",
+    "seasonsRolled": "Saisons bouclées : {{seasons}}",
+    "decisionsTitle": "Demande votre attention",
+    "passedTitle": "Dépassé en chemin",
+    "decision": {
+      "blocker": "Un problème d'effectif ou de contrat",
+      "delegationProposal": "Une proposition de votre adjoint",
+      "incomingTransferOffer": "Une offre pour l'un de vos joueurs",
+      "incomingLoanOffer": "Une demande de prêt pour l'un de vos joueurs",
+      "transferDeadline": "Le mercato ferme alors que des discussions sont encore ouvertes"
+    },
+    "resume": "Continuer"
+  },
   "closeConfirm": {
     "title": "Modifications non sauvegardées",
     "message": "Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?",
@@ -3124,6 +3173,13 @@
       "delegation": {
         "noAssistant": "Il faut un entraîneur adjoint pour déléguer.",
         "proposalNotFound": "Cette proposition n'existe plus."
+      },
+      "fastForward": {
+        "invalidDate": "Cette date n'est pas valide.",
+        "targetNotInFuture": "Choisissez une date postérieure à aujourd'hui.",
+        "targetTooFar": "Cette date est trop lointaine pour être jouée d'un coup.",
+        "alreadyRunning": "Une autre progression est déjà en cours.",
+        "careerChanged": "La carrière a changé pendant la progression, elle a donc été arrêtée."
       }
     },
     "sender": {

@@ -200,6 +200,55 @@
     "matchDayTitle": "Spieltag",
     "delegateWarning": "Dein Assistent übernimmt das Spiel. Du kannst nicht eingreifen."
   },
+  "fastForward": {
+    "menuTitle": "Bis zu einem Datum vorspulen",
+    "menuDesc": "Tage, Wochen oder Monate auf einmal spielen",
+    "title": "Bis zu einem Datum vorspulen",
+    "targetLabel": "Vorspulen bis",
+    "preset": {
+      "week": "+1 Woche",
+      "month": "+1 Monat",
+      "threeMonths": "+3 Monate"
+    },
+    "daysAhead": "Zu spielende Tage: {{days}}",
+    "invalidTarget": "Wähle ein Datum nach heute.",
+    "policyLabel": "Anhalten, wenn",
+    "policy": {
+      "decisions": "Nur bei Entscheidungen",
+      "decisionsDesc": "Deine Spiele werden für dich gespielt. Hält an, wenn etwas deine Zustimmung braucht.",
+      "nextMatch": "Vor meinem nächsten Spiel",
+      "nextMatchDesc": "Hält am Tag deines nächsten Spiels an, bevor es gespielt wird.",
+      "target": "Direkt zum Datum",
+      "targetDesc": "Hält nie für eine Entscheidung an: Spiele werden gespielt, Saisons abgeschlossen, und Übergangenes wird danach aufgelistet."
+    },
+    "start": "Starten",
+    "progressDays": "Tag {{done}} von {{total}}",
+    "progressMatches": "Deine gespielten Spiele: {{matches}}",
+    "stop": "Anhalten",
+    "stopping": "Halte nach heute an…",
+    "result": {
+      "targetReached": "{{date}} erreicht",
+      "nextMatch": "Vor deinem nächsten Spiel angehalten",
+      "decisions": "Angehalten: Deine Entscheidung ist nötig",
+      "seasonComplete": "Die Saison ist vorbei: Schließe sie ab, um weiterzumachen",
+      "managerFired": "Du wurdest entlassen",
+      "cancelled": "Auf deinen Wunsch angehalten",
+      "dayLimit": "Angehalten: zu viele Tage auf einmal",
+      "error": "Der Durchlauf konnte nicht abgeschlossen werden"
+    },
+    "summary": "{{days}} Tage gespielt, vom {{from}} bis {{to}}",
+    "seasonsRolled": "Abgeschlossene Saisons: {{seasons}}",
+    "decisionsTitle": "Braucht deine Aufmerksamkeit",
+    "passedTitle": "Unterwegs übergangen",
+    "decision": {
+      "blocker": "Ein Kader- oder Vertragsproblem",
+      "delegationProposal": "Ein Vorschlag deines Assistenten",
+      "incomingTransferOffer": "Ein Angebot für einen deiner Spieler",
+      "incomingLoanOffer": "Eine Leihanfrage für einen deiner Spieler",
+      "transferDeadline": "Das Transferfenster schließt, während noch Verhandlungen laufen"
+    },
+    "resume": "Weitermachen"
+  },
   "closeConfirm": {
     "title": "Nicht gespeicherte Änderungen",
     "message": "Du hast nicht gespeicherte Änderungen. Was möchtest du tun?",
@@ -847,7 +896,19 @@
       "high-press": "Hohes Pressing",
       "counter-attack": "Konterangriff",
       "low-block": "Tiefer Block",
-      "control-possession": "Ballbesitzkontrolle", "tiki-taka": "Tiki-Taka-Stil", "vertical-tiki-taka": "Vertikales Tiki-Taka", "gegenpress": "Gegenpressing", "direct-counter": "Direkter Konter", "direct-play": "Direktes Spiel", "mid-block": "Mittlerer Block", "high-defensive-line": "Hohe Abwehrlinie", "defensive": "Defensiv", "attacking": "Offensiv", "long-ball": "Langer Ball", "park-the-bus": "Abwehrbollwerk", "fast-transition": "Schneller Übergang"
+      "control-possession": "Ballbesitzkontrolle",
+      "tiki-taka": "Tiki-Taka-Stil",
+      "vertical-tiki-taka": "Vertikales Tiki-Taka",
+      "gegenpress": "Gegenpressing",
+      "direct-counter": "Direkter Konter",
+      "direct-play": "Direktes Spiel",
+      "mid-block": "Mittlerer Block",
+      "high-defensive-line": "Hohe Abwehrlinie",
+      "defensive": "Defensiv",
+      "attacking": "Offensiv",
+      "long-ball": "Langer Ball",
+      "park-the-bus": "Abwehrbollwerk",
+      "fast-transition": "Schneller Übergang"
     },
     "tableInteractionHint": "Rechtsklicke auf Spieler für Schnellaktionen.",
     "makeCaptain": "Zum Kapitän machen",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "Zum Delegieren brauchst du einen Co-Trainer.",
         "proposalNotFound": "Dieser Vorschlag existiert nicht mehr."
+      },
+      "fastForward": {
+        "invalidDate": "Das ist kein gültiges Datum.",
+        "targetNotInFuture": "Wähle ein Datum nach heute.",
+        "targetTooFar": "Dieses Datum liegt zu weit in der Zukunft, um es auf einmal zu spielen.",
+        "alreadyRunning": "Ein anderer Vorlauf läuft bereits.",
+        "careerChanged": "Die Karriere hat sich während des Vorlaufs geändert, daher wurde er angehalten."
       }
     },
     "sender": {

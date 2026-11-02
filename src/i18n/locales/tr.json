@@ -200,6 +200,55 @@
     "matchDayTitle": "Maç Günü",
     "delegateWarning": "Maçı yardımcınız yönetecek. Müdahale edemeyeceksiniz."
   },
+  "fastForward": {
+    "menuTitle": "Bir tarihe kadar ilerle",
+    "menuDesc": "Günleri, haftaları veya ayları tek seferde oyna",
+    "title": "Bir tarihe kadar ilerle",
+    "targetLabel": "Şu tarihe kadar ilerle",
+    "preset": {
+      "week": "+1 hafta",
+      "month": "+1 ay",
+      "threeMonths": "+3 ay"
+    },
+    "daysAhead": "Oynanacak gün: {{days}}",
+    "invalidTarget": "Bugünden sonraki bir tarih seç.",
+    "policyLabel": "Şu durumda dur",
+    "policy": {
+      "decisions": "Yalnızca kararlarda",
+      "decisionsDesc": "Maçların senin yerine oynanır. Onayın gereken bir şey olduğunda durur.",
+      "nextMatch": "Bir sonraki maçımdan önce",
+      "nextMatchDesc": "Bir sonraki maçının günü, maç oynanmadan önce durur.",
+      "target": "Doğrudan tarihe",
+      "targetDesc": "Hiçbir karar için durmaz: maçlar oynanır, sezonlar kapatılır, atlananlar sonra listelenir."
+    },
+    "start": "Başlat",
+    "progressDays": "Gün {{done}} / {{total}}",
+    "progressMatches": "Oynanan maçların: {{matches}}",
+    "stop": "Durdur",
+    "stopping": "Bugünden sonra duruluyor…",
+    "result": {
+      "targetReached": "{{date}} tarihine ulaşıldı",
+      "nextMatch": "Bir sonraki maçından önce durdu",
+      "decisions": "Durdu: kararın gerekiyor",
+      "seasonComplete": "Sezon bitti: devam etmek için sezonu kapat",
+      "managerFired": "Görevden alındın",
+      "cancelled": "İsteğin üzerine durdu",
+      "dayLimit": "Durdu: tek seferde çok fazla gün",
+      "error": "İlerleme tamamlanamadı"
+    },
+    "summary": "{{days}} gün oynandı, {{from}} ile {{to}} arası",
+    "seasonsRolled": "Kapatılan sezonlar: {{seasons}}",
+    "decisionsTitle": "Dikkatini gerektiriyor",
+    "passedTitle": "Yolda atlananlar",
+    "decision": {
+      "blocker": "Kadro veya sözleşme sorunu",
+      "delegationProposal": "Yardımcından bir öneri",
+      "incomingTransferOffer": "Oyuncularından biri için bir teklif",
+      "incomingLoanOffer": "Oyuncularından biri için bir kiralama talebi",
+      "transferDeadline": "Transfer dönemi, görüşmeler sürerken kapanıyor"
+    },
+    "resume": "Devam et"
+  },
   "exitConfirm": {
     "title": "Ana menüye dönülsün mü?",
     "message": "Ana menüye dönmeden önce oyun otomatik kaydedilecek.",
@@ -801,7 +850,19 @@
       "high-press": "Yüksek Pres",
       "counter-attack": "Kontratak",
       "low-block": "Derin Blok",
-      "control-possession": "Topa sahip olma kontrolü", "tiki-taka": "Tiki-taka stili", "vertical-tiki-taka": "Dikey tiki-taka", "gegenpress": "Karşı pres", "direct-counter": "Doğrudan kontraatak", "direct-play": "Doğrudan oyun", "mid-block": "Orta blok", "high-defensive-line": "Yüksek savunma çizgisi", "defensive": "Defansif", "attacking": "Hücumcu", "long-ball": "Uzun top", "park-the-bus": "Otobüsü çek", "fast-transition": "Hızlı geçiş"
+      "control-possession": "Topa sahip olma kontrolü",
+      "tiki-taka": "Tiki-taka stili",
+      "vertical-tiki-taka": "Dikey tiki-taka",
+      "gegenpress": "Karşı pres",
+      "direct-counter": "Doğrudan kontraatak",
+      "direct-play": "Doğrudan oyun",
+      "mid-block": "Orta blok",
+      "high-defensive-line": "Yüksek savunma çizgisi",
+      "defensive": "Defansif",
+      "attacking": "Hücumcu",
+      "long-ball": "Uzun top",
+      "park-the-bus": "Otobüsü çek",
+      "fast-transition": "Hızlı geçiş"
     },
     "presetDescriptions": {
       "balanced-control": "İstikrarlı hatlar, güvenilir kapsama ve çoğu kadro için sade bir şekil.",
@@ -3112,6 +3173,13 @@
       "delegation": {
         "noAssistant": "Görev devretmek için yardımcı teknik direktör gerekir.",
         "proposalNotFound": "Bu öneri artık yok."
+      },
+      "fastForward": {
+        "invalidDate": "Bu geçerli bir tarih değil.",
+        "targetNotInFuture": "Bugünden sonraki bir tarih seç.",
+        "targetTooFar": "Bu tarih tek seferde oynanamayacak kadar uzak.",
+        "alreadyRunning": "Başka bir ilerleme zaten sürüyor.",
+        "careerChanged": "İlerleme sırasında kariyer değişti, bu yüzden durduruldu."
       }
     },
     "sender": {
