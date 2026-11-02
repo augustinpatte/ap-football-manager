@@ -203,3 +203,81 @@ fn the_assistants_recruitment_memory_survives_two_reloads() {
             .is_shelved("someone-else", "2026-09-01")
     );
 }
+
+/// A fair move up for a player of a small club, with a month of open window left.
+fn open_window_market() -> Game {
+    let mut owned = player("1999-01-01");
+    owned.team_id = Some("small-club".to_string());
+    owned.stage_contract_end(Some("2029-06-30".to_string()));
+    owned.stage_wage(10_000);
+    owned.ovr = 70;
+    owned.potential = 70;
+    owned.market_value = 8_000_000;
+    owned.morale = 75;
+    let mut game = game_with(owned);
+    game.teams[0].reputation = 500;
+    for team in &mut game.teams {
+        if team.id == "small-club" {
+            team.reputation = 90;
+        }
+    }
+    game.teams[0].transfer_budget = 60_000_000;
+    game.teams[0].finance = 80_000_000;
+    game.teams[0].wage_budget = 60_000_000;
+    game.season_context.transfer_window.status = TransferWindowStatus::Open;
+    game.season_context.transfer_window.days_remaining = Some(30);
+    game
+}
+
+/// Given a deal the clubs and the player agreed with the window open, still being processed
+/// When the career is saved and reloaded before the registration date
+/// Then the reloaded career still has the player at his club, the same date, and registers him on
+///      that date exactly as the career that was never saved does.
+#[test]
+fn a_deal_being_processed_in_an_open_window_survives_a_reload() {
+    let mut game = open_window_market();
+    let shown = ofm_core::transfers::make_manager_transfer_bid(
+        &mut game,
+        PLAYER_ID,
+        12_000_000,
+        TransferTerms::default(),
+    )
+    .unwrap();
+    let terms = TransferTerms {
+        player_weekly_wage: shown.player_demand.as_ref().map_or(0, |d| d.weekly_wage),
+        player_contract_years: shown
+            .player_demand
+            .as_ref()
+            .map_or(0, |d| u8::try_from(d.contract_years).unwrap()),
+        ..TransferTerms::default()
+    };
+    let agreed =
+        ofm_core::transfers::make_manager_transfer_bid(&mut game, PLAYER_ID, 12_000_000, terms)
+            .unwrap();
+    assert_eq!(agreed.decision, TransferNegotiationDecision::Accepted);
+    let date = agreed.registration_date.expect("a registration date");
+    assert_eq!(prospect(&game).team_id.as_deref(), Some("small-club"));
+
+    let dir = tempfile::tempdir().unwrap();
+    let saves = dir.path().join("saves");
+    let id = SaveManager::init(&saves)
+        .unwrap()
+        .create_save(&game, "Processing")
+        .unwrap();
+    let mut reloaded = SaveManager::init(&saves).unwrap().load_game(&id).unwrap();
+    assert_eq!(prospect(&reloaded).team_id.as_deref(), Some("small-club"));
+
+    let due = chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d").unwrap();
+    for career in [&mut game, &mut reloaded] {
+        use chrono::Datelike;
+        set_date(career, due.year(), due.month(), due.day());
+        // The loader derives the window from the real calendar, which the fixture's dates do not
+        // follow; the existing reload test opens it by hand for the same reason.
+        career.season_context.transfer_window.status = TransferWindowStatus::Open;
+        process_pending_transfer_registrations(career);
+    }
+    for (name, career) in [("never saved", &game), ("reloaded", &reloaded)] {
+        assert_eq!(prospect(career).team_id.as_deref(), Some(USER), "{name}");
+    }
+    assert_eq!(game.teams[0].finance, reloaded.teams[0].finance);
+}

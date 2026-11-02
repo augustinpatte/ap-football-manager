@@ -125,6 +125,23 @@ fn needs(game: &Game, team_id: &str) -> Vec<usize> {
     found.into_iter().map(|(_, group)| group).collect()
 }
 
+/// Groups in which a purchase the club has agreed is still waiting for its registration date.
+/// The squad has not changed yet, so his own review would still call the position weak and he
+/// would buy a second player for the same gap.
+fn groups_with_a_purchase_pending(game: &Game, team_id: &str) -> Vec<usize> {
+    game.players
+        .iter()
+        .filter(|p| p.team_id.as_deref() != Some(team_id))
+        .filter(|p| {
+            p.transfer_offers.iter().any(|offer| {
+                offer.from_team_id == team_id
+                    && offer.status == domain::player::TransferOfferStatus::PendingRegistration
+            })
+        })
+        .map(|p| group_index(&p.natural_position))
+        .collect()
+}
+
 /// The ratings of the club's registered, fit seniors by group, best first.
 fn levels(game: &Game, team_id: &str) -> [Vec<u8>; 4] {
     let mut groups: [Vec<u8>; 4] = Default::default();
@@ -200,7 +217,11 @@ fn choose_target(game: &Game, team_id: &str) -> Option<Target> {
         return None;
     }
     let budget = team.transfer_budget.min(team.finance);
+    let pending = groups_with_a_purchase_pending(game, team_id);
     for group in needs(game, team_id) {
+        if pending.contains(&group) {
+            continue;
+        }
         let thin = crate::transfers::group_is_thin(&squad[group], group);
         let mut candidates: Vec<(i64, &Player, i32)> = game
             .players
@@ -826,6 +847,10 @@ mod tests {
         for _ in 0..8 {
             visit(&mut g);
             days_later(&mut g, 3);
+            // The turn registers agreed deals every day; a deal he agreed waits for its date.
+            for _ in 0..3 {
+                crate::transfers::process_pending_transfer_registrations(&mut g);
+            }
         }
 
         let signed = defenders_signed(&g);
@@ -844,7 +869,8 @@ mod tests {
             g.delegation
                 .log
                 .iter()
-                .any(|e| e.title_key == "delegation.log.recruitSigned")
+                .any(|e| e.title_key == "delegation.log.recruitScheduled"),
+            "the log says the deal is scheduled for its registration date, not that he is signed"
         );
         assert!(
             g.delegation.recruitment.active.is_empty(),

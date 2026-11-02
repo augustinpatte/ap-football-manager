@@ -437,7 +437,7 @@ pub fn project_transfer_bid_financial_impact_with_terms(
     // opens_on) — the projection is purely informational, so it shouldn't
     // fail here.
     let current_date = game.clock.current_date.date_naive();
-    let pending_registration_date = transfer_registration_date(game)
+    let pending_registration_date = deal_registration_date(game, player, &team.id, fee, terms)
         .ok()
         .filter(|date| *date != current_date)
         .map(|date| date.format("%Y-%m-%d").to_string());
@@ -528,9 +528,8 @@ fn place_bid(
     expire_stale_transfer_offers(game);
 
     let current_date = game.clock.current_date.date_naive();
-    let registration_date = transfer_registration_date(game)?;
-    let register_immediately = registration_date == current_date;
-    let registration_date_string = registration_date.format("%Y-%m-%d").to_string();
+    // The window must be open (or about to open) before anything else is asked.
+    transfer_registration_date(game)?;
 
     let user_team_id = game
         .manager
@@ -543,6 +542,9 @@ fn place_bid(
         .iter()
         .find(|p| p.id == player_id)
         .ok_or("be.error.playerNotFound")?;
+    let registration_date = deal_registration_date(game, player, &user_team_id, fee, &terms)?;
+    let register_immediately = registration_date == current_date;
+    let registration_date_string = registration_date.format("%Y-%m-%d").to_string();
 
     if player.team_id.as_deref() == Some(&user_team_id) {
         return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.into());
@@ -969,7 +971,7 @@ pub fn respond_to_offer(
     let fee = offer.fee;
     let current_date = game.clock.current_date.date_naive();
     let registration_date = if accept {
-        transfer_registration_date(game)?
+        deal_registration_date(game, player, &from_team_id, fee, &TransferTerms::default())?
     } else {
         current_date
     };
