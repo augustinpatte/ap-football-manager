@@ -859,6 +859,7 @@ fn manager_block_prevents_manual_renewal_until_it_expires() {
         last_outcome: None,
         conversation_round: 0,
         exit_intent: None,
+        warning_handled: None,
     });
 
     let outcome = propose_renewal(
@@ -887,6 +888,7 @@ fn stale_manual_renewal_talks_cool_off_and_restart_from_round_one() {
         last_outcome: None,
         conversation_round: 3,
         exit_intent: None,
+        warning_handled: None,
     });
     game.clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 26, 12, 0, 0).unwrap());
 

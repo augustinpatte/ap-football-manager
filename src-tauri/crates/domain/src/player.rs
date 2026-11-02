@@ -413,6 +413,11 @@ pub struct ContractRenewalState {
     pub last_outcome: Option<RenewalSessionOutcome>,
     pub conversation_round: u8,
     pub exit_intent: Option<ContractExitIntent>,
+    /// The expiry warning the manager has dealt with (answered the player's message, opened
+    /// renewal talks, or chosen to carry on), as `"{contract end}|{stage}"`. The key holds the
+    /// contract and the stage, so a later stage, or the next contract, warns again; the same one
+    /// does not interrupt the advance a second time.
+    pub warning_handled: Option<String>,
 }
 
 impl Default for ContractRenewalState {
@@ -425,6 +430,7 @@ impl Default for ContractRenewalState {
             last_outcome: None,
             conversation_round: 0,
             exit_intent: None,
+            warning_handled: None,
         }
     }
 }

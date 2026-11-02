@@ -30,7 +30,7 @@ export function useDigestAdvance(
   const abortRef = useRef(false);
   const inFlightRef = useRef(false);
 
-  const startDigest = async (options?: { resume?: boolean }) => {
+  const startDigest = async (options?: { resume?: boolean; ignoreBlockers?: boolean }) => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     abortRef.current = false;
@@ -42,6 +42,9 @@ export function useDigestAdvance(
     setStopReason(null);
 
     let daysProcessed = 0;
+    // "Continue anyway" covers the blockers it was given for, i.e. the first day; the next
+    // day's blockers are asked about again.
+    let ignoreBlockers = options?.ignoreBlockers ?? false;
 
     try {
       while (daysProcessed < MAX_DIGEST_DAYS) {
@@ -50,7 +53,8 @@ export function useDigestAdvance(
           return;
         }
 
-        const result = await advanceOneDay();
+        const result = await advanceOneDay(ignoreBlockers);
+        ignoreBlockers = false;
 
         if (abortRef.current) {
           setStopReason({ kind: "stopped" });
