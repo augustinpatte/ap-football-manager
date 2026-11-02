@@ -477,14 +477,52 @@ pub fn make_transfer_bid(
     make_transfer_bid_with_terms(game, player_id, fee, TransferTerms::default())
 }
 
+/// Whether a bid must put a contract to the player before the deal can complete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlayerHearing {
+    /// The buyer's standard contract is assumed and judged by the player on the spot. For the
+    /// assistant, who acts within limits the manager set, and for callers that have no screen.
+    Assumed,
+    /// The manager is bidding: once the clubs agree, nothing moves until the player has been
+    /// shown the contract and has answered it.
+    Required,
+}
+
 /// [`make_transfer_bid`] with terms attached to the fee. The clubs bargain over the fee and the
 /// terms together (instalments cost a premium, a sell-on clause earns a discount); once they
 /// agree, the player has his own say, and the money must fit the buyer's cash and budget.
+///
+/// The buyer's standard contract is assumed when none is named. The manager's own bids go
+/// through [`make_manager_transfer_bid`], which does not assume it.
 pub fn make_transfer_bid_with_terms(
     game: &mut Game,
     player_id: &str,
     fee: u64,
     terms: TransferTerms,
+) -> Result<TransferNegotiationOutcome, String> {
+    place_bid(game, player_id, fee, terms, PlayerHearing::Assumed)
+}
+
+/// The manager's bid. When the clubs agree and the bid names no contract for the player, nothing
+/// is completed: the answer is [`TransferNegotiationDecision::PlayerTalks`] with the contract the
+/// player would sign, and the deal completes on the bid that puts a contract to him and that he
+/// accepts. A player who wants other terms names them and one who refuses says so, exactly as
+/// when a contract is named.
+pub fn make_manager_transfer_bid(
+    game: &mut Game,
+    player_id: &str,
+    fee: u64,
+    terms: TransferTerms,
+) -> Result<TransferNegotiationOutcome, String> {
+    place_bid(game, player_id, fee, terms, PlayerHearing::Required)
+}
+
+fn place_bid(
+    game: &mut Game,
+    player_id: &str,
+    fee: u64,
+    terms: TransferTerms,
+    hearing: PlayerHearing,
 ) -> Result<TransferNegotiationOutcome, String> {
     terms::validate_terms(&terms)?;
     expire_stale_transfer_offers(game);
@@ -583,6 +621,14 @@ pub fn make_transfer_bid_with_terms(
         // The clubs agree; the player still has to. Not terminal: the manager can come back with
         // better pay, a longer deal, a promise or a bonus, and the clubs' agreement is struck
         // again.
+        if hearing == PlayerHearing::Required
+            && !terms.names_player_terms()
+            && judgement.verdict == Verdict::Accept
+        {
+            return Ok(player_awaits_terms(
+                &judgement, fee, tension, patience, round,
+            ));
+        }
         if judgement.verdict != Verdict::Accept {
             return Ok(player_stands_in_the_way(
                 &judgement, fee, tension, patience, round,
@@ -845,6 +891,42 @@ fn player_stands_in_the_way(
     );
     outcome.player_demand = demand;
     outcome.player_obstacle = judgement.main_obstacle;
+    outcome
+}
+
+/// The clubs agree and the player would sign the contract shown: the manager has to put it to him.
+/// Nothing is stored or paid, so a deal left here leaves no half-agreed offer behind.
+fn player_awaits_terms(
+    judgement: &MoveJudgement,
+    fee: u64,
+    tension: u8,
+    patience: u8,
+    round: u8,
+) -> TransferNegotiationOutcome {
+    let demand = PlayerDemand {
+        weekly_wage: judgement.terms.weekly_wage,
+        contract_years: judgement.terms.contract_years,
+    };
+    let mut outcome = transfer_outcome(
+        TransferNegotiationDecision::PlayerTalks,
+        None,
+        false,
+        None,
+        build_transfer_feedback(
+            "transfers.transferFeedbackPlayerTermsHeadline",
+            "transfers.transferFeedbackPlayerTermsDetail",
+            NegotiationMood::Positive,
+            tension.saturating_sub(6),
+            patience.saturating_add(4).min(90),
+            round,
+            &[
+                ("fee", fee.to_string()),
+                ("wage", demand.weekly_wage.to_string()),
+                ("years", demand.contract_years.to_string()),
+            ],
+        ),
+    );
+    outcome.player_demand = Some(demand);
     outcome
 }
 

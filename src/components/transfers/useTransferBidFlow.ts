@@ -199,6 +199,16 @@ export function useTransferBidFlow({
       setBidError(null);
       setBidFeedback(normalizeTransferNegotiationFeedback(response.feedback));
       onGameUpdate?.(response.game);
+      // The player's side is put in the form: the contract he would sign (the clubs agreed and he
+      // is waiting for it) or the one he asks for instead. The next submit puts it to him.
+      const demand = response.player_demand;
+      if (demand && (response.decision === "player_talks" || response.decision === "rejected")) {
+        setBidTerms((terms) => ({
+          ...terms,
+          playerWage: String(demand.weekly_wage),
+          playerYears: String(demand.contract_years),
+        }));
+      }
 
       // `suggested_fee` is in raw euros, but this input is denominated in
       // millions (see `bidFee` above and `openBidNegotiation`). Convert

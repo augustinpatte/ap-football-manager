@@ -1626,7 +1626,11 @@
       "summary": "Lista de plantilla: {{count}} / {{max}} · equipo juvenil {{youth}} · cedidos a tu club {{loanedIn}} · cedidos a otros {{loanedOut}}",
       "room": "Quedan {{free}} plaza(s) en la lista de plantilla.",
       "full": "No queda plaza en la lista: libera {{release}} antes de fichar. Es el límite de inscripción del club, no un rechazo del jugador."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Los clubes se ponen de acuerdo: ahora debe aceptar el jugador",
+    "transferFeedbackPlayerTermsDetail": "Los clubes acuerdan {{fee}}. Aún no se ha completado nada: firmaría por {{wage}} a la semana durante {{years}} años. Preséntale un contrato para cerrar el trato o cambia las condiciones.",
+    "bidPlayerTalks": "Clubes de acuerdo. Ahora, el contrato del jugador.",
+    "submitPlayerTerms": "Presentar contrato al jugador"
   },
   "transferCentreWorld": {
     "title": "Centro de fichajes",

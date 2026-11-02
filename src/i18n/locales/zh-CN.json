@@ -1626,7 +1626,11 @@
       "summary": "一线队名单：{{count}} / {{max}} · 青年队 {{youth}} · 租入 {{loanedIn}} · 外租 {{loanedOut}}",
       "room": "一线队名单还剩 {{free}} 个名额。",
       "full": "名单已无空位：签约前请腾出 {{release}} 个。这是俱乐部的注册上限，并非球员拒绝。"
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "俱乐部已达成一致——现在需要球员同意",
+    "transferFeedbackPlayerTermsDetail": "两家俱乐部就 {{fee}} 达成一致。目前尚未完成任何手续：他愿意以每周 {{wage}}、为期 {{years}} 年签约。请向他提交合同以完成交易，或修改条件。",
+    "bidPlayerTalks": "俱乐部已达成一致，现在敲定球员合同。",
+    "submitPlayerTerms": "向球员提交合同"
   },
   "transferCentreWorld": {
     "title": "转会中心",

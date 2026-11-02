@@ -1626,7 +1626,11 @@
       "summary": "Senior squad list: {{count}} / {{max}} · youth squad {{youth}} · loaned in {{loanedIn}} · loaned out {{loanedOut}}",
       "room": "{{free}} place(s) left on the senior squad list.",
       "full": "No place left on the list: free {{release}} before signing. This is the club's registration limit, not a refusal from the player."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "The clubs agree — now the player must agree",
+    "transferFeedbackPlayerTermsDetail": "The clubs agree on {{fee}}. Nothing is completed yet: he would sign for {{wage}} a week over {{years}} years. Put a contract to him to close the deal, or change the terms.",
+    "bidPlayerTalks": "Clubs agreed. Now agree his contract.",
+    "submitPlayerTerms": "Put contract to player"
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",

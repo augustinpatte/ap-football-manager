@@ -1626,7 +1626,11 @@
       "summary": "Daftar skuad utama: {{count}} / {{max}} · tim muda {{youth}} · dipinjam klub {{loanedIn}} · dipinjamkan {{loanedOut}}",
       "room": "Sisa {{free}} tempat di daftar skuad utama.",
       "full": "Tidak ada tempat di daftar: kosongkan {{release}} sebelum merekrut. Ini batas pendaftaran klub, bukan penolakan pemain."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kedua klub sepakat — sekarang pemain harus setuju",
+    "transferFeedbackPlayerTermsDetail": "Kedua klub sepakat di {{fee}}. Belum ada yang selesai: ia akan menandatangani dengan {{wage}} per minggu selama {{years}} tahun. Tawarkan kontrak kepadanya untuk menutup kesepakatan, atau ubah persyaratan.",
+    "bidPlayerTalks": "Klub sepakat. Sekarang kontrak pemain.",
+    "submitPlayerTerms": "Tawarkan kontrak ke pemain"
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",

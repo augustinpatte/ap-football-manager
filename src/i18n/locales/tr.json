@@ -1626,7 +1626,11 @@
       "summary": "Takım kadro listesi: {{count}} / {{max}} · altyapı {{youth}} · kulübe kiralanan {{loanedIn}} · kiralanan {{loanedOut}}",
       "room": "Takım kadro listesinde {{free}} yer kaldı.",
       "full": "Listede yer kalmadı: imzalamadan önce {{release}} yer açın. Bu kulübün kayıt sınırıdır, oyuncunun reddi değil."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kulüpler anlaştı — şimdi oyuncunun onaylaması gerekiyor",
+    "transferFeedbackPlayerTermsDetail": "Kulüpler {{fee}} üzerinde anlaştı. Henüz hiçbir şey tamamlanmadı: haftada {{wage}} ile {{years}} yıllığına imzalar. Anlaşmayı kapatmak için ona bir sözleşme sunun veya şartları değiştirin.",
+    "bidPlayerTalks": "Kulüpler anlaştı. Şimdi oyuncunun sözleşmesi.",
+    "submitPlayerTerms": "Sözleşmeyi oyuncuya sun"
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",

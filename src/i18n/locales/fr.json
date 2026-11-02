@@ -1626,7 +1626,11 @@
       "summary": "Liste du groupe pro : {{count}} / {{max}} · jeunes {{youth}} · prêtés au club {{loanedIn}} · prêtés ailleurs {{loanedOut}}",
       "room": "Il reste {{free}} place(s) sur la liste du groupe pro.",
       "full": "Plus de place sur la liste : libérez-en {{release}} avant de recruter. C'est la limite d'enregistrement du club, pas un refus du joueur."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Les clubs s'accordent — au joueur de donner son accord",
+    "transferFeedbackPlayerTermsDetail": "Les clubs s'accordent sur {{fee}}. Rien n'est encore conclu : il signerait pour {{wage}} par semaine sur {{years}} ans. Proposez-lui un contrat pour conclure, ou modifiez les conditions.",
+    "bidPlayerTalks": "Clubs d'accord. Place au contrat du joueur.",
+    "submitPlayerTerms": "Proposer le contrat au joueur"
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",

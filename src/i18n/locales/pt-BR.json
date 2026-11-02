@@ -1626,7 +1626,11 @@
       "summary": "Lista do elenco: {{count}} / {{max}} · base {{youth}} · emprestados ao clube {{loanedIn}} · emprestados a outros {{loanedOut}}",
       "room": "Restam {{free}} vaga(s) na lista do elenco.",
       "full": "Não há vaga na lista: libere {{release}} antes de contratar. É o limite de inscrição do clube, não uma recusa do jogador."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Os clubes chegaram a um acordo — agora o jogador precisa aceitar",
+    "transferFeedbackPlayerTermsDetail": "Os clubes concordam em {{fee}}. Nada foi concluído ainda: ele assinaria por {{wage}} por semana durante {{years}} anos. Apresente um contrato a ele para fechar o negócio ou altere as condições.",
+    "bidPlayerTalks": "Clubes de acordo. Agora, o contrato do jogador.",
+    "submitPlayerTerms": "Apresentar contrato ao jogador"
   },
   "transferCentreWorld": {
     "title": "Central de transferências",

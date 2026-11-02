@@ -1626,7 +1626,11 @@
       "summary": "Soupiska prvního týmu: {{count}} / {{max}} · mládež {{youth}} · hostující u klubu {{loanedIn}} · poslaní na hostování {{loanedOut}}",
       "room": "V soupisce prvního týmu zbývá {{free}} místo/míst.",
       "full": "V soupisce není místo: před podpisem uvolněte {{release}}. Jde o registrační limit klubu, ne o odmítnutí hráče."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kluby se dohodly — nyní musí souhlasit hráč",
+    "transferFeedbackPlayerTermsDetail": "Kluby se dohodly na {{fee}}. Zatím není nic dokončeno: podepsal by za {{wage}} týdně na {{years}} let. Předložte mu smlouvu a dohodu uzavřete, nebo změňte podmínky.",
+    "bidPlayerTalks": "Kluby se dohodly. Nyní smlouva hráče.",
+    "submitPlayerTerms": "Předložit smlouvu hráči"
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",

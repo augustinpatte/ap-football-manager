@@ -193,7 +193,7 @@ pub fn make_transfer_bid_internal(
     state
         .update_game(|game| {
             let result =
-                ofm_core::transfers::make_transfer_bid_with_terms(game, player_id, fee, terms)?;
+                ofm_core::transfers::make_manager_transfer_bid(game, player_id, fee, terms)?;
             Ok(map_transfer_negotiation_response(result, game.ui_clone()))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
@@ -778,18 +778,55 @@ mod tests {
         );
     }
 
+    /// The manager's bid, carried through the player's step: the first answer on a fee the clubs
+    /// agree is `PlayerTalks` with the contract he would sign (nothing completed); the second puts
+    /// that contract to him.
+    fn bid_through_the_player_step(
+        state: &StateManager,
+        player_id: &str,
+        fee: u64,
+    ) -> super::TransferNegotiationCommandResponse {
+        let first = make_transfer_bid_internal(
+            state,
+            player_id,
+            fee,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("first bid");
+        assert_eq!(first.decision, TransferNegotiationDecision::PlayerTalks);
+        let shown = first.player_demand.expect("the contract he would sign");
+        make_transfer_bid_internal(
+            state,
+            player_id,
+            fee,
+            domain::transfer_terms::TransferTerms {
+                player_weekly_wage: shown.weekly_wage,
+                player_contract_years: u8::try_from(shown.contract_years).expect("years"),
+                ..domain::transfer_terms::TransferTerms::default()
+            },
+        )
+        .expect("bid with his contract")
+    }
+
     #[test]
     fn make_transfer_bid_internal_returns_payload_and_updates_state() {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response = make_transfer_bid_internal(
+        let first = make_transfer_bid_internal(
             &state,
             "player-2",
             1_050_000,
             domain::transfer_terms::TransferTerms::default(),
         )
-        .expect("response");
+        .expect("first bid");
+        assert_eq!(first.decision, TransferNegotiationDecision::PlayerTalks);
+        assert_eq!(
+            first.game.players[0].team_id.as_deref(),
+            Some("team-2"),
+            "the clubs agreeing moves nobody"
+        );
+        let response = bid_through_the_player_step(&state, "player-2", 1_050_000);
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
@@ -819,13 +856,7 @@ mod tests {
         game.season_context.transfer_window.opens_on = Some("2027-01-01".to_string());
         state.set_game(game);
 
-        let response = make_transfer_bid_internal(
-            &state,
-            "player-2",
-            1_050_000,
-            domain::transfer_terms::TransferTerms::default(),
-        )
-        .expect("response");
+        let response = bid_through_the_player_step(&state, "player-2", 1_050_000);
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.registration_date.as_deref(), Some("2027-01-01"));
@@ -948,13 +979,7 @@ mod tests {
         assert_eq!(first.decision, TransferNegotiationDecision::CounterOffer);
         assert_eq!(first.feedback.round, 1);
 
-        let second = make_transfer_bid_internal(
-            &state,
-            "player-2",
-            950_000,
-            domain::transfer_terms::TransferTerms::default(),
-        )
-        .expect("second bid");
+        let second = bid_through_the_player_step(&state, "player-2", 950_000);
 
         assert_eq!(second.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(second.feedback.round, 2);

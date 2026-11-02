@@ -1651,7 +1651,11 @@
       "summary": "Lista prima squadra: {{count}} / {{max}} · giovanili {{youth}} · in prestito al club {{loanedIn}} · prestati ad altri {{loanedOut}}",
       "room": "Restano {{free}} posto/i nella lista della prima squadra.",
       "full": "Nessun posto libero nella lista: liberane {{release}} prima di ingaggiare. È il limite di tesseramento del club, non un rifiuto del giocatore."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "I club sono d'accordo — ora deve accettare il giocatore",
+    "transferFeedbackPlayerTermsDetail": "I club si accordano su {{fee}}. Nulla è ancora concluso: firmerebbe per {{wage}} a settimana per {{years}} anni. Proponigli un contratto per chiudere l'affare, oppure cambia le condizioni.",
+    "bidPlayerTalks": "Club d'accordo. Ora il contratto del giocatore.",
+    "submitPlayerTerms": "Proponi il contratto al giocatore"
   },
   "transferCentreWorld": {
     "title": "Centro trasferimenti",

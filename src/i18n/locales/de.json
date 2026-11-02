@@ -1626,7 +1626,11 @@
       "summary": "Profikaderliste: {{count}} / {{max}} · Jugend {{youth}} · ausgeliehen an den Klub {{loanedIn}} · verliehen {{loanedOut}}",
       "room": "Noch {{free}} Platz/Plätze auf der Profikaderliste.",
       "full": "Kein Platz mehr auf der Liste: Schaffe {{release}}, bevor du verpflichtest. Das ist das Meldelimit des Klubs, keine Absage des Spielers."
-    }
+    },
+    "transferFeedbackPlayerTermsHeadline": "Die Klubs sind sich einig — jetzt muss der Spieler zustimmen",
+    "transferFeedbackPlayerTermsDetail": "Die Klubs einigen sich auf {{fee}}. Noch ist nichts abgeschlossen: Er würde für {{wage}} pro Woche über {{years}} Jahre unterschreiben. Lege ihm einen Vertrag vor, um den Deal abzuschließen, oder ändere die Bedingungen.",
+    "bidPlayerTalks": "Klubs einig. Jetzt der Vertrag des Spielers.",
+    "submitPlayerTerms": "Vertrag dem Spieler vorlegen"
   },
   "transferCentreWorld": {
     "title": "Transferzentrum",
