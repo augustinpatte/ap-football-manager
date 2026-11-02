@@ -9,7 +9,7 @@ mod market_fixtures;
 
 use domain::player::TransferOfferStatus;
 use domain::transfer_terms::TransferTerms;
-use market_fixtures::{PLAYER_ID, game_with, player, prospect};
+use market_fixtures::{PLAYER_ID, game_with, pending_offer, player, prospect, set_date};
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     TransferNegotiationDecision, TransferNegotiationOutcome, make_manager_transfer_bid,
@@ -232,4 +232,79 @@ fn an_insulting_contract_is_refused_without_a_counter() {
     );
     assert!(outcome.player_demand.is_none());
     assert_eq!(prospect(&game).team_id.as_deref(), Some("small-club"));
+}
+
+/// Scenario 8. Given a transfer window that is closed, so an agreed deal waits for the day
+/// registration opens
+/// When the player accepts the contract put to him
+/// Then the agreement is stored with that contract (not the buyer's standard one), the player has
+/// not moved yet, and nothing is paid before the registration date.
+#[test]
+fn the_contract_he_accepted_is_kept_until_the_registration_day() {
+    let mut game = fair_move();
+    set_date(&mut game, 2026, 12, 20);
+    game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Closed;
+    game.season_context.transfer_window.opens_on = Some("2027-01-01".to_string());
+    let cash = game.teams[0].finance;
+    let shown = first_bid(&mut game).player_demand.expect("his contract");
+    let years = u8::try_from(shown.contract_years).unwrap();
+
+    let outcome = make_manager_transfer_bid(
+        &mut game,
+        PLAYER_ID,
+        FEE,
+        with_contract(shown.weekly_wage, years),
+    )
+    .unwrap();
+
+    assert_eq!(outcome.decision, TransferNegotiationDecision::Accepted);
+    assert_eq!(outcome.registration_date.as_deref(), Some("2027-01-01"));
+    assert_eq!(prospect(&game).team_id.as_deref(), Some("small-club"));
+    assert_eq!(
+        game.teams[0].finance, cash,
+        "nothing is paid before registration"
+    );
+    let stored = prospect(&game)
+        .transfer_offers
+        .iter()
+        .find(|offer| offer.status == TransferOfferStatus::PendingRegistration)
+        .expect("the agreement waits for the window");
+    assert_eq!(stored.terms.player_weekly_wage, shown.weekly_wage);
+    assert_eq!(
+        u32::from(stored.terms.player_contract_years),
+        shown.contract_years
+    );
+}
+
+/// Scenario 9. Given another club's offer for the same player
+/// When the clubs agree and the player's step is shown
+/// Then that offer is untouched (nothing is agreed yet); once the player accepts and the transfer
+/// completes, it is withdrawn so he is not sold twice.
+#[test]
+fn another_clubs_offer_survives_the_players_step_and_is_withdrawn_on_completion() {
+    let mut game = fair_move();
+    pending_offer(&mut game, "rival-1", "big-club", 7_000_000, "2026-08-01");
+    let shown = first_bid(&mut game).player_demand.expect("his contract");
+    let rival_status = |game: &Game| {
+        prospect(game)
+            .transfer_offers
+            .iter()
+            .find(|offer| offer.id == "rival-1")
+            .map(|offer| offer.status.clone())
+    };
+    assert_eq!(rival_status(&game), Some(TransferOfferStatus::Pending));
+
+    make_manager_transfer_bid(
+        &mut game,
+        PLAYER_ID,
+        FEE,
+        with_contract(
+            shown.weekly_wage,
+            u8::try_from(shown.contract_years).unwrap(),
+        ),
+    )
+    .unwrap();
+
+    assert_eq!(prospect(&game).team_id.as_deref(), Some("team-1"));
+    assert_ne!(rival_status(&game), Some(TransferOfferStatus::Pending));
 }
