@@ -161,7 +161,7 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | Tool | Description |
 |------|-------------|
 | `transfer_market_browse` | Browse players with optional position, max price, and listed-only filters |
-| `transfer_make_bid` | Make a transfer bid. Returns negotiation feedback (mood, tension, patience, suggested fee). |
+| `transfer_make_bid` | Make a transfer bid. Returns negotiation feedback (mood, tension, patience, suggested fee). The player has his own say once the clubs agree: when he wants other terms the result carries `player_asks_weekly_wage` / `player_asks_contract_years`; bid again with the optional `player_weekly_wage` and `player_contract_years` (1-5) to meet them. |
 | `transfer_preview_bid` | Preview financial impact of a bid without making it |
 | `transfer_respond_to_offer` | Accept or reject an incoming transfer offer |
 | `transfer_counter_offer` | Counter an incoming offer with a different fee |

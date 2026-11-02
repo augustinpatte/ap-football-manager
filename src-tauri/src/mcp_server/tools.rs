@@ -900,11 +900,21 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_make_bid
     custom_tool!(
         "transfer_make_bid",
-        "Make a transfer bid; includes negotiation feedback",
+        "Make a transfer bid; includes negotiation feedback. The player has his own say: if the clubs agree and he asks for other terms, the answer names them; bid again with player_weekly_wage / player_contract_years",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID to bid on"),
-                ("fee", "integer", "Transfer fee amount")
+                ("fee", "integer", "Transfer fee amount"),
+                (
+                    "player_weekly_wage",
+                    "integer",
+                    "Optional: weekly wage offered to the player (default: the club's standard terms)"
+                ),
+                (
+                    "player_contract_years",
+                    "integer",
+                    "Optional: contract length offered to the player, 1-5 years (default: standard)"
+                )
             ],
             &["player_id", "fee"]
         ),
@@ -919,7 +929,15 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
                 Ok(v) => v,
                 Err(e) => return Ok(e),
             };
-            match tools_impl::transfers::transfer_make_bid(ctx, pid, fee) {
+            let wage = match optional_integer_param(args, "player_weekly_wage") {
+                Ok(v) => v.and_then(|n| u32::try_from(n).ok()),
+                Err(e) => return Ok(e),
+            };
+            let years = match optional_integer_param(args, "player_contract_years") {
+                Ok(v) => v.and_then(|n| u8::try_from(n).ok()),
+                Err(e) => return Ok(e),
+            };
+            match tools_impl::transfers::transfer_make_bid(ctx, pid, fee, (wage, years)) {
                 Ok(value) => Ok(success(value)),
                 Err(e) => Ok(err_result(&e)),
             }

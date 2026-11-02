@@ -25,10 +25,12 @@ pub enum Duty {
     Lineup,
     /// Renewing the contracts of players that are running down.
     PlayerRenewals,
+    /// Signing players to fill the squad's needs, through the ordinary transfer negotiation.
+    PlayerRecruitment,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 8] = [
+    pub const ALL: [Duty; 9] = [
         Duty::Training,
         Duty::StaffRecruitment,
         Duty::Scouting,
@@ -37,13 +39,14 @@ impl Duty {
         Duty::StaffRenewals,
         Duty::Lineup,
         Duty::PlayerRenewals,
+        Duty::PlayerRecruitment,
     ];
 
     /// Days between two runs of a delegated duty.
     pub fn period_days(self) -> i64 {
         match self {
             Duty::Training | Duty::MatchPreparation | Duty::Lineup => 1,
-            Duty::Scouting => 3,
+            Duty::Scouting | Duty::PlayerRecruitment => 3,
             Duty::Youth | Duty::StaffRecruitment | Duty::StaffRenewals | Duty::PlayerRenewals => 7,
         }
     }
@@ -95,6 +98,15 @@ pub enum ProposalAction {
     },
     RestPlayers {
         player_ids: Vec<String>,
+    },
+    /// Open (or carry on) a negotiation for a player the squad needs, at a fee and wage the
+    /// manager has not yet allowed the assistant to commit to. Accepting it makes the bid; the
+    /// clubs and the player still have their say.
+    SignPlayer {
+        player_id: String,
+        fee: u64,
+        wage: u32,
+        years: u8,
     },
 }
 
@@ -207,6 +219,151 @@ pub struct DelegationState {
     /// Day the manager was last told proposals were waiting, so the notice is not daily.
     #[serde(default)]
     pub last_proposal_notice: Option<String>,
+    /// What the assistant has in hand on the transfer market.
+    #[serde(default)]
+    pub recruitment: RecruitmentMemory,
+}
+
+/// Most targets the assistant puts aside at once, oldest dropped first.
+pub const SHELF_CAPACITY: usize = 60;
+/// Most negotiations the assistant has open for the manager at once.
+pub const ACTIVE_APPROACH_CAPACITY: usize = 2;
+/// Most approaches kept in the pacing record.
+pub const APPROACH_RECORD_CAPACITY: usize = 24;
+
+/// Why the assistant stopped pursuing a player.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ShelveReason {
+    /// The manager answered a proposal for him with no.
+    ManagerDeclined,
+    /// A proposal for him was never answered.
+    ProposalLapsed,
+    /// His club would not sell at a price the assistant may pay.
+    ClubRefused,
+    /// The player would not join, whatever the assistant could offer.
+    PlayerRefused,
+    /// The deal could not be made at all (budget, board, squad list).
+    NotPossible,
+    /// He was signed, or the assistant dropped the idea because the squad had changed.
+    Done,
+}
+
+/// A target the assistant has put aside until a date, so that the same offer is not made again
+/// and again.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ShelvedTarget {
+    pub player_id: String,
+    /// `YYYY-MM-DD`: the first day he may be looked at again.
+    pub until: String,
+    pub reason: ShelveReason,
+}
+
+/// A negotiation the assistant is carrying for the manager, with what he may offer in it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ActiveApproach {
+    pub player_id: String,
+    pub started: String,
+    /// Why he was chosen, as a position name (`Defender`...), for the report.
+    pub need: String,
+    /// Highest fee the assistant is willing to pay for him, by his own judgement of the price.
+    pub max_fee: u64,
+    /// The fee of the next bid: his opening offer, then what the selling club asked for.
+    #[serde(default)]
+    pub next_fee: u64,
+    /// The wage the player has asked for, once he has asked. Zero: the buyer's standard.
+    #[serde(default)]
+    pub wage: u32,
+    /// The length he has asked for, in years. Zero: the standard.
+    #[serde(default)]
+    pub years: u8,
+    /// Bids made so far.
+    #[serde(default)]
+    pub rounds: u8,
+}
+
+/// A bid the assistant made, kept for pacing.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ApproachRecord {
+    pub player_id: String,
+    pub date: String,
+}
+
+/// The assistant's working memory for [`Duty::PlayerRecruitment`]. Saved with the career, so a
+/// reload in the middle of a negotiation carries on, and a season rollover forgets nothing.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct RecruitmentMemory {
+    pub shelved: Vec<ShelvedTarget>,
+    pub active: Vec<ActiveApproach>,
+    pub approaches: Vec<ApproachRecord>,
+}
+
+impl RecruitmentMemory {
+    /// Whether `player_id` is set aside on `today` (`YYYY-MM-DD`).
+    pub fn is_shelved(&self, player_id: &str, today: &str) -> bool {
+        self.shelved
+            .iter()
+            .any(|target| target.player_id == player_id && target.until.as_str() > today)
+    }
+
+    /// Sets a target aside until `until`, replacing an earlier entry for him.
+    pub fn shelve(&mut self, player_id: &str, until: &str, reason: ShelveReason) {
+        self.shelved.retain(|target| target.player_id != player_id);
+        self.shelved.push(ShelvedTarget {
+            player_id: player_id.to_string(),
+            until: until.to_string(),
+            reason,
+        });
+        if self.shelved.len() > SHELF_CAPACITY {
+            let excess = self.shelved.len() - SHELF_CAPACITY;
+            self.shelved.drain(..excess);
+        }
+    }
+
+    /// Drops what has expired.
+    pub fn forget_expired(&mut self, today: &str) {
+        self.shelved.retain(|target| target.until.as_str() > today);
+    }
+
+    pub fn is_active(&self, player_id: &str) -> bool {
+        self.active.iter().any(|a| a.player_id == player_id)
+    }
+
+    /// Stores the state of a negotiation, replacing the earlier one for the same player.
+    pub fn replace(&mut self, approach: ActiveApproach) {
+        match self
+            .active
+            .iter_mut()
+            .find(|a| a.player_id == approach.player_id)
+        {
+            Some(existing) => *existing = approach,
+            None => self.active.push(approach),
+        }
+    }
+
+    pub fn finish(&mut self, player_id: &str) {
+        self.active.retain(|a| a.player_id != player_id);
+    }
+
+    pub fn record_approach(&mut self, player_id: &str, date: &str) {
+        self.approaches.push(ApproachRecord {
+            player_id: player_id.to_string(),
+            date: date.to_string(),
+        });
+        if self.approaches.len() > APPROACH_RECORD_CAPACITY {
+            let excess = self.approaches.len() - APPROACH_RECORD_CAPACITY;
+            self.approaches.drain(..excess);
+        }
+    }
+
+    /// Approaches begun on or after `since` (`YYYY-MM-DD`).
+    pub fn approaches_since(&self, since: &str) -> usize {
+        self.approaches
+            .iter()
+            .filter(|a| a.date.as_str() >= since)
+            .count()
+    }
 }
 
 impl Default for DelegationState {
@@ -228,6 +385,7 @@ impl Default for DelegationState {
             limits: DelegationLimits::default(),
             last_digest: None,
             last_proposal_notice: None,
+            recruitment: RecruitmentMemory::default(),
         }
     }
 }

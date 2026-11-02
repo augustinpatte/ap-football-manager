@@ -420,6 +420,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .collect();
     let position_depths = squad_position_depths(game);
     let squad_levels = squad_levels_by_club(game);
+    // Whether the player himself would go: he is a party to every move, the AI's included.
+    let consent = SweepConsent::new(game, &squad_levels);
     let home_matches: std::collections::HashMap<String, i64> =
         crate::ai_finance_guard::home_league_matches_by_club(game)
             .into_iter()
@@ -858,6 +860,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             buyer_team.transfer_budget >= price as i64
                 && buyer_team.finance >= price as i64
                 && player_index.get(&target.player_id).is_some_and(|&index| {
+                    let player = &game.players[index];
+                    let Some(deal_terms) = consent.terms_for(player, &buyer_team, current_date)
+                    else {
+                        return false;
+                    };
                     let facts = buyer_wage_facts.get_or_insert_with(|| {
                         BuyerWageFacts::new(
                             wage_bills.get(&buyer_id).copied().unwrap_or(0),
@@ -865,18 +872,19 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                         )
                     });
                     buyer_can_pay_standard_wage(
-                        &game.players[index],
+                        player,
                         &buyer_team,
                         facts,
                         current_date,
+                        &deal_terms,
                     ) && (target.is_user_owned
                         || buyer_books.can_carry(
                             i64::from(
                                 standard_contract_terms(
-                                    &game.players[index],
+                                    player,
                                     &buyer_team,
                                     current_date,
-                                    0,
+                                    deal_terms.player_weekly_wage,
                                 )
                                 .map_or(0, |(wage, _)| wage),
                             ),
@@ -996,12 +1004,18 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 })
             })
             .flatten();
-        if execute_transfer(
+        // The wage he was judged to come for is the wage he is signed at.
+        let deal_terms = player_index
+            .get(&candidate.player_id)
+            .and_then(|&index| consent.terms_for(&game.players[index], &buyer_team, current_date))
+            .unwrap_or_default();
+        if execute_transfer_with_terms(
             game,
             &candidate.player_id,
             &buyer_id,
             &candidate.owner_team_id,
             candidate.fee,
+            &deal_terms,
         )
         .is_ok()
         {

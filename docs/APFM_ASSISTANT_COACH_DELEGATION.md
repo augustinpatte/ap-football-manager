@@ -24,7 +24,7 @@ one delegation architecture: `domain::delegation::DelegationState` on `Game`, ru
 * `confirm_major` ("ask me") only governs *major* steps: hires, renewals, promotions. Lineup, training,
   match preparation and scouting are reversible and cost nothing, so when handed over they act
   directly in every mode.
-* **Transfers are never executed by this run.** `max_transfer_fee` defaults to 0.
+* **Transfers are never executed by this run** (Run A). `max_transfer_fee` defaults to 0; Run E adds the recruiter that reads it.
 * Releasing/replacing staff stays a proposal; the assistant never dismisses anyone alone.
 * The assistant cannot be handed anything without being in post (`be.error.delegation.noAssistant`);
   taking back always works. If he leaves, nothing runs and the manager is told once per season.
@@ -38,7 +38,10 @@ players later but never picks a side an AI club's manager would not. Same state,
 
 ## Integration contract (other runs)
 
-* **Transfers (Run C)**: before executing a transfer on the assistant's behalf, call
+* **Transfers (Run E: done)**: `Duty::PlayerRecruitment` now calls `authorize` with a `Spend::Transfer` for
+  every bid it makes; see `APFM_PAID_TRANSFER_REALISM.md` §3. A zero fee ceiling now sends every acquisition,
+  including a fee-free one, to the manager. The text below is the original contract and still describes
+  the call. Before executing a transfer on the assistant's behalf, call
 
   ```rust
   use ofm_core::staff_system::delegation_policy::{authorize, Authorization, Spend};

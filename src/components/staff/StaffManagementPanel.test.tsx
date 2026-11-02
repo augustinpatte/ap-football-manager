@@ -143,6 +143,7 @@ describe("StaffManagementPanel", () => {
     render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
     expect(screen.getByTestId("duty-Lineup")).toBeInTheDocument();
     expect(screen.getByTestId("duty-PlayerRenewals")).toBeInTheDocument();
+    expect(screen.getByTestId("duty-PlayerRecruitment")).toBeInTheDocument();
   });
 
   it("switches the whole job to full delegation in one click", async () => {

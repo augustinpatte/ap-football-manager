@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlayerData, TeamData, TransferOfferData } from "../../store/gameStore";
 import type { TransferBidProjectionData } from "../../services/transfersService";
 import { formatExactMoney } from "../../lib/helpers";
+import { DEFAULT_BID_TERMS } from "./bidTerms";
 import TransferBidModal from "./TransferBidModal";
 
 // The language the mocked translation reports; a test sets it to read a date in another one.
@@ -259,6 +260,8 @@ describe("TransferBidModal", () => {
         sellOnPct: "0",
         signingBonusMillions: "0",
         promise: false,
+        playerWage: "",
+        playerYears: "",
       },
       onBidTermsChange,
       myTeam: createTeam(),
@@ -299,6 +302,60 @@ describe("TransferBidModal", () => {
     );
     fireEvent.click(screen.getByLabelText("transfers.promise.label"));
     expect(onBidTermsChange).toHaveBeenLastCalledWith({ ...baseProps.bidTerms, promise: true });
+  });
+
+  /**
+   * Given a player who is hesitant and has just asked for a better contract
+   * When the form is shown and the manager takes his terms
+   * Then his view of the move is shown, and one click puts his wage and length into the offer.
+   */
+  it("shows the player's view and lets the manager meet the terms he asks for", () => {
+    const onBidTermsChange = vi.fn();
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={onBidTermsChange}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection({
+          player_outlook: {
+            interest: "hesitant",
+            expected_wage: 12000,
+            expected_years: 3,
+            asks_wage: 14000,
+            asks_years: 3,
+          },
+        })}
+        bidFeedback={{
+          mood: "guarded",
+          headline_key: "transfers.transferFeedbackPlayerWantsMoreHeadline",
+          detail_key: "transfers.transferFeedbackPlayerWantsMoreDetail",
+          tension: 40,
+          patience: 60,
+          round: 1,
+          params: { fee: "3000000", wage: "14000", years: "3" },
+        }}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult="rejected"
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.playerTerms\.outlookHesitant/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "transfers.playerTerms.meetTerms" }));
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_BID_TERMS,
+      playerWage: "14000",
+      playerYears: "3",
+    });
   });
 
   /**
@@ -348,7 +405,7 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.0"
         onBidAmountChange={vi.fn()}
-        bidTerms={{ instalments: "1", sellOnPct: "99", signingBonusMillions: "0", promise: false }}
+        bidTerms={{ ...DEFAULT_BID_TERMS, sellOnPct: "99" }}
         onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1000000}

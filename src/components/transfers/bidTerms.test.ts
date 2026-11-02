@@ -39,6 +39,29 @@ describe("parseBidTerms", () => {
   });
 
   /**
+   * Given the wage and length the player was offered
+   * When the form is parsed
+   * Then they ride in the terms; left empty they are not sent, so the standard terms apply.
+   */
+  it("carries the player's own wage and length when they are set", () => {
+    expect(parseBidTerms(input({ playerWage: "45000", playerYears: "4" }))).toEqual({
+      valid: true,
+      terms: {
+        instalments: 1,
+        sell_on_pct: 0,
+        signing_bonus: 0,
+        promise_stepping_stone: false,
+        player_weekly_wage: 45000,
+        player_contract_years: 4,
+      },
+    });
+    expect(parseBidTerms(input({ playerWage: "", playerYears: "" }))).toEqual({
+      valid: true,
+      terms: undefined,
+    });
+  });
+
+  /**
    * Given a value out of range or not a number
    * When the form is parsed
    * Then it is invalid, so the offer cannot be submitted with it.
@@ -50,6 +73,9 @@ describe("parseBidTerms", () => {
     ["a clause over the limit", { sellOnPct: "31" }],
     ["a negative bonus", { signingBonusMillions: "-1" }],
     ["a bonus that is not a number", { signingBonusMillions: "abc" }],
+    ["a contract longer than five years", { playerYears: "6" }],
+    ["a negative wage", { playerWage: "-5" }],
+    ["a fractional wage", { playerWage: "100.5" }],
   ])("rejects %s", (_label, overrides) => {
     expect(parseBidTerms(input(overrides))).toEqual({ valid: false });
   });

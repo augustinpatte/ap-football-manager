@@ -57,6 +57,21 @@ pub(crate) const DESPERATION_DAYS_PER_POINT: i64 = 3;
 pub(crate) const DESPERATION_MAX: i32 = 20;
 pub(crate) const PROMISE_POINTS: i32 = 8;
 
+// ── a player who already has a club ──
+/// Largest total push the circumstances at his current club can give toward the door.
+pub(crate) const PUSH_MAX: i32 = 30;
+pub(crate) const PUSH_LISTED: i32 = 8;
+pub(crate) const PUSH_UNHAPPY: i32 = 8;
+pub(crate) const PUSH_DISCONTENT: i32 = 4;
+pub(crate) const PUSH_CONTRACT_ENDING: i32 = 6;
+pub(crate) const PUSH_CONTRACT_RUNNING_DOWN: i32 = 3;
+pub(crate) const PUSH_CLUB_IN_TROUBLE: i32 = 5;
+/// Standing a contracted player gives up without noticing when he moves down.
+pub(crate) const MOVE_DOWN_FREE_GAP: i32 = 60;
+/// How much more a player wants from a role than he has: points of role between two places.
+pub(crate) const ROLE_DELTA_MIN: i32 = -24;
+pub(crate) const ROLE_DELTA_MAX: i32 = 18;
+
 // ── rival clubs ──
 /// A free agent this good, or better, draws other clubs' attention.
 pub(crate) const ATTRACTIVE_FREE_AGENT_OVR: u8 = 62;

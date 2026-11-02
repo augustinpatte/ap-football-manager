@@ -82,7 +82,11 @@ pub fn authorize(delegation: &DelegationState, duty: Duty, spend: Spend) -> Auth
     if weekly_wage > wage_ceiling {
         return Authorization::NeedsApproval(Reason::WageAboveLimit);
     }
-    if matches!(spend, Spend::Transfer { .. }) && fee > limits.max_transfer_fee {
+    // A zero ceiling is "every signing is the manager's", fee or no fee: a free agent costs no
+    // fee but binds the club to a contract all the same, so a fee of zero must not slip under it.
+    if matches!(spend, Spend::Transfer { .. })
+        && (limits.max_transfer_fee <= 0 || fee > limits.max_transfer_fee)
+    {
         return Authorization::NeedsApproval(Reason::FeeAboveLimit);
     }
     if commitment(weekly_wage, years) + fee.max(0) > limits.max_commitment {
@@ -180,9 +184,20 @@ mod tests {
             authorize(&state, Duty::Scouting, deal),
             Authorization::NeedsApproval(Reason::FeeAboveLimit)
         );
+        // Not even a signing that costs nothing slips under a ceiling of zero.
+        let free = Spend::Transfer {
+            fee: 0,
+            weekly_wage: 5_000,
+            years: 2,
+        };
+        assert_eq!(
+            authorize(&state, Duty::Scouting, free),
+            Authorization::NeedsApproval(Reason::FeeAboveLimit)
+        );
         state.limits.max_transfer_fee = 1_000_000;
         state.limits.max_commitment = 2_000_000;
         assert_eq!(authorize(&state, Duty::Scouting, deal), Authorization::Auto);
+        assert_eq!(authorize(&state, Duty::Scouting, free), Authorization::Auto);
         // The fee counts toward the commitment.
         state.limits.max_commitment = 900_000;
         assert_eq!(

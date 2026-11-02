@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "Kadro alımı",
         "StaffRenewals": "Kadro yenilemeleri",
         "Lineup": "Kadro ve rotasyon",
-        "PlayerRenewals": "Oyuncu sözleşme yenilemeleri"
+        "PlayerRenewals": "Oyuncu sözleşme yenilemeleri",
+        "PlayerRecruitment": "Oyuncu transferi"
       },
       "confirmMajor": "Büyük kararlarda bana sor",
       "delegate": "Devret",
@@ -1608,7 +1609,19 @@
       "invalid": "1 ile {{instalments}} arası taksit, %0 ile %{{sellOn}} arası yeniden satış maddesi ve 0 veya daha yüksek bir bonus kullanın."
     },
     "transferFeedbackPlayerRefusesHeadline": "Oyuncu transferi reddediyor",
-    "transferFeedbackPlayerRefusesDetail": "Kulüpler anlaşabilirdi, ama ayrılma sözü veya gerçek bir imza bonusu olmadan daha küçük bir kulübe düşmeyecek."
+    "transferFeedbackPlayerRefusesDetail": "Kulüpler anlaşabilir, ancak oyuncu bu transferi istemiyor: kulüp, orada oynayacağı rol veya şartlar ona uygun değil.",
+    "transferFeedbackPlayerWantsMoreHeadline": "Oyuncu daha iyi şartlar istiyor",
+    "transferFeedbackPlayerWantsMoreDetail": "Kulüpler {{fee}} üzerinde anlaştı, ancak oyuncu yalnızca haftada {{wage}} ile {{years}} yıl için imzalar.",
+    "playerTerms": {
+      "wage": "Oyuncunun haftalık maaşı",
+      "years": "Sözleşme süresi (yıl)",
+      "hint": "Standart şartlar için ikisini de boş bırakın. Transferi maaşa, süreye, kulübün konumuna ve orada oynayacağı role göre değerlendirir.",
+      "meetTerms": "Onun şartlarını teklif et",
+      "outlookKeen": "Bu transfer onu heyecanlandırır.",
+      "outlookHesitant": "Kararsız: daha iyi şartlar isteyeceğini bekleyin.",
+      "outlookUnlikely": "Bu kulübe katılma ihtimali düşük.",
+      "expects": "Haftada yaklaşık {{wage}} ile {{years}} yıl bekliyor."
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",
@@ -3118,7 +3131,8 @@
         "invalidYouthScoutingObjective": "Desteklenmeyen genç oyuncu gözlem hedefi.",
         "invalidYouthScoutingTargetPosition": "Desteklenmeyen genç oyuncu hedef pozisyonu.",
         "invalidDealTerms": "Bu anlaşma şartlarına izin verilmiyor.",
-        "sellOnUnaffordable": "Satan kulüp, onu daha önce satan kulübe borçlu olduğu payı ödeyemiyor."
+        "sellOnUnaffordable": "Satan kulüp, onu daha önce satan kulübe borçlu olduğu payı ödeyemiyor.",
+        "playerRefusesMove": "Oyuncu o kulübe katılmak istemiyor."
       },
       "contracts": {
         "playerNotOwnedByClub": "Oyuncu kulübünüze ait değil",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "Bu öneri artık yok.",
         "invalidMode": "Bu yetki devri modu uygulanamaz.",
         "invalidLimits": "Harcama sınırları negatif olamaz.",
-        "wagePolicy": "Yönetim kurulunun maaş politikası artık bu şartlara izin vermiyor."
+        "wagePolicy": "Yönetim kurulunun maaş politikası artık bu şartlara izin vermiyor.",
+        "signingRefusedByClub": "Satan kulüp bu transfere razı olmaz.",
+        "signingRefusedByPlayer": "Oyuncu sunabileceğiniz hiçbir şartla gelmez."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "{{replaces}} görevden alınsın (seviye {{current}})",
       "upgradeHire": "{{name}} ile değiştir (seviye {{ovr}})",
       "renew": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilensin",
-      "renewPlayer": "{{player}} sözleşmesini haftalık {{wage}} ile {{years}} yıl yenile"
+      "renewPlayer": "{{player}} sözleşmesini haftalık {{wage}} ile {{years}} yıl yenile",
+      "signPlayer": "{{player}} ({{position}}) {{fee}} karşılığında transfer et, haftada {{wage}} ile {{years}} yıl"
     },
     "reason": {
       "vacancy": "Zorunlu bir kadro boş.",
       "upgrade": "Belirgin biçimde daha iyi bir aday mevcut.",
       "contractEnding": "Sözleşme bitmek üzere.",
-      "aboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırının üzerinde."
+      "aboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırının üzerinde.",
+      "recruitNeed": "Kadronun bu mevkide bir oyuncuya ihtiyacı var.",
+      "recruitAboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırını veya onun adil bulduğu fiyatı aşıyor."
     },
     "log": {
       "hired": "{{name}} ({{post}}) haftalık {{wage}} ile işe alındı",
@@ -4780,7 +4799,12 @@
       "scoutSent": "{{player}} için gözlemci gönderdi",
       "lineupChosen": "Sonraki maçın ilk 11'i belirlendi ({{changes}} değişiklik)",
       "playerRenewed": "{{player}} haftalık {{wage}} ile {{years}} yıl için yenilendi",
-      "playerRenewalLeft": "{{player}} sözleşmesi size bırakıldı"
+      "playerRenewalLeft": "{{player}} sözleşmesi size bırakıldı",
+      "recruitSigned": "{{player}} ({{position}}) {{fee}} karşılığında transfer edildi",
+      "recruitScheduled": "{{player}} ({{position}}) ile {{fee}} üzerinden anlaşıldı; {{date}} tarihinde tescil edilecek",
+      "recruitClubRefused": "{{player}} ({{position}}) bırakıldı: kulübü adil bir fiyata satmadı",
+      "recruitPlayerRefused": "{{player}} ({{position}}) bırakıldı: gelmek istemedi",
+      "recruitNotPossible": "{{player}} ({{position}}) bırakıldı: anlaşma yapılamadı"
     }
   },
   "freeAgents": {

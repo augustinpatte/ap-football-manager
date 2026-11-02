@@ -38,6 +38,10 @@ pub struct TransferNegotiationCommandResponse {
     pub is_terminal: bool,
     pub registration_date: Option<String>,
     pub feedback: NegotiationFeedback,
+    /// The wage and length the player asks for, when he is the one holding the deal up.
+    pub player_demand: Option<ofm_core::transfers::PlayerDemand>,
+    /// What stood in his way, when he turned the move down.
+    pub player_obstacle: Option<domain::free_agent_talk::FreeAgentTalkReason>,
     pub game: Game,
 }
 
@@ -423,6 +427,8 @@ fn map_transfer_negotiation_response(
         is_terminal: outcome.is_terminal,
         registration_date: outcome.registration_date,
         feedback: outcome.feedback,
+        player_demand: outcome.player_demand,
+        player_obstacle: outcome.player_obstacle,
         game,
     }
 }

@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "Perekrutan staf",
         "StaffRenewals": "Perpanjangan staf",
         "Lineup": "Susunan pemain & rotasi",
-        "PlayerRenewals": "Perpanjangan kontrak pemain"
+        "PlayerRenewals": "Perpanjangan kontrak pemain",
+        "PlayerRecruitment": "Perekrutan pemain"
       },
       "confirmMajor": "Tanya saya untuk keputusan besar",
       "delegate": "Delegasikan",
@@ -1608,7 +1609,19 @@
       "invalid": "Gunakan 1 sampai {{instalments}} cicilan, klausul jual kembali 0 sampai {{sellOn}}%, dan bonus 0 atau lebih."
     },
     "transferFeedbackPlayerRefusesHeadline": "Pemain menolak kepindahan ini",
-    "transferFeedbackPlayerRefusesDetail": "Kedua klub bisa sepakat, tetapi ia tidak mau turun ke klub yang lebih kecil tanpa janji jalan keluar atau bonus tanda tangan yang nyata."
+    "transferFeedbackPlayerRefusesDetail": "Kedua klub bisa sepakat, tetapi ia tidak menginginkan kepindahan ini: klub, peran yang akan ia mainkan, atau persyaratannya tidak cocok baginya.",
+    "transferFeedbackPlayerWantsMoreHeadline": "Pemain meminta persyaratan yang lebih baik",
+    "transferFeedbackPlayerWantsMoreDetail": "Kedua klub sepakat di {{fee}}, tetapi ia hanya mau menandatangani dengan {{wage}} per minggu selama {{years}} tahun.",
+    "playerTerms": {
+      "wage": "Gaji mingguan pemain",
+      "years": "Lama kontrak (tahun)",
+      "hint": "Kosongkan keduanya untuk persyaratan standar. Ia menilai kepindahan dari gaji, lama kontrak, kedudukan klub, dan peran yang akan ia mainkan.",
+      "meetTerms": "Tawarkan persyaratannya",
+      "outlookKeen": "Ia akan antusias dengan kepindahan ini.",
+      "outlookHesitant": "Ia ragu: bersiaplah ia meminta persyaratan yang lebih baik.",
+      "outlookUnlikely": "Ia kecil kemungkinan mau bergabung dengan klub ini.",
+      "expects": "Ia mengharapkan sekitar {{wage}} per minggu selama {{years}} tahun."
+    }
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -3118,7 +3131,8 @@
         "invalidYouthScoutingObjective": "Sasaran scouting pemuda tidak didukung.",
         "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung.",
         "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
-        "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya."
+        "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya.",
+        "playerRefusesMove": "Pemain tidak mau bergabung dengan klub itu."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "Usulan itu sudah tidak ada.",
         "invalidMode": "Mode delegasi itu tidak dapat diterapkan.",
         "invalidLimits": "Batas pengeluaran tidak boleh negatif.",
-        "wagePolicy": "Kebijakan gaji dewan tidak lagi mengizinkan persyaratan ini."
+        "wagePolicy": "Kebijakan gaji dewan tidak lagi mengizinkan persyaratan ini.",
+        "signingRefusedByClub": "Klub penjual tidak akan menyetujui perekrutan itu.",
+        "signingRefusedByPlayer": "Pemain tidak akan bergabung dengan persyaratan apa pun yang dapat Anda tawarkan."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "Berhentikan {{replaces}} (level {{current}})",
       "upgradeHire": "Ganti dengan {{name}} (level {{ovr}})",
       "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
-      "renewPlayer": "Perpanjang {{player}} dengan {{wage}} per minggu selama {{years}} tahun"
+      "renewPlayer": "Perpanjang {{player}} dengan {{wage}} per minggu selama {{years}} tahun",
+      "signPlayer": "Rekrut {{player}} ({{position}}) seharga {{fee}}, dengan gaji {{wage}} per minggu selama {{years}} tahun"
     },
     "reason": {
       "vacancy": "Posisi wajib masih kosong.",
       "upgrade": "Tersedia kandidat yang jelas lebih baik.",
       "contractEnding": "Kontrak hampir berakhir.",
-      "aboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten."
+      "aboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten.",
+      "recruitNeed": "Skuad membutuhkan pemain di posisi ini.",
+      "recruitAboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten, atau harga yang ia anggap wajar."
     },
     "log": {
       "hired": "Merekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
@@ -4780,7 +4799,12 @@
       "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}",
       "lineupChosen": "Susunan sebelas pemain laga berikutnya ditetapkan ({{changes}} perubahan)",
       "playerRenewed": "{{player}} diperpanjang dengan {{wage}} per minggu selama {{years}} tahun",
-      "playerRenewalLeft": "Kontrak {{player}} diserahkan kepada Anda"
+      "playerRenewalLeft": "Kontrak {{player}} diserahkan kepada Anda",
+      "recruitSigned": "Merekrut {{player}} ({{position}}) seharga {{fee}}",
+      "recruitScheduled": "Sepakat dengan {{player}} ({{position}}) seharga {{fee}}; ia terdaftar pada {{date}}",
+      "recruitClubRefused": "{{player}} ({{position}}) dibatalkan: klubnya tidak menjual dengan harga wajar",
+      "recruitPlayerRefused": "{{player}} ({{position}}) dibatalkan: ia tidak mau bergabung",
+      "recruitNotPossible": "{{player}} ({{position}}) dibatalkan: kesepakatan tidak dapat dibuat"
     }
   },
   "freeAgents": {

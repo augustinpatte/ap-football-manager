@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "Najímání týmu",
         "StaffRenewals": "Prodlužování smluv týmu",
         "Lineup": "Sestava a rotace",
-        "PlayerRenewals": "Prodlužování smluv hráčů"
+        "PlayerRenewals": "Prodlužování smluv hráčů",
+        "PlayerRecruitment": "Získávání hráčů"
       },
       "confirmMajor": "Ptát se mě u důležitých rozhodnutí",
       "delegate": "Delegovat",
@@ -1608,7 +1609,19 @@
       "invalid": "Použijte 1 až {{instalments}} splátek, doložku o dalším prodeji od 0 do {{sellOn}} % a bonus od 0 výše."
     },
     "transferFeedbackPlayerRefusesHeadline": "Hráč přestup odmítá",
-    "transferFeedbackPlayerRefusesDetail": "Kluby by se mohly dohodnout, ale do menšího klubu nepůjde bez slibu cesty ven nebo skutečného podpisového bonusu."
+    "transferFeedbackPlayerRefusesDetail": "Kluby by se mohly dohodnout, ale hráč tento přestup nechce: klub, role, kterou by tam měl, nebo podmínky mu nevyhovují.",
+    "transferFeedbackPlayerWantsMoreHeadline": "Hráč chce lepší podmínky",
+    "transferFeedbackPlayerWantsMoreDetail": "Kluby se shodly na {{fee}}, ale hráč by podepsal jen za {{wage}} týdně na {{years}} let.",
+    "playerTerms": {
+      "wage": "Týdenní plat hráče",
+      "years": "Délka smlouvy (roky)",
+      "hint": "Nechte obojí prázdné pro standardní podmínky. Přestup posuzuje podle platu, délky smlouvy, postavení klubu a role, kterou by tam měl.",
+      "meetTerms": "Nabídnout jeho podmínky",
+      "outlookKeen": "Tento přestup by ho těšil.",
+      "outlookHesitant": "Váhá: počítejte s tím, že bude chtít lepší podmínky.",
+      "outlookUnlikely": "Do tohoto klubu pravděpodobně nepůjde.",
+      "expects": "Očekává zhruba {{wage}} týdně na {{years}} let."
+    }
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -3118,7 +3131,8 @@
         "invalidYouthScoutingObjective": "Nepodporovaný cíl skautingu mládeže.",
         "invalidYouthScoutingTargetPosition": "Nepodporovaná cílová pozice pro skauting mládeže.",
         "invalidDealTerms": "Tyto podmínky dohody nejsou povoleny.",
-        "sellOnUnaffordable": "Prodávající klub nemůže zaplatit podíl, který dluží klubu, jenž ho prodal dříve."
+        "sellOnUnaffordable": "Prodávající klub nemůže zaplatit podíl, který dluží klubu, jenž ho prodal dříve.",
+        "playerRefusesMove": "Hráč do toho klubu nechce."
       },
       "contracts": {
         "playerNotOwnedByClub": "Hráč nepatří do vašeho klubu",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "Tento návrh už neexistuje.",
         "invalidMode": "Tento režim delegování nelze použít.",
         "invalidLimits": "Limity výdajů nesmí být záporné.",
-        "wagePolicy": "Mzdová politika vedení tyto podmínky už nepovoluje."
+        "wagePolicy": "Mzdová politika vedení tyto podmínky už nepovoluje.",
+        "signingRefusedByClub": "Prodávající klub by s tímto angažmá nesouhlasil.",
+        "signingRefusedByPlayer": "Hráč by nepřišel za žádných podmínek, které můžete nabídnout."
       },
       "freeAgents": {
         "talkAlreadyOpen": "S tímto hráčem už nabídku máš. Počkej na jeho odpověď, nebo ji stáhni.",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "Propustit {{replaces}} (úroveň {{current}})",
       "upgradeHire": "Nahradit osobou {{name}} (úroveň {{ovr}})",
       "renew": "Prodloužit {{name}} za {{wage}} týdně na {{years}} let",
-      "renewPlayer": "Prodloužit {{player}} za {{wage}} týdně na {{years}} let"
+      "renewPlayer": "Prodloužit {{player}} za {{wage}} týdně na {{years}} let",
+      "signPlayer": "Angažovat {{player}} ({{position}}) za {{fee}}, s platem {{wage}} týdně na {{years}} let"
     },
     "reason": {
       "vacancy": "Povinné místo je prázdné.",
       "upgrade": "K dispozici je výrazně lepší kandidát.",
       "contractEnding": "Smlouva brzy končí.",
-      "aboveLimit": "Tohle překračuje limit výdajů, který jsi asistentovi nastavil."
+      "aboveLimit": "Tohle překračuje limit výdajů, který jsi asistentovi nastavil.",
+      "recruitNeed": "Kádr potřebuje hráče na tomto postu.",
+      "recruitAboveLimit": "Překračuje to limit výdajů, který jste asistentovi stanovili, nebo cenu, kterou považuje za férovou."
     },
     "log": {
       "hired": "Najal {{name}} ({{post}}) za {{wage}} týdně",
@@ -4780,7 +4799,12 @@
       "scoutSent": "Poslal skauta sledovat {{player}}",
       "lineupChosen": "Základní jedenáctka na příští zápas určena ({{changes}} změn)",
       "playerRenewed": "{{player}} prodloužen za {{wage}} týdně na {{years}} let",
-      "playerRenewalLeft": "Smlouva hráče {{player}} zůstává na tobě"
+      "playerRenewalLeft": "Smlouva hráče {{player}} zůstává na tobě",
+      "recruitSigned": "Angažován {{player}} ({{position}}) za {{fee}}",
+      "recruitScheduled": "Dohoda o {{player}} ({{position}}) za {{fee}}; bude registrován {{date}}",
+      "recruitClubRefused": "{{player}} ({{position}}) vyřazen: jeho klub neprodával za férovou cenu",
+      "recruitPlayerRefused": "{{player}} ({{position}}) vyřazen: nechtěl přijít",
+      "recruitNotPossible": "{{player}} ({{position}}) vyřazen: obchod se nepodařilo uzavřít"
     }
   },
   "freeAgents": {

@@ -22,15 +22,17 @@ pub const ERR_SELL_ON_UNAFFORDABLE: &str = "be.error.transfers.sellOnUnaffordabl
 const DEFERRAL_PREMIUM_PCT_PER_EXTRA_INSTALMENT: u64 = 4;
 /// A seller gives up one per cent of the asking price for every this-many per cent of sell-on.
 const SELL_ON_PCT_PER_DISCOUNT_PCT: u64 = 3;
-/// A player will not drop this far down the reputation ladder without something in return.
-const STEP_DOWN_MARGIN: u32 = 100;
-/// A bonus of this many weeks of his usual wage is a real sweetener to a player.
-const SWEETENER_BONUS_WEEKS: u64 = 26;
+/// The longest contract a transfer may give the player (the same ceiling a renewal has).
+const MAX_PLAYER_CONTRACT_YEARS: u8 = 5;
+/// A wage the game could not be asked to take seriously: well above any pay in the world.
+const MAX_PLAYER_WEEKLY_WAGE: u32 = 5_000_000;
 
 pub(crate) fn validate_terms(terms: &TransferTerms) -> Result<(), String> {
     if terms.instalments == 0
         || terms.instalments > MAX_INSTALMENTS
         || terms.sell_on_pct > MAX_SELL_ON_PCT
+        || terms.player_contract_years > MAX_PLAYER_CONTRACT_YEARS
+        || terms.player_weekly_wage > MAX_PLAYER_WEEKLY_WAGE
     {
         return Err(ERR_INVALID_DEAL_TERMS.to_string());
     }
@@ -89,29 +91,6 @@ pub(crate) fn ensure_promise_is_wanted(
         return Err(ERR_PROMISE_NOT_WANTED.to_string());
     }
     Ok(())
-}
-
-/// Whether the player himself turns the move down: an ambitious young player will not step down
-/// to a clearly lesser club unless the terms give him something — the promise of a way out, or a
-/// bonus worth half a year of his usual wage.
-pub(crate) fn player_refuses_move(
-    player: &Player,
-    owner: &Team,
-    buyer: &Team,
-    terms: &TransferTerms,
-    today: NaiveDate,
-) -> bool {
-    if !wants_stepping_stone(player, today) {
-        return false;
-    }
-    let steps_down = buyer.reputation.saturating_add(STEP_DOWN_MARGIN) < owner.reputation;
-    if !steps_down {
-        return false;
-    }
-    let weekly = u64::from(crate::contracts::reference_player_wage(player));
-    let bonus_is_a_sweetener = terms.signing_bonus > 0
-        && terms.signing_bonus >= weekly.saturating_mul(SWEETENER_BONUS_WEEKS);
-    !(terms.promise_stepping_stone || bonus_is_a_sweetener)
 }
 
 /// A sell-on clause a sale triggers: `(obligation id, beneficiary club, amount owed)`.

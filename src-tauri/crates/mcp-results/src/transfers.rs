@@ -72,6 +72,13 @@ pub struct BidMade {
     pub tension: u8,
     pub patience: u8,
     pub round: u8,
+    /// The weekly wage the player asks for, when the clubs agree and he is the one holding the
+    /// deal up; offer it with `player_weekly_wage` on the next bid.
+    #[serde(default)]
+    pub player_asks_weekly_wage: Option<u32>,
+    /// The contract length he asks for, in years.
+    #[serde(default)]
+    pub player_asks_contract_years: Option<u32>,
 }
 
 impl fmt::Display for BidMade {
@@ -90,6 +97,15 @@ impl fmt::Display for BidMade {
         writeln!(f, "**Tension**: {}/100", self.tension)?;
         writeln!(f, "**Patience**: {}/100", self.patience)?;
         writeln!(f, "**Round**: {}", self.round)?;
+        if let (Some(wage), Some(years)) = (
+            self.player_asks_weekly_wage,
+            self.player_asks_contract_years,
+        ) {
+            writeln!(
+                f,
+                "**Player asks**: {wage} a week for {years} years (the clubs agree; bid again with `player_weekly_wage` and `player_contract_years`)"
+            )?;
+        }
         if self.is_terminal {
             write!(f, "\n✅ Negotiation complete.")
         } else {

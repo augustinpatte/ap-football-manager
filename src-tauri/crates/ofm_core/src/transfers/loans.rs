@@ -810,8 +810,12 @@ pub(crate) fn complete_loan_buy_option_transfer(
     let date = game.clock.current_date.date_naive();
     // The buyer's terms, and the board's say on them, settled before any money moves.
     // The option names a fee and nothing else.
-    let (buying_club, new_wage, new_contract_end) =
-        buyers_contract_terms(game, &player_snapshot, buying_team_id)?;
+    let (buying_club, new_wage, new_contract_end) = buyers_contract_terms(
+        game,
+        &player_snapshot,
+        buying_team_id,
+        &TransferTerms::default(),
+    )?;
     // The same settlement a permanent sale gets, so a sell-on clause the parent club holds is
     // paid by this purchase too. An option names a fee and nothing else, hence plain terms.
     let plain_terms = TransferTerms::default();

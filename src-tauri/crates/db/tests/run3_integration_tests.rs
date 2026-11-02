@@ -95,6 +95,7 @@ fn terms() -> TransferTerms {
         sell_on_pct: 20,
         signing_bonus: 0,
         promise_stepping_stone: false,
+        ..TransferTerms::default()
     }
 }
 

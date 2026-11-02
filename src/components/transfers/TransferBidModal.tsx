@@ -17,7 +17,13 @@ import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
 import { Badge, Checkbox, Dialog, Select } from "../ui";
-import { MAX_INSTALMENTS, MAX_SELL_ON_PCT, parseBidTerms, type BidTermsInput } from "./bidTerms";
+import {
+  MAX_INSTALMENTS,
+  MAX_PLAYER_CONTRACT_YEARS,
+  MAX_SELL_ON_PCT,
+  parseBidTerms,
+  type BidTermsInput,
+} from "./bidTerms";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
 import TransferNegotiationHistory from "./TransferNegotiationHistory";
@@ -85,6 +91,14 @@ export function TransferBidForm({
   const pendingRegistration = playerHasPendingRegistration(bidTarget);
   // The form says what is wrong with the terms rather than leaving Submit dead.
   const termsInvalid = bidTerms ? !parseBidTerms(bidTerms).valid : false;
+  const outlook = bidProjection?.player_outlook ?? null;
+  // When the player is the one holding the deal up, the feedback carries the terms he asks for.
+  const demandedWage = Number(bidFeedback?.params?.wage ?? "");
+  const demandedYears = Number(bidFeedback?.params?.years ?? "");
+  const playerAsks =
+    bidFeedback?.headline_key === "transfers.transferFeedbackPlayerWantsMoreHeadline" &&
+    demandedWage > 0 &&
+    demandedYears > 0;
 
   return (
     <>
@@ -232,6 +246,83 @@ export function TransferBidForm({
                   />
                 </div>
               </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="bid-player-wage"
+                    className="text-caption text-fg-muted block mb-1"
+                  >
+                    {t("transfers.playerTerms.wage")}
+                  </label>
+                  <input
+                    id="bid-player-wage"
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder={outlook ? String(outlook.expected_wage) : undefined}
+                    value={bidTerms.playerWage}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, playerWage: event.target.value })
+                    }
+                    aria-invalid={termsInvalid}
+                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="bid-player-years"
+                    className="text-caption text-fg-muted block mb-1"
+                  >
+                    {t("transfers.playerTerms.years")}
+                  </label>
+                  <input
+                    id="bid-player-years"
+                    type="number"
+                    min="0"
+                    max={MAX_PLAYER_CONTRACT_YEARS}
+                    step="1"
+                    placeholder={outlook ? String(outlook.expected_years) : undefined}
+                    value={bidTerms.playerYears}
+                    onChange={(event) =>
+                      onBidTermsChange({ ...bidTerms, playerYears: event.target.value })
+                    }
+                    aria-invalid={termsInvalid}
+                    aria-describedby={termsInvalid ? "bid-terms-error" : undefined}
+                    className="w-full px-3 py-2 rounded-lg bg-panel border border-line text-body text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken disabled:opacity-50"
+                  />
+                </div>
+              </div>
+              {outlook ? (
+                <p role="status" className="mt-2 text-caption text-fg-muted">
+                  {t(
+                    outlook.interest === "keen"
+                      ? "transfers.playerTerms.outlookKeen"
+                      : outlook.interest === "hesitant"
+                        ? "transfers.playerTerms.outlookHesitant"
+                        : "transfers.playerTerms.outlookUnlikely",
+                  )}{" "}
+                  {t("transfers.playerTerms.expects", {
+                    wage: formatExactMoney(outlook.expected_wage),
+                    years: outlook.expected_years,
+                  })}
+                </p>
+              ) : null}
+              {playerAsks ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onBidTermsChange({
+                      ...bidTerms,
+                      playerWage: String(demandedWage),
+                      playerYears: String(demandedYears),
+                    })
+                  }
+                  className="mt-2 rounded-lg bg-primary-700 px-3 py-1.5 text-caption font-heading font-bold uppercase tracking-label text-white hover:bg-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-sunken"
+                >
+                  {t("transfers.playerTerms.meetTerms")}
+                </button>
+              ) : null}
               {bidProjection?.stepping_stone_available ? (
                 <div className="mt-3 flex items-start gap-3">
                   <Checkbox
@@ -260,7 +351,9 @@ export function TransferBidForm({
                   })}
                 </p>
               ) : (
-                <p className="mt-2 text-caption text-fg-muted">{t("transfers.terms.hint")}</p>
+                <p className="mt-2 text-caption text-fg-muted">
+                  {t("transfers.terms.hint")} {t("transfers.playerTerms.hint")}
+                </p>
               )}
             </fieldset>
           ) : null}

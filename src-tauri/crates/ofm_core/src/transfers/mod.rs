@@ -2,6 +2,7 @@ use crate::contract_wage_policy::{
     BuyerWageFacts, loan_borrower_wage_policy_error_message, purchase_wage_policy_verdict,
     renewal_wage_policy_error_message, wage_policy_allows_projection,
 };
+use crate::contracts::Verdict;
 use crate::contracts::{
     ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE, contract_entry, contract_record, record_movement,
     standard_contract_terms,
@@ -25,6 +26,7 @@ use uuid::Uuid;
 
 mod affordability;
 mod bids;
+mod consent;
 mod consts;
 mod deadline;
 mod execution;
@@ -40,6 +42,11 @@ mod terms;
 
 pub(crate) use affordability::{can_afford_fee, transfer_fee_ceiling};
 pub use bids::*;
+pub use consent::ERR_PLAYER_REFUSES_MOVE;
+pub use consent::PlayerOutlook;
+pub(crate) use consent::{
+    MoveJudgement, SweepConsent, incoming_deal_terms, judge_in_game, still_agrees,
+};
 use consts::*;
 pub use deadline::{
     DeadlineDeal, DeadlineItem, DeadlineItemKind, DeadlineItemState, DeadlineSummary,
@@ -54,9 +61,11 @@ use notifications::*;
 pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
 pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;
+pub(crate) use realism::{group_is_thin, improvement_over_cover, window_phase};
 use registration::*;
 pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
+    player_has_pending_registration, transfer_window_is_open,
 };
 pub use terms::{
     ERR_INVALID_DEAL_TERMS, ERR_SELL_ON_UNAFFORDABLE, ensure_bonus_affordable,
@@ -79,6 +88,20 @@ pub struct TransferNegotiationOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_date: Option<String>,
     pub feedback: NegotiationFeedback,
+    /// The player's side, when it is the player and not the clubs who stopped the deal: the
+    /// wage and length he would sign for, if there are any that would bring him round.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_demand: Option<PlayerDemand>,
+    /// What stood in his way, when he turned the move down.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_obstacle: Option<domain::free_agent_talk::FreeAgentTalkReason>,
+}
+
+/// The contract a player asks for in place of the one offered.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlayerDemand {
+    pub weekly_wage: u32,
+    pub contract_years: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,6 +145,10 @@ pub struct TransferBidFinancialProjection {
     /// The player would value a stepping-stone promise; the bid is refused for anyone else.
     #[serde(default)]
     pub stepping_stone_available: bool,
+    /// How the player takes the move on these terms: keen, hesitant or unlikely, and what he
+    /// would ask for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub player_outlook: Option<PlayerOutlook>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

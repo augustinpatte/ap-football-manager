@@ -4136,6 +4136,8 @@ mod tests {
             sell_on_pct: 20,
             signing_bonus: 250_000,
             promise_stepping_stone: true,
+            player_weekly_wage: 45_000,
+            player_contract_years: 4,
         };
         game.players[0].transfer_offers.push(offer.clone());
         let id = manager.create_save(&game, "Terms").unwrap();

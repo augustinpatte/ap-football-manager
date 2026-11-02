@@ -71,6 +71,15 @@ impl ClubSquad {
         }
     }
 
+    /// A squad read off ratings already sorted best first, for a caller that has them by group.
+    pub(crate) fn from_levels(levels: &[Vec<u8>; 4]) -> Self {
+        let mut squad = Self {
+            groups: levels.clone(),
+        };
+        squad.finish();
+        squad
+    }
+
     pub(crate) fn finish(&mut self) {
         for group in &mut self.groups {
             group.sort_unstable_by(|left, right| right.cmp(left));
@@ -91,6 +100,20 @@ impl ClubSquad {
         }
         let total: u32 = ratings.iter().map(|ovr| u32::from(*ovr)).sum();
         (total / ratings.len() as u32) as u8
+    }
+
+    /// The part a member of this squad plays in it, judged against the others: he is not his own
+    /// rival, which `place_for` would make him, since his own rating is on the list.
+    pub(crate) fn place_among_others(&self, player: &Player) -> PlaceInSide {
+        let mut others = self.clone();
+        let group = group_index(&player.position);
+        if let Some(own) = others.groups[group]
+            .iter()
+            .position(|ovr| *ovr == player.ovr)
+        {
+            others.groups[group].remove(own);
+        }
+        others.place_for(player)
     }
 
     pub(crate) fn place_for(&self, player: &Player) -> PlaceInSide {
@@ -156,6 +179,18 @@ pub(crate) fn ambition_pct(age: i32, ovr: u8, potential: u8) -> i32 {
     pct.clamp(40, 150)
 }
 
+/// Where a player who already has a club stands today. A free agent has none of this: he is
+/// judged against his own level; a contracted player against what he would be leaving.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Incumbent {
+    /// [`club_standing`] of the club he is at.
+    pub club_standing: i32,
+    /// His place in that club's side.
+    pub place: PlaceInSide,
+    /// Points toward the door from his circumstances there: see `appeal_of`.
+    pub push: i32,
+}
+
 /// Everything about the player and the club the score needs, gathered by the caller.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AppealFacts {
@@ -169,6 +204,8 @@ pub(crate) struct AppealFacts {
     pub wants_stepping_stone: bool,
     pub expected_wage: u32,
     pub expected_years: u32,
+    /// `Some` for a player under contract, who weighs the move against staying.
+    pub incumbent: Option<Incumbent>,
 }
 
 /// The score of an offer and the terms of it, kept apart so the interface can say what weighed.
@@ -227,20 +264,39 @@ pub(crate) fn appeal_of(facts: &AppealFacts, terms: &OfferTerms) -> Appeal {
     let wage = (((worth - expected) * 100 / expected) / 2)
         .clamp(i64::from(WAGE_TERM_MIN), i64::from(WAGE_TERM_MAX)) as i32;
 
-    let gap = facts.player_standing - facts.club_standing;
-    let sporting = if gap <= 0 {
-        ((-gap) / STEP_UP_POINTS_PER_STANDING).min(STEP_UP_BONUS_MAX)
-    } else if gap <= STEP_DOWN_FREE_GAP {
-        0
-    } else {
-        -((gap - STEP_DOWN_FREE_GAP) * facts.ambition / 100 / STEP_DOWN_POINTS_PER_STANDING)
+    let sporting = match facts.incumbent {
+        // A contracted player is not judged against his own level but against the club he would
+        // leave: a lateral move costs nothing, a step up is a draw, a step down is a price.
+        Some(now) => {
+            let step = facts.club_standing - now.club_standing;
+            if step >= 0 {
+                (step / STEP_UP_POINTS_PER_STANDING).min(STEP_UP_BONUS_MAX)
+            } else if -step <= MOVE_DOWN_FREE_GAP {
+                0
+            } else {
+                -((-step - MOVE_DOWN_FREE_GAP) * facts.ambition
+                    / 100
+                    / STEP_DOWN_POINTS_PER_STANDING)
+            }
+        }
+        None => {
+            let gap = facts.player_standing - facts.club_standing;
+            if gap <= 0 {
+                ((-gap) / STEP_UP_POINTS_PER_STANDING).min(STEP_UP_BONUS_MAX)
+            } else if gap <= STEP_DOWN_FREE_GAP {
+                0
+            } else {
+                -((gap - STEP_DOWN_FREE_GAP) * facts.ambition / 100 / STEP_DOWN_POINTS_PER_STANDING)
+            }
+        }
     };
 
-    let role = match facts.place {
-        PlaceInSide::Key => ROLE_KEY,
-        PlaceInSide::Starter => ROLE_STARTER,
-        PlaceInSide::Rotation => 0,
-        PlaceInSide::Backup => ROLE_BACKUP,
+    let role = match facts.incumbent {
+        // What he would be against what he is: a key man does not become a backup for nothing,
+        // a backup is glad of a place.
+        Some(now) => (role_points(facts.place) - role_points(now.place))
+            .clamp(ROLE_DELTA_MIN, ROLE_DELTA_MAX),
+        None => role_points(facts.place),
     };
 
     let duration = if terms.contract_years < facts.expected_years {
@@ -251,9 +307,13 @@ pub(crate) fn appeal_of(facts: &AppealFacts, terms: &OfferTerms) -> Appeal {
         0
     };
 
-    let situation = ((facts.days_unattached - DESPERATION_STARTS_AFTER_DAYS).max(0)
-        / DESPERATION_DAYS_PER_POINT)
-        .min(i64::from(DESPERATION_MAX)) as i32;
+    let situation = match facts.incumbent {
+        // Under contract he is not desperate; what moves him is what is wrong where he is.
+        Some(now) => now.push.clamp(0, PUSH_MAX),
+        None => ((facts.days_unattached - DESPERATION_STARTS_AFTER_DAYS).max(0)
+            / DESPERATION_DAYS_PER_POINT)
+            .min(i64::from(DESPERATION_MAX)) as i32,
+    };
 
     let promise = if terms.promise_stepping_stone && facts.wants_stepping_stone {
         PROMISE_POINTS
@@ -269,6 +329,15 @@ pub(crate) fn appeal_of(facts: &AppealFacts, terms: &OfferTerms) -> Appeal {
         duration,
         situation,
         promise,
+    }
+}
+
+fn role_points(place: PlaceInSide) -> i32 {
+    match place {
+        PlaceInSide::Key => ROLE_KEY,
+        PlaceInSide::Starter => ROLE_STARTER,
+        PlaceInSide::Rotation => 0,
+        PlaceInSide::Backup => ROLE_BACKUP,
     }
 }
 
@@ -330,6 +399,7 @@ mod tests {
             wants_stepping_stone: false,
             expected_wage: 10_000,
             expected_years: 3,
+            incumbent: None,
         }
     }
 
