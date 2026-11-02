@@ -448,6 +448,40 @@ pub(crate) struct Converted {
     pub alternates: Vec<Position>,
 }
 
+/// Moves the converted attributes to the level FM's Current Ability puts the player at, keeping
+/// their shape, and returns them with the resulting OFM rating. A player with no CA in the save
+/// keeps the rating his attributes give, and the journal says so.
+fn anchor_to_ability(
+    row: &PlayerRow,
+    position: &Position,
+    mut attributes: domain::player::PlayerAttributes,
+    ovr: u8,
+    cfg: &Config,
+    journal: &mut Journal,
+    id: &str,
+) -> (domain::player::PlayerAttributes, u8) {
+    if !cfg.ratings.anchor_to_ca {
+        return (attributes, ovr);
+    }
+    if row.ca <= 0 {
+        journal.warn(
+            "player.rating_unanchored",
+            id,
+            "no current ability in the save; the rating is the attributes' own",
+        );
+        return (attributes, ovr);
+    }
+    let target = crate::ratings::ovr_from_ca(row.ca, &cfg.ratings);
+    ofm_core::player_rating::move_attributes_to(&mut attributes, position, target);
+    let anchored = attributes::ovr(&attributes, position);
+    (attributes, anchored)
+}
+
+/// The OFM rating the import gives this player, for comparing the hierarchy of two players.
+pub fn rate_for_comparison(row: &PlayerRow, cfg: &Config, journal: &mut Journal) -> Option<u8> {
+    convert_player(row, cfg, journal).map(|converted| converted.ovr)
+}
+
 pub(crate) fn convert_player(
     row: &PlayerRow,
     cfg: &Config,
@@ -473,6 +507,7 @@ pub(crate) fn convert_player(
         );
         return None;
     };
+    let (attributes, ovr) = anchor_to_ability(row, &position, attributes, ovr, cfg, journal, &id);
     // OFM keeps weak foot and alternate positions only for a specific outfield position; a goalkeeper
     // has neither (the engine re-derives them on every load), so none is written for one.
     let is_keeper = position == Position::Goalkeeper;
@@ -482,7 +517,7 @@ pub(crate) fn convert_player(
         positions::alternates(&row.positions, natural_code, &cfg.positions)
     };
     let (foot, weak_foot) = positions::foot(row.foot_left, row.foot_right, &cfg.positions);
-    let potential = attributes::potential(ovr, row.ca, row.pa, cfg.potential.ovr_points_per_ca);
+    let potential = crate::ratings::potential(ovr, row.pa, &cfg.ratings);
     Some(Converted {
         natural_code,
         position,

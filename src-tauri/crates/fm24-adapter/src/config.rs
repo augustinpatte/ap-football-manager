@@ -13,7 +13,7 @@ pub struct Config {
     pub start: StartCfg,
     pub contracts: ContractsCfg,
     pub loans: LoansCfg,
-    pub potential: PotentialCfg,
+    pub ratings: RatingsCfg,
     pub positions: PositionsCfg,
     pub squad: SquadCfg,
     pub finance: FinanceCfg,
@@ -75,9 +75,15 @@ pub struct LoansCfg {
     pub wage_contribution_pct: u8,
 }
 
+/// How FM's Current Ability sets a player's level on OFM's scale (see `ratings.rs`).
 #[derive(Debug, Clone, Deserialize)]
-pub struct PotentialCfg {
-    pub ovr_points_per_ca: f64,
+pub struct RatingsCfg {
+    /// `false` keeps the rating the converted attributes give, unanchored (the baseline the
+    /// anchored one is compared with).
+    pub anchor_to_ca: bool,
+    /// `[CA, OFM rating]` knots, CA strictly increasing, rating never decreasing; interpolated
+    /// linearly, constant beyond the ends. Potential is read off the same curve at PA.
+    pub ca_to_ovr: Vec<[f64; 2]>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -132,7 +138,9 @@ impl Config {
     }
 
     pub fn from_toml(text: &str) -> Result<Self> {
-        toml::from_str(text).map_err(|e| format!("adapter.toml: {e}"))
+        let config: Self = toml::from_str(text).map_err(|e| format!("adapter.toml: {e}"))?;
+        crate::ratings::validate(&config.ratings).map_err(|e| format!("adapter.toml: {e}"))?;
+        Ok(config)
     }
 
     /// £ -> € for a weekly or total amount, rounded to the nearest unit.
