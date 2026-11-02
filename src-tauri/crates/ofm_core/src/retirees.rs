@@ -312,6 +312,7 @@ mod tests {
                 appearances: 10,
                 goals: 1,
                 assists: 1,
+                synthetic: false,
             });
         }
         let mut game = game_with_teams(vec![old], vec![]);

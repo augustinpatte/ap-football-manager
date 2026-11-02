@@ -1849,6 +1849,8 @@
     "avgRating": "Rata-rata Rating",
     "careerHistory": "Riwayat Karier",
     "noCareer": "Belum ada riwayat karier — musim pertama.",
+    "careerSimulated": "Disimulasikan",
+    "careerSimulatedNote": "Musim yang ditandai Disimulasikan dibuat saat dunia ini dibuat. Itu bukan catatan nyata pemain ini.",
     "movementHistory": "Riwayat Perpindahan",
     "noMovementHistory": "Belum ada riwayat transfer atau pinjaman.",
     "movementPermanentTransfer": "Transfer",
@@ -3172,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "Dunia Acak",
-        "randomDescription": "Liga yang dihasilkan secara acak dengan {{teamCount}} tim di seluruh Eropa",
+        "randomDescription": "Dunia fiktif sepenuhnya dengan {{teamCount}} klub buatan. Setiap klub, pemain, dan nama adalah rekaan.",
         "exportedName": "Dunia yang Diekspor",
         "exportedDescription": "Dunia dengan {{teamCount}} tim yang diekspor dari permainan tersimpan"
       },

@@ -1849,6 +1849,8 @@
     "avgRating": "Prům. hodnocení",
     "careerHistory": "Historie kariéry",
     "noCareer": "Zatím žádná historie kariéry — první sezóna.",
+    "careerSimulated": "Simulováno",
+    "careerSimulatedNote": "Sezóny označené jako Simulováno vznikly při vytvoření tohoto světa. Nejsou to skutečné záznamy tohoto hráče.",
     "movementHistory": "Historie přestupů",
     "noMovementHistory": "Zatím nebyly zaznamenány žádné přestupy ani hostování.",
     "movementPermanentTransfer": "Přestup",
@@ -3172,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "Náhodný svět",
-        "randomDescription": "Náhodně vygenerovaná liga s {{teamCount}} týmy napříč Evropou",
+        "randomDescription": "Zcela fiktivní svět s {{teamCount}} vygenerovanými kluby. Každý klub, hráč i jméno jsou vymyšlené.",
         "exportedName": "Exportovaný svět",
         "exportedDescription": "Svět s {{teamCount}} týmy exportovaný z uložené hry"
       },

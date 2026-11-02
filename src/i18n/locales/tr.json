@@ -1849,6 +1849,8 @@
     "avgRating": "Ort. Puan",
     "careerHistory": "Kariyer Geçmişi",
     "noCareer": "Henüz kariyer geçmişi yok — ilk sezon.",
+    "careerSimulated": "Simüle",
+    "careerSimulatedNote": "Simüle olarak işaretlenen sezonlar bu dünya oluşturulurken üretildi. Bu oyuncunun gerçek kayıtları değildir.",
     "movementHistory": "Transfer Geçmişi",
     "noMovementHistory": "Henüz kayıtlı transfer veya kiralama hareketi yok.",
     "movementPermanentTransfer": "Transfer",
@@ -3172,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "Rastgele Dünya",
-        "randomDescription": "Avrupa genelinde {{teamCount}} takımlı rastgele oluşturulmuş lig",
+        "randomDescription": "{{teamCount}} üretilmiş kulüpten oluşan tamamen kurgusal bir dünya. Her kulüp, oyuncu ve isim uydurmadır.",
         "exportedName": "Dışa Aktarılmış Dünya",
         "exportedDescription": "Kayıtlı oyundan dışa aktarılan {{teamCount}} takımlı dünya"
       },

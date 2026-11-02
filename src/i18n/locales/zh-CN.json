@@ -1848,6 +1848,8 @@
     "avgRating": "平均评分",
     "careerHistory": "职业生涯",
     "noCareer": "暂无职业履历 — 首个赛季。",
+    "careerSimulated": "模拟",
+    "careerSimulatedNote": "标记为“模拟”的赛季是在创建此世界时生成的，并非该球员的真实记录。",
     "movementHistory": "转会流动历史",
     "noMovementHistory": "还没有记录转会或租借流动。",
     "movementPermanentTransfer": "转会",
@@ -3172,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "随机世界",
-        "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",
+        "randomDescription": "一个完全虚构的世界，包含 {{teamCount}} 家生成的俱乐部。所有俱乐部、球员和姓名均为虚构。",
         "exportedName": "导出的世界",
         "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队"
       },

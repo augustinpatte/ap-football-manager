@@ -1860,6 +1860,8 @@
     "avgRating": "Nota Media",
     "careerHistory": "Historial de Carrera",
     "noCareer": "Sin historial de carrera — primera temporada.",
+    "careerSimulated": "Simulado",
+    "careerSimulatedNote": "Las temporadas marcadas como Simulado se generaron al crear este mundo. No son registros reales de este jugador.",
     "movementHistory": "Historial de Movimientos",
     "noMovementHistory": "Aún no hay traspasos ni cesiones registrados.",
     "movementPermanentTransfer": "Traspaso",
@@ -3184,7 +3186,7 @@
     "msg": {
       "world": {
         "randomName": "Mundo Aleatorio",
-        "randomDescription": "Liga generada aleatoriamente con {{teamCount}} equipos por toda Europa",
+        "randomDescription": "Un mundo totalmente ficticio de {{teamCount}} clubes generados. Cada club, jugador y nombre es inventado.",
         "exportedName": "Mundo Exportado",
         "exportedDescription": "Mundo con {{teamCount}} equipos exportado desde una partida guardada"
       },

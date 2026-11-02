@@ -1873,6 +1873,8 @@
     "avgRating": "Voto medio",
     "careerHistory": "Storico carriera",
     "noCareer": "Nessuno storico carriera per ora — prima stagione.",
+    "careerSimulated": "Simulato",
+    "careerSimulatedNote": "Le stagioni contrassegnate come Simulato sono state generate alla creazione di questo mondo. Non sono dati reali di questo giocatore.",
     "movementHistory": "Storico movimenti",
     "noMovementHistory": "Nessun trasferimento o prestito ancora registrato.",
     "movementPermanentTransfer": "Trasferimento",
@@ -3172,7 +3174,7 @@
     "msg": {
       "world": {
         "randomName": "Mondo casuale",
-        "randomDescription": "Campionato generato casualmente con {{teamCount}} squadre in tutta Europa",
+        "randomDescription": "Un mondo interamente fittizio di {{teamCount}} club generati. Ogni club, giocatore e nome è inventato.",
         "exportedName": "Mondo esportato",
         "exportedDescription": "Mondo con {{teamCount}} squadre esportato da una partita salvata"
       },

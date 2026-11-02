@@ -148,9 +148,7 @@ pub(super) fn pick_name_from_def(
             && !pool.first_names.is_empty()
             && !pool.last_names.is_empty()
         {
-            let first = pool.first_names[rng.random_range(0..pool.first_names.len())].clone();
-            let last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
-            return (first, last);
+            return draw_name(pool, rng);
         }
     }
 
@@ -175,7 +173,22 @@ pub(super) fn seeded_id(rng: &mut impl Rng) -> String {
 
 fn draw_name(pool: &NamePool, rng: &mut impl Rng) -> (String, String) {
     let first = pool.first_names[rng.random_range(0..pool.first_names.len())].clone();
-    let last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
+    let mut last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
+    // The pools hold names that work as both a given name and a surname ("Simon", "Laurent",
+    // "Thomas"), and the two are drawn independently, so "Simon Simon" came out about once in
+    // 850 players. Only the surname is redrawn, and only on a clash. Until a world's first clash
+    // its names are exactly what they were; after it the extra draw shifts the stream, so a seed
+    // now yields a different (still deterministic) world. A pool whose surnames are all the
+    // given name keeps the clash rather than looping.
+    if pool
+        .last_names
+        .iter()
+        .any(|candidate| !candidate.eq_ignore_ascii_case(&first))
+    {
+        while last.eq_ignore_ascii_case(&first) {
+            last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
+        }
+    }
     (first, last)
 }
 
@@ -1247,6 +1260,7 @@ pub(super) fn generate_player_from_def(
             appearances: entry.appearances,
             goals: entry.goals,
             assists: entry.assists,
+            synthetic: false,
         })
         .collect();
     if def.youth {

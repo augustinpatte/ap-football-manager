@@ -1861,6 +1861,8 @@
     "avgRating": "Avg Rating",
     "careerHistory": "Career History",
     "noCareer": "No career history yet — first season.",
+    "careerSimulated": "Simulated",
+    "careerSimulatedNote": "Seasons marked Simulated were generated when this world was created. They are not real records of this player.",
     "movementHistory": "Movement History",
     "noMovementHistory": "No transfer or loan movement recorded yet.",
     "movementPermanentTransfer": "Transfer",
@@ -3184,7 +3186,7 @@
     "msg": {
       "world": {
         "randomName": "Random World",
-        "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
+        "randomDescription": "A fully fictional world of {{teamCount}} generated clubs. Every club, player and name is invented.",
         "exportedName": "Exported World",
         "exportedDescription": "World with {{teamCount}} teams exported from saved game"
       },
