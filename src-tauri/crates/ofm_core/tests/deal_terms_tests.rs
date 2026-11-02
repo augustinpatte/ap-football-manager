@@ -50,6 +50,7 @@ fn terms(instalments: u8, sell_on_pct: u8, signing_bonus: u64) -> TransferTerms 
         sell_on_pct,
         signing_bonus,
         promise_stepping_stone: false,
+        ..TransferTerms::default()
     }
 }
 
@@ -457,7 +458,7 @@ fn a_clause_the_seller_cannot_fund_blocks_the_sale_without_moving_money() {
 }
 
 #[test]
-fn an_ambitious_player_refuses_to_step_down_unless_promised_a_way_out() {
+fn an_ambitious_player_wants_something_for_stepping_down_a_promise_or_a_bonus_will_do() {
     // Given a promising player at the big club and a smaller club bidding for him.
     let promising = |promise: bool, bonus: u64| {
         let mut game = market_game("big-club", "2005-01-01");
@@ -481,15 +482,18 @@ fn an_ambitious_player_refuses_to_step_down_unless_promised_a_way_out() {
         (game, outcome)
     };
 
-    // When no promise is made, the player turns the move down and nothing is spent.
+    // When no promise is made, the player holds the deal up and says what he wants instead;
+    // nothing is spent and he stays where he is. (Before the player had a contract of his own to
+    // bargain over, this was a flat refusal; now pay is one of the things that can win him round.)
     let (refused, outcome) = promising(false, 0);
     let outcome = outcome.unwrap();
     assert_eq!(outcome.decision, TransferNegotiationDecision::Rejected);
     assert!(!outcome.is_terminal);
     assert_eq!(
         outcome.feedback.headline_key,
-        "transfers.transferFeedbackPlayerRefusesHeadline"
+        "transfers.transferFeedbackPlayerWantsMoreHeadline"
     );
+    assert!(outcome.player_demand.is_some());
     assert_eq!(prospect(&refused).team_id.as_deref(), Some("big-club"));
 
     // With the promise he accepts, and the promise is recorded against the buyer.
@@ -506,8 +510,9 @@ fn an_ambitious_player_refuses_to_step_down_unless_promised_a_way_out() {
         .expect("promise recorded");
     assert_eq!(promise.club_id, "team-1");
 
-    // A bonus worth half a year of his wage also wins him over, with no promise.
-    let (bought, outcome) = promising(false, 10_000 * 26);
+    // A bonus worth a year of his wage also wins him over, with no promise. (Half a year's is
+    // not quite enough any more: the bonus is pay spread over the contract, weighed with the rest.)
+    let (bought, outcome) = promising(false, 10_000 * 52);
     assert_eq!(
         outcome.unwrap().decision,
         TransferNegotiationDecision::Accepted

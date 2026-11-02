@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "员工招募",
         "StaffRenewals": "员工续约",
         "Lineup": "阵容与轮换",
-        "PlayerRenewals": "球员续约"
+        "PlayerRenewals": "球员续约",
+        "PlayerRecruitment": "球员招募"
       },
       "confirmMajor": "重大决定前先征求我",
       "delegate": "委派",
@@ -1608,7 +1609,19 @@
       "invalid": "请使用 1 至 {{instalments}} 笔付款、0 至 {{sellOn}}% 的转售分成，以及不小于 0 的签字费。"
     },
     "transferFeedbackPlayerRefusesHeadline": "球员拒绝了这次转会",
-    "transferFeedbackPlayerRefusesDetail": "两家俱乐部本可达成一致，但没有离队承诺或像样的签字费，他不会去更小的俱乐部。"
+    "transferFeedbackPlayerRefusesDetail": "两家俱乐部本可达成一致，但他不想要这次转会：俱乐部、他在队中的角色或条件都不合他意。",
+    "transferFeedbackPlayerWantsMoreHeadline": "球员要求更好的条件",
+    "transferFeedbackPlayerWantsMoreDetail": "两家俱乐部就 {{fee}} 达成一致，但他只愿以每周 {{wage}}、{{years}} 年的合同签约。",
+    "playerTerms": {
+      "wage": "球员周薪",
+      "years": "合同年限（年）",
+      "hint": "两项都留空则使用标准条件。他会根据薪资、年限、俱乐部地位以及自己在队中的角色来评估这次转会。",
+      "meetTerms": "提供他要求的条件",
+      "outlookKeen": "他会很乐意这次转会。",
+      "outlookHesitant": "他有些犹豫：预计他会要求更好的条件。",
+      "outlookUnlikely": "他不太可能加盟这家俱乐部。",
+      "expects": "他期望每周约 {{wage}}，合同 {{years}} 年。"
+    }
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -3110,7 +3123,8 @@
         "invalidYouthScoutingObjective": "不支持的青年球探目标。",
         "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。",
         "invalidDealTerms": "这些交易条款不被允许。",
-        "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。"
+        "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。",
+        "playerRefusesMove": "球员不愿加盟那家俱乐部。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "该提案已不存在。",
         "invalidMode": "无法应用该委托模式。",
         "invalidLimits": "支出限额不能为负数。",
-        "wagePolicy": "董事会的薪资政策不再允许这些条件。"
+        "wagePolicy": "董事会的薪资政策不再允许这些条件。",
+        "signingRefusedByClub": "出售方俱乐部不会同意这笔签约。",
+        "signingRefusedByPlayer": "无论你能提供什么条件，球员都不会加盟。"
       },
       "freeAgents": {
         "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "解雇 {{replaces}}（能力 {{current}}）",
       "upgradeHire": "由 {{name}} 接替（能力 {{ovr}}）",
       "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
-      "renewPlayer": "以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年"
+      "renewPlayer": "以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
+      "signPlayer": "以 {{fee}} 签下 {{player}}（{{position}}），周薪 {{wage}}，合同 {{years}} 年"
     },
     "reason": {
       "vacancy": "必需职位空缺。",
       "upgrade": "有明显更优的候选人。",
       "contractEnding": "合同即将到期。",
-      "aboveLimit": "这超出了你为助理教练设定的支出限额。"
+      "aboveLimit": "这超出了你为助理教练设定的支出限额。",
+      "recruitNeed": "球队在这个位置需要一名球员。",
+      "recruitAboveLimit": "这超出了你为助理设定的支出上限，或超出他认为合理的价格。"
     },
     "log": {
       "hired": "已以每周 {{wage}} 聘请 {{name}}（{{post}}）",
@@ -4780,7 +4799,12 @@
       "scoutSent": "已派球探观察 {{player}}",
       "lineupChosen": "已确定下一场比赛的首发十一人（{{changes}} 处变动）",
       "playerRenewed": "已以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
-      "playerRenewalLeft": "{{player}} 的合同留给你处理"
+      "playerRenewalLeft": "{{player}} 的合同留给你处理",
+      "recruitSigned": "以 {{fee}} 签下 {{player}}（{{position}}）",
+      "recruitScheduled": "已就 {{player}}（{{position}}）以 {{fee}} 达成协议；将于 {{date}} 注册",
+      "recruitClubRefused": "放弃 {{player}}（{{position}}）：其俱乐部不愿以合理价格出售",
+      "recruitPlayerRefused": "放弃 {{player}}（{{position}}）：他不愿加盟",
+      "recruitNotPossible": "放弃 {{player}}（{{position}}）：交易无法达成"
     }
   },
   "freeAgents": {

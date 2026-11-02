@@ -15,7 +15,7 @@ import {
   setDutyDelegation,
 } from "../../services/staffService";
 import { resolveBackendError } from "../../utils/backendI18n";
-import { formatWeeklyWage } from "../../lib/helpers";
+import { formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
 import DelegationModeCard from "./DelegationModeCard";
 
@@ -33,6 +33,7 @@ const DUTIES: Duty[] = [
   "StaffRenewals",
   "Lineup",
   "PlayerRenewals",
+  "PlayerRecruitment",
 ];
 
 /** Backend params carry raw enum names; the ones that name a post or a position are translated. */
@@ -46,7 +47,9 @@ function useParams() {
           ? t(`staff.posts.${value}`, { defaultValue: value })
           : key === "position"
             ? t(`common.positions.${value}`, { defaultValue: value })
-            : value,
+            : key === "fee" && Number.isFinite(Number(value))
+              ? formatExactMoney(Number(value))
+              : value,
       ]),
     );
 }

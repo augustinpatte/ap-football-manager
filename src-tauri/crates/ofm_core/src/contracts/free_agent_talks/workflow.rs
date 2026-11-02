@@ -192,7 +192,7 @@ fn validate_terms(terms: &OfferTerms) -> Result<(), String> {
 }
 
 /// The facts a player weighs an offer from `team` on.
-pub(super) fn facts_for(
+pub(crate) fn facts_for(
     player: &Player,
     team: &Team,
     squad: &ClubSquad,
@@ -215,6 +215,7 @@ pub(super) fn facts_for(
         wants_stepping_stone: wants_promise,
         expected_wage: expected,
         expected_years: expected_contract_years(player, today),
+        incumbent: None,
     }
 }
 

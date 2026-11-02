@@ -20,7 +20,16 @@ mod rivals;
 mod workflow;
 
 pub use appeal::{Appeal, OfferTerms, PlaceInSide, Verdict};
+pub(crate) use appeal::{
+    AppealFacts, ClubSquad, Incumbent, appeal_of, club_standing, counter_terms,
+};
+pub(crate) use consts::ACCEPT_AT;
+pub(crate) use consts::{
+    PUSH_CLUB_IN_TROUBLE, PUSH_CONTRACT_ENDING, PUSH_CONTRACT_RUNNING_DOWN, PUSH_DISCONTENT,
+    PUSH_LISTED, PUSH_UNHAPPY,
+};
 pub(crate) use rivals::declines_on_standing;
+pub(crate) use workflow::facts_for;
 pub(crate) use workflow::settle_talks_on_signing;
 pub use workflow::{
     FreeAgentInterest, FreeAgentOfferDecision, FreeAgentOfferOutcome, InterestLevel, RivalInterest,

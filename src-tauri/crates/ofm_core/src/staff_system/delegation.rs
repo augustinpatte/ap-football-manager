@@ -14,6 +14,7 @@ use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::{self, RecAction, RecKind};
 use super::delegation_policy::{Authorization, Reason, Spend, authorize};
+use super::delegation_recruitment as recruiting;
 use super::delegation_report as report;
 use super::delegation_squad as squad;
 use super::market::{self, OfferResponse};
@@ -164,6 +165,7 @@ pub fn run_after_day(game: &mut Game) {
         Duty::StaffRecruitment,
         Duty::StaffRenewals,
         Duty::PlayerRenewals,
+        Duty::PlayerRecruitment,
     ] {
         if !due(game, duty) {
             continue;
@@ -177,6 +179,7 @@ pub fn run_after_day(game: &mut Game) {
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
+            Duty::PlayerRecruitment => recruiting::player_recruitment(game, &team_id),
             Duty::Training => {}
         }
     }
@@ -551,6 +554,9 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
         .ok_or("be.error.delegation.proposalNotFound")?;
     let proposal = game.delegation.proposals.remove(index);
     if !accept {
+        if let ProposalAction::SignPlayer { player_id, .. } = &proposal.action {
+            recruiting::on_declined(game, player_id);
+        }
         record(
             game,
             proposal.duty,
@@ -605,6 +611,12 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
             years,
         } => squad::renew_player(game, &team_id, player_id, *wage, *years),
         ProposalAction::RestPlayers { .. } => Ok(()),
+        ProposalAction::SignPlayer {
+            player_id,
+            fee,
+            wage,
+            years,
+        } => recruiting::sign_approved(game, player_id, *fee, *wage, *years),
     };
     if result.is_ok() {
         record(

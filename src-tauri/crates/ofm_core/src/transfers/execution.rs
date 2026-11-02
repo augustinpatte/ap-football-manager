@@ -6,7 +6,7 @@
 
 use super::*;
 
-pub(super) fn round_transfer_fee(value: u64) -> u64 {
+pub(crate) fn round_transfer_fee(value: u64) -> u64 {
     if value == 0 {
         return 0;
     }
@@ -240,14 +240,16 @@ pub(super) fn ensure_transfer_cash_postable(
     )
 }
 
-/// The contract a club would give a player it buys: the buying club, his wage and the
-/// day it ends. Its standard terms, the ones a renewal is judged by. The board has not
-/// been asked: [`buyers_contract_terms`] asks it, and a preview that only wants to show
-/// the figures uses this.
-pub(super) fn buyers_standard_terms(
+/// The contract a club would give a player it buys: the buying club, his wage and the day it ends.
+/// The wage and length the deal's terms name, or the buyer's standard ones (the ones a renewal is
+/// judged by) where they name none. The player agreed to these (see `consent`); the board has not
+/// been asked: [`buyers_contract_terms`] asks it, and a preview that only wants to show the figures
+/// uses this.
+pub(super) fn buyers_agreed_terms(
     game: &Game,
     player: &Player,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(Team, u32, NaiveDate), String> {
     let buyer = game
         .teams
@@ -255,11 +257,19 @@ pub(super) fn buyers_standard_terms(
         .find(|team| team.id == buyer_team_id)
         .cloned()
         .ok_or("be.error.teamNotFound")?;
-    // No bid carries a wage yet (every `wage_offered` is 0), so none is passed; when one
-    // does, it is passed here.
-    let (wage, end) =
-        standard_contract_terms(player, &buyer, game.clock.current_date.date_naive(), 0)
+    let today = game.clock.current_date.date_naive();
+    let (wage, standard_end) =
+        standard_contract_terms(player, &buyer, today, deal_terms.player_weekly_wage)
             .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE)?;
+    let end = if deal_terms.player_contract_years > 0 {
+        today
+            .checked_add_months(chrono::Months::new(
+                12 * u32::from(deal_terms.player_contract_years),
+            ))
+            .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE)?
+    } else {
+        standard_end
+    };
     Ok((buyer, wage, end))
 }
 
@@ -271,8 +281,9 @@ pub(super) fn buyer_can_pay_standard_wage(
     buyer: &Team,
     facts: &BuyerWageFacts,
     today: NaiveDate,
+    deal_terms: &TransferTerms,
 ) -> bool {
-    standard_contract_terms(player, buyer, today, 0)
+    standard_contract_terms(player, buyer, today, deal_terms.player_weekly_wage)
         .is_some_and(|(wage, _)| facts.purchase_verdict(buyer, player, wage).permits())
 }
 
@@ -282,8 +293,9 @@ pub(super) fn buyers_contract_terms(
     game: &Game,
     player: &Player,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(Team, u32, NaiveDate), String> {
-    let (buyer, wage, end) = buyers_standard_terms(game, player, buyer_team_id)?;
+    let (buyer, wage, end) = buyers_agreed_terms(game, player, buyer_team_id, deal_terms)?;
     if !purchase_wage_policy_verdict(game, &buyer, player, wage).permits() {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
@@ -297,34 +309,17 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
     game: &Game,
     player_id: &str,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(), String> {
     let player = game
         .players
         .iter()
         .find(|player| player.id == player_id)
         .ok_or("be.error.playerNotFound")?;
-    buyers_contract_terms(game, player, buyer_team_id).map(|_| ())
+    buyers_contract_terms(game, player, buyer_team_id, deal_terms).map(|_| ())
 }
 
-/// Transfer a player between teams, adjusting finances.
-pub(super) fn execute_transfer(
-    game: &mut Game,
-    player_id: &str,
-    to_team_id: &str,
-    from_team_id: &str,
-    fee: u64,
-) -> Result<(), String> {
-    execute_transfer_with_terms(
-        game,
-        player_id,
-        to_team_id,
-        from_team_id,
-        fee,
-        &domain::transfer_terms::TransferTerms::default(),
-    )
-}
-
-/// [`execute_transfer`] with what the buyer attached to the fee: instalments, a sell-on clause, a
+/// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a
 /// signing bonus, a promise to the player. The cash goes in one atomic posting, so a refusal
 /// anywhere before it leaves nothing half done.
 pub(super) fn execute_transfer_with_terms(
@@ -375,7 +370,7 @@ pub(super) fn execute_transfer_with_terms(
     // The buyer's terms, and the board's say on them, settled before any money moves so
     // that a refusal here cannot leave a half-done transfer.
     let (buying_team, new_wage, new_contract_end) =
-        buyers_contract_terms(game, &player_snapshot, to_team_id)?;
+        buyers_contract_terms(game, &player_snapshot, to_team_id, terms)?;
 
     terms::validate_terms(terms)?;
     let date = game.clock.current_date.date_naive();
@@ -627,6 +622,9 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
             let from_team_id = from_team_id.as_deref().ok_or(Failure::PlayerUnavailable)?;
             if !transfer_buyer_can_register(game, &buyer_team_id, fee, &terms) {
                 return Err(Failure::InsufficientFunds);
+            }
+            if !still_agrees(game, &player_id, &buyer_team_id, &terms) {
+                return Err(Failure::RegistrationBlocked);
             }
             execute_transfer_with_terms(
                 game,

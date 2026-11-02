@@ -797,7 +797,17 @@ fn free_agent_signings_leave_scheduled_transfer_obligations_alone() {
         instalments: 3,
         ..TransferTerms::default()
     };
-    let bid = make_transfer_bid_with_terms(&mut game, "bought", fee, instalments).unwrap();
+    let mut bid =
+        make_transfer_bid_with_terms(&mut game, "bought", fee, instalments.clone()).unwrap();
+    if let Some(demand) = bid.player_demand.clone() {
+        // The player has his own say on the move: he asks for a better wage, and gets it.
+        let terms = TransferTerms {
+            player_weekly_wage: demand.weekly_wage,
+            player_contract_years: u8::try_from(demand.contract_years).unwrap(),
+            ..instalments
+        };
+        bid = make_transfer_bid_with_terms(&mut game, "bought", fee, terms).unwrap();
+    }
     assert_eq!(
         bid.decision,
         ofm_core::transfers::TransferNegotiationDecision::Accepted

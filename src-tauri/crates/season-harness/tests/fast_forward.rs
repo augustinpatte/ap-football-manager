@@ -442,3 +442,185 @@ fn the_decision_policy_plays_the_clubs_matches_itself() {
         "the club's fixtures in 20 days were played by the run"
     );
 }
+
+// ── Run E: delegated recruitment inside a fast-forward ──────────────────────────────────────────
+
+fn ensure_assistant(game: &mut Game) {
+    use domain::staff::StaffPost;
+    use ofm_core::staff_system::{market, profile};
+    let team = game.manager.team_id.clone().expect("a club");
+    if profile::team_staff(game, &team)
+        .iter()
+        .any(|s| s.post() == StaffPost::AssistantManager)
+    {
+        return;
+    }
+    let reputation = game
+        .teams
+        .iter()
+        .find(|t| t.id == team)
+        .map_or(0, |t| t.reputation);
+    let (id, wage) = game
+        .staff
+        .iter()
+        .filter(|s| s.team_id.is_none() && s.post() == StaffPost::AssistantManager)
+        .max_by_key(|s| (s.overall(), s.id.clone()))
+        .map(|s| (s.id.clone(), market::asking_wage(s, reputation)))
+        .expect("a free assistant coach exists");
+    market::hire(game, &team, &id, wage, 3).expect("hired");
+}
+
+fn recruiting_world(confirm_major: bool, fee_ceiling: i64) -> Game {
+    let mut game = world();
+    ensure_assistant(&mut game);
+    game.delegation.set(
+        domain::delegation::Duty::PlayerRecruitment,
+        true,
+        confirm_major,
+    );
+    game.delegation.limits.max_transfer_fee = fee_ceiling;
+    game.delegation.limits.max_commitment = 12_000_000;
+    game.delegation.limits.max_player_wage = 60_000;
+    give_the_club_a_need(&mut game);
+    game
+}
+
+/// The generated club is balanced and short of money, so the assistant would have nothing to do: a
+/// real transfer budget, and a back line cut to four.
+fn give_the_club_a_need(game: &mut Game) {
+    let team = game.manager.team_id.clone().expect("a club");
+    for club in game.teams.iter_mut().filter(|t| t.id == team) {
+        club.transfer_budget = 30_000_000;
+        club.finance = 40_000_000;
+    }
+    let other = game
+        .teams
+        .iter()
+        .find(|t| t.id != team)
+        .map(|t| t.id.clone())
+        .expect("another club");
+    let mut defenders: Vec<(u8, String)> = game
+        .players
+        .iter()
+        .filter(|p| {
+            p.team_id.as_deref() == Some(team.as_str())
+                && p.natural_position.to_group_position() == domain::player::Position::Defender
+        })
+        .map(|p| (p.ovr, p.id.clone()))
+        .collect();
+    defenders.sort_by(|a, b| b.cmp(a));
+    // Four are left, which is a back line too short to play with: a need the squad review names.
+    for (_, id) in defenders.into_iter().skip(4) {
+        if let Some(club) = game.teams.iter_mut().find(|t| t.id == team) {
+            club.remove_player_references(&id);
+        }
+        if let Some(player) = game.players.iter_mut().find(|p| p.id == id) {
+            player.team_id = Some(other.clone());
+            // The new club has its own shirt numbers.
+            player.jersey_number = None;
+        }
+    }
+}
+
+/// Given an assistant who recruits inside a ceiling
+/// When 45 days are fast-forwarded in one run, and the same days are played one at a time
+/// Then the two worlds are the same, delegated negotiations included: recruitment runs inside the
+///      ordinary day, so a fast-forward needs nothing of its own.
+#[test]
+fn a_fast_forward_processes_delegated_recruitment_like_the_days_played_singly() {
+    let mut fast_game = recruiting_world(false, 4_000_000);
+    let mut single_game = fast_game.clone();
+    let end = date_of(&fast_game) + Duration::days(45);
+
+    let ask = request(&fast_game, 45, InterruptPolicy::ToTargetDate);
+    let (summary, _) = fast(&mut fast_game, &ask);
+    assert_eq!(summary.stop, StopReason::TargetReached);
+    singly_until(&mut single_game, end);
+
+    assert_same_world(
+        &fast_game,
+        &single_game,
+        "recruitment inside a fast-forward",
+    );
+    assert_eq!(
+        fast_game.delegation.recruitment, single_game.delegation.recruitment,
+        "the assistant's memory is the same"
+    );
+}
+
+/// Given an assistant who must ask (the duty asks for approval)
+/// When a run that stops for decisions reaches a signing he proposes
+/// Then it stops on that proposal, spends nothing, and the proposal is the thing it names.
+#[test]
+fn a_signing_proposal_stops_a_run_that_stops_for_decisions() {
+    let mut game = recruiting_world(true, 4_000_000);
+    let cash_before: i64 = game
+        .teams
+        .iter()
+        .find(|t| Some(&t.id) == game.manager.team_id.as_ref())
+        .map(|t| t.finance)
+        .unwrap();
+    let mut stopped_on_a_signing = false;
+    for _ in 0..12 {
+        let remaining = 60;
+        let (summary, _) = fast_days(&mut game, remaining, InterruptPolicy::StopForDecisions);
+        match summary.stop {
+            StopReason::Decisions { decisions } => {
+                if decisions
+                    .iter()
+                    .any(|d| d.kind == DecisionKind::DelegationProposal)
+                {
+                    stopped_on_a_signing = game.delegation.proposals.iter().any(|p| {
+                        matches!(
+                            p.action,
+                            domain::delegation::ProposalAction::SignPlayer { .. }
+                        )
+                    });
+                    if stopped_on_a_signing {
+                        break;
+                    }
+                }
+            }
+            StopReason::TargetReached | StopReason::NextMatch => {}
+            _ => break,
+        }
+    }
+    let cash_after: i64 = game
+        .teams
+        .iter()
+        .find(|t| Some(&t.id) == game.manager.team_id.as_ref())
+        .map(|t| t.finance)
+        .unwrap();
+    assert!(
+        stopped_on_a_signing,
+        "no signing was proposed in two months"
+    );
+    assert!(
+        cash_after >= cash_before - 5_000_000,
+        "a proposal costs nothing; only wages and upkeep moved the cash"
+    );
+    assert!(game.delegation.proposals.iter().all(|p| !matches!(
+        p.action,
+        domain::delegation::ProposalAction::SignPlayer { .. }
+    ) || p.duty
+        == domain::delegation::Duty::PlayerRecruitment));
+}
+
+/// Given a run that never stops for decisions and an assistant with a ceiling of zero
+/// When it passes the proposals he makes
+/// Then it records them and signs nobody.
+#[test]
+fn a_target_date_run_records_signing_proposals_without_executing_them() {
+    let mut game = recruiting_world(false, 0);
+    let user = game.manager.team_id.clone().unwrap();
+    let ask = request(&game, 60, InterruptPolicy::ToTargetDate);
+    let (summary, _) = fast(&mut game, &ask);
+    assert_eq!(summary.stop, StopReason::TargetReached);
+    let bought = game
+        .competitions
+        .iter()
+        .flat_map(|c| &c.transfer_log)
+        .filter(|t| t.to_team_id == user)
+        .count();
+    assert_eq!(bought, 0, "a ceiling of zero spends nothing");
+}

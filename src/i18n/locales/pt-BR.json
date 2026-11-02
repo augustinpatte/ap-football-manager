@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "Contratação da comissão",
         "StaffRenewals": "Renovações da comissão",
         "Lineup": "Escalação e rodízio",
-        "PlayerRenewals": "Renovações de jogadores"
+        "PlayerRenewals": "Renovações de jogadores",
+        "PlayerRecruitment": "Contratação de jogadores"
       },
       "confirmMajor": "Me consultar nas decisões importantes",
       "delegate": "Delegar",
@@ -1608,7 +1609,19 @@
       "invalid": "Use de 1 a {{instalments}} parcelas, uma cláusula de revenda de 0 a {{sellOn}}% e luvas de 0 ou mais."
     },
     "transferFeedbackPlayerRefusesHeadline": "O jogador recusa a transferência",
-    "transferFeedbackPlayerRefusesDetail": "Os clubes poderiam chegar a um acordo, mas ele não desce para um clube menor sem uma promessa de saída ou luvas de verdade."
+    "transferFeedbackPlayerRefusesDetail": "Os clubes poderiam chegar a um acordo, mas ele não quer esta transferência: o clube, o papel que teria ou as condições não lhe servem.",
+    "transferFeedbackPlayerWantsMoreHeadline": "O jogador quer condições melhores",
+    "transferFeedbackPlayerWantsMoreDetail": "Os clubes concordam em {{fee}}, mas ele só assinaria por {{wage}} por semana durante {{years}} anos.",
+    "playerTerms": {
+      "wage": "Salário semanal do jogador",
+      "years": "Duração do contrato (anos)",
+      "hint": "Deixe os dois vazios para as condições padrão. Ele avalia a transferência pelo salário, pela duração, pelo nível do clube e pelo papel que teria.",
+      "meetTerms": "Oferecer as condições dele",
+      "outlookKeen": "Ele ficaria animado com esta transferência.",
+      "outlookHesitant": "Ele está hesitante: espere que peça condições melhores.",
+      "outlookUnlikely": "É improvável que ele se junte a este clube.",
+      "expects": "Ele espera cerca de {{wage}} por semana durante {{years}} anos."
+    }
   },
   "transferCentreWorld": {
     "title": "Central de transferências",
@@ -3110,7 +3123,8 @@
         "invalidYouthScoutingObjective": "Objetivo de prospecção de base não suportado.",
         "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada.",
         "invalidDealTerms": "Essas condições do acordo não são permitidas.",
-        "sellOnUnaffordable": "O clube vendedor não consegue pagar a parte que deve ao clube que o vendeu antes."
+        "sellOnUnaffordable": "O clube vendedor não consegue pagar a parte que deve ao clube que o vendeu antes.",
+        "playerRefusesMove": "O jogador não quer ir para esse clube."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao seu clube",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "Essa proposta não existe mais.",
         "invalidMode": "Esse modo de delegação não pode ser aplicado.",
         "invalidLimits": "Os limites de gastos não podem ser negativos.",
-        "wagePolicy": "A política salarial da diretoria não permite mais essas condições."
+        "wagePolicy": "A política salarial da diretoria não permite mais essas condições.",
+        "signingRefusedByClub": "O clube vendedor não aceitaria essa contratação.",
+        "signingRefusedByPlayer": "O jogador não viria com nenhuma condição que você possa oferecer."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Você já tem uma proposta com este jogador. Espere a resposta dele ou retire-a.",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "Demitir {{replaces}} (nível {{current}})",
       "upgradeHire": "Substituir por {{name}} (nível {{ovr}})",
       "renew": "Renovar {{name}} por {{wage}} semanais por {{years}} anos",
-      "renewPlayer": "Renovar {{player}} por {{wage}} semanais durante {{years}} anos"
+      "renewPlayer": "Renovar {{player}} por {{wage}} semanais durante {{years}} anos",
+      "signPlayer": "Contratar {{player}} ({{position}}) por {{fee}}, com {{wage}} por semana durante {{years}} anos"
     },
     "reason": {
       "vacancy": "Uma vaga obrigatória está vazia.",
       "upgrade": "Há um candidato claramente melhor.",
       "contractEnding": "O contrato está prestes a terminar.",
-      "aboveLimit": "Isso passa de um limite de gastos que você definiu para o auxiliar."
+      "aboveLimit": "Isso passa de um limite de gastos que você definiu para o auxiliar.",
+      "recruitNeed": "O elenco precisa de um jogador nesta posição.",
+      "recruitAboveLimit": "Isso passa de um limite de gasto que você definiu para o assistente, ou do preço que ele considera justo."
     },
     "log": {
       "hired": "Contratou {{name}} ({{post}}) por {{wage}} semanais",
@@ -4780,7 +4799,12 @@
       "scoutSent": "Enviou um olheiro para ver {{player}}",
       "lineupChosen": "Time titular da próxima partida definido ({{changes}} mudanças)",
       "playerRenewed": "{{player}} renovado por {{wage}} semanais durante {{years}} anos",
-      "playerRenewalLeft": "O contrato de {{player}} ficou com você"
+      "playerRenewalLeft": "O contrato de {{player}} ficou com você",
+      "recruitSigned": "{{player}} ({{position}}) contratado por {{fee}}",
+      "recruitScheduled": "Acordo com {{player}} ({{position}}) por {{fee}}; ele será registrado em {{date}}",
+      "recruitClubRefused": "{{player}} ({{position}}) descartado: o clube dele não vendia por um preço justo",
+      "recruitPlayerRefused": "{{player}} ({{position}}) descartado: ele não quis vir",
+      "recruitNotPossible": "{{player}} ({{position}}) descartado: o negócio não pôde ser feito"
     }
   },
   "freeAgents": {

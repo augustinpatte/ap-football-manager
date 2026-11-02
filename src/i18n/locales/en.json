@@ -1146,7 +1146,8 @@
         "StaffRecruitment": "Staff recruitment",
         "StaffRenewals": "Staff renewals",
         "Lineup": "Lineup & rotation",
-        "PlayerRenewals": "Player renewals"
+        "PlayerRenewals": "Player renewals",
+        "PlayerRecruitment": "Player recruitment"
       },
       "confirmMajor": "Ask me before major decisions",
       "delegate": "Delegate",
@@ -1608,7 +1609,19 @@
       "invalid": "Use 1 to {{instalments}} payments, a sell-on clause of 0 to {{sellOn}}%, and a bonus of 0 or more."
     },
     "transferFeedbackPlayerRefusesHeadline": "The player turns the move down",
-    "transferFeedbackPlayerRefusesDetail": "The clubs could agree, but he will not drop to a smaller club without a promise of a way out or a real signing bonus."
+    "transferFeedbackPlayerRefusesDetail": "The clubs could agree, but he does not want this move: the club, the part he would play there or the terms do not suit him.",
+    "transferFeedbackPlayerWantsMoreHeadline": "The player wants better terms",
+    "transferFeedbackPlayerWantsMoreDetail": "The clubs agree on {{fee}}, but he would only sign for {{wage}} a week over {{years}} years.",
+    "playerTerms": {
+      "wage": "Player's weekly wage",
+      "years": "Contract length (years)",
+      "hint": "Leave both empty for the standard terms. He judges the move on pay, length, the club's standing and the part he would play.",
+      "meetTerms": "Offer his terms",
+      "outlookKeen": "He would be keen on this move.",
+      "outlookHesitant": "He is hesitant: expect him to ask for better terms.",
+      "outlookUnlikely": "He is unlikely to join this club.",
+      "expects": "He expects about {{wage}} a week over {{years}} years."
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -3118,7 +3131,8 @@
         "invalidYouthScoutingObjective": "Unsupported youth scouting objective.",
         "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position.",
         "invalidDealTerms": "These deal terms are not allowed.",
-        "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier."
+        "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier.",
+        "playerRefusesMove": "The player does not want to join that club."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",
@@ -3172,7 +3186,9 @@
         "proposalNotFound": "That proposal no longer exists.",
         "invalidMode": "That delegation mode cannot be applied.",
         "invalidLimits": "Spending limits cannot be negative.",
-        "wagePolicy": "The board's wage policy no longer allows these terms."
+        "wagePolicy": "The board's wage policy no longer allows these terms.",
+        "signingRefusedByClub": "The selling club would not agree to that signing.",
+        "signingRefusedByPlayer": "The player would not join on any terms you could offer."
       },
       "freeAgents": {
         "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
@@ -4764,13 +4780,16 @@
       "upgradeRelease": "Release {{replaces}} (rated {{current}})",
       "upgradeHire": "Replace with {{name}} (rated {{ovr}})",
       "renew": "Renew {{name}} at {{wage}} a week for {{years}} years",
-      "renewPlayer": "Renew {{player}} at {{wage}} a week for {{years}} years"
+      "renewPlayer": "Renew {{player}} at {{wage}} a week for {{years}} years",
+      "signPlayer": "Sign {{player}} ({{position}}) for {{fee}}, at {{wage}} a week for {{years}} years"
     },
     "reason": {
       "vacancy": "A required seat is empty.",
       "upgrade": "A clearly better candidate is available.",
       "contractEnding": "The contract is about to end.",
-      "aboveLimit": "This is above a spending limit you set for the assistant."
+      "aboveLimit": "This is above a spending limit you set for the assistant.",
+      "recruitNeed": "The squad needs a player in this position.",
+      "recruitAboveLimit": "This is above a spending limit you set for the assistant, or beyond the price he judges fair."
     },
     "log": {
       "hired": "Hired {{name}} ({{post}}) at {{wage}} a week",
@@ -4780,7 +4799,12 @@
       "scoutSent": "Sent a scout to watch {{player}}",
       "lineupChosen": "Named the eleven for the next match ({{changes}} changes)",
       "playerRenewed": "Renewed {{player}} at {{wage}} a week for {{years}} years",
-      "playerRenewalLeft": "Left {{player}}'s contract for you to settle"
+      "playerRenewalLeft": "Left {{player}}'s contract for you to settle",
+      "recruitSigned": "Signed {{player}} ({{position}}) for {{fee}}",
+      "recruitScheduled": "Agreed {{player}} ({{position}}) for {{fee}}; he registers on {{date}}",
+      "recruitClubRefused": "Dropped {{player}} ({{position}}): his club would not sell at a fair price",
+      "recruitPlayerRefused": "Dropped {{player}} ({{position}}): he would not join",
+      "recruitNotPossible": "Dropped {{player}} ({{position}}): the deal could not be made"
     }
   },
   "freeAgents": {

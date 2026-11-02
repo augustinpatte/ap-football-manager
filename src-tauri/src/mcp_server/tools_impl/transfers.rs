@@ -93,6 +93,7 @@ pub fn transfer_make_bid(
     ctx: Arc<McpContext>,
     player_id: String,
     fee: u64,
+    player_contract: (Option<u32>, Option<u8>),
 ) -> Result<BidMade, String> {
     let game = require_game(&ctx.state_manager)?;
     let player_name = game
@@ -106,7 +107,11 @@ pub fn transfer_make_bid(
         &ctx.state_manager,
         &player_id,
         fee,
-        domain::transfer_terms::TransferTerms::default(),
+        domain::transfer_terms::TransferTerms {
+            player_weekly_wage: player_contract.0.unwrap_or(0),
+            player_contract_years: player_contract.1.unwrap_or(0),
+            ..domain::transfer_terms::TransferTerms::default()
+        },
     )?;
 
     let bid = BidMade {
@@ -119,6 +124,8 @@ pub fn transfer_make_bid(
         tension: response.feedback.tension,
         patience: response.feedback.patience,
         round: response.feedback.round,
+        player_asks_weekly_wage: response.player_demand.as_ref().map(|d| d.weekly_wage),
+        player_asks_contract_years: response.player_demand.as_ref().map(|d| d.contract_years),
     };
 
     {

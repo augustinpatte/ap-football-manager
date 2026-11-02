@@ -18,7 +18,26 @@ export interface TransferNegotiationResponseData {
   is_terminal: boolean;
   registration_date?: string | null;
   feedback: TransferNegotiationFeedbackData;
+  /** The wage and length the player asks for, when he is the one holding the deal up. */
+  player_demand?: PlayerDemandData | null;
   game: GameStateData;
+}
+
+/** The contract a player asks for in place of the one offered. */
+export interface PlayerDemandData {
+  weekly_wage: number;
+  contract_years: number;
+}
+
+/** How the player takes a move on the terms offered; mirrors `transfers::PlayerOutlook`. */
+export interface PlayerOutlookData {
+  interest: "keen" | "hesitant" | "unlikely";
+  /** The standard terms he starts from. */
+  expected_wage: number;
+  expected_years: number;
+  /** What he would ask for if the offer fell short, when he would ask at all. */
+  asks_wage?: number | null;
+  asks_years?: number | null;
 }
 
 export interface TransferBidProjectionData {
@@ -49,6 +68,8 @@ export interface TransferBidProjectionData {
     later_instalment_amount?: number;
     /** The player would value a stepping-stone promise; the backend refuses it for anyone else. */
     stepping_stone_available?: boolean;
+    /** The player's own view of the move on these terms. */
+    player_outlook?: PlayerOutlookData | null;
   };
 }
 
@@ -58,6 +79,10 @@ export interface TransferTermsData {
   sell_on_pct: number;
   signing_bonus: number;
   promise_stepping_stone: boolean;
+  /** The weekly wage offered to the player; omitted or 0 means the buyer's standard terms. */
+  player_weekly_wage?: number;
+  /** The contract length offered to the player, in years; omitted or 0 means the standard. */
+  player_contract_years?: number;
 }
 
 export interface LoanOfferResponseData {

@@ -352,6 +352,8 @@ pub(crate) fn transfer_outcome(
         is_terminal,
         registration_date,
         feedback,
+        player_demand: None,
+        player_obstacle: None,
     }
 }
 pub fn project_transfer_bid_financial_impact(
@@ -404,7 +406,10 @@ pub fn project_transfer_bid_financial_impact_with_terms(
     // What he would be paid at this club: the contract the transfer would give him, not
     // the one he is on. Falls back to his current wage only if the terms cannot be worked
     // out, since the preview is informational.
-    let standard_terms = buyers_standard_terms(game, player, &team.id).ok();
+    let standard_terms = buyers_agreed_terms(game, player, &team.id, terms).ok();
+    let player_outlook = judge_in_game(game, player, &team.id, terms)
+        .ok()
+        .map(|judgement| PlayerOutlook::from(&judgement));
     let incoming_wage = standard_terms
         .as_ref()
         .map_or_else(|| i64::from(player.wage()), |(_, wage, _)| i64::from(*wage));
@@ -459,6 +464,7 @@ pub fn project_transfer_bid_financial_impact_with_terms(
         later_instalments: terms.instalments.saturating_sub(1),
         later_instalment_amount,
         stepping_stone_available: wants_stepping_stone(player, current_date),
+        player_outlook,
     })
 }
 /// Submit a transfer bid from user's team for a player.
@@ -535,8 +541,7 @@ pub fn make_transfer_bid_with_terms(
     let threshold = minimum_acceptable_fee_at(current_date, player, owner_team, buyer_team, phase)
         .saturating_mul(terms::seller_price_pct(&terms))
         / 100;
-    let player_refuses =
-        terms::player_refuses_move(player, owner_team, buyer_team, &terms, current_date);
+    let judgement = judge_in_game(game, player, &user_team_id, &terms)?;
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
     let existing_offer = latest_negotiation_with_club(player, &user_team_id, current_date);
     if talks_are_broken_off(existing_offer) {
@@ -574,24 +579,13 @@ pub fn make_transfer_bid_with_terms(
         // Before the offer is marked agreed: refusing after would leave it agreed
         // with the player still at his club.
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
-        ensure_buyer_can_pay_standard_wage(game, player_id, &user_team_id)?;
+        ensure_buyer_can_pay_standard_wage(game, player_id, &user_team_id, &terms)?;
         // The clubs agree; the player still has to. Not terminal: the manager can come back with
-        // a promise or a bonus, and the clubs' agreement is struck again.
-        if player_refuses {
-            return Ok(transfer_outcome(
-                TransferNegotiationDecision::Rejected,
-                None,
-                false,
-                None,
-                build_transfer_feedback(
-                    "transfers.transferFeedbackPlayerRefusesHeadline",
-                    "transfers.transferFeedbackPlayerRefusesDetail",
-                    NegotiationMood::Guarded,
-                    tension,
-                    patience,
-                    round,
-                    &[("fee", fee.to_string())],
-                ),
+        // better pay, a longer deal, a promise or a bonus, and the clubs' agreement is struck
+        // again.
+        if judgement.verdict != Verdict::Accept {
+            return Ok(player_stands_in_the_way(
+                &judgement, fee, tension, patience, round,
             ));
         }
         if register_immediately {
@@ -759,6 +753,101 @@ pub fn make_transfer_bid_with_terms(
         ),
     ))
 }
+/// Whether the manager's club could make this bid right now, by every rule that does not depend on
+/// the other side's answer: the window, who owns him, the buyer's cash and transfer budget, and the
+/// board's view of the wage he would be paid. Mutates nothing. A caller that is about to open a
+/// negotiation on someone else's behalf asks first, so it does not queue a bid that cannot be made.
+pub(crate) fn bid_is_possible(
+    game: &Game,
+    player_id: &str,
+    fee: u64,
+    terms: &TransferTerms,
+) -> Result<(), String> {
+    terms::validate_terms(terms)?;
+    transfer_registration_date(game)?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .as_deref()
+        .ok_or("be.error.noTeamAssigned")?;
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .ok_or("be.error.playerNotFound")?;
+    if player.team_id.as_deref() == Some(user_team_id) {
+        return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.into());
+    }
+    if player_has_active_or_pending_loan(player) {
+        return Err(ERR_PLAYER_ALREADY_LOANED.into());
+    }
+    if has_pending_transfer_registration(player) {
+        return Err(ERR_OFFER_NOT_PENDING.into());
+    }
+    if player.team_id.is_none() {
+        return Err(ERR_PLAYER_HAS_NO_TEAM.into());
+    }
+    let buyer = game
+        .teams
+        .iter()
+        .find(|team| team.id == user_team_id)
+        .ok_or("be.error.managedTeamNotFound")?;
+    terms::fund_block(buyer, fee, terms).map_err(|block| block.error_key().to_string())?;
+    ensure_buyer_can_pay_standard_wage(game, player_id, user_team_id, terms)
+}
+
+/// The clubs agree and the player does not: a non-terminal answer that says what he wants, so the
+/// manager can come back with it. A player who would sign for more, or a longer deal, names his
+/// terms; one that no pay can bring round says only that the move does not suit him.
+fn player_stands_in_the_way(
+    judgement: &MoveJudgement,
+    fee: u64,
+    tension: u8,
+    patience: u8,
+    round: u8,
+) -> TransferNegotiationOutcome {
+    let demand = judgement
+        .counter
+        .map(|(weekly_wage, contract_years)| PlayerDemand {
+            weekly_wage,
+            contract_years,
+        });
+    let (headline, detail) = if demand.is_some() {
+        (
+            "transfers.transferFeedbackPlayerWantsMoreHeadline",
+            "transfers.transferFeedbackPlayerWantsMoreDetail",
+        )
+    } else {
+        (
+            "transfers.transferFeedbackPlayerRefusesHeadline",
+            "transfers.transferFeedbackPlayerRefusesDetail",
+        )
+    };
+    let mut params = vec![("fee", fee.to_string())];
+    if let Some(demand) = &demand {
+        params.push(("wage", demand.weekly_wage.to_string()));
+        params.push(("years", demand.contract_years.to_string()));
+    }
+    let mut outcome = transfer_outcome(
+        TransferNegotiationDecision::Rejected,
+        None,
+        false,
+        None,
+        build_transfer_feedback(
+            headline,
+            detail,
+            NegotiationMood::Guarded,
+            tension,
+            patience,
+            round,
+            &params,
+        ),
+    );
+    outcome.player_demand = demand;
+    outcome.player_obstacle = judgement.main_obstacle;
+    outcome
+}
+
 /// Respond to an incoming transfer offer on one of user's players.
 pub fn respond_to_offer(
     game: &mut Game,
@@ -816,11 +905,14 @@ pub fn respond_to_offer(
         .ok_or("be.error.teamNotFound")?;
     let openness_score = player_move_openness_score(current_date, player, owner_team, buyer_team);
 
+    // What the player will be paid at the buyer, once he has agreed to go.
+    let mut agreed_terms = TransferTerms::default();
     if accept {
         // Before the offer is marked agreed: refusing after would leave it agreed
         // with the player still at his club.
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
-        ensure_buyer_can_pay_standard_wage(game, player_id, &from_team_id)?;
+        agreed_terms = incoming_deal_terms(game, player_id, &from_team_id)?;
+        ensure_buyer_can_pay_standard_wage(game, player_id, &from_team_id, &agreed_terms)?;
     }
     if accept && register_immediately {
         ensure_transfer_cash_postable(game, &from_team_id, &user_team_id, fee)?;
@@ -843,6 +935,7 @@ pub fn respond_to_offer(
             } else {
                 TransferOfferStatus::PendingRegistration
             };
+            o.terms = agreed_terms.clone();
         } else {
             close_transfer_offer(
                 o,
@@ -859,7 +952,14 @@ pub fn respond_to_offer(
 
     if accept {
         if register_immediately {
-            execute_transfer(game, player_id, &from_team_id, &user_team_id, fee)?;
+            execute_transfer_with_terms(
+                game,
+                player_id,
+                &from_team_id,
+                &user_team_id,
+                fee,
+                &agreed_terms,
+            )?;
             finalize_successful_transfer_offer(game, player_id, offer_id)?;
         } else {
             reserve_player_for_pending_transfer(game, player_id, offer_id)?;
@@ -945,11 +1045,13 @@ pub fn counter_offer(
         ((counter_ceiling as f64) * if round >= 3 && stalled { 1.03 } else { 1.08 }).round() as u64;
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
 
+    let mut agreed_terms = TransferTerms::default();
     if accepted {
         // Before the offer is marked agreed: refusing after would leave it agreed
         // with the player still at his club.
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
-        ensure_buyer_can_pay_standard_wage(game, player_id, &buyer_team_id)?;
+        agreed_terms = incoming_deal_terms(game, player_id, &buyer_team_id)?;
+        ensure_buyer_can_pay_standard_wage(game, player_id, &buyer_team_id, &agreed_terms)?;
     }
     if accepted && register_immediately {
         ensure_transfer_cash_postable(game, &buyer_team_id, &user_team_id, requested_fee)?;
@@ -981,6 +1083,7 @@ pub fn counter_offer(
             offer.last_manager_fee = Some(requested_fee);
             offer.negotiation_round = round;
             offer.suggested_counter_fee = None;
+            offer.terms = agreed_terms.clone();
             offer.registration_date = if register_immediately {
                 None
             } else {
@@ -998,12 +1101,13 @@ pub fn counter_offer(
 
     if accepted {
         if register_immediately {
-            execute_transfer(
+            execute_transfer_with_terms(
                 game,
                 player_id,
                 &buyer_team_id,
                 &user_team_id,
                 requested_fee,
+                &agreed_terms,
             )?;
             finalize_successful_transfer_offer(game, player_id, offer_id)?;
         } else {

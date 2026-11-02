@@ -24,6 +24,12 @@ pub struct TransferTerms {
     pub signing_bonus: u64,
     /// The buyer promises not to obstruct a suitable future move; see `SteppingStonePromise`.
     pub promise_stepping_stone: bool,
+    /// The weekly wage the buyer offers the player for his new contract. Zero: the buyer's
+    /// standard terms (what he would ask a club of that stature), the only terms before the
+    /// player had a say.
+    pub player_weekly_wage: u32,
+    /// Length of that contract in years. Zero: the standard length for his age.
+    pub player_contract_years: u8,
 }
 
 impl Default for TransferTerms {
@@ -33,6 +39,8 @@ impl Default for TransferTerms {
             sell_on_pct: 0,
             signing_bonus: 0,
             promise_stepping_stone: false,
+            player_weekly_wage: 0,
+            player_contract_years: 0,
         }
     }
 }
