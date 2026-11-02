@@ -1621,6 +1621,11 @@
       "outlookHesitant": "Ele está hesitante: espere que peça condições melhores.",
       "outlookUnlikely": "É improvável que ele se junte a este clube.",
       "expects": "Ele espera cerca de {{wage}} por semana durante {{years}} anos."
+    },
+    "squadCapacity": {
+      "summary": "Lista do elenco: {{count}} / {{max}} · base {{youth}} · emprestados ao clube {{loanedIn}} · emprestados a outros {{loanedOut}}",
+      "room": "Restam {{free}} vaga(s) na lista do elenco.",
+      "full": "Não há vaga na lista: libere {{release}} antes de contratar. É o limite de inscrição do clube, não uma recusa do jogador."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "Você já tem uma proposta com este jogador. Espere a resposta dele ou retire-a.",
         "talksBrokenOff": "Este jogador não vai falar com seu clube por enquanto.",
         "tooManyOpenTalks": "Você tem negociações demais abertas. Espere respostas ou retire uma proposta.",
-        "squadFull": "Seu elenco principal está completo. Dispense um jogador antes de contratar outro.",
+        "squadFull": "A lista do elenco principal está cheia: {{count}} de {{max}} vagas ocupadas. Libere {{release}} vaga(s) antes de contratar outro jogador: rescinda, venda, empreste ou passe um jogador para a equipe de base.",
         "noCounterToAnswer": "Este jogador não tem nenhuma contraproposta para responder.",
         "counterExpired": "A contraproposta dele expirou.",
         "noOpenTalk": "Você não tem nenhuma proposta aberta com este jogador.",

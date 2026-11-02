@@ -1646,6 +1646,11 @@
       "outlookHesitant": "È indeciso: aspettati che chieda condizioni migliori.",
       "outlookUnlikely": "È improbabile che si unisca a questo club.",
       "expects": "Si aspetta circa {{wage}} a settimana per {{years}} anni."
+    },
+    "squadCapacity": {
+      "summary": "Lista prima squadra: {{count}} / {{max}} · giovanili {{youth}} · in prestito al club {{loanedIn}} · prestati ad altri {{loanedOut}}",
+      "room": "Restano {{free}} posto/i nella lista della prima squadra.",
+      "full": "Nessun posto libero nella lista: liberane {{release}} prima di ingaggiare. È il limite di tesseramento del club, non un rifiuto del giocatore."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "Hai già un'offerta aperta con questo giocatore. Aspetta la sua risposta o ritirala.",
         "talksBrokenOff": "Questo giocatore per ora non parlerà con il tuo club.",
         "tooManyOpenTalks": "Hai troppe trattative aperte. Aspetta le risposte o ritira un'offerta.",
-        "squadFull": "La tua rosa di prima squadra è al completo. Libera un giocatore prima di firmarne un altro.",
+        "squadFull": "La lista della prima squadra è piena: {{count}} posti su {{max}} occupati. Libera {{release}} posto/i prima di ingaggiare un altro giocatore: svincola, vendi, presta o sposta un giocatore nelle giovanili.",
         "noCounterToAnswer": "Questo giocatore non ha nessuna controproposta a cui rispondere.",
         "counterExpired": "La sua controproposta è scaduta.",
         "noOpenTalk": "Non hai nessuna offerta aperta con questo giocatore.",

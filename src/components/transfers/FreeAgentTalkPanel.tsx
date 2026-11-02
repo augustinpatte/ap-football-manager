@@ -18,7 +18,7 @@ const INTEREST_CLASSES = {
  */
 export default function FreeAgentTalkPanel({ panel }: { panel: FreeAgentTalkPanelData }) {
   const { t, i18n } = useTranslation();
-  const { interest, talk, rivals, busy } = panel;
+  const { interest, talk, rivals, busy, squadCapacity } = panel;
   const day = (value: string): string => formatDate(value, i18n.language);
 
   const awaiting = talk?.status === "awaiting_response" ? talk : null;
@@ -37,6 +37,29 @@ export default function FreeAgentTalkPanel({ panel }: { panel: FreeAgentTalkPane
       >
         {t("freeAgents.talk.title")}
       </h4>
+
+      {squadCapacity ? (
+        <div className="space-y-1">
+          <p className="text-caption text-fg-muted">
+            {t("transfers.squadCapacity.summary", {
+              count: squadCapacity.registered_seniors,
+              max: squadCapacity.senior_limit,
+              youth: squadCapacity.youth,
+              loanedIn: squadCapacity.loaned_in,
+              loanedOut: squadCapacity.loaned_out,
+            })}
+          </p>
+          {squadCapacity.blocks_signing ? (
+            <p role="alert" className="text-caption font-semibold text-danger">
+              {t("transfers.squadCapacity.full", { release: squadCapacity.releases_needed })}
+            </p>
+          ) : (
+            <p className="text-caption text-fg-muted">
+              {t("transfers.squadCapacity.room", { free: squadCapacity.free_places })}
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {interest ? (
         <div className="space-y-1">

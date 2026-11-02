@@ -1621,6 +1621,11 @@
       "outlookHesitant": "Er zögert: Rechne damit, dass er bessere Konditionen verlangt.",
       "outlookUnlikely": "Er wird diesem Verein wohl nicht beitreten.",
       "expects": "Er erwartet etwa {{wage}} pro Woche über {{years}} Jahre."
+    },
+    "squadCapacity": {
+      "summary": "Profikaderliste: {{count}} / {{max}} · Jugend {{youth}} · ausgeliehen an den Klub {{loanedIn}} · verliehen {{loanedOut}}",
+      "room": "Noch {{free}} Platz/Plätze auf der Profikaderliste.",
+      "full": "Kein Platz mehr auf der Liste: Schaffe {{release}}, bevor du verpflichtest. Das ist das Meldelimit des Klubs, keine Absage des Spielers."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "Du hast bereits ein Angebot bei diesem Spieler. Warte auf seine Antwort oder ziehe es zurück.",
         "talksBrokenOff": "Dieser Spieler spricht vorerst nicht mit deinem Verein.",
         "tooManyOpenTalks": "Du hast zu viele Verhandlungen offen. Warte auf Antworten oder ziehe ein Angebot zurück.",
-        "squadFull": "Dein Profikader ist voll. Gib einen Spieler ab, bevor du einen weiteren verpflichtest.",
+        "squadFull": "Die Profikaderliste ist voll: {{count}} von {{max}} Plätzen sind belegt. Schaffe {{release}} Platz/Plätze, bevor du einen weiteren Spieler verpflichtest: Vertrag auflösen, verkaufen, verleihen oder in die Jugend versetzen.",
         "noCounterToAnswer": "Dieser Spieler hat kein Gegenangebot, das du beantworten könntest.",
         "counterExpired": "Sein Gegenangebot ist abgelaufen.",
         "noOpenTalk": "Du hast kein offenes Angebot bei diesem Spieler.",

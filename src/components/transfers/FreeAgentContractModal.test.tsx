@@ -157,6 +157,7 @@ function createProjection(
 
 function idleTalkPanel(overrides: Partial<FreeAgentTalkPanelData> = {}): FreeAgentTalkPanelData {
   return {
+    squadCapacity: null,
     interest: null,
     talk: null,
     rivals: [],

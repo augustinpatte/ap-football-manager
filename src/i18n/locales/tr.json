@@ -1621,6 +1621,11 @@
       "outlookHesitant": "Kararsız: daha iyi şartlar isteyeceğini bekleyin.",
       "outlookUnlikely": "Bu kulübe katılma ihtimali düşük.",
       "expects": "Haftada yaklaşık {{wage}} ile {{years}} yıl bekliyor."
+    },
+    "squadCapacity": {
+      "summary": "Takım kadro listesi: {{count}} / {{max}} · altyapı {{youth}} · kulübe kiralanan {{loanedIn}} · kiralanan {{loanedOut}}",
+      "room": "Takım kadro listesinde {{free}} yer kaldı.",
+      "full": "Listede yer kalmadı: imzalamadan önce {{release}} yer açın. Bu kulübün kayıt sınırıdır, oyuncunun reddi değil."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
         "talksBrokenOff": "Bu oyuncu şimdilik kulübünle konuşmayacak.",
         "tooManyOpenTalks": "Çok fazla açık pazarlığın var. Yanıtları bekle ya da bir teklifi geri çek.",
-        "squadFull": "A takım kadron dolu. Yenisini almadan önce bir oyuncuyu gönder.",
+        "squadFull": "A takım kadro listesi dolu: {{max}} yerin {{count}} tanesi dolu. Başka bir oyuncu imzalamadan önce {{release}} yer açın: sözleşmeyi feshedin, satın, kiralayın veya bir oyuncuyu altyapıya aktarın.",
         "noCounterToAnswer": "Bu oyuncunun yanıtlanacak bir karşı teklifi yok.",
         "counterExpired": "Karşı teklifinin süresi doldu.",
         "noOpenTalk": "Bu oyuncuyla açık bir teklifin yok.",

@@ -9,6 +9,7 @@ import {
   type FreeAgentContractProjection,
   type FreeAgentContractResponseData,
   type FreeAgentInterestData,
+  type SquadCapacityData,
 } from "../../services/freeAgentService";
 import { calcAgeOnDate } from "../../lib/valueFormatting";
 import { resolveBackendError } from "../../utils/backendI18n";
@@ -24,6 +25,8 @@ const MAX_CONTRACT_YEARS = 5;
 
 /** What the talk panel of the contract form shows and does: the negotiation, not the terms. */
 export interface FreeAgentTalkPanelData {
+  /** The club's senior squad list; a full list is a registration limit, not the player's answer. */
+  squadCapacity: SquadCapacityData | null;
   /** How the player would take the terms now; absent until the preview has answered. */
   interest: FreeAgentInterestData | null;
   /** The manager's club's talk with him: the open one, else the latest that ended. */
@@ -107,6 +110,7 @@ export function useFreeAgentContractFlow({
   const [steppingStoneAvailable, setSteppingStoneAvailable] = useState(false);
   const [signingBonus, setSigningBonus] = useState("0");
   const [signingBonusError, setSigningBonusError] = useState<string | null>(null);
+  const [squadCapacity, setSquadCapacity] = useState<SquadCapacityData | null>(null);
   const [promiseSteppingStone, setPromiseSteppingStone] = useState(false);
   const [contractError, setContractError] = useState<string | null>(null);
   const [interest, setInterest] = useState<FreeAgentInterestData | null>(null);
@@ -151,6 +155,7 @@ export function useFreeAgentContractFlow({
           setContractProjection(result.projection ?? null);
           setInterest(result.interest ?? null);
           setSigningBonusError(result.signing_bonus_error ?? null);
+          setSquadCapacity(result.squad_capacity ?? null);
           const available = result.stepping_stone_available === true;
           setSteppingStoneAvailable(available);
           // A promise the player would not value is refused by the backend: never carry it over.
@@ -273,6 +278,7 @@ export function useFreeAgentContractFlow({
     }));
 
   const talkPanel: FreeAgentTalkPanelData = {
+    squadCapacity,
     interest,
     talk,
     rivals,
@@ -311,6 +317,7 @@ export function useFreeAgentContractFlow({
       !isContractLengthValid ||
       !isSigningBonusValid ||
       signingBonusError !== null ||
+      squadCapacity?.blocks_signing === true ||
       contractViolatesSoftCap,
     talkPanel,
     myTeam,

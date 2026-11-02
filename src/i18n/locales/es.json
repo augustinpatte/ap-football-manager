@@ -1621,6 +1621,11 @@
       "outlookHesitant": "Duda: espera que pida mejores condiciones.",
       "outlookUnlikely": "Es poco probable que fiche por este club.",
       "expects": "Espera unos {{wage}} semanales durante {{years}} años."
+    },
+    "squadCapacity": {
+      "summary": "Lista de plantilla: {{count}} / {{max}} · equipo juvenil {{youth}} · cedidos a tu club {{loanedIn}} · cedidos a otros {{loanedOut}}",
+      "room": "Quedan {{free}} plaza(s) en la lista de plantilla.",
+      "full": "No queda plaza en la lista: libera {{release}} antes de fichar. Es el límite de inscripción del club, no un rechazo del jugador."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "Ya tienes una oferta con este jugador. Espera su respuesta o retírala.",
         "talksBrokenOff": "Este jugador no hablará con tu club por ahora.",
         "tooManyOpenTalks": "Tienes demasiadas negociaciones abiertas. Espera respuestas o retira una oferta.",
-        "squadFull": "Tu plantilla principal está completa. Da de baja a un jugador antes de fichar a otro.",
+        "squadFull": "La lista de plantilla del primer equipo está llena: {{count}} de {{max}} plazas ocupadas. Libera {{release}} plaza(s) antes de fichar a otro jugador: rescinde, vende, cede o pasa a un jugador al equipo juvenil.",
         "noCounterToAnswer": "Este jugador no tiene ninguna contraoferta que responder.",
         "counterExpired": "Su contraoferta ha caducado.",
         "noOpenTalk": "No tienes ninguna oferta abierta con este jugador.",

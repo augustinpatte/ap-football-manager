@@ -78,6 +78,9 @@ pub struct FreeAgentContractProjectionCommandResponse {
     pub signing_bonus_error: Option<String>,
     /// How the player would take these terms now, and who else is bidding for him.
     pub interest: FreeAgentInterest,
+    /// The senior squad list and its limit: a full list is the club's registration limit, not the
+    /// player's answer, and the screen says how many places to free.
+    pub squad_capacity: Option<ofm_core::contracts::SquadCapacity>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -419,6 +422,11 @@ pub fn preview_free_agent_contract_impact_internal(
                 stepping_stone_available,
                 signing_bonus_error,
                 interest,
+                squad_capacity: game
+                    .manager
+                    .team_id
+                    .as_deref()
+                    .map(|club_id| ofm_core::contracts::squad_capacity(game, club_id)),
             })
         })
         .ok_or_else(|| "be.error.noActiveGameSession".to_string())?

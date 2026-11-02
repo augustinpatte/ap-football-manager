@@ -1621,6 +1621,11 @@
       "outlookHesitant": "He is hesitant: expect him to ask for better terms.",
       "outlookUnlikely": "He is unlikely to join this club.",
       "expects": "He expects about {{wage}} a week over {{years}} years."
+    },
+    "squadCapacity": {
+      "summary": "Senior squad list: {{count}} / {{max}} · youth squad {{youth}} · loaned in {{loanedIn}} · loaned out {{loanedOut}}",
+      "room": "{{free}} place(s) left on the senior squad list.",
+      "full": "No place left on the list: free {{release}} before signing. This is the club's registration limit, not a refusal from the player."
     }
   },
   "transferCentreWorld": {
@@ -3195,7 +3200,7 @@
         "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
         "talksBrokenOff": "This player will not talk to your club for now.",
         "tooManyOpenTalks": "You have too many negotiations open. Wait for answers or withdraw an offer.",
-        "squadFull": "Your senior squad is full. Release a player before signing another.",
+        "squadFull": "Your senior squad list is full: {{count}} of {{max}} places are taken. Free {{release}} place(s) before signing another player: release, sell, loan out or move a player to the youth squad.",
         "noCounterToAnswer": "There is no counter-offer from this player to answer.",
         "counterExpired": "His counter-offer has expired.",
         "noOpenTalk": "You have no open offer with this player.",

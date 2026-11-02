@@ -46,6 +46,23 @@ export interface FreeAgentInterestData {
   open_talk: FreeAgentTalkData | null;
 }
 
+/**
+ * Where the manager's senior squad list stands. The limit is an administrative registration
+ * limit of the club, not the player's decision: `blocks_signing` says only that a place must be
+ * freed first (by releasing, selling, loaning out or moving a player to the youth squad).
+ */
+export interface SquadCapacityData {
+  registered_seniors: number;
+  senior_limit: number;
+  youth: number;
+  loaned_in: number;
+  loaned_out: number;
+  free_places: number;
+  /** Places to free before one more player can be signed (0 when there is room). */
+  releases_needed: number;
+  blocks_signing: boolean;
+}
+
 export interface FreeAgentContractProjectionResponseData {
   projection: FreeAgentContractProjection;
   /** The player would value a stepping-stone promise; the backend refuses it for anyone else. */
@@ -53,6 +70,8 @@ export interface FreeAgentContractProjectionResponseData {
   /** A translation key: why a signing bonus of the size asked about cannot be paid, if it cannot. */
   signing_bonus_error?: string | null;
   interest: FreeAgentInterestData;
+  /** The club's senior squad list now, so a full list is explained with its numbers. */
+  squad_capacity?: SquadCapacityData | null;
 }
 
 export async function offerFreeAgentContract(

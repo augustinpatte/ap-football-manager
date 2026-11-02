@@ -111,7 +111,7 @@ fn free_player_index(game: &Game, player_id: &str) -> Result<usize, String> {
         .position(|player| player.id == player_id)
         .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
     let player = &game.players[index];
-    if player.retired || player.team_id.is_some() {
+    if !player.is_on_free_market() {
         return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
     }
     Ok(index)
@@ -248,8 +248,9 @@ fn validate_affordable(
 }
 
 fn ensure_room_in_the_squad(game: &Game, club_id: &str) -> Result<(), String> {
-    if ClubSquad::of(&game.players, club_id).seniors() >= MAX_SENIOR_SQUAD {
-        return Err(ERR_SQUAD_FULL.to_string());
+    let capacity = squad_capacity(game, club_id);
+    if capacity.blocks_signing {
+        return Err(capacity.full_error());
     }
     Ok(())
 }
