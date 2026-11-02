@@ -46,15 +46,16 @@ describe("InboxMessageListPane rows", () => {
    * When a keyboard user focuses its row and presses Enter, then Space
    * Then the message is opened each time.
    */
-  it("opens a message from the keyboard", () => {
+  it("uses a native button to open a message", () => {
     const { onSelectMessage } = renderPane();
     const row = screen.getByTestId("inbox-row-m1");
+    const openMessage = screen.getByRole("button", { name: /Board meeting/ });
 
-    fireEvent.keyDown(row, { key: "Enter" });
-    fireEvent.keyDown(row, { key: " " });
+    fireEvent.click(openMessage);
 
-    expect(row).toHaveAttribute("tabindex", "0");
-    expect(onSelectMessage).toHaveBeenCalledTimes(2);
+    expect(row).not.toHaveAttribute("role", "button");
+    expect(openMessage).toHaveAttribute("type", "button");
+    expect(onSelectMessage).toHaveBeenCalledTimes(1);
     expect(onSelectMessage).toHaveBeenCalledWith("m1");
   });
 
@@ -68,9 +69,13 @@ describe("InboxMessageListPane rows", () => {
       bulkSelectionEnabled: true,
     });
 
-    fireEvent.click(screen.getByTestId("inbox-select-message-m1"));
+    const checkbox = screen.getByTestId("inbox-select-message-m1");
+    const openMessage = screen.getByRole("button", { name: /Board meeting/ });
+
+    fireEvent.click(checkbox);
 
     expect(onToggleMessageSelection).toHaveBeenCalledWith("m1");
     expect(onSelectMessage).not.toHaveBeenCalled();
+    expect(openMessage).not.toContainElement(checkbox);
   });
 });
