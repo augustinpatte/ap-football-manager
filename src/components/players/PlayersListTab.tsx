@@ -104,6 +104,8 @@ export default function PlayersListTab({
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidResult,
     bidLoading,
     bidFeedback,
@@ -508,6 +510,8 @@ export default function PlayersListTab({
           teams={gameState.teams}
           bidAmount={bidAmount}
           onBidAmountChange={setBidAmount}
+          bidTerms={bidTerms}
+          onBidTermsChange={setBidTerms}
           myTeam={myTeam}
           bidFee={bidFee}
           bidProjection={bidProjection}

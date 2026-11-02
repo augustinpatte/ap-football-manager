@@ -643,6 +643,34 @@ describe("PlayersListTab", () => {
     });
   });
 
+  /**
+   * Given the manager opens a transfer bid from the Players list (not the Transfers tab),
+   * When the bid modal is shown,
+   * Then the player's contract (wage, length) and the deal terms are editable, not only the fee.
+   */
+  it("lets the manager edit the player's contract and deal terms from the bid modal", async () => {
+    setupSliceMock(createGameState(), {
+      preview_transfer_bid_financial_impact: () => ({ projection: null }),
+    });
+    render(
+      <PlayersListTab
+        gameState={createGameState()}
+        onGameUpdate={vi.fn()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    const playerRow = (await screen.findByText("A. Keeper")).closest("tr");
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Make Transfer Bid" }));
+
+    expect(screen.getByLabelText("transfers.playerTerms.wage")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.playerTerms.years")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.terms.signingBonus")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toBeInTheDocument();
+  });
+
   it("does not offer scouting or contract actions for retired free agents", async () => {
     const gameState: GameStateData = {
       ...createGameState(),

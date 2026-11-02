@@ -34,9 +34,12 @@ export interface TransferBidFormProps {
   teams: TeamData[];
   bidAmount: string;
   onBidAmountChange: (value: string) => void;
-  /** What the manager attaches to the fee: instalments, a sell-on clause, a bonus, a promise. */
-  bidTerms?: BidTermsInput;
-  onBidTermsChange?: (terms: BidTermsInput) => void;
+  /**
+   * What the manager attaches to the fee: the player's contract, instalments, a sell-on clause, a
+   * bonus, a promise. Required so that no entry point can offer a bid form that only prices the fee.
+   */
+  bidTerms: BidTermsInput;
+  onBidTermsChange: (terms: BidTermsInput) => void;
   myTeam: TeamData | null;
   bidFee: number | null;
   bidProjection: TransferBidProjectionData["projection"] | null;
@@ -90,7 +93,7 @@ export function TransferBidForm({
   // profile / squad / scouting action explains itself instead of dead-ending.
   const pendingRegistration = playerHasPendingRegistration(bidTarget);
   // The form says what is wrong with the terms rather than leaving Submit dead.
-  const termsInvalid = bidTerms ? !parseBidTerms(bidTerms).valid : false;
+  const termsInvalid = !parseBidTerms(bidTerms).valid;
   const outlook = bidProjection?.player_outlook ?? null;
   // When the player is the one holding the deal up, the feedback carries the terms he asks for.
   const demandedWage = Number(bidFeedback?.params?.wage ?? "");
@@ -174,8 +177,7 @@ export function TransferBidForm({
             onChange={(event) => onBidAmountChange(event.target.value)}
             className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
-          {bidTerms && onBidTermsChange ? (
-            <fieldset
+          <fieldset
               className="mb-3 rounded-lg border border-line bg-sunken p-3"
               disabled={bidLoading || bidResult === "accepted"}
             >
@@ -355,8 +357,7 @@ export function TransferBidForm({
                   {t("transfers.terms.hint")} {t("transfers.playerTerms.hint")}
                 </p>
               )}
-            </fieldset>
-          ) : null}
+          </fieldset>
           {myTeam && bidFee !== null && bidProjection ? (
             <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
               <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
