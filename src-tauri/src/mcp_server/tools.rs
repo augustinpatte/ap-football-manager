@@ -1055,7 +1055,7 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_free_agent_offer
     custom_tool!(
         "transfer_free_agent_offer",
-        "Offer contract to a free agent",
+        "Offer a contract to a free agent. He is not signed on the spot: the offer goes to him and he answers within 1-3 game days (pending / countered / refused), weighing his level against the club's, the wage, his role and rival bids. Read his answer with transfer_free_agent_preview; to take a counter, offer his asked terms or better",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID"),
@@ -1089,11 +1089,12 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_free_agent_preview
     custom_tool!(
         "transfer_free_agent_preview",
-        "Preview free agent contract financial impact",
+        "Preview a free agent signing: financial impact, how interested he is in these terms, your open talk with him (and his counter-offer), and rival clubs bidding",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID"),
-                ("weekly_wage", "integer", "Proposed weekly wage")
+                ("weekly_wage", "integer", "Proposed weekly wage"),
+                ("contract_years", "integer", "Proposed contract length in years (optional)")
             ],
             &["player_id", "weekly_wage"]
         ),
@@ -1108,7 +1109,8 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
                 Ok(v) => v,
                 Err(e) => return Ok(e),
             };
-            match tools_impl::transfers::transfer_free_agent_preview(ctx, pid, wage) {
+            let years = extract_u64_param(args, "contract_years").and_then(|v| u32::try_from(v).ok());
+            match tools_impl::transfers::transfer_free_agent_preview(ctx, pid, wage, years) {
                 Ok(value) => Ok(success(value)),
                 Err(e) => Ok(err_result(&e)),
             }
@@ -2061,7 +2063,7 @@ pub fn tool_catalog() -> Vec<(&'static str, &'static str, &'static str)> {
         ),
         (
             "transfer_free_agent_offer",
-            "Sign a free agent",
+            "Offer a contract to a free agent (answered within 1-3 days)",
             "Transfers",
         ),
         (

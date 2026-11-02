@@ -125,6 +125,8 @@ export type {
   ReleaseReason,
   PlayerData,
   TransferOfferData,
+  FreeAgentTalkData,
+  FreeAgentTalkReason,
   LoanOfferData,
   ActiveLoanData,
   StaffData,

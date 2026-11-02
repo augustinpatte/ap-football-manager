@@ -1,15 +1,20 @@
 //! The stepping-stone promise: made when a club signs a free agent, judged on measurable terms
 //! when an offer for him arrives, resolved by sale, refusal or the passing of time.
 
+#[path = "support/free_agent_talks.rs"]
+mod free_agent_support;
 mod market_fixtures;
 
+use chrono::NaiveDate;
+use domain::free_agent_talk::FreeAgentTalkStatus;
 use domain::player::{
     Player, RenewalSessionStatus, SteppingStonePromise, SteppingStonePromiseStatus,
 };
+use free_agent_support::{DAYS_TO_AN_ANSWER, run_days};
 use market_fixtures::{
     PLAYER_ID, USER_REPUTATION, game_with, pending_offer, player, prospect, set_date,
 };
-use ofm_core::contracts::{RenewalDecision, RenewalOffer, offer_free_agent_contract_with_promise};
+use ofm_core::contracts::{OfferTerms, submit_free_agent_offer};
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, respond_to_offer,
@@ -26,18 +31,22 @@ fn promise(game: &Game) -> &SteppingStonePromise {
 /// A signed prospect on the user's books, bound by an active promise from the given date.
 fn game_with_signed_prospect() -> Game {
     let mut game = game_with(player("2005-01-01"));
-    let outcome = offer_free_agent_contract_with_promise(
-        &mut game,
-        PLAYER_ID,
-        RenewalOffer {
-            weekly_wage: 20_000,
-            contract_years: 4,
-        },
-        true,
-    )
-    .expect("signing resolves");
-    assert_eq!(outcome.decision, RenewalDecision::Accepted);
+    submit_free_agent_offer(&mut game, PLAYER_ID, terms(20_000, 4, true)).expect("offer is taken");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
+    assert_eq!(
+        prospect(&game).morale_core.free_agent_talks[0].status,
+        FreeAgentTalkStatus::Signed
+    );
     game
+}
+
+fn terms(weekly_wage: u32, contract_years: u32, promise_stepping_stone: bool) -> OfferTerms {
+    OfferTerms {
+        weekly_wage,
+        contract_years,
+        signing_bonus: 0,
+        promise_stepping_stone,
+    }
 }
 
 fn incoming_offer(game: &mut Game, from: &str, fee: u64) {
@@ -55,42 +64,54 @@ fn signing_with_a_promise_records_measurable_terms() {
     assert_eq!(promise.club_id, "team-1");
     assert_eq!(promise.status, SteppingStonePromiseStatus::Active);
     assert_eq!(promise.min_buyer_reputation, USER_REPUTATION + 50);
-    assert_eq!(promise.made_on, "2026-08-01");
-    assert_eq!(promise.protected_from, "2027-01-28");
-    assert_eq!(promise.expires_on, "2029-08-01");
+    // Made on the day he signed, which is the day he answered: one to three days after the offer.
+    let made_on = NaiveDate::parse_from_str(&promise.made_on, "%Y-%m-%d").unwrap();
+    let offered_on = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    assert!((1..=3).contains(&(made_on - offered_on).num_days()));
+    assert_eq!(
+        promise.protected_from,
+        (made_on + chrono::Days::new(180)).to_string()
+    );
+    assert_eq!(
+        promise.expires_on,
+        made_on
+            .checked_add_months(chrono::Months::new(36))
+            .unwrap()
+            .to_string()
+    );
 }
 
 #[test]
 fn the_promise_buys_a_lower_wage_than_the_player_would_otherwise_accept() {
     let offer = |weekly_wage, promise| {
         let mut game = game_with(player("2005-01-01"));
-        let outcome = offer_free_agent_contract_with_promise(
-            &mut game,
-            PLAYER_ID,
-            RenewalOffer {
-                weekly_wage,
-                contract_years: 4,
-            },
-            promise,
-        )
-        .unwrap();
-        (game, outcome)
+        // A club a little below his level, so the pay and the promise decide whether he comes.
+        game.teams[0].reputation = 270;
+        submit_free_agent_offer(&mut game, PLAYER_ID, terms(weekly_wage, 4, promise)).unwrap();
+        run_days(&mut game, DAYS_TO_AN_ANSWER);
+        game
     };
     // Given his full ask, read from a near-miss counter.
-    let (_, near_miss) = offer(6_000, false);
-    let ask = near_miss
-        .suggested_wage
+    let near_miss = offer(6_000, false);
+    let ask = prospect(&near_miss).morale_core.free_agent_talks[0]
+        .counter_wage
         .expect("a near miss is countered with his ask");
     let under = ask * 95 / 100;
 
     // When 5% under the ask is offered with and without the promise.
-    let (without, plain) = offer(under, false);
-    let (with, promised) = offer(under, true);
+    let without = offer(under, false);
+    let with = offer(under, true);
 
     // Then only the promise gets the deal done.
-    assert_eq!(plain.decision, RenewalDecision::CounterOffer);
+    assert_eq!(
+        prospect(&without).morale_core.free_agent_talks[0].status,
+        FreeAgentTalkStatus::CounterOffered
+    );
     assert!(prospect(&without).team_id.is_none());
-    assert_eq!(promised.decision, RenewalDecision::Accepted);
+    assert_eq!(
+        prospect(&with).morale_core.free_agent_talks[0].status,
+        FreeAgentTalkStatus::Signed
+    );
     assert_eq!(prospect(&with).wage(), under);
 }
 
@@ -100,15 +121,7 @@ fn a_veteran_has_no_use_for_the_promise_and_is_not_signed_on_it() {
     let mut game = game_with(player("1990-01-01"));
 
     // When the club tries to promise him a way out.
-    let result = offer_free_agent_contract_with_promise(
-        &mut game,
-        PLAYER_ID,
-        RenewalOffer {
-            weekly_wage: 20_000,
-            contract_years: 1,
-        },
-        true,
-    );
+    let result = submit_free_agent_offer(&mut game, PLAYER_ID, terms(20_000, 1, true));
 
     // Then the offer is refused outright: nothing is recorded, he is still a free agent.
     assert_eq!(result.unwrap_err(), ERR_PROMISE_NOT_WANTED);
@@ -198,9 +211,10 @@ fn selling_to_a_suitable_club_fulfils_the_promise() {
 
 #[test]
 fn a_promise_that_runs_out_unbroken_lapses_once_to_the_clubs_credit() {
-    // Given a promise past its term with the player still at the club.
+    // Given a promise past its term (three years from the day he signed) with the player still at
+    // the club.
     let mut game = game_with_signed_prospect();
-    set_date(&mut game, 2029, 8, 2);
+    set_date(&mut game, 2029, 8, 5);
     let trust_before = prospect(&game).morale_core.manager_trust;
 
     // When the day is processed twice.

@@ -2830,8 +2830,60 @@
   "squadCompare": {
     "compare": "Bandingkan"
   },
+    "freeAgents": {
+      "talk": {
+        "title": "Negosiasi",
+        "interest": {
+          "keen": "Dia kemungkinan besar menerima syarat ini.",
+          "hesitant": "Dia ragu dan mungkin meminta syarat lain.",
+          "unlikely": "Dia kemungkinan besar tidak menerima syarat ini."
+        },
+        "expects": "Dia mengharapkan sekitar {{wage}} per minggu selama {{years}} tahun.",
+        "place": {
+          "key": "Di klubmu dia akan menjadi pemain kunci.",
+          "starter": "Di klubmu dia akan menjadi pemain inti reguler.",
+          "rotation": "Di klubmu dia akan masuk dalam rotasi.",
+          "backup": "Di klubmu dia akan menjadi pemain cadangan."
+        },
+        "responseTime": "Dia menjawab {{min}} sampai {{max}} hari setelah tawaran.",
+        "awaiting": "Tawaran terkirim. Dia akan menjawab pada {{date}}.",
+        "counter": "Dia meminta {{wage}} per minggu selama {{years}} tahun. Syaratnya berlaku sampai {{date}}.",
+        "acceptCounter": "Terima syaratnya",
+        "withdraw": "Tarik tawaran",
+        "rivals": "Klub lain juga sedang berbicara dengannya: {{clubs}}.",
+        "ended": {
+          "rejected": "Dia menolak tawaran itu.",
+          "withdrawn": "Kamu menarik tawaran itu.",
+          "lost_to_rival": "Dia menandatangani kontrak dengan klub lain.",
+          "lapsed": "Tawaran kedaluwarsa."
+        },
+        "offerPending": "Tawaran menunggu jawaban"
+      },
+      "reason": {
+        "wage_too_low": "Gajinya di bawah yang bisa dia minta.",
+        "club_below_his_level": "Klubmu jauh di bawah levelnya.",
+        "no_place_in_side_for_him": "Dia tidak akan menjadi pemain reguler di timmu.",
+        "contract_too_short": "Kontraknya lebih pendek dari yang dia inginkan.",
+        "offer_insulting": "Dia menganggap tawaran itu menghina dan tidak akan berbicara denganmu selama dua minggu.",
+        "talks_broken_off": "Kesabarannya habis dalam perundingan.",
+        "better_offer_elsewhere": "Klub lain memberinya tawaran yang lebih baik.",
+        "club_cannot_afford": "Klubmu tidak lagi mampu membayar kesepakatan ini.",
+        "manager_withdrew": "Kamu menarik tawaran itu.",
+        "counter_expired": "Tawaran baliknya tidak dijawab tepat waktu."
+      }
+    },
   "be": {
     "error": {
+        "freeAgents": {
+          "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
+          "talksBrokenOff": "Pemain ini tidak mau berbicara dengan klubmu untuk saat ini.",
+          "tooManyOpenTalks": "Kamu punya terlalu banyak negosiasi terbuka. Tunggu jawaban atau tarik satu tawaran.",
+          "squadFull": "Skuad seniormu penuh. Lepas satu pemain sebelum merekrut yang lain.",
+          "noCounterToAnswer": "Pemain ini tidak punya tawaran balik yang perlu dijawab.",
+          "counterExpired": "Tawaran baliknya sudah kedaluwarsa.",
+          "noOpenTalk": "Kamu tidak punya tawaran terbuka untuk pemain ini.",
+          "invalidOffer": "Itu bukan tawaran kontrak yang valid."
+        },
       "squadFloor": {
         "wouldLeaveShort": "Pemain ini tidak bisa pergi: skuad akan turun di bawah batas minimum yang harus dipertahankan klub. Lini terdampak: {{group}}.",
         "wouldLeaveSeniorsShort": "Pemain ini tidak bisa pergi: klub akan tinggal memiliki kurang dari {{floor}} pemain di tim utama, batas minimum yang harus dipertahankan klub."
@@ -3185,6 +3237,24 @@
       "sportsDaily": "Harian Olahraga"
     },
     "msg": {
+        "freeAgentTalk": {
+          "counter": {
+            "subject": "{{player}} menginginkan syarat lain",
+            "body": "{{player}} menjawab tawaran {{team}} dengan tawaran balik: {{wage}} per minggu selama {{years}} tahun. Syaratnya berlaku {{days}} hari."
+          },
+          "rejected": {
+            "subject": "{{player}} menolak {{team}}",
+            "body": "{{player}} menolak tawaran {{team}}. Buka profilnya untuk melihat alasannya."
+          },
+          "lost": {
+            "subject": "{{player}} menandatangani kontrak dengan {{team}}",
+            "body": "{{player}} memilih klub lain, {{team}}, daripada tawaranmu."
+          },
+          "lapsed": {
+            "subject": "Tawaran untuk {{player}} kedaluwarsa",
+            "body": "Tawaran untuk {{player}} tidak membuahkan hasil: tawaran baliknya tidak dijawab tepat waktu atau klub tidak lagi mampu membayar kesepakatan itu."
+          }
+        },
       "world": {
         "randomName": "Dunia Acak",
         "randomDescription": "Liga yang dihasilkan secara acak dengan {{teamCount}} tim di seluruh Eropa",

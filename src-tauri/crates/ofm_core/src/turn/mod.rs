@@ -179,6 +179,9 @@ fn process_day_common(game: &mut Game, today: &str) {
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
     crate::ai_contracts::apply_ai_contract_decisions(game, weekday_num);
     crate::contracts::process_contract_expiries(game);
+    // Free agents answer the offers whose time has come, now that expiries have put the day's
+    // new ones on the market.
+    crate::contracts::process_free_agent_talks(game);
     // Staff contracts run out like players'; AI clubs fill, renew and trim their staff.
     crate::staff_system::ai::process_user_staff_expiry(game);
     crate::staff_system::ai::apply_ai_staff_management(game, weekday_num);
