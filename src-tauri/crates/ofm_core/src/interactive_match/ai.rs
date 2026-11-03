@@ -103,16 +103,27 @@ fn swap_utility(ctx: &AiContext<'_>, off: &PlayerView, on: &PlayerView, slot: Po
     else {
         return f32::NEG_INFINITY;
     };
+    // The horizon is the part of the match being played (regulation, then extra time), and the
+    // autonomous manager measures what is left of *that*, so a swap in extra time is judged against
+    // the thirty minutes of extra time, not against ninety.
     let regulation_min = (ctx.regulation_ms as f32 / 60_000.0).max(1.0);
-    let remaining = (minutes_left(ctx) / regulation_min).clamp(0.0, 1.0);
+    let horizon_min = if ctx.view.clock_ms as f32 / 60_000.0 <= regulation_min {
+        regulation_min
+    } else {
+        EXTRA_TIME_MINUTES
+    };
+    let left = minutes_left(ctx);
+    let remaining = (left / horizon_min).clamp(0.0, 1.0);
     let own = ctx.own();
     let sub = SubContext {
-        minute: (1.0 - remaining).clamp(0.0, 1.0),
+        minute: 1.0 - remaining,
         remaining,
         score_diff: ctx.goal_difference(),
         used: own.substitutions_used,
         max: own.substitutions_used + own.substitutions_remaining,
     };
+    // the autonomous manager gates a weakening swap on how much the score demands a change, 0..1
+    let (chase, protect) = need_v2(&ManagerConfig::m10(), ctx.goal_difference(), left);
     // the view's condition is one minus the long-term fatigue, which is what `performance` reads
     substitution_utility_v2(
         &ManagerConfig::m10(),
@@ -123,7 +134,7 @@ fn swap_utility(ctx: &AiContext<'_>, off: &PlayerView, on: &PlayerView, slot: Po
         on_attrs,
         *on_natural,
         performance(1.0 - on.condition, 0.0, 0.0),
-        need(ctx),
+        chase.max(protect),
         None,
     )
 }
@@ -375,13 +386,16 @@ fn best_replacement(
 
 /// Minutes left in the horizon being played: the rest of regulation, or of extra time (two
 /// fifteen-minute halves) once regulation is over.
+/// Extra time is two fifteen-minute halves.
+const EXTRA_TIME_MINUTES: f32 = 30.0;
+
 fn minutes_left(ctx: &AiContext<'_>) -> f32 {
     let regulation = ctx.regulation_ms as f32 / 60_000.0;
     let now = ctx.view.clock_ms as f32 / 60_000.0;
     if now <= regulation {
         regulation - now
     } else {
-        regulation + 30.0 - now
+        regulation + EXTRA_TIME_MINUTES - now
     }
 }
 
@@ -958,9 +972,16 @@ mod tests {
                 // adapter under test
                 let (off_a, _) = ctx.squad.known(&off.id).expect("known");
                 let (on_a, on_nat) = ctx.squad.known(&b.id).expect("known");
+                // the autonomous manager's horizon: what is left of regulation, or of the thirty
+                // minutes of extra time once regulation is over
                 let regulation = ctx.regulation_ms as f32 / 60_000.0;
                 let now = ctx.view.clock_ms as f32 / 60_000.0;
-                let remaining = ((regulation - now) / regulation).clamp(0.0, 1.0);
+                let (total, left) = if now <= regulation {
+                    (regulation, regulation - now)
+                } else {
+                    (30.0, regulation + 30.0 - now)
+                };
+                let remaining = (left / total).clamp(0.0, 1.0);
                 let sub = SubContext {
                     minute: 1.0 - remaining,
                     remaining,
@@ -968,6 +989,7 @@ mod tests {
                     used: ctx.own().substitutions_used,
                     max: ctx.own().substitutions_used + ctx.own().substitutions_remaining,
                 };
+                let (chase, protect) = need_v2(&ManagerConfig::m10(), ctx.goal_difference(), left);
                 let u = substitution_utility_v2(
                     &ManagerConfig::m10(),
                     &sub,
@@ -977,7 +999,7 @@ mod tests {
                     on_a,
                     *on_nat,
                     performance(1.0 - b.condition, 0.0, 0.0),
-                    need(&ctx),
+                    chase.max(protect),
                     None,
                 );
                 (u, b.id.clone())
@@ -996,7 +1018,14 @@ mod tests {
     /// the match is played in.
     #[test]
     fn a_replacement_is_the_one_the_autonomous_manager_would_choose() {
-        for (minute, home, away) in [(70, 0, 0), (75, 0, 1), (78, 2, 1), (82, 0, 2)] {
+        for (minute, home, away) in [
+            (70, 0, 0),
+            (75, 0, 1),
+            (78, 2, 1),
+            (82, 0, 2),
+            (100, 1, 1),
+            (110, 0, 1),
+        ] {
             let mut f = fixture(minute, home, away);
             let off_id = f
                 .view

@@ -9,7 +9,7 @@ import {
   type TeamTalkTone,
 } from "./types";
 import MatchEventSideBadge from "./MatchEventSideBadge";
-import { getEventDisplay, getPlayerName, makeTeamFallback } from "./helpers";
+import { getEventDisplay, getPlayerName, goalPlayerLabel, makeTeamFallback } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
 import { Badge, TeamLogo, ThemeToggle } from "../ui";
 import { QuickStat, renderScorers, PlayerRatingsPanel } from "./PostMatchHelpers";
@@ -640,7 +640,7 @@ export default function PostMatchScreen({
                         </span>
                         <span>{display.icon}</span>
                         <span className={`${display.color} font-medium truncate flex-1`}>
-                          {getPlayerName(snapshot, evt.player_id)}
+                          {goalPlayerLabel(snapshot, evt, t)}
                         </span>
                         <MatchEventSideBadge
                           side={evt.side}

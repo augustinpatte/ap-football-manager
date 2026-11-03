@@ -11,6 +11,8 @@ Read [`../CLAUDE.md`](../CLAUDE.md) first for the project-wide rules, and
 ```text
   Tauri commands   src/commands/, src/application/, src/mcp_server/
                    → domain, engine, ofm_core, db, mcp-results
+                   (tests only: season-harness, to build a generated world for the
+                   season test in src/application/interactive_season.rs)
 
   db               SQLite persistence        → domain, ofm_core
   ofm_core         game logic, state, turn   → domain, engine

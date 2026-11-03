@@ -26,8 +26,11 @@ use crate::application::time_advancement::advance_time_with_mode;
 /// What one played match left in the career, measured on the user's club.
 #[derive(Debug, Clone, Default)]
 struct MatchRecord {
+    /// Squad average (bench included) before and after the match.
     starters_condition_before: f64,
     starters_condition_after: f64,
+    /// Condition, before the match, of the players who played in it: the fatigue they arrived with.
+    arrived_with: Vec<u8>,
     injured_after: usize,
     reds_after: u32,
     played_while_injured: usize,
@@ -100,6 +103,11 @@ fn play_matches(state: &StateManager, matches: usize) -> Vec<MatchRecord> {
         play_interactive(state);
         let after = state.get_game(|g| g.clone()).expect("game");
         let appearances_after = appearances(&after);
+        let arrived_with: Vec<u8> = user_squad(&before)
+            .iter()
+            .filter(|p| appearances_after.get(&p.id) > appearances_before.get(&p.id))
+            .map(|p| p.condition)
+            .collect();
         let played_while_injured = injured_ids
             .iter()
             .filter(|id| appearances_after.get(*id) > appearances_before.get(*id))
@@ -107,6 +115,7 @@ fn play_matches(state: &StateManager, matches: usize) -> Vec<MatchRecord> {
         records.push(MatchRecord {
             starters_condition_before: mean_condition(&before),
             starters_condition_after: mean_condition(&after),
+            arrived_with,
             injured_after: user_squad(&after)
                 .iter()
                 .filter(|p| p.injury.is_some())
@@ -181,6 +190,11 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         league_fixtures_completed >= 30,
         "a league season: {league_fixtures_completed}"
     );
+    let faults = season_harness::lifecycle::standings_match_results(&game);
+    assert!(
+        faults.is_empty(),
+        "every table row equals its results: {faults:?}"
+    );
     let violators: usize = records.iter().map(|r| r.played_while_injured).sum();
     assert_eq!(violators, 0, "an injured player played");
     for p in user_squad(&game) {
@@ -205,6 +219,31 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         records.iter().map(|r| r.injured_after as f64).sum::<f64>() / played as f64,
         records.iter().map(|r| r.reds_after).sum::<u32>()
     );
+    // the players who play arrive tired when matches come thick, but the schedule does not wear
+    // them down match after match: compare the first and the last third of the season
+    let arrivals: Vec<f64> = records
+        .iter()
+        .map(|r| {
+            r.arrived_with.iter().map(|c| f64::from(*c)).sum::<f64>()
+                / r.arrived_with.len().max(1) as f64
+        })
+        .collect();
+    let third = (played / 3).max(1);
+    let early = arrivals[..third].iter().sum::<f64>() / third as f64;
+    let late = arrivals[played - third..].iter().sum::<f64>() / third as f64;
+    let worst = records
+        .iter()
+        .flat_map(|r| r.arrived_with.iter().copied())
+        .min()
+        .unwrap_or(100);
+    println!(
+        "players who played arrived with condition {early:.1} (first third of the season), {late:.1} (last third); lowest {worst}"
+    );
+    assert!(
+        late > early - 15.0,
+        "no spiral: arrivals {early:.1} -> {late:.1}"
+    );
+    assert!(worst >= 30, "nobody plays on empty: lowest arrival {worst}");
     assert!(
         low > 20.0,
         "no fatigue spiral: lowest squad average {low:.1}"
@@ -237,25 +276,14 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         table_played(&game),
         "the reloaded career played the same number of matches"
     );
-    let standings = |g: &Game| {
-        g.competitions
-            .iter()
-            .flat_map(|c| c.standings.iter())
-            .map(|s| {
-                (
-                    s.team_id.clone(),
-                    s.played,
-                    s.points,
-                    s.goals_for,
-                    s.goals_against,
-                )
-            })
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(
-        standings(&game_b),
-        standings(&game),
-        "save and reload in the middle of the season changes no result"
+    let (fa, fb) = (
+        season_harness::fingerprint::fingerprint(&game),
+        season_harness::fingerprint::fingerprint(&game_b),
+    );
+    assert!(
+        fa == fb,
+        "save and reload in the middle of the season changes nothing: {}",
+        season_harness::fingerprint::first_difference(&fa, &fb)
     );
     assert_eq!(first.len() + rest.len(), played);
 }

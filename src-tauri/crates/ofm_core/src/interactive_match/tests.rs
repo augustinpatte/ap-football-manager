@@ -951,6 +951,7 @@ fn fm24_workload_reference_study() {
         .map(|(i, f)| (i, competition.id.clone(), f.id.clone()))
         .collect();
 
+    let (mut started, mut refused) = (0, 0);
     // [line][stamina band][pressing] -> (sum of raw rate, n)
     let mut cell = std::collections::BTreeMap::<(usize, usize, &'static str), (f64, u32)>::new();
     for (pressing, name) in [
@@ -979,9 +980,17 @@ fn fm24_workload_reference_study() {
                 competition_id: competition_id.clone(),
                 fixture_id: fixture_id.clone(),
             };
-            let Ok(mut m) = InteractiveMatch::start(&g, id, "fm24-workload") else {
-                continue;
+            let mut m = match InteractiveMatch::start(&g, id, "fm24-workload") {
+                Ok(m) => m,
+                Err(error) => {
+                    refused += 1;
+                    if refused == 1 {
+                        println!("first refusal: {error:?}");
+                    }
+                    continue;
+                }
             };
+            started += 1;
             run_to_end(&mut m);
             let report = m.complete().unwrap().clone();
             for (pid, stats) in &report.player_stats {
@@ -1008,6 +1017,7 @@ fn fm24_workload_reference_study() {
             }
         }
     }
+    println!("matches started {started}, refused {refused}");
     println!("reference: 0.0025 of the reserve per minute at stamina 64");
     println!(
         "line (0 def, 1 mid, 2 att) | stamina band (0 <55, 1 55-69, 2 >=70) | pressing | mean raw rate | n | ratio to reference"
