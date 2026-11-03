@@ -17,6 +17,7 @@ pub(crate) fn install_career(
 ) -> u64 {
     let _operation = super::live_session::operation();
     drop(state.take_live_match());
+    drop(state.take_interactive_match());
     let career_token = state.next_career_token();
     game.career_token = career_token;
     state.set_game(game);

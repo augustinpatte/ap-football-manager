@@ -1,5 +1,6 @@
 pub(crate) mod career;
 pub mod fast_forward;
+pub mod interactive_match;
 pub mod live_match;
 pub mod live_session;
 pub mod press_conference;

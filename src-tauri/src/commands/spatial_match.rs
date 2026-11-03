@@ -170,7 +170,7 @@ pub fn load_spatial_replay(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::persist_replay;
     use crate::{
         application::live_match::{finish_spatial_match, start_live_match_with_identity},
@@ -276,7 +276,7 @@ mod tests {
         )
     }
 
-    fn game_with_spatial_fixture() -> Game {
+    pub(crate) fn game_with_spatial_fixture() -> Game {
         let mut manager = Manager::new(
             "manager".into(),
             "Test".into(),

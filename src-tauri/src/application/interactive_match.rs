@@ -1,0 +1,604 @@
+//! Application layer of the interactive match: start, advance, command, read and finish.
+//!
+//! Every function takes only the `StateManager`, so the Tauri commands stay thin adapters over
+//! them. The football lives in `ofm_core::interactive_match` (the M12 session and its
+//! controller); the career is changed only by `finish_interactive_match_internal`, which hands
+//! the report to the one finalisation every match uses (`finish_spatial_match`).
+//!
+//! Errors are translation keys: the player sees them.
+
+use log::info;
+use ofm_core::interactive_match::{
+    self, AdvanceOutcome, AdvanceRequest, FixtureIdentity, InteractiveMatch, InteractiveView,
+    KeyEvent, OrderReceipt, StopReason, UserCommand,
+};
+use ofm_core::state::StateManager;
+use serde::Serialize;
+
+use super::live_match::{finish_spatial_match, FinishLiveMatchResponse};
+
+const NO_ACTIVE_MATCH: &str = "be.error.interactive.noActiveMatch";
+
+/// What the screen needs after any call: the state, and the key events it has not shown yet.
+#[derive(Debug, Clone, Serialize)]
+pub struct InteractiveSnapshot {
+    pub view: InteractiveView,
+    pub events: Vec<KeyEvent>,
+    /// Ask for events from here next time.
+    pub next_event_cursor: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AdvanceSnapshot {
+    pub stop: StopReason,
+    pub snapshot: InteractiveSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrderSnapshot {
+    pub receipt: OrderReceipt,
+    pub snapshot: InteractiveSnapshot,
+}
+
+fn snapshot_of(m: &InteractiveMatch, cursor: usize) -> Result<InteractiveSnapshot, String> {
+    let view = m.view().ok_or("be.error.interactive.alreadyCompleted")?;
+    let (events, next_event_cursor) = m.events_since(cursor);
+    Ok(InteractiveSnapshot {
+        view,
+        events,
+        next_event_cursor,
+    })
+}
+
+fn with_match<R>(
+    state: &StateManager,
+    f: impl FnOnce(&mut InteractiveMatch) -> Result<R, String>,
+) -> Result<R, String> {
+    state
+        .with_interactive_match(f)
+        .ok_or_else(|| NO_ACTIVE_MATCH.to_string())?
+}
+
+/// Starts the interactive match of the fixture the live session has selected. Starting twice
+/// returns the match already under way (a double click starts nothing new).
+pub fn start_interactive_match_internal(
+    state: &StateManager,
+) -> Result<InteractiveSnapshot, String> {
+    let _operation = super::live_session::operation();
+    info!("[cmd] start_interactive_match");
+    if let Some(existing) = state.with_interactive_match(|m| snapshot_of(m, 0)) {
+        return existing;
+    }
+    let identity = state
+        .with_live_match(|session| FixtureIdentity {
+            fixture_index: session.fixture_index,
+            competition_id: session.competition_id.clone(),
+            fixture_id: session.fixture_id.clone(),
+        })
+        .ok_or("be.error.noActiveLiveMatch")?;
+    let started = state
+        .get_game(|game| {
+            InteractiveMatch::start(game, identity, &interactive_match::new_session_id())
+        })
+        .ok_or("be.error.noActiveGameSession")?
+        .map_err(|e| e.translation_key())?;
+    let snapshot = snapshot_of(&started, 0)?;
+    state.set_interactive_match(started);
+    Ok(snapshot)
+}
+
+pub fn get_interactive_match_state_internal(
+    state: &StateManager,
+    event_cursor: usize,
+) -> Result<InteractiveSnapshot, String> {
+    with_match(state, |m| snapshot_of(m, event_cursor))
+}
+
+/// Plays on. The computer-managed sides are consulted inside; the manager's own side is only
+/// ever changed by his orders (or the assistant's, if he has handed the match over).
+pub fn advance_interactive_match_internal(
+    state: &StateManager,
+    request: AdvanceRequest,
+    event_cursor: usize,
+) -> Result<AdvanceSnapshot, String> {
+    with_match(state, |m| {
+        let AdvanceOutcome { stop, .. } = m.advance(request).map_err(|e| e.translation_key())?;
+        Ok(AdvanceSnapshot {
+            stop,
+            snapshot: snapshot_of(m, event_cursor)?,
+        })
+    })
+}
+
+pub fn submit_match_command_internal(
+    state: &StateManager,
+    command: UserCommand,
+    event_cursor: usize,
+) -> Result<OrderSnapshot, String> {
+    with_match(state, |m| {
+        let receipt = m.submit(command).map_err(|e| e.translation_key())?;
+        Ok(OrderSnapshot {
+            receipt,
+            snapshot: snapshot_of(m, event_cursor)?,
+        })
+    })
+}
+
+/// Pauses or resumes the clock. A paused match still takes orders.
+pub fn set_interactive_pause_internal(
+    state: &StateManager,
+    paused: bool,
+    event_cursor: usize,
+) -> Result<InteractiveSnapshot, String> {
+    with_match(state, |m| {
+        if paused { m.pause() } else { m.resume() }.map_err(|e| e.translation_key())?;
+        snapshot_of(m, event_cursor)
+    })
+}
+
+/// Hands the player's side to the assistant, or takes it back.
+pub fn set_interactive_assistant_internal(
+    state: &StateManager,
+    active: bool,
+    event_cursor: usize,
+) -> Result<InteractiveSnapshot, String> {
+    with_match(state, |m| {
+        m.set_assistant(active).map_err(|e| e.translation_key())?;
+        snapshot_of(m, event_cursor)
+    })
+}
+
+/// Applies the finished match to the career through the one finalisation every match uses.
+///
+/// A match that has not reached full time is refused, never finalised as if it had. If the
+/// report cannot be applied (a stale fixture), the finished match is kept so the player can
+/// try again, and the career is unchanged.
+pub fn finish_interactive_match_internal(
+    state: &StateManager,
+) -> Result<FinishLiveMatchResponse, String> {
+    let _operation = super::live_session::operation();
+    info!("[cmd] finish_interactive_match");
+    let mut interactive = state
+        .take_interactive_match()
+        .ok_or_else(|| NO_ACTIVE_MATCH.to_string())?;
+    let report = match interactive.complete() {
+        Ok(report) => report.clone(),
+        Err(error) => {
+            state.set_interactive_match(interactive);
+            return Err(error.translation_key());
+        }
+    };
+    match finish_spatial_match(state, report) {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            state.set_interactive_match(interactive);
+            Err(error)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::application::live_match::start_live_match_with_identity;
+    use crate::commands::spatial_match::tests::game_with_spatial_fixture;
+    use db::save_manager::SaveManager;
+    use domain::league::FixtureStatus;
+    use domain::team::PlayStyle;
+    use ofm_core::game::Game;
+    use ofm_core::interactive_match::{plan::TacticalChange, AdvanceTarget, UserOrder};
+    use tempfile::TempDir;
+
+    const COMPETITION: &str = "competition-m12-1";
+    const FIXTURE: &str = "fixture-m12-1";
+
+    fn begin(state: &StateManager) -> InteractiveSnapshot {
+        start_live_match_with_identity(state, 0, "live", false, Some(COMPETITION), Some(FIXTURE))
+            .expect("the live session that carries the fixture identity");
+        start_interactive_match_internal(state).expect("interactive start")
+    }
+
+    fn advance(state: &StateManager, target: AdvanceTarget) -> AdvanceSnapshot {
+        advance_interactive_match_internal(
+            state,
+            AdvanceRequest {
+                target,
+                stop_at_key_events: false,
+            },
+            0,
+        )
+        .expect("advance")
+    }
+
+    fn to_halftime(state: &StateManager) {
+        loop {
+            let out = advance(state, AdvanceTarget::ToEnd);
+            match out.stop {
+                StopReason::PeriodBreak => return,
+                StopReason::Finished => panic!("the match ended before the break"),
+                _ => {}
+            }
+        }
+    }
+
+    fn to_full_time(state: &StateManager) {
+        loop {
+            if advance(state, AdvanceTarget::ToEnd).stop == StopReason::Finished {
+                return;
+            }
+        }
+    }
+
+    fn snapshot(state: &StateManager) -> InteractiveSnapshot {
+        get_interactive_match_state_internal(state, 0).expect("state")
+    }
+
+    fn order(state: &StateManager, id: &str, order: UserOrder) -> OrderSnapshot {
+        let revision = snapshot(state).view.session.revision;
+        submit_match_command_internal(
+            state,
+            UserCommand {
+                command_id: id.into(),
+                expected_revision: revision,
+                order,
+            },
+            0,
+        )
+        .expect("order")
+    }
+
+    fn standings_played(game: &Game) -> u32 {
+        game.competitions[0]
+            .standings
+            .iter()
+            .map(|s| s.played)
+            .sum()
+    }
+
+    /// A starter and a bench player of the user's side, both outfield.
+    fn legal_swap(view: &InteractiveView) -> (String, String) {
+        // the engine's position type is not this crate's to name: read it by its Debug name
+        let off = view
+            .session
+            .home
+            .on_pitch
+            .iter()
+            .find(|p| !format!("{:?}", p.role).contains("Gk"))
+            .expect("an outfield starter");
+        let on = view
+            .session
+            .home
+            .bench
+            .iter()
+            .find(|p| !format!("{:?}", p.natural_position).contains("Gk"))
+            .expect("an outfield substitute");
+        (off.id.0.clone(), on.id.0.clone())
+    }
+
+    /// Given a real saved career and its fixture,
+    /// When the user plays it interactively (halftime, a mentality change, a legal substitution,
+    /// full time) and it is finalised through the canonical path,
+    /// Then the fixture, table, appearances and report are written exactly once, nothing was
+    /// written before finalisation, the substitution is in the record, and a fresh SQLite reload
+    /// reads the same career. A second finish changes nothing.
+    #[test]
+    fn a_managed_match_is_finalised_once_and_survives_a_reload() {
+        let directory = TempDir::new().expect("saves directory");
+        let state = StateManager::new();
+        let game = game_with_spatial_fixture();
+        let mut saves = SaveManager::init(directory.path()).expect("save manager");
+        let save_id = saves.create_save(&game, "interactive").expect("save");
+        state.set_save_id(save_id.clone());
+        state.set_game(game);
+
+        let start = begin(&state);
+        assert_eq!(start.view.session.clock_ms, 0);
+
+        to_halftime(&state);
+        let at_break = snapshot(&state);
+        assert!(at_break.view.session.clock_ms > 0);
+        let before = state
+            .get_game(|g| {
+                (
+                    standings_played(g),
+                    g.competitions[0].fixtures[0].status.clone(),
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            before,
+            (0, FixtureStatus::Scheduled),
+            "nothing is written before finalisation"
+        );
+
+        let tactics = order(
+            &state,
+            "mentality",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        );
+        assert!(tactics.receipt.accepted, "{:?}", tactics.receipt);
+        assert_eq!(tactics.snapshot.view.home_plan.style, PlayStyle::Attacking);
+
+        let (off, on) = legal_swap(&tactics.snapshot.view);
+        let swap = order(
+            &state,
+            "swap",
+            UserOrder::Substitute {
+                player_off_id: off.clone(),
+                player_on_id: on.clone(),
+            },
+        );
+        assert!(
+            swap.receipt.accepted && swap.receipt.queued,
+            "{:?}",
+            swap.receipt
+        );
+
+        to_full_time(&state);
+        let end = snapshot(&state);
+        assert!(end.view.session.finished);
+        assert!(end.view.session.home.on_pitch.iter().any(|p| p.id.0 == on));
+        assert!(end.view.session.home.used.iter().any(|p| p.id.0 == off));
+        let score = (end.view.session.score_home, end.view.session.score_away);
+        let home_swaps = end
+            .events
+            .iter()
+            .filter_map(|e| serde_json::to_value(&e.event).ok())
+            .filter(|v| v["type"] == "substitution" && v["side"] == "home")
+            .count();
+        assert_eq!(
+            home_swaps, 1,
+            "the manager's substitution is one canonical event"
+        );
+
+        // still nothing in the career: the standings move only at finalisation
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+
+        let finalised = finish_interactive_match_internal(&state).expect("canonical finalisation");
+        let game = &finalised.game;
+        let fixture = &game.competitions[0].fixtures[0];
+        assert_eq!(fixture.status, FixtureStatus::Completed);
+        let result = fixture.result.as_ref().expect("a stored result");
+        assert_eq!(
+            (result.home_goals, result.away_goals),
+            (score.0 as u8, score.1 as u8)
+        );
+        assert_eq!(
+            standings_played(game),
+            2,
+            "both clubs have one league match"
+        );
+        let appearances = |id: &str| {
+            game.players
+                .iter()
+                .find(|p| p.id == id)
+                .map_or(0, |p| p.stats.appearances)
+        };
+        assert!(appearances(&off) >= 1, "the player who went off played");
+        assert!(appearances(&on) >= 1, "the substitute played");
+        let report = result.report.as_ref().expect("a compact report");
+        let swaps: Vec<_> = report
+            .events
+            .iter()
+            .filter(|e| e.event_type == "Substitution" && e.side == "Home")
+            .collect();
+        assert_eq!(
+            swaps.len(),
+            1,
+            "the manager's substitution is in the stored record exactly once"
+        );
+        let ids = [
+            swaps[0].player_id.as_deref(),
+            swaps[0].secondary_player_id.as_deref(),
+        ];
+        assert!(ids.contains(&Some(off.as_str())) && ids.contains(&Some(on.as_str())));
+
+        // fatigue persists, and substitutions change who carries it: the player who played
+        // the whole match is more worn than the substitute, who is more worn than a man who
+        // never left the bench
+        let condition = |id: &str| {
+            game.players
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.condition)
+        };
+        let full_match = end
+            .view
+            .session
+            .home
+            .on_pitch
+            .iter()
+            .filter(|p| p.id.0 != on)
+            .max_by(|a, b| a.minutes_played.total_cmp(&b.minutes_played))
+            .map(|p| p.id.0.clone())
+            .expect("a player who played throughout");
+        let unused = end
+            .view
+            .session
+            .home
+            .bench
+            .first()
+            .map(|p| p.id.0.clone())
+            .expect("a substitute who never came on");
+        let (worn, sub, rested) = (
+            condition(&full_match).expect("full-match player"),
+            condition(&on).expect("substitute"),
+            condition(&unused).expect("unused substitute"),
+        );
+        assert!(
+            worn < sub,
+            "90 minutes ({worn}) wear a player more than a half ({sub})"
+        );
+        assert!(
+            sub <= rested,
+            "a half ({sub}) costs more than none ({rested})"
+        );
+
+        // goals credited to players add up to the score
+        let credited: u32 = game.players.iter().map(|p| p.stats.goals).sum();
+        assert_eq!(
+            credited,
+            u32::from(result.home_goals) + u32::from(result.away_goals)
+        );
+
+        // the interactive state is gone; finishing again must not process the fixture twice
+        assert!(state.with_interactive_match(|_| ()).is_none());
+        assert_eq!(
+            finish_interactive_match_internal(&state).unwrap_err(),
+            "be.error.interactive.noActiveMatch"
+        );
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+
+        saves
+            .save_game(&finalised.game, &save_id)
+            .expect("save the career");
+        drop(saves);
+        let mut reader = SaveManager::init(directory.path()).expect("fresh reader");
+        let reloaded = reader.load_game(&save_id).expect("reload");
+        let fixture = &reloaded.competitions[0].fixtures[0];
+        assert_eq!(fixture.status, FixtureStatus::Completed);
+        let stored = fixture.result.as_ref().expect("persisted result");
+        assert_eq!(
+            (stored.home_goals, stored.away_goals),
+            (result.home_goals, result.away_goals)
+        );
+        assert_eq!(standings_played(&reloaded), 2);
+        assert!(reloaded
+            .players
+            .iter()
+            .any(|p| p.id == on && p.stats.appearances >= 1));
+    }
+
+    /// Given a match that has not reached full time,
+    /// When it is finished,
+    /// Then it is refused with a key, the career is untouched, and the match can still be played.
+    #[test]
+    fn a_partial_match_is_never_finalised() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        advance(&state, AdvanceTarget::ForMinutes(20));
+
+        assert_eq!(
+            finish_interactive_match_internal(&state).unwrap_err(),
+            "be.error.interactive.notFinished"
+        );
+        let (played, status) = state
+            .get_game(|g| {
+                (
+                    standings_played(g),
+                    g.competitions[0].fixtures[0].status.clone(),
+                )
+            })
+            .unwrap();
+        assert_eq!((played, status), (0, FixtureStatus::Scheduled));
+        assert!(
+            state.with_live_match(|_| ()).is_some(),
+            "the live session is kept"
+        );
+        advance(&state, AdvanceTarget::ForMinutes(5));
+        to_full_time(&state);
+        assert!(finish_interactive_match_internal(&state).is_ok());
+    }
+
+    /// Given a finished match whose fixture was completed elsewhere meanwhile,
+    /// When it is finished,
+    /// Then finalisation is refused with the usual key, the career gets no second result, and
+    /// the finished match is kept: put the fixture right and the same result can be applied.
+    #[test]
+    fn a_failed_finalisation_keeps_the_finished_match_for_a_retry() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        to_full_time(&state);
+        state
+            .update_game(|g| g.competitions[0].fixtures[0].status = FixtureStatus::Completed)
+            .unwrap();
+
+        let error = finish_interactive_match_internal(&state).unwrap_err();
+        assert_eq!(error, "be.error.liveMatch.fixtureNotScheduled");
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+        assert!(state.with_interactive_match(|_| ()).is_some());
+        assert!(state.with_live_match(|_| ()).is_some());
+
+        state
+            .update_game(|g| g.competitions[0].fixtures[0].status = FixtureStatus::Scheduled)
+            .unwrap();
+        assert!(finish_interactive_match_internal(&state).is_ok());
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+    }
+
+    /// Given a finished match,
+    /// When two requests finish it at the same moment,
+    /// Then exactly one applies it and the table moves once.
+    #[test]
+    fn two_simultaneous_finishes_apply_the_match_once() {
+        let state = std::sync::Arc::new(StateManager::new());
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        to_full_time(&state);
+        let handles: Vec<_> = (0..2)
+            .map(|_| {
+                let state = std::sync::Arc::clone(&state);
+                std::thread::spawn(move || finish_interactive_match_internal(&state))
+            })
+            .collect();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+    }
+
+    /// Given a match under way, a retry of the same start,
+    /// Then it returns the same match instead of starting another, and a command addressed to
+    /// nothing is refused with a key.
+    #[test]
+    fn starting_twice_returns_the_match_in_progress() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        let first = begin(&state);
+        advance(&state, AdvanceTarget::ForMinutes(3));
+        let again = start_interactive_match_internal(&state).unwrap();
+        assert_eq!(again.view.session.session_id, first.view.session.session_id);
+        assert!(
+            again.view.session.clock_ms > 0,
+            "the same match, not a new one"
+        );
+
+        let none = StateManager::new();
+        assert_eq!(
+            get_interactive_match_state_internal(&none, 0).unwrap_err(),
+            "be.error.interactive.noActiveMatch"
+        );
+    }
+
+    /// Given a career where the match cannot be built,
+    /// When an interactive start is requested,
+    /// Then it fails with a translation key and leaves the career and the live session as they were.
+    #[test]
+    fn a_match_that_cannot_start_leaves_the_pre_match_state() {
+        let state = StateManager::new();
+        let mut game = game_with_spatial_fixture();
+        game.players
+            .retain(|p| p.team_id.as_deref() != Some("away"));
+        state.set_game(game);
+        let live = start_live_match_with_identity(
+            &state,
+            0,
+            "live",
+            false,
+            Some(COMPETITION),
+            Some(FIXTURE),
+        );
+        if live.is_err() {
+            return; // the classic session refuses an empty squad before M12 is asked
+        }
+        let error = start_interactive_match_internal(&state).unwrap_err();
+        assert!(error.starts_with("be.error."), "{error}");
+        assert!(state.with_interactive_match(|_| ()).is_none());
+        assert!(state.with_live_match(|_| ()).is_some());
+        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+    }
+}

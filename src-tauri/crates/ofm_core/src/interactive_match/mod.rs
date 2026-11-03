@@ -255,6 +255,11 @@ pub struct InteractiveMatch {
     regulation_ms: u32,
 }
 
+/// A fresh identifier for a session: commands addressed to any other session are refused.
+pub fn new_session_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
 fn side_index(side: Side) -> usize {
     usize::from(side == Side::Away)
 }
