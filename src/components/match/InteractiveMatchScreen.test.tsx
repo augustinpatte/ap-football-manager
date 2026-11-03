@@ -7,6 +7,7 @@ import type {
   MatchKeyEvent,
   MatchPlayerView,
   MatchTeamView,
+  PlanView,
   UserOrder,
 } from "../../services/interactiveMatchService";
 
@@ -18,7 +19,14 @@ import type {
 const backend = vi.hoisted(() => {
   const state = {
     clockMs: 0,
-    revision: 0,
+    // not 0: an order quoting a hard-coded or stale revision must fail to match
+    revision: 7,
+    plan: {
+      style: "Balanced",
+      pressing: "Medium",
+      tempo: "Direct",
+      formation: "4-4-2",
+    } as PlanView,
     paused: false,
     finished: false,
     brokeAtHalf: false,
@@ -94,7 +102,7 @@ function snapshot(): InteractiveSnapshot {
       assistant_available: s.assistantAvailable,
       assistant_active: s.assistantActive,
       supported_formations: ["4-4-2", "4-3-3"],
-      home_plan: { style: "Balanced", pressing: "Medium", tempo: "Direct", formation: "4-4-2" },
+      home_plan: { ...s.plan },
       away_plan: { style: "Balanced", pressing: "Medium", tempo: "Direct", formation: "4-4-2" },
       regulation_minutes: 12,
     },
@@ -154,6 +162,7 @@ vi.mock("../../services/interactiveMatchService", () => ({
         snapshot: snapshot(),
       };
     }
+    if ("Tactics" in order) Object.assign(s.plan, order.Tactics);
     if ("Substitute" in order) {
       s.pending.push({ off: order.Substitute.player_off_id, on: order.Substitute.player_on_id });
     }
@@ -190,7 +199,8 @@ vi.mock("../../services/interactiveMatchService", () => ({
 function reset() {
   Object.assign(backend.state, {
     clockMs: 0,
-    revision: 0,
+    revision: 7,
+    plan: { style: "Balanced", pressing: "Medium", tempo: "Direct", formation: "4-4-2" },
     paused: false,
     finished: false,
     brokeAtHalf: false,
@@ -300,7 +310,9 @@ describe("InteractiveMatchScreen", () => {
     fireEvent.click(apply);
     await waitFor(() => expect(backend.state.orders).toHaveLength(1));
     expect(backend.state.orders[0]).toEqual({ Tactics: { pressing: "Aggressive" } });
-    expect(backend.state.calls).toContain("order:0");
+    expect(backend.state.calls).toContain("order:7");
+    // the accepted plan comes back from the engine, so there is nothing left to apply
+    await waitFor(() => expect(apply).toBeDisabled());
   });
 
   /** Given a substitution, when it is confirmed, then the order names both players and it shows as queued; cancelling sends the cancellation. */

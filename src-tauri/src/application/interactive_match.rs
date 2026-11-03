@@ -604,8 +604,12 @@ mod tests {
             Some(COMPETITION),
             Some(FIXTURE),
         );
-        if live.is_err() {
-            return; // the classic session refuses an empty squad before M12 is asked
+        if let Err(error) = live {
+            // the classic session refuses an empty squad before M12 is asked: still a key
+            assert!(error.starts_with("be.error."), "{error}");
+            assert!(state.with_interactive_match(|_| ()).is_none());
+            assert_eq!(state.get_game(standings_played).unwrap(), 0);
+            return;
         }
         let error = start_interactive_match_internal(&state).unwrap_err();
         assert!(error.starts_with("be.error."), "{error}");
@@ -684,6 +688,115 @@ mod tests {
             state.get_game(standings_played).unwrap(),
             2,
             "applied once, by the classic path"
+        );
+    }
+
+    /// Given a match under way,
+    /// When it is paused, advanced and resumed,
+    /// Then a paused match does not move (and says so), it still takes orders, and resuming
+    /// lets the clock run again.
+    #[test]
+    fn a_paused_match_stands_still_but_takes_orders() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        advance(&state, AdvanceTarget::ForMinutes(5));
+        let paused = set_interactive_pause_internal(&state, true, 0).unwrap();
+        assert!(paused.view.session.paused);
+        let clock = paused.view.session.clock_ms;
+
+        let still = advance(&state, AdvanceTarget::ForMinutes(10));
+        assert_eq!(still.stop, StopReason::Paused);
+        assert_eq!(
+            still.snapshot.view.session.clock_ms, clock,
+            "the clock did not move"
+        );
+
+        let answer = order(
+            &state,
+            "while-paused",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Defensive),
+                ..Default::default()
+            }),
+        );
+        assert!(answer.receipt.accepted, "{:?}", answer.receipt);
+
+        set_interactive_pause_internal(&state, false, 0).unwrap();
+        let moving = advance(&state, AdvanceTarget::ForMinutes(2));
+        assert!(moving.snapshot.view.session.clock_ms > clock);
+    }
+
+    /// Given a club that has not delegated match-day tactics,
+    /// When the assistant is switched on,
+    /// Then it is refused with its key and the match is unaffected.
+    #[test]
+    fn the_assistant_is_refused_without_delegation() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        assert_eq!(
+            set_interactive_assistant_internal(&state, true, 0).unwrap_err(),
+            "be.error.interactive.assistantNotDelegated"
+        );
+        assert!(!snapshot(&state).view.assistant_active);
+    }
+
+    /// Given an illegal substitution (a goalkeeper coming on for an outfield player),
+    /// When it is ordered,
+    /// Then the engine's reason comes back, nothing is queued, and the order is not repeated
+    /// when retried with the same id.
+    #[test]
+    fn an_illegal_substitution_is_refused_with_its_reason() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        // the engine knows who its goalkeeper is once play has started
+        advance(&state, AdvanceTarget::ForMinutes(1));
+        let view = snapshot(&state).view;
+        let off = view
+            .session
+            .home
+            .on_pitch
+            .iter()
+            .find(|p| !format!("{:?}", p.role).contains("Gk"))
+            .expect("an outfield starter")
+            .id
+            .0
+            .clone();
+        let keeper = view
+            .session
+            .home
+            .bench
+            .iter()
+            .find(|p| format!("{:?}", p.natural_position).contains("Gk"))
+            .expect("a goalkeeper on the bench")
+            .id
+            .0
+            .clone();
+        let swap = || UserOrder::Substitute {
+            player_off_id: off.clone(),
+            player_on_id: keeper.clone(),
+        };
+        let first = order(&state, "illegal", swap());
+        assert!(!first.receipt.accepted);
+        assert_eq!(
+            first.receipt.rejection.as_deref(),
+            Some("goalkeeper_mismatch")
+        );
+        assert!(first
+            .snapshot
+            .view
+            .session
+            .home
+            .pending_substitutions
+            .is_empty());
+
+        let retry = order(&state, "illegal", swap());
+        assert!(retry.receipt.duplicate);
+        assert_eq!(
+            retry.receipt.rejection.as_deref(),
+            Some("goalkeeper_mismatch")
         );
     }
 }

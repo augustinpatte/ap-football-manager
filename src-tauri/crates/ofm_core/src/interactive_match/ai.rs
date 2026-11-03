@@ -500,10 +500,10 @@ mod tests {
     }
 
     struct Fixture {
-        input: MatchInput,
         view: SessionView,
         squad: Squad,
         plan: TacticalPlan,
+        identity: TacticalPlan,
     }
 
     fn fixture(minute: u32, home: u8, away: u8) -> Fixture {
@@ -534,8 +534,8 @@ mod tests {
         };
         Fixture {
             squad: Squad::of(&input),
-            input,
             view,
+            identity: plan.clone(),
             plan,
         }
     }
@@ -546,7 +546,7 @@ mod tests {
                 side: Side::Home,
                 view: &self.view,
                 plan: &self.plan,
-                identity: &self.plan,
+                identity: &self.identity,
                 squad: &self.squad,
                 checkpoint,
                 regulation_ms: 90 * 60_000,
@@ -701,12 +701,24 @@ mod tests {
             .find(|p| p.role == Some(Position::Gk))
             .unwrap()
             .injured = true;
-        for order in decide(&f.ctx(Checkpoint::Injury)) {
-            if let AiOrder::Substitute { on, .. } = order {
-                let b = f.view.home.bench.iter().find(|b| b.id == on).unwrap();
-                assert_eq!(b.natural_position, Position::Gk);
-            }
-        }
+        assert!(
+            f.view
+                .home
+                .bench
+                .iter()
+                .any(|b| b.natural_position == Position::Gk),
+            "the bench has a keeper to bring on"
+        );
+        let swaps: Vec<_> = decide(&f.ctx(Checkpoint::Injury))
+            .into_iter()
+            .filter_map(|o| match o {
+                AiOrder::Substitute { on, .. } => Some(on),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(swaps.len(), 1, "the injured keeper is replaced");
+        let b = f.view.home.bench.iter().find(|b| b.id == swaps[0]).unwrap();
+        assert_eq!(b.natural_position, Position::Gk);
     }
 
     /// Given a tired player, Then he is rested after the 55th minute but not before it.
@@ -778,7 +790,6 @@ mod tests {
         for _ in 0..5 {
             assert_eq!(decide(&f.ctx(Checkpoint::Review)), first);
         }
-        let _ = &f.input;
     }
 
     /// Given a finished match, Then there is nothing to decide.
@@ -787,5 +798,51 @@ mod tests {
         let mut f = fixture(90, 0, 3);
         f.view.finished = true;
         assert_eq!(decide(&f.ctx(Checkpoint::Review)), Vec::new());
+    }
+
+    /// Given a side whose plan has drifted to Attacking while its club identity is Balanced,
+    /// When the game gives no reason to stay aggressive (level, early),
+    /// Then it returns to the club's own style: identity and current plan are not the same thing.
+    #[test]
+    fn a_side_returns_to_its_club_identity_when_the_match_asks_nothing_more() {
+        let mut f = fixture(20, 0, 0);
+        f.plan.style = PlayStyle::Attacking;
+        assert_eq!(f.identity.style, PlayStyle::Balanced);
+        let c = f.tactics(Checkpoint::Review).expect("a reaction");
+        assert_eq!(c.style, Some(PlayStyle::Balanced));
+    }
+
+    /// Given a tired player and a side that is also trailing late (so both a substitution and a
+    /// tactical change are on offer),
+    /// When each group is blocked in turn,
+    /// Then blocking substitutions removes only the substitution and blocking tactics removes
+    /// only the tactical order: the groups are independent, and both were there to block.
+    #[test]
+    fn blocking_one_group_leaves_the_other_untouched() {
+        let mut f = fixture(75, 0, 2);
+        let tired = f.outfield_starter(3);
+        f.view
+            .home
+            .on_pitch
+            .iter_mut()
+            .find(|p| p.id == tired)
+            .unwrap()
+            .condition = 0.1;
+        let kinds = |ctx: &AiContext<'_>| {
+            let orders = decide(ctx);
+            (
+                orders
+                    .iter()
+                    .any(|o| matches!(o, AiOrder::Substitute { .. })),
+                orders.iter().any(|o| matches!(o, AiOrder::Tactics(_))),
+            )
+        };
+        let mut ctx = f.ctx(Checkpoint::Review);
+        assert_eq!(kinds(&ctx), (true, true), "both are on offer");
+        ctx.blocked[Group::Substitution.index()] = true;
+        assert_eq!(kinds(&ctx), (false, true));
+        ctx.blocked = [false; Group::COUNT];
+        ctx.blocked[Group::Tactics.index()] = true;
+        assert_eq!(kinds(&ctx), (true, false));
     }
 }

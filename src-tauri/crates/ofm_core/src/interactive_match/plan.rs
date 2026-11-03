@@ -164,6 +164,26 @@ mod tests {
         let commands = commands_between(&from, &to).unwrap();
         let names: Vec<_> = commands.iter().map(MatchCommand::name).collect();
         assert_eq!(names, ["set_pressing", "set_tempo", "set_formation"]);
+        // and each carries its own slider's value, not another's
+        let wanted = spatial_adapter::tactics(&to.style, &to.phase);
+        assert_eq!(
+            commands,
+            vec![
+                MatchCommand::SetPressing {
+                    value: wanted.pressing
+                },
+                MatchCommand::SetTempo {
+                    value: wanted.tempo
+                },
+                MatchCommand::SetFormation {
+                    formation: "4-3-3".into()
+                },
+            ]
+        );
+        assert_ne!(
+            wanted.pressing, wanted.tempo,
+            "the values tell the sliders apart"
+        );
     }
 
     /// Given a formation M12 cannot build,

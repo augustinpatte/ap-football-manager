@@ -504,6 +504,9 @@ fn adapt_player(
     }
     let natural_position = map_position(&player.natural_position)?;
     let a = &player.attributes;
+    // A natural goalkeeper on the bench must be a goalkeeper to the engine too: M12 lets only a
+    // player with goalkeeping attributes replace an injured or dismissed keeper.
+    let is_goalkeeper = is_goalkeeper || natural_position == SpatialPosition::Gk;
     let goalkeeping = if is_goalkeeper {
         defaults.push(AppliedDefault {
             field: "goalkeeping.one_on_one",
@@ -1126,6 +1129,33 @@ mod tests {
         assert_eq!(result.input.home.bench, ["p11"]);
         assert_eq!(result.input.home.players[0].id, "p0");
         assert!(result.input.config.seed <= MAX_SEED);
+    }
+
+    /// Given a bench that holds a natural goalkeeper and an outfield player,
+    /// When the match is adapted for M12,
+    /// Then the spare goalkeeper carries goalkeeping attributes (so the engine can bring him on
+    /// for an injured or dismissed keeper) and the outfield player does not.
+    #[test]
+    fn a_goalkeeper_on_the_bench_is_adapted_as_a_goalkeeper() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        hp.push(player("p12", Position::Goalkeeper, 60));
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        let attributes = |id: &str| {
+            result
+                .input
+                .home
+                .players
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.attributes.goalkeeping.is_some())
+        };
+        assert_eq!(attributes("p0"), Some(true), "the starting keeper");
+        assert_eq!(
+            attributes("p12"),
+            Some(true),
+            "the spare keeper on the bench"
+        );
+        assert_eq!(attributes("p11"), Some(false), "an outfield substitute");
     }
 
     /// Given a club with distinct possession and defensive formations

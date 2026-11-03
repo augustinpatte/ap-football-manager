@@ -1,6 +1,6 @@
 # APFM Run F4 — a stateful, causal, interactive M12 match
 
-**Not pushed: the M12 repository (`~/apfm-match-lab`) has no git remote configured**, so its eight F4
+**Not pushed: the M12 repository (`~/apfm-match-lab`) has no git remote configured**, so its 7 F4
 commits exist only on the local branch `f4/interactive-session`. `ofm_core` depends on that checkout by
 path (`../../../../../apfm-match-lab`), so the pushed OFM branch builds only with M12 on that branch.
 Add a remote and push it before anyone else builds this. The M12 working tree also still holds the
@@ -241,8 +241,8 @@ save while a live session exists, so a match in progress is lost when the app cl
 |---|---|
 | M12 `cargo test --release` | 45 suites, 577 tests, 0 failed (533 pre-existing + 44 F4) |
 | M12 clippy `--all-targets` / fmt | 0 warnings / clean |
-| OFM `cargo test --workspace` | 113 suites, 4,394 tests, 0 failed |
-| OFM `cargo test --features mcp --lib` | 622 tests, 0 failed |
+| OFM `cargo test --workspace` | 113 suites, 4,402 tests, 0 failed |
+| OFM `cargo test --features mcp --lib` | 625 tests, 0 failed |
 | OFM clippy default and `--features mcp`, `-D warnings`, `--locked --workspace --all-targets` | clean |
 | `cargo fmt --check` | clean |
 | `npm test` (vitest) | 329 files, 2,906 tests, 0 failed |
@@ -253,8 +253,8 @@ save while a live session exists, so a match in progress is lost when the app cl
 
 | Suite | Result |
 |---|---|
-| OFM `cargo test --workspace` (default features) | 113 suites, 4,394 tests, 0 failed |
-| OFM `cargo test --features mcp --lib` | 622 tests, 0 failed |
+| OFM `cargo test --workspace` (default features) | 113 suites, 4,402 tests, 0 failed |
+| OFM `cargo test --features mcp --lib` | 625 tests, 0 failed |
 | `npm test` | 329 files, 2,906 tests (4 skipped, pre-existing), 0 failed |
 | M12 `cargo test --release` | 45 suites, 577 tests, 0 failed |
 
@@ -269,6 +269,29 @@ cd ~/apfm-migration/openfootmanager && npm test && npm run build && npm run lint
 ```
 
 `tests/f4_tactics.rs` runs six 200-pair studies (~280 s together in release); run it with `--release`.
+
+### 12.2 Review outcome (five read-only reviewers on the diff)
+
+Fixed after review: (1) a match left over from another fixture could be resumed and applied to the
+current one; identity is now checked at start and finish and the slot is cleared by every other path;
+(2) a failed completion left the controller dead; the session is now kept until the report exists
+(`MatchSession::finished_run`); (3) accessibility: one status line instead of a ticking live region,
+real headings, badges with accessible text, translated placeholders, focus kept when a button
+disables itself, a keyboard-scrollable newest-first feed, no raw ids; (4) the event feed and play-style
+list reuse `feedEntryOf`/`ReplayEventFeed`/`PLAY_STYLES` instead of copies; (5) German "Spielleitung"
+read as refereeing and is now "Spielsteuerung"; (6) tests: two mutations survived (the assistant's
+stand-back wiring and the assistant acting at all), so there are now tests that kill both, plus pinned
+rejection reasons, positive controls, a distinct club identity in the AI fixtures, and application-level
+pause, assistant-refusal and illegal-substitution tests.
+
+Found while fixing the tests, and a real bug: **OFM's adapter gave goalkeeping attributes only to the
+starting keeper**, so a natural goalkeeper on the bench reached M12 as an outfielder and could not
+legitimately replace an injured or dismissed keeper. Fixed in `spatial_adapter::adapt_player` (test
+first). This changes M12 input for every adapted match that has a spare keeper, so the spatial/replay
+flows now behave correctly there too.
+
+Not changed, deliberately: the duplicated `projection_context` builders (two different input types),
+the two computer-manager policies (§15), and the shared `ProgressBar` transition.
 
 ## 13. Performance and memory (`examples/f4_perf.rs`, release, Apple silicon)
 

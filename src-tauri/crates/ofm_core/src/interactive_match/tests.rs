@@ -326,7 +326,18 @@ fn a_saved_match_resumes_exactly() {
     let mut m = start(9);
     run_for(&mut m, 12);
     let off = m.view().unwrap().session.home.on_pitch[4].id.0.clone();
-    let on = m.view().unwrap().session.home.bench[1].id.0.clone();
+    let on = m
+        .view()
+        .unwrap()
+        .session
+        .home
+        .bench
+        .iter()
+        .find(|p| !format!("{:?}", p.natural_position).contains("Gk"))
+        .expect("an outfield substitute")
+        .id
+        .0
+        .clone();
     for (id, o) in [
         (
             "o-1",
@@ -406,4 +417,134 @@ fn a_failed_completion_leaves_the_match_intact() {
     m.input.home.id = real;
     assert!(m.complete().is_ok());
     assert!(m.is_completed());
+}
+
+// ---- the assistant, in a match where it really has something to do
+
+fn delegated(seed: u64) -> Game {
+    let mut game = game(seed);
+    game.delegation.set(Duty::Tactics, true, false);
+    game
+}
+
+fn is_tactical(command: &MatchCommand) -> bool {
+    matches!(
+        command.name(),
+        "set_mentality"
+            | "set_pressing"
+            | "set_tempo"
+            | "set_formation"
+            | "set_tactical_instructions"
+    )
+}
+
+/// The times (ms) at which the assistant changed the player's tactics.
+fn assistant_tactical_times(m: &InteractiveMatch) -> Vec<u32> {
+    m.command_log()
+        .iter()
+        .filter(|e| e.envelope.actor.id == ASSISTANT_ACTOR && is_tactical(&e.envelope.command))
+        .map(|e| e.receipt.at_ms)
+        .collect()
+}
+
+fn played_with_assistant(seed: u64, order_at_minute: Option<u32>) -> InteractiveMatch {
+    let mut m = InteractiveMatch::start(&delegated(seed), identity(), "s").unwrap();
+    m.set_assistant(true).unwrap();
+    if let Some(minute) = order_at_minute {
+        m.advance(AdvanceRequest {
+            target: AdvanceTarget::ToMinute(minute),
+            stop_at_key_events: false,
+        })
+        .unwrap();
+        let current = m.view().unwrap().home_plan.pressing;
+        let other = if current == domain::team::PressingIntensity::Aggressive {
+            domain::team::PressingIntensity::Passive
+        } else {
+            domain::team::PressingIntensity::Aggressive
+        };
+        let r = m
+            .submit(order(
+                &m,
+                "manager-order",
+                UserOrder::Tactics(TacticalChange {
+                    pressing: Some(other),
+                    ..Default::default()
+                }),
+            ))
+            .unwrap();
+        assert!(r.accepted, "{r:?}");
+    }
+    run_to_end(&mut m);
+    m
+}
+
+/// Given the assistant in charge of the player's side over many matches,
+/// When the commands it sent are read back,
+/// Then it really acts (in at least one match), only ever for the player's side, and the
+/// engine accepts everything it sends; with the assistant off it sends nothing at all.
+#[test]
+fn the_assistant_acts_for_the_players_side_and_only_when_switched_on() {
+    let mut acted = false;
+    for seed in 1..=30 {
+        let m = played_with_assistant(seed, None);
+        for entry in m
+            .command_log()
+            .iter()
+            .filter(|e| e.envelope.actor.id == ASSISTANT_ACTOR)
+        {
+            acted = true;
+            assert_eq!(entry.envelope.actor.side, Side::Home, "seed {seed}");
+            assert!(
+                entry.receipt.outcome.is_accepted(),
+                "seed {seed}: {entry:?}"
+            );
+        }
+    }
+    assert!(acted, "in 30 matches the assistant never did anything");
+
+    for seed in 1..=6 {
+        let mut m = InteractiveMatch::start(&delegated(seed), identity(), "s").unwrap();
+        run_to_end(&mut m);
+        assert!(
+            m.command_log()
+                .iter()
+                .all(|e| e.envelope.actor.id != ASSISTANT_ACTOR),
+            "seed {seed}: the assistant is off, so it sends nothing"
+        );
+    }
+}
+
+/// Given a match in which the assistant changes the player's tactics,
+/// When the same match is replayed with a manager's tactical order a few minutes before that
+/// change,
+/// Then the assistant sends no tactical command for the next 15 simulated minutes: a human
+/// order is never overwritten, and the window ends.
+#[test]
+fn the_assistant_does_not_overwrite_a_manager_order_inside_the_window() {
+    let (seed, change_at) = (1..=40)
+        .find_map(|seed| {
+            let times = assistant_tactical_times(&played_with_assistant(seed, None));
+            times
+                .into_iter()
+                .find(|t| *t >= 20 * 60_000)
+                .map(|t| (seed, t))
+        })
+        .expect("a match in which the assistant changes tactics late enough to test");
+
+    let order_minute = change_at / 60_000 - 3;
+    let m = played_with_assistant(seed, Some(order_minute));
+    let order_ms = m
+        .command_log()
+        .iter()
+        .find(|e| e.envelope.actor.id == MANAGER_ACTOR)
+        .map(|e| e.receipt.at_ms)
+        .expect("the manager's order is in the log");
+    let inside = assistant_tactical_times(&m)
+        .into_iter()
+        .filter(|t| *t >= order_ms && *t < order_ms + ASSISTANT_STAND_BACK_MS)
+        .count();
+    assert_eq!(
+        inside, 0,
+        "seed {seed}: the assistant changed tactics inside the stand-back window"
+    );
 }
