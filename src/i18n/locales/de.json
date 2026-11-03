@@ -2901,14 +2901,13 @@
       "replayOnly": "Dies ist die Wiederholung einer abgeschlossenen Simulation. Taktik und Wechsel werden in einem Live-Spiel entschieden; nichts hier ändert das Ergebnis."
     },
     "interactive": {
-      "heading": "Spielleitung",
-      "manage": "Spiel leiten",
+      "heading": "Spielsteuerung",
+      "manage": "Spiel steuern",
       "manageDesc": "Taktische Entscheidungen und Wechsel werden während des Spiels getroffen. Das Ergebnis zählt, sobald das Spiel beendet ist.",
       "play": "Spielen",
       "resume": "Fortsetzen",
       "toEnd": "Bis zum Abpfiff spielen",
       "applyTactics": "Taktik anwenden",
-      "eventTactical": "Taktikwechsel",
       "assistant": "Der Co-Trainer führt meine Mannschaft",
       "assistantHint": "Der Co-Trainer nimmt die üblichen Änderungen vor. Eigene Anweisungen haben immer Vorrang.",
       "assistantUnavailable": "Die Spieltagstaktik im Bereich Mitarbeiter an den Co-Trainer übergeben, um dies zu aktivieren.",

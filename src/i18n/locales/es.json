@@ -2908,7 +2908,6 @@
       "resume": "Reanudar",
       "toEnd": "Jugar hasta el final",
       "applyTactics": "Aplicar tácticas",
-      "eventTactical": "Cambio táctico",
       "assistant": "El segundo entrenador dirige mi equipo",
       "assistantHint": "El segundo entrenador hace los cambios rutinarios. Las órdenes propias siempre tienen prioridad.",
       "assistantUnavailable": "Delega las tácticas de partido en el segundo entrenador desde Personal para activarlo.",

@@ -98,14 +98,20 @@ export interface InteractiveView {
   regulation_minutes: number;
 }
 
-/** An event of the canonical stream; `id` is its index there. Detail fields depend on `type`. */
+/**
+ * An event of the canonical stream; `id` is its index there. The rest is the engine's own event
+ * JSON, the same shape the 2D replay stores, so both screens read events with the same code.
+ */
 export interface MatchKeyEvent {
   id: number;
   t_ms: number;
   type: string;
+  period?: string;
   side?: MatchSide;
   player?: string;
   scorer?: string;
+  assist?: string | null;
+  own_goal?: boolean;
   player_off?: string;
   player_on?: string;
   colour?: "yellow" | "second_yellow" | "red";

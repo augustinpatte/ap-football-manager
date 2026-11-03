@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Card, CardBody, CardHeader, ProgressBar, Select } from "../ui";
 import type {
@@ -11,6 +11,9 @@ import type {
   TempoName,
 } from "../../services/interactiveMatchService";
 import { changedTactics } from "./interactiveMatch.helpers";
+import ReplayEventFeed from "./ReplayEventFeed";
+import type { FeedEntry } from "./replayDerived";
+import { PLAY_STYLES as SHARED_PLAY_STYLES } from "./types";
 
 /** A caption tied to its control by id, so the control is named for assistive technology. */
 export function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
@@ -25,14 +28,7 @@ export function Field({ label, children }: { label: string; children: (id: strin
   );
 }
 
-const PLAY_STYLES: PlayStyleName[] = [
-  "Defensive",
-  "Counter",
-  "Balanced",
-  "Possession",
-  "HighPress",
-  "Attacking",
-];
+const PLAY_STYLES = SHARED_PLAY_STYLES as readonly PlayStyleName[];
 const PRESSING: PressingName[] = ["Passive", "Medium", "Aggressive"];
 const TEMPOS: TempoName[] = ["Patient", "Direct"];
 
@@ -43,8 +39,18 @@ function PlayerRow({ player }: { player: MatchPlayerView }) {
     <li className="flex h-row items-center gap-2 text-body">
       <span className="w-8 shrink-0 text-caption text-fg-muted">{player.role ?? ""}</span>
       <span className="min-w-0 flex-1 truncate text-fg">{player.name}</span>
-      {player.yellow_cards > 0 && <Badge variant="accent">{player.yellow_cards}</Badge>}
-      {player.injured && <Badge variant="danger">+</Badge>}
+      {player.yellow_cards > 0 && (
+        <Badge variant="accent">
+          <span className="sr-only">{t("match.yellowCards")} </span>
+          {player.yellow_cards}
+        </Badge>
+      )}
+      {player.injured && (
+        <Badge variant="danger">
+          <span aria-hidden="true">+</span>
+          <span className="sr-only">{t("common.injured")}</span>
+        </Badge>
+      )}
       <span className="flex w-24 shrink-0 items-center gap-2">
         <span className="sr-only">{t("match.replayCondition.title")}</span>
         <ProgressBar value={condition} className="flex-1" />
@@ -61,7 +67,7 @@ export function TeamLineup({ name, team }: { name: string; team: MatchTeamView }
   return (
     <Card>
       <CardHeader>
-        <span className="font-heading text-heading uppercase tracking-label text-fg">{name}</span>
+        <h2 className="font-heading text-heading uppercase tracking-label text-fg">{name}</h2>
         <span className="ml-2 text-caption text-fg-muted">{team.formation}</span>
       </CardHeader>
       <CardBody>
@@ -105,6 +111,7 @@ interface TacticsPanelProps {
 /** Mentality, pressing, tempo and formation, in the game's own words; only changes are sent. */
 export function TacticsPanel({ plan, supportedFormations, disabled, onApply }: TacticsPanelProps) {
   const { t } = useTranslation();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [draft, setDraft] = useState<PlanView>(plan);
   const [synced, setSynced] = useState(plan);
   if (synced !== plan) {
@@ -116,9 +123,13 @@ export function TacticsPanel({ plan, supportedFormations, disabled, onApply }: T
   return (
     <Card>
       <CardHeader>
-        <span className="font-heading text-heading uppercase tracking-label text-fg">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-heading text-heading uppercase tracking-label text-fg focus:outline-none"
+        >
           {t("match.teamControls")}
-        </span>
+        </h2>
       </CardHeader>
       <CardBody>
         <div className="grid grid-cols-2 gap-3">
@@ -191,7 +202,10 @@ export function TacticsPanel({ plan, supportedFormations, disabled, onApply }: T
           size="sm"
           className="mt-3"
           disabled={disabled || change === null}
-          onClick={() => change && onApply(change)}
+          onClick={() => {
+            headingRef.current?.focus();
+            if (change) onApply(change);
+          }}
         >
           {t("match.interactive.applyTactics")}
         </Button>
@@ -217,17 +231,23 @@ export function SubstitutionPanel({
   onCancel,
 }: SubstitutionPanelProps) {
   const { t } = useTranslation();
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [off, setOff] = useState("");
   const [on, setOn] = useState("");
+  const nameOf = (id: string) => names[id] ?? t("match.replayUnknownPlayer");
   const queuedOff = new Set(team.pending_substitutions.map((p) => p.off));
   const queuedOn = new Set(team.pending_substitutions.map((p) => p.on));
   const max = team.substitutions_used + team.substitutions_remaining;
   return (
     <Card>
       <CardHeader>
-        <span className="font-heading text-heading uppercase tracking-label text-fg">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="font-heading text-heading uppercase tracking-label text-fg focus:outline-none"
+        >
           {t("match.substitutionsTitle")}
-        </span>
+        </h2>
         <span className="ml-2 text-caption text-fg-muted">
           {t("match.subsUsed", { used: team.substitutions_used, max })}
         </span>
@@ -278,6 +298,7 @@ export function SubstitutionPanel({
           className="mt-3"
           disabled={disabled || !off || !on}
           onClick={() => {
+            headingRef.current?.focus();
             onSubstitute(off, on);
             setOff("");
             setOn("");
@@ -295,18 +316,21 @@ export function SubstitutionPanel({
               {team.pending_substitutions.map((p) => (
                 <li key={p.off} className="flex items-center justify-between text-body text-fg">
                   <span>
-                    {names[p.off] ?? p.off} → {names[p.on] ?? p.on}
+                    {nameOf(p.off)} → {nameOf(p.on)}
                   </span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => onCancel(p.off)}
+                    onClick={() => {
+                      headingRef.current?.focus();
+                      onCancel(p.off);
+                    }}
                     aria-label={t("match.removeQueuedSubstitution", {
-                      off: names[p.off] ?? p.off,
-                      on: names[p.on] ?? p.on,
+                      off: nameOf(p.off),
+                      on: nameOf(p.on),
                     })}
                   >
-                    ×
+                    <span aria-hidden="true">×</span>
                   </Button>
                 </li>
               ))}
@@ -318,25 +342,35 @@ export function SubstitutionPanel({
   );
 }
 
-/** The match's key events, newest first. */
-export function EventFeed({ lines }: { lines: string[] }) {
+/** The match's key events, newest first, in the replay's own wording. */
+export function EventLog({
+  entries,
+  teamNames,
+  nameOf,
+}: {
+  entries: FeedEntry[];
+  teamNames: { home: string; away: string };
+  nameOf: (playerId: string | undefined) => string;
+}) {
   const { t } = useTranslation();
   return (
     <Card>
-      <CardHeader>
-        <span className="font-heading text-heading uppercase tracking-label text-fg">
-          {t("match.keyEvents")}
-        </span>
-      </CardHeader>
       <CardBody>
-        {lines.length === 0 ? (
+        {entries.length === 0 ? (
           <p className="text-body text-fg-muted">{t("match.noEventsYet")}</p>
         ) : (
-          <ol className="flex max-h-64 flex-col-reverse gap-1 overflow-y-auto text-body text-fg">
-            {lines.map((line, i) => (
-              <li key={`${i}-${line}`}>{line}</li>
-            ))}
-          </ol>
+          <section
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must take focus so a keyboard can reach older events
+            tabIndex={0}
+            aria-label={t("match.keyEvents")}
+            className="max-h-64 overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+          >
+            <ReplayEventFeed
+              entries={[...entries].reverse()}
+              teamNames={teamNames}
+              nameOf={nameOf}
+            />
+          </section>
         )}
       </CardBody>
     </Card>

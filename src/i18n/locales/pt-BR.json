@@ -2851,7 +2851,6 @@
       "resume": "Retomar",
       "toEnd": "Jogar até o fim",
       "applyTactics": "Aplicar táticas",
-      "eventTactical": "Mudança tática",
       "assistant": "O auxiliar técnico comanda meu time",
       "assistantHint": "O auxiliar faz as mudanças de rotina. As ordens dadas por você sempre têm prioridade.",
       "assistantUnavailable": "Delegue as táticas de jogo ao auxiliar em Comissão Técnica para ativar esta opção.",

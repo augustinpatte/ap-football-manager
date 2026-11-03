@@ -2908,7 +2908,6 @@
       "resume": "Reprendre",
       "toEnd": "Jouer jusqu'au coup de sifflet final",
       "applyTactics": "Appliquer la tactique",
-      "eventTactical": "Changement tactique",
       "assistant": "L'adjoint dirige mon équipe",
       "assistantHint": "L'adjoint effectue les changements courants. Les ordres donnés par le manager priment toujours.",
       "assistantUnavailable": "Déléguer la tactique de match à l'adjoint dans Staff pour activer cette option.",

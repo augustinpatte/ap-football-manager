@@ -59,23 +59,33 @@ fn with_match<R>(
         .ok_or_else(|| NO_ACTIVE_MATCH.to_string())?
 }
 
+/// The fixture the live session has selected: the one identity every match of the day is
+/// finalised against.
+fn live_identity(state: &StateManager) -> Option<FixtureIdentity> {
+    state.with_live_match(|session| FixtureIdentity {
+        fixture_index: session.fixture_index,
+        competition_id: session.competition_id.clone(),
+        fixture_id: session.fixture_id.clone(),
+    })
+}
+
 /// Starts the interactive match of the fixture the live session has selected. Starting twice
-/// returns the match already under way (a double click starts nothing new).
+/// returns the match already under way (a double click starts nothing new), but only if it is
+/// the match of the fixture selected now: one left over from another fixture is discarded.
 pub fn start_interactive_match_internal(
     state: &StateManager,
 ) -> Result<InteractiveSnapshot, String> {
     let _operation = super::live_session::operation();
     info!("[cmd] start_interactive_match");
-    if let Some(existing) = state.with_interactive_match(|m| snapshot_of(m, 0)) {
-        return existing;
+    let identity = live_identity(state).ok_or("be.error.noActiveLiveMatch")?;
+    if let Some(existing) =
+        state.with_interactive_match(|m| (m.identity() == &identity).then(|| snapshot_of(m, 0)))
+    {
+        if let Some(snapshot) = existing {
+            return snapshot;
+        }
+        drop(state.take_interactive_match());
     }
-    let identity = state
-        .with_live_match(|session| FixtureIdentity {
-            fixture_index: session.fixture_index,
-            competition_id: session.competition_id.clone(),
-            fixture_id: session.fixture_id.clone(),
-        })
-        .ok_or("be.error.noActiveLiveMatch")?;
     let started = state
         .get_game(|game| {
             InteractiveMatch::start(game, identity, &interactive_match::new_session_id())
@@ -161,6 +171,11 @@ pub fn finish_interactive_match_internal(
     let mut interactive = state
         .take_interactive_match()
         .ok_or_else(|| NO_ACTIVE_MATCH.to_string())?;
+    // A match that belongs to another fixture than the one now selected must never be applied
+    // to it: its teams and score would land on the wrong fixture.
+    if live_identity(state).as_ref() != Some(interactive.identity()) {
+        return Err(NO_ACTIVE_MATCH.to_string());
+    }
     let report = match interactive.complete() {
         Ok(report) => report.clone(),
         Err(error) => {
@@ -355,17 +370,14 @@ mod tests {
         );
 
         // still nothing in the career: the standings move only at finalisation
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+        assert_eq!(state.get_game(standings_played).unwrap(), 0);
 
         let finalised = finish_interactive_match_internal(&state).expect("canonical finalisation");
         let game = &finalised.game;
         let fixture = &game.competitions[0].fixtures[0];
         assert_eq!(fixture.status, FixtureStatus::Completed);
         let result = fixture.result.as_ref().expect("a stored result");
-        assert_eq!(
-            (result.home_goals, result.away_goals),
-            (score.0 as u8, score.1 as u8)
-        );
+        assert_eq!((result.home_goals, result.away_goals), (score.0, score.1));
         assert_eq!(
             standings_played(game),
             2,
@@ -450,7 +462,7 @@ mod tests {
             finish_interactive_match_internal(&state).unwrap_err(),
             "be.error.interactive.noActiveMatch"
         );
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+        assert_eq!(state.get_game(standings_played).unwrap(), 2);
 
         saves
             .save_game(&finalised.game, &save_id)
@@ -520,7 +532,7 @@ mod tests {
 
         let error = finish_interactive_match_internal(&state).unwrap_err();
         assert_eq!(error, "be.error.liveMatch.fixtureNotScheduled");
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+        assert_eq!(state.get_game(standings_played).unwrap(), 0);
         assert!(state.with_interactive_match(|_| ()).is_some());
         assert!(state.with_live_match(|_| ()).is_some());
 
@@ -528,7 +540,7 @@ mod tests {
             .update_game(|g| g.competitions[0].fixtures[0].status = FixtureStatus::Scheduled)
             .unwrap();
         assert!(finish_interactive_match_internal(&state).is_ok());
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+        assert_eq!(state.get_game(standings_played).unwrap(), 2);
     }
 
     /// Given a finished match,
@@ -548,7 +560,7 @@ mod tests {
             .collect();
         let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
         assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 2);
+        assert_eq!(state.get_game(standings_played).unwrap(), 2);
     }
 
     /// Given a match under way, a retry of the same start,
@@ -599,6 +611,79 @@ mod tests {
         assert!(error.starts_with("be.error."), "{error}");
         assert!(state.with_interactive_match(|_| ()).is_none());
         assert!(state.with_live_match(|_| ()).is_some());
-        assert_eq!(state.get_game(|g| standings_played(g)).unwrap(), 0);
+        assert_eq!(state.get_game(standings_played).unwrap(), 0);
+    }
+
+    /// Given an interactive match for one fixture and a live session that now identifies
+    /// another,
+    /// When the match is resumed, played out and finished,
+    /// Then it is never resumed or applied to the other fixture: start discards it, finish
+    /// refuses it, and the career is untouched.
+    #[test]
+    fn a_match_of_another_fixture_is_never_resumed_or_applied() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        to_full_time(&state);
+        state
+            .with_live_match(|session| session.fixture_id = "another-fixture".to_string())
+            .expect("a live session");
+
+        // finishing: refused, nothing applied
+        assert_eq!(
+            finish_interactive_match_internal(&state).unwrap_err(),
+            "be.error.interactive.noActiveMatch"
+        );
+        assert_eq!(
+            state.get_game(standings_played).unwrap(),
+            0,
+            "nothing was applied"
+        );
+        assert!(
+            state.with_interactive_match(|_| ()).is_none(),
+            "the stale match is gone"
+        );
+
+        // starting: a stale match still in the slot is discarded, not handed back
+        state.set_game(game_with_spatial_fixture());
+        let original = {
+            state.with_live_match(|session| session.fixture_id = FIXTURE.to_string());
+            begin_without_live(&state)
+        };
+        state.with_live_match(|session| session.fixture_id = "yet-another".to_string());
+        let error = start_interactive_match_internal(&state).unwrap_err();
+        assert!(error.starts_with("be.error."), "{error}");
+        assert!(
+            state.with_interactive_match(|_| ()).is_none(),
+            "the match of {} was not resumed for another fixture",
+            original.view.session.session_id
+        );
+    }
+
+    /// Starts the interactive match for a live session that already exists.
+    fn begin_without_live(state: &StateManager) -> InteractiveSnapshot {
+        start_interactive_match_internal(state).expect("interactive start")
+    }
+
+    /// Given an interactive match under way,
+    /// When the day's match is finished another way (the classic finish),
+    /// Then the interactive match is discarded with it: it cannot be applied a second time.
+    #[test]
+    fn finishing_the_match_another_way_discards_the_interactive_one() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        advance(&state, AdvanceTarget::ForMinutes(10));
+        crate::application::live_match::finish_live_match(&state).expect("classic finish");
+        assert!(state.with_interactive_match(|_| ()).is_none());
+        assert_eq!(
+            finish_interactive_match_internal(&state).unwrap_err(),
+            "be.error.interactive.noActiveMatch"
+        );
+        assert_eq!(
+            state.get_game(standings_played).unwrap(),
+            2,
+            "applied once, by the classic path"
+        );
     }
 }

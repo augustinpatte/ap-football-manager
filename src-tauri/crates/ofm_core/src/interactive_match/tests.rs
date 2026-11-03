@@ -389,3 +389,21 @@ fn a_fixture_without_the_users_club_takes_no_orders() {
         );
     }
 }
+
+/// Given a finished match whose report cannot be built,
+/// When it is completed,
+/// Then the failure is reported, the match is left intact (it can still be read), and
+/// completing again succeeds once the cause is gone: nothing was consumed.
+#[test]
+fn a_failed_completion_leaves_the_match_intact() {
+    let mut m = start(11);
+    run_to_end(&mut m);
+    let real = m.input.home.id.clone();
+    m.input.home.id = apfm_match_lab::ids::TeamId::new("someone-else".to_string());
+    assert!(matches!(m.complete(), Err(InteractiveError::Run(_))));
+    assert!(m.view().is_some(), "the match is still there");
+    assert!(!m.is_completed());
+    m.input.home.id = real;
+    assert!(m.complete().is_ok());
+    assert!(m.is_completed());
+}

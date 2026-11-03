@@ -2908,7 +2908,6 @@
       "resume": "继续",
       "toEnd": "直接踢到终场",
       "applyTactics": "应用战术",
-      "eventTactical": "战术调整",
       "assistant": "由助理教练指挥我的球队",
       "assistantHint": "助理教练负责常规调整，你下达的指令始终优先。",
       "assistantUnavailable": "请先在“职员”中将比赛日战术委托给助理教练，才能启用。",

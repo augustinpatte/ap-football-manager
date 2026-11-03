@@ -54,7 +54,8 @@ const CARD_KINDS: Record<string, FeedKind | undefined> = {
   red: "redCard",
 };
 
-function feedEntryOf(event: ReplayEvent): FeedEntry | null {
+/** One event of the match as a feed entry, or `null` for the many a player does not read. */
+export function feedEntryOf(event: ReplayEvent): FeedEntry | null {
   const base = { t_ms: event.t_ms, side: asSide(event.side) };
   switch (event.type) {
     case "goal":

@@ -229,8 +229,6 @@ struct SideAi {
 enum Stage {
     Playing(Box<MatchSession>),
     Completed(Box<MatchReport>),
-    /// Only while `complete` runs: the session has been taken and the report not yet stored.
-    Transition,
 }
 
 pub struct InteractiveMatch {
@@ -315,11 +313,12 @@ impl InteractiveMatch {
         )
         .map_err(|e| InteractiveError::Engine(e.to_string()))?;
         let regulation_ms = u32::from(input.config.half_length_minutes) * 2 * 60_000;
-        let mut controller = Self {
+        grant_actors(&mut session, user_side, false);
+        Ok(Self {
             identity,
             squad: Squad::of(&input),
             input,
-            stage: Stage::Transition,
+            stage: Stage::Playing(Box::new(session)),
             user_side,
             assistant_available: user_side.is_some() && game.delegation.is_delegated(Duty::Tactics),
             assistant_active: false,
@@ -331,23 +330,7 @@ impl InteractiveMatch {
             ai_cursor: 0,
             next_review_ms: REVIEW_EVERY_MS,
             regulation_ms,
-        };
-        controller.grant_actors(&mut session);
-        controller.stage = Stage::Playing(Box::new(session));
-        Ok(controller)
-    }
-
-    fn grant_actors(&self, session: &mut MatchSession) {
-        for side in [Side::Home, Side::Away] {
-            if Some(side) == self.user_side {
-                session.grant(MANAGER_ACTOR, side);
-                if self.assistant_active {
-                    session.grant(ASSISTANT_ACTOR, side);
-                }
-            } else {
-                session.grant(&opponent_actor(side), side);
-            }
-        }
+        })
     }
 
     pub fn identity(&self) -> &FixtureIdentity {
@@ -703,17 +686,15 @@ impl InteractiveMatch {
     // ---- finishing
 
     /// Turns a match that reached full time into the career report. Never for a partial match.
+    /// The session is kept until the report exists, so a failure leaves the match intact and
+    /// the call can simply be made again.
     pub fn complete(&mut self) -> Result<&MatchReport, InteractiveError> {
-        if !matches!(self.stage, Stage::Completed(_)) {
-            if !self.playing()?.is_finished() {
+        if let Stage::Playing(session) = &self.stage {
+            if !session.is_finished() {
                 return Err(InteractiveError::NotFinished);
             }
-            let Stage::Playing(session) = std::mem::replace(&mut self.stage, Stage::Transition)
-            else {
-                return Err(InteractiveError::AlreadyCompleted);
-            };
             let run = session
-                .finish()
+                .finished_run()
                 .map_err(|e| InteractiveError::Engine(e.to_string()))?;
             let context = spatial_runner::session_projection_context(&self.input);
             let report = spatial_runner::report_from_session_output(&context, &run.output)
@@ -722,7 +703,7 @@ impl InteractiveMatch {
         }
         match &self.stage {
             Stage::Completed(report) => Ok(report),
-            _ => Err(InteractiveError::NotFinished),
+            Stage::Playing(_) => Err(InteractiveError::NotFinished),
         }
     }
 
@@ -812,6 +793,21 @@ impl Order {
                 groups
             }
             Order::Substitute { .. } | Order::Cancel { .. } => vec![Group::Substitution],
+        }
+    }
+}
+
+/// Registers who may command which side: the manager (and the assistant, when on) for the
+/// player's side, the computer's own manager for every other.
+fn grant_actors(session: &mut MatchSession, user_side: Option<Side>, assistant_active: bool) {
+    for side in [Side::Home, Side::Away] {
+        if Some(side) == user_side {
+            session.grant(MANAGER_ACTOR, side);
+            if assistant_active {
+                session.grant(ASSISTANT_ACTOR, side);
+            }
+        } else {
+            session.grant(&opponent_actor(side), side);
         }
     }
 }

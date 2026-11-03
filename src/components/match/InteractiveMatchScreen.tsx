@@ -16,9 +16,10 @@ import {
   type TacticalChange,
   type UserOrder,
 } from "../../services/interactiveMatchService";
-import { eventLine, matchMinute, playerNames, rejectionMessage } from "./interactiveMatch.helpers";
+import { matchMinute, playerNames, rejectionMessage } from "./interactiveMatch.helpers";
+import { feedEntryOf, type FeedEntry } from "./replayDerived";
 import {
-  EventFeed,
+  EventLog,
   Field,
   SubstitutionPanel,
   TacticsPanel,
@@ -177,26 +178,30 @@ export default function InteractiveMatchScreen<TFinish>({
   }, [exclusive, onFinished]);
 
   const names = useMemo(() => (view ? playerNames(view) : {}), [view]);
-  const lines = useMemo(
+  const entries = useMemo(
     () =>
-      view
-        ? events
-            .map((e) =>
-              eventLine(e, {
-                names,
-                teamNames: { home: homeName, away: awayName },
-                regulationMinutes: view.regulation_minutes,
-                t,
-              }),
-            )
-            .filter((line): line is string => line !== null)
-        : [],
-    [events, view, names, homeName, awayName, t],
+      events
+        .map((event) => feedEntryOf(event))
+        .filter((entry): entry is FeedEntry => entry !== null),
+    [events],
   );
+  const nameOf = useCallback(
+    (id: string | undefined) => (id ? (names[id] ?? t("match.replayUnknownPlayer")) : ""),
+    [names, t],
+  );
+
+  const finished = session?.finished ?? false;
+  // When the match ends the Play button disables itself: move focus to the next useful control.
+  useEffect(() => {
+    if (finished && document.activeElement === document.body) {
+      document.getElementById("interactive-finish")?.focus();
+    }
+  }, [finished]);
 
   if (!view || !session) {
     return (
       <main className="min-h-screen bg-page p-6">
+        <h1 className="sr-only">{t("match.interactive.heading")}</h1>
         {notice ? (
           <p role="alert" className="text-body text-danger">
             {notice}
@@ -230,13 +235,16 @@ export default function InteractiveMatchScreen<TFinish>({
         <h1 className="sr-only">{t("match.interactive.heading")}</h1>
         <div className="flex items-center justify-center gap-6 font-heading text-title uppercase tracking-label">
           <span>{homeName}</span>
-          <span aria-live="polite">
+          <span>
             {session.score_home} – {session.score_away}
           </span>
           <span>{awayName}</span>
         </div>
-        <p className="mt-1 text-center text-body" aria-live="polite">
+        <p className="mt-1 text-center text-body">
           {matchMinute(session.clock_ms)}&apos; <Badge variant="neutral">{phaseLabel}</Badge>
+        </p>
+        <p role="status" className="sr-only">
+          {`${homeName} ${session.score_home}, ${awayName} ${session.score_away}, ${phaseLabel}`}
         </p>
       </header>
 
@@ -286,7 +294,12 @@ export default function InteractiveMatchScreen<TFinish>({
           </span>
         )}
         <div className="ml-auto">
-          <Button size="sm" onClick={() => void finish()} disabled={!session.finished}>
+          <Button
+            id="interactive-finish"
+            size="sm"
+            onClick={() => void finish()}
+            disabled={!session.finished}
+          >
             {t("match.interactive.finish")}
           </Button>
         </div>
@@ -326,7 +339,11 @@ export default function InteractiveMatchScreen<TFinish>({
           />
         )}
         <div className="lg:col-span-2">
-          <EventFeed lines={lines} />
+          <EventLog
+            entries={entries}
+            teamNames={{ home: homeName, away: awayName }}
+            nameOf={nameOf}
+          />
         </div>
       </div>
     </main>

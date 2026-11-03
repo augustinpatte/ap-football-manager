@@ -235,9 +235,8 @@ describe("InteractiveMatchScreen", () => {
     fireEvent.click(await screen.findByRole("button", { name: tr("match.interactive.play") }));
     await waitFor(() => expect(backend.state.brokeAtHalf).toBe(true), { timeout: 4000 });
     expect(await screen.findByRole("button", { name: tr("match.interactive.play") })).toBeEnabled();
-    expect(
-      screen.getByText(`5' Reds: ${tr("match.replayFeed.goal", { player: "H Back" })}`),
-    ).toBeInTheDocument();
+    expect(screen.getByText(tr("match.replayFeed.goal", { player: "H Back" }))).toBeInTheDocument();
+    expect(screen.getByText("(Reds)")).toBeInTheDocument();
     const advances = backend.state.calls.filter((c) => c.startsWith("advance")).length;
     await new Promise((r) => setTimeout(r, 600));
     expect(backend.state.calls.filter((c) => c.startsWith("advance"))).toHaveLength(advances);
@@ -252,6 +251,23 @@ describe("InteractiveMatchScreen", () => {
     expect(alert).toHaveTextContent(tr("be.error.interactive.engineFailed"));
     await waitFor(() => expect(backend.state.calls).toContain("state"));
     expect(screen.getByRole("button", { name: tr("match.interactive.play") })).toBeEnabled();
+  });
+
+  /** Given a match under way, then one polite status line carries the score and phase (not the ticking clock), and the clock itself is not a live region. */
+  it("announces the score and phase once, not every slice", async () => {
+    renderScreen();
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(`Reds 1, Blues 0, ${tr("match.live")}`);
+    expect(document.querySelectorAll("[aria-live]").length).toBeLessThanOrEqual(1);
+  });
+
+  /** Given a queued substitution whose players are not in the engine's lists, then the screen says an unknown player, never a raw id. */
+  it("never shows a raw player id", async () => {
+    backend.state.pending.push({ off: "ghost-1", on: "ghost-2" });
+    renderScreen();
+    const unknown = tr("match.replayUnknownPlayer");
+    expect(await screen.findByText(`${unknown} → ${unknown}`)).toBeInTheDocument();
+    expect(screen.queryByText(/ghost/)).not.toBeInTheDocument();
   });
 
   /** Given play is running, when the manager pauses and resumes, then the engine is told and play stops and restarts. */

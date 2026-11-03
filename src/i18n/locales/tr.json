@@ -2908,7 +2908,6 @@
       "resume": "Devam et",
       "toEnd": "Maç sonuna kadar oyna",
       "applyTactics": "Taktiği uygula",
-      "eventTactical": "Taktik değişikliği",
       "assistant": "Yardımcı antrenör takımımı yönetsin",
       "assistantHint": "Yardımcı antrenör rutin değişiklikleri yapar. Verdiğiniz talimatlar her zaman önceliklidir.",
       "assistantUnavailable": "Bunu etkinleştirmek için Personel bölümünden maç günü taktiklerini yardımcı antrenöre devredin.",

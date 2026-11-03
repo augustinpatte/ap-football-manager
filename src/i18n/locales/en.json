@@ -2908,7 +2908,6 @@
       "resume": "Resume",
       "toEnd": "Play to full time",
       "applyTactics": "Apply tactics",
-      "eventTactical": "Tactical change",
       "assistant": "Assistant manager runs my team",
       "assistantHint": "The assistant makes routine changes. Orders you give always come first.",
       "assistantUnavailable": "Hand match-day tactics to the assistant in Staff to enable this.",
