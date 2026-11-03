@@ -1,6 +1,11 @@
 # APFM Run F4 — a stateful, causal, interactive M12 match
 
-**Not pushed: the M12 repository (`~/apfm-match-lab`) has no git remote configured**, so its 7 F4
+> **Superseded by Run F4.1 (`docs/APFM_RUN_F4_1_FOOTBALL_REALISM.md`).** The M12 repository now has a
+> private `origin` and the F4 branch is pushed; F4.1 also found that about 1 interactive match in 4 could
+> not be finalised (a woodwork shot or an own goal) and fixed it, which this report did not know. §6.3 and
+> limitations 1, 2, 4 and 5 are addressed there.
+
+**Not pushed at the time of writing: the M12 repository (`~/apfm-match-lab`) had no git remote configured**, so its 7 F4
 commits exist only on the local branch `f4/interactive-session`. `ofm_core` depends on that checkout by
 path (`../../../../../apfm-match-lab`), so the pushed OFM branch builds only with M12 on that branch.
 Add a remote and push it before anyone else builds this. The M12 working tree also still holds the

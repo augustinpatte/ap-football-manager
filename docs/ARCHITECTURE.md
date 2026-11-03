@@ -213,6 +213,8 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `set_interactive_pause` | paused, event_cursor | `InteractiveSnapshot` | Pause or resume the engine clock; a paused match still takes orders |
 | `set_interactive_assistant` | active, event_cursor | `InteractiveSnapshot` | Hand the player's side to the assistant (needs the tactics duty delegated) or take it back |
 | `finish_interactive_match` | — | `FinishLiveMatchResponse` | Apply a match that reached full time through the one finalisation (`finish_spatial_match`); refused before full time |
+| `get_resumable_match` | — | `FixtureIdentity?` | The match restored from the save, if the career was saved in the middle of one (the menu then opens it) |
+| `take_match_restore_notice` | — | `string?` | One-time translation key: a match saved in progress could not be resumed and will start again from kick-off |
 
 ### Team Management Commands
 
