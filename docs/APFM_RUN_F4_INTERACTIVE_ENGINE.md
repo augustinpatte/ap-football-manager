@@ -1,5 +1,12 @@
 # APFM Run F4 — a stateful, causal, interactive M12 match
 
+**Not pushed: the M12 repository (`~/apfm-match-lab`) has no git remote configured**, so its eight F4
+commits exist only on the local branch `f4/interactive-session`. `ofm_core` depends on that checkout by
+path (`../../../../../apfm-match-lab`), so the pushed OFM branch builds only with M12 on that branch.
+Add a remote and push it before anyone else builds this. The M12 working tree also still holds the
+pre-existing, uncommitted licence edits (`Cargo.toml`, untracked `LICENSE`/`NOTICE`), which were left
+alone and not committed.
+
 Branches: OFM `claude/run-f4-interactive-engine` (from the verified F3 branch `claude/run-f3-autonomy`,
 `dd166c94`), M12 `f4/interactive-session` (from `main`, `482e09a`). The viewer repository was not
 changed. Nothing was merged into `apfm/main` or an integration branch.
