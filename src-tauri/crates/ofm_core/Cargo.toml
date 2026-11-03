@@ -25,7 +25,7 @@ base64 = "0.22"
 # resolving this needs git access to it (a credential helper, `gh auth setup-git`, or a CI token);
 # nothing secret is stored here. For local development against a sibling checkout see
 # `.cargo/config.toml.example` (a `paths` override, which leaves Cargo.lock untouched).
-apfm-match-lab = { git = "https://github.com/augustinpatte/apfm-match-lab", rev = "0b4855a3426185bf480c0caf76c1da258bb26655" }
+apfm-match-lab = { git = "https://github.com/augustinpatte/apfm-match-lab", rev = "4057c67598a387880e3bfd1451f888f678b14f0a" }
 
 [lints]
 workspace = true
