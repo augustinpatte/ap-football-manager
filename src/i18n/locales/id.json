@@ -2899,6 +2899,39 @@
       "substituted": "diganti",
       "sentOff": "diusir",
       "replayOnly": "Ini adalah tayangan ulang simulasi yang sudah selesai. Taktik dan pergantian diputuskan dalam pertandingan langsung; tidak ada yang mengubah hasil di sini."
+    },
+    "interactive": {
+      "heading": "Manajemen pertandingan",
+      "manage": "Kelola pertandingan",
+      "manageDesc": "Keputusan taktik dan pergantian pemain dibuat selama pertandingan berlangsung. Hasilnya berlaku setelah pertandingan diselesaikan.",
+      "play": "Main",
+      "resume": "Lanjutkan",
+      "toEnd": "Main sampai akhir",
+      "applyTactics": "Terapkan taktik",
+      "eventTactical": "Perubahan taktik",
+      "assistant": "Asisten pelatih mengelola tim saya",
+      "assistantHint": "Asisten melakukan perubahan rutin. Instruksi dari Anda selalu didahulukan.",
+      "assistantUnavailable": "Serahkan taktik hari pertandingan kepada asisten di menu Staf untuk mengaktifkannya.",
+      "finish": "Selesaikan pertandingan",
+      "orderRefused": "Instruksi ditolak: {{reason}}",
+      "pendingNote": "Pergantian pemain dilakukan pada jeda permainan berikutnya.",
+      "fullTimeHint": "Pertandingan usai. Selesaikan pertandingan untuk menerapkan hasilnya.",
+      "matchFailed": "Pertandingan tidak dapat dilanjutkan. Tidak ada yang diubah.",
+      "rejection": {
+        "stale_revision": "Pertandingan sudah berjalan sebelum instruksi tiba. Coba lagi.",
+        "no_substitutions_left": "Tidak ada pergantian pemain tersisa.",
+        "no_window_left": "Tidak ada jendela pergantian tersisa.",
+        "goalkeeper_mismatch": "Kiper hanya dapat diganti oleh kiper.",
+        "already_played": "Pemain itu sudah pernah bermain di pertandingan ini.",
+        "not_on_pitch": "Pemain itu tidak ada di lapangan.",
+        "not_on_bench": "Pemain itu tidak ada di bangku cadangan.",
+        "duplicate_request": "Pemain itu sudah menjadi bagian dari pergantian yang tertunda.",
+        "not_pending": "Tidak ada pergantian tertunda untuk pemain itu.",
+        "match_finished": "Pertandingan sudah selesai.",
+        "formation_needs_eleven_players": "Formasi tidak dapat diubah selama ada pemain cedera di lapangan.",
+        "unauthorized": "Instruksi itu tidak dapat diberikan.",
+        "other": "Mesin pertandingan menolak instruksi itu."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "Mesin pertandingan 2D tidak dapat menjalankan pertandingan ini: {{detail}}. Tidak ada yang diubah.",
         "outputInvalid": "Mesin pertandingan 2D mengembalikan hasil yang gagal divalidasi ({{code}}). Tidak ada yang diubah.",
         "notPrepared": "Belum ada pertandingan 2D yang disiapkan. Buka tampilan 2D lagi sebelum menuju hasil."
+      },
+      "interactive": {
+        "noActiveMatch": "Tidak ada pertandingan yang sedang berlangsung.",
+        "notYourMatch": "Klub Anda tidak bermain di pertandingan ini.",
+        "assistantNotDelegated": "Taktik hari pertandingan belum diserahkan kepada asisten.",
+        "notFinished": "Pertandingan belum mencapai akhir.",
+        "alreadyCompleted": "Pertandingan ini sudah diselesaikan.",
+        "unsupportedFormation": "Mesin pertandingan tidak dapat memainkan formasi itu.",
+        "nothingToChange": "Instruksi itu tidak mengubah apa pun.",
+        "engineFailed": "Mesin pertandingan tidak dapat melanjutkan. Tidak ada yang diubah."
       }
     },
     "sender": {

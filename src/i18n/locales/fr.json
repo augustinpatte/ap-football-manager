@@ -2899,6 +2899,39 @@
       "substituted": "remplacé",
       "sentOff": "expulsé",
       "replayOnly": "Ceci est le replay d'une simulation terminée. La tactique et les remplacements se décident en match en direct ; rien ici ne change le résultat."
+    },
+    "interactive": {
+      "heading": "Gestion du match",
+      "manage": "Gérer le match",
+      "manageDesc": "Les décisions tactiques et les remplacements se prennent pendant le match. Le résultat compte une fois le match terminé.",
+      "play": "Jouer",
+      "resume": "Reprendre",
+      "toEnd": "Jouer jusqu'au coup de sifflet final",
+      "applyTactics": "Appliquer la tactique",
+      "eventTactical": "Changement tactique",
+      "assistant": "L'adjoint dirige mon équipe",
+      "assistantHint": "L'adjoint effectue les changements courants. Les ordres donnés par le manager priment toujours.",
+      "assistantUnavailable": "Déléguer la tactique de match à l'adjoint dans Staff pour activer cette option.",
+      "finish": "Terminer le match",
+      "orderRefused": "Ordre refusé : {{reason}}",
+      "pendingNote": "Les remplacements sont effectués au prochain arrêt de jeu.",
+      "fullTimeHint": "Fin du match. Terminer le match pour appliquer le résultat.",
+      "matchFailed": "Le match n'a pas pu continuer. Rien n'a été modifié.",
+      "rejection": {
+        "stale_revision": "Le match a avancé avant l'arrivée de l'ordre. Réessayer.",
+        "no_substitutions_left": "Plus aucun remplacement disponible.",
+        "no_window_left": "Plus aucune fenêtre de remplacement disponible.",
+        "goalkeeper_mismatch": "Un gardien ne peut être remplacé que par un gardien.",
+        "already_played": "Ce joueur a déjà participé au match.",
+        "not_on_pitch": "Ce joueur n'est pas sur le terrain.",
+        "not_on_bench": "Ce joueur n'est pas sur le banc.",
+        "duplicate_request": "Ce joueur fait déjà partie d'un remplacement en attente.",
+        "not_pending": "Aucun remplacement en attente pour ce joueur.",
+        "match_finished": "Le match est terminé.",
+        "formation_needs_eleven_players": "Le dispositif ne peut pas changer tant qu'un joueur est blessé sur le terrain.",
+        "unauthorized": "Cet ordre ne peut pas être donné.",
+        "other": "Le moteur de match a refusé cet ordre."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "Le moteur de match 2D n'a pas pu jouer ce match : {{detail}}. Rien n'a été modifié.",
         "outputInvalid": "Le moteur de match 2D a renvoyé un résultat qui n'a pas passé la validation ({{code}}). Rien n'a été modifié.",
         "notPrepared": "Aucun match en 2D n'a été préparé. Rouvrez la vue 2D avant d'aller au résultat."
+      },
+      "interactive": {
+        "noActiveMatch": "Aucun match n'est en cours.",
+        "notYourMatch": "Votre club ne joue pas ce match.",
+        "assistantNotDelegated": "L'adjoint n'a pas reçu la tactique de match.",
+        "notFinished": "Le match n'est pas encore arrivé à son terme.",
+        "alreadyCompleted": "Ce match est déjà terminé.",
+        "unsupportedFormation": "Le moteur de match ne peut pas jouer ce dispositif.",
+        "nothingToChange": "Cet ordre ne change rien.",
+        "engineFailed": "Le moteur de match n'a pas pu continuer. Rien n'a été modifié."
       }
     },
     "sender": {

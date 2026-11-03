@@ -2899,6 +2899,39 @@
       "substituted": "ausgewechselt",
       "sentOff": "vom Platz gestellt",
       "replayOnly": "Dies ist die Wiederholung einer abgeschlossenen Simulation. Taktik und Wechsel werden in einem Live-Spiel entschieden; nichts hier ändert das Ergebnis."
+    },
+    "interactive": {
+      "heading": "Spielleitung",
+      "manage": "Spiel leiten",
+      "manageDesc": "Taktische Entscheidungen und Wechsel werden während des Spiels getroffen. Das Ergebnis zählt, sobald das Spiel beendet ist.",
+      "play": "Spielen",
+      "resume": "Fortsetzen",
+      "toEnd": "Bis zum Abpfiff spielen",
+      "applyTactics": "Taktik anwenden",
+      "eventTactical": "Taktikwechsel",
+      "assistant": "Der Co-Trainer führt meine Mannschaft",
+      "assistantHint": "Der Co-Trainer nimmt die üblichen Änderungen vor. Eigene Anweisungen haben immer Vorrang.",
+      "assistantUnavailable": "Die Spieltagstaktik im Bereich Mitarbeiter an den Co-Trainer übergeben, um dies zu aktivieren.",
+      "finish": "Spiel beenden",
+      "orderRefused": "Anweisung abgelehnt: {{reason}}",
+      "pendingNote": "Wechsel werden bei der nächsten Spielunterbrechung vorgenommen.",
+      "fullTimeHint": "Abpfiff. Das Spiel beenden, um das Ergebnis zu übernehmen.",
+      "matchFailed": "Das Spiel konnte nicht fortgesetzt werden. Es wurde nichts geändert.",
+      "rejection": {
+        "stale_revision": "Das Spiel lief weiter, bevor die Anweisung eintraf. Erneut versuchen.",
+        "no_substitutions_left": "Keine Wechsel mehr übrig.",
+        "no_window_left": "Keine Wechselfenster mehr übrig.",
+        "goalkeeper_mismatch": "Ein Torwart kann nur durch einen Torwart ersetzt werden.",
+        "already_played": "Dieser Spieler war bereits im Spiel.",
+        "not_on_pitch": "Dieser Spieler steht nicht auf dem Platz.",
+        "not_on_bench": "Dieser Spieler sitzt nicht auf der Bank.",
+        "duplicate_request": "Dieser Spieler ist bereits Teil eines ausstehenden Wechsels.",
+        "not_pending": "Für diesen Spieler gibt es keinen ausstehenden Wechsel.",
+        "match_finished": "Das Spiel ist vorbei.",
+        "formation_needs_eleven_players": "Die Formation kann nicht geändert werden, solange ein Spieler verletzt auf dem Platz liegt.",
+        "unauthorized": "Diese Anweisung ist nicht möglich.",
+        "other": "Die Spiel-Engine hat diese Anweisung abgelehnt."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "Die 2D-Spielengine konnte dieses Spiel nicht ausführen: {{detail}}. Es wurde nichts geändert.",
         "outputInvalid": "Die 2D-Spielengine lieferte ein Ergebnis, das die Prüfung nicht bestand ({{code}}). Es wurde nichts geändert.",
         "notPrepared": "Es wurde kein 2D-Spiel vorbereitet. Öffne die 2D-Ansicht erneut, bevor du zum Ergebnis gehst."
+      },
+      "interactive": {
+        "noActiveMatch": "Es läuft gerade kein Spiel.",
+        "notYourMatch": "Dein Verein spielt in dieser Partie nicht mit.",
+        "assistantNotDelegated": "Dem Co-Trainer wurde die Spieltagstaktik nicht übertragen.",
+        "notFinished": "Das Spiel hat den Abpfiff noch nicht erreicht.",
+        "alreadyCompleted": "Dieses Spiel wurde bereits abgeschlossen.",
+        "unsupportedFormation": "Die Spiel-Engine kann diese Formation nicht spielen.",
+        "nothingToChange": "Diese Anweisung ändert nichts.",
+        "engineFailed": "Die Spiel-Engine konnte nicht fortfahren. Es wurde nichts geändert."
       }
     },
     "sender": {

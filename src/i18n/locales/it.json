@@ -2924,6 +2924,39 @@
       "substituted": "sostituito",
       "sentOff": "espulso",
       "replayOnly": "Questo è il replay di una simulazione conclusa. Tattica e sostituzioni si decidono in una partita dal vivo; nulla qui cambia il risultato."
+    },
+    "interactive": {
+      "heading": "Gestione della partita",
+      "manage": "Gestire la partita",
+      "manageDesc": "Le decisioni tattiche e le sostituzioni si prendono durante la partita. Il risultato vale al termine.",
+      "play": "Gioca",
+      "resume": "Riprendi",
+      "toEnd": "Gioca fino al fischio finale",
+      "applyTactics": "Applica tattica",
+      "eventTactical": "Cambio tattico",
+      "assistant": "Il vice allenatore guida la mia squadra",
+      "assistantHint": "Il vice allenatore effettua i cambi di routine. Gli ordini impartiti hanno sempre la precedenza.",
+      "assistantUnavailable": "Delega la tattica di gara al vice allenatore in Staff per attivare questa opzione.",
+      "finish": "Termina partita",
+      "orderRefused": "Ordine rifiutato: {{reason}}",
+      "pendingNote": "Le sostituzioni vengono effettuate alla prossima interruzione di gioco.",
+      "fullTimeHint": "Fine partita. Termina la partita per applicare il risultato.",
+      "matchFailed": "La partita non ha potuto proseguire. Nulla è stato modificato.",
+      "rejection": {
+        "stale_revision": "La partita è andata avanti prima che l'ordine arrivasse. Riprova.",
+        "no_substitutions_left": "Nessuna sostituzione rimasta.",
+        "no_window_left": "Nessuna finestra di sostituzione rimasta.",
+        "goalkeeper_mismatch": "Un portiere può essere sostituito solo da un portiere.",
+        "already_played": "Quel giocatore ha già preso parte alla partita.",
+        "not_on_pitch": "Quel giocatore non è in campo.",
+        "not_on_bench": "Quel giocatore non è in panchina.",
+        "duplicate_request": "Quel giocatore fa già parte di una sostituzione in attesa.",
+        "not_pending": "Non c'è nessuna sostituzione in attesa per quel giocatore.",
+        "match_finished": "La partita è finita.",
+        "formation_needs_eleven_players": "Il modulo non può cambiare finché un giocatore è infortunato in campo.",
+        "unauthorized": "Non è possibile impartire quest'ordine.",
+        "other": "Il motore di gioco ha rifiutato quest'ordine."
+      }
     }
   },
   "notifications": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "Il motore di gioco 2D non è riuscito a eseguire questa partita: {{detail}}. Non è stato modificato nulla.",
         "outputInvalid": "Il motore di gioco 2D ha restituito un risultato che non ha superato la validazione ({{code}}). Non è stato modificato nulla.",
         "notPrepared": "Nessuna partita in 2D è stata preparata. Riapri la vista 2D prima di passare al risultato."
+      },
+      "interactive": {
+        "noActiveMatch": "Nessuna partita in corso.",
+        "notYourMatch": "Il tuo club non gioca questa partita.",
+        "assistantNotDelegated": "Al vice allenatore non è stata delegata la tattica di gara.",
+        "notFinished": "La partita non è ancora arrivata al termine.",
+        "alreadyCompleted": "Questa partita è già stata completata.",
+        "unsupportedFormation": "Il motore di gioco non può giocare quel modulo.",
+        "nothingToChange": "Quest'ordine non cambia nulla.",
+        "engineFailed": "Il motore di gioco non ha potuto proseguire. Nulla è stato modificato."
       }
     },
     "sender": {

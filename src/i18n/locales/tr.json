@@ -2899,6 +2899,39 @@
       "substituted": "oyundan çıktı",
       "sentOff": "oyundan atıldı",
       "replayOnly": "Bu, tamamlanmış bir simülasyonun tekrarıdır. Taktik ve oyuncu değişiklikleri canlı maçta belirlenir; burada yapılan hiçbir şey sonucu değiştirmez."
+    },
+    "interactive": {
+      "heading": "Maç yönetimi",
+      "manage": "Maçı yönet",
+      "manageDesc": "Taktik kararlar ve oyuncu değişiklikleri maç oynanırken verilir. Sonuç, maç bitirildiğinde geçerli olur.",
+      "play": "Oyna",
+      "resume": "Devam et",
+      "toEnd": "Maç sonuna kadar oyna",
+      "applyTactics": "Taktiği uygula",
+      "eventTactical": "Taktik değişikliği",
+      "assistant": "Yardımcı antrenör takımımı yönetsin",
+      "assistantHint": "Yardımcı antrenör rutin değişiklikleri yapar. Verdiğiniz talimatlar her zaman önceliklidir.",
+      "assistantUnavailable": "Bunu etkinleştirmek için Personel bölümünden maç günü taktiklerini yardımcı antrenöre devredin.",
+      "finish": "Maçı bitir",
+      "orderRefused": "Talimat reddedildi: {{reason}}",
+      "pendingNote": "Oyuncu değişiklikleri oyundaki bir sonraki duruşta yapılır.",
+      "fullTimeHint": "Maç sona erdi. Sonucu uygulamak için maçı bitirin.",
+      "matchFailed": "Maç devam edemedi. Hiçbir şey değiştirilmedi.",
+      "rejection": {
+        "stale_revision": "Talimat ulaşmadan maç ilerledi. Tekrar deneyin.",
+        "no_substitutions_left": "Değişiklik hakkı kalmadı.",
+        "no_window_left": "Başka değişiklik penceresi kalmadı.",
+        "goalkeeper_mismatch": "Bir kaleci yalnızca başka bir kaleciyle değiştirilebilir.",
+        "already_played": "Bu oyuncu maçta zaten yer aldı.",
+        "not_on_pitch": "Bu oyuncu sahada değil.",
+        "not_on_bench": "Bu oyuncu yedek kulübesinde değil.",
+        "duplicate_request": "Bu oyuncu zaten bekleyen bir değişikliğin parçası.",
+        "not_pending": "Bu oyuncu için bekleyen bir değişiklik yok.",
+        "match_finished": "Maç sona erdi.",
+        "formation_needs_eleven_players": "Sahada sakatlanmış bir oyuncu yatarken diziliş değiştirilemez.",
+        "unauthorized": "Bu talimat verilemez.",
+        "other": "Maç motoru bu talimatı reddetti."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "2D maç motoru bu maçı çalıştıramadı: {{detail}}. Hiçbir şey değiştirilmedi.",
         "outputInvalid": "2D maç motoru doğrulamadan geçemeyen bir sonuç döndürdü ({{code}}). Hiçbir şey değiştirilmedi.",
         "notPrepared": "Hazırlanmış bir 2D maç yok. Sonuca geçmeden önce 2D görünümü yeniden açın."
+      },
+      "interactive": {
+        "noActiveMatch": "Devam eden bir maç yok.",
+        "notYourMatch": "Kulübünüz bu maçta oynamıyor.",
+        "assistantNotDelegated": "Maç günü taktikleri yardımcı antrenöre devredilmedi.",
+        "notFinished": "Maç henüz sona ermedi.",
+        "alreadyCompleted": "Bu maç zaten tamamlandı.",
+        "unsupportedFormation": "Maç motoru bu dizilişi oynayamıyor.",
+        "nothingToChange": "Bu talimat hiçbir şeyi değiştirmiyor.",
+        "engineFailed": "Maç motoru devam edemedi. Hiçbir şey değiştirilmedi."
       }
     },
     "sender": {

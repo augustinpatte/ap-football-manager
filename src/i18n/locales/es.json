@@ -2899,6 +2899,39 @@
       "substituted": "sustituido",
       "sentOff": "expulsado",
       "replayOnly": "Esta es la repetición de una simulación terminada. La táctica y los cambios se deciden en un partido en directo; nada de lo que hagas aquí cambia el resultado."
+    },
+    "interactive": {
+      "heading": "Gestión del partido",
+      "manage": "Gestionar el partido",
+      "manageDesc": "Las decisiones tácticas y los cambios se toman durante el partido. El resultado cuenta al finalizarlo.",
+      "play": "Jugar",
+      "resume": "Reanudar",
+      "toEnd": "Jugar hasta el final",
+      "applyTactics": "Aplicar tácticas",
+      "eventTactical": "Cambio táctico",
+      "assistant": "El segundo entrenador dirige mi equipo",
+      "assistantHint": "El segundo entrenador hace los cambios rutinarios. Las órdenes propias siempre tienen prioridad.",
+      "assistantUnavailable": "Delega las tácticas de partido en el segundo entrenador desde Personal para activarlo.",
+      "finish": "Finalizar partido",
+      "orderRefused": "Orden rechazada: {{reason}}",
+      "pendingNote": "Los cambios se hacen en la siguiente interrupción del juego.",
+      "fullTimeHint": "Final del partido. Finalízalo para aplicar el resultado.",
+      "matchFailed": "El partido no pudo continuar. No se ha cambiado nada.",
+      "rejection": {
+        "stale_revision": "El partido avanzó antes de que llegara la orden. Inténtalo de nuevo.",
+        "no_substitutions_left": "No quedan cambios.",
+        "no_window_left": "No quedan más ventanas de cambios.",
+        "goalkeeper_mismatch": "Un portero solo puede ser sustituido por otro portero.",
+        "already_played": "Ese jugador ya ha participado en el partido.",
+        "not_on_pitch": "Ese jugador no está en el campo.",
+        "not_on_bench": "Ese jugador no está en el banquillo.",
+        "duplicate_request": "Ese jugador ya forma parte de un cambio pendiente.",
+        "not_pending": "No hay ningún cambio pendiente para ese jugador.",
+        "match_finished": "El partido ha terminado.",
+        "formation_needs_eleven_players": "No se puede cambiar la formación mientras haya un jugador lesionado en el campo.",
+        "unauthorized": "No se puede dar esa orden.",
+        "other": "El motor del partido rechazó esa orden."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "El motor de partidos 2D no pudo ejecutar este partido: {{detail}}. No se cambió nada.",
         "outputInvalid": "El motor de partidos 2D devolvió un resultado que no superó la validación ({{code}}). No se cambió nada.",
         "notPrepared": "No hay ningún partido en 2D preparado. Abre de nuevo la vista 2D antes de ir al resultado."
+      },
+      "interactive": {
+        "noActiveMatch": "No hay ningún partido en curso.",
+        "notYourMatch": "Tu club no juega este partido.",
+        "assistantNotDelegated": "El segundo entrenador no tiene delegadas las tácticas de partido.",
+        "notFinished": "El partido aún no ha llegado al final.",
+        "alreadyCompleted": "Este partido ya se ha completado.",
+        "unsupportedFormation": "El motor del partido no puede jugar esa formación.",
+        "nothingToChange": "Esa orden no cambia nada.",
+        "engineFailed": "El motor del partido no pudo continuar. No se ha cambiado nada."
       }
     },
     "sender": {

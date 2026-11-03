@@ -206,6 +206,13 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `apply_match_command` | command | `MatchSnapshot` | Send a tactical command |
 | `get_match_snapshot` | — | `MatchSnapshot` | Get current match state |
 | `finish_live_match` | — | `Game` | Apply results and clean up |
+| `start_interactive_match` | — | `InteractiveSnapshot` | Start an M12 session for the live session's fixture (idempotent) |
+| `get_interactive_match_state` | event_cursor | `InteractiveSnapshot` | The session as the engine has it, and the key events from the cursor |
+| `advance_interactive_match` | request, event_cursor | `AdvanceSnapshot` | Play on to a target, a stop (break, goal, dismissal, injury) or full time; the computer managers act inside |
+| `submit_match_command` | command, event_cursor | `OrderSnapshot` | An order from the manager (tactics, formation, substitution, cancel), idempotent by command id and checked against a revision |
+| `set_interactive_pause` | paused, event_cursor | `InteractiveSnapshot` | Pause or resume the engine clock; a paused match still takes orders |
+| `set_interactive_assistant` | active, event_cursor | `InteractiveSnapshot` | Hand the player's side to the assistant (needs the tactics duty delegated) or take it back |
+| `finish_interactive_match` | — | `FinishLiveMatchResponse` | Apply a match that reached full time through the one finalisation (`finish_spatial_match`); refused before full time |
 
 ### Team Management Commands
 

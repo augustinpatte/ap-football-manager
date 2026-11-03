@@ -2899,6 +2899,39 @@
       "substituted": "střídán",
       "sentOff": "vyloučen",
       "replayOnly": "Toto je záznam dokončené simulace. Taktika a střídání se rozhodují v živém zápase; nic zde výsledek nezmění."
+    },
+    "interactive": {
+      "heading": "Řízení zápasu",
+      "manage": "Řídit zápas",
+      "manageDesc": "Taktická rozhodnutí a střídání se provádějí během zápasu. Výsledek se započítá po skončení zápasu.",
+      "play": "Hrát",
+      "resume": "Pokračovat",
+      "toEnd": "Hrát do konce",
+      "applyTactics": "Použít taktiku",
+      "eventTactical": "Taktická změna",
+      "assistant": "Asistent trenéra řídí můj tým",
+      "assistantHint": "Asistent provádí běžné změny. Vlastní pokyny mají vždy přednost.",
+      "assistantUnavailable": "Pro zapnutí svěřte zápasovou taktiku asistentovi v sekci Realizační tým.",
+      "finish": "Ukončit zápas",
+      "orderRefused": "Pokyn byl zamítnut: {{reason}}",
+      "pendingNote": "Střídání se provádějí při nejbližším přerušení hry.",
+      "fullTimeHint": "Konec zápasu. Ukončením zápasu se použije výsledek.",
+      "matchFailed": "Zápas nemohl pokračovat. Nic se nezměnilo.",
+      "rejection": {
+        "stale_revision": "Zápas pokračoval dřív, než pokyn dorazil. Zkuste to znovu.",
+        "no_substitutions_left": "Žádná další střídání nezbyla.",
+        "no_window_left": "Žádná další okna pro střídání nezbyla.",
+        "goalkeeper_mismatch": "Brankáře lze vystřídat jen brankářem.",
+        "already_played": "Tento hráč už v zápase nastoupil.",
+        "not_on_pitch": "Tento hráč není na hřišti.",
+        "not_on_bench": "Tento hráč není na lavičce.",
+        "duplicate_request": "Tento hráč už je součástí čekajícího střídání.",
+        "not_pending": "Pro tohoto hráče nečeká žádné střídání.",
+        "match_finished": "Zápas skončil.",
+        "formation_needs_eleven_players": "Rozestavení nelze změnit, dokud na hřišti leží zraněný hráč.",
+        "unauthorized": "Tento pokyn nelze zadat.",
+        "other": "Zápasový engine tento pokyn odmítl."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "Engine zápasu ve 2D tento zápas nedokázal odehrát: {{detail}}. Nic se nezměnilo.",
         "outputInvalid": "Engine zápasu ve 2D vrátil výsledek, který neprošel kontrolou ({{code}}). Nic se nezměnilo.",
         "notPrepared": "Zápas ve 2D není připraven. Před přechodem k výsledku znovu otevřete 2D zobrazení."
+      },
+      "interactive": {
+        "noActiveMatch": "Žádný zápas neprobíhá.",
+        "notYourMatch": "Váš klub v tomto zápase nehraje.",
+        "assistantNotDelegated": "Asistentovi nebyla svěřena zápasová taktika.",
+        "notFinished": "Zápas ještě nedospěl do konce.",
+        "alreadyCompleted": "Tento zápas už byl dokončen.",
+        "unsupportedFormation": "Zápasový engine toto rozestavení neumí hrát.",
+        "nothingToChange": "Tento pokyn nic nemění.",
+        "engineFailed": "Zápasový engine nemohl pokračovat. Nic se nezměnilo."
       }
     },
     "sender": {

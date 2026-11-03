@@ -11,6 +11,8 @@ interface MatchViewModePanelProps {
   error: string | null;
   onWatchIn2d: () => void;
   onQuickSimulation: () => void;
+  /** Manage the match yourself: tactics, substitutions and pace, with the result applied at full time. */
+  onManage?: () => void;
   /**
    * Only for screens that have no "Start Match" button of their own (spectators): adds the
    * classic live option so the three ways of seeing the match are listed together.
@@ -46,6 +48,7 @@ export default function MatchViewModePanel({
   error,
   onWatchIn2d,
   onQuickSimulation,
+  onManage,
   onPlayLive,
 }: MatchViewModePanelProps) {
   const { t } = useTranslation();
@@ -102,6 +105,17 @@ export default function MatchViewModePanel({
             </Button>
           }
         />
+        {onManage && (
+          <Option
+            title={t("match.interactive.manage")}
+            description={t("match.interactive.manageDesc")}
+            action={
+              <Button size="sm" onClick={onManage} disabled={busy !== null}>
+                {t("match.interactive.manage")}
+              </Button>
+            }
+          />
+        )}
       </ul>
       {busy && (
         <p className="mt-2 text-caption text-fg" role="status">

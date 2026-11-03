@@ -2899,6 +2899,39 @@
       "substituted": "被换下",
       "sentOff": "被罚下",
       "replayOnly": "这是已完成模拟的回放。战术与换人需在实时比赛中决定；此处的任何操作都不会改变结果。"
+    },
+    "interactive": {
+      "heading": "比赛管理",
+      "manage": "管理比赛",
+      "manageDesc": "比赛进行中由你做出战术决策和换人安排。比赛结束后结果才会生效。",
+      "play": "开始",
+      "resume": "继续",
+      "toEnd": "直接踢到终场",
+      "applyTactics": "应用战术",
+      "eventTactical": "战术调整",
+      "assistant": "由助理教练指挥我的球队",
+      "assistantHint": "助理教练负责常规调整，你下达的指令始终优先。",
+      "assistantUnavailable": "请先在“职员”中将比赛日战术委托给助理教练，才能启用。",
+      "finish": "结束比赛",
+      "orderRefused": "指令被拒绝：{{reason}}",
+      "pendingNote": "换人将在比赛下一次停球时进行。",
+      "fullTimeHint": "比赛结束。结束比赛以应用结果。",
+      "matchFailed": "比赛无法继续，未做任何更改。",
+      "rejection": {
+        "stale_revision": "指令送达前比赛已继续进行，请重试。",
+        "no_substitutions_left": "已没有换人名额。",
+        "no_window_left": "已没有换人机会。",
+        "goalkeeper_mismatch": "守门员只能由守门员替换。",
+        "already_played": "该球员已经参加过本场比赛。",
+        "not_on_pitch": "该球员不在场上。",
+        "not_on_bench": "该球员不在替补席上。",
+        "duplicate_request": "该球员已在一项待执行的换人中。",
+        "not_pending": "该球员没有待执行的换人。",
+        "match_finished": "比赛已经结束。",
+        "formation_needs_eleven_players": "场上有球员因伤倒地时，不能更改阵型。",
+        "unauthorized": "无法下达该指令。",
+        "other": "比赛引擎拒绝了该指令。"
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "2D 比赛引擎无法运行此比赛：{{detail}}。未做任何更改。",
         "outputInvalid": "2D 比赛引擎返回的结果未通过验证（{{code}}）。未做任何更改。",
         "notPrepared": "尚未准备 2D 比赛。请先重新打开 2D 视图，再查看结果。"
+      },
+      "interactive": {
+        "noActiveMatch": "当前没有进行中的比赛。",
+        "notYourMatch": "你的俱乐部不参加这场比赛。",
+        "assistantNotDelegated": "尚未将比赛日战术委托给助理教练。",
+        "notFinished": "比赛尚未打到终场。",
+        "alreadyCompleted": "这场比赛已经完成。",
+        "unsupportedFormation": "比赛引擎无法使用该阵型。",
+        "nothingToChange": "该指令没有任何改变。",
+        "engineFailed": "比赛引擎无法继续，未做任何更改。"
       }
     },
     "sender": {

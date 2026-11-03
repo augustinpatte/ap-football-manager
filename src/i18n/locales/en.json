@@ -2899,6 +2899,39 @@
       "substituted": "substituted",
       "sentOff": "sent off",
       "replayOnly": "This is a replay of a finished simulation. Tactics and substitutions are decided in a live match; nothing done here changes the result."
+    },
+    "interactive": {
+      "heading": "Match management",
+      "manage": "Manage the match",
+      "manageDesc": "Make the tactical and substitution decisions yourself while the match is played. The result counts once you finish.",
+      "play": "Play",
+      "resume": "Resume",
+      "toEnd": "Play to full time",
+      "applyTactics": "Apply tactics",
+      "eventTactical": "Tactical change",
+      "assistant": "Assistant manager runs my team",
+      "assistantHint": "The assistant makes routine changes. Orders you give always come first.",
+      "assistantUnavailable": "Hand match-day tactics to the assistant in Staff to enable this.",
+      "finish": "Finish match",
+      "orderRefused": "That order was refused: {{reason}}",
+      "pendingNote": "Substitutions are made at the next stoppage in play.",
+      "fullTimeHint": "Full time. Finish the match to apply the result.",
+      "matchFailed": "The match could not continue. Nothing was changed.",
+      "rejection": {
+        "stale_revision": "The match moved on before the order arrived. Try again.",
+        "no_substitutions_left": "No substitutions left.",
+        "no_window_left": "No more substitution windows left.",
+        "goalkeeper_mismatch": "A goalkeeper can only be replaced by a goalkeeper.",
+        "already_played": "That player has already been in the match.",
+        "not_on_pitch": "That player is not on the pitch.",
+        "not_on_bench": "That player is not on the bench.",
+        "duplicate_request": "That player is already part of a pending substitution.",
+        "not_pending": "There is no pending substitution for that player.",
+        "match_finished": "The match is over.",
+        "formation_needs_eleven_players": "The formation cannot change while a player lies injured.",
+        "unauthorized": "You cannot give that order.",
+        "other": "The engine refused that order."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "The 2D match engine could not run this match: {{detail}}. Nothing was changed.",
         "outputInvalid": "The 2D match engine returned a result that failed validation ({{code}}). Nothing was changed.",
         "notPrepared": "No 2D match has been prepared. Open the 2D view again before going to the result."
+      },
+      "interactive": {
+        "noActiveMatch": "There is no match under way.",
+        "notYourMatch": "Your club is not playing in this match.",
+        "assistantNotDelegated": "The assistant has not been given match-day tactics.",
+        "notFinished": "The match has not reached full time yet.",
+        "alreadyCompleted": "This match has already been completed.",
+        "unsupportedFormation": "The match engine cannot play that formation.",
+        "nothingToChange": "That order changes nothing.",
+        "engineFailed": "The match engine could not continue. Nothing was changed."
       }
     },
     "sender": {

@@ -2842,6 +2842,39 @@
       "substituted": "substituído",
       "sentOff": "expulso",
       "replayOnly": "Este é o replay de uma simulação concluída. Tática e substituições são decididas em uma partida ao vivo; nada aqui altera o resultado."
+    },
+    "interactive": {
+      "heading": "Gestão da partida",
+      "manage": "Gerenciar a partida",
+      "manageDesc": "As decisões táticas e as substituições são tomadas durante a partida. O resultado vale quando a partida for encerrada.",
+      "play": "Jogar",
+      "resume": "Retomar",
+      "toEnd": "Jogar até o fim",
+      "applyTactics": "Aplicar táticas",
+      "eventTactical": "Mudança tática",
+      "assistant": "O auxiliar técnico comanda meu time",
+      "assistantHint": "O auxiliar faz as mudanças de rotina. As ordens dadas por você sempre têm prioridade.",
+      "assistantUnavailable": "Delegue as táticas de jogo ao auxiliar em Comissão Técnica para ativar esta opção.",
+      "finish": "Encerrar partida",
+      "orderRefused": "Ordem recusada: {{reason}}",
+      "pendingNote": "As substituições são feitas na próxima parada do jogo.",
+      "fullTimeHint": "Fim de jogo. Encerre a partida para aplicar o resultado.",
+      "matchFailed": "A partida não pôde continuar. Nada foi alterado.",
+      "rejection": {
+        "stale_revision": "A partida avançou antes de a ordem chegar. Tente novamente.",
+        "no_substitutions_left": "Não restam substituições.",
+        "no_window_left": "Não restam mais janelas de substituição.",
+        "goalkeeper_mismatch": "Um goleiro só pode ser substituído por outro goleiro.",
+        "already_played": "Esse jogador já participou da partida.",
+        "not_on_pitch": "Esse jogador não está em campo.",
+        "not_on_bench": "Esse jogador não está no banco.",
+        "duplicate_request": "Esse jogador já faz parte de uma substituição pendente.",
+        "not_pending": "Não há substituição pendente para esse jogador.",
+        "match_finished": "A partida acabou.",
+        "formation_needs_eleven_players": "O esquema tático não pode mudar enquanto um jogador estiver lesionado em campo.",
+        "unauthorized": "Não é possível dar essa ordem.",
+        "other": "O motor da partida recusou essa ordem."
+      }
     }
   },
   "endOfSeason": {
@@ -3285,6 +3318,16 @@
         "engineFailed": "O motor de partida 2D não conseguiu executar esta partida: {{detail}}. Nada foi alterado.",
         "outputInvalid": "O motor de partida 2D devolveu um resultado que falhou na validação ({{code}}). Nada foi alterado.",
         "notPrepared": "Nenhuma partida em 2D foi preparada. Abra a visualização 2D novamente antes de ir ao resultado."
+      },
+      "interactive": {
+        "noActiveMatch": "Não há nenhuma partida em andamento.",
+        "notYourMatch": "Seu clube não joga esta partida.",
+        "assistantNotDelegated": "O auxiliar não recebeu as táticas de jogo.",
+        "notFinished": "A partida ainda não chegou ao fim.",
+        "alreadyCompleted": "Esta partida já foi concluída.",
+        "unsupportedFormation": "O motor da partida não consegue jogar esse esquema tático.",
+        "nothingToChange": "Essa ordem não altera nada.",
+        "engineFailed": "O motor da partida não pôde continuar. Nada foi alterado."
       }
     },
     "sender": {

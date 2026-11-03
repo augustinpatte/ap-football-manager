@@ -66,4 +66,31 @@ describe("MatchViewModePanel", () => {
     );
     expect(screen.getByRole("alert")).toHaveTextContent("boom");
   });
+
+  /** Given a screen that can start a managed match, when the panel renders, then that way to play is listed and starts the match; without the handler it is not offered. */
+  it("offers to manage the match only when it can", () => {
+    const manage = vi.fn();
+    const { rerender } = render(
+      <MatchViewModePanel
+        busy={null}
+        error={null}
+        onWatchIn2d={vi.fn()}
+        onQuickSimulation={vi.fn()}
+        onManage={manage}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "match.interactive.manage" }));
+    expect(manage).toHaveBeenCalledOnce();
+    rerender(
+      <MatchViewModePanel
+        busy={null}
+        error={null}
+        onWatchIn2d={vi.fn()}
+        onQuickSimulation={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "match.interactive.manage" }),
+    ).not.toBeInTheDocument();
+  });
 });

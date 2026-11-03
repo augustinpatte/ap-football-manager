@@ -22,6 +22,7 @@ import RoundDigestScreen from "../components/match/RoundDigestScreen";
 import PressConference from "../components/match/PressConference";
 import PenaltyShootoutScreen from "../components/match/PenaltyShootoutScreen";
 import M12ReplayViewer from "../components/match/M12ReplayViewer";
+import InteractiveMatchScreen from "../components/match/InteractiveMatchScreen";
 import MatchViewModePanel, { type SpatialAction } from "../components/match/MatchViewModePanel";
 import SpectatorViewChoice from "../components/match/SpectatorViewChoice";
 import {
@@ -110,6 +111,7 @@ export default function MatchSimulation() {
   const [hasUserOverriddenSpeed, setHasUserOverriddenSpeed] = useState(false);
   const [spatialAction, setSpatialAction] = useState<SpatialAction | null>(null);
   const [spatialError, setSpatialError] = useState<string | null>(null);
+  const [managing, setManaging] = useState(false);
   const spatialActionInFlight = useRef(false);
 
   // Each match screen is a new live session; commands from an earlier one must not hold it up.
@@ -340,6 +342,28 @@ export default function MatchSimulation() {
     }
   }, [beginSpatialAction, endSpatialAction, identifyFixture, setGameState, t]);
 
+  // The managed match has been played to full time and applied to the career by the backend's
+  // one finalisation: show the result the career now holds.
+  const handleManagedFinished = useCallback(
+    (response: FinishLiveMatchResponse) => {
+      setGameState(response.game);
+      setRoundSummary(response.round_summary ?? null);
+      setCupRoundSummaries(response.cup_round_summaries ?? []);
+      const fixture = resolveMatchFixture(response.game, snapshot, routeState ?? undefined);
+      if (fixture?.result) {
+        setSpatialResult({
+          homeGoals: fixture.result.home_goals,
+          awayGoals: fixture.result.away_goals,
+          events: [],
+        });
+      }
+      setHasFinalizedMatch(true);
+      setManaging(false);
+      setStage("postmatch");
+    },
+    [setGameState, snapshot, routeState],
+  );
+
   // Reads the stored document only: the backend never simulates or finalises here.
   const handleWatchStoredReplay = useCallback(async () => {
     if (!replayRef || spatialActionInFlight.current) return;
@@ -467,6 +491,21 @@ export default function MatchSimulation() {
   }
 
   const currentFixture = resolveMatchFixture(gameState, snapshot, routeState ?? undefined);
+  if (managing) {
+    return (
+      <InteractiveMatchScreen<FinishLiveMatchResponse>
+        homeName={
+          gameState.teams.find((team) => team.id === snapshot.home_team.id)?.name ??
+          snapshot.home_team.name
+        }
+        awayName={
+          gameState.teams.find((team) => team.id === snapshot.away_team.id)?.name ??
+          snapshot.away_team.name
+        }
+        onFinished={handleManagedFinished}
+      />
+    );
+  }
   if (spatialReplay) {
     const closeReplay = () => setSpatialReplay(null);
     return (
@@ -512,6 +551,7 @@ export default function MatchSimulation() {
               error={spatialError}
               onWatchIn2d={() => void handleSpatialReplay()}
               onQuickSimulation={() => void handleSpatialSimulation()}
+              onManage={() => setManaging(true)}
             />
           }
         />
