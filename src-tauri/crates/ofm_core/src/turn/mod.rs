@@ -259,9 +259,7 @@ where
     // scoreline only, keeping the dormant world moving without the full engine.
     let dormant_competitions = dormant_competition_indices_due_today(game, today);
     if !dormant_competitions.is_empty() {
-        for competition_index in dormant_competitions {
-            dormant::simulate_dormant_competition_day(game, competition_index, today);
-        }
+        dormant::simulate_dormant_day(game, &dormant_competitions, today);
     }
 
     // National-team football: window friendlies and any running World Cup.

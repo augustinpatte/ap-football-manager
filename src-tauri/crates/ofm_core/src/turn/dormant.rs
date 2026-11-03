@@ -11,58 +11,81 @@ use domain::league::FixtureStatus;
 /// Minutes a club's likely eleven are credited with for a dormant fixture.
 const FULL_MATCH_MINUTES: u32 = 90;
 
-/// Resolve every fixture due `today` in the dormant competition at
-/// `competition_index` with a scoreline-only model: update the fixture result
-/// and league standings, and advance any group/knockout progression — but skip
-/// the expensive per-player post-match work that the full engine path does.
-///
-/// The one thing kept from that work is the record that a player took part: each club's likely
-/// eleven (its best eligible players) is credited with an appearance and ninety minutes. Without
-/// it every player of a dormant league would reach the season's end having played nothing, and the
-/// rules that read minutes (a young player's development, a veteran's decline) would treat a whole
-/// league as benched. Goals, ratings, condition and injuries are not simulated here. The squads
-/// are grouped once for the day, so the cost is a pass over the players, not one per fixture.
+/// Resolve every fixture due `today` in the dormant competition at `competition_index`. See
+/// [`simulate_dormant_day`], which does the work for all of a day's dormant competitions at once.
+#[cfg(test)]
 pub(super) fn simulate_dormant_competition_day(
     game: &mut Game,
     competition_index: usize,
     today: &str,
 ) {
-    let due: Vec<usize> = game.competitions[competition_index]
-        .fixtures
+    simulate_dormant_day(game, &[competition_index], today);
+}
+
+/// Resolve every fixture due `today` in the given dormant competitions with a scoreline-only
+/// model: update the fixture result and league standings, and advance any group/knockout
+/// progression — but skip the expensive per-player post-match work that the full engine path does.
+///
+/// The one thing kept from that work is the record that a player took part: each club's likely
+/// eleven (its best eligible players) is credited with an appearance and ninety minutes. Without
+/// it every player of a dormant league would reach the season's end having played nothing, and the
+/// rules that read minutes (a young player's development, a veteran's decline) would treat a whole
+/// league as benched. Goals, ratings, condition and injuries are not simulated here.
+///
+/// The cost is one pass over the players for the whole day, however many competitions are dormant
+/// and however many fixtures they play: squads are grouped once, and the credit goes to the
+/// players concerned by position, not by another scan. (Credited per competition, it was a scan
+/// of every player for each, and the largest single addition to the day's cost.)
+pub(super) fn simulate_dormant_day(game: &mut Game, competition_indices: &[usize], today: &str) {
+    let due: Vec<(usize, usize)> = competition_indices
         .iter()
-        .enumerate()
-        .filter(|(_, fixture)| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
-        .map(|(index, _)| index)
+        .flat_map(|&competition_index| {
+            game.competitions[competition_index]
+                .fixtures
+                .iter()
+                .enumerate()
+                .filter(|(_, fixture)| {
+                    fixture.date == today && fixture.status == FixtureStatus::Scheduled
+                })
+                .map(move |(fixture_index, _)| (competition_index, fixture_index))
+        })
         .collect();
     if due.is_empty() {
         return;
     }
 
-    // Each club that plays today: how many times, the strength of its likely eleven, and who they
-    // are. A player is credited once for every fixture his club plays today (normally one).
+    // Each club that plays today: how many times, the strength of its likely eleven, and where
+    // those eleven stand in `game.players`. A player is credited once for every fixture his club
+    // plays today (normally one).
     struct Playing {
         times: u32,
         strength: f64,
-        eleven: Vec<String>,
+        eleven: Vec<usize>,
     }
     let mut playing: HashMap<String, Playing> = HashMap::new();
     {
-        let by_club = crate::match_day_eligibility::players_by_club(&game.players);
-        let fixtures = &game.competitions[competition_index].fixtures;
-        for &fixture_index in &due {
-            for club_id in [
-                &fixtures[fixture_index].home_team_id,
-                &fixtures[fixture_index].away_team_id,
-            ] {
+        let positions = crate::match_day_eligibility::positions_by_club(&game.players);
+        for &(competition_index, fixture_index) in &due {
+            let fixture = &game.competitions[competition_index].fixtures[fixture_index];
+            for club_id in [&fixture.home_team_id, &fixture.away_team_id] {
                 playing
                     .entry(club_id.clone())
                     .or_insert_with(|| {
-                        let club = by_club.get(club_id.as_str()).map_or(&[][..], Vec::as_slice);
-                        let eleven = crate::catchup::likely_eleven(club);
+                        let at = positions.get(club_id).map_or(&[][..], Vec::as_slice);
+                        let club: Vec<&domain::player::Player> =
+                            at.iter().map(|&position| &game.players[position]).collect();
+                        let eleven = crate::catchup::likely_eleven(&club);
                         Playing {
                             times: 0,
                             strength: crate::catchup::strength_of_eleven(&eleven),
-                            eleven: eleven.iter().map(|p| p.id.clone()).collect(),
+                            eleven: eleven
+                                .iter()
+                                .filter_map(|player| {
+                                    at.iter()
+                                        .copied()
+                                        .find(|&p| game.players[p].id == player.id)
+                                })
+                                .collect(),
                         }
                     })
                     .times += 1;
@@ -70,7 +93,7 @@ pub(super) fn simulate_dormant_competition_day(
         }
     }
 
-    for fixture_index in due {
+    for (competition_index, fixture_index) in due {
         // A stream per fixture, keyed by the competition and the two clubs: fixtures are not
         // played in any order a save is bound to keep.
         let fixture = &game.competitions[competition_index].fixtures[fixture_index];
@@ -87,14 +110,11 @@ pub(super) fn simulate_dormant_competition_day(
         );
     }
 
-    let credited: HashMap<&str, u32> = playing
-        .values()
-        .flat_map(|club| club.eleven.iter().map(|id| (id.as_str(), club.times)))
-        .collect();
-    for player in game.players.iter_mut() {
-        if let Some(&times) = credited.get(player.id.as_str()) {
-            player.stats.appearances += times;
-            player.stats.minutes_played += FULL_MATCH_MINUTES * times;
+    for club in playing.values() {
+        for &position in &club.eleven {
+            let stats = &mut game.players[position].stats;
+            stats.appearances += club.times;
+            stats.minutes_played += FULL_MATCH_MINUTES * club.times;
         }
     }
 }
@@ -252,6 +272,57 @@ mod tests {
             (result.home_goals, result.away_goals)
         };
         assert_eq!(goals(&game), goals(&reference));
+    }
+
+    /// Given two dormant competitions with a fixture each on the same day
+    /// When the day is played in one go and, from the same state, one competition after the other
+    /// Then results, standings and every player's record are identical: grouping the day changed
+    /// nothing but the cost.
+    #[test]
+    fn a_day_of_two_dormant_competitions_equals_one_competition_after_the_other() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        game.teams.push(make_team("north"));
+        game.teams.push(make_team("south"));
+        add_squad(&mut game, "home", 70);
+        add_squad(&mut game, "away", 60);
+        add_squad(&mut game, "north", 66);
+        add_squad(&mut game, "south", 64);
+        let mut second = game.competitions[0].clone();
+        second.id = "second-league".to_string();
+        second.fixtures[0].id = "fix-2".to_string();
+        second.fixtures[0].competition_id = "second-league".to_string();
+        second.fixtures[0].home_team_id = "north".to_string();
+        second.fixtures[0].away_team_id = "south".to_string();
+        second.standings = vec![
+            StandingEntry::new("north".to_string()),
+            StandingEntry::new("south".to_string()),
+        ];
+        game.competitions.push(second);
+        let mut one_after_the_other = game.clone();
+
+        super::simulate_dormant_day(&mut game, &[0, 1], today);
+        simulate_dormant_competition_day(&mut one_after_the_other, 0, today);
+        simulate_dormant_competition_day(&mut one_after_the_other, 1, today);
+
+        let results = |g: &Game| {
+            g.competitions
+                .iter()
+                .map(|c| {
+                    let r = c.fixtures[0].result.clone().unwrap();
+                    (r.home_goals, r.away_goals)
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(results(&game), results(&one_after_the_other));
+        let records = |g: &Game| {
+            g.players
+                .iter()
+                .map(|p| (p.stats.appearances, p.stats.minutes_played))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(records(&game), records(&one_after_the_other));
+        assert!(records(&game).iter().any(|r| r.1 == 90));
     }
 
     #[test]
