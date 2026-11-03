@@ -28,7 +28,7 @@ the real desktop app were not run (§11); the `Remaining limitations` list is lo
 | One authoritative fatigue update, pressing not free | **Met** (hybrid) | §5 |
 | Computer managers consistent with the autonomous one | **Partly**: urgency shared, the rest documented | §6 |
 | A saved match resumes; no duplicate finalisation | **Met** | §7 |
-| A match that reaches full time can always be finalised | **Met after the fixes in §8.1** (was ~75%) | §8 |
+| A match that reaches full time can be finalised | **Met for every seed tested** after §8.1 (20 regression seeds, 90 surveyed; was ~75 %); not a proof for all seeds | §8 |
 | Reproducible dependency | **Met** (pinned, verified on a clean clone) | §8.5 |
 
 ## 2. Tactical realism before and after
@@ -363,6 +363,8 @@ both, a regression test finalises 20 seeds including the ones that failed.
 * The scenario harness first gave the baseline arm no split instant, so its metrics covered the whole match
   against twenty minutes for the treated arm. The tables looked absurd (491 passes against 105) and were
   discarded; every arm of a scenario now splits at the same instant.
+* M12 commit `9fe0439` says it also changed the red-card assertion; it did not (my edit silently failed to
+  apply, which the next scenario run exposed). `0b4855a` is the commit that made the change.
 * One test had the substitution orientation backwards and one had a wrong expectation about idempotent
   command ids; both were my errors, not defects.
 
