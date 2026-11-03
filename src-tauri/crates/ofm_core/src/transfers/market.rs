@@ -431,6 +431,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // every player. The sweep moves players, so the two clubs of a completed transfer are
     // recounted below.
     let mut wage_bills = crate::finances::wage_bills_by_club(game);
+    // Each club's operating strategy, read once: what it prefers, not what it may do.
+    let strategies = strategy::profiles(game, &wage_bills);
     // Where each target sits in `game.players`, so the buyer's wage check need not search.
     // The sweep moves players between clubs but never adds or removes one.
     let phase = window_phase(game.season_context.transfer_window.days_remaining);
@@ -628,6 +630,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             ovr: player.ovr,
             is_listed: player.transfer_listed,
             age,
+            potential_gap: i32::from(player.potential) - i32::from(player.ovr),
             value: player.market_value,
             status,
             contract_days: contract_days_remaining(current_date, player.contract_end()),
@@ -719,6 +722,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
             home_matches.get(&buyer_id).copied().unwrap_or(0),
         );
+        let profile = strategies
+            .get(&buyer_id)
+            .copied()
+            .unwrap_or(strategy::ClubProfile::NEUTRAL);
         // Worked out once for this buyer, and only if a target gets as far as needing it.
         let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
         let buyer_promoted = promoted_clubs.contains(buyer_id.as_str());
@@ -849,6 +856,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             let Some(price) = price(target) else {
                 return false;
             };
+            // A club short of money spends little on one player unless it has a hole to fill.
+            if !target.is_user_owned && !profile.allows_spending(price, buyer_cash, thin) {
+                return false;
+            }
             // A dear signing has to be a real upgrade, or fill a hole.
             if !target.is_user_owned
                 && !thin
@@ -929,7 +940,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     buyer_budget: buyer_cash,
                     value: target.value,
                 }),
-            );
+            ) * profile.rank_weight(&strategy::TargetFacts {
+                age: target.age,
+                potential_gap: target.potential_gap,
+                improvement,
+                fee,
+                value: target.value,
+            });
             if chosen.is_none_or(|(_, best, _)| rank > best) {
                 chosen = Some((target, rank, fee));
             }

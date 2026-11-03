@@ -39,6 +39,7 @@ mod processing;
 mod promises;
 mod realism;
 mod registration;
+mod strategy;
 mod terms;
 
 pub(crate) use affordability::{can_afford_fee, transfer_fee_ceiling};
@@ -69,6 +70,7 @@ pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
     player_has_pending_registration, transfer_window_is_open,
 };
+pub use strategy::{ClubStrategyReport, strategy_reports};
 pub use terms::{
     ERR_INVALID_DEAL_TERMS, ERR_SELL_ON_UNAFFORDABLE, ensure_bonus_affordable,
     process_transfer_obligations,
@@ -206,6 +208,8 @@ pub(crate) struct MarketTarget {
     is_listed: bool,
     /// His age on the day of the sweep.
     age: i32,
+    /// Potential minus rating: what a club that builds on young players is looking at.
+    potential_gap: i32,
     /// His market value, which every price is a bounded multiple of.
     value: u64,
     /// Days left on his contract, if it has an end.
