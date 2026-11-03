@@ -170,9 +170,52 @@ fn retire_player(player: &mut Player, current_date: NaiveDate) {
     player.transfer_offers.clear();
 }
 
+/// Matches a club's players must have recorded between them before their minutes say anything:
+/// a club that has played almost nothing (a league that was never simulated player by player, an
+/// off-season start) gives its players no verdict.
+const MIN_CLUB_MATCHES_FOR_MINUTES: u32 = 8;
+
+/// The most appearances any player of each club has recorded this season: how many matches the
+/// club has played with a squad that was tracked.
+fn matches_recorded_by_club(players: &[Player]) -> std::collections::HashMap<String, u32> {
+    let mut matches: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    for player in players {
+        if let Some(team_id) = player.team_id.as_deref() {
+            let most = matches.entry(team_id.to_string()).or_default();
+            *most = (*most).max(player.stats.appearances);
+        }
+    }
+    matches
+}
+
+/// What the season did to this player, for his development. Only a senior squad member is judged
+/// on his minutes, and only where his club's matches were recorded: an academy player is not
+/// expected to play senior football and a club whose matches left no record says nothing about its
+/// players. Injuries count for everyone.
+fn season_load(
+    player: &Player,
+    matches_recorded: &std::collections::HashMap<String, u32>,
+) -> crate::development::SeasonLoad {
+    let judged_on_minutes = player.squad_role == domain::player::SquadRole::Senior
+        && player
+            .team_id
+            .as_deref()
+            .and_then(|team_id| matches_recorded.get(team_id))
+            .is_some_and(|matches| *matches >= MIN_CLUB_MATCHES_FOR_MINUTES);
+    crate::development::SeasonLoad {
+        minutes: if judged_on_minutes {
+            player.stats.minutes_played
+        } else {
+            crate::development::TYPICAL_MINUTES
+        },
+        injured_days: player.stats.injured_days,
+    }
+}
+
 pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u32) {
     let world_seed = game.seed;
     let market = FreeAgentMarket::of(game);
+    let matches_recorded = matches_recorded_by_club(&game.players);
     for player in game.players.iter_mut() {
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
         let mut stream = crate::seed::rng_for_seed(
@@ -180,7 +223,8 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
             &format!("development/{}", player.id),
             &iso(current_date),
         );
-        crate::development::develop_one_season(player, age, world_seed, &mut stream);
+        let load = season_load(player, &matches_recorded);
+        crate::development::develop_season(player, age, world_seed, &mut stream, load);
         crate::player_rating::refresh_player_derived(player, current_date);
 
         let drifts_out = {
@@ -579,5 +623,85 @@ mod tests {
         let at_30 = mean_change_after_a_season(30, 85, 120);
         assert!(at_26 > 0.0, "26-year-olds changed by {at_26}");
         assert!(at_26 > at_30, "26: {at_26}, 30: {at_30}");
+    }
+
+    /// Given two identical 19-year-olds with room to grow, one who started every match and
+    /// one who never played
+    /// When the season turns over many worlds
+    /// Then the one who played ends clearly higher: the rollover reads the season's own record.
+    #[test]
+    fn the_rollover_reads_the_minutes_and_the_injuries_of_the_season() {
+        let rating_after = |minutes: u32, injured_days: u32| {
+            (0..80_u64)
+                .map(|seed| {
+                    let mut prospect = make_player("prospect", "2007-03-01");
+                    prospect.potential = 90;
+                    prospect.stats.minutes_played = minutes;
+                    prospect.stats.injured_days = injured_days;
+                    prospect.stats.appearances = 30;
+                    let mut game = make_game(vec![prospect]);
+                    game.seed = seed;
+                    let date = NaiveDate::from_ymd_opt(2026, 5, 31).unwrap();
+                    apply_seasonal_aging(&mut game, date, 1);
+                    f64::from(game.players[0].ovr)
+                })
+                .sum::<f64>()
+                / 80.0
+        };
+        let regular = rating_after(crate::development::STARTER_MINUTES, 0);
+        assert!(regular > rating_after(0, 0) + 0.5, "minutes");
+        assert!(
+            rating_after(crate::development::TYPICAL_MINUTES, 0)
+                > rating_after(crate::development::TYPICAL_MINUTES, 200) + 0.3,
+            "injuries"
+        );
+    }
+
+    /// The rating of a 19-year-old with room to grow after one rollover, averaged over many worlds.
+    fn prospect_after(configure: impl Fn(&mut Player)) -> f64 {
+        (0..80_u64)
+            .map(|seed| {
+                let mut prospect = make_player("prospect", "2007-03-01");
+                prospect.potential = 90;
+                configure(&mut prospect);
+                let mut game = make_game(vec![prospect]);
+                game.seed = seed;
+                let date = NaiveDate::from_ymd_opt(2026, 5, 31).unwrap();
+                apply_seasonal_aging(&mut game, date, 1);
+                f64::from(game.players[0].ovr)
+            })
+            .sum::<f64>()
+            / 80.0
+    }
+
+    /// Given an academy player who has played no senior football
+    /// When the season turns
+    /// Then he develops exactly as a player with a typical season does: he was never expected to
+    /// play.
+    #[test]
+    fn an_academy_player_is_not_held_back_for_not_playing_senior_minutes() {
+        let academy = prospect_after(|p| {
+            p.squad_role = domain::player::SquadRole::Youth;
+            p.stats.appearances = 30;
+            p.stats.minutes_played = 0;
+        });
+        let typical = prospect_after(|p| {
+            p.squad_role = domain::player::SquadRole::Youth;
+            p.stats.appearances = 30;
+            p.stats.minutes_played = crate::development::TYPICAL_MINUTES;
+        });
+        assert_eq!(academy, typical);
+    }
+
+    /// Given a senior whose club has no matches on record (a league never simulated player by
+    /// player)
+    /// When the season turns
+    /// Then his zero minutes say nothing: he develops as a typical season would.
+    #[test]
+    fn a_club_with_no_recorded_matches_leaves_its_players_neutral() {
+        let unrecorded = prospect_after(|p| p.stats.minutes_played = 0);
+        let typical =
+            prospect_after(|p| p.stats.minutes_played = crate::development::TYPICAL_MINUTES);
+        assert_eq!(unrecorded, typical);
     }
 }

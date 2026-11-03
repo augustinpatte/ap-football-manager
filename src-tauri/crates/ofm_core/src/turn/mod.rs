@@ -35,6 +35,9 @@ pub use round_summary::{
 /// Players with 1 day remaining are cleared (fully recovered).
 fn progress_injury_recovery(game: &mut Game) {
     for player in game.players.iter_mut() {
+        if player.injury.is_some() {
+            player.stats.injured_days += 1;
+        }
         if let Some(mut injury) = player.injury.take()
             && injury.days_remaining > 1
         {
@@ -421,6 +424,45 @@ mod tests {
         staff.nationality = "GB".to_string();
         staff.wage = 200;
         staff
+    }
+
+    /// Given a player with a three-day injury and a fit one
+    /// When four days of recovery are processed
+    /// Then the injured one has three injured days on his season record, is fit again, and the
+    /// fit one has none: the record is what the season's development reads.
+    #[test]
+    fn every_injured_day_is_counted_on_the_season_record() {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 16, 12, 0, 0).unwrap());
+        let manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let mut hurt = make_player();
+        hurt.injury = Some(domain::player::Injury {
+            name: "Calf".to_string(),
+            days_remaining: 3,
+        });
+        let mut fit = make_player();
+        fit.id = "player2".to_string();
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![make_team()],
+            vec![hurt, fit],
+            vec![],
+            vec![],
+        );
+
+        for _ in 0..4 {
+            super::progress_injury_recovery(&mut game);
+        }
+
+        assert_eq!(game.players[0].stats.injured_days, 3);
+        assert!(game.players[0].injury.is_none());
+        assert_eq!(game.players[1].stats.injured_days, 0);
     }
 
     #[test]

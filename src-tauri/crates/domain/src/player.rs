@@ -574,6 +574,9 @@ pub struct PlayerSeasonStats {
     /// and matches from before ratings existed are not among them.
     pub rated_appearances: u32,
     pub minutes_played: u32,
+    /// Days spent injured this season. Feeds the season's development.
+    #[serde(default)]
+    pub injured_days: u32,
     pub shots: u32,
     pub shots_on_target: u32,
     pub passes_completed: u32,

@@ -3,13 +3,25 @@
 //! player match stats, morale, stamina, or news. This keeps the wider world
 //! moving cheaply while the player's region is simulated in full.
 
+use std::collections::HashMap;
+
 use crate::game::Game;
 use domain::league::FixtureStatus;
+
+/// Minutes a club's likely eleven are credited with for a dormant fixture.
+const FULL_MATCH_MINUTES: u32 = 90;
 
 /// Resolve every fixture due `today` in the dormant competition at
 /// `competition_index` with a scoreline-only model: update the fixture result
 /// and league standings, and advance any group/knockout progression — but skip
 /// the expensive per-player post-match work that the full engine path does.
+///
+/// The one thing kept from that work is the record that a player took part: each club's likely
+/// eleven (its best eligible players) is credited with an appearance and ninety minutes. Without
+/// it every player of a dormant league would reach the season's end having played nothing, and the
+/// rules that read minutes (a young player's development, a veteran's decline) would treat a whole
+/// league as benched. Goals, ratings, condition and injuries are not simulated here. The squads
+/// are grouped once for the day, so the cost is a pass over the players, not one per fixture.
 pub(super) fn simulate_dormant_competition_day(
     game: &mut Game,
     competition_index: usize,
@@ -22,6 +34,41 @@ pub(super) fn simulate_dormant_competition_day(
         .filter(|(_, fixture)| fixture.date == today && fixture.status == FixtureStatus::Scheduled)
         .map(|(index, _)| index)
         .collect();
+    if due.is_empty() {
+        return;
+    }
+
+    // Each club that plays today: how many times, the strength of its likely eleven, and who they
+    // are. A player is credited once for every fixture his club plays today (normally one).
+    struct Playing {
+        times: u32,
+        strength: f64,
+        eleven: Vec<String>,
+    }
+    let mut playing: HashMap<String, Playing> = HashMap::new();
+    {
+        let by_club = crate::match_day_eligibility::players_by_club(&game.players);
+        let fixtures = &game.competitions[competition_index].fixtures;
+        for &fixture_index in &due {
+            for club_id in [
+                &fixtures[fixture_index].home_team_id,
+                &fixtures[fixture_index].away_team_id,
+            ] {
+                playing
+                    .entry(club_id.clone())
+                    .or_insert_with(|| {
+                        let club = by_club.get(club_id.as_str()).map_or(&[][..], Vec::as_slice);
+                        let eleven = crate::catchup::likely_eleven(club);
+                        Playing {
+                            times: 0,
+                            strength: crate::catchup::strength_of_eleven(&eleven),
+                            eleven: eleven.iter().map(|p| p.id.clone()).collect(),
+                        }
+                    })
+                    .times += 1;
+            }
+        }
+    }
 
     for fixture_index in due {
         // A stream per fixture, keyed by the competition and the two clubs: fixtures are not
@@ -32,12 +79,23 @@ pub(super) fn simulate_dormant_competition_day(
             game.competitions[competition_index].id, fixture.home_team_id, fixture.away_team_id
         );
         let mut rng = game.rng_for(&tag, today);
-        crate::catchup::resolve_fixture_by_scoreline(
-            &game.players,
+        crate::catchup::resolve_fixture_with_strengths(
             &mut game.competitions[competition_index],
             fixture_index,
+            |club_id| playing.get(club_id).map_or(50.0, |club| club.strength),
             &mut rng,
         );
+    }
+
+    let credited: HashMap<&str, u32> = playing
+        .values()
+        .flat_map(|club| club.eleven.iter().map(|id| (id.as_str(), club.times)))
+        .collect();
+    for player in game.players.iter_mut() {
+        if let Some(&times) = credited.get(player.id.as_str()) {
+            player.stats.appearances += times;
+            player.stats.minutes_played += FULL_MATCH_MINUTES * times;
+        }
     }
 }
 
@@ -105,6 +163,95 @@ mod tests {
             ..League::default()
         }];
         game
+    }
+
+    fn add_squad(game: &mut Game, club: &str, base_ovr: u8) {
+        for index in 0..14_u8 {
+            let mut player = domain::player::Player::new(
+                format!("{club}-{index:02}"),
+                "P".to_string(),
+                format!("{club} {index}"),
+                "1998-01-01".to_string(),
+                "England".to_string(),
+                domain::player::Position::Midfielder,
+                crate::test_support::uniform_attributes(base_ovr),
+            );
+            // The first eleven are the best; the last three are the bench.
+            player.ovr = base_ovr.saturating_sub(index);
+            player.team_id = Some(club.to_string());
+            game.players.push(player);
+        }
+    }
+
+    /// Given two clubs with squads of fourteen
+    /// When their dormant fixture is played
+    /// Then each club's best eleven get an appearance and ninety minutes, and the bench nothing:
+    /// the dormant tier leaves the same kind of record the full one does, only cheaper.
+    #[test]
+    fn a_dormant_fixture_credits_each_clubs_likely_eleven_with_minutes() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        add_squad(&mut game, "home", 70);
+        add_squad(&mut game, "away", 60);
+
+        simulate_dormant_competition_day(&mut game, 0, today);
+
+        for player in &game.players {
+            let index: usize = player.id[player.id.len() - 2..].parse().unwrap();
+            let (appearances, minutes) = if index < 11 { (1, 90) } else { (0, 0) };
+            assert_eq!(player.stats.appearances, appearances, "{}", player.id);
+            assert_eq!(player.stats.minutes_played, minutes, "{}", player.id);
+        }
+    }
+
+    /// Given an injured player among a club's best
+    /// When the dormant fixture is played
+    /// Then he is not credited and the next player takes his place.
+    #[test]
+    fn an_injured_player_is_not_credited_and_the_next_one_plays() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        add_squad(&mut game, "home", 70);
+        add_squad(&mut game, "away", 60);
+        game.players[0].injury = Some(domain::player::Injury {
+            name: "Knee".to_string(),
+            days_remaining: 10,
+        });
+
+        simulate_dormant_competition_day(&mut game, 0, today);
+
+        assert_eq!(game.players[0].stats.minutes_played, 0);
+        assert_eq!(
+            game.players[11].stats.minutes_played, 90,
+            "the twelfth plays"
+        );
+    }
+
+    /// Given the same clubs and the same day
+    /// When the dormant fixture is played, and again with the earlier per-fixture resolver
+    /// Then the score is the same: crediting minutes and grouping the squads changed no result.
+    #[test]
+    fn the_scoreline_is_what_the_per_fixture_resolver_gives() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        add_squad(&mut game, "home", 72);
+        add_squad(&mut game, "away", 58);
+        let mut reference = game.clone();
+        let mut rng = reference.rng_for("dormant/dormant-league/home/away", today);
+        crate::catchup::resolve_fixture_by_scoreline(
+            &reference.players,
+            &mut reference.competitions[0],
+            0,
+            &mut rng,
+        );
+
+        simulate_dormant_competition_day(&mut game, 0, today);
+
+        let goals = |g: &Game| {
+            let result = g.competitions[0].fixtures[0].result.clone().unwrap();
+            (result.home_goals, result.away_goals)
+        };
+        assert_eq!(goals(&game), goals(&reference));
     }
 
     #[test]
