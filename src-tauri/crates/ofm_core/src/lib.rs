@@ -45,6 +45,7 @@ pub mod hall_of_fame;
 pub mod history_generation;
 pub mod inbox;
 pub mod inbox_archive;
+pub mod interactive_match;
 pub mod job_offers;
 pub mod knockout_dates;
 pub mod ladder_rules;

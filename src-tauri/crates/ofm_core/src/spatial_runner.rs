@@ -140,7 +140,15 @@ pub fn build_fixture_report(
 
 fn build_adapted_replay(adapted: &AdaptedMatch) -> Result<PreparedSpatialReplay, SpatialRunError> {
     let decoded = simulate(adapted)?;
-    let context = ProjectionContext {
+    let report = project_decoded(&projection_context(adapted), &decoded)?;
+    Ok(PreparedSpatialReplay {
+        report,
+        replay_json: decoded.replay_json,
+    })
+}
+
+fn projection_context(adapted: &AdaptedMatch) -> ProjectionContext {
+    ProjectionContext {
         match_id: adapted.input.match_id.clone(),
         home_team_id: adapted.input.home.id.clone(),
         away_team_id: adapted.input.away.id.clone(),
@@ -158,23 +166,55 @@ fn build_adapted_replay(adapted: &AdaptedMatch) -> Result<PreparedSpatialReplay,
             .iter()
             .map(|player| player.id.clone())
             .collect(),
-    };
-    let report = project(&context, &decoded.result)
-        .map_err(|error| SpatialRunError::Engine(error.to_string()))?
-        .report;
-    Ok(PreparedSpatialReplay {
-        report,
-        replay_json: decoded.replay_json,
-    })
+    }
 }
 
-/// Builds one replay for the live session's immutable fixture identity.
-pub fn build_selected_fixture_replay(
+/// The projection context of the M12 input an interactive session runs (the same identities as
+/// [`projection_context`], read from the engine's own input type).
+pub fn session_projection_context(input: &MatchInput) -> ProjectionContext {
+    let ids =
+        |team: &apfm_match_lab::model::Team| team.players.iter().map(|p| p.id.0.clone()).collect();
+    ProjectionContext {
+        match_id: input.match_id.0.clone(),
+        home_team_id: input.home.id.0.clone(),
+        away_team_id: input.away.id.0.clone(),
+        home_player_ids: ids(&input.home),
+        away_player_ids: ids(&input.away),
+    }
+}
+
+fn project_decoded(
+    context: &ProjectionContext,
+    decoded: &DecodedSpatialOutput,
+) -> Result<MatchReport, SpatialRunError> {
+    Ok(project(context, &decoded.result)
+        .map_err(|error| SpatialRunError::Engine(error.to_string()))?
+        .report)
+}
+
+/// The report of a match that an interactive session played to full time, through the same
+/// validation and projection as a whole-match run. The session's output document is checked
+/// like any other M12 output before it can reach the career.
+pub fn report_from_session_output(
+    context: &ProjectionContext,
+    output: &apfm_match_lab::MatchOutput,
+) -> Result<MatchReport, SpatialRunError> {
+    let json = output
+        .to_json()
+        .map_err(|error| SpatialRunError::Engine(error.to_string()))?;
+    let decoded = decode_json(&json).map_err(SpatialRunError::Output)?;
+    project_decoded(context, &decoded)
+}
+
+/// Adapts the fixture a live session identifies. A cup fixture selected while the legacy league
+/// mirror points at the domestic league is resolved by competition and fixture id, never by a
+/// raw fixture index alone.
+pub fn adapt_selected_fixture(
     game: &Game,
     fixture_index: usize,
     competition_id: &str,
     fixture_id: &str,
-) -> Result<PreparedSpatialReplay, SpatialRunError> {
+) -> Result<AdaptedMatch, SpatialRunError> {
     let mut selected_game = game.clone();
     if !selected_game.competitions.is_empty() {
         let competition = selected_game
@@ -196,9 +236,22 @@ pub fn build_selected_fixture_replay(
         }
         selected_game.league = Some(competition);
     }
-    let adapted = adapt_spatial_fixture(&selected_game, fixture_index)
-        .map_err(SpatialRunError::InputContract)?;
-    build_adapted_replay(&adapted)
+    adapt_spatial_fixture(&selected_game, fixture_index).map_err(SpatialRunError::InputContract)
+}
+
+/// Builds one replay for the live session's immutable fixture identity.
+pub fn build_selected_fixture_replay(
+    game: &Game,
+    fixture_index: usize,
+    competition_id: &str,
+    fixture_id: &str,
+) -> Result<PreparedSpatialReplay, SpatialRunError> {
+    build_adapted_replay(&adapt_selected_fixture(
+        game,
+        fixture_index,
+        competition_id,
+        fixture_id,
+    )?)
 }
 
 /// Builds a report for the fixture identity retained by the application live
@@ -230,7 +283,7 @@ pub fn play_fixture(game: &mut Game, fixture_index: usize) -> Result<MatchReport
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::{SpatialRunError, build_selected_fixture_replay};
     use crate::spatial_match_output::OutputDecodeError;
     use crate::{clock::GameClock, game::Game};
@@ -321,7 +374,7 @@ mod tests {
         )
     }
 
-    fn game_with_complete_m12_fixture() -> Game {
+    pub(crate) fn game_with_complete_m12_fixture() -> Game {
         let mut manager = Manager::new(
             "manager".into(),
             "Test".into(),
@@ -373,7 +426,7 @@ mod tests {
 
     /// The fixture's game with each club given `extra` more players than an eleven, the user's
     /// club (`home`) fielding the eleven it chose by hand.
-    fn game_with_substitutes(available_subs: usize) -> Game {
+    pub(crate) fn game_with_substitutes(available_subs: usize) -> Game {
         let mut game = game_with_complete_m12_fixture();
         for team_id in ["home", "away"] {
             game.players
