@@ -276,7 +276,8 @@ fn rewrite_file_as(saves: &std::path::Path, id: &str, build: WrittenBy) -> std::
         WrittenBy::Run1Dev => (drop_column.to_string(), 62),
         WrittenBy::Run2Dev => (drop_table.to_string(), 62),
     };
-    conn.execute_batch(&format!("{sql}{drop_checkpoint}")).unwrap();
+    conn.execute_batch(&format!("{sql}{drop_checkpoint}"))
+        .unwrap();
     conn.pragma_update(None, "user_version", version).unwrap();
     path
 }

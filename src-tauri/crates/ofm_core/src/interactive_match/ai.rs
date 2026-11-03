@@ -18,7 +18,7 @@ use apfm_match_lab::input::MatchInput;
 use apfm_match_lab::model::{Attributes, Position};
 use apfm_match_lab::pitch::Side;
 use apfm_match_lab::sim::GameState;
-use apfm_match_lab::sim::football::manager::{Line, fit, line_of, quality};
+use apfm_match_lab::sim::football::manager::{Line, ManagerConfig, fit, line_of, need_v2, quality};
 use apfm_match_lab::sim::session::{PlayerView, SessionView, TeamView};
 use domain::team::{PlayStyle, PressingIntensity, Tempo};
 
@@ -343,16 +343,37 @@ fn best_replacement(
         .map(|(_, b)| b.id.clone())
 }
 
+/// Minutes left in the horizon being played: the rest of regulation, or of extra time (two
+/// fifteen-minute halves) once regulation is over.
+fn minutes_left(ctx: &AiContext<'_>) -> f32 {
+    let regulation = ctx.regulation_ms as f32 / 60_000.0;
+    let now = ctx.view.clock_ms as f32 / 60_000.0;
+    if now <= regulation {
+        regulation - now
+    } else {
+        regulation + 30.0 - now
+    }
+}
+
 /// How much more attacking (positive) or more cautious (negative) the situation asks the side
-/// to be than its club identity does.
-fn need(ctx: &AiContext<'_>) -> f32 {
-    let urgency = ((ctx.minute() as f32 - 45.0) / 40.0).clamp(0.0, 1.0);
-    let diff = ctx.goal_difference().clamp(-2, 2) as f32;
-    let mut need = -diff * urgency;
+/// to be than its club identity does, on a scale of about -2 to +2.
+///
+/// The urgency of the score and the clock is the autonomous manager's own judgement
+/// (`manager::need_v2`: goals behind against minutes left, a lead only needing protection once the
+/// end is in sight), so a club behaves the same whether a match is managed here or simulated at once.
+/// Only what follows from it, the OFM vocabulary the plan is expressed in, is this module's.
+pub fn need(ctx: &AiContext<'_>) -> f32 {
+    let (chase, protect) = need_v2(
+        &ManagerConfig::m10(),
+        ctx.goal_difference(),
+        minutes_left(ctx),
+    );
+    let mut need = 2.0 * (chase - protect);
     let men = ctx.own().on_pitch.len() as i32 - ctx.opponent().on_pitch.len() as i32;
     if men < 0 {
         // short-handed: shore up, but a side that is behind still has to chase a little
-        need -= f32::from(men.unsigned_abs() as u8) * if diff < 0.0 { 0.3 } else { 0.7 };
+        need -=
+            f32::from(men.unsigned_abs() as u8) * if ctx.goal_difference() < 0 { 0.3 } else { 0.7 };
     } else if men > 0 {
         need += men as f32 * 0.5;
     }
@@ -844,5 +865,51 @@ mod tests {
         ctx.blocked = [false; Group::COUNT];
         ctx.blocked[Group::Tactics.index()] = true;
         assert_eq!(kinds(&ctx), (true, false));
+    }
+
+    /// Given a table of scores, clocks and men,
+    /// When this manager's need is compared with the autonomous manager's (`need_v2`),
+    /// Then it is that judgement on the same scale: one policy for urgency, two ways to execute it.
+    #[test]
+    fn urgency_is_the_autonomous_managers_judgement() {
+        for (minute, home, away) in [
+            (30, 0, 1),
+            (50, 0, 1),
+            (70, 0, 1),
+            (80, 0, 2),
+            (60, 1, 0),
+            (85, 1, 0),
+            (88, 2, 0),
+            (20, 0, 0),
+        ] {
+            let f = fixture(minute, home, away);
+            let diff = i32::from(home) - i32::from(away);
+            let left = 90.0 - minute as f32;
+            let (chase, protect) = need_v2(&ManagerConfig::m10(), diff, left);
+            assert!(
+                (need(&f.ctx(Checkpoint::Review)) - 2.0 * (chase - protect)).abs() < 1e-5,
+                "{minute}' {home}-{away}"
+            );
+        }
+    }
+
+    /// Given one goal down with an hour left and one goal down with a quarter of an hour left,
+    /// Then the second asks for much more: urgency is minutes against goals, not the clock alone.
+    #[test]
+    fn a_goal_down_is_urgent_only_when_time_is_short() {
+        let early = need(&fixture(30, 0, 1).ctx(Checkpoint::Review));
+        let late = need(&fixture(75, 0, 1).ctx(Checkpoint::Review));
+        assert!(late > early + 0.8, "early {early}, late {late}");
+    }
+
+    /// Given the same state played in extra time,
+    /// Then the horizon is the rest of extra time, so a goal down with 5 minutes left is urgent.
+    #[test]
+    fn extra_time_uses_its_own_horizon() {
+        let mut f = fixture(115, 0, 1);
+        f.view.clock_ms = 115 * 60_000;
+        let ctx = f.ctx(Checkpoint::Review);
+        assert!((minutes_left(&ctx) - 5.0).abs() < 1e-4);
+        assert!(need(&ctx) > 1.0);
     }
 }
