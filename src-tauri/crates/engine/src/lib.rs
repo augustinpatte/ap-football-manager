@@ -10,7 +10,7 @@ pub mod types;
 // Re-export key types for convenience
 pub use engine::simulate;
 pub use engine::simulate_with_rng;
-pub use event::{EventType, MatchEvent};
+pub use event::{EventDetail, EventType, MatchEvent};
 pub use live_match::{
     LiveMatchState, MatchCommand, MatchPhase, MatchSnapshot, MinuteResult, PenaltyShootoutSnapshot,
     SetPieceTakers, SubstitutionRecord,

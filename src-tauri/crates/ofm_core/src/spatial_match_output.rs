@@ -749,6 +749,12 @@ mod tests {
             .find(|e| e.event_type == engine::EventType::Goal)
             .expect("the goal is in the timeline");
         assert_eq!(goal.player_id, None);
+        // the timeline still says whose it was: the player who put it in his own net
+        assert_eq!(
+            goal.detail,
+            Some(engine::EventDetail::OwnGoal { by: "h1".into() }),
+            "an own goal names the player in the timeline"
+        );
     }
 
     /// Given a recorded M12-shaped normal match, when decoded and projected, then its score and identities survive.

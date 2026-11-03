@@ -150,6 +150,8 @@ export function getCommentary(
   t: TFunction,
 ): Commentary | null {
   if (!COMMENTARY_EVENTS.has(evt.event_type)) return null;
+  // An own goal has no scorer for the celebration lines to name; the feed says whose it was.
+  if (evt.detail && "OwnGoal" in evt.detail) return null;
 
   const isHome = evt.side === "Home";
   const team = isHome ? snapshot.home_team.name : snapshot.away_team.name;

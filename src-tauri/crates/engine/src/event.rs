@@ -75,10 +75,23 @@ pub enum EventType {
 /// built from it never claims something that was not simulated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EventDetail {
-    Shot { danger: DangerBand },
-    Save { quality: SaveQuality },
-    Foul { severity: FoulSeverity },
-    Goal { context: GoalContext },
+    Shot {
+        danger: DangerBand,
+    },
+    Save {
+        quality: SaveQuality,
+    },
+    Foul {
+        severity: FoulSeverity,
+    },
+    Goal {
+        context: GoalContext,
+    },
+    /// A goal put into his own net by `by`, a player of the side the goal is *not* credited to. The
+    /// timeline entry has no scorer (nobody is credited with a goal); this says whose it was.
+    OwnGoal {
+        by: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

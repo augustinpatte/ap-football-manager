@@ -430,6 +430,7 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
     for event in &input.events {
         let side = side(event.side);
         let minute = minute(event.t_ms);
+        let mut detail = None;
         let (event_type, player_id, secondary_player_id) = match &event.kind {
             SpatialEventKind::Goal {
                 scorer_id,
@@ -438,7 +439,11 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
             } => {
                 if *own_goal {
                     // Counts for the side it is credited to; nobody is credited with a goal, so
-                    // there is no scorer in the timeline and no `GoalDetail`.
+                    // there is no scorer in the timeline and no `GoalDetail`; the detail says whose
+                    // it was.
+                    detail = Some(engine::EventDetail::OwnGoal {
+                        by: scorer_id.clone(),
+                    });
                     (EventType::Goal, None, None)
                 } else {
                     goals.push(GoalDetail {
@@ -534,7 +539,7 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
             zone: Zone::Midfield,
             player_id,
             secondary_player_id,
-            detail: None,
+            detail,
         });
         previous_was_penalty = matches!(event.kind, SpatialEventKind::Penalty { .. });
     }

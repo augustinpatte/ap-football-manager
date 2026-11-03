@@ -582,8 +582,8 @@ export default function PostMatchScreen({
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                 {t("match.scorers")}
               </h3>
-              {renderScorers(snapshot, importantEvents, "Home")}
-              {renderScorers(snapshot, importantEvents, "Away")}
+              {renderScorers(snapshot, importantEvents, "Home", t)}
+              {renderScorers(snapshot, importantEvents, "Away", t)}
               {keyEvents.filter((e) => e.event_type === "Goal" || e.event_type === "PenaltyGoal")
                 .length === 0 && (
                 <p className="text-xs text-gray-600 dark:text-gray-500">{t("match.noGoals")}</p>

@@ -79,6 +79,13 @@ export function EventFeed({
                         {getEventTypeLabel(evt.event_type, t)}
                       </span>
                     </div>
+                    {evt.detail && "OwnGoal" in evt.detail && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                        {t("match.replayFeed.ownGoal", {
+                          player: displayName(evt.detail.OwnGoal.by),
+                        })}
+                      </p>
+                    )}
                     {evt.player_id && (
                       <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
                         {displayName(evt.player_id)}
