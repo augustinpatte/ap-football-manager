@@ -820,3 +820,70 @@ fn the_report_carries_the_load_of_everyone_who_played() {
     assert!(played.len() >= 22);
     assert!(played.iter().all(|s| s.physical_load.is_some()));
 }
+
+/// Given a finished match in which the manager made a substitution,
+/// When the career's record is read,
+/// Then it is internally consistent: the swapped players' minutes add up to a match, nobody is
+/// credited with more goals than the score allows, every credited scorer has the goal in his own
+/// statistics, and the cards in the timeline are the cards in the players' statistics.
+#[test]
+fn the_match_record_is_complete_and_consistent() {
+    let mut m = played_a_while(40);
+    run_to_end(&mut m);
+    let report = m.complete().unwrap().clone();
+    let swap = report
+        .events
+        .iter()
+        .find(|e| e.event_type == engine::EventType::Substitution && e.side == engine::Side::Home)
+        .expect("the substitution is in the record");
+    let pair = [
+        swap.player_id
+            .clone()
+            .expect("a player on the substitution"),
+        swap.secondary_player_id.clone().expect("and the other"),
+    ];
+    let minutes = |id: &str| report.player_stats[id].minutes_played;
+    // the match lasts as long as the players who never left (stoppage time included)
+    let match_length = report
+        .player_stats
+        .values()
+        .map(|s| s.minutes_played)
+        .max()
+        .unwrap();
+    let [first, second] = [minutes(&pair[0]), minutes(&pair[1])];
+    assert!(
+        first > 0 && second > 0,
+        "both of them played: {first}, {second}"
+    );
+    assert!(
+        (i32::from(first) + i32::from(second) - i32::from(match_length)).abs() <= 2,
+        "the two share one place for the whole match: {first} + {second} vs {match_length}"
+    );
+    assert!(first.min(second) < match_length);
+
+    assert!(report.goals.len() as u8 <= report.home_goals + report.away_goals);
+    for goal in &report.goals {
+        assert!(
+            report.player_stats[&goal.scorer_id].goals >= 1,
+            "{} is credited in the list but not in his own record",
+            goal.scorer_id
+        );
+    }
+
+    let red_in_timeline = report
+        .events
+        .iter()
+        .filter(|e| e.event_type == engine::EventType::RedCard)
+        .count() as u8;
+    let red_in_stats: u8 = report.player_stats.values().map(|s| s.red_cards).sum();
+    assert_eq!(red_in_timeline, red_in_stats);
+    assert!(
+        report
+            .player_stats
+            .values()
+            .filter(|s| s.minutes_played > 0)
+            .count()
+            >= 22,
+        "everyone who played has a record"
+    );
+}

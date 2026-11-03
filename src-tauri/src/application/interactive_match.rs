@@ -927,6 +927,33 @@ mod tests {
 
         crate::application::saving::persist_active_game(&resumed, &mut saves).expect("save");
         assert!(saves.load_interactive_match(&save_id).unwrap().is_none());
+        // nothing large is kept: an interactive match records no frames and stores no replay
+        assert!(
+            saves
+                .load_match_replay(&save_id, COMPETITION, FIXTURE)
+                .map(|replay| replay.is_none())
+                .unwrap_or(true),
+            "no positional replay is stored for an interactive match"
+        );
+    }
+
+    /// Given a match saved 20 minutes in,
+    /// Then the stored checkpoint is compact (inputs and accepted commands, not frames).
+    #[test]
+    fn a_stored_checkpoint_is_compact() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        crate::application::saving::persist_active_game(&state, &mut saves).expect("save");
+        let stored = saves
+            .load_interactive_match(&save_id)
+            .unwrap()
+            .expect("a match is stored")
+            .expect("and it is readable");
+        assert!(
+            stored.payload.len() < 400_000,
+            "{} bytes at minute 20",
+            stored.payload.len()
+        );
     }
 
     /// Given a stored checkpoint that was altered on disk,
