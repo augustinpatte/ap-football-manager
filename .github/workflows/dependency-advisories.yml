@@ -37,6 +37,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       # Same pin as `build-check.yml`, and it has to stay the same: cargo-deny's advisory
       # handling changes between releases, so two versions would give two answers.

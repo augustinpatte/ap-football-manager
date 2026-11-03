@@ -1,0 +1,33 @@
+name: Access to the private match engine
+description: >-
+  Lets cargo fetch `apfm-match-lab`, the private repository the match engine lives in and
+  `ofm_core` pins by revision. The token is a secret read-only credential (`contents: read` on that one
+  repository); it is written to the runner's git configuration only, never to the checkout,
+  `Cargo.toml` or `Cargo.lock`, and is masked in logs. Without the secret (a fork's pull request,
+  where secrets are not provided) the step fails with a plain message instead of a cargo error
+  forty lines of output later.
+
+inputs:
+  token:
+    description: A token that can read github.com/augustinpatte/apfm-match-lab.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Configure git to read the private engine
+      shell: bash
+      env:
+        ENGINE_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -z "$ENGINE_TOKEN" ]; then
+          echo "::error::APFM_ENGINE_READ_TOKEN is not available to this run, so the private match engine cannot be fetched. Pull requests from forks do not receive repository secrets; re-run it from a branch of this repository."
+          exit 1
+        fi
+        echo "::add-mask::$ENGINE_TOKEN"
+        git config --global \
+          "url.https://x-access-token:${ENGINE_TOKEN}@github.com/augustinpatte/apfm-match-lab.insteadOf" \
+          "https://github.com/augustinpatte/apfm-match-lab"
+        # cargo's built-in git client does not read the url rewrite for every transport; the
+        # command-line client does.
+        echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> "$GITHUB_ENV"
