@@ -65,6 +65,10 @@ pub(crate) struct ClubFacts {
     pub overstretched: bool,
 }
 
+/// The share of its wage budget a club's wage bill may reach before it counts as overstretched (the
+/// line the market uses for a club that has not just been relegated).
+const OVERSTRETCHED_WAGE_PCT: i64 = 120;
+
 /// Top and bottom quarters of a league are its contenders and its fighters.
 const CONTENDER_PCT: f64 = 0.25;
 const FIGHTER_PCT: f64 = 0.65;
@@ -96,14 +100,13 @@ pub(crate) fn classify(facts: &ClubFacts) -> ClubProfile {
         };
     }
 
-    let share = if facts.squad_value == 0 {
-        0.0
-    } else {
-        facts.cash.max(0) as f64 / facts.squad_value as f64
-    };
-    let means = if facts.overstretched || share < CONSTRAINED_CASH_SHARE {
+    // A squad with no value on record says nothing about what the cash is worth: the club is not
+    // broke for that.
+    let share =
+        (facts.squad_value > 0).then(|| facts.cash.max(0) as f64 / facts.squad_value as f64);
+    let means = if facts.overstretched || share.is_some_and(|s| s < CONSTRAINED_CASH_SHARE) {
         Means::Constrained
-    } else if share >= WEALTHY_CASH_SHARE {
+    } else if share.is_some_and(|s| s >= WEALTHY_CASH_SHARE) {
         Means::Wealthy
     } else {
         Means::Comfortable
@@ -278,9 +281,12 @@ pub(crate) fn profiles(
                 young_share: squad
                     .map_or(0.0, |s| f64::from(s.young) / f64::from(s.seniors.max(1))),
                 training_facility: team.facilities.training,
-                overstretched: wage_bills.get(&team.id).copied().unwrap_or(0)
-                    > team.wage_budget.saturating_mul(120) / 100
-                    || team.finance < 0,
+                overstretched: super::is_overstretched_at(
+                    wage_bills.get(&team.id).copied().unwrap_or(0),
+                    team.wage_budget,
+                    team.finance,
+                    OVERSTRETCHED_WAGE_PCT,
+                ),
             };
             (team.id.clone(), classify(&facts))
         })
@@ -401,6 +407,19 @@ mod tests {
         });
         assert_eq!(small.ambition, Ambition::Established);
         assert_eq!(big.ambition, Ambition::Established);
+    }
+
+    /// Given a club whose squad has no value on record
+    /// When it is classified
+    /// Then it is not called broke: there is nothing to compare its cash with.
+    #[test]
+    fn a_squad_with_no_value_on_record_does_not_make_a_club_broke() {
+        let club = classify(&ClubFacts {
+            squad_value: 0,
+            cash: 0,
+            ..facts()
+        });
+        assert_eq!(club.means, Means::Comfortable);
     }
 
     /// Given rich, ordinary and broke clubs, and one over its wage budget
