@@ -129,7 +129,7 @@ fn simulate_with_engine_output(
     let input = MatchInput::from_json(&json)
         .map_err(|error| SpatialRunError::InputContract(error.to_string()))?;
     let config = SimulationConfig::from_input(&input);
-    let mut football = FootballConfig::full_match_m12();
+    let mut football = match_football_config();
     football.m11.replay_interval_ms = condition_sample_ms;
     let output =
         simulate_autonomous_with(&input, config, MotionConfig::default(), football, |_| {})
@@ -140,6 +140,14 @@ fn simulate_with_engine_output(
         .map_err(|error| SpatialRunError::Engine(error.to_string()))?;
     let decoded = decode_json(&json).map_err(SpatialRunError::Output)?;
     Ok((decoded, output.output, input))
+}
+
+/// The football every OFM match is played with, the instant, the replayed and the interactive one
+/// alike. One place, so that a match watched and a match simulated cannot drift apart. Run F4.2:
+/// `full_match_f42` is `full_match_m12` plus the mechanisms that give football decisions football
+/// consequences (space-aware passing, pressing the receiver, a compact block for defensive teams).
+pub fn match_football_config() -> FootballConfig {
+    FootballConfig::full_match_f42()
 }
 
 /// Records on each player of the report how much of his aerobic reserve the match engine spent on him

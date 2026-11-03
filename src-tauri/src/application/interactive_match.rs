@@ -937,6 +937,159 @@ mod tests {
         );
     }
 
+    /// Given a match 20 minutes in with a substitution still waiting for a stoppage and a tactical
+    /// order already in force,
+    /// When the career is saved, reloaded into a fresh state and played to full time,
+    /// Then the waiting substitution is still waiting, comes into force exactly once, the tactical
+    /// order is still in force, and no event is recorded twice (the event stream before the save is a
+    /// prefix of the one after it, and finalisation, which refuses a duplicated event, succeeds).
+    #[test]
+    fn a_pending_substitution_and_a_tactical_order_survive_a_reload_without_duplicates() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        let tactics = order(
+            &state,
+            "press",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        );
+        assert!(tactics.receipt.accepted);
+        let (off, on) = legal_swap(&snapshot(&state).view);
+        let swap = order(
+            &state,
+            "swap",
+            UserOrder::Substitute {
+                player_off_id: off.clone(),
+                player_on_id: on.clone(),
+            },
+        );
+        assert!(swap.receipt.accepted, "{:?}", swap.receipt.rejection);
+        let before = snapshot(&state);
+        let waiting = before.view.session.home.pending_substitutions.clone();
+        assert!(
+            !waiting.is_empty(),
+            "the scenario needs a substitution that is still waiting"
+        );
+        let events_before = before.next_event_cursor;
+        crate::application::saving::persist_active_game(&state, &mut saves)
+            .expect("a match with a waiting substitution can be saved");
+
+        let resumed = reload(&mut saves, &save_id);
+        assert!(resumed.take_restore_notice().is_none());
+        let after = snapshot(&resumed);
+        assert_eq!(
+            after.view.session.home.pending_substitutions, waiting,
+            "the substitution is still waiting, neither lost nor applied early"
+        );
+        assert_eq!(after.view.home_plan.style, PlayStyle::Attacking);
+        assert_eq!(
+            after.next_event_cursor, events_before,
+            "restoring replays the match without emitting its events a second time"
+        );
+
+        to_full_time(&resumed);
+        let report_events = snapshot(&resumed);
+        let swaps = resumed
+            .with_interactive_match(|m| {
+                m.view()
+                    .map(|v| v.session.home.substitutions_used)
+                    .unwrap_or(0)
+            })
+            .expect("the match");
+        assert!(
+            swaps <= 1,
+            "the substitution came into force at most once: {swaps}"
+        );
+        assert!(report_events
+            .view
+            .session
+            .home
+            .pending_substitutions
+            .is_empty());
+        finish_interactive_match_internal(&resumed)
+            .expect("finalisation refuses a duplicated event, so this proves there is none");
+    }
+
+    /// Given interactive matches in which players are injured and sent off,
+    /// When they are finalised through the canonical path,
+    /// Then injuries reach the career as injuries on the players hurt (and only on them), every dismissal is a
+    /// red card in his season record, and nobody else is hurt or carded.
+    ///
+    /// The game has no suspension rule at all (a red card costs morale and a line in the record, in
+    /// the legacy engine and in this one alike), so there is no ban to carry into the next fixture;
+    /// that is a game rule that does not exist, not a gap of the interactive path. Injuries are what
+    /// carry forward, and the season test checks that an injured player never plays.
+    #[test]
+    fn injuries_and_dismissals_of_an_interactive_match_reach_the_career() {
+        let mut injuries_seen = 0;
+        let mut injuries_in_career = 0;
+        let mut dismissals_seen = 0;
+        for seed in 1..=70u64 {
+            let state = StateManager::new();
+            let mut game = game_with_spatial_fixture();
+            game.seed = seed;
+            let reds_before: u32 = game.players.iter().map(|p| p.stats.red_cards).sum();
+            state.set_game(game);
+            begin(&state);
+            to_full_time(&state);
+            let events = snapshot(&state).events;
+            let kinds: Vec<serde_json::Value> = events
+                .iter()
+                .map(|e| serde_json::to_value(&e.event.kind).expect("kind"))
+                .collect();
+            let injured_in_match: std::collections::BTreeSet<String> = kinds
+                .iter()
+                .filter(|k| k["type"] == "injury")
+                .filter_map(|k| k["player"].as_str().map(str::to_string))
+                .collect();
+            let reds_in_match = kinds
+                .iter()
+                .filter(|k| k["type"] == "card" && k["colour"] != "yellow")
+                .count() as u32;
+            finish_interactive_match_internal(&state).expect("finishes");
+            let (injured_after, reds_after) = state
+                .get_game(|g| {
+                    (
+                        g.players
+                            .iter()
+                            .filter(|p| p.injury.is_some())
+                            .map(|p| p.id.clone())
+                            .collect::<std::collections::BTreeSet<_>>(),
+                        g.players.iter().map(|p| p.stats.red_cards).sum::<u32>(),
+                    )
+                })
+                .expect("game");
+            // The club's medical staff catch some knocks before they become injuries (the same roll
+            // for every match, `match_injuries`), so the career can hold fewer injuries than the
+            // match recorded, never others.
+            assert!(
+                injured_after.is_subset(&injured_in_match),
+                "seed {seed}: only players hurt in the match are injured in the career"
+            );
+            injuries_in_career += injured_after.len();
+            assert_eq!(
+                reds_after - reds_before,
+                reds_in_match,
+                "seed {seed}: every dismissal is a red card on a record"
+            );
+            injuries_seen += injured_in_match.len();
+            dismissals_seen += reds_in_match as usize;
+        }
+        assert!(
+            injuries_seen > 0,
+            "the seeds must include injuries to prove anything"
+        );
+        assert!(
+            injuries_in_career > 0,
+            "injuries of an interactive match must reach the career, not all be caught"
+        );
+        println!(
+            "{injuries_seen} injuries in matches, {injuries_in_career} in the career, {dismissals_seen} dismissals over 70 matches"
+        );
+    }
+
     /// Given a match saved 20 minutes in,
     /// Then the stored checkpoint is compact (inputs and accepted commands, not frames).
     #[test]

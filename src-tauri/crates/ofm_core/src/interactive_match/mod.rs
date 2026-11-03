@@ -36,7 +36,6 @@ use apfm_match_lab::ids::PlayerId;
 use apfm_match_lab::output::{EventKind, MatchEvent};
 use apfm_match_lab::pitch::Side;
 use apfm_match_lab::sim::SimulationConfig;
-use apfm_match_lab::sim::football::FootballConfig;
 use apfm_match_lab::sim::motion::MotionConfig;
 use apfm_match_lab::sim::session::{
     Actor, Advance, AdvanceOptions, CommandEnvelope, MatchCommand, MatchSession, Outcome,
@@ -310,7 +309,7 @@ impl InteractiveMatch {
             &input,
             cfg,
             MotionConfig::default(),
-            FootballConfig::full_match_m12(),
+            spatial_runner::match_football_config(),
         )
         .map_err(|e| InteractiveError::Engine(e.to_string()))?;
         let regulation_ms = u32::from(input.config.half_length_minutes) * 2 * 60_000;

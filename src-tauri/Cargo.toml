@@ -102,6 +102,10 @@ webkit2gtk = { version = "2.0", features = ["v2_20"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSObject", "NSProcessInfo", "NSString"] }
 
+# The season test plays a generated world through the application layer (Run F4.2, scenario 6).
+[dev-dependencies]
+season-harness = { path = "crates/season-harness" }
+
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gtk = "0.18"
 

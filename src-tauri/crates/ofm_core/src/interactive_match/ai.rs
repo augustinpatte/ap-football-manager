@@ -18,7 +18,9 @@ use apfm_match_lab::input::MatchInput;
 use apfm_match_lab::model::{Attributes, Position};
 use apfm_match_lab::pitch::Side;
 use apfm_match_lab::sim::GameState;
-use apfm_match_lab::sim::football::manager::{Line, ManagerConfig, fit, line_of, need_v2, quality};
+use apfm_match_lab::sim::football::manager::{
+    Line, ManagerConfig, SubContext, line_of, need_v2, performance, substitution_utility_v2,
+};
 use apfm_match_lab::sim::session::{PlayerView, SessionView, TeamView};
 use domain::team::{PlayStyle, PressingIntensity, Tempo};
 
@@ -83,12 +85,47 @@ impl Squad {
         Self { players }
     }
 
-    /// How well `id` plays in `role`: his quality for the role times how natural it is to him.
-    fn rating(&self, id: &PlayerId, role: Position) -> f32 {
-        self.players
-            .get(id)
-            .map_or(0.0, |(a, natural)| quality(a, role) * fit(*natural, role))
+    fn known(&self, id: &PlayerId) -> Option<&(Attributes, Position)> {
+        self.players.get(id)
     }
+}
+
+/// The autonomous manager's own judgement of a swap (`manager::substitution_utility_v2`): the quality of
+/// the replacement in the slot against the player leaving, each at his present level of fatigue, plus
+/// the tactical value of the swap for the score and the clock (an attacker when chasing, a defender
+/// when protecting), less what a change costs. Positive means worth making. Run F4.2: this replaces
+/// OFM's own `rating x condition` comparison, so a bench player is valued the same way whether the match
+/// is managed here or simulated at once. What stays OFM's is when a manager looks (checkpoints,
+/// windows, the allowance), not how a swap is valued.
+fn swap_utility(ctx: &AiContext<'_>, off: &PlayerView, on: &PlayerView, slot: Position) -> f32 {
+    let (Some((off_attrs, _)), Some((on_attrs, on_natural))) =
+        (ctx.squad.known(&off.id), ctx.squad.known(&on.id))
+    else {
+        return f32::NEG_INFINITY;
+    };
+    let regulation_min = (ctx.regulation_ms as f32 / 60_000.0).max(1.0);
+    let remaining = (minutes_left(ctx) / regulation_min).clamp(0.0, 1.0);
+    let own = ctx.own();
+    let sub = SubContext {
+        minute: (1.0 - remaining).clamp(0.0, 1.0),
+        remaining,
+        score_diff: ctx.goal_difference(),
+        used: own.substitutions_used,
+        max: own.substitutions_used + own.substitutions_remaining,
+    };
+    // the view's condition is one minus the long-term fatigue, which is what `performance` reads
+    substitution_utility_v2(
+        &ManagerConfig::m10(),
+        &sub,
+        slot,
+        off_attrs,
+        performance(1.0 - off.condition, 0.0, 0.0),
+        on_attrs,
+        *on_natural,
+        performance(1.0 - on.condition, 0.0, 0.0),
+        need(ctx),
+        None,
+    )
 }
 
 pub struct AiContext<'a> {
@@ -303,9 +340,8 @@ fn tactical_swap(
                 && line_of(b.natural_position) == bring_in
         })
         .max_by(|a, b| {
-            ctx.squad
-                .rating(&a.id, role)
-                .total_cmp(&ctx.squad.rating(&b.id, role))
+            swap_utility(ctx, off, a, role)
+                .total_cmp(&swap_utility(ctx, off, b, role))
                 .then(b.id.0.cmp(&a.id.0))
         })?;
     *left -= 1;
@@ -314,7 +350,8 @@ fn tactical_swap(
     Some((off.id.clone(), on.id.clone()))
 }
 
-/// The best fresh bench player for `role`, only if he is a real improvement on `off`.
+/// The bench player the autonomous manager's utility likes best for `off`'s slot, only if the swap
+/// is worth making (an injured player goes off whatever the utility says).
 fn best_replacement(
     ctx: &AiContext<'_>,
     off: &PlayerView,
@@ -322,13 +359,6 @@ fn best_replacement(
     taken_on: &[PlayerId],
 ) -> Option<PlayerId> {
     let goalkeeper = role == Position::Gk;
-    let effective =
-        |id: &PlayerId, condition: f32| ctx.squad.rating(id, role) * (0.5 + 0.5 * condition);
-    let current = if off.injured {
-        0.0
-    } else {
-        effective(&off.id, off.condition)
-    };
     ctx.own()
         .bench
         .iter()
@@ -337,8 +367,8 @@ fn best_replacement(
                 && !taken_on.contains(&b.id)
                 && (b.natural_position == Position::Gk) == goalkeeper
         })
-        .map(|b| (effective(&b.id, b.condition), b))
-        .filter(|(value, _)| *value > current + 0.03 || off.injured)
+        .map(|b| (swap_utility(ctx, off, b, role), b))
+        .filter(|(value, _)| off.injured || *value > 0.0)
         .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.id.0.cmp(&a.1.id.0)))
         .map(|(_, b)| b.id.clone())
 }
@@ -911,5 +941,127 @@ mod tests {
         let ctx = f.ctx(Checkpoint::Review);
         assert!((minutes_left(&ctx) - 5.0).abs() < 1e-4);
         assert!(need(&ctx) > 1.0);
+    }
+
+    /// The bench player OFM's policy proposes for `off`, and the one the autonomous manager's own
+    /// utility ranks first among the same candidates.
+    fn proposed_and_ranked(f: &Fixture, off: &PlayerView) -> (Option<PlayerId>, Option<PlayerId>) {
+        let ctx = f.ctx(Checkpoint::Review);
+        let role = off.role.expect("a starter");
+        let ranked = ctx
+            .own()
+            .bench
+            .iter()
+            .filter(|b| (b.natural_position == Position::Gk) == (role == Position::Gk))
+            .map(|b| {
+                // the autonomous manager's own call, built here from the raw view, not through the
+                // adapter under test
+                let (off_a, _) = ctx.squad.known(&off.id).expect("known");
+                let (on_a, on_nat) = ctx.squad.known(&b.id).expect("known");
+                let regulation = ctx.regulation_ms as f32 / 60_000.0;
+                let now = ctx.view.clock_ms as f32 / 60_000.0;
+                let remaining = ((regulation - now) / regulation).clamp(0.0, 1.0);
+                let sub = SubContext {
+                    minute: 1.0 - remaining,
+                    remaining,
+                    score_diff: ctx.goal_difference(),
+                    used: ctx.own().substitutions_used,
+                    max: ctx.own().substitutions_used + ctx.own().substitutions_remaining,
+                };
+                let u = substitution_utility_v2(
+                    &ManagerConfig::m10(),
+                    &sub,
+                    role,
+                    off_a,
+                    performance(1.0 - off.condition, 0.0, 0.0),
+                    on_a,
+                    *on_nat,
+                    performance(1.0 - b.condition, 0.0, 0.0),
+                    need(&ctx),
+                    None,
+                );
+                (u, b.id.clone())
+            })
+            .filter(|(u, _)| *u > 0.0)
+            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.0.cmp(&a.1.0)))
+            .map(|(_, id)| id);
+        (best_replacement(&ctx, off, role, &[]), ranked)
+    }
+
+    /// Given comparable states of one match (a level game, a goal down, a goal up) with a tired
+    /// midfielder,
+    /// When OFM's policy picks his replacement and the autonomous manager's utility ranks the same
+    /// bench,
+    /// Then they choose the same player: a bench player is valued by one judgement, whichever mode
+    /// the match is played in.
+    #[test]
+    fn a_replacement_is_the_one_the_autonomous_manager_would_choose() {
+        for (minute, home, away) in [(70, 0, 0), (75, 0, 1), (78, 2, 1), (82, 0, 2)] {
+            let mut f = fixture(minute, home, away);
+            let off_id = f
+                .view
+                .home
+                .on_pitch
+                .iter()
+                .find(|p| p.role == Some(Position::Cm))
+                .expect("a central midfielder")
+                .id
+                .clone();
+            for p in &mut f.view.home.on_pitch {
+                if p.id == off_id {
+                    p.condition = 0.35;
+                }
+            }
+            let off = f
+                .view
+                .home
+                .on_pitch
+                .iter()
+                .find(|p| p.id == off_id)
+                .expect("starter")
+                .clone();
+            let (proposed, ranked) = proposed_and_ranked(&f, &off);
+            assert_eq!(proposed, ranked, "minute {minute}, {home}-{away}");
+        }
+    }
+
+    /// Given a tired starter and a bench player who is fresh but much weaker,
+    /// When the policy looks for a replacement,
+    /// Then nobody is proposed: freshness alone is not a reason to swap.
+    #[test]
+    fn freshness_alone_does_not_make_a_swap() {
+        let mut f = fixture(70, 0, 0);
+        let off_id = f.outfield_starter(5);
+        for p in &mut f.view.home.on_pitch {
+            if p.id == off_id {
+                p.condition = 0.8; // a little tired
+            }
+        }
+        // every bench player is hopeless: strip their attributes in the squad's knowledge
+        for b in f.view.home.bench.clone() {
+            if let Some((a, _)) = f.squad.players.get_mut(&b.id) {
+                // every numeric attribute at 20, whatever the field list is
+                let mut v = serde_json::to_value(&*a).expect("attributes serialise");
+                if let Some(o) = v.as_object_mut() {
+                    for x in o.values_mut().filter(|x| x.is_number()) {
+                        *x = serde_json::json!(20);
+                    }
+                }
+                *a = serde_json::from_value(v).expect("attributes parse");
+            }
+        }
+        let off = f
+            .view
+            .home
+            .on_pitch
+            .iter()
+            .find(|p| p.id == off_id)
+            .expect("starter")
+            .clone();
+        let ctx = f.ctx(Checkpoint::Review);
+        assert_eq!(
+            best_replacement(&ctx, &off, off.role.expect("role"), &[]),
+            None
+        );
     }
 }

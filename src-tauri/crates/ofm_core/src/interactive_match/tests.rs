@@ -887,3 +887,138 @@ fn the_match_record_is_complete_and_consistent() {
         "everyone who played has a record"
     );
 }
+
+// ---------------------------------------------------------------------------------------------
+// Run F4.2: the neutral workload re-measured on FM24-derived players
+// ---------------------------------------------------------------------------------------------
+
+/// Matches the engine's expenditure of the aerobic reserve per minute (raw, before the stamina
+/// term) of every starter who played at least 85 minutes, in matches between real clubs of the
+/// FM24 world, by line, stamina band and pressing intensity.
+///
+/// Needs the world file the owner builds with `apfm-import` (`APFM_WORLD_JSON`); read-only, nothing
+/// is written. Run: `APFM_WORLD_JSON=… cargo test --release -p ofm_core --lib fm24_workload -- --ignored --nocapture`.
+#[test]
+#[ignore = "study: needs the FM24 world file (APFM_WORLD_JSON); minutes"]
+fn fm24_workload_reference_study() {
+    use crate::career::{CareerScope, begin_career};
+    use crate::clock::GameClock;
+    use crate::generator::{ReputationBasis, load_world_from_path};
+    use crate::world::build::{PastHistory, build_game_from_imported_world};
+    use crate::world::start_date_for_year;
+    use domain::manager::Manager;
+    use domain::team::PressingIntensity;
+
+    let Some(path) = std::env::var_os("APFM_WORLD_JSON").map(std::path::PathBuf::from) else {
+        println!("APFM_WORLD_JSON is not set: nothing measured");
+        return;
+    };
+    let mut world = load_world_from_path(&path).expect("the FM24 world loads");
+    world.generation_seed = Some(11);
+    let clock = GameClock::new(start_date_for_year(2026).unwrap());
+    let history = PastHistory {
+        start_year: 2026,
+        depth_years: 0,
+    };
+    let manager = Manager::new(
+        "mgr_user".into(),
+        "Scenario".into(),
+        "Manager".into(),
+        "1980-01-01".into(),
+        "France".into(),
+    );
+    let (mut base, stats) = build_game_from_imported_world(
+        clock,
+        manager,
+        history,
+        world,
+        ReputationBasis::Authored(&Default::default()),
+    );
+    let club = base.teams.first().expect("a club").id.clone();
+    begin_career(&mut base, &club, CareerScope::default(), stats).expect("a career");
+
+    // distinct fixtures of one competition: different pairs of real clubs
+    let competition = base
+        .competitions
+        .iter()
+        .find(|c| c.fixtures.len() >= 40)
+        .expect("a league with fixtures");
+    let picks: Vec<(usize, String, String)> = competition
+        .fixtures
+        .iter()
+        .enumerate()
+        .take(40)
+        .map(|(i, f)| (i, competition.id.clone(), f.id.clone()))
+        .collect();
+
+    // [line][stamina band][pressing] -> (sum of raw rate, n)
+    let mut cell = std::collections::BTreeMap::<(usize, usize, &'static str), (f64, u32)>::new();
+    for (pressing, name) in [
+        (None, "default"),
+        (Some(PressingIntensity::Passive), "passive"),
+        (Some(PressingIntensity::Aggressive), "aggressive"),
+    ] {
+        for (index, competition_id, fixture_id) in &picks {
+            let mut g = base.clone();
+            if let Some(p) = &pressing {
+                let (home, away) = {
+                    let f = g
+                        .competitions
+                        .iter()
+                        .find(|c| &c.id == competition_id)
+                        .map(|c| &c.fixtures[*index])
+                        .expect("the picked fixture");
+                    (f.home_team_id.clone(), f.away_team_id.clone())
+                };
+                for t in g.teams.iter_mut().filter(|t| t.id == home || t.id == away) {
+                    t.tactics_phase.pressing_intensity = p.clone();
+                }
+            }
+            let id = FixtureIdentity {
+                fixture_index: *index,
+                competition_id: competition_id.clone(),
+                fixture_id: fixture_id.clone(),
+            };
+            let Ok(mut m) = InteractiveMatch::start(&g, id, "fm24-workload") else {
+                continue;
+            };
+            run_to_end(&mut m);
+            let report = m.complete().unwrap().clone();
+            for (pid, stats) in &report.player_stats {
+                if stats.minutes_played < 85 {
+                    continue;
+                }
+                let Some(p) = g.players.iter().find(|p| &p.id == pid) else {
+                    continue;
+                };
+                let line = match p.position {
+                    domain::player::Position::Defender => 0,
+                    domain::player::Position::Midfielder => 1,
+                    domain::player::Position::Forward => 2,
+                    _ => continue,
+                };
+                let load = stats.physical_load.expect("a load for a player who played");
+                let band = usize::from(p.attributes.stamina >= 55)
+                    + usize::from(p.attributes.stamina >= 70);
+                let stamina_effect = 1.0 - 0.0125 * (f64::from(p.attributes.stamina) - 64.0);
+                let raw = f64::from(load) / (f64::from(stats.minutes_played) * stamina_effect);
+                let e = cell.entry((line, band, name)).or_insert((0.0, 0));
+                e.0 += raw;
+                e.1 += 1;
+            }
+        }
+    }
+    println!("reference: 0.0025 of the reserve per minute at stamina 64");
+    println!(
+        "line (0 def, 1 mid, 2 att) | stamina band (0 <55, 1 55-69, 2 >=70) | pressing | mean raw rate | n | ratio to reference"
+    );
+    for ((line, band, name), (sum, n)) in &cell {
+        if *n > 0 {
+            let mean = sum / f64::from(*n);
+            println!(
+                "{line} | {band} | {name} | {mean:.5} | {n} | {:.2}",
+                mean / 0.0025
+            );
+        }
+    }
+}

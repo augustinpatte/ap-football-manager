@@ -3208,6 +3208,7 @@ dependencies = [
  "ofm_core",
  "rand",
  "rmcp",
+ "season-harness",
  "semver",
  "serde",
  "serde_json",
