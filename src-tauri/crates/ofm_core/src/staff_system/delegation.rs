@@ -197,6 +197,7 @@ pub fn run_after_day(game: &mut Game) {
         Duty::PlayerRenewals,
         Duty::PlayerRecruitment,
         Duty::Tactics,
+        Duty::Offers,
     ] {
         if !due(game, duty) {
             continue;
@@ -212,6 +213,9 @@ pub fn run_after_day(game: &mut Game) {
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
             Duty::PlayerRecruitment => recruiting::player_recruitment(game, &team_id),
             Duty::Tactics => control::tactics(game, &team_id, rating),
+            Duty::Offers => {
+                super::delegation_offers::answer_derisory_offers(game, &team_id, rating)
+            }
             Duty::Training => {}
         }
     }

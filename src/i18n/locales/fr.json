@@ -1148,7 +1148,8 @@
         "Lineup": "Composition et rotation",
         "PlayerRenewals": "Renouvellements de joueurs",
         "PlayerRecruitment": "Recrutement de joueurs",
-        "Tactics": "Préparation tactique"
+        "Tactics": "Préparation tactique",
+        "Offers": "Offres reçues"
       },
       "confirmMajor": "Me consulter pour les décisions importantes",
       "delegate": "Déléguer",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "{{player}} ({{position}}) abandonné : l'accord n'a pas pu se faire",
       "managerOverride": "Vous l'avez modifié vous-même : l'adjoint s'efface jusqu'au {{until}}",
       "tacticsSet": "A fixé le plan tactique du prochain match (style {{style}})",
-      "trainingIntensity": "A réglé l'entraînement sur {{focus}}, intensité {{intensity}}"
+      "trainingIntensity": "A réglé l'entraînement sur {{focus}}, intensité {{intensity}}",
+      "offerDeclined": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : bien en dessous de sa valeur",
+      "offerKeepsStarter": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : il est titulaire"
     }
   },
   "freeAgents": {

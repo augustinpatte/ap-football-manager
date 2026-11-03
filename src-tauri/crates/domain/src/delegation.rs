@@ -30,10 +30,13 @@ pub enum Duty {
     /// The tactical plan for the next match: the nine phase dials, set from the club's style, the
     /// squad's legs and pace, and the recent results.
     Tactics,
+    /// Answering the offers other clubs make for the manager's players: the assistant turns down
+    /// the ones far below the player's worth, and leaves every other decision to the manager.
+    Offers,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 10] = [
+    pub const ALL: [Duty; 11] = [
         Duty::Training,
         Duty::StaffRecruitment,
         Duty::Scouting,
@@ -44,12 +47,17 @@ impl Duty {
         Duty::PlayerRenewals,
         Duty::PlayerRecruitment,
         Duty::Tactics,
+        Duty::Offers,
     ];
 
     /// Days between two runs of a delegated duty.
     pub fn period_days(self) -> i64 {
         match self {
-            Duty::Training | Duty::MatchPreparation | Duty::Lineup | Duty::Tactics => 1,
+            Duty::Training
+            | Duty::MatchPreparation
+            | Duty::Lineup
+            | Duty::Tactics
+            | Duty::Offers => 1,
             Duty::Scouting | Duty::PlayerRecruitment => 3,
             Duty::Youth | Duty::StaffRecruitment | Duty::StaffRenewals | Duty::PlayerRenewals => 7,
         }
@@ -714,7 +722,9 @@ mod tests {
     fn a_full_state_from_before_the_tactics_duty_is_still_full() {
         let mut state = DelegationState::default();
         state.apply_mode(DelegationMode::Full);
-        state.settings.retain(|s| s.duty != Duty::Tactics);
+        state
+            .settings
+            .retain(|s| !matches!(s.duty, Duty::Tactics | Duty::Offers));
         assert_eq!(
             state.mode(),
             DelegationMode::Custom,
@@ -724,7 +734,7 @@ mod tests {
         state.complete_settings();
 
         assert_eq!(state.mode(), DelegationMode::Full);
-        assert!(state.is_delegated(Duty::Tactics));
+        assert!(state.is_delegated(Duty::Tactics) && state.is_delegated(Duty::Offers));
     }
 
     /// Given a manual state saved before the duty existed

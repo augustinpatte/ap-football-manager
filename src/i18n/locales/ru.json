@@ -1148,7 +1148,8 @@
         "Lineup": "Состав и ротация",
         "PlayerRenewals": "Продление контрактов игроков",
         "PlayerRecruitment": "Покупка игроков",
-        "Tactics": "Тактическая подготовка"
+        "Tactics": "Тактическая подготовка",
+        "Offers": "Входящие предложения"
       },
       "confirmMajor": "Спрашивать о важных решениях",
       "delegate": "Делегировать",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "Отказ от {{player}} ({{position}}): сделку заключить не удалось",
       "managerOverride": "Вы изменили это сами, поэтому помощник не вмешивается до {{until}}",
       "tacticsSet": "Составил тактический план на следующий матч (стиль: {{style}})",
-      "trainingIntensity": "Поставил тренировку: {{focus}}, интенсивность: {{intensity}}"
+      "trainingIntensity": "Поставил тренировку: {{focus}}, интенсивность: {{intensity}}",
+      "offerDeclined": "Отклонил предложение {{club}} на {{fee}} за {{player}}: намного ниже его стоимости",
+      "offerKeepsStarter": "Отклонил предложение {{club}} на {{fee}} за {{player}}: он в основном составе"
     }
   },
   "freeAgents": {

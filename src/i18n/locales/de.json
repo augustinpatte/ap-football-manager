@@ -1148,7 +1148,8 @@
         "Lineup": "Aufstellung & Rotation",
         "PlayerRenewals": "Spielerverlängerungen",
         "PlayerRecruitment": "Spielerverpflichtungen",
-        "Tactics": "Taktikvorbereitung"
+        "Tactics": "Taktikvorbereitung",
+        "Offers": "Eingehende Angebote"
       },
       "confirmMajor": "Bei großen Entscheidungen fragen",
       "delegate": "Delegieren",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "{{player}} ({{position}}) aufgegeben: Der Deal kam nicht zustande",
       "managerOverride": "Du hast das selbst geändert, daher hält sich der Co-Trainer bis {{until}} zurück",
       "tacticsSet": "Taktikplan für das nächste Spiel festgelegt (Stil: {{style}})",
-      "trainingIntensity": "Training auf {{focus}} mit Intensität {{intensity}} gestellt"
+      "trainingIntensity": "Training auf {{focus}} mit Intensität {{intensity}} gestellt",
+      "offerDeclined": "Angebot von {{club}} über {{fee}} für {{player}} abgelehnt: weit unter seinem Wert",
+      "offerKeepsStarter": "Angebot von {{club}} über {{fee}} für {{player}} abgelehnt: er gehört zur Stammelf"
     }
   },
   "freeAgents": {

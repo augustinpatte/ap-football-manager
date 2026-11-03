@@ -1148,7 +1148,8 @@
         "Lineup": "Alineación y rotación",
         "PlayerRenewals": "Renovaciones de jugadores",
         "PlayerRecruitment": "Fichajes de jugadores",
-        "Tactics": "Preparación táctica"
+        "Tactics": "Preparación táctica",
+        "Offers": "Ofertas recibidas"
       },
       "confirmMajor": "Consultarme las decisiones importantes",
       "delegate": "Delegar",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "Descartado {{player}} ({{position}}): no se pudo cerrar el trato",
       "managerOverride": "Lo cambiaste tú, así que el ayudante se aparta hasta el {{until}}",
       "tacticsSet": "Fijó el plan táctico del próximo partido (estilo {{style}})",
-      "trainingIntensity": "Puso el entrenamiento en {{focus}} con intensidad {{intensity}}"
+      "trainingIntensity": "Puso el entrenamiento en {{focus}} con intensidad {{intensity}}",
+      "offerDeclined": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: muy por debajo de su valor",
+      "offerKeepsStarter": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: es titular"
     }
   },
   "freeAgents": {

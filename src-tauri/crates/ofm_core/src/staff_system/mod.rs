@@ -5,6 +5,7 @@ pub mod ai;
 pub mod assistant;
 pub mod delegation;
 mod delegation_control;
+mod delegation_offers;
 pub mod delegation_policy;
 mod delegation_recruitment;
 mod delegation_report;

@@ -1173,7 +1173,8 @@
         "Lineup": "Formazione e turnover",
         "PlayerRenewals": "Rinnovi dei giocatori",
         "PlayerRecruitment": "Acquisto di giocatori",
-        "Tactics": "Preparazione tattica"
+        "Tactics": "Preparazione tattica",
+        "Offers": "Offerte ricevute"
       },
       "confirmMajor": "Chiedimi per le decisioni importanti",
       "delegate": "Delega",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "Abbandonato {{player}} ({{position}}): l'accordo non è stato possibile",
       "managerOverride": "L'hai modificato tu, quindi il vice si fa da parte fino al {{until}}",
       "tacticsSet": "Ha impostato il piano tattico per la prossima partita (stile {{style}})",
-      "trainingIntensity": "Ha impostato l'allenamento su {{focus}} con intensità {{intensity}}"
+      "trainingIntensity": "Ha impostato l'allenamento su {{focus}} con intensità {{intensity}}",
+      "offerDeclined": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: molto sotto il suo valore",
+      "offerKeepsStarter": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: è un titolare"
     }
   },
   "freeAgents": {

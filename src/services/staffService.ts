@@ -43,7 +43,8 @@ export type Duty =
   | "Lineup"
   | "PlayerRenewals"
   | "PlayerRecruitment"
-  | "Tactics";
+  | "Tactics"
+  | "Offers";
 
 /** The presets the duty settings amount to. `custom` is derived, never chosen. */
 export type DelegationMode = "manual" | "approval" | "full" | "custom";

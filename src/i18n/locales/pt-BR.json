@@ -1148,7 +1148,8 @@
         "Lineup": "Escalação e rodízio",
         "PlayerRenewals": "Renovações de jogadores",
         "PlayerRecruitment": "Contratação de jogadores",
-        "Tactics": "Preparação tática"
+        "Tactics": "Preparação tática",
+        "Offers": "Propostas recebidas"
       },
       "confirmMajor": "Me consultar nas decisões importantes",
       "delegate": "Delegar",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "{{player}} ({{position}}) descartado: o negócio não pôde ser feito",
       "managerOverride": "Você mesmo mudou isto, então o auxiliar não age até {{until}}",
       "tacticsSet": "Definiu o plano tático para a próxima partida (estilo {{style}})",
-      "trainingIntensity": "Colocou o treino em {{focus}} com intensidade {{intensity}}"
+      "trainingIntensity": "Colocou o treino em {{focus}} com intensidade {{intensity}}",
+      "offerDeclined": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: bem abaixo do valor dele",
+      "offerKeepsStarter": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: ele é titular"
     }
   },
   "freeAgents": {

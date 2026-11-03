@@ -1148,7 +1148,8 @@
         "Lineup": "Lineup & rotation",
         "PlayerRenewals": "Player renewals",
         "PlayerRecruitment": "Player recruitment",
-        "Tactics": "Tactical preparation"
+        "Tactics": "Tactical preparation",
+        "Offers": "Incoming offers"
       },
       "confirmMajor": "Ask me before major decisions",
       "delegate": "Delegate",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "Dropped {{player}} ({{position}}): the deal could not be made",
       "managerOverride": "You changed this yourself, so the assistant stands back until {{until}}",
       "tacticsSet": "Set the tactical plan for the next match ({{style}} style)",
-      "trainingIntensity": "Set training to {{focus}} at {{intensity}} intensity"
+      "trainingIntensity": "Set training to {{focus}} at {{intensity}} intensity",
+      "offerDeclined": "Turned down {{club}}'s offer of {{fee}} for {{player}}: far below his worth",
+      "offerKeepsStarter": "Turned down {{club}}'s offer of {{fee}} for {{player}}: he is in the first eleven"
     }
   },
   "freeAgents": {

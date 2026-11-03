@@ -35,6 +35,7 @@ const DUTIES: Duty[] = [
   "PlayerRenewals",
   "PlayerRecruitment",
   "Tactics",
+  "Offers",
 ];
 
 /** Backend params carry raw enum names; the ones that name a post or a position are translated. */

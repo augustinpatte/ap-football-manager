@@ -1148,7 +1148,8 @@
         "Lineup": "Kadro ve rotasyon",
         "PlayerRenewals": "Oyuncu sözleşme yenilemeleri",
         "PlayerRecruitment": "Oyuncu transferi",
-        "Tactics": "Taktik hazırlığı"
+        "Tactics": "Taktik hazırlığı",
+        "Offers": "Gelen teklifler"
       },
       "confirmMajor": "Büyük kararlarda bana sor",
       "delegate": "Devret",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "{{player}} ({{position}}) bırakıldı: anlaşma yapılamadı",
       "managerOverride": "Bunu kendiniz değiştirdiniz, bu yüzden yardımcı {{until}} tarihine kadar geri çekilir",
       "tacticsSet": "Sonraki maç için taktik planını belirledi ({{style}} stili)",
-      "trainingIntensity": "Antrenmanı {{focus}} odağında, {{intensity}} yoğunlukta ayarladı"
+      "trainingIntensity": "Antrenmanı {{focus}} odağında, {{intensity}} yoğunlukta ayarladı",
+      "offerDeclined": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: değerinin çok altında",
+      "offerKeepsStarter": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: ilk on birde yer alıyor"
     }
   },
   "freeAgents": {

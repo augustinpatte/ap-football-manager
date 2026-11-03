@@ -1148,7 +1148,8 @@
         "Lineup": "阵容与轮换",
         "PlayerRenewals": "球员续约",
         "PlayerRecruitment": "球员招募",
-        "Tactics": "战术准备"
+        "Tactics": "战术准备",
+        "Offers": "收到的报价"
       },
       "confirmMajor": "重大决定前先征求我",
       "delegate": "委派",
@@ -4885,7 +4886,9 @@
       "recruitNotPossible": "放弃 {{player}}（{{position}}）：交易无法达成",
       "managerOverride": "这是你亲自改的，助理教练在 {{until}} 之前不再干预",
       "tacticsSet": "已为下一场比赛制定战术方案（{{style}}风格）",
-      "trainingIntensity": "已将训练设为{{focus}}，强度{{intensity}}"
+      "trainingIntensity": "已将训练设为{{focus}}，强度{{intensity}}",
+      "offerDeclined": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：远低于其身价",
+      "offerKeepsStarter": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：他是首发主力"
     }
   },
   "freeAgents": {
