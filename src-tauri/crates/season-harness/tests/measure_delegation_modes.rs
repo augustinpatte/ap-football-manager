@@ -152,3 +152,93 @@ fn manual_does_nothing_and_full_acts_at_least_as_much_as_approval() {
         "Full acts at least as much as Approval"
     );
 }
+
+/// What a mode did about one major decision (a vacant physio seat with a free physio to fill it).
+struct VacancyOutcome {
+    physio_hired: bool,
+    hire_proposals: usize,
+    tactics_or_training_acted: bool,
+}
+
+fn vacancy_under(configure: impl FnOnce(&mut Game)) -> VacancyOutcome {
+    let mut game = with_assistant(WorldSpec::gate(1).build().expect("world builds"));
+    let team = user_team(&game);
+    for member in game
+        .staff
+        .iter_mut()
+        .filter(|s| s.team_id.as_deref() == Some(team.as_str()) && s.post() == StaffPost::Physio)
+    {
+        member.team_id = None;
+    }
+    assert!(
+        game.staff
+            .iter()
+            .any(|s| s.team_id.is_none() && s.post() == StaffPost::Physio),
+        "a free physio exists to fill the seat"
+    );
+    configure(&mut game);
+    let options = RunOptions::seasons(1);
+    for day in 1..=10 {
+        play_day(&mut game, options, 1, day, &mut Quiet).expect("the day is played");
+    }
+    VacancyOutcome {
+        physio_hired: game
+            .staff
+            .iter()
+            .any(|s| s.team_id.as_deref() == Some(team.as_str()) && s.post() == StaffPost::Physio),
+        hire_proposals: game
+            .delegation
+            .proposals
+            .iter()
+            .filter(|p| {
+                matches!(
+                    p.action,
+                    domain::delegation::ProposalAction::HireStaff { .. }
+                )
+            })
+            .count(),
+        tactics_or_training_acted: game.delegation.log.iter().any(|e| {
+            matches!(
+                e.duty,
+                domain::delegation::Duty::Tactics | domain::delegation::Duty::Training
+            ) && e.outcome == DecisionOutcome::Executed
+        }),
+    }
+}
+
+/// Given the same club, world and seed, with a staff seat to fill
+/// When ten days are played under each mode
+/// Then Manual leaves it, Approval proposes the hire and waits, Full hires, and a Custom set-up
+///      that delegates only training and tactics leaves the hire to the manager while still acting
+///      on those two.
+#[test]
+fn the_modes_differ_where_a_major_decision_is_involved() {
+    use domain::delegation::Duty;
+
+    let manual = vacancy_under(|g| g.delegation.apply_mode(DelegationMode::Manual));
+    let approval = vacancy_under(|g| g.delegation.apply_mode(DelegationMode::Approval));
+    let full = vacancy_under(|g| g.delegation.apply_mode(DelegationMode::Full));
+    let custom = vacancy_under(|g| {
+        g.delegation.set(Duty::Training, true, false);
+        g.delegation.set(Duty::Tactics, true, false);
+    });
+
+    assert!(!manual.physio_hired && manual.hire_proposals == 0, "Manual");
+    assert!(!manual.tactics_or_training_acted, "Manual acts on nothing");
+    assert!(
+        !approval.physio_hired && approval.hire_proposals >= 1,
+        "Approval proposes the hire and waits for the manager"
+    );
+    assert!(
+        full.physio_hired && full.hire_proposals == 0,
+        "Full fills the seat by itself"
+    );
+    assert!(
+        !custom.physio_hired && custom.hire_proposals == 0,
+        "Custom: staff recruitment was not handed over"
+    );
+    assert!(
+        custom.tactics_or_training_acted,
+        "Custom: the handed-over duties act"
+    );
+}

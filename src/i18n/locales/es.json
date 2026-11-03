@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Renovaciones del personal",
         "Lineup": "Alineación y rotación",
         "PlayerRenewals": "Renovaciones de jugadores",
-        "PlayerRecruitment": "Fichajes de jugadores"
+        "PlayerRecruitment": "Fichajes de jugadores",
+        "Tactics": "Preparación táctica"
       },
       "confirmMajor": "Consultarme las decisiones importantes",
       "delegate": "Delegar",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "Acuerdo con {{player}} ({{position}}) por {{fee}}; se inscribe el {{date}}",
       "recruitClubRefused": "Descartado {{player}} ({{position}}): su club no vendía a un precio justo",
       "recruitPlayerRefused": "Descartado {{player}} ({{position}}): no quiso venir",
-      "recruitNotPossible": "Descartado {{player}} ({{position}}): no se pudo cerrar el trato"
+      "recruitNotPossible": "Descartado {{player}} ({{position}}): no se pudo cerrar el trato",
+      "managerOverride": "Lo cambiaste tú, así que el ayudante se aparta hasta el {{until}}",
+      "tacticsSet": "Fijó el plan táctico del próximo partido (estilo {{style}})",
+      "trainingIntensity": "Puso el entrenamiento en {{focus}} con intensidad {{intensity}}"
     }
   },
   "freeAgents": {

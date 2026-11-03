@@ -1147,7 +1147,8 @@
         "StaffRenewals": "员工续约",
         "Lineup": "阵容与轮换",
         "PlayerRenewals": "球员续约",
-        "PlayerRecruitment": "球员招募"
+        "PlayerRecruitment": "球员招募",
+        "Tactics": "战术准备"
       },
       "confirmMajor": "重大决定前先征求我",
       "delegate": "委派",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "已就 {{player}}（{{position}}）以 {{fee}} 达成协议；将于 {{date}} 注册",
       "recruitClubRefused": "放弃 {{player}}（{{position}}）：其俱乐部不愿以合理价格出售",
       "recruitPlayerRefused": "放弃 {{player}}（{{position}}）：他不愿加盟",
-      "recruitNotPossible": "放弃 {{player}}（{{position}}）：交易无法达成"
+      "recruitNotPossible": "放弃 {{player}}（{{position}}）：交易无法达成",
+      "managerOverride": "这是你亲自改的，助理教练在 {{until}} 之前不再干预",
+      "tacticsSet": "已为下一场比赛制定战术方案（{{style}}风格）",
+      "trainingIntensity": "已将训练设为{{focus}}，强度{{intensity}}"
     }
   },
   "freeAgents": {

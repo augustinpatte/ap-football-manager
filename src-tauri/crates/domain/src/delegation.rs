@@ -27,10 +27,13 @@ pub enum Duty {
     PlayerRenewals,
     /// Signing players to fill the squad's needs, through the ordinary transfer negotiation.
     PlayerRecruitment,
+    /// The tactical plan for the next match: the nine phase dials, set from the club's style, the
+    /// squad's legs and pace, and the recent results.
+    Tactics,
 }
 
 impl Duty {
-    pub const ALL: [Duty; 9] = [
+    pub const ALL: [Duty; 10] = [
         Duty::Training,
         Duty::StaffRecruitment,
         Duty::Scouting,
@@ -40,14 +43,26 @@ impl Duty {
         Duty::Lineup,
         Duty::PlayerRenewals,
         Duty::PlayerRecruitment,
+        Duty::Tactics,
     ];
 
     /// Days between two runs of a delegated duty.
     pub fn period_days(self) -> i64 {
         match self {
-            Duty::Training | Duty::MatchPreparation | Duty::Lineup => 1,
+            Duty::Training | Duty::MatchPreparation | Duty::Lineup | Duty::Tactics => 1,
             Duty::Scouting | Duty::PlayerRecruitment => 3,
             Duty::Youth | Duty::StaffRecruitment | Duty::StaffRenewals | Duty::PlayerRenewals => 7,
+        }
+    }
+}
+
+impl Duty {
+    /// Days the assistant leaves a duty alone after the manager changed what he had set: a match
+    /// is a day or two away for the match duties, and a training week is seven days.
+    pub fn stand_back_days(self) -> i64 {
+        match self {
+            Duty::Training => 7,
+            _ => 3,
         }
     }
 }
@@ -222,6 +237,14 @@ pub struct DelegationState {
     /// What the assistant has in hand on the transfer market.
     #[serde(default)]
     pub recruitment: RecruitmentMemory,
+    /// What each duty last wrote (training plan, eleven, tactical plan) as a fingerprint. If the
+    /// club's setting no longer matches, the manager has changed it since, and the duty stands
+    /// back: the assistant never overwrites a manager's own decision.
+    #[serde(default)]
+    pub applied: Vec<(Duty, String)>,
+    /// Duties the assistant is leaving to the manager until a day (`YYYY-MM-DD`).
+    #[serde(default)]
+    pub stood_back_until: Vec<(Duty, String)>,
 }
 
 /// Most targets the assistant puts aside at once, oldest dropped first.
@@ -386,6 +409,8 @@ impl Default for DelegationState {
             last_digest: None,
             last_proposal_notice: None,
             recruitment: RecruitmentMemory::default(),
+            applied: Vec::new(),
+            stood_back_until: Vec::new(),
         }
     }
 }
@@ -406,6 +431,12 @@ impl DelegationState {
     }
 
     pub fn set(&mut self, duty: Duty, delegated: bool, confirm_major: bool) {
+        if delegated && !self.is_delegated(duty) {
+            // Handing a duty over again is the manager saying "yours": no memory of an old
+            // override survives it.
+            self.applied.retain(|(d, _)| *d != duty);
+            self.stood_back_until.retain(|(d, _)| *d != duty);
+        }
         match self.settings.iter_mut().find(|s| s.duty == duty) {
             Some(setting) => {
                 setting.delegated = delegated;
@@ -417,6 +448,55 @@ impl DelegationState {
                 confirm_major,
             }),
         }
+    }
+
+    /// Gives a duty that a saved state predates the setting of the closest older duty, so a state
+    /// that was "Full" is still "Full" and one that was "Manual" delegates nothing. Run when a
+    /// state is loaded.
+    pub fn complete_settings(&mut self) {
+        for duty in Duty::ALL {
+            if self.setting(duty).is_some() {
+                continue;
+            }
+            let (delegated, confirm_major) = self
+                .setting(Duty::Lineup)
+                .map_or((false, true), |s| (s.delegated, s.confirm_major));
+            self.set(duty, delegated, confirm_major);
+        }
+    }
+
+    /// The fingerprint of what `duty` last wrote.
+    pub fn applied(&self, duty: Duty) -> Option<&str> {
+        self.applied
+            .iter()
+            .find(|(d, _)| *d == duty)
+            .map(|(_, fingerprint)| fingerprint.as_str())
+    }
+
+    pub fn record_applied(&mut self, duty: Duty, fingerprint: &str) {
+        match self.applied.iter_mut().find(|(d, _)| *d == duty) {
+            Some(entry) => entry.1 = fingerprint.to_string(),
+            None => self.applied.push((duty, fingerprint.to_string())),
+        }
+    }
+
+    pub fn forget_applied(&mut self, duty: Duty) {
+        self.applied.retain(|(d, _)| *d != duty);
+    }
+
+    /// Leaves `duty` to the manager until `until` (`YYYY-MM-DD`).
+    pub fn stand_back(&mut self, duty: Duty, until: &str) {
+        match self.stood_back_until.iter_mut().find(|(d, _)| *d == duty) {
+            Some(entry) => entry.1 = until.to_string(),
+            None => self.stood_back_until.push((duty, until.to_string())),
+        }
+    }
+
+    /// Whether the assistant is leaving `duty` to the manager on `today`.
+    pub fn is_standing_back(&self, duty: Duty, today: &str) -> bool {
+        self.stood_back_until
+            .iter()
+            .any(|(d, until)| *d == duty && until.as_str() > today)
     }
 
     /// Which preset the duty settings amount to. Derived, never stored, so it cannot disagree
@@ -625,5 +705,73 @@ mod tests {
         assert_eq!(state.limits, DelegationLimits::default());
         assert_eq!(state.log[0].outcome, DecisionOutcome::Executed);
         assert_eq!(state.mode(), DelegationMode::Custom);
+    }
+
+    /// Given a "Full" state saved before the tactical duty existed
+    /// When it is completed
+    /// Then the new duty follows the closest older one and the state is still "Full".
+    #[test]
+    fn a_full_state_from_before_the_tactics_duty_is_still_full() {
+        let mut state = DelegationState::default();
+        state.apply_mode(DelegationMode::Full);
+        state.settings.retain(|s| s.duty != Duty::Tactics);
+        assert_eq!(
+            state.mode(),
+            DelegationMode::Custom,
+            "the gap shows as Custom"
+        );
+
+        state.complete_settings();
+
+        assert_eq!(state.mode(), DelegationMode::Full);
+        assert!(state.is_delegated(Duty::Tactics));
+    }
+
+    /// Given a manual state saved before the duty existed
+    /// When it is completed
+    /// Then nothing becomes delegated.
+    #[test]
+    fn completing_a_manual_state_delegates_nothing() {
+        let mut state = DelegationState::default();
+        state.settings.retain(|s| s.duty != Duty::Tactics);
+        state.complete_settings();
+        assert_eq!(state.mode(), DelegationMode::Manual);
+    }
+
+    /// Given the assistant stands back from a duty
+    /// When the stand-back date passes
+    /// Then he acts again; until then he does not.
+    #[test]
+    fn standing_back_lasts_until_its_date() {
+        let mut state = DelegationState::default();
+        state.stand_back(Duty::Lineup, "2026-08-10");
+        assert!(state.is_standing_back(Duty::Lineup, "2026-08-09"));
+        assert!(!state.is_standing_back(Duty::Lineup, "2026-08-10"));
+        assert!(!state.is_standing_back(Duty::Training, "2026-08-09"));
+    }
+
+    /// Given the assistant stood back from a duty and applied settings earlier
+    /// When the manager hands the duty over again
+    /// Then the stand-back and the remembered settings are forgotten: it is the assistant's again.
+    #[test]
+    fn delegating_a_duty_again_takes_it_back_from_the_manager() {
+        let mut state = DelegationState::default();
+        state.set(Duty::Training, true, false);
+        state.record_applied(Duty::Training, "Physical|High");
+        state.stand_back(Duty::Training, "2026-08-20");
+        state.set(Duty::Training, false, false);
+        state.set(Duty::Training, true, false);
+        assert!(!state.is_standing_back(Duty::Training, "2026-08-01"));
+        assert_eq!(state.applied(Duty::Training), None);
+    }
+
+    /// Given a state saved before overrides were tracked
+    /// When it is read
+    /// Then it loads with nothing applied and nobody standing back.
+    #[test]
+    fn a_state_from_before_overrides_loads_with_none() {
+        let old = r#"{"settings":[]}"#;
+        let state: DelegationState = serde_json::from_str(old).unwrap();
+        assert!(state.applied.is_empty() && state.stood_back_until.is_empty());
     }
 }

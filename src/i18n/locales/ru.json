@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Продление контрактов персонала",
         "Lineup": "Состав и ротация",
         "PlayerRenewals": "Продление контрактов игроков",
-        "PlayerRecruitment": "Покупка игроков"
+        "PlayerRecruitment": "Покупка игроков",
+        "Tactics": "Тактическая подготовка"
       },
       "confirmMajor": "Спрашивать о важных решениях",
       "delegate": "Делегировать",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "Договорённость по {{player}} ({{position}}) за {{fee}}; регистрация {{date}}",
       "recruitClubRefused": "Отказ от {{player}} ({{position}}): его клуб не продавал по справедливой цене",
       "recruitPlayerRefused": "Отказ от {{player}} ({{position}}): он не захотел переходить",
-      "recruitNotPossible": "Отказ от {{player}} ({{position}}): сделку заключить не удалось"
+      "recruitNotPossible": "Отказ от {{player}} ({{position}}): сделку заключить не удалось",
+      "managerOverride": "Вы изменили это сами, поэтому помощник не вмешивается до {{until}}",
+      "tacticsSet": "Составил тактический план на следующий матч (стиль: {{style}})",
+      "trainingIntensity": "Поставил тренировку: {{focus}}, интенсивность: {{intensity}}"
     }
   },
   "freeAgents": {

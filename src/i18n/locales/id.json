@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Perpanjangan staf",
         "Lineup": "Susunan pemain & rotasi",
         "PlayerRenewals": "Perpanjangan kontrak pemain",
-        "PlayerRecruitment": "Perekrutan pemain"
+        "PlayerRecruitment": "Perekrutan pemain",
+        "Tactics": "Persiapan taktik"
       },
       "confirmMajor": "Tanya saya untuk keputusan besar",
       "delegate": "Delegasikan",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "Sepakat dengan {{player}} ({{position}}) seharga {{fee}}; ia terdaftar pada {{date}}",
       "recruitClubRefused": "{{player}} ({{position}}) dibatalkan: klubnya tidak menjual dengan harga wajar",
       "recruitPlayerRefused": "{{player}} ({{position}}) dibatalkan: ia tidak mau bergabung",
-      "recruitNotPossible": "{{player}} ({{position}}) dibatalkan: kesepakatan tidak dapat dibuat"
+      "recruitNotPossible": "{{player}} ({{position}}) dibatalkan: kesepakatan tidak dapat dibuat",
+      "managerOverride": "Anda mengubahnya sendiri, jadi asisten mundur sampai {{until}}",
+      "tacticsSet": "Menetapkan rencana taktik untuk pertandingan berikutnya (gaya {{style}})",
+      "trainingIntensity": "Mengatur latihan ke {{focus}} dengan intensitas {{intensity}}"
     }
   },
   "freeAgents": {

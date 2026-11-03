@@ -112,6 +112,36 @@ describe("StaffManagementPanel", () => {
     expect(await screen.findByTestId("rec-rec-1")).toBeInTheDocument();
   });
 
+  it("offers the tactical-preparation duty and reports a manager override as left to the manager", () => {
+    const base = overview();
+    render(
+      <StaffManagementPanel
+        overview={{
+          ...base,
+          delegation: {
+            ...base.delegation,
+            settings: [{ duty: "Tactics", delegated: true, confirm_major: false }],
+            log: [
+              {
+                date: "2026-08-04",
+                duty: "Tactics",
+                title_key: "delegation.log.managerOverride",
+                params: [["until", "2026-08-07"]],
+                outcome: "leftToManager",
+              },
+            ],
+          },
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("duty-Tactics")).toBeInTheDocument();
+    const entry = screen.getByText(/delegation\.log\.managerOverride/);
+    expect(entry).toHaveTextContent('"until":"2026-08-07"');
+    expect(entry).toHaveTextContent("staff.delegation.outcome.leftToManager");
+  });
+
   it("hands a duty over and takes it back", async () => {
     const onGameUpdate = vi.fn();
     render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);

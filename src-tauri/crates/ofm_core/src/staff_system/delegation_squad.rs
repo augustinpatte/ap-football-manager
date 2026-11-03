@@ -11,6 +11,7 @@ use domain::delegation::{DecisionOutcome, Duty, ProposalAction};
 use domain::player::Player;
 
 use super::delegation::{date, log, matches_within, param, record, stamp};
+use super::delegation_control as control;
 use super::delegation_policy::{Authorization, Reason, Spend, authorize};
 use crate::contract_wage_policy::wage_policy_verdict;
 use crate::contracts::{
@@ -33,6 +34,10 @@ pub(super) fn lineup(game: &mut Game, team_id: &str, assistant_rating: f64) {
     if !matches_within(game, team_id, 1) {
         return;
     }
+    let changed = control::eleven_was_changed(game, team_id, game.delegation.applied(Duty::Lineup));
+    if control::manager_is_in_control(game, Duty::Lineup, changed) {
+        return;
+    }
     let eleven = delegated_eleven(game, team_id, assistant_rating);
     if eleven.is_empty() {
         return;
@@ -41,6 +46,8 @@ pub(super) fn lineup(game: &mut Game, team_id: &str, assistant_rating: f64) {
         return;
     };
     if team.starting_xi_ids == eleven {
+        let print = control::lineup_print(&eleven);
+        game.delegation.record_applied(Duty::Lineup, &print);
         return;
     }
     let rested = team
@@ -58,6 +65,8 @@ pub(super) fn lineup(game: &mut Game, team_id: &str, assistant_rating: f64) {
         keep_or_replace(&mut roles.free_kick_taker, free_kick, &eleven);
         keep_or_replace(&mut roles.corner_taker, corner, &eleven);
     }
+    let print = control::lineup_print(&eleven);
+    game.delegation.record_applied(Duty::Lineup, &print);
     log(
         game,
         Duty::Lineup,

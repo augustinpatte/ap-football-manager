@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Staff-Verlängerungen",
         "Lineup": "Aufstellung & Rotation",
         "PlayerRenewals": "Spielerverlängerungen",
-        "PlayerRecruitment": "Spielerverpflichtungen"
+        "PlayerRecruitment": "Spielerverpflichtungen",
+        "Tactics": "Taktikvorbereitung"
       },
       "confirmMajor": "Bei großen Entscheidungen fragen",
       "delegate": "Delegieren",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "Einigung über {{player}} ({{position}}) für {{fee}}; Registrierung am {{date}}",
       "recruitClubRefused": "{{player}} ({{position}}) aufgegeben: Sein Verein verkaufte nicht zu einem fairen Preis",
       "recruitPlayerRefused": "{{player}} ({{position}}) aufgegeben: Er wollte nicht kommen",
-      "recruitNotPossible": "{{player}} ({{position}}) aufgegeben: Der Deal kam nicht zustande"
+      "recruitNotPossible": "{{player}} ({{position}}) aufgegeben: Der Deal kam nicht zustande",
+      "managerOverride": "Du hast das selbst geändert, daher hält sich der Co-Trainer bis {{until}} zurück",
+      "tacticsSet": "Taktikplan für das nächste Spiel festgelegt (Stil: {{style}})",
+      "trainingIntensity": "Training auf {{focus}} mit Intensität {{intensity}} gestellt"
     }
   },
   "freeAgents": {

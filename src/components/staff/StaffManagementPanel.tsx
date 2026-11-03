@@ -34,6 +34,7 @@ const DUTIES: Duty[] = [
   "Lineup",
   "PlayerRenewals",
   "PlayerRecruitment",
+  "Tactics",
 ];
 
 /** Backend params carry raw enum names; the ones that name a post or a position are translated. */
@@ -47,9 +48,15 @@ function useParams() {
           ? t(`staff.posts.${value}`, { defaultValue: value })
           : key === "position"
             ? t(`common.positions.${value}`, { defaultValue: value })
-            : key === "fee" && Number.isFinite(Number(value))
-              ? formatExactMoney(Number(value))
-              : value,
+            : key === "focus"
+              ? t(`training.focuses.${value}.label`, { defaultValue: value })
+              : key === "intensity"
+                ? t(`training.intensities.${value}.label`, { defaultValue: value })
+                : key === "style"
+                  ? t(`common.playStyles.${value}`, { defaultValue: value })
+                  : key === "fee" && Number.isFinite(Number(value))
+                    ? formatExactMoney(Number(value))
+                    : value,
       ]),
     );
 }

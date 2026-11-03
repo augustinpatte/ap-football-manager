@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Kadro yenilemeleri",
         "Lineup": "Kadro ve rotasyon",
         "PlayerRenewals": "Oyuncu sözleşme yenilemeleri",
-        "PlayerRecruitment": "Oyuncu transferi"
+        "PlayerRecruitment": "Oyuncu transferi",
+        "Tactics": "Taktik hazırlığı"
       },
       "confirmMajor": "Büyük kararlarda bana sor",
       "delegate": "Devret",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "{{player}} ({{position}}) ile {{fee}} üzerinden anlaşıldı; {{date}} tarihinde tescil edilecek",
       "recruitClubRefused": "{{player}} ({{position}}) bırakıldı: kulübü adil bir fiyata satmadı",
       "recruitPlayerRefused": "{{player}} ({{position}}) bırakıldı: gelmek istemedi",
-      "recruitNotPossible": "{{player}} ({{position}}) bırakıldı: anlaşma yapılamadı"
+      "recruitNotPossible": "{{player}} ({{position}}) bırakıldı: anlaşma yapılamadı",
+      "managerOverride": "Bunu kendiniz değiştirdiniz, bu yüzden yardımcı {{until}} tarihine kadar geri çekilir",
+      "tacticsSet": "Sonraki maç için taktik planını belirledi ({{style}} stili)",
+      "trainingIntensity": "Antrenmanı {{focus}} odağında, {{intensity}} yoğunlukta ayarladı"
     }
   },
   "freeAgents": {

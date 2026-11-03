@@ -13,6 +13,7 @@ use domain::staff::{Staff, StaffPost};
 use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::{self, RecAction, RecKind};
+use super::delegation_control as control;
 use super::delegation_policy::{Authorization, Reason, Spend, authorize};
 use super::delegation_recruitment as recruiting;
 use super::delegation_report as report;
@@ -110,11 +111,30 @@ pub(super) fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> 
 }
 
 /// Before the day's training: a delegated training plan.
+///
+/// Written only if the manager has not set the training himself since (see
+/// [`control::manager_is_in_control`]); the history records a change of intensity and a recovery
+/// order, the decisions, not the daily rotation of the focus.
 pub fn run_training(game: &mut Game, weekday_num: u32) {
     let Some(team_id) = user_team(game) else {
         return;
     };
     if !game.delegation.is_delegated(Duty::Training) || assistant_of(game, &team_id).is_none() {
+        return;
+    }
+    let Some(current) = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map(control::training_print)
+    else {
+        return;
+    };
+    let changed = game
+        .delegation
+        .applied(Duty::Training)
+        .is_some_and(|applied| applied != current);
+    if control::manager_is_in_control(game, Duty::Training, changed) {
         return;
     }
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
@@ -125,23 +145,33 @@ pub fn run_training(game: &mut Game, weekday_num: u32) {
         return;
     };
     drop(by_club);
-    let crisis = focus == TrainingFocus::Recovery && intensity == TrainingIntensity::Low;
-    let changed_to_recovery = crisis
-        && game
-            .teams
-            .iter()
-            .find(|t| t.id == team_id)
-            .is_some_and(|t| t.training_focus != TrainingFocus::Recovery);
-    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
-        team.training_focus = focus;
-        team.training_intensity = intensity;
-    }
-    if changed_to_recovery {
+    let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) else {
+        return;
+    };
+    let eased_to_recovery = focus == TrainingFocus::Recovery
+        && intensity == TrainingIntensity::Low
+        && team.training_focus != TrainingFocus::Recovery;
+    let intensity_changed = team.training_intensity != intensity;
+    team.training_focus = focus.clone();
+    team.training_intensity = intensity.clone();
+    let print = control::training_print(team);
+    game.delegation.record_applied(Duty::Training, &print);
+    if eased_to_recovery {
         log(
             game,
             Duty::Training,
             "delegation.log.recoveryOrdered",
             vec![],
+        );
+    } else if intensity_changed {
+        log(
+            game,
+            Duty::Training,
+            "delegation.log.trainingIntensity",
+            vec![
+                param("focus", format!("{focus:?}")),
+                param("intensity", format!("{intensity:?}")),
+            ],
         );
     }
 }
@@ -166,6 +196,7 @@ pub fn run_after_day(game: &mut Game) {
         Duty::StaffRenewals,
         Duty::PlayerRenewals,
         Duty::PlayerRecruitment,
+        Duty::Tactics,
     ] {
         if !due(game, duty) {
             continue;
@@ -180,6 +211,7 @@ pub fn run_after_day(game: &mut Game) {
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
             Duty::PlayerRecruitment => recruiting::player_recruitment(game, &team_id),
+            Duty::Tactics => control::tactics(game, &team_id, rating),
             Duty::Training => {}
         }
     }

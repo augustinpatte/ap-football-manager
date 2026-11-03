@@ -29,7 +29,11 @@ pub fn load_delegation(conn: &Connection) -> Result<DelegationState, String> {
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     match json {
         Some(json) => {
-            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
+            let mut state: DelegationState =
+                serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+            // A save from before a duty existed has no setting for it.
+            state.complete_settings();
+            Ok(state)
         }
         None => Ok(DelegationState::default()),
     }
@@ -40,6 +44,41 @@ mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
     use domain::delegation::{Duty, ProposalAction};
+
+    /// Given a "Full" delegation saved before the tactical duty existed
+    /// When the save is loaded
+    /// Then it is still "Full" and the new duty is delegated like the others.
+    #[test]
+    fn a_full_delegation_saved_before_the_tactics_duty_loads_as_full() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut state = DelegationState::default();
+        state.apply_mode(domain::delegation::DelegationMode::Full);
+        state.settings.retain(|s| s.duty != Duty::Tactics);
+        replace_delegation(db.conn(), &state).unwrap();
+
+        let loaded = load_delegation(db.conn()).unwrap();
+
+        assert_eq!(loaded.mode(), domain::delegation::DelegationMode::Full);
+        assert!(loaded.is_delegated(Duty::Tactics));
+    }
+
+    /// Given an override in force and a fingerprint of what the assistant last wrote
+    /// When the game is saved and loaded
+    /// Then both are kept: the assistant still stands back after a reload.
+    #[test]
+    fn an_override_survives_a_reload() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut state = DelegationState::default();
+        state.set(Duty::Lineup, true, false);
+        state.record_applied(Duty::Lineup, "a,b,c");
+        state.stand_back(Duty::Lineup, "2026-08-12");
+        replace_delegation(db.conn(), &state).unwrap();
+
+        let loaded = load_delegation(db.conn()).unwrap();
+
+        assert_eq!(loaded.applied(Duty::Lineup), Some("a,b,c"));
+        assert!(loaded.is_standing_back(Duty::Lineup, "2026-08-11"));
+    }
 
     #[test]
     fn delegation_round_trips_and_a_missing_row_means_nothing_delegated() {

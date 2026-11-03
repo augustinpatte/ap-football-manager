@@ -1147,7 +1147,8 @@
         "StaffRenewals": "Staff renewals",
         "Lineup": "Lineup & rotation",
         "PlayerRenewals": "Player renewals",
-        "PlayerRecruitment": "Player recruitment"
+        "PlayerRecruitment": "Player recruitment",
+        "Tactics": "Tactical preparation"
       },
       "confirmMajor": "Ask me before major decisions",
       "delegate": "Delegate",
@@ -4881,7 +4882,10 @@
       "recruitScheduled": "Agreed {{player}} ({{position}}) for {{fee}}; he registers on {{date}}",
       "recruitClubRefused": "Dropped {{player}} ({{position}}): his club would not sell at a fair price",
       "recruitPlayerRefused": "Dropped {{player}} ({{position}}): he would not join",
-      "recruitNotPossible": "Dropped {{player}} ({{position}}): the deal could not be made"
+      "recruitNotPossible": "Dropped {{player}} ({{position}}): the deal could not be made",
+      "managerOverride": "You changed this yourself, so the assistant stands back until {{until}}",
+      "tacticsSet": "Set the tactical plan for the next match ({{style}} style)",
+      "trainingIntensity": "Set training to {{focus}} at {{intensity}} intensity"
     }
   },
   "freeAgents": {
