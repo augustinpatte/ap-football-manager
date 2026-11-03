@@ -740,3 +740,83 @@ fn every_match_that_reaches_full_time_can_be_finalised() {
         );
     }
 }
+
+/// Given full matches of OFM-adapted players with balanced tactics,
+/// When each starter's measured load is compared with the neutral workload of his position,
+/// Then the mean ratio per line stays near 1: the reference constants in `player_wear` still describe
+/// the engine. (They were measured on the engine's own fixture players; this checks them on players
+/// adapted from the career, and fails if the engine drifts.)
+#[test]
+fn neutral_matches_cost_the_reference_load() {
+    let mut sums = [(0.0_f64, 0u32); 3];
+    let mut raw = [(0.0_f64, 0u32); 3];
+    let mut played = 0;
+    for seed in 1..=24 {
+        let g = game(seed);
+        let mut m = InteractiveMatch::start(&g, identity(), "calibration").unwrap();
+        run_to_end(&mut m);
+        let report = m.complete().unwrap().clone();
+        for (id, stats) in &report.player_stats {
+            if stats.minutes_played < 85 {
+                continue;
+            }
+            let Some(player) = g.players.iter().find(|p| &p.id == id) else {
+                continue;
+            };
+            let load = stats
+                .physical_load
+                .expect("a player who played has a measured load");
+            let line = match player.position {
+                domain::player::Position::Goalkeeper => continue,
+                domain::player::Position::Defender => 0,
+                domain::player::Position::Midfielder => 1,
+                domain::player::Position::Forward => 2,
+                _ => continue,
+            };
+            let stamina_effect = 1.0 - 0.0125 * (f64::from(player.attributes.stamina) - 64.0);
+            raw[line].0 += f64::from(load) / (f64::from(stats.minutes_played) * stamina_effect);
+            raw[line].1 += 1;
+            sums[line].0 += crate::player_wear::load_ratio(
+                &player.position,
+                player.attributes.stamina,
+                stats.minutes_played,
+                load,
+            );
+            sums[line].1 += 1;
+            played += 1;
+        }
+    }
+    for (line, (sum, n)) in raw.iter().enumerate() {
+        println!(
+            "RAW line {line}: {:.5} of the reserve per minute over {n}",
+            sum / f64::from(*n)
+        );
+    }
+    assert!(played > 60, "enough starters measured: {played}");
+    for (line, (sum, n)) in sums.iter().enumerate() {
+        assert!(*n > 0, "line {line} measured");
+        let mean = sum / f64::from(*n);
+        println!("line {line}: mean load ratio {mean:.3} over {n} starters");
+        assert!(
+            (0.85..=1.2).contains(&mean),
+            "line {line}: mean load ratio {mean:.3} is far from neutral"
+        );
+    }
+}
+
+/// Given a finished match,
+/// Then every player who played has a measured load and a player who did not play has none to
+/// speak of: the charge is attached to the report, not guessed later.
+#[test]
+fn the_report_carries_the_load_of_everyone_who_played() {
+    let mut m = start(31);
+    run_to_end(&mut m);
+    let report = m.complete().unwrap();
+    let played: Vec<_> = report
+        .player_stats
+        .values()
+        .filter(|s| s.minutes_played > 0)
+        .collect();
+    assert!(played.len() >= 22);
+    assert!(played.iter().all(|s| s.physical_load.is_some()));
+}

@@ -720,14 +720,13 @@ fn deplete_match_stamina(
     let mut rng = game.rng_today(&format!("post-match/wear/{team_id}"));
     for &position in club {
         let player = &mut game.players[position];
-        let minutes = report
-            .player_stats
-            .get(&player.id)
-            .map(|ps| ps.minutes_played)
-            .unwrap_or(0);
-        // Shared with national-team friendlies so call-ups wear players
-        // identically to club fixtures.
-        crate::player_wear::apply_match_wear(player, minutes, &mut rng);
+        let stats = report.player_stats.get(&player.id);
+        let minutes = stats.map(|ps| ps.minutes_played).unwrap_or(0);
+        let load = stats.and_then(|ps| ps.physical_load);
+        // The one place a match charges condition. Shared with national-team friendlies so call-ups
+        // wear players identically to club fixtures; a match engine that measured the load decides
+        // whether this match was harder or easier than a neutral one.
+        crate::player_wear::apply_match_wear_with_load(player, minutes, load, &mut rng);
     }
 }
 

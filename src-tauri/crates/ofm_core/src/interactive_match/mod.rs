@@ -698,8 +698,9 @@ impl InteractiveMatch {
                 .finished_run()
                 .map_err(|e| InteractiveError::Engine(e.to_string()))?;
             let context = spatial_runner::session_projection_context(&self.input);
-            let report = spatial_runner::report_from_session_output(&context, &run.output)
+            let mut report = spatial_runner::report_from_session_output(&context, &run.output)
                 .map_err(InteractiveError::Run)?;
+            spatial_runner::attach_physical_load(&mut report, &self.input, &run.output);
             self.stage = Stage::Completed(Box::new(report));
         }
         match &self.stage {

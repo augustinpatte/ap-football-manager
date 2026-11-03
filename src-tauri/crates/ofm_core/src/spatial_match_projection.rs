@@ -597,6 +597,7 @@ fn project_player_stats(
                     yellow_cards: 0,
                     red_cards: 0,
                     rating: stat.rating,
+                    physical_load: None,
                 },
             )
             .is_some()

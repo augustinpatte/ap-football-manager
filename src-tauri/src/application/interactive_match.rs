@@ -213,7 +213,11 @@ pub fn restore_saved_match(
             return;
         }
     };
-    let discarded = || state.set_restore_notice(Some(saved::RestoreProblem::Unusable.translation_key().into()));
+    let discarded = || {
+        state.set_restore_notice(Some(
+            saved::RestoreProblem::Unusable.translation_key().into(),
+        ))
+    };
     let Ok(stored) = stored else {
         discarded();
         return;
@@ -223,7 +227,8 @@ pub fn restore_saved_match(
         return;
     };
     let identity = interactive.identity().clone();
-    if identity.competition_id != stored.competition_id || identity.fixture_id != stored.fixture_id {
+    if identity.competition_id != stored.competition_id || identity.fixture_id != stored.fixture_id
+    {
         discarded();
         return;
     }
@@ -915,7 +920,10 @@ mod tests {
                 .unwrap(),
             FixtureStatus::Completed
         );
-        assert!(finish_interactive_match_internal(&resumed).is_err(), "no second finalisation");
+        assert!(
+            finish_interactive_match_internal(&resumed).is_err(),
+            "no second finalisation"
+        );
 
         crate::application::saving::persist_active_game(&resumed, &mut saves).expect("save");
         assert!(saves.load_interactive_match(&save_id).unwrap().is_none());
@@ -939,7 +947,10 @@ mod tests {
         let database = db::game_database::GameDatabase::open_save(&db_file).unwrap();
         database
             .conn()
-            .execute("UPDATE interactive_match_checkpoint SET payload = payload || ' '", [])
+            .execute(
+                "UPDATE interactive_match_checkpoint SET payload = payload || ' '",
+                [],
+            )
             .unwrap();
         drop(database);
 

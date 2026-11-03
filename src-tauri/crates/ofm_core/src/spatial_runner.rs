@@ -108,6 +108,22 @@ fn simulate_recording(
     adapted: &AdaptedMatch,
     condition_sample_ms: u32,
 ) -> Result<DecodedSpatialOutput, SpatialRunError> {
+    simulate_with_engine_output(adapted, condition_sample_ms).map(|(decoded, _, _)| decoded)
+}
+
+/// [`simulate_recording`] that also hands back the engine's own output, which carries what the
+/// decoded contract does not keep (the fatigue each player ended with).
+fn simulate_with_engine_output(
+    adapted: &AdaptedMatch,
+    condition_sample_ms: u32,
+) -> Result<
+    (
+        DecodedSpatialOutput,
+        apfm_match_lab::MatchOutput,
+        apfm_match_lab::MatchInput,
+    ),
+    SpatialRunError,
+> {
     let json = serde_json::to_string(&adapted.input)
         .map_err(|error| SpatialRunError::InputContract(error.to_string()))?;
     let input = MatchInput::from_json(&json)
@@ -122,7 +138,30 @@ fn simulate_recording(
         .output
         .to_json()
         .map_err(|error| SpatialRunError::Engine(error.to_string()))?;
-    decode_json(&json).map_err(SpatialRunError::Output)
+    let decoded = decode_json(&json).map_err(SpatialRunError::Output)?;
+    Ok((decoded, output.output, input))
+}
+
+/// Records on each player of the report how much of his aerobic reserve the match engine spent on him
+/// (`end fatigue - fatigue he arrived with`). The report's `physical_load` is what the career's one
+/// post-match wear step reads, so a high press or a hectic game costs condition and a low block saves it.
+pub fn attach_physical_load(
+    report: &mut MatchReport,
+    input: &apfm_match_lab::MatchInput,
+    output: &apfm_match_lab::MatchOutput,
+) {
+    for end in &output.end_state {
+        let arrived = input
+            .home
+            .players
+            .iter()
+            .chain(&input.away.players)
+            .find(|p| p.id == end.id)
+            .map_or(0.0, |p| p.condition.fatigue);
+        if let Some(stats) = report.player_stats.get_mut(&end.id.0) {
+            stats.physical_load = Some((end.fatigue_end - arrived).max(0.0));
+        }
+    }
 }
 
 /// Simulates and validates a fixture without changing the career.
@@ -139,8 +178,10 @@ pub fn build_fixture_report(
 }
 
 fn build_adapted_replay(adapted: &AdaptedMatch) -> Result<PreparedSpatialReplay, SpatialRunError> {
-    let decoded = simulate(adapted)?;
-    let report = project_decoded(&projection_context(adapted), &decoded)?;
+    let (decoded, engine_output, engine_input) =
+        simulate_with_engine_output(adapted, REPLAY_CONDITION_SAMPLE_MS)?;
+    let mut report = project_decoded(&projection_context(adapted), &decoded)?;
+    attach_physical_load(&mut report, &engine_input, &engine_output);
     Ok(PreparedSpatialReplay {
         report,
         replay_json: decoded.replay_json,
