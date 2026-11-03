@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Este partido ya se ha completado.",
         "unsupportedFormation": "El motor del partido no puede jugar esa formación.",
         "nothingToChange": "Esa orden no cambia nada.",
-        "engineFailed": "El motor del partido no pudo continuar. No se ha cambiado nada."
+        "engineFailed": "El motor del partido no pudo continuar. No se ha cambiado nada.",
+        "savedMatchDiscarded": "No se pudo restaurar el partido guardado en curso, así que empezará de nuevo desde el saque inicial."
       }
     },
     "sender": {

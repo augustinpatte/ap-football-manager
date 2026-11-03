@@ -27,6 +27,7 @@
 
 pub mod ai;
 pub mod plan;
+pub mod saved;
 
 use std::collections::BTreeMap;
 

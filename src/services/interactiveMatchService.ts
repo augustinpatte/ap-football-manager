@@ -167,6 +167,22 @@ export function startInteractiveMatch(): Promise<InteractiveSnapshot> {
   return invoke<InteractiveSnapshot>("start_interactive_match");
 }
 
+/** The one-time notice (a translation key) that a match saved in progress could not be resumed. */
+export function takeMatchRestoreNotice(): Promise<string | null> {
+  return invoke<string | null>("take_match_restore_notice");
+}
+
+export interface ResumableMatch {
+  fixture_index: number;
+  competition_id: string;
+  fixture_id: string;
+}
+
+/** The match restored from the save, if the career was saved in the middle of one. */
+export function getResumableMatch(): Promise<ResumableMatch | null> {
+  return invoke<ResumableMatch | null>("get_resumable_match");
+}
+
 export function getInteractiveMatchState(eventCursor: number): Promise<InteractiveSnapshot> {
   return invoke<InteractiveSnapshot>("get_interactive_match_state", { eventCursor });
 }

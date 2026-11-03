@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Tento zápas už byl dokončen.",
         "unsupportedFormation": "Zápasový engine toto rozestavení neumí hrát.",
         "nothingToChange": "Tento pokyn nic nemění.",
-        "engineFailed": "Zápasový engine nemohl pokračovat. Nic se nezměnilo."
+        "engineFailed": "Zápasový engine nemohl pokračovat. Nic se nezměnilo.",
+        "savedMatchDiscarded": "Zápas uložený během hry se nepodařilo obnovit, proto začne znovu výkopem."
       }
     },
     "sender": {

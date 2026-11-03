@@ -422,6 +422,18 @@ impl SaveManager {
         stats: &StatsState,
         save_id: &str,
     ) -> Result<(), String> {
+        self.save_game_with_stats_and_match(game, stats, save_id, None)
+    }
+
+    /// Saves the career and, in the same transaction, the interactive match in progress. `None`
+    /// means no match is in progress and clears any checkpoint a previous save left behind.
+    pub fn save_game_with_stats_and_match(
+        &mut self,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        interactive_match: Option<&crate::interactive_match_repo::StoredMatch>,
+    ) -> Result<(), String> {
         self.ensure_save_index_ready()?;
 
         let entry = self
@@ -445,12 +457,13 @@ impl SaveManager {
         let db_open_ms = db_open_timer.elapsed().as_millis();
 
         let write_timer = Instant::now();
-        GamePersistenceWriter::write_game_and_stats(
+        GamePersistenceWriter::write_game_stats_and_match(
             &db,
             &persisted_game,
             stats,
             save_id,
             &entry.name,
+            interactive_match,
         )?;
         let write_ms = write_timer.elapsed().as_millis();
         drop(db);
@@ -504,6 +517,32 @@ impl SaveManager {
     }
 
     /// Load a Game from a save database.
+    /// The interactive match this career was saved in the middle of, if any. A stored match that
+    /// cannot be trusted (written by another schema, or altered on disk) comes back as
+    /// `Some(Err(_))`: the career itself still loads and the caller decides what to tell the player.
+    pub fn load_interactive_match(
+        &mut self,
+        save_id: &str,
+    ) -> Result<
+        Option<
+            Result<
+                crate::interactive_match_repo::StoredMatch,
+                crate::interactive_match_repo::Unreadable,
+            >,
+        >,
+        String,
+    > {
+        self.ensure_save_index_ready()?;
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?
+            .clone();
+        let db = GameDatabase::open_save(&self.saves_dir.join(&entry.db_filename))
+            .map_err(|error| error.i18n_key())?;
+        crate::interactive_match_repo::load(db.conn())
+    }
+
     pub fn load_game(&mut self, save_id: &str) -> Result<Game, String> {
         self.ensure_save_index_ready()?;
 

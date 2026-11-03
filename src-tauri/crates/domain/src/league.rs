@@ -453,7 +453,7 @@ pub struct CompactMatchEvent {
     pub secondary_player_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StandingEntry {
     pub team_id: String,
     pub played: u32,

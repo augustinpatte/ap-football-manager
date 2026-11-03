@@ -837,6 +837,74 @@ describe("MainMenu", () => {
     expect(navigateMock).not.toHaveBeenCalledWith("/dashboard");
   });
 
+  function stubLoadableSave(extra: Record<string, unknown>) {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "list_installed_packages") return [];
+      if (command === "get_saves") {
+        return [
+          {
+            id: "save-1",
+            name: "My Save",
+            manager_name: "Ada Lovelace",
+            db_filename: "save-1.db",
+            checksum: "abc",
+            created_at: "2026-01-01T00:00:00Z",
+            last_played_at: "2026-02-01T00:00:00Z",
+          },
+        ];
+      }
+      if (command === "load_game") return "Ada Lovelace";
+      if (command in extra) return extra[command];
+      return null;
+    });
+  }
+
+  /**
+   * Given a career saved in the middle of a match,
+   * When the save is loaded,
+   * Then the player goes straight back to the match screen, resuming it, not to the dashboard.
+   */
+  it("returns to the match when the save was made in the middle of one", async () => {
+    stubLoadableSave({
+      get_resumable_match: {
+        fixture_index: 3,
+        competition_id: "league-1",
+        fixture_id: "fixture-9",
+      },
+    });
+    render(<MainMenu />);
+    fireEvent.click(screen.getByText("menu.loadGame"));
+    fireEvent.click(await screen.findByText("My Save"));
+    await waitFor(() => {
+      expect(navigateMock).toHaveBeenCalledWith("/match", {
+        state: {
+          fixtureIndex: 3,
+          competitionId: "league-1",
+          fixtureId: "fixture-9",
+          mode: "live",
+          resume: true,
+        },
+      });
+    });
+  });
+
+  /**
+   * Given a saved match that could not be restored,
+   * When the save is loaded,
+   * Then the player is told once and the career opens normally.
+   */
+  it("tells the player when a saved match could not be restored", async () => {
+    stubLoadableSave({
+      take_match_restore_notice: "be.error.interactive.savedMatchDiscarded",
+      get_resumable_match: null,
+    });
+    render(<MainMenu />);
+    fireEvent.click(screen.getByText("menu.loadGame"));
+    fireEvent.click(await screen.findByText("My Save"));
+    await waitFor(() => expect(showErrorMock).toHaveBeenCalledTimes(1));
+    expect(navigateMock).not.toHaveBeenCalledWith("/match", expect.anything());
+  });
+
   it("passes the selected generated history depth when starting a new career", async () => {
     render(<MainMenu />);
 

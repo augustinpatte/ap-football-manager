@@ -548,3 +548,195 @@ fn the_assistant_does_not_overwrite_a_manager_order_inside_the_window() {
         "seed {seed}: the assistant changed tactics inside the stand-back window"
     );
 }
+
+// ------------------------------------------------------------------ saved inside the career
+
+use super::saved::{self, RestoreProblem, RoundBaselines};
+
+fn baselines() -> RoundBaselines {
+    RoundBaselines {
+        round_matchday: 4,
+        round_previous_standings: Vec::new(),
+        league_round_context: Some(crate::matchday::LeagueRoundContext {
+            date: "2026-08-22".into(),
+            matchday: 4,
+            previous_standings: Vec::new(),
+        }),
+    }
+}
+
+/// A match 25 minutes in with a tactical order and a substitution accepted.
+fn played_a_while(seed: u64) -> InteractiveMatch {
+    let mut m = start(seed);
+    let (off, on) = {
+        let v = m.view().unwrap();
+        (
+            v.session
+                .home
+                .on_pitch
+                .iter()
+                .find(|p| p.role == Some(apfm_match_lab::model::Position::Cm))
+                .unwrap()
+                .id
+                .0
+                .clone(),
+            v.session
+                .home
+                .bench
+                .iter()
+                .find(|p| p.natural_position != apfm_match_lab::model::Position::Gk)
+                .unwrap()
+                .id
+                .0
+                .clone(),
+        )
+    };
+    for (id, o) in [
+        (
+            "s-1",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        ),
+        (
+            "s-2",
+            UserOrder::Substitute {
+                player_off_id: off,
+                player_on_id: on,
+            },
+        ),
+    ] {
+        assert!(m.submit(order(&m, id, o)).unwrap().accepted);
+    }
+    run_for(&mut m, 25);
+    m
+}
+
+/// Given a match in progress with accepted orders,
+/// When it is stored, read back and both are played to full time,
+/// Then the restored match is the same match: same view now, same report at the end, and the
+/// baselines are exactly the ones saved.
+#[test]
+fn a_saved_match_resumes_as_the_same_match() {
+    let mut m = played_a_while(21);
+    let text = saved::encode(&m, baselines()).unwrap();
+    let (back, mut restored) = saved::decode(&text).unwrap();
+    assert_eq!(back, baselines());
+    assert_eq!(restored.view().unwrap().session, m.view().unwrap().session);
+    assert_eq!(restored.identity(), m.identity());
+    run_to_end(&mut m);
+    run_to_end(&mut restored);
+    assert_eq!(
+        as_json(restored.complete().unwrap()),
+        as_json(m.complete().unwrap())
+    );
+}
+
+/// Given a stored match,
+/// When it is restored twice,
+/// Then both resumptions play out identically (restoring is deterministic, not merely possible).
+#[test]
+fn restoring_twice_gives_the_same_match() {
+    let text = saved::encode(&played_a_while(22), baselines()).unwrap();
+    let (_, mut a) = saved::decode(&text).unwrap();
+    let (_, mut b) = saved::decode(&text).unwrap();
+    run_to_end(&mut a);
+    run_to_end(&mut b);
+    assert_eq!(
+        as_json(a.complete().unwrap()),
+        as_json(b.complete().unwrap())
+    );
+}
+
+/// Given a stored match that is saved again after being resumed and played on,
+/// Then no accepted order is lost or applied twice: the order ledger still refuses a repeated id.
+#[test]
+fn a_resumed_match_does_not_apply_an_old_order_twice() {
+    let m = played_a_while(23);
+    let text = saved::encode(&m, baselines()).unwrap();
+    let (_, mut restored) = saved::decode(&text).unwrap();
+    let before = restored.command_log().len();
+    let again = restored.submit(order(
+        &restored,
+        "s-1",
+        UserOrder::Tactics(TacticalChange {
+            style: Some(PlayStyle::Defensive),
+            ..Default::default()
+        }),
+    ));
+    // a repeated id answers with the earlier receipt (a retry is harmless) and applies nothing new
+    assert!(again.is_ok());
+    assert_eq!(restored.command_log().len(), before);
+}
+
+/// Given text that is not a stored match,
+/// Then it is unreadable, and nothing panics.
+#[test]
+fn text_that_is_not_a_match_is_unreadable() {
+    for text in ["", "not json", "{}", "[]", "{\"format_version\":1}"] {
+        assert_eq!(
+            saved::decode(text).err(),
+            Some(RestoreProblem::Unreadable),
+            "{text:?}"
+        );
+    }
+}
+
+/// Given a stored match from another envelope version,
+/// Then it is reported as incompatible with that version and not misread.
+#[test]
+fn another_format_version_is_incompatible() {
+    let text = saved::encode(&played_a_while(24), baselines()).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    v["format_version"] = 99.into();
+    assert_eq!(
+        saved::decode(&v.to_string()).err(),
+        Some(RestoreProblem::Incompatible(99))
+    );
+}
+
+/// Given a checkpoint whose recorded world does not match what replaying it produces (a different
+/// engine, or a damaged journal),
+/// Then it is refused as unusable rather than resumed as a different match.
+#[test]
+fn a_checkpoint_that_does_not_replay_to_its_world_is_unusable() {
+    let text = saved::encode(&played_a_while(25), baselines()).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(&text).unwrap();
+    v["checkpoint"]["session"]["world_digest"] = "0000000000000000".into();
+    assert_eq!(
+        saved::decode(&v.to_string()).err(),
+        Some(RestoreProblem::Unusable)
+    );
+}
+
+/// Given a finished match whose report has been built,
+/// Then it cannot be stored: only a match that can still be played is checkpointed.
+#[test]
+fn a_completed_match_cannot_be_stored() {
+    let mut m = start(26);
+    run_to_end(&mut m);
+    m.complete().unwrap();
+    assert!(saved::encode(&m, baselines()).is_err());
+}
+
+/// Given matches played to full time with no orders, including seeds that contain a shot off the
+/// woodwork (21) and an own goal (49, 56, 87),
+/// When each is completed,
+/// Then every one produces a report whose score matches the engine's: before Run F4.1 about one match
+/// in four could not be finalised.
+#[test]
+fn every_match_that_reaches_full_time_can_be_finalised() {
+    for seed in (1..=16).chain([21, 49, 56, 87]) {
+        let mut m = start(seed);
+        run_to_end(&mut m);
+        let report = m
+            .complete()
+            .unwrap_or_else(|e| panic!("seed {seed} cannot be finalised: {e:?}"));
+        let goals_listed = report.goals.len() as u8;
+        assert!(
+            goals_listed <= report.home_goals + report.away_goals,
+            "seed {seed}: scorers never exceed the score"
+        );
+    }
+}

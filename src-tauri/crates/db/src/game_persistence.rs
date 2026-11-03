@@ -49,12 +49,27 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
+        Self::write_game_stats_and_match(db, game, stats, save_id, save_name, None)
+    }
+
+    /// The career, its stats and the interactive match in progress (or none), in one transaction:
+    /// a save never holds a finished fixture next to the checkpoint of the match that finished it.
+    pub fn write_game_stats_and_match(
+        db: &GameDatabase,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        save_name: &str,
+        interactive_match: Option<&crate::interactive_match_repo::StoredMatch>,
+    ) -> Result<(), String> {
         let transaction = db
             .conn()
             .unchecked_transaction()
             .map_err(|_| game_persistence_write_error())?;
         write_game_to_connection(&transaction, game, save_id, save_name)?;
         stats_repo::persist_stats_state(&transaction, stats)?;
+        crate::interactive_match_repo::replace(&transaction, interactive_match)
+            .map_err(|_| game_persistence_write_error())?;
         transaction
             .commit()
             .map_err(|_| game_persistence_write_error())?;

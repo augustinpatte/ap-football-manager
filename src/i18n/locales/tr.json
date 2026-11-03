@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Bu maç zaten tamamlandı.",
         "unsupportedFormation": "Maç motoru bu dizilişi oynayamıyor.",
         "nothingToChange": "Bu talimat hiçbir şeyi değiştirmiyor.",
-        "engineFailed": "Maç motoru devam edemedi. Hiçbir şey değiştirilmedi."
+        "engineFailed": "Maç motoru devam edemedi. Hiçbir şey değiştirilmedi.",
+        "savedMatchDiscarded": "Oyunun ortasında kaydedilen maç geri yüklenemedi; bu yüzden başlama vuruşundan yeniden başlayacak."
       }
     },
     "sender": {

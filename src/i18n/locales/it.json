@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Questa partita è già stata completata.",
         "unsupportedFormation": "Il motore di gioco non può giocare quel modulo.",
         "nothingToChange": "Quest'ordine non cambia nulla.",
-        "engineFailed": "Il motore di gioco non ha potuto proseguire. Nulla è stato modificato."
+        "engineFailed": "Il motore di gioco non ha potuto proseguire. Nulla è stato modificato.",
+        "savedMatchDiscarded": "Non è stato possibile ripristinare la partita salvata in corso, quindi ricomincerà dal calcio d'inizio."
       }
     },
     "sender": {

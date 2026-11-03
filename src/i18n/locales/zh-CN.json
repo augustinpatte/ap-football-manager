@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "这场比赛已经完成。",
         "unsupportedFormation": "比赛引擎无法使用该阵型。",
         "nothingToChange": "该指令没有任何改变。",
-        "engineFailed": "比赛引擎无法继续，未做任何更改。"
+        "engineFailed": "比赛引擎无法继续，未做任何更改。",
+        "savedMatchDiscarded": "中途保存的比赛无法恢复，将从开球重新开始。"
       }
     },
     "sender": {

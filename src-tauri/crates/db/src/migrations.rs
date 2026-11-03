@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 63;
+const EXPECTED_MIGRATION_COUNT: usize = 64;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -177,6 +177,11 @@ const MIGRATIONS: &[(&str, &str)] = &[
     // V63: Separate defensive shape for possession-driven M12 positioning. Numbered after the
     // transfer obligations: both branches first called their migration v062 before either shipped.
     ("v063_out_of_possession_formation.sql", include_str!("sql/v063_out_of_possession_formation.sql")),
+    // V64: the interactive match a career has in progress (a singleton checkpoint row)
+    (
+        "v064_interactive_match_checkpoint.sql",
+        include_str!("sql/v064_interactive_match_checkpoint.sql"),
+    ),
 ];
 
 /// All migrations for a per-save game database.
@@ -1028,6 +1033,7 @@ mod tests {
     ("v061_match_replays.sql", 0x4c69229a4e657439),
     ("v062_transfer_obligations.sql", 0x4872609c01a5715f),
     ("v063_out_of_possession_formation.sql", 0xb952826f9fdd84dc),
+    ("v064_interactive_match_checkpoint.sql", 0xdf5f9d9a2445c22a),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Ce match est déjà terminé.",
         "unsupportedFormation": "Le moteur de match ne peut pas jouer ce dispositif.",
         "nothingToChange": "Cet ordre ne change rien.",
-        "engineFailed": "Le moteur de match n'a pas pu continuer. Rien n'a été modifié."
+        "engineFailed": "Le moteur de match n'a pas pu continuer. Rien n'a été modifié.",
+        "savedMatchDiscarded": "Le match enregistré en cours de jeu n'a pas pu être restauré ; il repartira du coup d'envoi."
       }
     },
     "sender": {

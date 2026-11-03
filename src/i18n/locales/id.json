@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Pertandingan ini sudah diselesaikan.",
         "unsupportedFormation": "Mesin pertandingan tidak dapat memainkan formasi itu.",
         "nothingToChange": "Instruksi itu tidak mengubah apa pun.",
-        "engineFailed": "Mesin pertandingan tidak dapat melanjutkan. Tidak ada yang diubah."
+        "engineFailed": "Mesin pertandingan tidak dapat melanjutkan. Tidak ada yang diubah.",
+        "savedMatchDiscarded": "Pertandingan yang disimpan di tengah jalan tidak dapat dipulihkan, jadi akan dimulai lagi dari kick-off."
       }
     },
     "sender": {

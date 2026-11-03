@@ -411,6 +411,7 @@ fn decode_event_kind<'a>(
                     "saved" => SpatialShotOutcome::Saved,
                     "blocked" => SpatialShotOutcome::Blocked,
                     "off_target" => SpatialShotOutcome::OffTarget,
+                    "hit_woodwork" => SpatialShotOutcome::HitWoodwork,
                     "goal" => SpatialShotOutcome::Goal,
                     other => return Err(OutputDecodeError::InvalidEvent(other.into())),
                 },
@@ -675,6 +676,79 @@ mod tests {
     }
     fn goal(time: u32, side: &str, scorer: &str) -> Value {
         serde_json::json!({ "t_ms": time, "period": "first_half", "side": side, "type": "goal", "scorer": scorer, "assist": null, "own_goal": false })
+    }
+
+    /// Given a shot that hit the woodwork and did not score (M12 names the outcome `hit_woodwork`),
+    /// When the match is decoded and projected,
+    /// Then it is accepted and counted as a shot off target: before Run F4.1 the unknown outcome
+    /// rejected the whole match, so a match could not be finished whenever a shot hit the frame.
+    #[test]
+    fn a_shot_that_hits_the_woodwork_is_a_shot_off_target() {
+        let shot = serde_json::json!({ "t_ms": 90_000, "period": "first_half", "side": "home", "type": "shot", "player": "h1", "outcome": "hit_woodwork" });
+        let json = output(
+            Value::Array(vec![shot]),
+            serde_json::json!({ "home": 0, "away": 0 }),
+            "regulation_complete",
+        );
+        let decoded = decode_json(&json).expect("a woodwork outcome is a valid shot outcome");
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .unwrap();
+        assert!(
+            projected
+                .report
+                .events
+                .iter()
+                .any(|e| e.event_type == engine::EventType::ShotOffTarget),
+            "{:?}",
+            projected.report.events
+        );
+    }
+
+    /// Given an own goal (the scorer plays for the side that conceded; the goal is credited to the other),
+    /// When the match is decoded and projected,
+    /// Then it is accepted: the score counts for the beneficiary, no player is credited with a goal.
+    /// Before Run F4.1 such a match could never be finished (about 3 % of matches).
+    #[test]
+    fn an_own_goal_counts_for_the_beneficiary_and_credits_nobody() {
+        let og = serde_json::json!({ "t_ms": 60_000, "period": "first_half", "side": "away", "type": "goal", "scorer": "h1", "assist": null, "own_goal": true });
+        let json = output(
+            Value::Array(vec![og]),
+            serde_json::json!({ "home": 0, "away": 1 }),
+            "regulation_complete",
+        );
+        let decoded = decode_json(&json).unwrap();
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .expect("an own goal is projectable");
+        assert_eq!(
+            (projected.report.home_goals, projected.report.away_goals),
+            (0, 1)
+        );
+        assert!(projected.report.goals.is_empty(), "no scorer is credited");
+        let goal = projected
+            .report
+            .events
+            .iter()
+            .find(|e| e.event_type == engine::EventType::Goal)
+            .expect("the goal is in the timeline");
+        assert_eq!(goal.player_id, None);
     }
 
     /// Given a recorded M12-shaped normal match, when decoded and projected, then its score and identities survive.

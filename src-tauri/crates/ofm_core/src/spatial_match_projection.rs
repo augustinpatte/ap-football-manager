@@ -66,6 +66,8 @@ pub enum SpatialShotOutcome {
     Saved,
     Blocked,
     OffTarget,
+    /// Struck the post or the bar and stayed out. The career counts it as off target.
+    HitWoodwork,
     Goal,
 }
 
@@ -185,7 +187,6 @@ pub enum ProjectionError {
     PlayerStatOverflow(String),
     InvalidRating(String),
     InvalidSubstitution(String),
-    OwnGoalCannotBeProjected(String),
 }
 
 impl std::fmt::Display for ProjectionError {
@@ -282,7 +283,20 @@ fn validate_events(
             return Err(ProjectionError::DuplicateEvent);
         }
         for player_id in event_players(&event.kind) {
-            validate_player(player_id, event.side, &home, &away)?;
+            // an own goal is credited to the side that benefits; its scorer plays for the other one
+            let own_goal_scorer = matches!(
+                &event.kind,
+                SpatialEventKind::Goal { scorer_id, own_goal: true, .. } if scorer_id == player_id
+            );
+            let expected = if own_goal_scorer {
+                match event.side {
+                    SpatialSide::Home => SpatialSide::Away,
+                    SpatialSide::Away => SpatialSide::Home,
+                }
+            } else {
+                event.side
+            };
+            validate_player(player_id, expected, &home, &away)?;
         }
         if let SpatialEventKind::Substitution {
             player_off_id,
@@ -423,28 +437,31 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
                 own_goal,
             } => {
                 if *own_goal {
-                    return Err(ProjectionError::OwnGoalCannotBeProjected(scorer_id.clone()));
+                    // Counts for the side it is credited to; nobody is credited with a goal, so
+                    // there is no scorer in the timeline and no `GoalDetail`.
+                    (EventType::Goal, None, None)
+                } else {
+                    goals.push(GoalDetail {
+                        minute,
+                        scorer_id: scorer_id.clone(),
+                        assist_id: assist_id.clone(),
+                        goal_source: if previous_was_penalty {
+                            GoalSource::Penalty
+                        } else {
+                            GoalSource::OpenPlay
+                        },
+                        side,
+                    });
+                    (
+                        if previous_was_penalty {
+                            EventType::PenaltyGoal
+                        } else {
+                            EventType::Goal
+                        },
+                        Some(scorer_id.clone()),
+                        assist_id.clone(),
+                    )
                 }
-                goals.push(GoalDetail {
-                    minute,
-                    scorer_id: scorer_id.clone(),
-                    assist_id: assist_id.clone(),
-                    goal_source: if previous_was_penalty {
-                        GoalSource::Penalty
-                    } else {
-                        GoalSource::OpenPlay
-                    },
-                    side,
-                });
-                (
-                    if previous_was_penalty {
-                        EventType::PenaltyGoal
-                    } else {
-                        EventType::Goal
-                    },
-                    Some(scorer_id.clone()),
-                    assist_id.clone(),
-                )
             }
             SpatialEventKind::Penalty { taker_id } => {
                 (EventType::PenaltyAwarded, Some(taker_id.clone()), None)
@@ -453,7 +470,9 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
                 match outcome {
                     SpatialShotOutcome::Saved => EventType::ShotSaved,
                     SpatialShotOutcome::Blocked => EventType::ShotBlocked,
-                    SpatialShotOutcome::OffTarget => EventType::ShotOffTarget,
+                    SpatialShotOutcome::OffTarget | SpatialShotOutcome::HitWoodwork => {
+                        EventType::ShotOffTarget
+                    }
                     SpatialShotOutcome::Goal => EventType::ShotOnTarget,
                 },
                 Some(player_id.clone()),

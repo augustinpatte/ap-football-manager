@@ -279,6 +279,8 @@ pub fn run() {
             select_team,
             get_saves,
             load_game,
+            take_match_restore_notice,
+            get_resumable_match,
             get_active_game,
             get_career_stage,
             get_players_page,

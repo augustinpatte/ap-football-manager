@@ -55,6 +55,8 @@ pub struct StateManager {
     live_match: Mutex<Option<LiveMatchSession>>,
     /// The M12 session being played interactively for the fixture the live session identifies.
     interactive_match: Mutex<Option<InteractiveMatch>>,
+    /// A translation key to show once: a match saved in progress could not be resumed.
+    restore_notice: Mutex<Option<String>>,
     spatial_replay: Mutex<Option<PreparedSpatialReplay>>,
     active_save_id: Mutex<Option<String>>,
     /// Last career token handed out (`next_career_token`); 0 is never issued.
@@ -74,6 +76,7 @@ impl StateManager {
             active_stats: Mutex::new(None),
             live_match: Mutex::new(None),
             interactive_match: Mutex::new(None),
+            restore_notice: Mutex::new(None),
             spatial_replay: Mutex::new(None),
             active_save_id: Mutex::new(None),
             last_career_token: AtomicU64::new(0),
@@ -169,6 +172,21 @@ impl StateManager {
 
     pub fn take_spatial_replay(&self) -> Option<PreparedSpatialReplay> {
         take_option(&self.spatial_replay)
+    }
+
+    pub fn set_restore_notice(&self, key: Option<String>) {
+        *self
+            .restore_notice
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = key;
+    }
+
+    /// The notice, once: asking again returns nothing.
+    pub fn take_restore_notice(&self) -> Option<String> {
+        self.restore_notice
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take()
     }
 
     pub fn set_interactive_match(&self, interactive: InteractiveMatch) {

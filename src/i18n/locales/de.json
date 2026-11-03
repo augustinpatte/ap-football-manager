@@ -3326,7 +3326,8 @@
         "alreadyCompleted": "Dieses Spiel wurde bereits abgeschlossen.",
         "unsupportedFormation": "Die Spiel-Engine kann diese Formation nicht spielen.",
         "nothingToChange": "Diese Anweisung ändert nichts.",
-        "engineFailed": "Die Spiel-Engine konnte nicht fortfahren. Es wurde nichts geändert."
+        "engineFailed": "Die Spiel-Engine konnte nicht fortfahren. Es wurde nichts geändert.",
+        "savedMatchDiscarded": "Das mitten im Spiel gespeicherte Match konnte nicht wiederhergestellt werden und beginnt wieder mit dem Anpfiff."
       }
     },
     "sender": {

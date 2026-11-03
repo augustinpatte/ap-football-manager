@@ -192,6 +192,59 @@ pub fn finish_interactive_match_internal(
     }
 }
 
+/// After a career is loaded: resumes the match it was saved in the middle of, if any.
+///
+/// Nothing here can fail the load. A stored match that is stale (its fixture has been played), or
+/// that cannot be trusted (another version, altered, or not reproducible by this engine), is
+/// discarded; for the untrustworthy kinds the player is told once, and the fixture is still
+/// scheduled, so the match can be played from kick-off.
+pub fn restore_saved_match(
+    state: &StateManager,
+    saves: &mut db::save_manager::SaveManager,
+    save_id: &str,
+) {
+    use ofm_core::interactive_match::saved;
+    state.set_restore_notice(None);
+    let stored = match saves.load_interactive_match(save_id) {
+        Ok(Some(stored)) => stored,
+        Ok(None) => return,
+        Err(error) => {
+            log::warn!("[restore] could not read the stored match: {error}");
+            return;
+        }
+    };
+    let discarded = || state.set_restore_notice(Some(saved::RestoreProblem::Unusable.translation_key().into()));
+    let Ok(stored) = stored else {
+        discarded();
+        return;
+    };
+    let Ok((baselines, interactive)) = saved::decode(&stored.payload) else {
+        discarded();
+        return;
+    };
+    let identity = interactive.identity().clone();
+    if identity.competition_id != stored.competition_id || identity.fixture_id != stored.fixture_id {
+        discarded();
+        return;
+    }
+    // Rebuilding the live session is idempotent for the day's other fixtures (already played). A
+    // fixture that is no longer scheduled means the match was finished: nothing to resume.
+    if super::live_match::start_live_match_with_identity(
+        state,
+        identity.fixture_index,
+        "live",
+        false,
+        Some(&identity.competition_id),
+        Some(&identity.fixture_id),
+    )
+    .is_err()
+    {
+        return;
+    }
+    state.with_live_match(|session| baselines.apply(session));
+    state.set_interactive_match(interactive);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -797,6 +850,150 @@ mod tests {
         assert_eq!(
             retry.receipt.rejection.as_deref(),
             Some("goalkeeper_mismatch")
+        );
+    }
+
+    // ------------------------------------------------------------- saved mid-match
+
+    /// A career with a saved id on disk and a match played to 20 minutes.
+    fn career_mid_match(directory: &TempDir) -> (StateManager, SaveManager, String) {
+        let state = StateManager::new();
+        let game = game_with_spatial_fixture();
+        let mut saves = SaveManager::init(directory.path()).expect("save manager");
+        let save_id = saves.create_save(&game, "mid-match").expect("save");
+        state.set_save_id(save_id.clone());
+        state.set_game(game);
+        begin(&state);
+        advance(&state, AdvanceTarget::ForMinutes(20));
+        (state, saves, save_id)
+    }
+
+    /// Reloads the career the way `load_game` does, into a fresh application state.
+    fn reload(saves: &mut SaveManager, save_id: &str) -> StateManager {
+        let state = StateManager::new();
+        let game = saves.load_game(save_id).expect("load");
+        let stats = saves.load_stats_state(save_id).expect("stats");
+        crate::application::career::install_career(&state, game, stats, Some(save_id.to_string()));
+        restore_saved_match(&state, saves, save_id);
+        state
+    }
+
+    /// Given a match 20 minutes in with an accepted order,
+    /// When the career is saved and reloaded into a fresh state,
+    /// Then the same match is there (clock, score, tactics), it plays on to a result, the fixture is
+    /// finalised exactly once, and a later save holds no checkpoint.
+    #[test]
+    fn a_match_saved_in_progress_resumes_and_finishes_once() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        let tactics = order(
+            &state,
+            "mentality",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        );
+        assert!(tactics.receipt.accepted);
+        let before = snapshot(&state).view;
+        crate::application::saving::persist_active_game(&state, &mut saves)
+            .expect("a match in progress can be saved");
+
+        let resumed = reload(&mut saves, &save_id);
+        assert!(resumed.take_restore_notice().is_none());
+        let after = snapshot(&resumed).view;
+        assert_eq!(after.session.clock_ms, before.session.clock_ms);
+        assert_eq!(after.session.score_home, before.session.score_home);
+        assert_eq!(after.home_plan.style, PlayStyle::Attacking);
+
+        to_full_time(&resumed);
+        let finished = finish_interactive_match_internal(&resumed).expect("finishes");
+        let _ = finished;
+        assert_eq!(
+            resumed
+                .get_game(|g| g.competitions[0].fixtures[0].status.clone())
+                .unwrap(),
+            FixtureStatus::Completed
+        );
+        assert!(finish_interactive_match_internal(&resumed).is_err(), "no second finalisation");
+
+        crate::application::saving::persist_active_game(&resumed, &mut saves).expect("save");
+        assert!(saves.load_interactive_match(&save_id).unwrap().is_none());
+    }
+
+    /// Given a stored checkpoint that was altered on disk,
+    /// When the career is loaded,
+    /// Then it loads, no match is resumed, the player is told once, and the fixture is still
+    /// scheduled so it can be played from kick-off.
+    #[test]
+    fn a_damaged_saved_match_is_discarded_with_one_notice() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        crate::application::saving::persist_active_game(&state, &mut saves).expect("save");
+        let db_file = std::fs::read_dir(directory.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .find(|p| p.extension().is_some_and(|x| x == "db"))
+            .expect("the save file");
+        let database = db::game_database::GameDatabase::open_save(&db_file).unwrap();
+        database
+            .conn()
+            .execute("UPDATE interactive_match_checkpoint SET payload = payload || ' '", [])
+            .unwrap();
+        drop(database);
+
+        let resumed = reload(&mut saves, &save_id);
+        assert!(resumed.with_interactive_match(|_| ()).is_none());
+        assert_eq!(
+            resumed.take_restore_notice().as_deref(),
+            Some("be.error.interactive.savedMatchDiscarded")
+        );
+        assert!(resumed.take_restore_notice().is_none(), "told once");
+        assert_eq!(
+            resumed
+                .get_game(|g| g.competitions[0].fixtures[0].status.clone())
+                .unwrap(),
+            FixtureStatus::Scheduled
+        );
+    }
+
+    /// Given a career saved with no match in progress (every old save is like this),
+    /// When it is loaded,
+    /// Then nothing is restored and nothing is announced.
+    #[test]
+    fn a_career_without_a_saved_match_loads_as_before() {
+        let directory = TempDir::new().expect("dir");
+        let state = StateManager::new();
+        let game = game_with_spatial_fixture();
+        let mut saves = SaveManager::init(directory.path()).expect("save manager");
+        let save_id = saves.create_save(&game, "plain").expect("save");
+        state.set_save_id(save_id.clone());
+        state.set_game(game);
+        crate::application::saving::persist_active_game(&state, &mut saves).expect("save");
+        let loaded = reload(&mut saves, &save_id);
+        assert!(loaded.with_interactive_match(|_| ()).is_none());
+        assert!(loaded.with_live_match(|_| ()).is_none());
+        assert!(loaded.take_restore_notice().is_none());
+    }
+
+    /// Given a live match that is not an interactive one,
+    /// When a save is requested,
+    /// Then it is still refused, as before.
+    #[test]
+    fn a_non_interactive_live_match_still_blocks_saving() {
+        let directory = TempDir::new().expect("dir");
+        let state = StateManager::new();
+        let game = game_with_spatial_fixture();
+        let mut saves = SaveManager::init(directory.path()).expect("save manager");
+        let save_id = saves.create_save(&game, "live").expect("save");
+        state.set_save_id(save_id);
+        state.set_game(game);
+        start_live_match_with_identity(&state, 0, "live", false, Some(COMPETITION), Some(FIXTURE))
+            .expect("live");
+        assert_eq!(
+            crate::application::saving::persist_active_game(&state, &mut saves).unwrap_err(),
+            "be.error.liveMatch.inProgress"
         );
     }
 }

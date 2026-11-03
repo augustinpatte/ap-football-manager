@@ -29,7 +29,7 @@ pub struct UserMatchdayOutcome {
 
 /// The user's league round on one date: which matchday it is, and the table before it was played.
 /// Scoped to the DATE, because a round can be spread over several days once a match is postponed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LeagueRoundContext {
     pub date: String,
     pub matchday: u32,

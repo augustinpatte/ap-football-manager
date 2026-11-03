@@ -42,6 +42,8 @@ interface MatchRouteState {
   fixtureId?: string;
   mode?: string;
   snapshot?: MatchSnapshot;
+  /** A match saved in progress was restored: go straight back into it. */
+  resume?: boolean;
 }
 
 interface FinishLiveMatchResponse {
@@ -111,7 +113,7 @@ export default function MatchSimulation() {
   const [hasUserOverriddenSpeed, setHasUserOverriddenSpeed] = useState(false);
   const [spatialAction, setSpatialAction] = useState<SpatialAction | null>(null);
   const [spatialError, setSpatialError] = useState<string | null>(null);
-  const [managing, setManaging] = useState(false);
+  const [managing, setManaging] = useState(routeState?.resume === true);
   const spatialActionInFlight = useRef(false);
 
   // Each match screen is a new live session; commands from an earlier one must not hold it up.
