@@ -741,7 +741,7 @@ mod tests {
 
         let db = GameDatabase::open_save(&path).expect("a v61 save loads");
 
-        assert_eq!(db.schema_version().unwrap(), 63);
+        assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
         assert_eq!(team_defensive_shape(&db), "");
         let formation: String = db
             .conn()

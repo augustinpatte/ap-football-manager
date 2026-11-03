@@ -269,12 +269,14 @@ fn rewrite_file_as(saves: &std::path::Path, id: &str, build: WrittenBy) -> std::
     let conn = rusqlite::Connection::open(&path).unwrap();
     let drop_column = "ALTER TABLE teams DROP COLUMN out_of_possession_formation;";
     let drop_table = "DROP TABLE transfer_obligations;";
+    // Added after every build this helper imitates (v064): such a file does not have it.
+    let drop_checkpoint = "DROP TABLE interactive_match_checkpoint;";
     let (sql, version) = match build {
         WrittenBy::V061 => (format!("{drop_column}{drop_table}"), 61),
         WrittenBy::Run1Dev => (drop_column.to_string(), 62),
         WrittenBy::Run2Dev => (drop_table.to_string(), 62),
     };
-    conn.execute_batch(&sql).unwrap();
+    conn.execute_batch(&format!("{sql}{drop_checkpoint}")).unwrap();
     conn.pragma_update(None, "user_version", version).unwrap();
     path
 }
