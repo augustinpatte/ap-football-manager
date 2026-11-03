@@ -308,7 +308,7 @@ real (without it they return at once and prove nothing).
 |---|---|
 | `cargo fmt --all -- --check` | clean |
 | `cargo clippy --workspace --all-targets --locked -- -D warnings`, default and `--features mcp` | clean, both |
-| `cargo test --workspace --no-fail-fast` with the real world | **109 targets: 4,299 passed, 4 failed**, 56 ignored; after fixing two of the four (below), `fm24_loans` re-run: 3 passed, 1 failed, so **4,301 passed, 2 failed** |
+| `cargo test --workspace --no-fail-fast` with the real world | **109 targets: 4,299 passed, 4 failed**, 56 ignored; after fixing two of the four (below), `fm24_loans` re-run: 3 passed, 1 failed, so **4,301 passed, 2 failed**; the remaining two were then investigated and fixed ("The two pre-existing failures", below), and `fm24_loans` and `fm24_global_market` re-run: 4 / 4 and 3 / 3 passed on both the revision-6 and the installed revision-4 world. The whole workspace was not re-run after that follow-up |
 | `cargo test --workspace --features mcp --no-fail-fast` (no world set, so real-world tests were vacuous) | **109 targets: 4,389 passed, 0 failed**, 56 ignored |
 | `scripts/apfm/run-m12-tests.sh` against the real `~/apfm-match-lab` | `spatial_runner` 5 passed, `spatial_*` 33 passed, `commands::spatial_match` 8 passed ("M12-dependent tests passed"); the 1 ignored in each of the first two is the replay-export helper |
 | Real-engine proof that recording condition does not change the match | `recording_player_condition_does_not_change_the_match` passes: whole replay document identical apart from `frames[].extras` |
@@ -337,11 +337,43 @@ purpose. They now run the registration the turn runs on the loan's start date
 counted `recruitSigned` log entries and failed for the same reason; it now counts players who actually
 arrived at the club by day 60, a stronger check.
 
-**The two pre-existing failures are not fixed and not hidden.** They fail identically on the F2 baseline
-against the revision-6 world; the F2 commits could not run them (no real data in the Cloud session).
-They look like calibration and fixture assumptions made on the revision-4 world (who buys whom once
-ratings follow Current Ability; a user squad with no spare midfielder), and need their own
-investigation (§9).
+### The two pre-existing failures: investigated, both were test defects
+
+They failed identically at `b2cb184b` and also on the installed revision-4 world, so ratings were not the
+cause (the earlier guess in this report that they were was wrong). Neither was a game defect.
+
+**`fm24_global_market::clubs_outside_the_players_league_buy_players`** (289 of 506 "transfers" crossed a
+border). The observer counted every change of club by a player who was not on loan that day. That includes a
+loan **ending** (the player goes home, usually across a border: 149 of 220) and free signings (15). Counting
+only the days that wrote a `PermanentTransfer` into the player's movement ledger gives **271 transfers, 130
+across a border (48 %)**, and the count matches the harness's own deal log (271). The test now counts that.
+Measured on the game: 47-49 % over seeds 1, 2, 3, 21 and 99 (one scoped season); 41 % in season 1 and 39 % over
+five seasons with the whole world active, against the 37 % recorded in `APFM_MARKET_FINAL_VALIDATION.md`. The
+market has not drifted. The test's bar ("most from their own country", under 50 %) passes by about one
+point, so a later market change that nudges the share up will fail it, which is the point of the bar, but it
+would be a calibration decision rather than a regression.
+
+**`fm24_loans::ai_clubs_offer_for_a_loan_listed_player_and_he_comes_back`.** The test lent the user's
+player with the largest gap between potential and rating, whoever he was. Three things were wrong with that
+choice, each hiding behind the previous one:
+
+1. On the revision-6 world he was a midfielder the club could not spare, and `squad_floor` refused
+   (`wouldLeaveShort?group=Midfielder`). The rule is right; the fixture now picks a player the club can
+   spare.
+2. On the revision-4 world he was a first-team player and he refused a loan to a smaller club
+   (`playerRefusesLoan`): the F2 consent rule working. The fixture now lends a fringe prospect (outside the
+   first eleven, market value under the 1.5 M "regular" line).
+3. Both worlds: the loan waits for its start date, which the test did not expect. It now plays whole days
+   until the loan starts, and checks the borrower's wage bill against the same game without the loan (the
+   bill read days earlier had moved by 1,873 with the club's other business).
+
+A first idea, treating a loan-listed player as willing to go, was tried and **rejected**: the manager can only
+ask for, and AI clubs can only bid for, loan-listed players, so it would have made the consent rule
+unreachable. The rule is unchanged.
+
+Not touched: `start_the_agreed_loan` (used by two other loan tests) still moves the clock to the start date
+without playing the days in between. Those tests pass, but the same shortcut made the invariant
+`no-stranded-fixture` fail in the third test, so it is a fragile helper; converting it is a follow-up.
 
 ### Frontend tests added or changed by this run
 `PlayersListTab` bid-modal terms (red then green), `TransferBidModal`/`LoanOfferModal` fixtures,
@@ -387,5 +419,5 @@ and the removal of the engine's raw labels are the intended changes).
 5. **Free-agent signing**: an administrative step after the player says yes, consistent with paid
    transfers; AI-to-AI deals and loans through the same processing so the world is consistent.
 6. A loan **fee** in the domain and the accounting, if the design wants one.
-7. Investigate the two pre-existing real-world failures in §7 (`fm24_global_market` border share,
-   `fm24_loans` squad floor): decide whether the test or the world is wrong now that ratings follow CA.
+7. Replace the `start_the_agreed_loan` clock shortcut in the two remaining loan tests with played days.
+   (The two pre-existing real-world failures were investigated and fixed after the first report; see §7.)
