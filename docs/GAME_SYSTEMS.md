@@ -615,3 +615,12 @@ the best free agents through the same talks, and every signing — negotiated, r
 `contracts::sign_free_agent`, which refuses a player who already has a club and closes every other open talk.
 The daily step is `contracts::process_free_agent_talks`. Rules, numbers, before/after scenarios and limits:
 [`APFM_FREE_AGENT_NEGOTIATIONS.md`](APFM_FREE_AGENT_NEGOTIATIONS.md).
+
+## Suspensions
+
+A sending-off keeps a player out of his club's next matches: three for a straight red card, one for a
+second yellow (`ofm_core::suspension`). The ban is set from the card events of the match report, whichever
+engine played it, counted down by the club's matches (not by days, so it runs through a quiet fortnight and
+into the next season), and read by every squad selection through `Player::can_play()`, the same predicate
+that keeps an injured player out. It is stored as `players.suspended_matches` (migration v065) and shown
+as a badge in the squad and tactics lists. Rules, numbers and limits: [`APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md`](APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md).
