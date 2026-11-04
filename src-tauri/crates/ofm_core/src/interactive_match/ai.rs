@@ -751,18 +751,43 @@ mod tests {
         assert_eq!(c.style, Some(PlayStyle::Counter));
     }
 
-    /// Given the opponent down to ten and a side two goals behind late in the match,
-    /// When the dismissal is the checkpoint,
-    /// Then its shape is whatever the autonomous manager's utility ranks first for that state (which
-    /// may be to keep the shape: a change is costly), not a fixed 4-3-3.
+    /// Given a side that set up with a back five and is two goals behind late in the match,
+    /// When the manager reviews at a checkpoint that allows a change of shape,
+    /// Then it goes to 4-3-3, the preset with the most forward presence that the autonomous manager's
+    /// utility prefers over its current shape: a fixed "ten men play 4-5-1" could never produce this.
     #[test]
-    fn a_numerical_advantage_is_pressed_when_not_winning() {
+    fn a_side_that_sat_back_pushes_up_when_it_must_chase() {
         let mut f = fixture(75, 0, 2);
-        f.view.away.on_pitch.pop();
+        f.plan.formation = "5-3-2".into();
         let c = f.tactics(Checkpoint::Dismissal).expect("a reaction");
-        let (chase, protect) = need_v2(&ManagerConfig::m10(), -2, 15.0);
-        let expected = autonomous_choice("4-4-2", "4-4-2", chase, protect, 1);
-        assert_eq!(c.formation, expected);
+        assert_eq!(c.formation.as_deref(), Some("4-3-3"));
+    }
+
+    /// Given a side that is two goals ahead at half-time with all eleven on the pitch,
+    /// When the manager reviews at the break,
+    /// Then it protects the lead with a back five (the autonomous manager's utility ranks 5-3-2 first):
+    /// the break is a checkpoint for a change of shape even with the numbers level.
+    #[test]
+    fn a_two_goal_lead_at_the_break_is_protected_with_a_back_five() {
+        let f = fixture(45, 2, 0);
+        let c = f.tactics(Checkpoint::Halftime).expect("a reaction");
+        assert_eq!(c.formation.as_deref(), Some("5-3-2"));
+    }
+
+    /// Given the same two-goal deficit and a side now in a back five,
+    /// When the club's own shape (the one it started with) is 4-3-3 and when it is 4-2-3-1,
+    /// Then going back to the shape just left costs extra: it is chosen when it is not the club's own
+    /// shape, and not when it is.
+    #[test]
+    fn going_back_to_the_shape_just_left_costs_extra() {
+        let choose = |identity: &str| {
+            let mut f = fixture(75, 0, 2);
+            f.plan.formation = "5-3-2".into();
+            f.identity.formation = identity.into();
+            f.tactics(Checkpoint::Dismissal).and_then(|c| c.formation)
+        };
+        assert_eq!(choose("4-2-3-1").as_deref(), Some("4-3-3"));
+        assert_ne!(choose("4-3-3").as_deref(), Some("4-3-3"));
     }
 
     /// Given the opponent down to ten and a level score,
@@ -1153,7 +1178,9 @@ mod tests {
     /// When OFM's policy picks his replacement and the autonomous manager's utility ranks the same
     /// bench,
     /// Then they choose the same player: a bench player is valued by one judgement, whichever mode
-    /// the match is played in.
+    /// the match is played in. (This guards the wiring only: its bench has one natural midfielder, so
+    /// it cannot tell the score-aware policy from a score-blind one; that discrimination is
+    /// `the_score_decides_which_bench_player_comes_on`.)
     #[test]
     fn a_replacement_is_the_one_the_autonomous_manager_would_choose() {
         for (minute, home, away) in [
@@ -1261,11 +1288,14 @@ mod tests {
         };
         let (chasing, finisher, stopper) = choose(0, 1);
         assert_eq!(chasing, finisher, "a goal down with twelve minutes left");
-        let (protecting, finisher, stopper2) = choose(1, 0);
-        assert_eq!(stopper, stopper2, "the same bench in both states");
-        assert_eq!(protecting, stopper2, "a goal up with twelve minutes left");
+        let (protecting, finisher2, stopper2) = choose(1, 0);
+        assert_eq!(
+            (&finisher, &stopper),
+            (&finisher2, &stopper2),
+            "the same bench in both states"
+        );
+        assert_eq!(protecting, stopper, "a goal up with twelve minutes left");
         assert_ne!(chasing, protecting);
-        let _ = finisher;
     }
 
     /// Given a tired starter and a bench player who is fresh but much weaker,

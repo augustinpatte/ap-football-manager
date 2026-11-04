@@ -182,7 +182,7 @@ fn report_congestion(records: &[MatchRecord], label: &str) {
 
 /// What a season of the user's club must keep true, whatever world and club it is played in; returns
 /// the number of matches played and the game afterwards. `label` names the world in the output.
-fn check_season(state: &StateManager, label: &str) -> (usize, Game) {
+fn check_season(state: &StateManager, label: &str) -> (usize, Game, f64) {
     let records = play_matches(state, 38);
     let played = records.len();
     assert!(
@@ -278,7 +278,8 @@ fn check_season(state: &StateManager, label: &str) -> (usize, Game) {
         "recovery brings the squad back between matches"
     );
 
-    (played, game)
+    // what a match costs the squad, on average (points of condition per match played)
+    (played, game, mean_before - mean_after)
 }
 
 /// Given a generated world and the user's club,
@@ -293,7 +294,7 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
     let seed = 7;
     // A: straight through
     let a = career(seed);
-    let (played, game) = check_season(&a, "generated, seed 7");
+    let (played, game, _) = check_season(&a, "generated, seed 7");
 
     // B: the same career, saved and reloaded after ten matches
     let directory = tempfile::TempDir::new().expect("dir");
@@ -405,6 +406,7 @@ fn a_high_press_pays_for_itself_in_condition_across_a_season() {
     ];
     for seed in [11u64, 23] {
         println!("--- generated world, seed {seed}");
+        let mut costs: Vec<(&str, f64)> = Vec::new();
         for (name, style, pressing) in &plans {
             let mut game = WorldSpec::gate(seed).build().expect("a generated world");
             let id = game.manager.team_id.clone().expect("a club");
@@ -417,9 +419,21 @@ fn a_high_press_pays_for_itself_in_condition_across_a_season() {
             team.tactics_phase.pressing_intensity = pressing.clone();
             let state = StateManager::new();
             state.set_game(game);
-            let (played, after) = check_season(&state, &format!("{name}, seed {seed}"));
+            let (played, after, cost) = check_season(&state, &format!("{name}, seed {seed}"));
+            costs.push((*name, cost));
             let (points, gf, ga) = table_row(&after);
             println!("[{name}, seed {seed}] {played} matches: {points} points, goals {gf}-{ga}");
         }
+        let cost = |n: &str| {
+            costs
+                .iter()
+                .find(|c| c.0 == n)
+                .map(|c| c.1)
+                .expect("a plan")
+        };
+        assert!(
+            cost("high press") > cost("low block"),
+            "a high press costs the squad more condition per match than a low block: {costs:?}"
+        );
     }
 }

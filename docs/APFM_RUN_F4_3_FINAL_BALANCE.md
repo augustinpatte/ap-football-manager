@@ -1,0 +1,388 @@
+# APFM Run F4.3: final football balance, physical realism and gameplay validation
+
+Branches: OFM `claude/run-f4-3-final-balance` (from the F4.2 head `50291c7a`), M12 `f4.3/final-balance` (from the F4.2 head
+`f4ab176daea68f280b6791be4242ea4742bd6cea`, verified before anything was changed). Nothing was merged into `apfm/main`, `develop` or an
+integration branch. No save and no existing career was touched: every test builds its career in memory or in a temporary
+directory, and the FM24 world was read from a **copy** placed in the session's scratch directory (the original file under
+`output/` was never opened for writing). The M12 licence edits that were already uncommitted (`Cargo.toml`, untracked `LICENSE` /
+`NOTICE`) and the viewer's (`package.json`, `LICENSE`, `NOTICE`) are in no commit. The 2D viewer was not modified.
+
+Raw outputs of the studies were kept in the session scratch directory; the instruments are committed in the M12 repository
+(`examples/f43_profile.rs`, `examples/f43_hotpaths.rs`, `examples/m9_penalty.rs --mode`, `tests/f43_validation.rs`,
+`tests/f43_block_scenarios.rs`, `tests/f43_mechanisms.rs`) and every number below can be regenerated with the commands in section 21.
+
+## 1. Executive verdict
+
+**NO-GO: F4.3 does not make the engine final, and F5 should not treat the football as settled.** Two completion gates fail outright, three
+are only partly met, and the remaining ones are met. What this run did achieve is real and measured:
+
+* The F4.2 dominance of defensive settings is gone. On the same seeds, `defensive + high press` / `defensive + low press` were ahead of
+  balanced in all three columns (mean +0.28 / +0.25 points a match); under F4.3 no setting is ahead of balanced across the eight opponent
+  archetypes beyond what chance explains, `very defensive` is clearly worse (-0.26), and the free lunch of the block (F4.2: 5.4 more shots
+  conceded for 0.26 fewer goals) is gone (+0.7 shots, +0.04 goals; section 7).
+* Fouls now come from something a player does: a beaten defender decides whether to hold a carrier who is running at goal. Yellow cards are
+  4.2 a match (Premier League 2023/24: 4.46; Bundesliga 2023/24: 4.15), dismissals 0.17 (about 0.16), straight reds 0.08.
+* The in-match penalty conversion was 29 % (a goalkeeper who saved 59 % of the penalties of 79-finishing takers); it is 70 % now, and the
+  mechanism behind it (a keeper whose reaction and reach responded steeply to his rating) is corrected, not patched at the result.
+* The AI manager's formation choice and its replacement choice are the autonomous manager's own judgement, with tests that fail if the
+  score or the utility is ignored.
+* Determinism, segmentation equivalence, canonical finalisation and old checkpoints are untouched (the whole M12 suite, including the
+  historical golden digests, passes).
+
+**Not achieved** (details and numbers in the sections named):
+
+| Gate | Status | Why |
+|---|---|---|
+| 1. Defensive-block exploit | **Met** | no defensive setting beats balanced across 8 archetypes (section 7); a mild tilt towards pressing sides is left (section 8) |
+| 2. Pressing has benefits and costs | **Partly** | chances and shots conceded fall, a rushed builder fails more passes, and it costs energy, own-third losses and counters; it still does **not** win the ball back more often (section 6) |
+| 3. Attacking has context-dependent advantages and risks | **Partly** | the sign depends on the opponent (+0.36 against an ordinary one, -0.10 against a counter side), but against equals attacking is worth +0.24 points a match, more than in F4.2 (section 8) |
+| 4. Fouls, cards, penalties follow credible mechanisms | **Partly** | cards, dismissals and penalty conversion are in range; fouls are 15.3 (reference 21 to 27) and penalties awarded 0.46 (reference about 0.3, unsourced) (section 9) |
+| 5. Physical expenditure coherent by role | **Not met** | the energy accounting defect is fixed (forward / defender reserve cost 3.7x to 2.3x), but the engine still has midfielders running 17 km and forwards sprinting 2.1 km a match (section 10) |
+| 6. Shot selection and scoring calibrated | **Not met** | goals per team and penalty conversion are credible; shot volume (37.5 against 27.6) and mean shot distance (11.9 m against about 16 m) are not (section 11) |
+| 7. Match state and manager decisions matter | **Partly** | the manager decisions are tested to depend on the score; protecting a lead still has no measurable effect on points (section 13) |
+| 8. Multi-season / multi-club validation | see section 14 | |
+| 9. Save/reload and finalisation | see section 14 | |
+| 10. Determinism and performance | **Met** | +4 % over F4.2, +30 % over M12 (section 15) |
+
+## 2. Baseline reproduced (checkpoint 1)
+
+Same seeds, same configuration (`full_match_f42`), release build, M12 head `f4ab176`.
+
+| F4.2 finding | Reproduced? | Evidence |
+|---|---|---|
+| 1. Defensive + high / low press beat balanced against every opponent | **Yes, digit for digit** | 300 seeds: balanced 1.45 / 1.40 / 1.20; defensive + high press 1.67 / 1.59 / 1.62; defensive + low press 1.69 / 1.50 / 1.59 |
+| 2. Attacking mentality suppresses shots conceded against equals | **Yes** | 300 pairs: attacking -0.59 [-1.19, +0.01], very attacking -1.28 [-1.87, -0.69] |
+| 3. High pressing does not force more errors | **Yes, and located** | a pressed builder's first pass completes as often as an unpressed one's (92 % against 90 %), because he chooses a safer pass (section 6) |
+| 4. Compactness reduces shot quality but raises volume | **Yes** | defensive + high press v balanced: shots conceded +2.1, open chances conceded -1.3, goals against **-0.51** |
+| 5. Fouls and cautions low | **Yes** | 10.3 fouls, 2.28 cautions, 0.16 dismissals a match (600 matches) |
+| 6. Penalties frequent | **Yes** | 0.49 awarded a match; and only **29 % of them scored** (the keeper saved 59 % in the 400-match run of the first measurement) |
+| 7. Forwards spend about five times the defenders' energy | **Yes, and decomposed** | net reserve loss per minute 0.152 / 0.493 / 0.565 for defenders / midfielders / forwards (3.7x); effort spent 10.0k / 16.4k / 17.9k eu (1.8x) |
+| 8. Shot distance and on-target rate suspicious | **Yes** | mean distance 10.3 m; 65 % on target; 60 % of shots from 6 to 11 m are saved; 0 goals in 1.7 shots a match from 16 to 22 m |
+| 9. +24 % match time | **Yes** | 0.598 s (M12), 0.742 to 0.772 s (F4.2) on the same machine and build |
+
+### 2.1 Root causes, separated as the brief asks
+
+| # | Finding | Class | Mechanism |
+|---|---|---|---|
+| a | A defensive mentality out-scored balanced | **A + B** | the compact block (`shape_pass`) is a competent defence routine (shifting with the ball, goal-side recovery in the own third, a level back line); F4.2 switched it on below mentality 0.4 and left it off at 0.5, so "defensive" was a better way to defend, not a different one. Its effect is a trade of volume for quality: against it shots conceded rise and goals conceded fall by more |
+| b | Attacking mentality suppresses shots | **D (partly)** | territory: the very attacking side wins the ball in the opponent's final 40 m +2.1 times a match; this is football. What is not football is how little it costs (section 8) |
+| c | Pressing creates no turnovers | **A (decision) + D** | the pressed carrier adapts: the first pass gains 4.7 m against 6.1 m unpressed, and is as accurate. Pressure changes what he decides, not how well he executes. Forced errors appear against a *high* press (hurried passes: +0.17 failed passes in 8 s against a low press) but the ball is not won back more often |
+| d | Fouls half of football | **A** | the engine judged only tackles on the ball carrier: no holding, no tactical fouls, nothing off the ball |
+| e | Cautions half of football, almost all dismissals second yellows | **B** | one severity scale, calibrated in F4.2 on a fixture without the missing fouls |
+| f | Penalties 29 % scored | **A** | keeper response to rating (penalty goal rate 18 % at rating 60, 75 % at 92 in isolation) and a test fixture whose keepers are strong (E); the isolated experiment with the production configuration gives 72 % |
+| g | Defender : forward load 3.7x | **A + A** | (i) recovery credited while walking cancelled its cost exactly (`rest_cost` 1.0: a player walking at 1.4 m/s nets zero); (ii) movement volume: midfielders 16.4 km, forwards 17.1 km already in the Mission 12 mode, 5 to 8 times the football references in high-speed and sprint distance (pre-existing, M9 to M12) |
+| h | 10.3 m shots, 65 % on target | **A + B** | the finishing rule of F4.2 (`finish_min_quality`) is **not** the cause of volume (raising it from 0.25 to 0.38 changes nothing: 37.7 and 37.6 shots); shooters are too accurate and keepers too good at close range, and shots from 11 m out almost never score |
+| i | +24 % time | **A** | the options of a carrier tripled (three candidates per team-mate): `decide` went from 0.092 s to 0.242 s a match; **not** the reach-time recomputation that was suspected (removing it saved under 1.5 %) |
+
+E (measurement) items found: the in-match penalty conversion of the fixture teams mixes a strong-keeper fixture with the engine; a
+full dominance grid of 27 cells takes over two hours at 300 seeds and was replaced by a six-by-three grid that reproduces the same cells;
+the harness started from the Mission 12 configuration unless `F42_FLAGS` was set (now announced in the output of every study).
+C (uncertainty): 95 % intervals are given throughout; with 88 cells in the dominance matrix, about four significant cells are expected by chance.
+
+## 3. What changed (code)
+
+Everything is behind a switch that is off in `full_match_m12()` and `full_match_f42()`; `full_match_f43()` turns on what measured as an
+improvement. `BEHAVIOUR_REVISION` is unchanged: no football behaviour changed without a switch (the whole M12 suite, including the golden
+digests of Missions 8 to 12, passes), and a checkpoint stores the full configuration, so an F4.2 match replays as recorded.
+
+| Area | Change | Files |
+|---|---|---|
+| Defence | every team defends in the compact block; mentality and width move how tight and how deep it sits, continuously (`organised_block`, `block_shape`); the F4.2 step-up of one defender onto an unpressed carrier is off | `defend.rs`, `config.rs` |
+| Fouls | a beaten defender decides whether to hold a carrier running at goal (`tactical_fouls`): promise (distance, cover, speed), aggression, and what the foul costs him (penalty, sending-off, second caution) | `runtime/referee_rt.rs`, `referee.rs` |
+| Referee | a booked player's borderline second caution is read as careless (`booked_leniency`); one reading function (`read_foul`) for ground and aerial fouls | `referee.rs`, `runtime/aerial_rt.rs` |
+| Physical | recovery needs near-standing (`condition.rest_cost` 0.6) | `condition.rs` (unit test), `config.rs` |
+| Shot execution | keeper reaction (360 to 260 ms) and dive (0.70 to 1.10 m) ranges flattened; open-play shot error up (0.38 / 0.11 rad); dead-ball factor 0.27 so a penalty keeps its football rate | `config.rs` |
+| Manager | `manager::best_formation`, one judgement for the autonomous manager and OFM's assistant | `manager.rs`, `runner/management.rs`, OFM `interactive_match/ai.rs` |
+| OFM | plays `full_match_f43`; wear constants re-measured (section 10); season studies | `spatial_runner.rs`, `player_wear.rs`, `interactive_season.rs` |
+
+Measured and **not adopted** (removed from the code): speculative long shots (shots from 11 m and further almost never score, so they only
+added 7 to 12 shots a match and no goals), a zonal marking cost (3 % less distance, no balance effect), cover of the carrier's outlets by a
+press (shots conceded -3.4 instead of -2.2, but it pushed the pressing sides further ahead), a bound on through-ball candidates (-5 % time, no
+effect on the football), and the universal fixed block (`block=1.0`) and a wider block (`blockdepth=14`), which made the attacking settings dominate.
+
+## 4. Tactical balance before and after
+
+### 4.1 The 6 x 3 grid (points a match, 300 pairs; difference to balanced with its 95 % interval in the full output)
+
+| home setting | F4.2: v balanced | v att+high press | v def+low block | F4.3: v balanced | v att+high press | v def+low block |
+|---|---:|---:|---:|---:|---:|---:|
+| balanced | 1.45 | 1.40 | 1.20 | 1.29 | 1.22 | 1.53 |
+| very defensive | 1.49 | 1.16 | 1.24 | 1.11 | 1.01 | 1.37 |
+| defensive + high press | **1.67** | **1.59** | **1.62** | 1.61 | 1.17 | 1.74 |
+| defensive + low press | **1.69** | 1.50 | **1.59** | 1.33 | 1.06 | 1.50 |
+| attacking + high press | 1.33 | 1.22 | 1.30 | 1.49 | 1.44 | 1.63 |
+| very attacking | 1.55 | 1.31 | 1.32 | 1.43 | 1.19 | 1.58 |
+
+F4.2: defensive + high / low press ahead of balanced in all three columns (+0.28 / +0.25 on average). F4.3: defensive + high press +0.33*
+and +0.21* against two columns but -0.05 against the pressing opponent (mean +0.16); defensive + low press -0.05; very defensive -0.18.
+
+### 4.2 The dominance matrix (the final instrument): 11 settings x 8 opponent archetypes, 150 paired seeds, F4.3
+
+Opponents keep the home team's overall level (attribute shifts sum to zero, within +-8 points): balanced, possession, fast counter, direct,
+high press, low block + counter, technical, physical. Points a match, difference to the balanced setting in the same matchup; `*` = 95 %
+interval excludes zero.
+
+| setting | mean difference over the 8 archetypes | cells excluding zero |
+|---|---:|---|
+| very defensive | **-0.259** | v possession, v fast counter, v high press (all negative) |
+| balanced + low press | -0.085 | v balanced (negative) |
+| attacking + low press | -0.109 | v fast counter (negative) |
+| defensive + low press | -0.084 | none |
+| defensive | -0.019 | none |
+| balanced + high press | +0.025 | none |
+| very attacking | +0.058 | v physical (positive) |
+| defensive + high press | +0.075 | none |
+| attacking | +0.081 | none |
+| **attacking + high press** | **+0.142** | none (7 of 8 cells positive, the eighth -0.04) |
+
+Six of the 88 cells exclude zero (4.4 expected by chance, if the cells were independent). No setting is better than balanced against every
+archetype with an interval that excludes zero; the two weakest are the extreme conservative ones. **What is left**: attacking + high press
+is ahead of balanced in seven columns (mean +0.14, about 2.6 standard errors of that mean). That is a credible football result between equals
+(pressing sides do outperform), but its cost in the engine is energy and condition (section 6), which one match does not charge: section 14
+charges it across a season.
+
+### 4.3 Player quality against tactics (200 pairs): TBD_QUALITY
+
+## 5. Defensive organisation (priority P0)
+
+**What was wrong.** `shape_pass` is a good defence: it shifts the untasked players with the ball, drops the lines goal-side of the ball when
+the ball is within 40 m of the own goal and keeps a level back line. Only a mentality at or below 0.4 got it. So the grid compared two ways
+of defending, not two tactics.
+
+**What was done.** The routine is the same for everybody. The instructions set two distances, continuously (pure function `block_shape`,
+three unit tests): the squeeze (mentality: 0.05 per unit of defensiveness; width: 0.08 per unit) and the depth within which the lines drop
+behind the ball (6 m per unit of defensiveness). Nothing is a bonus: a balanced team now defends competently, a defensive team gives up
+territory and chances (very defensive concedes +2.0 shots and scores -1.2), an attacking team keeps its lines higher.
+
+**Verified.** `every_team_defends_in_the_block` (the three mentalities all show 100+ block labels a match, while a balanced F4.2 team never
+did), the F4.2 mechanism suite, the Mission 11 and 12 defence suites and the unchanged golden digests; the dose-response in sections 2 and 4.
+
+**Staged attacks against an organised low block** (`tests/f43_block_scenarios.rs`, 300 staged attacks of 20 s per cell; shots per 100
+attacks, F4.2 | F4.3): central penetration 14 to 17 | 18 to 24; wide 7 to 19 | 9 to 12; switch of play 4 to 8 | 6 to 9; ball in behind
+4 to 11 | 8 to 12; counter against a high line 3 to 5 | 4 to 5. Goals per 100 attacks are 0 to 2 everywhere. These cells have a standard error
+of 2 to 3 shots, so the table shows that no kind of attack gets through an organised block in a staged 20 seconds, not that one kind of attack
+is better than another. The F4.3 balanced block concedes more shots to a central penetration (24 against 16): the block's trade of volume for
+quality, now for everybody.
+
+## 6. Pressing (priority P0)
+
+**The pipeline, traced** (trigger, movement, angle, lane closure, perception, first touch, decision, execution, duel, error, recovery,
+counter): the presser reaches the ball sooner (F4.2: 10.0 s to 5.0 s from a low to a very high press); the carrier's utility counts
+the closing speed; a hurried pass loses up to 15 % of its execution quality (less for a composed player); the lane risk of every option
+is computed from where the pressers actually are. What is missing is a *reason for the carrier to execute worse*: he chooses a safer, shorter
+option, so the pass he makes is as accurate.
+
+**What the controlled tests show** (`f43_mechanisms`, 300 seeds each, same team-mates):
+* pressure changes the decision: the first pass of a carrier with a defender at 2.5 m gains 4.7 m towards goal, with one at 14 m 6.1 m
+  (`pressure_makes_the_carrier_choose_a_less_progressive_pass`); it completes 92 % against 90 %;
+* a high press hurries him: against a press of 90 the builder (defender at 9 m) makes 1.65 passes and fails 0.24 in 8 s, against a press of 10 0.70
+  and 0.08 (`a_high_press_hurries_the_builder_into_failed_passes`).
+
+**Whole matches** (200 pairs, press 85 against 50; balanced opponent): shots conceded **-2.2** [-3.0, -1.3], open chances conceded **-3.4**
+[-4.1, -2.7], goals against -0.21 [-0.46, +0.05], points +0.07 [-0.20, +0.33]; costs: own-third losses **+1.5**, counter-attack shots conceded
+**+0.4**, energy **+8,350 eu (+5.5 %)**, condition at the end **-3.2 points**. Against the technical opponent: shots conceded -3.7, goals against
+-0.35, points +0.18. A low press (15 against 50) concedes **+8.4 shots and +9.7 open chances** and saves 14,000 eu (-9 %): low pressing remains
+a legitimate choice only for a team that expects fewer chances than it concedes. **Not demonstrated:** possession won in the opponent's final
+40 m is +0.6 [-0.1, +1.2], so the benefit comes through the chances the opponent builds, not through more turnovers. That is the remaining
+part of gate 2.
+
+## 7. Offensive mentality and defensive exposure (priority P0)
+
+Against an identical balanced opponent (300 pairs), F4.2 | F4.3:
+
+| | very defensive | defensive | attacking | very attacking |
+|---|---|---|---|---|
+| shots for | -1.57 \| -1.24 | -0.69 \| +0.52 | +1.29 \| +0.95 | +1.72 \| +0.80 |
+| shots conceded | +6.82 \| +1.97 | +5.39 \| +0.73 | -0.59 \| -0.93 | -1.28 \| -0.43 |
+| open chances conceded | +4.20 \| +1.27 | +3.23 \| +0.53 | -0.36 \| -0.54 | -1.13 \| -0.21 |
+| counter-attack shots conceded | +0.87 \| +0.12 | +0.68 \| +0.09 | +0.09 \| -0.21 | -0.06 \| -0.18 |
+| goals against | -0.21 \| +0.16 | **-0.26 \| +0.04** | -0.11 \| -0.03 | -0.18 \| -0.07 |
+| points | +0.04 \| **-0.18** | +0.06 \| -0.05 | +0.12 \| **+0.24** [+0.03, +0.45] | +0.10 \| +0.14 |
+| energy (eu) | +3,247 \| -1,606 | +2,995 \| -2,609 | +103 \| +2,043 | +2,558 \| +6,375 |
+
+The defensive settings no longer buy fewer goals with more shots (F4.2: -0.26 goals for +5.4 shots; F4.3: +0.04 for +0.7). Attacking still suppresses
+shots conceded (territory) and is now worth more points against equals (+0.24).
+
+**The opponent context** (very attacking + high press against balanced, 300 pairs), F4.2 | F4.3:
+
+| | ordinary opponent | counter-attacking opponent (stronger in transition, same level) |
+|---|---|---|
+| shots conceded | +0.04 \| **-2.05** [-2.73, -1.38] | **+2.78 \| +1.26** [+0.44, +2.08] |
+| counter-attack shots conceded | +0.10 \| -0.03 | **+0.41 \| -0.06** |
+| goals against | -0.34 \| -0.24 | +0.29 \| +0.24 [-0.02, +0.50] |
+| points | +0.06 \| **+0.36** [+0.14, +0.58] | -0.11 \| -0.10 [-0.27, +0.08] |
+
+The sign of the result depends on the opponent (the difference between the two columns in F4.3 is +0.46 points), so attacking is not
+universally safer; but against an ordinary opponent it is more profitable than in F4.2, and the exposure against the counter side is
+visible in the shots (+1.3) and goals (+0.24) conceded rather than in the counter-attack tally. **Unresolved**: the engine under-prices
+attacking commitment between equals. A full fix needs the attacking side's productivity (chances created per possession) to saturate, which
+this run did not touch.
+
+**A full-back caught forward** (`a_full_back_caught_high`, a study, 300 seeds): not demonstrated. With the left-back forward, the counter
+reaches the box as often (0.99 against 0.94) and ends in a shot **less** often (0.15 against 0.29). In this staging the left-back is behind the
+ball and the other defenders are back; I did not find a staging that isolates the exposure, and I did not bend an assertion to pass.
+
+## 8. Discipline (priority P1)
+
+References, with competition, season, sample and definition (not targets): **Premier League 2023/24**, 380 matches, 1,694 yellow cards
+= **4.46 a match** (tournamentfootball.co.uk statistics page); **Bundesliga 2023/24**, 306 matches, 1,269 yellow cards = **4.15** (DFB data
+center); red cards about 0.16 a match and 62 to 64 sendings-off a season in the decade before (The Analyst, via the F4.2 report); fouls a
+match across the big leagues **20.9 (Premier League) to about 27 (La Liga)** (CIES Football Observatory, period not stated); penalties about
+0.3 a match (unsourced estimate); penalty conversion about 77 % (widely published; no single source checked in this run). The sources differ
+in period, in whether a second yellow counts as a card and in the definition of a foul; two leagues are not a population.
+
+**Mechanism.** `tactical_foul`: a defender who is level with or behind a carrier running at goal at 3 m/s or more and within 2.2 m
+decides, each 50 ms, with a chance that rises with the *promise* of the attack (`attack_promise`: distance to goal, 40 % off per defender
+goal-side, speed), with his aggression, and is cut when the foul would be a penalty (x0.35 x0.05), a sending-off (x0.15 for an obvious chance) or
+a second caution (x0.4). The referee reads it with the ordinary scale plus an increment for denying an obvious chance (0.5), and a booked player's
+borderline second caution is read as careless (0.35). Nothing is scheduled; every foul has an offender, a victim and a position.
+
+**Tests.** `a_beaten_defender_fouls_a_promising_attack_only_when_the_decision_exists` (0 against 57 fouls in 120 staged attacks),
+`a_run_far_from_goal_is_not_worth_a_foul`, `a_covered_attack_is_held_less_than_an_open_one` (57 against 1),
+`only_a_hold_that_denies_an_obvious_chance_carries_the_denial_term` (identical holds, 2 cautions + 3 dismissals against none when the weight is
+removed; identical when a defender covers), and three pure unit tests (`attack_promise`, `read_foul`, `block_shape`).
+
+**Result** (600 whole matches, both teams, per match; 95 % interval):
+
+| | M12 | F4.2 | **F4.3** | reference |
+|---|---:|---:|---:|---|
+| fouls | 10.77 | 10.33 | **15.32** [15.0, 15.6] | 20.9 to 27 |
+| careless / reckless / excessive force | | 8.0 / 2.3 / 0.04 | 11.0 / 4.2 / 0.08 | |
+| yellow cards (first) | 0.86 | 2.28 | **4.23** [4.07, 4.38] | 4.46 (PL), 4.15 (BL) |
+| second yellows | 0.02 | 0.12 | 0.09 | |
+| straight reds | 0.02 | 0.04 | **0.08** | |
+| dismissals | 0.04 | 0.16 | **0.17** [0.14, 0.21] | about 0.16 |
+| penalties awarded | 0.33 | 0.49 | 0.46 [0.40, 0.51] | about 0.3 (unsourced) |
+| penalties scored of those taken | 38 % | 29 % | **70 %** | about 77 % |
+
+Straight reds are now about half of the dismissals (F4.2: a quarter). Referee strictness still only moves the thresholds: the draws of a
+referee's match-long strictness and judgement noise are unchanged. **Remaining**: fouls are about 60 to 70 % of football's; the engine still has
+no off-the-ball fouls, no fouls in aerial duels beyond the F4.2 ones and no late challenge on a player who has just released the ball, and the
+foul count of football is out of reach for tackles and holds alone. Penalties are still above the reference: they are fouls in the box
+(58 % of the shots are struck from 6 to 11 m). OFM's suspension integration is unchanged (3 matches for a straight red, 1 for a second yellow,
+`Player::can_play()`), and the player statistics reconcile through the same report path (the OFM suites pass, section 16).
+
+## 9. Physical load and fatigue (priority P1)
+
+**Decomposition.** Per player who played at least 85 minutes (600 matches, identical teams, F4.2 | F4.3):
+
+| line | distance km | high-speed m (>=5.5 m/s) | sprint m (>=7 m/s) | effort eu | reserve lost, points per minute |
+|---|---:|---:|---:|---:|---:|
+| defenders | 9.54 \| 10.76 | 1,814 \| 1,583 | 653 \| 511 | 9,989 \| 10,680 | 0.152 \| 0.255 |
+| midfielders | 16.57 \| 17.13 | 5,190 \| 5,211 | 1,739 \| 1,722 | 16,423 \| 16,803 | 0.493 \| 0.554 |
+| forwards | 17.72 \| 17.45 | 5,897 \| 5,317 | 2,480 \| 2,104 | 17,924 \| 17,413 | 0.565 \| 0.585 |
+
+References (published tracking studies of top-flight outfield players, as I know them; **not re-sourced in this run**): total distance about
+10 to 12 km for every outfield role, high-speed running (above 19.8 km/h) about 0.6 to 1.0 km, sprinting (above 25.2 km/h) about 0.2 to 0.3 km,
+forwards within 10 % of defenders in total distance and about 1.5x in high-speed running.
+
+* **The energy accounting defect (fixed).** `rest = clamp(1 - cost / rest_cost)` credited a walking player (1.4 m/s, cost 0.53) with 47 % rest, and the
+  long-term recovery at that rest equals the cost of walking: a defender who walked all match lost nothing. With `rest_cost` 0.6 walking is not rest
+  (`walking_is_not_rest_when_rest_means_standing`: a 90-minute walk costs 0.00 of the reserve with 1.0, more than 0.07 with 0.6). The forward : defender
+  cost falls from 3.7x to 2.3x (0.152 / 0.565 to 0.255 / 0.585 points a minute).
+* **The movement volume (not fixed).** Midfielders run 17 km and forwards 17.5 km a match, high-speed running is 5 to 8 times the reference and sprinting
+  7 to 10 times; this is the Mission 9 to 12 movement calibration (the Mission 12 mode gives 16.4 and 17.1 km), and `CALIBRATION_M10_REPORT.md` already
+  recorded "14.9 km, not 10 to 12". The breakdown by ordered activity shows where it goes: a forward spends 29 minutes in formation movement
+  (4.4 km), 12 minutes in runs (3.6 km), 8 minutes pressing (2.4 km) and 9 minutes marking (2.4 km); a midfielder carries the ball 4.3 minutes (1.3 km, 0.95 km at high speed).
+  I tried the levers that exist and none is a correction: the Mission 12 need-based urgency (scope 3: shots double), the Mission 10 press leash
+  (distance -30 % but passes -45 % and shots +50 %), a longer rest between runs, a larger formation dead band (no change) and a zonal marking cost
+  (-3 %). Reducing the movement volume needs a new movement model, which is outside this run.
+* **Hybrid career model.** Kept: OFM compares a match with the neutral workload of the player's own line, one authoritative post-match update.
+  The neutral workloads change with the engine: re-measured on 300 / 221 / 94 starters of 120 FM24 matches (read-only copy of the world): TBD_WEAR.
+
+## 10. Shots, chances and scoring (priority P1)
+
+Open-play shots a match (both teams, 600 matches), F4.2 | F4.3:
+
+| distance | shots | share | on target | goal % of shots | saved / blocked / off target % |
+|---|---:|---:|---:|---:|---|
+| 0 to 6 m | 0.55 \| 0.33 | 2 \| 1 % | 80 \| 78 % | 31.2 \| 23.4 | 48 / 8 / 12 \| 54 / 7 / 15 |
+| 6 to 11 m | 20.6 \| 21.7 | 67 \| 58 % | 73 \| 61 % | 12.3 \| 9.4 | 60 / 6 / 21 \| 50 / 8 / 32 |
+| 11 to 16 m | 6.7 \| 10.4 | 22 \| 28 % | 54 \| 28 % | 4.3 \| 4.7 | 49 / 13 / 33 \| 22 / 19 / 54 |
+| 16 to 22 m | 1.7 \| 3.5 | 6 \| 9 % | 35 \| 17 % | 0.3 \| 0.6 | 34 / 16 / 49 \| 16 / 23 / 61 |
+| 22 to 30 m | 1.0 \| 1.5 | 3 \| 4 % | 24 \| 12 % | 0.2 \| 0.0 | 24 / 14 / 63 \| 12 / 18 / 70 |
+| **total** | **30.5 \| 37.5** | | **65 \| 46 %** | goals 2.99 \| 2.63 | |
+
+* **Is the F4.2 finishing rule to blame?** No. `finish_min_quality` 0.25 replaces a carry by a shot when the carrier is unpressed and the chance is clear; with
+  0.32 and 0.38 the volume is 37.7 and 37.6 (0.25: 37.5). Volume comes from the block (section 5): everybody in a compact block concedes shots
+  from 11 to 22 m (10.4 and 3.5 against 6.7 and 1.7). The rule stays.
+* **Execution (changed).** A goalkeeper whose penalty-save rate went from 18 % to 75 % between ratings of 60 and 92 is not a keeper, it is a threshold;
+  and 60 % of the shots struck from 6 to 11 m were saved. The reaction range (320 to 130 ms) became 360 to 260 ms, the dive range (0.70 to 1.55 m) 0.70
+  to 1.10 m, the open-play aim error 0.26 / 0.045 became 0.38 / 0.11 rad, with the dead-ball factor 0.4 re-set to 0.27. Penalties converted: **70 %** in whole
+  matches (isolated: 64 % of 100 at the F4.3 configuration, 72 % at F4.2). Shots on target fall from 65 % to 46 % of shots (the Premier League's published
+  2023/24 figures are 50 % for shots on target on one source and about a third on others: I could not pin a definition, so I do not claim a match);
+  goals a match are 2.63 + 0.32 penalties.
+* **Goals** per team and match: 1.5 (Premier League 2023/24: 1.64; F4.2 1.77). **Career impact**: standings, player statistics, suspensions, awards
+  and finances read the same report; the OFM suites (section 16) and the seasons (section 14) pass. The economy was not retuned for the 17 % fall in goals.
+* **Not met:** 37.5 shots a match against the Premier League's 27.6 (both teams, 2023/24, one source); mean shot distance 11.9 m against about
+  16 m; 58 % of shots from 6 to 11 m; goals from 16 m and beyond are 0.02 a match. The block raised the volume, and I could not lower it without
+  removing the block's effect, speculative shots only make it worse, and a distance-dependent keeper would move the economy again. Left as the main open item
+  of gate 6.
+
+## 11. AI manager and tactical intelligence
+
+* **One judgement for the shape.** The autonomous manager (`sim/runner/management.rs`) and OFM's assistant now both call `manager::best_formation`
+  (`formation_utility` over M12's six presets, a price on a change, an extra price for going back to the shape just left). OFM used to hard-code 4-5-1
+  for ten men and 4-3-3 for a man up. Behaviour that follows, pinned by literal tests: ten men get a back five when level (5-3-2) and keep 4-4-2 when
+  chasing late; a side that set up with a back five and is two goals down at 75' goes 4-3-3; two goals up at the break it protects with 5-3-2; a level game
+  with the numbers level keeps its shape; a deficit alone is chased with the style, not the formation; going back to the shape just left costs.
+* **Replacement.** F4.2 shared `substitution_utility_v2`. The parity test that the F4.2 reviewer found non-discriminating is kept as a wiring test (its doc says so)
+  and `the_score_decides_which_bench_player_comes_on` is the discriminating one: two bench midfielders of equal quality in the slot, a finisher and a stopper;
+  the finisher comes on when chasing, the stopper when protecting (margins 0.05 to 0.075 in utility); mutation checks by the test reviewer: ignoring the score and
+  flipping its sign both fail it.
+* **Still two implementations**: opponent-momentum sensing (`opp_pressure`) and the short-term fatigue and injury handicap terms exist only in the autonomous manager;
+  the tie rule and the "shape just left" are exact in the autonomous manager and inferred from the club's identity formation in OFM.
+* **Oscillation.** The autonomous manager's rate limit and the assistant's cooldown are unchanged; no new oscillation was seen in the seasons.
+
+## 12. Match scenarios (A to K)
+
+Same seeds and states, alternative decisions; 95 % intervals in the raw output. TBD_SCENARIOS
+
+## 13. Season and career validation
+
+TBD_SEASONS
+
+## 14. Performance (Apple Silicon, release, quiet machine, `examples/f4_perf.rs`, 10 matches)
+
+| | M12 | F4.2 head `f4ab176` | F4.3 |
+|---|---:|---:|---:|
+| whole match | 0.598 s | 0.772 s (+29 %) | **0.776 s** (+30 % over M12, +0.5 % over F4.2 as built here) |
+| one-minute slices | 0.604 s | 0.754 s | 0.784 s |
+| view() + JSON | 11.6 us | 12.0 us | 12.6 us |
+| tactical command | 156.7 us | 186.1 us | 157.1 us |
+| checkpoint at 30' | 100,390 B | 100,387 B | 100,388 B |
+| restore | 228 ms | 288 ms | 290 ms |
+
+Where the time goes (`examples/f43_hotpaths.rs`, seconds a match): M12 0.645 (decide 0.092, team planners 0.139, begin tick 0.324), F4.2 0.789 (decide **0.242**),
+F4.3 0.817 (decide 0.260). **The suspected hot path was wrong**: the reach-time work for options that cannot use it (removed, bit-identical) saved under 1.5 %;
+bounding the through-ball candidates to the 2 furthest-ahead team-mates saved 5 % and changed nothing in the football, and was not kept. The sample of the running engine
+shows `hypotf` (every `dist`), `generate_options` and `reach_time_s`; replacing the distance function would change every golden digest. The cost of F4.2's
+realism stays: the options per decision tripled. A 38-match season is about 30 s of engine time.
+
+## 15. Regression suites
+
+TBD_SUITES
+
+## 16. Reviewers (the five read-only agents of CLAUDE.md)
+
+TBD_REVIEWERS
+
+## 17. Desktop playability
+
+TBD_GUI
+
+## 18. Remaining limitations (all of them)
+
+TBD_LIMITS
+
+## 19. Git
+
+TBD_GIT
+
+## 20. Secrets and the pinned engine
+
+TBD_SECRETS
+
+## 21. Reproduce
+
+TBD_REPRO

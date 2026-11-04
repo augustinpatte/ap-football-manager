@@ -152,6 +152,26 @@ pub fn match_football_config() -> FootballConfig {
     FootballConfig::full_match_f43()
 }
 
+#[cfg(test)]
+mod football_configuration_tests {
+    use super::*;
+
+    /// Given the football every OFM match is played with,
+    /// Then it is the F4.3 one: every team in the compact block, a beaten defender able to stop an
+    /// attack, a booked player's second caution read leniently, and walking not counted as rest. A
+    /// revert to the F4.2 football would be a behaviour change, so it has to fail here.
+    #[test]
+    fn every_ofm_match_is_played_with_the_f43_football() {
+        let config = match_football_config();
+        assert_eq!(config, FootballConfig::full_match_f43());
+        assert!(config.m12.organised_block);
+        assert!(config.referee.tactical_fouls);
+        assert!(config.referee.booked_leniency > 0.0);
+        assert!(config.condition.rest_cost < FootballConfig::full_match_f42().condition.rest_cost);
+        assert_ne!(config, FootballConfig::full_match_f42());
+    }
+}
+
 /// Records on each player of the report how much of his aerobic reserve the match engine spent on him
 /// (`end fatigue - fatigue he arrived with`). The report's `physical_load` is what the career's one
 /// post-match wear step reads, so a high press or a hectic game costs condition and a low block saves it.

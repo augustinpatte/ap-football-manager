@@ -100,19 +100,22 @@ fn is_outfield(position: &Position) -> bool {
 /// Share of the aerobic reserve the match engine spends per minute on an outfield player of
 /// reference stamina in a match played with balanced tactics, by line.
 ///
-/// Measured in Run F4.2 on real club pairs of the FM24 world (120 matches, 310 defenders, 233
-/// midfielders and 93 forwards who played 85 minutes or more, stamina-normalised): 0.00068 for a
-/// defender, 0.00327 for a midfielder, 0.00422 for a forward. Run F4.1 had used one rate for every
-/// line (0.0025) after measuring synthetic players, which are almost uniform; on real players the lines
-/// differ five-fold, and a single rate charged every defender the 0.6x floor and every forward the
-/// 1.5x ceiling whatever the match. The rate is the *reference* a player's match is compared with,
-/// never the amount charged. Re-measure with `fm24_workload_reference_study` (ignored; needs the world
-/// file) when the engine's movement or condition model changes.
+/// Measured in Run F4.3 (the F4.3 football: walking no longer counts as rest) on real club pairs of the
+/// FM24 world (120 matches, 300 defenders, 221 midfielders and 94 forwards who played 85 minutes or
+/// more, stamina-normalised, default pressing): 0.00147 for a defender, 0.00391 for a midfielder,
+/// 0.00486 for a forward. Run F4.2 had 0.00068 / 0.00327 / 0.00422 under the old recovery rule, which
+/// credited a walking player with rest and so made a defender five times cheaper than a forward in the
+/// engine (6.2x between a forward and a defender; 3.3x now); the lines still differ, because the engine's movement volume does
+/// (see the F4.3 report, section 9). These are *in-sample* (no held-out matches were run). A single rate
+/// would charge every defender the 0.6x floor and every forward the 1.5x ceiling whatever the match.
+/// The rate is the *reference* a player's match is compared with, never the amount charged. Re-measure
+/// with `fm24_workload_reference_study` (ignored; needs the world file) when the engine's movement or
+/// condition model changes.
 fn reference_load_per_minute(position: &Position) -> f64 {
     match position.to_group_position() {
-        Position::Defender => 0.00068,
-        Position::Midfielder => 0.00327,
-        Position::Forward => 0.00422,
+        Position::Defender => 0.00147,
+        Position::Midfielder => 0.00391,
+        Position::Forward => 0.00486,
         _ => 0.0025,
     }
 }

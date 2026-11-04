@@ -21,10 +21,14 @@ describe("SuspensionBadge", () => {
   it("names the suspension and the matches still to miss in the language of the game", async () => {
     await i18n.changeLanguage("en");
     const { unmount } = render(<SuspensionBadge matches={2} />);
-    expect(screen.getByRole("img", { name: "Suspended — matches still to miss: 2" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Suspended — matches still to miss: 2" }),
+    ).toBeInTheDocument();
     unmount();
     await i18n.changeLanguage("de");
     render(<SuspensionBadge matches={2} />);
-    expect(screen.getByRole("img", { name: "Gesperrt — noch zu verpassende Spiele: 2" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Gesperrt — noch zu verpassende Spiele: 2" }),
+    ).toBeInTheDocument();
   });
 });
