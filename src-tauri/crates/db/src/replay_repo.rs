@@ -1,10 +1,10 @@
 //! Versioned storage for M12 replay documents.
 
-use flate2::Compression;
-use flate2::read::ZlibDecoder;
-use flate2::write::ZlibEncoder;
+use crate::compression::{deflate, inflate};
 use rusqlite::{Connection, OptionalExtension, params};
-use std::io::{Read, Write};
+
+const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
+const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
 
 pub const REPLAY_SCHEMA_VERSION: i64 = 1;
 
@@ -15,22 +15,6 @@ pub const REPLAY_SCHEMA_VERSION: i64 = 1;
 /// 2D film of it is bounded, and nothing but watching it again needs it.
 pub const REPLAYS_KEPT: i64 = 5;
 
-fn deflate(json: &str) -> Result<Vec<u8>, String> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(6));
-    encoder
-        .write_all(json.as_bytes())
-        .and_then(|()| encoder.finish())
-        .map_err(|error| error.to_string())
-}
-
-fn inflate(bytes: &[u8]) -> Result<String, String> {
-    let mut json = String::new();
-    ZlibDecoder::new(bytes)
-        .read_to_string(&mut json)
-        .map_err(|error| error.to_string())?;
-    Ok(json)
-}
-
 /// Stores the replay deflated, then drops all but the [`REPLAYS_KEPT`] most recently stored. Storing
 /// a fixture's replay again makes it the most recent (the row is replaced, and a replaced row is a
 /// new one).
@@ -40,7 +24,7 @@ pub fn save(
     fixture_id: &str,
     replay_json: &str,
 ) -> Result<(), String> {
-    let replay_z = deflate(replay_json)?;
+    let replay_z = deflate(replay_json).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     connection
         .execute(
             "INSERT OR REPLACE INTO match_replays
@@ -48,7 +32,7 @@ pub fn save(
              VALUES (?1, ?2, ?3, '', ?4)",
             params![competition_id, fixture_id, REPLAY_SCHEMA_VERSION, replay_z],
         )
-        .map_err(|error| error.to_string())?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     connection
         .execute(
             "DELETE FROM match_replays
@@ -56,7 +40,7 @@ pub fn save(
             [REPLAYS_KEPT],
         )
         .map(|_| ())
-        .map_err(|error| error.to_string())
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
 }
 
 pub fn load(
@@ -72,9 +56,11 @@ pub fn load(
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()
-        .map_err(|error| error.to_string())?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     match stored {
-        Some((_, Some(bytes))) => inflate(&bytes).map(Some),
+        Some((_, Some(bytes))) => inflate(&bytes)
+            .map(Some)
+            .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string()),
         Some((json, None)) => Ok(Some(json)),
         None => Ok(None),
     }
@@ -210,6 +196,26 @@ mod tests {
         assert_eq!(
             load(database.conn(), "league", "old").expect("load"),
             Some("{\"old\":1}".to_string())
+        );
+    }
+
+    /// Given a stored replay whose deflated bytes are damaged,
+    /// When it is loaded,
+    /// Then the player is told through the translated error, not through a library's message.
+    #[test]
+    fn a_damaged_replay_fails_with_a_translated_error() {
+        let database = GameDatabase::open_in_memory().expect("database");
+        database
+            .conn()
+            .execute(
+                "INSERT INTO match_replays (competition_id, fixture_id, schema_version, replay_json, replay_z)
+                 VALUES ('league', 'bad', ?1, '', X'789cdeadbeef')",
+                [REPLAY_SCHEMA_VERSION],
+            )
+            .expect("insert");
+        assert_eq!(
+            load(database.conn(), "league", "bad").unwrap_err(),
+            "be.error.gamePersistence.loadFailed"
         );
     }
 }

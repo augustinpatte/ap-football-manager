@@ -34,6 +34,13 @@ const STRAIGHT_RED_RATE: f64 = 0.0035;
 const UNASSISTED_SHARE: f64 = 0.3;
 /// The eleven play ninety minutes.
 const FULL_MATCH_MINUTES: u8 = 90;
+/// A player at or above this condition is rested for no one; below it he is ranked down...
+const RESTED_CONDITION: u8 = 70;
+/// ...by this much rating for each point of condition he is short of it, so a first choice at 40
+/// (15 points down) loses to a reserve at most 15 rating points worse than him.
+const RANK_PENALTY_PER_TIRED_POINT: f64 = 0.5;
+/// A side's eleven.
+const MATCH_XI: usize = 11;
 
 /// How likely a player is to score, relative to another, by where he plays.
 fn scoring_weight(position: &Position) -> f64 {
@@ -231,8 +238,11 @@ pub(super) fn lightweight_report(
 /// choice never depends on storage order.
 pub(super) fn rested_eleven<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
     let mut eligible = crate::match_day_eligibility::eligible_among(club);
-    let rank = |p: &Player| f64::from(p.ovr) - f64::from(70u8.saturating_sub(p.condition)) * 0.5;
+    let rank = |p: &Player| {
+        f64::from(p.ovr)
+            - f64::from(RESTED_CONDITION.saturating_sub(p.condition)) * RANK_PENALTY_PER_TIRED_POINT
+    };
     eligible.sort_by(|a, b| rank(b).total_cmp(&rank(a)).then_with(|| a.id.cmp(&b.id)));
-    eligible.truncate(11);
+    eligible.truncate(MATCH_XI);
     eligible
 }

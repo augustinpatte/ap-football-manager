@@ -19,7 +19,6 @@ use season_harness::worlds::{Scope, WorldSpec};
 /// What one club's players looked like at the start of the day.
 #[derive(Default, Clone)]
 struct Before {
-    suspended: BTreeMap<String, u8>,
     injured: BTreeSet<String>,
 }
 
@@ -37,7 +36,6 @@ struct Study {
     capture_goals: BTreeMap<String, u32>,
     capture_yellows: BTreeMap<String, u32>,
     capture_reds: BTreeMap<String, u32>,
-    played_suspended: Vec<String>,
     played_injured: Vec<String>,
     played_total: u64,
     zero_minute_records: u64,
@@ -105,18 +103,6 @@ impl SeasonObserver for Study {
                 .capture_reds
                 .entry(record.player_id.clone())
                 .or_default() += u32::from(record.red_cards);
-            if record.minutes_played > 0
-                && self
-                    .before
-                    .suspended
-                    .get(&record.player_id)
-                    .is_some_and(|m| *m > 0)
-            {
-                self.played_suspended.push(format!(
-                    "{} played {} while suspended",
-                    record.player_id, record.fixture_id
-                ));
-            }
             if record.minutes_played > 0 && self.before.injured.contains(&record.player_id) {
                 self.played_injured.push(format!(
                     "{} played {} while injured",
@@ -168,7 +154,7 @@ impl SeasonObserver for Study {
             }
         }
         self.prev_suspended = suspended.clone();
-        self.before = Before { suspended, injured };
+        self.before = Before { injured };
     }
 
     fn on_before_rollover(&mut self, game: &Game, season: u32) {
@@ -311,13 +297,9 @@ fn report(study: &Study) {
         println!("{line}");
     }
     println!(
-        "players who played while suspended: {}; while injured: {}",
-        study.played_suspended.len(),
+        "players who played while injured: {} (suspended: see the harness rule banned-player-never-plays)",
         study.played_injured.len()
     );
-    for line in study.played_suspended.iter().take(5) {
-        println!("  {line}");
-    }
     for line in study.played_injured.iter().take(5) {
         println!("  {line}");
     }
@@ -466,11 +448,6 @@ fn a_season_of_full_matches_keeps_availability_and_reconciles() {
         &mut (&mut study, &mut invariants),
     )
     .expect("run");
-    assert!(
-        study.played_suspended.is_empty(),
-        "{:?}",
-        study.played_suspended
-    );
     assert!(
         invariants
             .report_of(season_harness::invariants::BANNED_PLAYER_PLAYED)

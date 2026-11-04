@@ -62,6 +62,30 @@ fn compact_match_report(report: &engine::MatchReport) -> CompactMatchReport {
     }
 }
 
+/// Whether the fixture exists and has not been finalised yet.
+fn fixture_is_open(game: &Game, fixture_index: usize) -> bool {
+    game.league
+        .as_ref()
+        .and_then(|league| league.fixtures.get(fixture_index))
+        .is_some_and(|fixture| fixture.status != FixtureStatus::Completed)
+}
+
+/// The goals of a report as the scorers each side's result keeps.
+pub(super) fn scorers_by_side(report: &engine::MatchReport) -> (Vec<GoalEvent>, Vec<GoalEvent>) {
+    let side = |side: engine::Side| {
+        report
+            .goals
+            .iter()
+            .filter(|goal| goal.side == side)
+            .map(|goal| GoalEvent {
+                player_id: goal.scorer_id.clone(),
+                minute: goal.minute,
+            })
+            .collect()
+    };
+    (side(engine::Side::Home), side(engine::Side::Away))
+}
+
 /// Apply a completed match report to the game state: update fixture, standings,
 /// player stats, stamina, and generate messages. Public so Tauri can call it
 /// after a live match finishes.
@@ -116,37 +140,14 @@ pub(super) fn apply_match_report_in<F>(
 {
     // One fixture, one finalisation: a retry or a stale command must not apply its consequences
     // (statistics, wear, injuries, bans) a second time.
-    if game
-        .league
-        .as_ref()
-        .and_then(|league| league.fixtures.get(fixture_index))
-        .is_none_or(|fixture| fixture.status == FixtureStatus::Completed)
-    {
+    if !fixture_is_open(game, fixture_index) {
         log::warn!(
             "[turn] fixture {fixture_index} is already finalised or missing: report ignored"
         );
         return;
     }
 
-    // Convert engine GoalDetails → domain GoalEvents
-    let home_scorers: Vec<GoalEvent> = report
-        .goals
-        .iter()
-        .filter(|g| g.side == engine::Side::Home)
-        .map(|g| GoalEvent {
-            player_id: g.scorer_id.clone(),
-            minute: g.minute,
-        })
-        .collect();
-    let away_scorers: Vec<GoalEvent> = report
-        .goals
-        .iter()
-        .filter(|g| g.side == engine::Side::Away)
-        .map(|g| GoalEvent {
-            player_id: g.scorer_id.clone(),
-            minute: g.minute,
-        })
-        .collect();
+    let (home_scorers, away_scorers) = scorers_by_side(report);
 
     let result = MatchResult {
         home_goals: report.home_goals,

@@ -1,7 +1,8 @@
 //! Tiered simulation: competitions outside the player's active scope are
-//! "dormant" and resolved by scoreline only — no minute-by-minute events,
-//! player match stats, morale, stamina, or news. This keeps the wider world
-//! moving cheaply while the player's region is simulated in full.
+//! "dormant" and resolved by a scoreline drawn from the clubs' strength, with the lightweight
+//! tier's consequences for the players ([`super::dormant_report`]) — no minute-by-minute events,
+//! match records, morale or news. This keeps the wider world moving cheaply while the player's
+//! region is simulated in full.
 
 use std::collections::HashMap;
 
@@ -53,17 +54,54 @@ pub(super) fn simulate_dormant_day(game: &mut Game, competition_indices: &[usize
         return;
     }
 
-    // Each club that plays today: the strength of its likely eleven, and where those eleven and
-    // the rest of the squad stand in `game.players`. The squad matters as much as the eleven:
-    // a banned player who sits out the match has served it.
-    struct Playing {
-        strength: f64,
-        eleven: Vec<usize>,
-        squad: Vec<usize>,
-    }
     let positions = crate::match_day_eligibility::positions_by_club(&game.players);
+    let playing = clubs_playing(game, &due, &positions);
+
+    for (competition_index, fixture_index) in due {
+        // A stream per fixture, keyed by the competition and the two clubs: fixtures are not
+        // played in any order a save is bound to keep.
+        let fixture = &game.competitions[competition_index].fixtures[fixture_index];
+        let (home_id, away_id) = (fixture.home_team_id.clone(), fixture.away_team_id.clone());
+        let tag = format!(
+            "dormant/{}/{}/{}",
+            game.competitions[competition_index].id, home_id, away_id
+        );
+        let mut rng = game.rng_for(&tag, today);
+        crate::catchup::resolve_fixture_with_strengths(
+            &mut game.competitions[competition_index],
+            fixture_index,
+            |club_id| playing.get(club_id).map_or(50.0, |club| club.strength),
+            &mut rng,
+        );
+        let (Some(home), Some(away)) = (playing.get(&home_id), playing.get(&away_id)) else {
+            continue;
+        };
+        settle_players(
+            game,
+            (competition_index, fixture_index),
+            ((&home_id, home), (&away_id, away)),
+            &mut rng,
+        );
+    }
+}
+
+/// A club that plays today: the strength of its likely eleven, and where those eleven and the rest
+/// of the squad stand in `game.players`. The squad matters as much as the eleven: a banned player
+/// who sits out the match has served it.
+struct Playing {
+    strength: f64,
+    eleven: Vec<usize>,
+    squad: Vec<usize>,
+}
+
+/// Every club with a fixture among `due`, with its eleven chosen from how its squad stands now.
+fn clubs_playing(
+    game: &Game,
+    due: &[(usize, usize)],
+    positions: &HashMap<String, Vec<usize>>,
+) -> HashMap<String, Playing> {
     let mut playing: HashMap<String, Playing> = HashMap::new();
-    for &(competition_index, fixture_index) in &due {
+    for &(competition_index, fixture_index) in due {
         let fixture = &game.competitions[competition_index].fixtures[fixture_index];
         for club_id in [&fixture.home_team_id, &fixture.away_team_id] {
             playing.entry(club_id.clone()).or_insert_with(|| {
@@ -86,65 +124,59 @@ pub(super) fn simulate_dormant_day(game: &mut Game, competition_indices: &[usize
             });
         }
     }
+    playing
+}
 
-    for (competition_index, fixture_index) in due {
-        // A stream per fixture, keyed by the competition and the two clubs: fixtures are not
-        // played in any order a save is bound to keep.
-        let fixture = &game.competitions[competition_index].fixtures[fixture_index];
-        let (home_id, away_id) = (fixture.home_team_id.clone(), fixture.away_team_id.clone());
-        let tag = format!(
-            "dormant/{}/{}/{}",
-            game.competitions[competition_index].id, home_id, away_id
-        );
-        let mut rng = game.rng_for(&tag, today);
-        crate::catchup::resolve_fixture_with_strengths(
-            &mut game.competitions[competition_index],
-            fixture_index,
-            |club_id| playing.get(club_id).map_or(50.0, |club| club.strength),
-            &mut rng,
-        );
-        let (Some(home), Some(away)) = (playing.get(&home_id), playing.get(&away_id)) else {
-            continue;
-        };
-        let competition = &mut game.competitions[competition_index];
-        let fixture = &mut competition.fixtures[fixture_index];
-        let Some(result) = fixture.result.as_mut() else {
-            continue;
-        };
-        let fixture_id = fixture.id.clone();
+/// The positions of those of `club`'s eleven who can still play: a club that plays twice in a day
+/// fields, the second time, whoever the first match did not injure or send off.
+fn eleven_still_fit(game: &Game, club: &Playing) -> Vec<usize> {
+    club.eleven
+        .iter()
+        .copied()
+        .filter(|&position| game.players[position].can_play())
+        .collect()
+}
 
-        // The people in the score: who scored, who was booked, who was hurt.
-        let eleven_of = |club: &Playing| -> Vec<&domain::player::Player> {
-            club.eleven.iter().map(|&p| &game.players[p]).collect()
-        };
-        let report = super::dormant_report::lightweight_report(
-            (result.home_goals, result.away_goals),
-            &eleven_of(home),
-            &eleven_of(away),
-            &mut rng,
-        );
-        for goal in &report.goals {
-            let scorers = match goal.side {
-                engine::Side::Home => &mut result.home_scorers,
-                engine::Side::Away => &mut result.away_scorers,
-            };
-            scorers.push(domain::league::GoalEvent {
-                player_id: goal.scorer_id.clone(),
-                minute: goal.minute,
-            });
-        }
-        let both_clubs = super::post_match::merged_ascending(&home.squad, &away.squad);
-        super::post_match::apply_player_consequences(
-            game,
-            &fixture_id,
-            super::post_match::PlayedMatch {
-                home: (&home_id, &home.squad),
-                away: (&away_id, &away.squad),
-                both_clubs: &both_clubs,
-            },
-            &report,
-        );
+/// The people in a settled fixture's score — who scored, who was booked, who was hurt — and what
+/// that did to them. The fixture's result already holds the score; it gains its scorers.
+fn settle_players(
+    game: &mut Game,
+    (competition_index, fixture_index): (usize, usize),
+    ((home_id, home), (away_id, away)): ((&String, &Playing), (&String, &Playing)),
+    rng: &mut impl rand::RngExt,
+) {
+    let (home_eleven, away_eleven) = (eleven_still_fit(game, home), eleven_still_fit(game, away));
+    let eleven_of = |positions: &[usize]| -> Vec<&domain::player::Player> {
+        positions.iter().map(|&p| &game.players[p]).collect()
+    };
+    let fixture = &game.competitions[competition_index].fixtures[fixture_index];
+    let Some(result) = fixture.result.as_ref() else {
+        return;
+    };
+    let report = super::dormant_report::lightweight_report(
+        (result.home_goals, result.away_goals),
+        &eleven_of(&home_eleven),
+        &eleven_of(&away_eleven),
+        rng,
+    );
+    let fixture_id = fixture.id.clone();
+    if let Some(result) = game.competitions[competition_index].fixtures[fixture_index]
+        .result
+        .as_mut()
+    {
+        (result.home_scorers, result.away_scorers) = super::post_match::scorers_by_side(&report);
     }
+    let both_clubs = super::post_match::merged_ascending(&home.squad, &away.squad);
+    super::post_match::apply_player_consequences(
+        game,
+        &fixture_id,
+        super::post_match::PlayedMatch {
+            home: (home_id, &home.squad),
+            away: (away_id, &away.squad),
+            both_clubs: &both_clubs,
+        },
+        &report,
+    );
 }
 
 #[cfg(test)]
@@ -615,5 +647,28 @@ mod tests {
             with_consequences.as_secs_f64() * 1e6 / f64::from(FIXTURES),
             (with_consequences - scoreline).as_secs_f64() * 1e6 / f64::from(FIXTURES),
         );
+    }
+
+    /// Given a club that has already played once today and lost one of its eleven to injury and
+    /// another to a ban,
+    /// When its eleven is read for the next match,
+    /// Then only the players who can still play are in it.
+    #[test]
+    fn a_club_playing_twice_in_a_day_fields_only_who_can_still_play() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        add_squad(&mut game, "home", 70);
+        game.players[1].injury = Some(domain::player::Injury {
+            name: "Calf".to_string(),
+            days_remaining: 5,
+        });
+        game.players[2].suspended_matches = 1;
+        let club = super::Playing {
+            strength: 70.0,
+            eleven: vec![0, 1, 2, 3],
+            squad: (0..14).collect(),
+        };
+
+        assert_eq!(super::eleven_still_fit(&game, &club), vec![0, 3]);
     }
 }

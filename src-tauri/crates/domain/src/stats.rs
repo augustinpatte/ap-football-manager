@@ -108,7 +108,7 @@ impl StatsState {
         }
     }
 
-    /// Adds `other`'s lines; when they reach a newer season than any before, the seasons that have
+    /// Adds `other`'s lines (a capture: its totals and epoch are not carried over); when they reach a newer season than any before, the seasons that have
     /// fallen out of the window of [`SEASONS_OF_LINES_KEPT`] are folded into the totals.
     pub fn append(&mut self, other: StatsState) {
         let newest = other

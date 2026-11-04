@@ -1,3 +1,4 @@
+pub(crate) mod compression;
 pub mod game_database;
 pub mod game_persistence;
 pub mod interactive_match_repo;

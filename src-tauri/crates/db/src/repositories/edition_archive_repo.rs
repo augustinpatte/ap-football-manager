@@ -1,31 +1,10 @@
+use crate::compression::{deflate, inflate};
 use domain::edition_archive::CompletedEdition;
-use flate2::Compression;
-use flate2::read::ZlibDecoder;
-use flate2::write::ZlibEncoder;
 use rusqlite::{Connection, params};
 use std::collections::HashSet;
-use std::io::{Read, Write};
 
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
 const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
-
-/// A record's JSON, deflated. Level 6 is the default balance: the archive is written once per
-/// edition, and level 9 saved under 2% more on measured careers for twice the time.
-fn deflate(json: &str) -> Result<Vec<u8>, String> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::new(6));
-    encoder
-        .write_all(json.as_bytes())
-        .and_then(|()| encoder.finish())
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
-}
-
-fn inflate(bytes: &[u8]) -> Result<String, String> {
-    let mut json = String::new();
-    ZlibDecoder::new(bytes)
-        .read_to_string(&mut json)
-        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-    Ok(json)
-}
 
 /// Insert-only: a recorded edition is frozen, so an existing row is never rewritten or deleted.
 /// Serializes every record before the first insert and relies on the caller's transaction
@@ -54,7 +33,7 @@ pub(crate) fn persist_new_editions(
         .map(|edition| {
             let json = serde_json::to_string(edition)
                 .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-            deflate(&json)
+            deflate(&json).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
     for (edition, record_z) in new_editions.into_iter().zip(records) {
@@ -83,7 +62,7 @@ pub fn load_editions(conn: &Connection) -> Result<Vec<CompletedEdition>, String>
     .map(|row| {
         let (json, compressed) = row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
         let json = match compressed {
-            Some(bytes) => inflate(&bytes)?,
+            Some(bytes) => inflate(&bytes).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?,
             None => json,
         };
         serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())

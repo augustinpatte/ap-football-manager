@@ -155,6 +155,19 @@ struct MatchFacts {
     away_goals: u8,
 }
 
+/// What a line says about its match, as its writer has it: the match's row is found or made from it.
+struct RecordFacts<'a> {
+    fixture_id: &'a str,
+    season: u32,
+    matchday: u32,
+    date: &'a str,
+    competition: &'a FixtureCompetition,
+    home_id: &'a str,
+    away_id: &'a str,
+    /// Home first.
+    score: (u8, u8),
+}
+
 struct Matches<'conn> {
     ids: IdTable<'conn>,
     cache: HashMap<MatchFacts, i64>,
@@ -185,30 +198,17 @@ impl<'conn> Matches<'conn> {
         })
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the nine facts a record states about its match; owner=#589"
-    )]
-    fn number(
-        &mut self,
-        fixture_id: &str,
-        season: u32,
-        matchday: u32,
-        date: &str,
-        competition: &FixtureCompetition,
-        (home_id, away_id): (&str, &str),
-        (home_goals, away_goals): (u8, u8),
-    ) -> Result<i64, String> {
+    fn number(&mut self, record: &RecordFacts<'_>) -> Result<i64, String> {
         let facts = MatchFacts {
-            fixture_ref: self.ids.reference(fixture_id)?,
-            season,
-            matchday,
-            date: date.to_string(),
-            competition: fixture_competition_to_string(competition),
-            home_ref: self.ids.reference(home_id)?,
-            away_ref: self.ids.reference(away_id)?,
-            home_goals,
-            away_goals,
+            fixture_ref: self.ids.reference(record.fixture_id)?,
+            season: record.season,
+            matchday: record.matchday,
+            date: record.date.to_string(),
+            competition: fixture_competition_to_string(record.competition),
+            home_ref: self.ids.reference(record.home_id)?,
+            away_ref: self.ids.reference(record.away_id)?,
+            home_goals: record.score.0,
+            away_goals: record.score.1,
         };
         if let Some(number) = self.cache.get(&facts) {
             return Ok(*number);
@@ -258,15 +258,16 @@ fn insert_player_records(
         )
         .map_err(write_error)?;
     for record in records {
-        let fixture_no = matches.number(
-            &record.fixture_id,
-            record.season,
-            record.matchday,
-            &record.date,
-            &record.competition,
-            (&record.home_team_id, &record.away_team_id),
-            (record.home_goals, record.away_goals),
-        )?;
+        let fixture_no = matches.number(&RecordFacts {
+            fixture_id: &record.fixture_id,
+            season: record.season,
+            matchday: record.matchday,
+            date: &record.date,
+            competition: &record.competition,
+            home_id: &record.home_team_id,
+            away_id: &record.away_team_id,
+            score: (record.home_goals, record.away_goals),
+        })?;
         insert
             .execute(params![
                 fixture_no,
@@ -312,15 +313,16 @@ fn insert_team_records(conn: &Connection, records: &[TeamMatchStatsRecord]) -> R
         } else {
             (record.goals_against, record.goals_for)
         };
-        let fixture_no = matches.number(
-            &record.fixture_id,
-            record.season,
-            record.matchday,
-            &record.date,
-            &record.competition,
-            (&record.home_team_id, &record.away_team_id),
+        let fixture_no = matches.number(&RecordFacts {
+            fixture_id: &record.fixture_id,
+            season: record.season,
+            matchday: record.matchday,
+            date: &record.date,
+            competition: &record.competition,
+            home_id: &record.home_team_id,
+            away_id: &record.away_team_id,
             score,
-        )?;
+        })?;
         insert
             .execute(params![
                 fixture_no,
