@@ -252,7 +252,7 @@ fn check_condition(records: &[MatchRecord], game: &Game, label: &str) -> f64 {
     let early = arrivals[..third].iter().sum::<f64>() / third as f64;
     let late = arrivals[played - third..].iter().sum::<f64>() / third as f64;
     report_congestion(records, label);
-    let (world_goals, club_goals, _) = league_goals_per_match(&game);
+    let (world_goals, club_goals, _) = league_goals_per_match(game);
     println!(
         "[{label}] goals a league match: {club_goals:.2} in the club's matches (played by the engine), {world_goals:.2} over the whole world (mostly the statistical model outside the followed leagues)"
     );
