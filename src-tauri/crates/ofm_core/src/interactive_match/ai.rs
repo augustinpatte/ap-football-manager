@@ -19,12 +19,14 @@ use apfm_match_lab::model::{Attributes, Position};
 use apfm_match_lab::pitch::Side;
 use apfm_match_lab::sim::GameState;
 use apfm_match_lab::sim::football::manager::{
-    Line, ManagerConfig, SubContext, line_of, need_v2, performance, substitution_utility_v2,
+    Line, ManagerConfig, SubContext, formation_utility, line_of, need_v2, performance,
+    substitution_utility_v2,
 };
+use apfm_match_lab::sim::formation::FormationPreset;
 use apfm_match_lab::sim::session::{PlayerView, SessionView, TeamView};
 use domain::team::{PlayStyle, PressingIntensity, Tempo};
 
-use super::plan::{TacticalChange, TacticalPlan, supported_formations};
+use super::plan::{TacticalChange, TacticalPlan};
 
 /// A side is reviewed at most this often between checkpoints (simulated milliseconds).
 pub const REVIEW_EVERY_MS: u32 = 10 * 60_000;
@@ -502,27 +504,53 @@ fn posture(ctx: &AiContext<'_>) -> Option<TacticalChange> {
     (change != TacticalChange::default()).then_some(change)
 }
 
-/// A shape change only when a man has gone, and only to one M12 can build.
-fn formation_for(ctx: &AiContext<'_>, need: f32) -> Option<String> {
+/// The shape the situation asks for, if any: the autonomous manager's own judgement
+/// (`manager::formation_utility`, which weighs the forward presence and defensive cover of each
+/// preset against what the score and the numbers need, and charges for a change and for going back
+/// to the shape just left) applied to the presets M12 can build. OFM used to hard-code 4-5-1 for ten
+/// men and 4-3-3 for a man up; the same judgement now picks whichever preset ranks first, so a club
+/// reorganises the same way whether the match is managed here or simulated at once.
+fn formation_for(ctx: &AiContext<'_>, _need: f32) -> Option<String> {
     let men = ctx.own().on_pitch.len() as i32 - ctx.opponent().on_pitch.len() as i32;
-    let wanted = if men < 0 && need <= 0.5 {
-        "4-5-1"
-    } else if men > 0 && ctx.goal_difference() <= 0 {
-        "4-3-3"
-    } else {
-        return None;
-    };
-    (ctx.plan.formation != wanted && supported_formations().iter().any(|f| f == wanted))
-        .then(|| wanted.to_string())
+    let current = FormationPreset::from_label(&ctx.plan.formation)?;
+    let (chase, protect) = need_v2(
+        &ManagerConfig::m10(),
+        ctx.goal_difference(),
+        minutes_left(ctx),
+    );
+    // the club's own shape is the one "just left" once the plan has moved away from it
+    let identity = FormationPreset::from_label(&ctx.identity.formation);
+    let moved = ctx.plan.formation != ctx.identity.formation;
+    FormationPreset::ALL
+        .iter()
+        .copied()
+        .filter(|candidate| *candidate != current)
+        .map(|candidate| {
+            let utility = formation_utility(
+                &ManagerConfig::m10(),
+                &current.slots(),
+                &candidate.slots(),
+                chase,
+                protect,
+                men,
+                moved && identity == Some(candidate),
+            );
+            (utility, candidate)
+        })
+        .filter(|(utility, _)| *utility > 0.0)
+        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.label().cmp(a.1.label())))
+        .map(|(_, candidate)| candidate.label().to_string())
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::plan::supported_formations;
     use super::*;
     use apfm_match_lab::fixtures::identical_teams_input;
     use apfm_match_lab::model::Team;
     use apfm_match_lab::output::Period;
     use apfm_match_lab::sim::football::FootballStats;
+    use apfm_match_lab::sim::football::manager::formation_profile;
     use apfm_match_lab::sim::session::PendingSubstitution;
 
     fn player_view(team: &Team, id: &PlayerId, role: Option<Position>) -> PlayerView {
@@ -673,27 +701,110 @@ mod tests {
         assert_eq!(decide(&f.ctx(Checkpoint::Review)), Vec::new());
     }
 
+    /// The shape the autonomous manager's own utility ranks first for `current` in the given state,
+    /// computed here from the raw presets and not through the adapter under test.
+    fn autonomous_choice(
+        current: &str,
+        identity: &str,
+        chase: f32,
+        protect: f32,
+        men: i32,
+    ) -> Option<String> {
+        let cur = FormationPreset::from_label(current).expect("a preset");
+        FormationPreset::ALL
+            .iter()
+            .copied()
+            .filter(|c| *c != cur)
+            .map(|c| {
+                let u = formation_utility(
+                    &ManagerConfig::m10(),
+                    &cur.slots(),
+                    &c.slots(),
+                    chase,
+                    protect,
+                    men,
+                    current != identity && FormationPreset::from_label(identity) == Some(c),
+                );
+                (u, c)
+            })
+            .filter(|(u, _)| *u > 0.0)
+            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.label().cmp(a.1.label())))
+            .map(|(_, c)| c.label().to_string())
+    }
+
     /// Given a side that has just lost a player while level,
     /// When the dismissal is the checkpoint,
-    /// Then it reorganises at once into a compact shape M12 can build, and turns cautious.
+    /// Then it reorganises at once into the shape the autonomous manager's own utility ranks first
+    /// (one with more defensive cover than 4-4-2), and turns cautious.
     #[test]
     fn a_dismissal_makes_the_side_reorganise() {
         let mut f = fixture(40, 0, 0);
         let gone = f.view.home.on_pitch.remove(9);
         f.view.home.sent_off.push(gone);
         let c = f.tactics(Checkpoint::Dismissal).expect("a reaction");
-        assert_eq!(c.formation.as_deref(), Some("4-5-1"));
-        assert!(supported_formations().contains(&"4-5-1".to_string()));
+        let (chase, protect) = need_v2(&ManagerConfig::m10(), 0, 50.0);
+        let expected = autonomous_choice("4-4-2", "4-4-2", chase, protect, -1);
+        assert_eq!(c.formation, expected);
+        let picked = FormationPreset::from_label(c.formation.as_deref().expect("a shape change"))
+            .expect("a preset");
+        assert!(
+            formation_profile(&picked.slots()).1
+                > formation_profile(&FormationPreset::F442.slots()).1,
+            "ten men get a shape with more cover"
+        );
+        assert!(supported_formations().contains(&picked.label().to_string()));
         assert_eq!(c.style, Some(PlayStyle::Counter));
     }
 
-    /// Given the opponent down to ten, Then a side that is not winning pushes up.
+    /// Given the opponent down to ten and a side two goals behind late in the match,
+    /// When the dismissal is the checkpoint,
+    /// Then its shape is whatever the autonomous manager's utility ranks first for that state (which
+    /// may be to keep the shape: a change is costly), not a fixed 4-3-3.
     #[test]
     fn a_numerical_advantage_is_pressed_when_not_winning() {
-        let mut f = fixture(50, 0, 0);
+        let mut f = fixture(75, 0, 2);
         f.view.away.on_pitch.pop();
         let c = f.tactics(Checkpoint::Dismissal).expect("a reaction");
-        assert_eq!(c.formation.as_deref(), Some("4-3-3"));
+        let (chase, protect) = need_v2(&ManagerConfig::m10(), -2, 15.0);
+        let expected = autonomous_choice("4-4-2", "4-4-2", chase, protect, 1);
+        assert_eq!(c.formation, expected);
+    }
+
+    /// Given the opponent down to ten and a level score,
+    /// When the dismissal is the checkpoint,
+    /// Then the shape stays: the autonomous manager sees no gain worth the cost of a change.
+    #[test]
+    fn a_level_game_a_man_up_keeps_its_shape() {
+        let mut f = fixture(50, 0, 0);
+        f.view.away.on_pitch.pop();
+        let formation = f.tactics(Checkpoint::Dismissal).and_then(|c| c.formation);
+        assert_eq!(formation, None);
+    }
+
+    /// Given the same ten men, once with the score level and once a goal down late,
+    /// When the manager chooses a shape,
+    /// Then the choice follows the score: chasing, it keeps more forward presence than when level.
+    /// A fixed "4-5-1 for ten men" would give the same shape in both.
+    #[test]
+    fn the_shape_chosen_for_ten_men_follows_the_score() {
+        let shape_for = |home: u8, away: u8| {
+            let mut f = fixture(75, home, away);
+            let gone = f.view.home.on_pitch.remove(9);
+            f.view.home.sent_off.push(gone);
+            f.tactics(Checkpoint::Dismissal)
+                .and_then(|c| c.formation)
+                .and_then(|l| FormationPreset::from_label(&l))
+                .map_or_else(
+                    || formation_profile(&FormationPreset::F442.slots()),
+                    |p| formation_profile(&p.slots()),
+                )
+        };
+        let level = shape_for(0, 0);
+        let chasing = shape_for(0, 1);
+        assert!(
+            chasing.0 > level.0,
+            "chasing keeps more forward presence: {chasing:?} vs {level:?}"
+        );
     }
 
     /// Given the manager has just ordered tactics himself,
@@ -1052,6 +1163,82 @@ mod tests {
             let (proposed, ranked) = proposed_and_ranked(&f, &off);
             assert_eq!(proposed, ranked, "minute {minute}, {home}-{away}");
         }
+    }
+
+    /// Two bench midfielders who play the slot equally well (the same passing, vision, stamina,
+    /// dribbling, work rate and decisions) and differ only in what the score might want of them: one
+    /// is a finisher (finishing and pace up, tackling, marking and positioning down), the other a
+    /// stopper (the reverse). Returns (finisher, stopper).
+    fn finisher_and_stopper(f: &mut Fixture, off: &PlayerView) -> (PlayerId, PlayerId) {
+        let ids: Vec<PlayerId> = f
+            .view
+            .home
+            .bench
+            .iter()
+            .filter(|b| b.natural_position != Position::Gk)
+            .take(2)
+            .map(|b| b.id.clone())
+            .collect();
+        let (base, _) = f.squad.known(&off.id).expect("known").clone();
+        let set = |f: &mut Fixture, id: &PlayerId, attack: bool| {
+            let mut a = base.clone();
+            let (up, down) = if attack { (85, 25) } else { (25, 85) };
+            a.finishing = up;
+            a.pace = up;
+            a.tackling = down;
+            a.marking = down;
+            a.positioning = down;
+            f.squad.players.insert(id.clone(), (a, Position::Cm));
+        };
+        set(f, &ids[0], true);
+        set(f, &ids[1], false);
+        (ids[0].clone(), ids[1].clone())
+    }
+
+    /// Given a tired central midfielder and two bench midfielders of identical quality in the slot,
+    /// one a finisher and one a stopper,
+    /// When the manager's team is a goal down late, and when it is a goal up late,
+    /// Then it brings on the finisher when chasing and the stopper when protecting: the score decides
+    /// which bench player is worth bringing on. A policy that ignored the score (rating times
+    /// condition) would pick the same player in both.
+    #[test]
+    fn the_score_decides_which_bench_player_comes_on() {
+        let choose = |home: u8, away: u8| {
+            let mut f = fixture(78, home, away);
+            let off_id = f
+                .view
+                .home
+                .on_pitch
+                .iter()
+                .find(|p| p.role == Some(Position::Cm))
+                .expect("a central midfielder")
+                .id
+                .clone();
+            for p in &mut f.view.home.on_pitch {
+                if p.id == off_id {
+                    p.condition = 0.35;
+                }
+            }
+            let off = f
+                .view
+                .home
+                .on_pitch
+                .iter()
+                .find(|p| p.id == off_id)
+                .expect("starter")
+                .clone();
+            let (finisher, stopper) = finisher_and_stopper(&mut f, &off);
+            let ctx = f.ctx(Checkpoint::Review);
+            let picked = best_replacement(&ctx, &off, Position::Cm, &[]).expect("a replacement");
+            (picked, finisher, stopper)
+        };
+        let (chasing, finisher, stopper) = choose(0, 1);
+        assert_eq!(chasing, finisher, "a goal down with twelve minutes left");
+        let (protecting, finisher, stopper2) = choose(1, 0);
+        assert_eq!(stopper, stopper2, "the same bench in both states");
+        assert_eq!(protecting, stopper2, "a goal up with twelve minutes left");
+        assert_ne!(chasing, protecting);
+        let _ = finisher;
     }
 
     /// Given a tired starter and a bench player who is fresh but much weaker,

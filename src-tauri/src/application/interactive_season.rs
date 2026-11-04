@@ -148,26 +148,17 @@ fn table_played(game: &Game) -> u32 {
         .sum()
 }
 
-/// Given a generated world and the user's club,
-/// When a season of its fixtures is played as interactive M12 matches, with a save and a reload
-/// of the career after the tenth,
-/// Then: every match is finalised once (the club's table row counts exactly the matches played),
-/// nobody plays while injured, condition stays inside 0..100 and the squad average neither
-/// collapses nor saturates, and the reloaded career plays the rest exactly as the uninterrupted one.
-#[test]
-#[ignore = "study: plays a season; minutes in release"]
-fn a_season_of_interactive_matches_carries_everything_forward() {
-    let seed = 7;
-    // A: straight through
-    let a = career(seed);
-    let records = play_matches(&a, 38);
+/// What a season of the user's club must keep true, whatever world and club it is played in; returns
+/// the number of matches played and the game afterwards. `label` names the world in the output.
+fn check_season(state: &StateManager, label: &str) -> (usize, Game) {
+    let records = play_matches(state, 38);
     let played = records.len();
     assert!(
         played >= 30,
         "a season has at least thirty league matches: {played}"
     );
 
-    let game = a.get_game(|g| g.clone()).expect("game");
+    let game = state.get_game(|g| g.clone()).expect("game");
     // the club also plays cup ties: the table counts the league fixtures, once each
     let team = game.manager.team_id.clone().unwrap_or_default();
     let league_fixtures_completed = game
@@ -215,7 +206,7 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         .sum::<f64>()
         / played as f64;
     println!(
-        "season: {played} matches; squad condition before {mean_before:.1}, after {mean_after:.1}, lowest after {low:.1}; injured after a match (mean) {:.2}; reds {}",
+        "[{label}] season: {played} matches; squad condition before {mean_before:.1}, after {mean_after:.1}, lowest after {low:.1}; injured after a match (mean) {:.2}; reds {}",
         records.iter().map(|r| r.injured_after as f64).sum::<f64>() / played as f64,
         records.iter().map(|r| r.reds_after).sum::<u32>()
     );
@@ -237,7 +228,7 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         .min()
         .unwrap_or(100);
     println!(
-        "players who played arrived with condition {early:.1} (first third of the season), {late:.1} (last third); lowest {worst}"
+        "[{label}] players who played arrived with condition {early:.1} (first third of the season), {late:.1} (last third); lowest {worst}"
     );
     assert!(
         late > early - 15.0,
@@ -253,6 +244,23 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         mean_before > 45.0,
         "recovery brings the squad back between matches"
     );
+
+    (played, game)
+}
+
+/// Given a generated world and the user's club,
+/// When a season of its fixtures is played as interactive M12 matches, with a save and a reload
+/// of the career after the tenth,
+/// Then: every match is finalised once (the club's table row counts exactly the matches played),
+/// nobody plays while injured, condition stays inside 0..100 and the squad average neither
+/// collapses nor saturates, and the reloaded career plays the rest exactly as the uninterrupted one.
+#[test]
+#[ignore = "study: plays a season; minutes in release"]
+fn a_season_of_interactive_matches_carries_everything_forward() {
+    let seed = 7;
+    // A: straight through
+    let a = career(seed);
+    let (played, game) = check_season(&a, "generated, seed 7");
 
     // B: the same career, saved and reloaded after ten matches
     let directory = tempfile::TempDir::new().expect("dir");
@@ -286,4 +294,104 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         season_harness::fingerprint::first_difference(&fa, &fb)
     );
     assert_eq!(first.len() + rest.len(), played);
+}
+
+/// Given generated worlds of three different seeds, and (when `APFM_WORLD_JSON` names a copy of the FM24
+/// world, which is only read) the FM24 world with two different clubs,
+/// When a season is played in each as interactive matches,
+/// Then every one keeps what a season must keep true: each fixture finalised once, the table equal
+/// to the results, nobody playing while injured or suspended, condition that does not spiral.
+#[test]
+#[ignore = "study: plays several seasons; many minutes in release"]
+fn seasons_hold_across_seeds_clubs_and_the_fm24_world() {
+    for seed in [11, 23, 37] {
+        let state = career(seed);
+        check_season(&state, &format!("generated, seed {seed}"));
+    }
+    let Some(path) = season_harness::fm24::world_path_from_env() else {
+        println!("APFM_WORLD_JSON is not set: the FM24 world is not played (stated limitation)");
+        return;
+    };
+    // the strongest and a middling club of the world's first league, by the squads' own ratings
+    let (world, _) = season_harness::fm24::build_fm24_world(&path, 5).expect("the FM24 world");
+    let mut clubs: Vec<(f64, String)> = world
+        .teams
+        .iter()
+        .map(|t| {
+            let ovr: Vec<f64> = world
+                .players
+                .iter()
+                .filter(|p| p.team_id.as_deref() == Some(t.id.as_str()))
+                .map(|p| ofm_core::player_rating::ovr_for_position(p, &p.position))
+                .collect();
+            (
+                ovr.iter().sum::<f64>() / ovr.len().max(1) as f64,
+                t.id.clone(),
+            )
+        })
+        .filter(|(o, _)| *o > 0.0)
+        .collect();
+    clubs.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let picks = [clubs.first().cloned(), clubs.get(clubs.len() / 2).cloned()];
+    for (rating, club) in picks.into_iter().flatten() {
+        let game = season_harness::fm24::build_fm24_career(&path, &club, 5).expect("a career");
+        let state = StateManager::new();
+        state.set_game(game);
+        check_season(&state, &format!("FM24, club {club} (rating {rating:.1})"));
+    }
+}
+
+/// The club's own row of the league table after the season: (points, goals for, goals against).
+fn table_row(game: &Game) -> (u32, u32, u32) {
+    let team = game.manager.team_id.clone().unwrap_or_default();
+    game.competitions
+        .iter()
+        .flat_map(|c| c.standings.iter())
+        .filter(|s| s.team_id == team)
+        .fold((0, 0, 0), |a, s| {
+            (a.0 + s.points, a.1 + s.goals_for, a.2 + s.goals_against)
+        })
+}
+
+/// Given one generated world and club, and the club's plan set to a low block, to the balanced
+/// default and to a high press,
+/// When the same season is played under each,
+/// Then the table shows what each plan earned and the squad's arrival condition shows what it cost:
+/// a press that wins points does so by wearing the squad down, a low block saves it.
+#[test]
+#[ignore = "study: plays three seasons; many minutes in release"]
+fn a_high_press_pays_for_itself_in_condition_across_a_season() {
+    use domain::team::{PlayStyle, PressingIntensity};
+    let plans = [
+        (
+            "low block",
+            PlayStyle::Defensive,
+            PressingIntensity::Passive,
+        ),
+        ("balanced", PlayStyle::Balanced, PressingIntensity::Medium),
+        (
+            "high press",
+            PlayStyle::HighPress,
+            PressingIntensity::Aggressive,
+        ),
+    ];
+    for seed in [11u64, 23] {
+        println!("--- generated world, seed {seed}");
+        for (name, style, pressing) in &plans {
+            let mut game = WorldSpec::gate(seed).build().expect("a generated world");
+            let id = game.manager.team_id.clone().expect("a club");
+            let team = game
+                .teams
+                .iter_mut()
+                .find(|t| t.id == id)
+                .expect("the club");
+            team.play_style = style.clone();
+            team.tactics_phase.pressing_intensity = pressing.clone();
+            let state = StateManager::new();
+            state.set_game(game);
+            let (played, after) = check_season(&state, &format!("{name}, seed {seed}"));
+            let (points, gf, ga) = table_row(&after);
+            println!("[{name}, seed {seed}] {played} matches: {points} points, goals {gf}-{ga}");
+        }
+    }
 }

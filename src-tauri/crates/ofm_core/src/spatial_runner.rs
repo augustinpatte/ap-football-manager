@@ -143,11 +143,13 @@ fn simulate_with_engine_output(
 }
 
 /// The football every OFM match is played with, the instant, the replayed and the interactive one
-/// alike. One place, so that a match watched and a match simulated cannot drift apart. Run F4.2:
-/// `full_match_f42` is `full_match_m12` plus the mechanisms that give football decisions football
-/// consequences (space-aware passing, pressing the receiver, a compact block for defensive teams).
+/// alike. One place, so that a match watched and a match simulated cannot drift apart. Run F4.3:
+/// `full_match_f43` is `full_match_f42` plus the final balance corrections (every team defends in the
+/// compact block, a beaten defender can stop an attack with a foul, a flatter keeper, walking is not
+/// rest); the earlier configurations are untouched, so a checkpoint written under one replays as it
+/// was recorded.
 pub fn match_football_config() -> FootballConfig {
-    FootballConfig::full_match_f42()
+    FootballConfig::full_match_f43()
 }
 
 /// Records on each player of the report how much of his aerobic reserve the match engine spent on him
