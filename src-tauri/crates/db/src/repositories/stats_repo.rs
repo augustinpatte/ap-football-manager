@@ -1138,4 +1138,28 @@ mod tests {
         );
         assert!(loaded.player_matches.iter().all(|r| r.season >= 2031));
     }
+
+    /// Given a file written at one epoch of folding and a memory at a later one whose lines are the
+    /// same ones (the totals are what the fold changed),
+    /// When memory is saved,
+    /// Then the file's totals are rewritten: the append path alone would leave the old totals behind.
+    #[test]
+    fn totals_of_a_later_epoch_are_written_even_when_the_lines_did_not_move() {
+        let db = test_db();
+        let mut stats = history_of(3);
+        persist_stats_state(db.conn(), &stats).unwrap();
+
+        stats.player_totals = vec![PlayerStatsTotals {
+            player_id: "fixture-0000-p0".to_string(),
+            minutes_played: 4_500,
+            ..PlayerStatsTotals::default()
+        }];
+        stats.totals_epoch = 1;
+        persist_stats_state(db.conn(), &stats).unwrap();
+
+        let loaded = load_stats_state(db.conn()).unwrap();
+        assert_eq!(loaded.player_totals, stats.player_totals);
+        assert_eq!(loaded.totals_epoch, 1);
+        assert_eq!(loaded.player_matches.len(), stats.player_matches.len());
+    }
 }

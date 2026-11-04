@@ -502,8 +502,15 @@ mod tests {
 
         for player in &game.players {
             let index: usize = player.id[player.id.len() - 2..].parse().unwrap();
-            if index < 11 && player.stats.minutes_played > 30 {
-                assert!(player.condition < 100, "{} played and is fresh", player.id);
+            if index < 11 {
+                assert!(
+                    player.stats.minutes_played > 0,
+                    "{} did not play",
+                    player.id
+                );
+                if player.stats.minutes_played > 30 {
+                    assert!(player.condition < 100, "{} played and is fresh", player.id);
+                }
             }
             if index >= 11 {
                 assert_eq!(player.condition, 100, "{} did not play", player.id);

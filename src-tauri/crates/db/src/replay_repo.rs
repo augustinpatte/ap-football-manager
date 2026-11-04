@@ -128,6 +128,11 @@ mod tests {
             )
             .expect("save");
         }
+        let stored: i64 = database
+            .conn()
+            .query_row("SELECT COUNT(*) FROM match_replays", [], |row| row.get(0))
+            .expect("count");
+        assert_eq!(stored, 5, "a career keeps its five most recent replays");
         let kept = |n: i64| load(database.conn(), "league", &format!("fixture-{n}")).expect("load");
         assert_eq!(kept(0), None);
         assert_eq!(kept(2), None);
