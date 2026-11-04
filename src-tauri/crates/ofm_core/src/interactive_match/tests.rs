@@ -742,16 +742,17 @@ fn every_match_that_reaches_full_time_can_be_finalised() {
 }
 
 /// Given full matches of OFM-adapted players with balanced tactics,
-/// When each starter's measured load is compared with the neutral workload of his position,
-/// Then the mean ratio per line stays near 1: the reference constants in `player_wear` still describe
-/// the engine. (They were measured on the engine's own fixture players; this checks them on players
-/// adapted from the career, and fails if the engine drifts.)
+/// When each starter's measured load is read,
+/// Then every line has starters and every one of them has a measured, finite load.
+///
+/// (Until Run F4.2 this test also required the mean ratio to the neutral workload to stay near 1 per
+/// line. That held only for these synthetic players, whose attributes are nearly uniform; the neutral
+/// workloads are now per line and come from real club pairs, so the drift check is
+/// `fm24_workload_reference_study`.)
 #[test]
-fn neutral_matches_cost_the_reference_load() {
-    let mut sums = [(0.0_f64, 0u32); 3];
-    let mut raw = [(0.0_f64, 0u32); 3];
-    let mut played = 0;
-    for seed in 1..=24 {
+fn every_starter_of_a_match_has_a_measured_load() {
+    let mut per_line = [0u32; 3];
+    for seed in 1..=8 {
         let g = game(seed);
         let mut m = InteractiveMatch::start(&g, identity(), "calibration").unwrap();
         run_to_end(&mut m);
@@ -766,42 +767,19 @@ fn neutral_matches_cost_the_reference_load() {
             let load = stats
                 .physical_load
                 .expect("a player who played has a measured load");
-            let line = match player.position {
-                domain::player::Position::Goalkeeper => continue,
-                domain::player::Position::Defender => 0,
-                domain::player::Position::Midfielder => 1,
-                domain::player::Position::Forward => 2,
-                _ => continue,
-            };
-            let stamina_effect = 1.0 - 0.0125 * (f64::from(player.attributes.stamina) - 64.0);
-            raw[line].0 += f64::from(load) / (f64::from(stats.minutes_played) * stamina_effect);
-            raw[line].1 += 1;
-            sums[line].0 += crate::player_wear::load_ratio(
-                &player.position,
-                player.attributes.stamina,
-                stats.minutes_played,
-                load,
-            );
-            sums[line].1 += 1;
-            played += 1;
+            assert!(load.is_finite() && load >= 0.0);
+            match player.position.to_group_position() {
+                domain::player::Position::Defender => per_line[0] += 1,
+                domain::player::Position::Midfielder => per_line[1] += 1,
+                domain::player::Position::Forward => per_line[2] += 1,
+                _ => {}
+            }
         }
     }
-    for (line, (sum, n)) in raw.iter().enumerate() {
-        println!(
-            "RAW line {line}: {:.5} of the reserve per minute over {n}",
-            sum / f64::from(*n)
-        );
-    }
-    assert!(played > 60, "enough starters measured: {played}");
-    for (line, (sum, n)) in sums.iter().enumerate() {
-        assert!(*n > 0, "line {line} measured");
-        let mean = sum / f64::from(*n);
-        println!("line {line}: mean load ratio {mean:.3} over {n} starters");
-        assert!(
-            (0.85..=1.2).contains(&mean),
-            "line {line}: mean load ratio {mean:.3} is far from neutral"
-        );
-    }
+    assert!(
+        per_line.iter().all(|n| *n > 0),
+        "every line measured: {per_line:?}"
+    );
 }
 
 /// Given a finished match,
@@ -952,6 +930,8 @@ fn fm24_workload_reference_study() {
         .collect();
 
     let (mut started, mut refused) = (0, 0);
+    // load ratio to the line's neutral, default pressing: (sum, n) per line
+    let mut ratios = [(0.0_f64, 0u32); 3];
     // pressing -> (matches, fouls, cautions, dismissals, of which second yellows)
     let mut discipline =
         std::collections::BTreeMap::<&'static str, (u32, u32, u32, u32, u32)>::new();
@@ -1032,6 +1012,15 @@ fn fm24_workload_reference_study() {
                 let e = cell.entry((line, band, name)).or_insert((0.0, 0));
                 e.0 += raw;
                 e.1 += 1;
+                if name == "default" {
+                    ratios[line].0 += crate::player_wear::load_ratio(
+                        &p.position,
+                        p.attributes.stamina,
+                        stats.minutes_played,
+                        load,
+                    );
+                    ratios[line].1 += 1;
+                }
             }
         }
     }
@@ -1058,5 +1047,14 @@ fn fm24_workload_reference_study() {
                 mean / 0.0025
             );
         }
+    }
+    for (line, (sum, n)) in ratios.iter().enumerate() {
+        assert!(*n > 0, "line {line} measured");
+        let mean = sum / f64::from(*n);
+        println!("line {line}: mean load ratio to its neutral {mean:.3} over {n} starters");
+        assert!(
+            (0.85..=1.2).contains(&mean),
+            "line {line}: mean load ratio {mean:.3} is far from neutral; re-measure player_wear::reference_load_per_minute"
+        );
     }
 }

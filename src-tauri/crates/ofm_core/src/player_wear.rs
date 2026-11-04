@@ -98,15 +98,24 @@ fn is_outfield(position: &Position) -> bool {
 }
 
 /// Share of the aerobic reserve the match engine spends per minute on an outfield player of
-/// reference stamina in a match played with balanced tactics. Measured on 24 full matches of
-/// players adapted from a career (Run F4.1: 0.00244 / 0.00255 / 0.00233 for defence / midfield /
-/// attack, 180 starters each), which is why one rate serves every line: with career players the
-/// engine's differences between positions come from their attributes (stamina, work rate), not from
-/// where they stand, and the clamp keeps that bounded. It is the *reference* a player's match is
-/// compared with, never the amount charged. `neutral_matches_cost_the_reference_load` fails when the
-/// engine drifts from it. (The engine's own fixture players spread 3x between defence and attack,
-/// which is a property of how that fixture is generated; do not calibrate on them.)
-const REFERENCE_LOAD_PER_MINUTE: f64 = 0.0025;
+/// reference stamina in a match played with balanced tactics, by line.
+///
+/// Measured in Run F4.2 on real club pairs of the FM24 world (120 matches, 310 defenders, 233
+/// midfielders and 93 forwards who played 85 minutes or more, stamina-normalised): 0.00068 for a
+/// defender, 0.00327 for a midfielder, 0.00422 for a forward. Run F4.1 had used one rate for every
+/// line (0.0025) after measuring synthetic players, which are almost uniform; on real players the lines
+/// differ five-fold, and a single rate charged every defender the 0.6x floor and every forward the
+/// 1.5x ceiling whatever the match. The rate is the *reference* a player's match is compared with,
+/// never the amount charged. Re-measure with `fm24_workload_reference_study` (ignored; needs the world
+/// file) when the engine's movement or condition model changes.
+fn reference_load_per_minute(position: &Position) -> f64 {
+    match position.to_group_position() {
+        Position::Defender => 0.00068,
+        Position::Midfielder => 0.00327,
+        Position::Forward => 0.00422,
+        _ => 0.0025,
+    }
+}
 /// Reference stamina and the relative change of the engine's expenditure per point above it.
 const REFERENCE_STAMINA: f64 = 64.0;
 const LOAD_PER_STAMINA_POINT: f64 = 0.0125;
@@ -122,7 +131,8 @@ pub fn load_ratio(position: &Position, stamina: u8, minutes: u8, delta_l: f32) -
         return 1.0;
     }
     let stamina_effect = 1.0 - LOAD_PER_STAMINA_POINT * (f64::from(stamina) - REFERENCE_STAMINA);
-    let expected = REFERENCE_LOAD_PER_MINUTE * f64::from(minutes) * stamina_effect.max(0.5);
+    let expected =
+        reference_load_per_minute(position) * f64::from(minutes) * stamina_effect.max(0.5);
     let raw =
         (f64::from(delta_l.max(0.0)) / expected).clamp(LOAD_RATIO_BOUNDS.0, LOAD_RATIO_BOUNDS.1);
     let weight = (f64::from(minutes) / 45.0).min(1.0);
@@ -292,7 +302,7 @@ mod tests {
     /// Then he is charged the baseline.
     #[test]
     fn a_neutral_load_is_charged_the_baseline() {
-        let neutral = (REFERENCE_LOAD_PER_MINUTE * 90.0) as f32;
+        let neutral = (reference_load_per_minute(&Position::Midfielder) * 90.0) as f32;
         assert_eq!(
             depletion_with(Position::Midfielder, 90, Some(neutral)),
             depletion_with(Position::Midfielder, 90, None)
@@ -303,7 +313,7 @@ mod tests {
     /// Then the harder match costs more condition and the easier one less (pressing is not free).
     #[test]
     fn a_harder_match_costs_more_and_an_easier_one_less() {
-        let neutral = (REFERENCE_LOAD_PER_MINUTE * 90.0) as f32;
+        let neutral = (reference_load_per_minute(&Position::Midfielder) * 90.0) as f32;
         let base = depletion_with(Position::Midfielder, 90, Some(neutral));
         assert!(depletion_with(Position::Midfielder, 90, Some(neutral * 1.17)) > base);
         assert!(depletion_with(Position::Midfielder, 90, Some(neutral * 0.7)) < base);
@@ -344,13 +354,25 @@ mod tests {
         assert!((cameo - 1.0).abs() < (full - 1.0).abs());
     }
 
-    /// Given two outfielders of different positions with the same share of the reserve spent,
-    /// Then they had the same kind of match: position alone does not change the comparison.
+    /// Given a defender, a midfielder and a forward whose match cost exactly what a neutral match
+    /// costs the players of their own line (measured on FM24 club pairs, Run F4.2),
+    /// Then each is charged the baseline: a line is compared with its own neutral, because the engine
+    /// spends about five times more of the reserve on a forward than on a defender in the same match.
     #[test]
-    fn position_alone_does_not_change_the_comparison() {
-        assert_eq!(
-            load_ratio(&Position::CenterBack, 64, 90, 0.3),
-            load_ratio(&Position::Striker, 64, 90, 0.3)
+    fn each_line_is_compared_with_its_own_neutral() {
+        for position in [
+            Position::CenterBack,
+            Position::CentralMidfielder,
+            Position::Striker,
+        ] {
+            let neutral = (reference_load_per_minute(&position) * 90.0) as f32;
+            let ratio = load_ratio(&position, 64, 90, neutral);
+            assert!((ratio - 1.0).abs() < 0.01, "{position:?}: {ratio}");
+        }
+        // and the same share of the reserve is a hard match for a defender, an easy one for a forward
+        assert!(
+            load_ratio(&Position::CenterBack, 64, 90, 0.1)
+                > load_ratio(&Position::Striker, 64, 90, 0.1)
         );
     }
 
