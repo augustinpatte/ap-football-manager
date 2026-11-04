@@ -504,6 +504,31 @@ fn posture(ctx: &AiContext<'_>) -> Option<TacticalChange> {
     (change != TacticalChange::default()).then_some(change)
 }
 
+/// The M12 preset a club's current formation is judged as. OFM supports shapes M12 has no preset for
+/// (3-4-3, 4-1-4-1); such a club is read as the preset with the closest line counts (defenders,
+/// midfielders, forwards; the earlier preset in `FormationPreset::ALL` wins a tie), so a dismissal still
+/// asks the autonomous manager's question of it instead of being ignored.
+fn nearest_preset(label: &str) -> Option<FormationPreset> {
+    if let Some(preset) = FormationPreset::from_label(label) {
+        return Some(preset);
+    }
+    let counts = |l: &str| -> Option<(i32, i32, i32)> {
+        let n: Vec<i32> = l.split('-').filter_map(|p| p.parse().ok()).collect();
+        // a middle line of several numbers (4-2-3-1) is one midfield
+        let (first, last) = (*n.first()?, *n.last()?);
+        (n.len() >= 3).then(|| (first, n[1..n.len() - 1].iter().sum(), last))
+    };
+    let target = counts(label)?;
+    FormationPreset::ALL
+        .iter()
+        .copied()
+        .filter_map(|p| counts(p.label()).map(|c| (p, c)))
+        .min_by_key(|(_, c)| {
+            (c.0 - target.0).abs() + (c.1 - target.1).abs() + (c.2 - target.2).abs()
+        })
+        .map(|(p, _)| p)
+}
+
 /// The shape the situation asks for, if any: the autonomous manager's own judgement
 /// (`manager::best_formation`, which weighs the forward presence and defensive cover of each preset
 /// against what the score and the numbers need, and charges for a change and for going back to the
@@ -512,7 +537,7 @@ fn posture(ctx: &AiContext<'_>) -> Option<TacticalChange> {
 /// match is managed here or simulated at once.
 fn formation_for(ctx: &AiContext<'_>) -> Option<String> {
     let men = ctx.own().on_pitch.len() as i32 - ctx.opponent().on_pitch.len() as i32;
-    let current = FormationPreset::from_label(&ctx.plan.formation)?;
+    let current = nearest_preset(&ctx.plan.formation)?;
     let (chase, protect) = need_v2(
         &ManagerConfig::m10(),
         ctx.goal_difference(),
@@ -830,6 +855,39 @@ mod tests {
             c.style,
             Some(PlayStyle::Attacking),
             "it chases with the style"
+        );
+    }
+
+    /// Given a side set up in 3-4-3, which M12 has no preset for, that has just lost a player,
+    /// When the dismissal is the checkpoint,
+    /// Then it is judged as the preset with the closest line counts and still reorganises: a club on a shape the engine cannot name is not left alone when it is a man down.
+    #[test]
+    fn a_club_on_a_shape_without_a_preset_is_still_reorganised() {
+        assert_eq!(
+            nearest_preset("3-4-3"),
+            Some(FormationPreset::F442),
+            "4-4-2, 4-3-3 and 3-5-2 are all two lines away; the earliest preset wins"
+        );
+        assert_eq!(
+            nearest_preset("4-1-4-1"),
+            Some(FormationPreset::F4231),
+            "4-2-3-1 and 4-5-1 have the same line counts; the earlier preset wins"
+        );
+        assert_eq!(
+            nearest_preset("5-3-2"),
+            Some(FormationPreset::F532),
+            "a preset is itself"
+        );
+        assert_eq!(nearest_preset("nonsense"), None);
+        let mut f = fixture(40, 0, 0);
+        f.plan.formation = "3-4-3".into();
+        f.identity.formation = "3-4-3".into();
+        let gone = f.view.home.on_pitch.remove(9);
+        f.view.home.sent_off.push(gone);
+        let c = f.tactics(Checkpoint::Dismissal).expect("a reaction");
+        assert!(
+            c.formation.is_some(),
+            "a man down, the shape is reconsidered"
         );
     }
 

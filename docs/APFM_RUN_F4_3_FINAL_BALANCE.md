@@ -39,9 +39,9 @@ are only partly met, and the remaining ones are met. What this run did achieve i
 | 4. Fouls, cards, penalties follow credible mechanisms | **Partly** | cards, dismissals and penalty conversion are in range; fouls are 15.3 (reference 21 to 27) and penalties awarded 0.46 (reference about 0.3, unsourced) (section 9) |
 | 5. Physical expenditure coherent by role | **Not met** | the energy accounting defect is fixed (forward / defender reserve cost 3.7x to 2.3x), but the engine still has midfielders running 17 km and forwards sprinting 2.1 km a match (section 10) |
 | 6. Shot selection and scoring calibrated | **Not met** | goals per team and penalty conversion are credible; shot volume (37.5 against 27.6) and mean shot distance (11.9 m against about 16 m) are not (section 11) |
-| 7. Match state and manager decisions matter | **Partly** | the manager decisions are tested to depend on the score; protecting a lead still has no measurable effect on points (section 13) |
-| 8. Multi-season / multi-club validation | see section 14 | |
-| 9. Save/reload and finalisation | see section 14 | |
+| 7. Match state and manager decisions matter | **Partly** | the manager decisions are tested to depend on the score and chasing now pays (+0.11 points); protecting a lead still has no measurable effect on points, and **numerical strength regressed**: against an organised block fewer defenders concede fewer shots (section 12, D) |
+| 8. Multi-season / multi-club validation | TBD_G8 | |
+| 9. Save/reload and finalisation | TBD_G9 | |
 | 10. Determinism and performance | **Met** | +4 % over F4.2, +30 % over M12 (section 15) |
 
 ## 2. Baseline reproduced (checkpoint 1)
@@ -141,7 +141,26 @@ is ahead of balanced in seven columns (mean +0.14, about 2.6 standard errors of 
 (pressing sides do outperform), but its cost in the engine is energy and condition (section 6), which one match does not charge: section 14
 charges it across a season.
 
-### 4.3 Player quality against tactics (200 pairs): TBD_QUALITY
+### 4.3 Player quality against tactics (200 pairs, F4.3; home is the stronger team)
+
+| setting | 72 v 58: points | win / draw / loss % | 66 v 62 (a league-typical gap): points | win / draw / loss % |
+|---|---:|---|---:|---|
+| balanced | 2.67 | 85 / 12 / 4 | 1.72 | 50 / 22 / 28 |
+| very defensive | 2.50 | 80 / 8 / 11 | 1.74 | 50 / 24 / 26 |
+| defensive | 2.66 | 86 / 8 / 6 | 1.76 | 53 / 17 / 30 |
+| attacking | 2.79 | 92 / 5 / 4 | 1.92 | 56 / 25 / 20 |
+| very attacking | 2.71 | 88 / 6 / 6 | **2.12** | 64 / 20 / 16 |
+| defensive + high press | 2.80 | 92 / 6 / 3 | 1.84 | 55 / 20 / 25 |
+| defensive + low press | **2.42** | 76 / 14 / 10 | **1.56** | 44 / 26 / 30 |
+| attacking + high press | 2.79 | 90 / 8 / 2 | 2.10 | 63 / 20 / 16 |
+| attacking + low press | 2.44 | 76 / 14 / 9 | 1.79 | 54 / 19 / 28 |
+| balanced + high press | 2.69 | 87 / 8 / 4 | 1.81 | 52 / 26 / 22 |
+| balanced + low press | 2.50 | 80 / 10 / 10 | 1.68 | 48 / 24 / 28 |
+
+The strong team keeps its advantage under every setting (76 to 92 % wins at 14 attribute levels; the weaker team still wins 2 to 11 % and draws 5 to 14 %). Quality is worth about 1.2 points
+a match here (2.67 against 1.45 between equals); the whole spread of tactics is 0.38 points (0.56 at 66 v 62, where the weaker side is 4 levels down: the spread of tactics there is as large as the quality gap's value, about 0.3 points).
+Cells have a standard error of about 0.1 points. The ordering is the same as elsewhere in this report: low pressing and very defensive play cost points, attacking and pressing gain some.
+
 
 ## 5. Defensive organisation (priority P0)
 
@@ -260,7 +279,7 @@ referee's match-long strictness and judgement noise are unchanged. **Remaining**
 no off-the-ball fouls, no fouls in aerial duels beyond the F4.2 ones and no late challenge on a player who has just released the ball, and the
 foul count of football is out of reach for tackles and holds alone. Penalties are still above the reference: they are fouls in the box
 (58 % of the shots are struck from 6 to 11 m). OFM's suspension integration is unchanged (3 matches for a straight red, 1 for a second yellow,
-`Player::can_play()`), and the player statistics reconcile through the same report path (the OFM suites pass, section 16).
+`Player::can_play()`), and the player statistics reconcile through the same report path (the OFM suites pass, section 15).
 
 ## 9. Physical load and fatigue (priority P1)
 
@@ -288,7 +307,7 @@ forwards within 10 % of defenders in total distance and about 1.5x in high-speed
   (distance -30 % but passes -45 % and shots +50 %), a longer rest between runs, a larger formation dead band (no change) and a zonal marking cost
   (-3 %). Reducing the movement volume needs a new movement model, which is outside this run.
 * **Hybrid career model.** Kept: OFM compares a match with the neutral workload of the player's own line, one authoritative post-match update.
-  The neutral workloads change with the engine: re-measured on 300 / 221 / 94 starters of 120 FM24 matches (read-only copy of the world): TBD_WEAR.
+  The neutral workloads change with the engine: re-measured on 300 / 221 / 94 starters of 120 FM24 matches (a read-only copy of the world): **0.00147 / 0.00391 / 0.00486** (F4.2: 0.00068 / 0.00327 / 0.00422; forward : defender 3.3x from 6.2x). The drift study then reads a mean load ratio of **0.98 / 1.03 / 1.00** for defenders / midfielders / forwards: in-sample (the same 120 matches), no held-out set was run. Before the update it read 1.30 for defenders and the study failed, as designed.
 
 ## 10. Shots, chances and scoring (priority P1)
 
@@ -313,7 +332,7 @@ Open-play shots a match (both teams, 600 matches), F4.2 | F4.3:
   2023/24 figures are 50 % for shots on target on one source and about a third on others: I could not pin a definition, so I do not claim a match);
   goals a match are 2.63 + 0.32 penalties.
 * **Goals** per team and match: 1.5 (Premier League 2023/24: 1.64; F4.2 1.77). **Career impact**: standings, player statistics, suspensions, awards
-  and finances read the same report; the OFM suites (section 16) and the seasons (section 14) pass. The economy was not retuned for the 17 % fall in goals.
+  and finances read the same report; the OFM suites (section 15) and the seasons (section 13) pass. The economy was not retuned for the 17 % fall in goals.
 * **Not met:** 37.5 shots a match against the Premier League's 27.6 (both teams, 2023/24, one source); mean shot distance 11.9 m against about
   16 m; 58 % of shots from 6 to 11 m; goals from 16 m and beyond are 0.02 a match. The block raised the volume, and I could not lower it without
   removing the block's effect, speculative shots only make it worse, and a distance-dependent keeper would move the economy again. Left as the main open item
@@ -336,7 +355,23 @@ Open-play shots a match (both teams, 600 matches), F4.2 | F4.3:
 
 ## 12. Match scenarios (A to K)
 
-Same seeds and states, alternative decisions; 95 % intervals in the raw output. TBD_SCENARIOS
+Same seeds and same starting state for every alternative (300 seeds where the state arose naturally); F4.2 in brackets; 95 % intervals.
+
+| | Scenario | Alternatives from the same state | Result (F4.3) |
+|---|---|---|---|
+| A | Protect a 1-0 lead at 70' | keep attacking / protect (block + less press) / block only / less press only | wins 75 / 73 / 79 / 74 %; points against "keep attacking": protect **-0.07** [-0.23, +0.09], block only +0.07 [-0.08, +0.22], less press only -0.01 [-0.15, +0.13]; shots conceded +0.05 [-0.27, +0.38] for the full protection; it saves **1,400 eu**. **No measurable benefit and no harm** (F4.2: the same) |
+| B | Chase 0-1 at 70' | stay balanced / go for it | points **+0.11 [+0.001, +0.22]** (F4.2: -0.01 [-0.10, +0.08]); goals for +0.05 [-0.05, +0.15]; costs 690 eu. The first measurable benefit of chasing |
+| C | A red card at 35' | eleven men / ten men keeping the structure / ten men reorganising | shots conceded after +0.56 [+0.06, +1.06] (F4.2: +1.10), goals against +0.11 [-0.04, +0.27], points +0.007 [-0.16, +0.18]; reorganising (4-5-1): shots conceded -0.05, goals against -0.003, points -0.03: **no benefit** (F4.2: goals against -0.15 [-0.30, -0.01] for +2.2 shots). The cost of a dismissal is visible in shots, not resolved in points |
+| D | Nine men | the same staged attack (20 s) against 11 / 10 / 9 defenders | shots per attack **0.31 / 0.21 / 0.10** [0.26-0.36 / 0.16-0.26 / 0.07-0.13] under F4.3 against 0.083 / 0.100 / 0.120 under F4.2. **Reversed**: with the organised block the side with fewer men concedes fewer shots. Forward passes rise as before (0.13 to 0.79), box entries do not fall. Without the block (`noorganised`) the three are flat (0.110 / 0.117 / 0.097); no single block parameter (guard depth, squeeze, ball shift, spacing) restores the F4.2 ordering. **A regression of the F4.2 gate E that I did not resolve** |
+| E | Three substitutions after sustained high pressing | keep the tired / fresh legs at 70' | condition at the end +8.2 points (F4.2: +7.2); points **+0.013 [-0.09, +0.12]**: freshness alone does not move chances or points |
+| F | An attacking full-back caught out of position | in place / caught forward | **not demonstrated** (section 7): shots 0.15 caught against 0.29 in place, ball in the box 0.99 against 0.94 |
+| G | A technically strong team against a high press | press 85 against 50, opponent technical | the press **still wins**: shots conceded -3.7 [-4.5, -2.9], goals against -0.35 [-0.60, -0.10], points +0.18 [-0.07, +0.43]. No sign that technique lets a side escape it; a limitation of gate 2 |
+| H | A low block defending repeated attacks | staged (section 5) and the "low block + counter" archetype | no staged attack beats an organised block in 20 s (shots per 100 attacks 4 to 24, goals 0 to 2); against the archetype the defensive settings are within noise of balanced (mean -0.02 to +0.08) |
+| I | Strong team against weak team | 72 v 58 and 66 v 62, every setting (section 4.3) | the strong team wins 76 to 92 % at 72 v 58 (weaker side wins 2 to 11 %), and 44 to 64 % at 66 v 62 |
+| J | Two matches within four days | TBD_J | |
+| K | A full season with suspensions, injuries and fatigue | section 13 | |
+
+
 
 ## 13. Season and career validation
 
@@ -373,7 +408,30 @@ TBD_GUI
 
 ## 18. Remaining limitations (all of them)
 
-TBD_LIMITS
+1. **Gate 5, physical realism.** Midfielders run 17 km and forwards 17.5 km a match; high-speed running is 5 to 8 times, and sprinting 7 to 10 times, what published tracking
+   studies give. Only the energy accounting was fixed. The Mission 10 levers move volume at the price of the football (section 9); a new movement model is needed.
+2. **Gate 6, shots.** 37.5 open-play shots against 27.6 and a mean shot distance of 11.9 m against about 16 m; 58 % of shots from 6 to 11 m; almost no goals from 16 m out.
+   The compact block raises shot volume for everybody; the finishing rule is not the cause.
+3. **Gate 2, pressing.** The ball is not won back more often by a high press (+0.6 [-0.1, +1.2] in the opponent's final 40 m); its benefit is the chances the opponent
+   builds. A technically strong opponent does not escape it.
+4. **Gate 3, attacking.** Against equals it is worth +0.24 points a match and suppresses shots conceded; the context dependence exists (+0.36 against an ordinary opponent,
+   -0.10 against a counter side) but is smaller than the edge. The attacking side's productivity is not saturating.
+5. **A mild tilt towards attacking + high press** in the dominance matrix (+0.14, seven of eight archetypes; no single cell significant).
+6. **Discipline.** Fouls 15.3 (reference 21 to 27); penalties 0.46 (about 0.3, unsourced); no off-the-ball fouls, no late challenges after release; on FM24 club pairs (40 matches, wide intervals) the
+   F4.3 referee gives 20.3 fouls, **6.4 cautions and 0.33 dismissals** a match (references 4.5 and 0.16): the thresholds were fitted on the engine's fixture teams and only *checked* on FM24
+   players, whose aggression and tackling vary more. Not re-fitted: 40 matches cannot support it.
+7. **Protecting a lead** has no measurable effect on points (-0.07 [-0.23, +0.09]); the cost of ten men is visible in shots, not resolved in points; a full-back caught forward is not demonstrated; **numerical strength regressed** (section 12, D): in the staged attack 11 / 10 / 9 defenders concede 0.31 / 0.21 / 0.10 shots, the reverse of F4.2.
+8. **Manager.** Opponent-momentum sensing and the short-term fatigue and injury handicap still exist only in the autonomous manager; the assistant infers "the shape just left" from the club's identity formation;
+   the autonomous manager changes formation rarely (a deficit alone never does at the break).
+9. **Wear constants are in-sample** (re-measured on the same 120 FM24 matches that check them).
+10. **Seasons**: see section 13 for the worlds, clubs and seeds actually played.
+11. **Performance**: 0.776 s a match, +30 % over M12; the options per decision tripled in F4.2 and are not bounded.
+12. **The economy** (goals 17 % lower than F4.2) and the OFM career's calibration of wage, price and reputation were not re-tuned.
+13. **References**: the real-football figures are from the sources named in section 8 and from my recollection of published tracking studies (section 9, not re-sourced); the penalty-conversion
+    and shots-on-target references are not tied to a single checked source.
+14. **GUI**: see section 17.
+15. **CI**: see section 20.
+
 
 ## 19. Git
 
@@ -381,8 +439,35 @@ TBD_GIT
 
 ## 20. Secrets and the pinned engine
 
-TBD_SECRETS
+The F4.2 CI workflows fetch the private match engine with `APFM_ENGINE_READ_TOKEN` through the composite action `.github/actions/private-engine-access` (the token is written to the runner's git
+configuration only, and `deny.toml` allows exactly the engine repository). In this run `gh secret list --repo augustinpatte/ap-football-manager` (names only, nothing printed or stored)
+**lists no repository secrets**, so the secret still does not exist. **Required user action:** create a fine-grained, read-only token for `augustinpatte/apfm-match-lab` and add it as the
+repository secret `APFM_ENGINE_READ_TOKEN`; until then CI cannot build this branch (nor F4.2's). No credential was created, printed or committed.
+
+The pin: `src-tauri/crates/ofm_core/Cargo.toml` and `Cargo.lock` name M12 revision `f1c9f4d72771d4598078578ba5f1c9a6334428c4`, which is pushed to `origin/f4.3/final-balance`. It was verified with
+`cargo check --locked -p ofm_core -p db` in a separate target directory **with the local override removed**, fetching the pinned revision from the private repository (the machine's `gh` credentials), which succeeded.
+The git-ignored `src-tauri/.cargo/config.toml` (a `paths` override for local development) was restored afterwards and is in no commit.
+
 
 ## 21. Reproduce
 
-TBD_REPRO
+```bash
+# M12 (~/apfm-match-lab, branch f4.3/final-balance). F42_FLAGS=f43 selects the football under test (the studies print which one ran).
+cargo run --release --example f43_profile -- 600 f43               # fouls, cards, penalties, shot buckets, workload by line and activity; modes m12|f42|f43
+cargo run --release --example f43_hotpaths -- 8                    # seconds a match by phase
+F42=1 cargo run --release --example f4_perf                        # also F43=1; M12 by default
+cargo run --release --example m9_penalty -- --n 300 --mode f43     # penalties against the production configuration
+F42_FLAGS=f43 F43_SEEDS=300 cargo test --release --test f43_validation -- --ignored --nocapture quick_grid
+F42_FLAGS=f43 F43_SEEDS=150 cargo test --release --test f43_validation -- --ignored --nocapture dominance_matrix   # ~35 min
+F42_FLAGS=f43 F43_SEEDS=200 cargo test --release --test f43_validation -- --ignored --nocapture pressing_levels
+F42_FLAGS=f43 F43_SEEDS=200 cargo test --release --test f43_validation -- --ignored --nocapture quality_beats
+F42_FLAGS=f43 F42_SEEDS=300 cargo test --release --test f41_calibration -- --ignored --nocapture report_the_mentality_ladder
+F42_FLAGS=f43 F42_SEEDS=300 cargo test --release --test f42_context -- --ignored --nocapture
+F42_FLAGS=f43 cargo test --release --test f41_scenarios -- --ignored --nocapture scenario_
+cargo test --release --test f43_block_scenarios -- --ignored --nocapture
+cargo test --release --test f43_mechanisms; cargo test --release --no-fail-fast
+# OFM (src-tauri/, with the local override or the pinned revision)
+APFM_WORLD_JSON=<copy of apfm-fm24-2026.json> cargo test --release -p ofm_core --lib fm24_workload -- --ignored --nocapture
+APFM_WORLD_JSON=<copy> cargo test --locked --release --lib interactive_season -- --ignored --nocapture --test-threads=1
+```
+

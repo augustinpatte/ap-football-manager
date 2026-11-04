@@ -636,4 +636,4 @@ would be a penalty, would deny an obvious chance (a sending-off) or would be a s
 then reads the act on the ordinary scale (careless, reckless, excessive force); a booked player's
 borderline second caution is read more leniently, as a referee would. Cards, bans and
 `Player::can_play()` are unchanged. Numbers, references and limits:
-[`APFM_RUN_F4_3_FINAL_BALANCE.md`](APFM_RUN_F4_3_FINAL_BALANCE.md) section 9.
+[`APFM_RUN_F4_3_FINAL_BALANCE.md`](APFM_RUN_F4_3_FINAL_BALANCE.md) section 8.
