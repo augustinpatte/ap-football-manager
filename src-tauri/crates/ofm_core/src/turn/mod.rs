@@ -2,6 +2,7 @@ mod calendar_sweep;
 pub(crate) mod cup_renewal;
 mod cup_round_summary;
 mod dormant;
+mod dormant_report;
 mod match_injuries;
 pub(crate) mod matchday_lookups;
 mod news;

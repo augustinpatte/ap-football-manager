@@ -91,9 +91,15 @@ fn dormant_leagues_evolve_like_the_followed_one() {
     );
     println!("arrivals per club over five seasons: followed {moves_f:.1}, dormant {moves_d:.1}");
 
+    // The player's own club is not held to the floor: the game warns its manager and leaves the
+    // signing to him (`squad_floor::keep_squads_at_the_floor`), and the harness's manager signs
+    // nobody, so its squad runs down by design. It ended this world on exactly 15 seniors before
+    // Run F5.0 (no margin) and on 11 after the world's trajectory moved.
+    let users_club = game.manager.team_id.clone();
     let thin: Vec<&str> = game
         .teams
         .iter()
+        .filter(|t| users_club.as_deref() != Some(t.id.as_str()))
         .filter(|t| {
             game.players
                 .iter()
@@ -120,9 +126,9 @@ fn dormant_leagues_evolve_like_the_followed_one() {
     );
 
     assert!(thin.is_empty(), "squads below the floor: {thin:?}");
-    // The dormant half improves about a point and a half more than the followed one over five
-    // seasons (1.8 before the playing-time effect existed, 1.5 with it): its clubs have no
-    // injuries or fatigue to slow them, and the followed league includes the passive user club.
+    // The dormant half improves about a point more than the followed one over five seasons (1.8
+    // before the playing-time effect existed, 1.5 with it, ~1.0 once the lightweight tier gave its
+    // clubs injuries and fatigue in Run F5.0): the followed league includes the passive user club.
     // A known divergence of the cheap tier, recorded in docs/APFM_RUN_F3_AUTONOMY.md; the bar
     // catches a larger one.
     assert!(

@@ -188,6 +188,15 @@ fn injury_multiplier_from_fitness(fitness: u8) -> f64 {
     }
 }
 
+/// The chance a match injures `player`: the match-day base risk, scaled by how fit he is. What
+/// [`roll_match_injury`] rolls, and what the lightweight tier draws its injury events from.
+pub fn match_injury_probability(player: &Player) -> f64 {
+    // Base match-day risk, slightly higher than the training-ground rate to
+    // reflect competitive intensity.
+    let base_prob = 1.0_f64 / 40.0;
+    (base_prob * injury_multiplier_from_fitness(player.fitness)).min(1.0)
+}
+
 /// Roll for a match-day injury. On a hit, sets the player's injury and returns
 /// `true`. Already-injured players are skipped (returns `false`).
 pub fn roll_match_injury(player: &mut Player, rng: &mut impl Rng) -> bool {
@@ -195,11 +204,7 @@ pub fn roll_match_injury(player: &mut Player, rng: &mut impl Rng) -> bool {
         return false;
     }
 
-    // Base match-day risk, slightly higher than the training-ground rate to
-    // reflect competitive intensity.
-    let base_prob = 1.0_f64 / 40.0;
-    let prob = (base_prob * injury_multiplier_from_fitness(player.fitness)).min(1.0);
-    if !rng.random_bool(prob) {
+    if !rng.random_bool(match_injury_probability(player)) {
         return false;
     }
 

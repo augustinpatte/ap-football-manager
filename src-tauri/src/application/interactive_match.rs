@@ -1316,4 +1316,151 @@ mod tests {
             "be.error.liveMatch.inProgress"
         );
     }
+
+    /// What a finalised match leaves in the career, as categories every simulation mode owes.
+    #[derive(Debug, PartialEq, Eq)]
+    struct Consequences {
+        fixture_completed_with_result: bool,
+        table_rows_played: Vec<u32>,
+        players_credited_with_an_appearance: bool,
+        everyone_credited_played_minutes: bool,
+        match_lines_captured: bool,
+        two_team_lines_captured: bool,
+        players_who_played_are_tired: bool,
+        goals_on_the_table_equal_goals_credited: bool,
+        a_second_finish_is_refused: bool,
+    }
+
+    fn consequences_of(state: &StateManager, second_finish: Result<(), String>) -> Consequences {
+        let (fixture, table, credited, minutes_ok, tired, goals_ok) = state
+            .get_game(|g| {
+                let competition = &g.competitions[0];
+                let fixture = &competition.fixtures[0];
+                let played: Vec<_> = g
+                    .players
+                    .iter()
+                    .filter(|p| p.stats.appearances > 0)
+                    .collect();
+                let result = fixture.result.clone();
+                let credited_goals: u32 = g.players.iter().map(|p| p.stats.goals).sum();
+                // An own goal is credited to nobody, so the credited goals are at most the score.
+                let scored = result
+                    .as_ref()
+                    .map_or(0, |r| u32::from(r.home_goals) + u32::from(r.away_goals));
+                (
+                    fixture.status == FixtureStatus::Completed && result.is_some(),
+                    competition
+                        .standings
+                        .iter()
+                        .map(|s| s.played)
+                        .collect::<Vec<_>>(),
+                    !played.is_empty(),
+                    played.iter().all(|p| p.stats.minutes_played > 0),
+                    played.iter().all(|p| p.condition < 100),
+                    credited_goals <= scored,
+                )
+            })
+            .expect("game");
+        let (players, teams) = state
+            .get_stats_state(|s| (s.player_matches.len(), s.team_matches.len()))
+            .expect("stats");
+        Consequences {
+            fixture_completed_with_result: fixture,
+            table_rows_played: table,
+            players_credited_with_an_appearance: credited,
+            everyone_credited_played_minutes: minutes_ok,
+            match_lines_captured: players >= 22,
+            two_team_lines_captured: teams == 2,
+            players_who_played_are_tired: tired,
+            goals_on_the_table_equal_goals_credited: goals_ok,
+            a_second_finish_is_refused: second_finish.is_err(),
+        }
+    }
+
+    fn fresh_state() -> StateManager {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        state
+    }
+
+    /// Given the same fixture of the same career,
+    /// When it is finalised as an interactive M12 match, as an instant M12 match and as an OFM
+    ///      engine match played instantly,
+    /// Then each leaves the same categories of consequences in the career — the fixture settled,
+    ///      both table rows, appearances with minutes, the match's lines captured, condition spent,
+    ///      the goals credited within the score — and a second finish is refused by every one.
+    /// The scores differ between engines; the career they update does not.
+    #[test]
+    fn every_simulation_mode_updates_the_same_career_systems() {
+        let interactive = fresh_state();
+        begin(&interactive);
+        to_full_time(&interactive);
+        finish_interactive_match_internal(&interactive).expect("interactive finish");
+        let interactive_consequences = consequences_of(
+            &interactive,
+            finish_interactive_match_internal(&interactive).map(|_| ()),
+        );
+
+        let instant_m12 = fresh_state();
+        start_live_match_with_identity(
+            &instant_m12,
+            0,
+            "instant",
+            false,
+            Some(COMPETITION),
+            Some(FIXTURE),
+        )
+        .expect("live session");
+        let report = instant_m12
+            .get_game(|g| {
+                ofm_core::spatial_runner::build_selected_fixture_report(g, 0, COMPETITION, FIXTURE)
+            })
+            .expect("game")
+            .expect("M12 report");
+        crate::application::live_match::finish_spatial_match(&instant_m12, report)
+            .expect("instant M12 finish");
+        let instant_consequences = consequences_of(
+            &instant_m12,
+            crate::application::live_match::finish_live_match(&instant_m12).map(|_| ()),
+        );
+
+        let lightweight = fresh_state();
+        start_live_match_with_identity(
+            &lightweight,
+            0,
+            "instant",
+            false,
+            Some(COMPETITION),
+            Some(FIXTURE),
+        )
+        .expect("live session");
+        crate::application::live_match::finish_live_match(&lightweight).expect("OFM finish");
+        let lightweight_consequences = consequences_of(
+            &lightweight,
+            crate::application::live_match::finish_live_match(&lightweight).map(|_| ()),
+        );
+
+        assert_eq!(
+            interactive_consequences,
+            Consequences {
+                fixture_completed_with_result: true,
+                table_rows_played: vec![1, 1],
+                players_credited_with_an_appearance: true,
+                everyone_credited_played_minutes: true,
+                match_lines_captured: true,
+                two_team_lines_captured: true,
+                players_who_played_are_tired: true,
+                goals_on_the_table_equal_goals_credited: true,
+                a_second_finish_is_refused: true,
+            }
+        );
+        assert_eq!(
+            instant_consequences, interactive_consequences,
+            "instant M12"
+        );
+        assert_eq!(
+            lightweight_consequences, interactive_consequences,
+            "OFM engine"
+        );
+    }
 }

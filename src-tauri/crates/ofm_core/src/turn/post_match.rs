@@ -114,6 +114,20 @@ pub(super) fn apply_match_report_in<F>(
 ) where
     F: FnMut(StatsState),
 {
+    // One fixture, one finalisation: a retry or a stale command must not apply its consequences
+    // (statistics, wear, injuries, bans) a second time.
+    if game
+        .league
+        .as_ref()
+        .and_then(|league| league.fixtures.get(fixture_index))
+        .is_none_or(|fixture| fixture.status == FixtureStatus::Completed)
+    {
+        log::warn!(
+            "[turn] fixture {fixture_index} is already finalised or missing: report ignored"
+        );
+        return;
+    }
+
     // Convert engine GoalDetails → domain GoalEvents
     let home_scorers: Vec<GoalEvent> = report
         .goals
@@ -193,25 +207,23 @@ pub(super) fn apply_match_report_in<F>(
         &both_clubs,
     ));
 
-    // Update player season stats from the engine report
-    apply_player_stats(game, report, home_team_id, away_team_id, &both_clubs);
-    resolve_post_match_promises(game, report, &both_clubs);
-
-    // Deplete stamina for players who played, scaled by minutes on pitch
-    deplete_match_stamina(game, &home_club, home_team_id, report);
-    deplete_match_stamina(game, &away_club, away_team_id, report);
-
-    // The engine's injury events become real injuries, and the user's physio reports theirs.
     let fixture_id = game
         .league
         .as_ref()
         .and_then(|league| league.fixtures.get(fixture_index))
         .map(|fixture| fixture.id.clone())
         .unwrap_or_default();
-    super::match_injuries::apply_match_injuries(game, &fixture_id, report);
-
-    // Sendings-off keep players out of the next matches; those who were out have served one.
-    crate::suspension::settle(game, &both_clubs, report);
+    resolve_post_match_promises(game, report, &both_clubs);
+    apply_player_consequences(
+        game,
+        &fixture_id,
+        PlayedMatch {
+            home: (home_team_id, &home_club),
+            away: (away_team_id, &away_club),
+            both_clubs: &both_clubs,
+        },
+        report,
+    );
 
     // Update morale based on result and individual performance
     update_post_match_morale(game, report, &both_clubs, home_team_id, away_team_id);
@@ -321,8 +333,40 @@ pub(super) fn apply_match_report_in<F>(
     }
 }
 
+/// The two clubs of a finalised match and where their players stand in `game.players`.
+pub(super) struct PlayedMatch<'a> {
+    pub home: (&'a str, &'a [usize]),
+    pub away: (&'a str, &'a [usize]),
+    /// Both clubs' positions, ascending and distinct.
+    pub both_clubs: &'a [usize],
+}
+
+/// What a finalised match does to the people who played it: the season's statistics, the
+/// condition it cost, the injuries it caused and the bans it earned, in that order (a ban is read
+/// off the statistics, and is first served in the next match).
+///
+/// The one stage every club fixture ends in, whichever simulator produced `report`: the match engine
+/// the player watches, M12, the match engine playing an unwatched fixture, and the lightweight tier
+/// of the dormant world. A match differs in how much detail its report holds, never in what a
+/// yellow card, an injury or ninety minutes then mean.
+pub(super) fn apply_player_consequences(
+    game: &mut Game,
+    fixture_id: &str,
+    played: PlayedMatch<'_>,
+    report: &engine::MatchReport,
+) {
+    let (home_team_id, home_club) = played.home;
+    let (away_team_id, away_club) = played.away;
+    apply_player_stats(game, report, home_team_id, away_team_id, played.both_clubs);
+    deplete_match_stamina(game, home_club, home_team_id, report);
+    deplete_match_stamina(game, away_club, away_team_id, report);
+    // The engine's injury events become real injuries, and the user's physio reports theirs.
+    super::match_injuries::apply_match_injuries(game, fixture_id, report);
+    crate::suspension::settle(game, played.both_clubs, report);
+}
+
 /// Two ascending position lists as one ascending list, each position once.
-fn merged_ascending(first: &[usize], second: &[usize]) -> Vec<usize> {
+pub(super) fn merged_ascending(first: &[usize], second: &[usize]) -> Vec<usize> {
     let mut merged = [first, second].concat();
     merged.sort_unstable();
     merged.dedup();
@@ -454,10 +498,7 @@ fn build_stats_state_capture(
         },
     ];
 
-    StatsState {
-        player_matches,
-        team_matches,
-    }
+    StatsState::with_lines(player_matches, team_matches)
 }
 
 // ---------------------------------------------------------------------------
@@ -1061,8 +1102,92 @@ mod tests {
         .with_player(player)
     }
 
+    /// One more match of the two clubs: the fixture is made due again, so each call is a new
+    /// matchday for the finalisation (which refuses a fixture it has already finalised).
     fn play(game: &mut Game, report: &MatchReport) {
+        if let Some(league) = game.league.as_mut() {
+            league.fixtures[0].status = FixtureStatus::Scheduled;
+        }
         apply_match_report(game, 0, "home", "away", report);
+    }
+
+    fn with_yellow(player: &str, yellows: u8) -> HashMap<String, PlayerMatchStats> {
+        let stats = PlayerMatchStats {
+            minutes_played: 90,
+            yellow_cards: yellows,
+            ..PlayerMatchStats::default()
+        };
+        HashMap::from([(player.to_string(), stats)])
+    }
+
+    fn banned(game: &Game, id: &str) -> u8 {
+        game.players
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap()
+            .suspended_matches
+    }
+
+    /// Given a player on four yellow cards this season,
+    /// When he is booked in a match, then the fifth costs him the next match;
+    /// a player on two who is booked, and one booked twice on four-to-six, pay nothing / one.
+    #[test]
+    fn the_fifth_yellow_card_of_a_season_costs_one_match() {
+        let mut game = match_game();
+        for (id, held) in [("home-3", 4), ("home-4", 2), ("home-5", 9)] {
+            game.players
+                .iter_mut()
+                .find(|p| p.id == id)
+                .unwrap()
+                .stats
+                .yellow_cards = held;
+        }
+        let mut booked = report(with_yellow("home-3", 1));
+        booked.player_stats.extend(with_yellow("home-4", 1));
+        booked.player_stats.extend(with_yellow("home-5", 1));
+        play(&mut game, &booked);
+        assert_eq!(banned(&game, "home-3"), 1, "his fifth yellow");
+        assert_eq!(banned(&game, "home-4"), 0, "his third yellow");
+        assert_eq!(banned(&game, "home-5"), 1, "his tenth yellow");
+    }
+
+    /// Given a player who has served the ban for his fifth yellow card,
+    /// When he is booked again, then the sixth to ninth cost nothing: the count is of the season,
+    /// and only each fifth card is a ban.
+    #[test]
+    fn a_yellow_card_between_the_thresholds_costs_nothing() {
+        let mut game = match_game();
+        game.players
+            .iter_mut()
+            .find(|p| p.id == "home-3")
+            .unwrap()
+            .stats
+            .yellow_cards = 5;
+        play(&mut game, &report(with_yellow("home-3", 1)));
+        assert_eq!(banned(&game, "home-3"), 0);
+    }
+
+    /// Given a finalised fixture,
+    /// When the same report is applied to it again (a retry, a stale command),
+    /// Then nothing is applied twice: appearances, the table and the bans are those of one match.
+    #[test]
+    fn a_fixture_is_finalised_once() {
+        let mut game = match_game();
+        let mut dismissal = report(with_yellow("home-3", 2));
+        dismissal.home_goals = 2;
+        dismissal.away_goals = 0;
+        dismissal.events = vec![sending_off(34, engine::EventType::RedCard, "home-3")];
+        apply_match_report(&mut game, 0, "home", "away", &dismissal);
+        apply_match_report(&mut game, 0, "home", "away", &dismissal);
+        let home = game.players.iter().find(|p| p.id == "home-3").unwrap();
+        assert_eq!(home.stats.appearances, 1);
+        assert_eq!(home.stats.yellow_cards, 2);
+        assert_eq!(home.suspended_matches, 3, "not served by its own replay");
+        let table = &game.league.as_ref().unwrap().standings;
+        assert_eq!(
+            table.iter().map(|e| e.played).collect::<Vec<_>>(),
+            vec![1, 1]
+        );
     }
 
     /// Given a straight red card in a club match,
