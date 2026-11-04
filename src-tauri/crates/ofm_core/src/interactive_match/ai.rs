@@ -19,7 +19,7 @@ use apfm_match_lab::model::{Attributes, Position};
 use apfm_match_lab::pitch::Side;
 use apfm_match_lab::sim::GameState;
 use apfm_match_lab::sim::football::manager::{
-    Line, ManagerConfig, SubContext, formation_utility, line_of, need_v2, performance,
+    Line, ManagerConfig, SubContext, best_formation, line_of, need_v2, performance,
     substitution_utility_v2,
 };
 use apfm_match_lab::sim::formation::FormationPreset;
@@ -499,18 +499,18 @@ fn posture(ctx: &AiContext<'_>) -> Option<TacticalChange> {
     }
 
     if !ctx.blocked[Group::Formation.index()] && immediate {
-        change.formation = formation_for(ctx, need);
+        change.formation = formation_for(ctx);
     }
     (change != TacticalChange::default()).then_some(change)
 }
 
 /// The shape the situation asks for, if any: the autonomous manager's own judgement
-/// (`manager::formation_utility`, which weighs the forward presence and defensive cover of each
-/// preset against what the score and the numbers need, and charges for a change and for going back
-/// to the shape just left) applied to the presets M12 can build. OFM used to hard-code 4-5-1 for ten
-/// men and 4-3-3 for a man up; the same judgement now picks whichever preset ranks first, so a club
-/// reorganises the same way whether the match is managed here or simulated at once.
-fn formation_for(ctx: &AiContext<'_>, _need: f32) -> Option<String> {
+/// (`manager::best_formation`, which weighs the forward presence and defensive cover of each preset
+/// against what the score and the numbers need, and charges for a change and for going back to the
+/// shape just left) applied to the presets M12 can build. OFM used to hard-code 4-5-1 for ten men and
+/// 4-3-3 for a man up; the same function now picks, so a club reorganises the same way whether the
+/// match is managed here or simulated at once.
+fn formation_for(ctx: &AiContext<'_>) -> Option<String> {
     let men = ctx.own().on_pitch.len() as i32 - ctx.opponent().on_pitch.len() as i32;
     let current = FormationPreset::from_label(&ctx.plan.formation)?;
     let (chase, protect) = need_v2(
@@ -519,27 +519,18 @@ fn formation_for(ctx: &AiContext<'_>, _need: f32) -> Option<String> {
         minutes_left(ctx),
     );
     // the club's own shape is the one "just left" once the plan has moved away from it
-    let identity = FormationPreset::from_label(&ctx.identity.formation);
-    let moved = ctx.plan.formation != ctx.identity.formation;
-    FormationPreset::ALL
-        .iter()
-        .copied()
-        .filter(|candidate| *candidate != current)
-        .map(|candidate| {
-            let utility = formation_utility(
-                &ManagerConfig::m10(),
-                &current.slots(),
-                &candidate.slots(),
-                chase,
-                protect,
-                men,
-                moved && identity == Some(candidate),
-            );
-            (utility, candidate)
-        })
-        .filter(|(utility, _)| *utility > 0.0)
-        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.label().cmp(a.1.label())))
-        .map(|(_, candidate)| candidate.label().to_string())
+    let previous = (ctx.plan.formation != ctx.identity.formation)
+        .then(|| FormationPreset::from_label(&ctx.identity.formation))
+        .flatten();
+    best_formation(
+        &ManagerConfig::m10(),
+        current,
+        previous,
+        chase,
+        protect,
+        men,
+    )
+    .map(|preset| preset.label().to_string())
 }
 
 #[cfg(test)]
@@ -550,7 +541,7 @@ mod tests {
     use apfm_match_lab::model::Team;
     use apfm_match_lab::output::Period;
     use apfm_match_lab::sim::football::FootballStats;
-    use apfm_match_lab::sim::football::manager::formation_profile;
+    use apfm_match_lab::sim::football::manager::{formation_profile, formation_utility};
     use apfm_match_lab::sim::session::PendingSubstitution;
 
     fn player_view(team: &Team, id: &PlayerId, role: Option<Position>) -> PlayerView {
@@ -728,7 +719,11 @@ mod tests {
                 (u, c)
             })
             .filter(|(u, _)| *u > 0.0)
-            .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.label().cmp(a.1.label())))
+            // the earlier preset wins a tie, as the autonomous manager's own loop does
+            .fold(None::<(f32, FormationPreset)>, |best, x| match best {
+                Some(b) if b.0 >= x.0 => Some(b),
+                _ => Some(x),
+            })
             .map(|(_, c)| c.label().to_string())
     }
 
@@ -779,6 +774,38 @@ mod tests {
         f.view.away.on_pitch.pop();
         let formation = f.tactics(Checkpoint::Dismissal).and_then(|c| c.formation);
         assert_eq!(formation, None);
+    }
+
+    /// Given a level game with all twenty-two on the pitch at the break,
+    /// When the manager reviews at half-time,
+    /// Then the shape stays: a change of formation has a cost, and nothing here earns it.
+    #[test]
+    fn a_level_half_time_keeps_the_shape() {
+        let f = fixture(45, 0, 0);
+        let formation = f.tactics(Checkpoint::Halftime).and_then(|c| c.formation);
+        assert_eq!(formation, None);
+    }
+
+    /// Given a side three goals down with twenty-five minutes left and all eleven on the pitch,
+    /// When the manager reviews at a checkpoint that allows a change of shape,
+    /// Then the shape stays and the tactics sliders do the chasing: the autonomous manager's
+    /// utility (`formation_utility`) puts a price on a change of shape that a deficit alone does not
+    /// pay, and the assistant now judges it the same way.
+    #[test]
+    fn a_deficit_alone_is_chased_with_the_sliders_not_the_shape() {
+        let f = fixture(65, 0, 3);
+        let c = f.tactics(Checkpoint::Halftime).expect("a reaction");
+        let (chase, protect) = need_v2(&ManagerConfig::m10(), -3, 25.0);
+        assert_eq!(
+            c.formation,
+            autonomous_choice("4-4-2", "4-4-2", chase, protect, 0)
+        );
+        assert_eq!(c.formation, None);
+        assert_eq!(
+            c.style,
+            Some(PlayStyle::Attacking),
+            "it chases with the style"
+        );
     }
 
     /// Given the same ten men, once with the score level and once a goal down late,

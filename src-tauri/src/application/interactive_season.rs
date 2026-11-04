@@ -34,6 +34,8 @@ struct MatchRecord {
     injured_after: usize,
     reds_after: u32,
     played_while_injured: usize,
+    /// The day the match was played (days since the Unix epoch), for the rest between matches.
+    day: i64,
 }
 
 fn user_squad(game: &Game) -> Vec<&domain::player::Player> {
@@ -126,6 +128,7 @@ fn play_matches(state: &StateManager, matches: usize) -> Vec<MatchRecord> {
                 .sum::<u32>()
                 - reds_before,
             played_while_injured,
+            day: before.clock.current_date.timestamp() / 86_400,
         });
     }
     records
@@ -138,14 +141,43 @@ fn career(seed: u64) -> StateManager {
     state
 }
 
-fn table_played(game: &Game) -> u32 {
+/// The club's own rows of the league tables.
+fn own_standing_rows(game: &Game) -> impl Iterator<Item = &domain::league::StandingEntry> {
     let team = game.manager.team_id.clone().unwrap_or_default();
     game.competitions
         .iter()
         .flat_map(|c| c.standings.iter())
-        .filter(|s| s.team_id == team)
-        .map(|s| s.played)
-        .sum()
+        .filter(move |s| s.team_id == team)
+}
+
+fn table_played(game: &Game) -> u32 {
+    own_standing_rows(game).map(|s| s.played).sum()
+}
+
+/// Scenario J: matches within four days of the last one against matches after a rest of six days or more,
+/// by the condition the players who played arrived with.
+fn report_congestion(records: &[MatchRecord], label: &str) {
+    let arrival = |r: &MatchRecord| {
+        r.arrived_with.iter().map(|c| f64::from(*c)).sum::<f64>()
+            / r.arrived_with.len().max(1) as f64
+    };
+    let (mut short, mut long) = (Vec::new(), Vec::new());
+    for pair in records.windows(2) {
+        let gap = pair[1].day - pair[0].day;
+        if gap <= 4 {
+            short.push(arrival(&pair[1]));
+        } else if gap >= 6 {
+            long.push(arrival(&pair[1]));
+        }
+    }
+    let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len().max(1) as f64;
+    println!(
+        "[{label}] congestion: {} matches within 4 days of the last arrive with condition {:.1}; {} after a rest of 6 days or more arrive with {:.1}",
+        short.len(),
+        mean(&short),
+        long.len(),
+        mean(&long)
+    );
 }
 
 /// What a season of the user's club must keep true, whatever world and club it is played in; returns
@@ -222,6 +254,7 @@ fn check_season(state: &StateManager, label: &str) -> (usize, Game) {
     let third = (played / 3).max(1);
     let early = arrivals[..third].iter().sum::<f64>() / third as f64;
     let late = arrivals[played - third..].iter().sum::<f64>() / third as f64;
+    report_congestion(&records, label);
     let worst = records
         .iter()
         .flat_map(|r| r.arrived_with.iter().copied())
@@ -322,7 +355,7 @@ fn seasons_hold_across_seeds_clubs_and_the_fm24_world() {
                 .players
                 .iter()
                 .filter(|p| p.team_id.as_deref() == Some(t.id.as_str()))
-                .map(|p| ofm_core::player_rating::ovr_for_position(p, &p.position))
+                .map(|p| f64::from(p.ovr))
                 .collect();
             (
                 ovr.iter().sum::<f64>() / ovr.len().max(1) as f64,
@@ -343,14 +376,9 @@ fn seasons_hold_across_seeds_clubs_and_the_fm24_world() {
 
 /// The club's own row of the league table after the season: (points, goals for, goals against).
 fn table_row(game: &Game) -> (u32, u32, u32) {
-    let team = game.manager.team_id.clone().unwrap_or_default();
-    game.competitions
-        .iter()
-        .flat_map(|c| c.standings.iter())
-        .filter(|s| s.team_id == team)
-        .fold((0, 0, 0), |a, s| {
-            (a.0 + s.points, a.1 + s.goals_for, a.2 + s.goals_against)
-        })
+    own_standing_rows(game).fold((0, 0, 0), |a, s| {
+        (a.0 + s.points, a.1 + s.goals_for, a.2 + s.goals_against)
+    })
 }
 
 /// Given one generated world and club, and the club's plan set to a low block, to the balanced

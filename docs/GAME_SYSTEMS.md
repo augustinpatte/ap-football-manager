@@ -624,3 +624,16 @@ engine played it, counted down by the club's matches (not by days, so it runs th
 into the next season), and read by every squad selection through `Player::can_play()`, the same predicate
 that keeps an injured player out. It is stored as `players.suspended_matches` (migration v065) and shown
 as a badge in the squad and tactics lists. Rules, numbers and limits: [`APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md`](APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md).
+
+### Where the fouls come from (Run F4.3)
+
+A foul is something a player does, never an event drawn to reach a rate. Two sources exist in the engine.
+A tackle on the carrier is judged when the bodies touch, as before. New in F4.3: a defender who has been
+beaten (behind a carrier who is running at goal and still within an arm's reach) decides whether to stop
+the attack by holding him. The decision rises with how promising the attack is (distance to goal,
+defenders goal-side, the carrier's speed) and with the defender's aggression, and falls when the foul
+would be a penalty, would deny an obvious chance (a sending-off) or would be a second caution. The referee
+then reads the act on the ordinary scale (careless, reckless, excessive force); a booked player's
+borderline second caution is read more leniently, as a referee would. Cards, bans and
+`Player::can_play()` are unchanged. Numbers, references and limits:
+[`APFM_RUN_F4_3_FINAL_BALANCE.md`](APFM_RUN_F4_3_FINAL_BALANCE.md) section 9.
