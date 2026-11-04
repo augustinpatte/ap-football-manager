@@ -47,6 +47,10 @@ fn compact_match_report(report: &engine::MatchReport) -> CompactMatchReport {
             side: format!("{:?}", event.side),
             player_id: event.player_id.clone(),
             secondary_player_id: event.secondary_player_id.clone(),
+            own_goal_by: match &event.detail {
+                Some(engine::EventDetail::OwnGoal { by }) => Some(by.clone()),
+                _ => None,
+            },
         })
         .collect();
 
@@ -205,6 +209,9 @@ pub(super) fn apply_match_report_in<F>(
         .map(|fixture| fixture.id.clone())
         .unwrap_or_default();
     super::match_injuries::apply_match_injuries(game, &fixture_id, report);
+
+    // Sendings-off keep players out of the next matches; those who were out have served one.
+    crate::suspension::settle(game, &both_clubs, report);
 
     // Update morale based on result and individual performance
     update_post_match_morale(game, report, &both_clubs, home_team_id, away_team_id);
@@ -1042,5 +1049,148 @@ mod tests {
                 assert_eq!(i16::from(actual.morale) - i16::from(baseline.morale), delta);
             }
         }
+    }
+
+    fn sending_off(minute: u8, event_type: engine::EventType, player: &str) -> engine::MatchEvent {
+        engine::MatchEvent::new(
+            minute,
+            event_type,
+            engine::Side::Home,
+            engine::Zone::Midfield,
+        )
+        .with_player(player)
+    }
+
+    fn play(game: &mut Game, report: &MatchReport) {
+        apply_match_report(game, 0, "home", "away", report);
+    }
+
+    /// Given a straight red card in a club match,
+    /// When the match is finalised and the club then plays three more matches,
+    /// Then the player is suspended for exactly three of them: unavailable for selection for each,
+    /// available again for the fourth. A player with no card in the report is never suspended.
+    #[test]
+    fn a_straight_red_card_costs_three_matches() {
+        let mut game = match_game();
+        let mut dismissal = report(HashMap::new());
+        dismissal.events = vec![sending_off(34, engine::EventType::RedCard, "home-3")];
+        play(&mut game, &dismissal);
+        let find =
+            |game: &Game, id: &str| game.players.iter().find(|p| p.id == id).unwrap().clone();
+        assert_eq!(find(&game, "home-3").suspended_matches, 3);
+        assert!(!find(&game, "home-3").can_play());
+        assert_eq!(
+            find(&game, "home-4").suspended_matches,
+            0,
+            "nobody else is banned"
+        );
+        assert!(find(&game, "away-3").can_play());
+
+        let quiet = report(HashMap::new());
+        for expected in [2, 1, 0] {
+            play(&mut game, &quiet);
+            assert_eq!(find(&game, "home-3").suspended_matches, expected);
+        }
+        assert!(find(&game, "home-3").can_play());
+    }
+
+    /// Given a second yellow card, Then the ban is one match; and a player already banned for
+    /// longer keeps the longer ban.
+    #[test]
+    fn a_second_yellow_costs_one_match_and_never_shortens_a_longer_ban() {
+        let mut game = match_game();
+        let mut yellow = report(HashMap::new());
+        yellow.events = vec![sending_off(70, engine::EventType::SecondYellow, "home-5")];
+        play(&mut game, &yellow);
+        let banned = |game: &Game, id: &str| {
+            game.players
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap()
+                .suspended_matches
+        };
+        assert_eq!(banned(&game, "home-5"), 1);
+
+        let mut red = report(HashMap::new());
+        red.events = vec![sending_off(10, engine::EventType::RedCard, "home-6")];
+        play(&mut game, &red);
+        // home-5 served his match; home-6 is new
+        assert_eq!((banned(&game, "home-5"), banned(&game, "home-6")), (0, 3));
+        let mut again = report(HashMap::new());
+        again.events = vec![sending_off(80, engine::EventType::SecondYellow, "home-6")];
+        play(&mut game, &again);
+        assert_eq!(
+            banned(&game, "home-6"),
+            2,
+            "served one, the new one-match ban is shorter"
+        );
+    }
+
+    /// Given a yellow card, a goal or an injury but no sending-off,
+    /// Then nobody is suspended: the ban comes from a dismissal and from nothing else.
+    #[test]
+    fn only_a_dismissal_suspends() {
+        let mut game = match_game();
+        let mut ordinary = report(HashMap::new());
+        ordinary.events = vec![
+            sending_off(20, engine::EventType::YellowCard, "home-3"),
+            sending_off(30, engine::EventType::Goal, "home-4"),
+            sending_off(40, engine::EventType::Injury, "home-5"),
+        ];
+        play(&mut game, &ordinary);
+        assert!(game.players.iter().all(|p| p.suspended_matches == 0));
+    }
+
+    /// Given a suspended player in a squad of otherwise fit players,
+    /// When the club's match-day pool is built,
+    /// Then he is not in it, and he is back once the ban is served.
+    #[test]
+    fn a_suspended_player_is_not_in_the_match_day_pool() {
+        let mut game = match_game();
+        let pool = |game: &Game| {
+            crate::match_day_eligibility::match_day_eligible_players(&game.players, "home")
+                .iter()
+                .map(|p| p.id.clone())
+                .collect::<Vec<_>>()
+        };
+        assert!(pool(&game).contains(&"home-3".to_string()));
+        let position = game.players.iter().position(|p| p.id == "home-3").unwrap();
+        game.players[position].suspended_matches = 2;
+        assert!(!pool(&game).contains(&"home-3".to_string()));
+        game.players[position].suspended_matches = 0;
+        assert!(pool(&game).contains(&"home-3".to_string()));
+    }
+
+    /// Given a match with an own goal,
+    /// When the compact record that stays in the career's match history is built,
+    /// Then the goal is there for the side it counts for, with nobody credited as scorer and the
+    /// player who put it in named; an ordinary goal carries no such name.
+    #[test]
+    fn the_stored_match_history_names_the_player_of_an_own_goal() {
+        let mut own = report(HashMap::new());
+        own.events = vec![
+            engine::MatchEvent::new(
+                63,
+                engine::EventType::Goal,
+                engine::Side::Home,
+                engine::Zone::Midfield,
+            )
+            .with_detail(engine::EventDetail::OwnGoal {
+                by: "away-4".into(),
+            }),
+            engine::MatchEvent::new(
+                70,
+                engine::EventType::Goal,
+                engine::Side::Away,
+                engine::Zone::Midfield,
+            )
+            .with_player("away-9"),
+        ];
+        let compact = compact_match_report(&own);
+        assert_eq!(compact.events.len(), 2);
+        assert_eq!(compact.events[0].side, "Home");
+        assert_eq!(compact.events[0].player_id, None);
+        assert_eq!(compact.events[0].own_goal_by.as_deref(), Some("away-4"));
+        assert_eq!(compact.events[1].own_goal_by, None);
     }
 }

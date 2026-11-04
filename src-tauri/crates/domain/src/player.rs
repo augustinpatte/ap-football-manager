@@ -42,6 +42,10 @@ pub struct Player {
     pub fitness: u8,
 
     pub injury: Option<Injury>,
+    /// Matches of his club this player must still miss after a sending-off (Run F4.2). Counted down
+    /// by the club's matches, not by days; 0 = available. Unlike an injury nothing shortens it.
+    #[serde(default)]
+    pub suspended_matches: u8,
     pub team_id: Option<String>,
     #[serde(default)]
     pub retired: bool,
@@ -894,6 +898,15 @@ pub fn compute_traits(attrs: &PlayerAttributes, _position: &Position) -> Vec<Pla
 pub const NATIONAL_POOL_ID_PREFIX: &str = "np-";
 
 impl Player {
+    /// Whether the player can be named in a match squad: not injured and not suspended. One
+    /// predicate, so a rule that keeps a player out (an injury, a ban) cannot be applied to the
+    /// lineup in one place and forgotten in another.
+    pub fn can_play(&self) -> bool {
+        self.injury.is_none() && self.suspended_matches == 0
+    }
+}
+
+impl Player {
     /// A player invented to complete a national squad, who belongs to the national team's pool and
     /// to no club's market. Recognised by his id, or, for a save written before ids carried the
     /// prefix, by what only such a player looks like: unattached, still wearing the shirt number
@@ -945,6 +958,7 @@ impl Player {
             fitness: 75,
             injury: None,
             team_id: None,
+            suspended_matches: 0,
             retired: false,
             squad_role: SquadRole::Senior,
             traits,

@@ -1988,7 +1988,9 @@
       "fulfilled": "Mantenuta: gli è stato permesso di andare.",
       "lapsed": "Scaduta senza essere stata infranta.",
       "breached": "Infranta: un'offerta adeguata è stata rifiutata e per ora non vuole parlare di contratto."
-    }
+    },
+    "suspendedShort": "Squalificato",
+    "suspendedTitle": "Squalificato — partite ancora da saltare: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Informazioni club",

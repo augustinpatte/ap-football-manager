@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import i18n, { i18nReady } from "../../i18n";
 import { getCommentary } from "./commentary";
 import { renderScorers } from "./PostMatchHelpers";
+import { EventFeed } from "./MatchPanels";
 import type { EnginePlayerData, MatchEvent, MatchSnapshot } from "./types";
 
 const makePlayer = (id: string, name: string): EnginePlayerData =>
@@ -73,5 +74,17 @@ describe("an own goal", () => {
     render(<div>{renderScorers(snap, [ordinary, ownGoal], "Home", i18n.t.bind(i18n))}</div>);
     expect(screen.getByText("Haaland")).toBeInTheDocument();
     expect(screen.getByText("Own goal: Marquinhos")).toBeInTheDocument();
+  });
+
+  /**
+   * Given the live event feed showing the own goal,
+   * When it is drawn,
+   * Then the line names the player who put it in, for the side it counts for.
+   */
+  it("is named in the event feed", () => {
+    const snap = snapshot([ownGoal]);
+    render(<EventFeed events={[ownGoal]} snapshot={snap} feedRef={{ current: null }} />);
+    expect(screen.getByText("Own goal: Marquinhos")).toBeInTheDocument();
+    expect(screen.getByText("Home FC")).toBeInTheDocument();
   });
 });

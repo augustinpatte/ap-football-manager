@@ -184,3 +184,23 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod own_goal_contract {
+    use super::*;
+
+    /// The frontend reads `{ "OwnGoal": { "by": "<player id>" } }` (serde's external tagging); this
+    /// pins the shape the TypeScript `EventDetail` union is written against.
+    #[test]
+    fn an_own_goal_detail_serialises_the_way_the_frontend_reads_it() {
+        let detail = EventDetail::OwnGoal { by: "p9".into() };
+        assert_eq!(
+            serde_json::to_value(&detail).expect("serialises"),
+            serde_json::json!({ "OwnGoal": { "by": "p9" } })
+        );
+        let back: EventDetail =
+            serde_json::from_value(serde_json::json!({ "OwnGoal": { "by": "p9" } }))
+                .expect("reads");
+        assert_eq!(back, detail);
+    }
+}

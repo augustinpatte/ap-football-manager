@@ -8,7 +8,16 @@ import type {
   PlayerSelectionOptions,
   TeamData,
 } from "../../store/gameStore";
-import { Badge, Card, ProgressBar, Select, CountryFlag, PlayerAvatar, InjuryBadge } from "../ui";
+import {
+  Badge,
+  Card,
+  ProgressBar,
+  Select,
+  CountryFlag,
+  PlayerAvatar,
+  InjuryBadge,
+  SuspensionBadge,
+} from "../ui";
 import {
   AlertTriangle,
   MoreVertical,
@@ -893,6 +902,9 @@ export default function SquadRosterView({
                                 </Badge>
                               ) : null}
                               {player.injury ? <InjuryBadge injury={player.injury} /> : null}
+                              {player.suspended_matches ? (
+                                <SuspensionBadge matches={player.suspended_matches} />
+                              ) : null}
                             </div>
                           ) : null}
                         </div>

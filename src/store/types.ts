@@ -400,6 +400,8 @@ export interface PlayerData {
   condition: number;
   morale: number;
   injury: null | { name: string; days_remaining: number };
+  /** Matches of his club he must still miss after a sending-off; absent or 0 = available. */
+  suspended_matches?: number;
   team_id: string | null;
   retired: boolean;
   squad_role?: PlayerSquadRole;
@@ -706,6 +708,8 @@ export interface CompactMatchEventData {
   side: "Home" | "Away";
   player_id: string | null;
   secondary_player_id: string | null;
+  /** For an own goal: the player who scored it into his own net (`player_id` is null). */
+  own_goal_by?: string | null;
 }
 
 export interface CompactTeamMatchStatsData {

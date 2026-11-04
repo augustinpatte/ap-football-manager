@@ -52,8 +52,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
           ovr, potential, media_json, jersey_number, loan_offers, active_loan, movement_history,
-          contract_start)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39)
+          contract_start, suspended_matches)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40)
          ON CONFLICT(id) DO UPDATE SET
            match_name = excluded.match_name,
            full_name = excluded.full_name,
@@ -92,7 +92,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
            jersey_number = excluded.jersey_number,
            loan_offers = excluded.loan_offers,
            active_loan = excluded.active_loan,
-           movement_history = excluded.movement_history",
+           movement_history = excluded.movement_history,
+           suspended_matches = excluded.suspended_matches",
     )
     .and_then(|mut statement| {
         statement.execute(params![
@@ -135,6 +136,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             active_loan_json,
             movement_history_json,
             p.contract_start(),
+            i64::from(p.suspended_matches),
         ])
     })
     .map_err(|error| {
@@ -267,7 +269,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start
+                    contract_start, COALESCE(suspended_matches, 0)
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -295,7 +297,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start
+                    contract_start, COALESCE(suspended_matches, 0)
              FROM players WHERE team_id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -400,6 +402,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         injury: injury_json.and_then(|j| serde_json::from_str(&j).ok()),
         team_id: row.get(12)?,
         retired: retired != 0,
+        suspended_matches: row.get::<_, i64>(39).unwrap_or(0).clamp(0, 255) as u8,
         squad_role: parse_squad_role(&squad_role_str),
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
         ovr,
@@ -1696,5 +1699,30 @@ mod tests {
         let result = load_all_players(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    /// Given a suspended player,
+    /// When he is saved and loaded, and when a save written before suspensions existed is read,
+    /// Then the ban survives the round trip, and the older row reads as no ban.
+    #[test]
+    fn test_player_suspension_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-banned", None);
+        player.suspended_matches = 2;
+        upsert_player(db.conn(), &player).unwrap();
+        let stored = load_all_players(db.conn())
+            .unwrap()
+            .into_iter()
+            .find(|p| p.id == "p-banned")
+            .unwrap();
+        assert_eq!(stored.suspended_matches, 2);
+
+        let mut older = serde_json::to_value(&player).unwrap();
+        older.as_object_mut().unwrap().remove("suspended_matches");
+        let loaded: Player = serde_json::from_value(older).unwrap();
+        assert_eq!(
+            loaded.suspended_matches, 0,
+            "a save from before suspensions has no ban"
+        );
     }
 }

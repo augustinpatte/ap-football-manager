@@ -1963,7 +1963,9 @@
       "fulfilled": "Splněn: mohl odejít.",
       "lapsed": "Vypršel, aniž by byl porušen.",
       "breached": "Porušen: vhodná nabídka byla odmítnuta a o smlouvě teď nechce mluvit."
-    }
+    },
+    "suspendedShort": "Suspendován",
+    "suspendedTitle": "Suspendován — zápasy, které ještě vynechá: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Informace o klubu",

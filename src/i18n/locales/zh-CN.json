@@ -1963,7 +1963,9 @@
       "fulfilled": "已兑现：他获准离队。",
       "lapsed": "到期，未被违背。",
       "breached": "已违背：合适的报价被拒绝，他目前不愿谈合同。"
-    }
+    },
+    "suspendedShort": "停赛",
+    "suspendedTitle": "停赛 — 还需缺席的比赛场次：{{matches}}"
   },
   "teamProfile": {
     "clubInfo": "俱乐部信息",

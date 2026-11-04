@@ -1963,7 +1963,9 @@
       "fulfilled": "Tutuldu: ayrılmasına izin verildi.",
       "lapsed": "Bozulmadan sona erdi.",
       "breached": "Bozuldu: uygun bir teklif reddedildi ve şimdilik sözleşme konuşmak istemiyor."
-    }
+    },
+    "suspendedShort": "Cezalı",
+    "suspendedTitle": "Cezalı — kaçıracağı maç sayısı: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Kulüp Bilgisi",

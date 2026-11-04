@@ -99,7 +99,7 @@ fn group(player: &Player) -> Position {
 }
 
 fn available(player: &Player) -> bool {
-    player.injury.is_none() && !player.retired
+    player.can_play() && !player.retired
 }
 
 fn p(key: &str, value: impl ToString) -> (String, String) {

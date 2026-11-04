@@ -1963,7 +1963,9 @@
       "fulfilled": "Cumprida: foi autorizado a sair.",
       "lapsed": "Expirou sem ser quebrada.",
       "breached": "Quebrada: foi recusada uma oferta adequada e, por agora, não quer falar de contrato."
-    }
+    },
+    "suspendedShort": "Suspenso",
+    "suspendedTitle": "Suspenso — jogos que ainda falha: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Informações do Clube",

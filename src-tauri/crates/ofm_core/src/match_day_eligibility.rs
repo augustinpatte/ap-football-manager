@@ -81,7 +81,7 @@ pub(crate) fn eligible_among<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
     let (mut eligible, mut youth): (Vec<_>, Vec<_>) = club
         .iter()
         .copied()
-        .filter(|p| p.injury.is_none())
+        .filter(|p| p.can_play())
         .partition(|p| p.squad_role == SquadRole::Senior);
     youth.sort_by(|left, right| {
         natural_ovr(right)

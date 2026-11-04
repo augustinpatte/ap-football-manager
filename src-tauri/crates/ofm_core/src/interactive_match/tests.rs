@@ -952,6 +952,9 @@ fn fm24_workload_reference_study() {
         .collect();
 
     let (mut started, mut refused) = (0, 0);
+    // pressing -> (matches, fouls, cautions, dismissals, of which second yellows)
+    let mut discipline =
+        std::collections::BTreeMap::<&'static str, (u32, u32, u32, u32, u32)>::new();
     // [line][stamina band][pressing] -> (sum of raw rate, n)
     let mut cell = std::collections::BTreeMap::<(usize, usize, &'static str), (f64, u32)>::new();
     for (pressing, name) in [
@@ -993,6 +996,21 @@ fn fm24_workload_reference_study() {
             started += 1;
             run_to_end(&mut m);
             let report = m.complete().unwrap().clone();
+            // discipline of this match (both teams)
+            let d = discipline
+                .entry(name)
+                .or_insert((0u32, 0u32, 0u32, 0u32, 0u32));
+            d.0 += 1;
+            for ps in report.player_stats.values() {
+                d.1 += u32::from(ps.fouls_committed);
+                d.2 += u32::from(ps.yellow_cards);
+                d.3 += u32::from(ps.red_cards);
+            }
+            d.4 += report
+                .events
+                .iter()
+                .filter(|e| e.event_type == engine::EventType::SecondYellow)
+                .count() as u32;
             for (pid, stats) in &report.player_stats {
                 if stats.minutes_played < 85 {
                     continue;
@@ -1000,7 +1018,7 @@ fn fm24_workload_reference_study() {
                 let Some(p) = g.players.iter().find(|p| &p.id == pid) else {
                     continue;
                 };
-                let line = match p.position {
+                let line = match p.position.to_group_position() {
                     domain::player::Position::Defender => 0,
                     domain::player::Position::Midfielder => 1,
                     domain::player::Position::Forward => 2,
@@ -1018,6 +1036,16 @@ fn fm24_workload_reference_study() {
         }
     }
     println!("matches started {started}, refused {refused}");
+    for (name, (n, fouls, yellows, reds, second)) in &discipline {
+        let n = f64::from(*n);
+        println!(
+            "discipline ({name}): fouls {:.1}, cautions {:.2}, dismissals {:.3} (second yellows {:.3}) per match over {n}",
+            f64::from(*fouls) / n,
+            f64::from(*yellows) / n,
+            f64::from(*reds) / n,
+            f64::from(*second) / n,
+        );
+    }
     println!("reference: 0.0025 of the reserve per minute at stamina 64");
     println!(
         "line (0 def, 1 mid, 2 att) | stamina band (0 <55, 1 55-69, 2 >=70) | pressing | mean raw rate | n | ratio to reference"

@@ -998,9 +998,9 @@ mod tests {
                     .unwrap_or(0)
             })
             .expect("the match");
-        assert!(
-            swaps <= 1,
-            "the substitution came into force at most once: {swaps}"
+        assert_eq!(
+            swaps, 1,
+            "the waiting substitution came into force exactly once"
         );
         assert!(report_events
             .view
@@ -1012,21 +1012,20 @@ mod tests {
             .expect("finalisation refuses a duplicated event, so this proves there is none");
     }
 
-    /// Given interactive matches in which players are injured and sent off,
+    /// Given interactive matches in which players are injured and sent off by the engine's referee,
     /// When they are finalised through the canonical path,
-    /// Then injuries reach the career as injuries on the players hurt (and only on them), every dismissal is a
-    /// red card in his season record, and nobody else is hurt or carded.
+    /// Then injuries reach the career as injuries on the players hurt (and only on them), every
+    /// dismissal is a red card in his season record, and every player sent off is suspended: three
+    /// matches for a straight red, one for a second yellow, and nobody else.
     ///
-    /// The game has no suspension rule at all (a red card costs morale and a line in the record, in
-    /// the legacy engine and in this one alike), so there is no ban to carry into the next fixture;
-    /// that is a game rule that does not exist, not a gap of the interactive path. Injuries are what
-    /// carry forward, and the season test checks that an injured player never plays.
+    /// The seeds are scanned until the engine has produced both an injury and a dismissal on its
+    /// own (the referee is calibrated to about one dismissal a six or seven matches), so nothing is
+    /// forced and the test cannot pass by finding neither.
     #[test]
     fn injuries_and_dismissals_of_an_interactive_match_reach_the_career() {
-        let mut injuries_seen = 0;
-        let mut injuries_in_career = 0;
-        let mut dismissals_seen = 0;
-        for seed in 1..=70u64 {
+        let (mut injuries_seen, mut injuries_in_career) = (0, 0);
+        let (mut dismissals_seen, mut straight_reds, mut second_yellows) = (0, 0, 0);
+        for seed in 1..=150u64 {
             let state = StateManager::new();
             let mut game = game_with_spatial_fixture();
             game.seed = seed;
@@ -1044,12 +1043,20 @@ mod tests {
                 .filter(|k| k["type"] == "injury")
                 .filter_map(|k| k["player"].as_str().map(str::to_string))
                 .collect();
-            let reds_in_match = kinds
+            // (player, colour) of every dismissal; a straight red is `red`, a second caution
+            // `second_yellow`
+            let dismissals: Vec<(String, String)> = kinds
                 .iter()
                 .filter(|k| k["type"] == "card" && k["colour"] != "yellow")
-                .count() as u32;
+                .filter_map(|k| {
+                    Some((
+                        k["player"].as_str()?.to_string(),
+                        k["colour"].as_str()?.to_string(),
+                    ))
+                })
+                .collect();
             finish_interactive_match_internal(&state).expect("finishes");
-            let (injured_after, reds_after) = state
+            let (injured_after, reds_after, banned) = state
                 .get_game(|g| {
                     (
                         g.players
@@ -1058,6 +1065,11 @@ mod tests {
                             .map(|p| p.id.clone())
                             .collect::<std::collections::BTreeSet<_>>(),
                         g.players.iter().map(|p| p.stats.red_cards).sum::<u32>(),
+                        g.players
+                            .iter()
+                            .filter(|p| p.suspended_matches > 0)
+                            .map(|p| (p.id.clone(), p.suspended_matches))
+                            .collect::<std::collections::BTreeMap<_, _>>(),
                     )
                 })
                 .expect("game");
@@ -1069,13 +1081,36 @@ mod tests {
                 "seed {seed}: only players hurt in the match are injured in the career"
             );
             injuries_in_career += injured_after.len();
+            injuries_seen += injured_in_match.len();
+            let straight = dismissals.iter().filter(|(_, c)| c == "red").count() as u32;
             assert_eq!(
                 reds_after - reds_before,
-                reds_in_match,
+                dismissals.len() as u32,
                 "seed {seed}: every dismissal is a red card on a record"
             );
-            injuries_seen += injured_in_match.len();
-            dismissals_seen += reds_in_match as usize;
+            let expected: std::collections::BTreeMap<String, u8> = dismissals
+                .iter()
+                .map(|(id, colour)| {
+                    (
+                        id.clone(),
+                        if colour == "red" {
+                            ofm_core::suspension::DIRECT_RED_BAN
+                        } else {
+                            ofm_core::suspension::SECOND_YELLOW_BAN
+                        },
+                    )
+                })
+                .collect();
+            assert_eq!(
+                banned, expected,
+                "seed {seed}: the players sent off, and only they, are suspended"
+            );
+            dismissals_seen += dismissals.len();
+            straight_reds += straight as usize;
+            second_yellows += dismissals.len() - straight as usize;
+            if injuries_in_career > 0 && dismissals_seen > 0 && seed >= 40 {
+                break;
+            }
         }
         assert!(
             injuries_seen > 0,
@@ -1085,9 +1120,97 @@ mod tests {
             injuries_in_career > 0,
             "injuries of an interactive match must reach the career, not all be caught"
         );
-        println!(
-            "{injuries_seen} injuries in matches, {injuries_in_career} in the career, {dismissals_seen} dismissals over 70 matches"
+        assert!(
+            dismissals_seen > 0,
+            "the referee must have sent somebody off in these seeds, or this proves nothing about cards"
         );
+        println!(
+            "{injuries_seen} injuries in matches, {injuries_in_career} in the career; {dismissals_seen} dismissals ({straight_reds} straight, {second_yellows} second yellows)"
+        );
+    }
+
+    /// Given an interactive match in which a defender puts the ball into his own net, produced by the
+    /// engine on its own (the seeds are scanned until one does; nothing is forced),
+    /// When it is finalised through the canonical path,
+    /// Then the goal counts for the other side in the score; the player who scored it belongs to the
+    /// side that conceded; nobody is credited with a goal, an assist or a scorer entry for it; the
+    /// match history (the compact record kept on the fixture) names him; and the totals agree: goals
+    /// credited to players plus own goals equal the goals in the score.
+    #[test]
+    fn a_natural_own_goal_is_credited_to_the_other_side_and_names_its_player() {
+        for seed in 1..=400u64 {
+            let state = StateManager::new();
+            let mut game = game_with_spatial_fixture();
+            game.seed = seed;
+            state.set_game(game);
+            begin(&state);
+            to_full_time(&state);
+            let own: Vec<(String, String)> = snapshot(&state)
+                .events
+                .iter()
+                .filter_map(|e| {
+                    let k = serde_json::to_value(&e.event.kind).ok()?;
+                    (k["type"] == "goal" && k["own_goal"] == true).then(|| {
+                        (
+                            k["scorer"].as_str().unwrap_or_default().to_string(),
+                            serde_json::to_value(e.event.side)
+                                .ok()
+                                .and_then(|v| v.as_str().map(str::to_string))
+                                .unwrap_or_default(),
+                        )
+                    })
+                })
+                .collect();
+            if own.is_empty() {
+                continue;
+            }
+            finish_interactive_match_internal(&state).expect("finishes");
+            let game = state.get_game(|g| g.clone()).expect("game");
+            let fixture = &game.competitions[0].fixtures[0];
+            let result = fixture.result.as_ref().expect("a result");
+            let report = result.report.as_ref().expect("a stored report");
+            let credited: u32 = game.players.iter().map(|p| p.stats.goals).sum();
+            let scored = u32::from(result.home_goals) + u32::from(result.away_goals);
+            assert_eq!(
+                credited + own.len() as u32,
+                scored,
+                "seed {seed}: goals credited to players plus own goals are the goals in the score"
+            );
+            assert_eq!(
+                result.home_scorers.len() + result.away_scorers.len(),
+                scored as usize - own.len(),
+                "seed {seed}: nobody is a scorer of an own goal"
+            );
+            for (player, benefiting_side) in &own {
+                let club = game
+                    .players
+                    .iter()
+                    .find(|p| &p.id == player)
+                    .and_then(|p| p.team_id.clone())
+                    .expect("the player belongs to a club");
+                let conceding_club = if benefiting_side == "home" {
+                    &fixture.away_team_id
+                } else {
+                    &fixture.home_team_id
+                };
+                assert_eq!(
+                    &club, conceding_club,
+                    "seed {seed}: he plays for the side that conceded"
+                );
+                assert!(
+                    report
+                        .events
+                        .iter()
+                        .any(|e| e.own_goal_by.as_deref() == Some(player.as_str())
+                            && e.player_id.is_none()
+                            && e.side.to_lowercase() == *benefiting_side),
+                    "seed {seed}: the match history names {player} for the {benefiting_side} side"
+                );
+            }
+            println!("natural own goal at seed {seed}: {own:?}");
+            return;
+        }
+        panic!("no own goal in 400 seeds: the engine should produce some on its own");
     }
 
     /// Given a match saved 20 minutes in,

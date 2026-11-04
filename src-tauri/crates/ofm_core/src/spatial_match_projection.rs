@@ -219,6 +219,8 @@ pub fn project(
     if matches!(input.end_status, SpatialEndStatus::ShootoutComplete) != home_penalties.is_some() {
         return Err(ProjectionError::ShootoutStatusMismatch);
     }
+    let mut player_stats = project_player_stats(&input.player_stats)?;
+    record_discipline(&mut player_stats, &projected_events.events);
     Ok(ProjectedMatch {
         report: MatchReport {
             home_goals,
@@ -227,7 +229,7 @@ pub fn project(
             away_stats: project_team_stats(&input.away_stats, away_goals),
             events: projected_events.events,
             goals: projected_events.goals,
-            player_stats: project_player_stats(&input.player_stats)?,
+            player_stats,
             home_possession: f64::from(input.home_stats.possession_pct),
             total_minutes: total_minutes(input),
             home_penalties,
@@ -570,6 +572,32 @@ fn project_team_stats(stats: &SpatialTeamStats, goals: u8) -> TeamStats {
         yellow_cards: stats.yellow_cards,
         red_cards: stats.red_cards,
         possession_ticks: 0,
+    }
+}
+
+/// Writes each player's cautions, dismissals and fouls from the timeline's own cards and fouls (the
+/// referee's decisions in the engine that played the match). The engine's player statistics carry
+/// none of them, so before Run F4.2 a sending-off reached the timeline and the team totals but never
+/// the player's season record, his morale or a ban. A second yellow is a second caution and a
+/// dismissal; a straight red is a dismissal; a player with no entry in the statistics gets none.
+fn record_discipline(stats: &mut HashMap<String, PlayerMatchStats>, events: &[MatchEvent]) {
+    for event in events {
+        let Some(player) = event.player_id.as_deref() else {
+            continue;
+        };
+        let Some(entry) = stats.get_mut(player) else {
+            continue;
+        };
+        match event.event_type {
+            EventType::YellowCard => entry.yellow_cards = entry.yellow_cards.saturating_add(1),
+            EventType::SecondYellow => {
+                entry.yellow_cards = entry.yellow_cards.saturating_add(1);
+                entry.red_cards = entry.red_cards.saturating_add(1);
+            }
+            EventType::RedCard => entry.red_cards = entry.red_cards.saturating_add(1),
+            EventType::Foul => entry.fouls_committed = entry.fouls_committed.saturating_add(1),
+            _ => {}
+        }
     }
 }
 

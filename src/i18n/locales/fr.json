@@ -1963,7 +1963,9 @@
       "fulfilled": "Tenue : il a pu partir.",
       "lapsed": "Expirée sans avoir été rompue.",
       "breached": "Rompue : une offre convenable a été refusée, et il ne veut plus parler contrat pour l'instant."
-    }
+    },
+    "suspendedShort": "Suspendu",
+    "suspendedTitle": "Suspendu — matchs restant à manquer : {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Informations du Club",

@@ -79,6 +79,11 @@ export default function RoundDigestScreen({
     const primary = getPlayerDisplayName(event.player_id);
     switch (event.event_type) {
       case "Goal":
+        if (event.own_goal_by) {
+          return t("match.replayFeed.ownGoal", {
+            player: getPlayerDisplayName(event.own_goal_by),
+          });
+        }
         return event.secondary_player_id
           ? `${primary} (${t("match.assist", { name: getPlayerDisplayName(event.secondary_player_id) })})`
           : primary;

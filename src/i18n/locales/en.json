@@ -1963,7 +1963,9 @@
       "fulfilled": "Kept: he was allowed to move on.",
       "lapsed": "Expired without being broken.",
       "breached": "Broken: a suitable offer was refused, and he will not discuss a contract for now."
-    }
+    },
+    "suspendedShort": "Suspended",
+    "suspendedTitle": "Suspended — matches still to miss: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Club Information",

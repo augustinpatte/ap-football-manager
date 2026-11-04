@@ -1963,7 +1963,9 @@
       "fulfilled": "Cumplida: se le permitió marcharse.",
       "lapsed": "Caducada sin haberse roto.",
       "breached": "Rota: se rechazó una oferta adecuada y por ahora no quiere hablar de contrato."
-    }
+    },
+    "suspendedShort": "Sancionado",
+    "suspendedTitle": "Sancionado — partidos que aún debe perderse: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Información del Club",

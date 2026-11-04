@@ -242,7 +242,7 @@ fn read_squad(squad: &[&Player]) -> Option<SquadReading> {
         candidates.sort_by(|a, b| b.ovr.cmp(&a.ovr).then_with(|| a.id.cmp(&b.id)));
     };
 
-    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.injury.is_none()).collect();
+    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.can_play()).collect();
     if available.is_empty() {
         // An entire squad in the treatment room is still the squad the manager
         // has to plan around.

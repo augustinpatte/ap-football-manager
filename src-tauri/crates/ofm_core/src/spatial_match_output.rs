@@ -818,6 +818,66 @@ mod tests {
             SpatialEventKind::Substitution { .. }
         ));
     }
+    /// Given a match with cautions, a second yellow, a straight red and fouls,
+    /// When it is decoded and projected,
+    /// Then each player's record carries his own cautions, dismissal and fouls: a straight red is a
+    /// dismissal, a second yellow is a second caution *and* a dismissal, and nobody else is touched.
+    /// (The record used to be written with zeros, so a sending-off reached the timeline and the team
+    /// totals but never the player's season, his morale or his ban.)
+    #[test]
+    fn a_players_cards_and_fouls_reach_his_own_record() {
+        let e = |side: &str, kind: &str, player: &str, extra: &str| {
+            serde_json::from_str::<Value>(&format!(
+                "{{\"t_ms\":1000,\"period\":\"first_half\",\"side\":\"{side}\",\"type\":\"{kind}\",\"player\":\"{player}\"{extra}}}"
+            ))
+            .unwrap()
+        };
+        let foul = |offender: &str, t_ms: u32| serde_json::json!({ "t_ms": t_ms, "period": "first_half", "side": "home", "type": "foul", "offender": offender, "victim": "a2" });
+        let events = Value::Array(vec![
+            foul("h1", 500),
+            foul("h1", 700),
+            e("home", "card", "h1", ",\"colour\":\"yellow\""),
+            e("away", "card", "a1", ",\"colour\":\"yellow\""),
+            e("away", "card", "a1", ",\"colour\":\"second_yellow\""),
+            e("home", "card", "h2", ",\"colour\":\"red\""),
+        ]);
+        let mut json: Value = serde_json::from_str(&output(
+            events,
+            serde_json::json!({ "home": 0, "away": 0 }),
+            "regulation_complete",
+        ))
+        .unwrap();
+        json["player_stats"] = Value::Array(
+            ["h1", "h2", "a1", "a2"]
+                .iter()
+                .map(|id| serde_json::json!({ "id": id, "minutes_played": 60, "goals": 0, "assists": 0, "shots": 0, "passes_attempted": 10, "passes_completed": 8, "tackles_won": 1, "interceptions": 1, "distance_m": 5000.0, "sprints": 3, "rating": 6.5 }))
+                .collect(),
+        );
+        let decoded = decode_json(&json.to_string()).unwrap();
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .unwrap();
+        let stat = |id: &str| &projected.report.player_stats[id];
+        assert_eq!(
+            (
+                stat("h1").yellow_cards,
+                stat("h1").red_cards,
+                stat("h1").fouls_committed
+            ),
+            (1, 0, 2)
+        );
+        assert_eq!((stat("a1").yellow_cards, stat("a1").red_cards), (2, 1));
+        assert_eq!((stat("h2").yellow_cards, stat("h2").red_cards), (0, 1));
+        assert_eq!((stat("a2").yellow_cards, stat("a2").red_cards), (0, 0));
+    }
     /// Given malformed, truncated, wrong-version or missing-field JSON, when decoded, then a typed error is returned.
     #[test]
     fn malformed_json_is_refused() {

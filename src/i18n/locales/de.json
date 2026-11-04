@@ -1963,7 +1963,9 @@
       "fulfilled": "Gehalten: Er durfte wechseln.",
       "lapsed": "Abgelaufen, ohne gebrochen zu werden.",
       "breached": "Gebrochen: Ein passendes Angebot wurde abgelehnt, und er will vorerst nicht über einen Vertrag sprechen."
-    }
+    },
+    "suspendedShort": "Gesperrt",
+    "suspendedTitle": "Gesperrt — noch zu verpassende Spiele: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Vereinsinformationen",

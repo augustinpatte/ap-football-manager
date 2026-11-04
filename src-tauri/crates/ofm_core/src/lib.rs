@@ -86,6 +86,7 @@ pub mod squad_safety;
 pub(crate) mod stable_hash;
 pub mod staff_system;
 pub mod state;
+pub mod suspension;
 #[cfg(test)]
 mod test_support;
 pub mod training;

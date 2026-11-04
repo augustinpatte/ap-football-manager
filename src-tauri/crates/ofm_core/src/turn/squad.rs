@@ -54,11 +54,7 @@ pub(crate) fn build_team_with_bench_from(
     };
 
     let eligible = crate::match_day_eligibility::eligible_among(club);
-    let available_players: Vec<_> = eligible
-        .iter()
-        .copied()
-        .filter(|p| p.injury.is_none())
-        .collect();
+    let available_players: Vec<_> = eligible.iter().copied().filter(|p| p.can_play()).collect();
     let player_roles = team.map(|t| &t.player_roles);
     // `deployed` is the granular slot the player occupies; `None` for the bench,
     // where the player's own position is used instead. The engine's coarse
@@ -158,7 +154,7 @@ pub(crate) fn delegated_eleven(game: &Game, team_id: &str, assistant_rating: f64
     let available: Vec<&domain::player::Player> =
         crate::match_day_eligibility::eligible_among(&club)
             .into_iter()
-            .filter(|p| p.injury.is_none())
+            .filter(|p| p.can_play())
             .collect();
     let quality = management_quality_from_rating(assistant_rating.clamp(0.0, 100.0).round() as u8)
         .max(ASSISTANT_QUALITY_FLOOR);

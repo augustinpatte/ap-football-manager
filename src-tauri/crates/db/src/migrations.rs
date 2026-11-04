@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 64;
+const EXPECTED_MIGRATION_COUNT: usize = 65;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -182,6 +182,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "v064_interactive_match_checkpoint.sql",
         include_str!("sql/v064_interactive_match_checkpoint.sql"),
     ),
+    // V65: matches a player must still miss after a sending-off
+    ("v065_player_suspensions.sql", include_str!("sql/v065_player_suspensions.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -1034,6 +1036,7 @@ mod tests {
     ("v062_transfer_obligations.sql", 0x4872609c01a5715f),
     ("v063_out_of_possession_formation.sql", 0xb952826f9fdd84dc),
     ("v064_interactive_match_checkpoint.sql", 0xdf5f9d9a2445c22a),
+    ("v065_player_suspensions.sql", 0x8c7c919985762945),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`
