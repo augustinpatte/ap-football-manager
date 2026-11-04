@@ -507,10 +507,16 @@ mod tests {
             "a half ({sub}) costs more than none ({rested})"
         );
 
-        // goals credited to players add up to the score
+        // goals credited to players add up to the score, except the own goals, which count for the other
+        // side and are credited to nobody (the stored record names the player who scored them)
         let credited: u32 = game.players.iter().map(|p| p.stats.goals).sum();
+        let own_goals = report
+            .events
+            .iter()
+            .filter(|e| e.event_type == "Goal" && e.own_goal_by.is_some())
+            .count() as u32;
         assert_eq!(
-            credited,
+            credited + own_goals,
             u32::from(result.home_goals) + u32::from(result.away_goals)
         );
 

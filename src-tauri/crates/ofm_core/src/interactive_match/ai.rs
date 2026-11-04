@@ -513,10 +513,13 @@ fn nearest_preset(label: &str) -> Option<FormationPreset> {
         return Some(preset);
     }
     let counts = |l: &str| -> Option<(i32, i32, i32)> {
-        let n: Vec<i32> = l.split('-').filter_map(|p| p.parse().ok()).collect();
+        // every segment must be a small number: "4-x-2", an absurd label or stray text reads as no shape
+        let n: Vec<i32> = l
+            .split('-')
+            .map(|p| p.parse::<u8>().ok().map(i32::from))
+            .collect::<Option<_>>()?;
         // a middle line of several numbers (4-2-3-1) is one midfield
-        let (first, last) = (*n.first()?, *n.last()?);
-        (n.len() >= 3).then(|| (first, n[1..n.len() - 1].iter().sum(), last))
+        (n.len() >= 3).then(|| (n[0], n[1..n.len() - 1].iter().sum(), n[n.len() - 1]))
     };
     let target = counts(label)?;
     FormationPreset::ALL
@@ -545,7 +548,7 @@ fn formation_for(ctx: &AiContext<'_>) -> Option<String> {
     );
     // the club's own shape is the one "just left" once the plan has moved away from it
     let previous = (ctx.plan.formation != ctx.identity.formation)
-        .then(|| FormationPreset::from_label(&ctx.identity.formation))
+        .then(|| nearest_preset(&ctx.identity.formation))
         .flatten();
     best_formation(
         &ManagerConfig::m10(),
@@ -879,6 +882,16 @@ mod tests {
             "a preset is itself"
         );
         assert_eq!(nearest_preset("nonsense"), None);
+        assert_eq!(
+            nearest_preset("4-x-2"),
+            None,
+            "a segment that is not a number is no shape"
+        );
+        assert_eq!(
+            nearest_preset("2000000000-2000000000-2000000000"),
+            None,
+            "an absurd label does not overflow"
+        );
         let mut f = fixture(40, 0, 0);
         f.plan.formation = "3-4-3".into();
         f.identity.formation = "3-4-3".into();
