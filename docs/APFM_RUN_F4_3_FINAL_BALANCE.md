@@ -11,10 +11,15 @@ Raw outputs of the studies were kept in the session scratch directory; the instr
 (`examples/f43_profile.rs`, `examples/f43_hotpaths.rs`, `examples/m9_penalty.rs --mode`, `tests/f43_validation.rs`,
 `tests/f43_block_scenarios.rs`, `tests/f43_mechanisms.rs`) and every number below can be regenerated with the commands in section 21.
 
+**Which code the studies measured.** The whole-match profiles, the grids, the dominance matrix, the ladders, the context and the scenario studies ran on the F4.3 configuration as of commits `5bb3bee` to `b2b45a8`. The later M12 commits
+are test and structure changes and are bit-identical for every earlier mode (the golden digests are unchanged), with two exceptions inside the F4.3 football itself: a booked player's **aerial** foul is now read with the same leniency as a ground foul
+(`4ab8eb2`), and the hold decision's willingness is multiplied in a different order (`b28fe7c`, equal up to float rounding). The pinned F4.3 digest was taken after them; **the discipline table was not re-measured after them**, and a few of its
+second yellows may now read as cautions.
+
 ## 1. Executive verdict
 
-**NO-GO: F4.3 does not make the engine final, and F5 should not treat the football as settled.** Two completion gates fail outright, three
-are only partly met, and the remaining ones are met. What this run did achieve is real and measured:
+**NO-GO: F4.3 does not make the engine final, and F5 should not treat the football as settled.** Three completion gates fail outright (physical expenditure, shot calibration, multi-season validation), four
+are only partly met, and three are met. What this run did achieve is real and measured:
 
 * The F4.2 dominance of defensive settings is gone. On the same seeds, `defensive + high press` / `defensive + low press` were ahead of
   balanced in all three columns (mean +0.28 / +0.25 points a match); under F4.3 no setting is ahead of balanced across the eight opponent
@@ -33,16 +38,16 @@ are only partly met, and the remaining ones are met. What this run did achieve i
 
 | Gate | Status | Why |
 |---|---|---|
-| 1. Defensive-block exploit | **Met** | no defensive setting beats balanced across 8 archetypes (section 7); a mild tilt towards pressing sides is left (section 8) |
+| 1. Defensive-block exploit | **Met** | no defensive setting beats balanced across 8 archetypes (section 4.2); a mild tilt towards pressing sides is left (sections 4.2 and 7) |
 | 2. Pressing has benefits and costs | **Partly** | chances and shots conceded fall, a rushed builder fails more passes, and it costs energy, own-third losses and counters; it still does **not** win the ball back more often (section 6) |
-| 3. Attacking has context-dependent advantages and risks | **Partly** | the sign depends on the opponent (+0.36 against an ordinary one, -0.10 against a counter side), but against equals attacking is worth +0.24 points a match, more than in F4.2 (section 8) |
-| 4. Fouls, cards, penalties follow credible mechanisms | **Partly** | cards, dismissals and penalty conversion are in range; fouls are 15.3 (reference 21 to 27) and penalties awarded 0.46 (reference about 0.3, unsourced) (section 9) |
-| 5. Physical expenditure coherent by role | **Not met** | the energy accounting defect is fixed (forward / defender reserve cost 3.7x to 2.3x), but the engine still has midfielders running 17 km and forwards sprinting 2.1 km a match (section 10) |
-| 6. Shot selection and scoring calibrated | **Not met** | goals per team and penalty conversion are credible; shot volume (37.5 against 27.6) and mean shot distance (11.9 m against about 16 m) are not (section 11) |
+| 3. Attacking has context-dependent advantages and risks | **Partly** | the sign depends on the opponent (+0.36 against an ordinary one, -0.10 against a counter side), but against equals attacking is worth +0.24 points a match, more than in F4.2 (section 7) |
+| 4. Fouls, cards, penalties follow credible mechanisms | **Partly** | cards, dismissals and penalty conversion are in range; fouls are 15.3 (reference 21 to 27) and penalties awarded 0.46 (reference about 0.3, unsourced) (section 8) |
+| 5. Physical expenditure coherent by role | **Not met** | the energy accounting defect is fixed (forward / defender reserve cost 3.7x to 2.3x), but the engine still has midfielders running 17 km and forwards sprinting 2.1 km a match (section 9) |
+| 6. Shot selection and scoring calibrated | **Not met** | goals per team and penalty conversion are credible; shot volume (37.5 against 27.6) and mean shot distance (11.9 m against about 16 m) are not (section 10) |
 | 7. Match state and manager decisions matter | **Partly** | the manager decisions are tested to depend on the score and chasing now pays (+0.11 points); protecting a lead still has no measurable effect on points, and **numerical strength regressed**: against an organised block fewer defenders concede fewer shots (section 12, D) |
-| 8. Multi-season / multi-club validation | TBD_G8 | |
-| 9. Save/reload and finalisation | TBD_G9 | |
-| 10. Determinism and performance | **Met** | +4 % over F4.2, +30 % over M12 (section 15) |
+| 8. Multi-season / multi-club validation | **Not met** | seven of twelve club-seasons complete with every invariant held; the engine plays 4.7 to 8.0 goals a match in the user's club's matches (section 13) |
+| 9. Save/reload and finalisation | **Met** | a mid-season save and reload reproduces the uninterrupted season exactly; every fixture finalised once; own goals reconcile |
+| 10. Determinism and performance | **Met** | 0.776 s a match: +0.5 to +4.6 % over F4.2 (0.742 to 0.772 s on the same machine), +30 % over M12 (section 14) |
 
 ## 2. Baseline reproduced (checkpoint 1)
 
@@ -65,7 +70,7 @@ Same seeds, same configuration (`full_match_f42`), release build, M12 head `f4ab
 | # | Finding | Class | Mechanism |
 |---|---|---|---|
 | a | A defensive mentality out-scored balanced | **A + B** | the compact block (`shape_pass`) is a competent defence routine (shifting with the ball, goal-side recovery in the own third, a level back line); F4.2 switched it on below mentality 0.4 and left it off at 0.5, so "defensive" was a better way to defend, not a different one. Its effect is a trade of volume for quality: against it shots conceded rise and goals conceded fall by more |
-| b | Attacking mentality suppresses shots | **D (partly)** | territory: the very attacking side wins the ball in the opponent's final 40 m +2.1 times a match; this is football. What is not football is how little it costs (section 8) |
+| b | Attacking mentality suppresses shots | **D (partly)** | territory: the very attacking side wins the ball in the opponent's final 40 m +2.1 times a match; this is football. What is not football is how little it costs (section 7) |
 | c | Pressing creates no turnovers | **A (decision) + D** | the pressed carrier adapts: the first pass gains 4.7 m against 6.1 m unpressed, and is as accurate. Pressure changes what he decides, not how well he executes. Forced errors appear against a *high* press (hurried passes: +0.17 failed passes in 8 s against a low press) but the ball is not won back more often |
 | d | Fouls half of football | **A** | the engine judged only tackles on the ball carrier: no holding, no tactical fouls, nothing off the ball |
 | e | Cautions half of football, almost all dismissals second yellows | **B** | one severity scale, calibrated in F4.2 on a fixture without the missing fouls |
@@ -93,12 +98,12 @@ digests of Missions 8 to 12, passes), and a checkpoint stores the full configura
 | Physical | recovery needs near-standing (`condition.rest_cost` 0.6) | `condition.rs` (unit test), `config.rs` |
 | Shot execution | keeper reaction (360 to 260 ms) and dive (0.70 to 1.10 m) ranges flattened; open-play shot error up (0.38 / 0.11 rad); dead-ball factor 0.27 so a penalty keeps its football rate | `config.rs` |
 | Manager | `manager::best_formation`, one judgement for the autonomous manager and OFM's assistant | `manager.rs`, `runner/management.rs`, OFM `interactive_match/ai.rs` |
-| OFM | plays `full_match_f43`; wear constants re-measured (section 10); season studies | `spatial_runner.rs`, `player_wear.rs`, `interactive_season.rs` |
+| OFM | plays `full_match_f43`; wear constants re-measured (section 9); season studies | `spatial_runner.rs`, `player_wear.rs`, `interactive_season.rs` |
 
 Measured and **not adopted** (removed from the code): speculative long shots (shots from 11 m and further almost never score, so they only
 added 7 to 12 shots a match and no goals), a zonal marking cost (3 % less distance, no balance effect), cover of the carrier's outlets by a
 press (shots conceded -3.4 instead of -2.2, but it pushed the pressing sides further ahead), a bound on through-ball candidates (-5 % time, no
-effect on the football), and the universal fixed block (`block=1.0`) and a wider block (`blockdepth=14`), which made the attacking settings dominate.
+effect on the football), and two other block designs: the universal fixed block (`block=1.0`) left every deviation from balanced ahead of it (+0.14 to +0.21 for all but very defensive), and a wider block (`blockdepth=14`) with the F4.2 step-up made attacking + high press dominate (+0.26 mean, three columns).
 
 ## 4. Tactical balance before and after
 
@@ -368,14 +373,38 @@ Same seeds and same starting state for every alternative (300 seeds where the st
 | G | A technically strong team against a high press | press 85 against 50, opponent technical | the press **still wins**: shots conceded -3.7 [-4.5, -2.9], goals against -0.35 [-0.60, -0.10], points +0.18 [-0.07, +0.43]. No sign that technique lets a side escape it; a limitation of gate 2 |
 | H | A low block defending repeated attacks | staged (section 5) and the "low block + counter" archetype | no staged attack beats an organised block in 20 s (shots per 100 attacks 4 to 24, goals 0 to 2); against the archetype the defensive settings are within noise of balanced (mean -0.02 to +0.08) |
 | I | Strong team against weak team | 72 v 58 and 66 v 62, every setting (section 4.3) | the strong team wins 76 to 92 % at 72 v 58 (weaker side wins 2 to 11 %), and 44 to 64 % at 66 v 62 |
-| J | Two matches within four days | TBD_J | |
+| J | Two matches within four days | the seasons' fixtures within four days of the last (7 to 14 a season) | the players who play arrive with 89 to 97 against 89 to 99 after a week's rest: congestion costs 0 to 2 points of condition, no spiral (section 13) |
 | K | A full season with suspensions, injuries and fatigue | section 13 | |
 
 
 
 ## 13. Season and career validation
 
-TBD_SEASONS
+The season harness (`src-tauri/src/application/interactive_season.rs`) plays every fixture of the user's club (the strongest English club of a generated world) as an interactive M12 match
+through the application layer, finalises it through the one canonical path, and advances the days between matches as the game does. Four ignored studies ran on the final code (release, FM24 world
+as a read-only copy): the single season with a save and reload after the tenth match (seed 7), three generated worlds (seeds 11, 23, 37), three plans on seeds 11 and 23 (low block, balanced, high press) and two clubs of
+the FM24 world (the best rated, 67.7, and a middle one, 57.3). **Twelve club-seasons were played; seven ran the whole 38 matches, five ended with the board dismissing the manager (after 3, 13, 32, 33 and 35 matches).**
+
+What the seven complete seasons showed (all assertions passed): every league fixture finalised once (the club's table row equals its completed league fixtures); every table row equals its results
+(`standings_match_results` finds no fault); nobody injured or suspended played (0 violations over about 270 matches); no condition spiral (in the first third of a season the players who played arrived with 92 to 97, and
+the drift from the first to the last third was at most 6.5 points: 92.3 to 85.8 for the balanced plan on seed 23, 91.7 to 86.8 for the high press on seed 11; the lowest arrival was 50; squad average after a match never below 63);
+reds a season 1 to 13 (all kept out, see section 8); the reloaded career plays the rest exactly like the uninterrupted one (equal fingerprints: results, players, staff, inbox).
+
+* **Scenario J, fixtures within four days** (7 to 14 per season): the players who play arrive with 89.2 to 97.2 against 89.3 to 98.5 after a rest of six days or more: congestion costs 0 to 2 points of condition, not a spiral.
+* **What a press costs across a season** (seed 11, same club, same world): high press squad condition before matches 89.4 and after 72.7 (a match costs 16.7 points); low block 96.7 and 84.0 (12.7). Points 41 against 57. The comparison could not be completed on a third plan (the balanced plan's season was cut short by a dismissal on seed 11, the high press's on seed 23), so the "a press costs more condition than a low block" assertion ran on no seed; the numbers above are the evidence, from one seed.
+* **Injuries**: 0.4 to 1.1 players of the squad injured after a match on average.
+
+**Defects and findings of the seasons (gate 8 fails):**
+
+1. **Goals in the user's matches are 4.7 to 8.0 a match** (seed 7: 5.4; seed 11: 7.7 low block, 4.7 high press; seed 23: 8.0 low block, 5.1 balanced, 6.0; seed 37: 5.3) while the same worlds' other matches, mostly produced by
+   the statistical model of the followed-leagues scope, average 2.85 to 2.92 and real football 2.7 to 3.3. **This is not new**: the same season on the F4.2 football gave 5.1 goals a match (seed 7), and it is not seen on the engine's own fixtures
+   (2.5 goals at equal level), where goals grow with the quality gap (open-play goals 2.45 at 65 v 65, 3.15 at 72 v 58, 4.38 at 75 v 50). The user's club is the strongest of its world, and the engine amplifies a gap of 15 to 25 attribute
+   levels into 5 to 8 goals a match. F4.3's recalibration of execution did not change that; I did not find the cause in the attribute-to-outcome functions and did not have the run left to.
+2. **The manager is dismissed in 5 of 12 seasons**, including by the best FM24 club after 3 matches (0 league matches played) and by a middle FM24 club after 13: a board that dismisses the harness manager (born 1980, no standing) that early is a property of the harness and of the board model as much as of the engine, and I did not investigate it. Where
+   the club is the strongest in a generated world, 22 points from 26 league matches is not credible for a strong side, and does follow from the 4.7 to 8.0 goals above (a side that concedes 3 a match loses).
+3. The season test's threshold of 30 league matches in 38 was wrong (38 includes cup ties): it is now 25.
+4. An existing OFM test, `a_managed_match_is_finalised_once_and_survives_a_reload`, failed once the football changed because it asserted that player goals equal the score; an own goal is credited to nobody. It now counts own goals (the stored record names the scorer). Not a defect of the engine; a test written for a seed without one.
+
 
 ## 14. Performance (Apple Silicon, release, quiet machine, `examples/f4_perf.rs`, 10 matches)
 
@@ -396,15 +425,61 @@ realism stays: the options per decision tripled. A 38-match season is about 30 s
 
 ## 15. Regression suites
 
-TBD_SUITES
+| Suite | Result |
+|---|---|
+| M12 `cargo test --release --no-fail-fast` at `b28fe7c` (the last code commit; `dc6db5e` changes one test file, whose suite was re-run) | **621 passed, 0 failed, 29 ignored (studies)**; every historical golden digest (Missions 8 to 12, F4 session equivalence, F4.2) unchanged |
+| M12 `f43_mechanisms` at `dc6db5e` | 10 passed |
+| M12 `clippy --release --all-targets -D warnings`, `cargo fmt` | clean |
+| OFM `cargo test --locked --workspace` (against the local engine at the final head; the pin was verified separately) | **4,457 passed, 0 failed, 61 ignored** (F4.2: 4,448 / 0 / 58) |
+| OFM `--features mcp --lib` | 633 passed, 0 failed |
+| OFM clippy `--locked --workspace --all-targets -D warnings`, default and `--features mcp`; `cargo fmt --check` | clean |
+| `npm test` | 331 files, 2,913 passed, 4 skipped, 0 failed (includes the `src/i18n` coverage gates) |
+| `npm run build`, `lint` | clean |
+| `npm run format:check` | **was failing on `SuspensionBadge.test.tsx`, a F4.2 file** (the F4.2 report said clean); formatted, now clean |
+| Ignored studies run | dominance matrix (88 cells, 150 pairs), quick grids (6 x 3, 300), ladder and opponent context (300 pairs, F4.2 and F4.3), pressing levels, quality, scenarios 1 to 4 and E (F4.2 and F4.3), staged block scenarios, FM24 workload (twice), season studies (twice, the first run on a stale build was discarded) |
+| **Not run** | `mcp-e2e`, the mutation-tests workflow, `cargo test --bin`, the desktop application interactively (section 17), a held-out set for the wear constants |
+
+Two pitfalls found on the way, recorded for whoever repeats this: (1) a source file restored with `mv` from a backup keeps its old modification time and Cargo then believes the build is current: an experiment with the football
+switched to F4.2 and back left the next test binary on F4.2 and produced a season run that looked plausible (5.09 goals a match) and was wrong; the OFM test `every_ofm_match_is_played_with_the_f43_football` would have caught it and the run was discarded and repeated;
+(2) in zsh an unquoted `$flags` is not word-split, so a shell loop over study flags silently ran with one malformed flag (`${=flags}`).
+
 
 ## 16. Reviewers (the five read-only agents of CLAUDE.md)
 
-TBD_REVIEWERS
+The five agents of CLAUDE.md ran on the diff, their findings were acted on, and the three that matter for the code ran again (architecture, dedup, tests); a narrow third architecture
+pass covers the last commits. Reviewers read both repositories (the engine is where most of the change is).
+
+| Reviewer | Round 1 findings | Disposition |
+|---|---|---|
+| architecture | **blocking:** OFM pinned an M12 revision without `full_match_f43`; a dangling doc link; a dead `_need` parameter; the half-time formation behaviour change had no test; `shape_pass` 131 lines, `apply_f42_flag` 150, `check_season` 108 | M12 pushed and OFM re-pinned (verified with `--locked`, local override removed); report written; parameter removed; literal half-time / return-charge / deficit tests; `shape_pass` 97 lines (`block_shape`, `nearest_untasked`, `level_back_line`), `apply_f42_flag` 84, `check_season` 52; unchanged: `generate_options` (267 lines, pre-existing; F4.3 netted +12) |
+| i18n | none: no player-visible string, no Rust path emits prose; holds are ordinary `Foul` events with existing keys | no change. Advisory kept: the foul commentary templates use `{{victim}}` and the replay path may leave it empty (pre-existing; holds make it slightly more visible) |
+| accessibility | nothing in remit: no `src/` change except formatting of one F4.2 test | the formatting failure of `SuspensionBadge.test.tsx` (an F4.2 file that failed `format:check`) was fixed |
+| dedup | aerial foul path copies the judgement; formation argmax three times; `f43_penalty.rs` copy of `m9_penalty.rs`; determinism test copy; seeds helper five times; club strength | `judge_for` reads aerial fouls too; `manager::best_formation`; merged into `m9_penalty --mode`; shared helpers in `f42_common`; stored `ovr`; `engage_weight` and `cautions_on_record` shared by the ground, hold and aerial readings |
+| tests | 12 findings: the OFM seam untested; the vacuous man-up test; unguarded half-time and return charge; `booked_leniency`, hold promise and block shape unguarded by behaviour; the chaotic single-seed spread claim; the covered-attack doc; studies silently measuring M12; the season study asserting nothing | each fixed as listed in section 11 and in the M12 commits: pure `read_foul`, `attack_promise`, `block_shape` with unit tests, a pinned F4.3 digest, literal AI tests, an OFM test that the football every match uses is F4.3, studies announce their football, the season study asserts that a press costs condition |
+
+| Reviewer | Round 2 | Disposition |
+|---|---|---|
+| architecture | non-preset formations (3-4-3, 4-1-4-1) could no longer be reshaped; the season study turned a board dismissal into a NaN assertion failure; the report said "literal" for tests that compare with an oracle; "the shape just left" is inferred from the club's identity; `check_season` length | `nearest_preset` (with a test); the dismissal is an explicit outcome; wording corrected; the inference is limitation 8; `check_condition` extracted |
+| dedup | aerial sanction chain still its own copy (it ignores pending cautions and downgrades a keeper's red to a yellow even where `goalkeeper_sendoff` is on); "booked" read three ways; the willingness weights copied; magic 26 / 4 | the aerial divergence **predates this run and changing it alters Mission 9 to F4.2 outcomes: left, and recorded for epic #589**; `cautions_on_record`, `engage_weight`, `hold_obvious_goal_m` / `hold_obvious_mps` |
+| tests | mutation survivors (listed below) | see below |
+
+**Mutation survivors reported by the test reviewer and not closed** (all in the seams between a tested pure function and its use):
+the engine feeding the offender's real booked state into `read_foul`; `block_parameters` reading the right side's mentality and width (only `block_shape` is unit-tested and the digest runs at 50 / 50);
+`match_football_config` called from the instant path (`spatial_runner.rs:132`) and the interactive path (`interactive_match/mod.rs:312`): reverting either call site to F4.2 keeps every test green, the function itself is guarded;
+the clock in `formation_for` and the tie rule of `best_formation`; small calibration constants (`excessive_at`, keeper reaction) are guarded only by the pinned digest and the ignored studies; the plan-comparison season study is an ignored study.
+Mutations that **die**: `tactical_foul` off, the hold promise's distance, cover and speed terms, the denial term, the in-area deterrent, `organised_block`, `block_shape`'s squeeze sign and bound, `rest_cost` back to 1.0, the OFM configuration revert (function level), the AI formation and substitution mutants (score ignored, score sign flipped, men ignored, return charge, gain threshold).
+
 
 ## 17. Desktop playability
 
-TBD_GUI
+**The desktop application was launched; it was not played.** `npm run tauri dev` (the supported development workflow: Vite plus the Tauri shell, built against the local engine) compiled and started:
+the process `target/debug/openfootmanager` ran, the webview loaded the frontend from `http://localhost:1420` and logged its startup line (`AP Football Manager v0.3.0-dev`, commit `aec61a7`), and the backend answered
+`get_settings` and `get_active_game` (no game loaded). I then stopped it. **I had no way to drive or see the window**: no desktop-control tools were available to this session and a screen capture was refused
+(`could not create image from display`). So none of the following was done, and nothing in this report is a manual desktop test: selecting a team, setting tactics, starting a match, changing mentality, a
+substitution, responding to a dismissal, saving during the match, quitting and reloading, finishing it, and inspecting the standings, statistics and suspensions. The application-level equivalents that did run
+are the interactive matches of the season studies (section 13, a save and reload mid-season) and `a_managed_match_is_finalised_once_and_survives_a_reload`, which are tests through the same commands, not a person at a screen.
+The launch may have created the application's own settings directory; no career and no save was opened or changed. The playthrough of F4.2's section 16 still applies and should be done by a person.
+
 
 ## 18. Remaining limitations (all of them)
 
@@ -433,9 +508,24 @@ TBD_GUI
 15. **CI**: see section 20.
 
 
-## 19. Git
+## 19. Git and push status
 
-TBD_GIT
+| Repository | Branch | Base | Head |
+|---|---|---|---|
+| OFM | `claude/run-f4-3-final-balance` | `50291c7a` (F4.2) | the last commit of the branch (this report is part of it): `git log -1` |
+| M12 | `f4.3/final-balance` | `f4ab176daea68f280b6791be4242ea4742bd6cea` (F4.2) | `dc6db5ea94b9862f32f4364a978df2c070d588f5` |
+
+M12, oldest first: `5bb3bee` tactical fouls, organised block, booked-player leniency, flatter keeper, walking is not rest, the F4.3 configuration and instruments; `e0e0baf` pressure tests; `b2b45a8` the two mechanisms measured and
+not adopted removed, staged scenarios; `5faebf9` perf probes; `c7c3ab6` the full-back study; `4ab8eb2` reviewer findings (one `best_formation`, one reading for aerial and ground fouls, shorter functions, shared helpers);
+`f1c9f4d` pure unit-tested leniency, hold promise and block shape, a pinned F4.3 digest; `b28fe7c` one engage weight, one caution count, named thresholds; `dc6db5e` the denial test.
+
+OFM, oldest first: `b9cfa7fc` F4.3 football in every match, the manager's shape from the autonomous utility, season studies; `8bf52206` `best_formation`, half-time and deficit tests; `904b3bf8` neutral workloads re-measured, pin, literal tests, report;
+`32976b10` non-preset formations, dismissal as an outcome in the season study; `bf31e893` own goals reconcile, strict `nearest_preset`; `aec61a74` clippy; then the report.
+
+## Push status
+M12 `f4.3/final-balance` is **pushed** to `origin` (private) at `dc6db5e`. OFM `claude/run-f4-3-final-balance` is pushed with this report. Nothing was merged into `main`, `develop` or an integration branch. The uncommitted licence files in M12 (`Cargo.toml`, `LICENSE`, `NOTICE`)
+and in the viewer were left as they were.
+
 
 ## 20. Secrets and the pinned engine
 
