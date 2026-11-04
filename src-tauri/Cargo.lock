@@ -1092,6 +1092,7 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "domain",
+ "flate2",
  "log",
  "ofm_core",
  "rusqlite",
@@ -4048,7 +4049,9 @@ dependencies = [
  "chrono",
  "db",
  "domain",
+ "flate2",
  "ofm_core",
+ "rusqlite",
  "serde_json",
  "tempfile",
 ]

@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 65;
+const EXPECTED_MIGRATION_COUNT: usize = 67;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -184,6 +184,10 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ),
     // V65: matches a player must still miss after a sending-off
     ("v065_player_suspensions.sql", include_str!("sql/v065_player_suspensions.sql")),
+    // V66: compact match history (interned ids, one row per match for the match's own facts)
+    ("v066_compact_match_history.sql", include_str!("sql/v066_compact_match_history.sql")),
+    // V67: edition archive records and replays are stored deflated
+    ("v067_compressed_archive_and_replays.sql", include_str!("sql/v067_compressed_archive_and_replays.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -511,13 +515,13 @@ mod tests {
         assert!(tables.contains(&"teams".to_string()), "missing teams");
         assert!(tables.contains(&"players".to_string()), "missing players");
         assert!(
-            tables.contains(&"player_match_stats".to_string()),
-            "missing player_match_stats"
+            tables.contains(&"player_match_lines".to_string()),
+            "missing player_match_lines"
         );
         assert!(tables.contains(&"staff".to_string()), "missing staff");
         assert!(
-            tables.contains(&"team_match_stats".to_string()),
-            "missing team_match_stats"
+            tables.contains(&"team_match_lines".to_string()),
+            "missing team_match_lines"
         );
         assert!(tables.contains(&"league".to_string()), "missing league");
         assert!(tables.contains(&"fixtures".to_string()), "missing fixtures");
@@ -1037,6 +1041,8 @@ mod tests {
     ("v063_out_of_possession_formation.sql", 0xb952826f9fdd84dc),
     ("v064_interactive_match_checkpoint.sql", 0xdf5f9d9a2445c22a),
     ("v065_player_suspensions.sql", 0x8c7c919985762945),
+    ("v066_compact_match_history.sql", 0x615221a4621a6474),
+    ("v067_compressed_archive_and_replays.sql", 0x3e6ec1017c142503),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

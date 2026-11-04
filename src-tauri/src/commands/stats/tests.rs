@@ -194,6 +194,7 @@ fn sample_stats_state() -> StatsState {
             },
         ],
         team_matches: vec![],
+        ..Default::default()
     }
 }
 
@@ -248,6 +249,7 @@ fn sample_team_stats_state() -> StatsState {
                 red_cards: 0,
             },
         ],
+        ..Default::default()
     }
 }
 
@@ -499,6 +501,7 @@ fn get_player_stats_overview_aggregates_history_and_uses_exact_position_cohorts(
             },
         ],
         team_matches: vec![],
+        ..Default::default()
     });
 
     let overview = get_player_stats_overview_internal(&state, "player-1").unwrap();
@@ -936,4 +939,101 @@ fn a_stranger_has_no_stats_overview() {
     .unwrap_err();
 
     assert_eq!(error, "be.error.playerNotFound");
+}
+
+/// One player's line in a match of a season, with numbers that differ from match to match.
+fn career_line(player: &str, season: u32, matchday: u32) -> PlayerMatchStatsRecord {
+    let wobble = ((season + matchday) % 5) as u8;
+    PlayerMatchStatsRecord {
+        fixture_id: format!("fixture-{season}-{matchday}"),
+        season,
+        matchday,
+        date: format!("{season}-09-{matchday:02}"),
+        player_id: player.to_string(),
+        minutes_played: 60 + wobble * 7,
+        shots: 1 + wobble,
+        shots_on_target: wobble / 2,
+        passes_completed: 20 + wobble,
+        passes_attempted: 30,
+        tackles_won: 1 + wobble % 3,
+        interceptions: wobble,
+        fouls_committed: wobble % 2,
+        ..sample_stats_state().player_matches[0].clone()
+    }
+}
+
+fn career_team_line(season: u32, matchday: u32) -> TeamMatchStatsRecord {
+    let wobble = ((season + matchday) % 4) as u8;
+    TeamMatchStatsRecord {
+        fixture_id: format!("fixture-{season}-{matchday}"),
+        season,
+        matchday,
+        date: format!("{season}-09-{matchday:02}"),
+        team_id: "team-1".to_string(),
+        goals_for: wobble,
+        goals_against: 3 - wobble,
+        possession_pct: 40 + wobble * 5,
+        shots: 8 + u16::from(wobble),
+        ..sample_team_stats_state().team_matches[0].clone()
+    }
+}
+
+/// Given ten seasons of lines for a player, his peers and a team,
+/// When the statistics are read from a history that kept every line and from the same history
+///      played out match by match (which folds seasons beyond the five kept into totals),
+/// Then the player overview, the team overview and the recent-matches lists are identical: the
+///      fold removed lines, and nothing a screen shows.
+#[test]
+fn folded_seasons_change_nothing_a_screen_shows() {
+    let mut everything = Vec::new();
+    let mut teams = Vec::new();
+    for season in 2030..2040 {
+        for matchday in 1..=6 {
+            for player in ["player-1", "player-2", "player-3"] {
+                everything.push(career_line(player, season, matchday));
+            }
+            teams.push(career_team_line(season, matchday));
+        }
+    }
+    let mut played_out = StatsState::default();
+    for (index, line) in everything.chunks(3).enumerate() {
+        played_out.append(StatsState::with_lines(
+            line.to_vec(),
+            vec![teams[index].clone()],
+        ));
+    }
+    let kept_all = StatsState::with_lines(everything, teams);
+    assert_eq!(
+        played_out.player_matches.len(),
+        5 * 6 * 3,
+        "five of ten seasons are kept"
+    );
+    assert_eq!(kept_all.player_matches.len(), 10 * 6 * 3);
+
+    let read = |stats: StatsState| {
+        let peers = |id| make_player(id, "team-1", Position::Striker);
+        let state = StateManager::new();
+        state.set_game(make_game(vec![
+            peers("player-1"),
+            peers("player-2"),
+            peers("player-3"),
+        ]));
+        state.set_stats_state(stats);
+        (
+            serde_json::to_value(get_player_stats_overview_internal(&state, "player-1").unwrap())
+                .unwrap(),
+            serde_json::to_value(get_team_stats_overview_internal(&state, "team-1").unwrap())
+                .unwrap(),
+            serde_json::to_value(
+                get_player_match_history_internal(&state, "player-1", Some(5)).unwrap(),
+            )
+            .unwrap(),
+            serde_json::to_value(
+                get_team_match_history_internal(&state, "team-1", Some(5)).unwrap(),
+            )
+            .unwrap(),
+        )
+    };
+
+    assert_eq!(read(played_out), read(kept_all));
 }

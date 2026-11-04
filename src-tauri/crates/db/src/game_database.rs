@@ -895,6 +895,122 @@ mod tests {
             .collect()
     }
 
+    /// Given a v65 save whose match history was written the old way: an ordinary match, a match
+    /// only a team line knows, and a record that disagrees with its own match about the date,
+    /// When it is upgraded,
+    /// Then every record reads back equal and in the order it had, and the old tables are gone.
+    #[test]
+    fn a_v65_upgrade_carries_the_match_history_over_record_for_record() {
+        use domain::league::FixtureCompetition;
+        use domain::stats::{PlayerMatchStatsRecord, TeamMatchStatsRecord};
+
+        let player =
+            |fixture: &str, player: &str, date: &str, rating: f32| PlayerMatchStatsRecord {
+                fixture_id: fixture.into(),
+                season: 2034,
+                matchday: 7,
+                date: date.into(),
+                competition: FixtureCompetition::League,
+                player_id: player.into(),
+                team_id: "home".into(),
+                opponent_team_id: "away".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_goals: 3,
+                away_goals: 1,
+                minutes_played: 83,
+                goals: 2,
+                assists: 1,
+                shots: 5,
+                shots_on_target: 3,
+                passes_completed: 31,
+                passes_attempted: 40,
+                tackles_won: 2,
+                interceptions: 1,
+                fouls_committed: 4,
+                yellow_cards: 1,
+                red_cards: 0,
+                rating,
+            };
+        let team = |fixture: &str, team: &str, for_: u8, against: u8| TeamMatchStatsRecord {
+            fixture_id: fixture.into(),
+            season: 2034,
+            matchday: 7,
+            date: "2034-09-02".into(),
+            competition: FixtureCompetition::League,
+            team_id: team.into(),
+            opponent_team_id: if team == "home" { "away" } else { "home" }.into(),
+            home_team_id: "home".into(),
+            away_team_id: "away".into(),
+            goals_for: for_,
+            goals_against: against,
+            possession_pct: 58,
+            shots: 14,
+            shots_on_target: 6,
+            passes_completed: 410,
+            passes_attempted: 480,
+            tackles_won: 17,
+            interceptions: 9,
+            fouls_committed: 12,
+            yellow_cards: 2,
+            red_cards: 1,
+        };
+        let players = vec![
+            player("fx-1", "p-1", "2034-09-02", 7.4),
+            player("fx-1", "p-2", "2034-09-02", 0.0),
+            player("fx-2", "p-1", "2034-09-09", 6.25),
+            // Disagrees with the other records of its match about the date: kept as written.
+            player("fx-1", "p-3", "2034-09-03", 8.1),
+        ];
+        let teams = vec![
+            team("fx-1", "home", 3, 1),
+            team("fx-1", "away", 1, 3),
+            // A match no player line mentions.
+            team("fx-9", "home", 3, 1),
+        ];
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(dir.path(), 65, "");
+        {
+            let conn = Connection::open(&path).unwrap();
+            for r in &players {
+                conn.execute(
+                    "INSERT INTO player_match_stats VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)",
+                    rusqlite::params![
+                        r.fixture_id, r.season, r.matchday, r.date, "League", r.player_id,
+                        r.team_id, r.opponent_team_id, r.home_team_id, r.away_team_id,
+                        r.home_goals, r.away_goals, r.minutes_played, r.goals, r.assists, r.shots,
+                        r.shots_on_target, r.passes_completed, r.passes_attempted, r.tackles_won,
+                        r.interceptions, r.fouls_committed, r.yellow_cards, r.red_cards, r.rating
+                    ],
+                )
+                .unwrap();
+            }
+            for r in &teams {
+                conn.execute(
+                    "INSERT INTO team_match_stats VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+                    rusqlite::params![
+                        r.fixture_id, r.season, r.matchday, r.date, "League", r.team_id,
+                        r.opponent_team_id, r.home_team_id, r.away_team_id, r.goals_for,
+                        r.goals_against, r.possession_pct, r.shots, r.shots_on_target,
+                        r.passes_completed, r.passes_attempted, r.tackles_won, r.interceptions,
+                        r.fouls_committed, r.yellow_cards, r.red_cards
+                    ],
+                )
+                .unwrap();
+            }
+        }
+
+        let db = GameDatabase::open_save(&path).unwrap();
+        let loaded = crate::repositories::stats_repo::load_stats_state(db.conn()).unwrap();
+
+        assert_eq!(loaded.player_matches, players);
+        assert_eq!(loaded.team_matches, teams);
+        let tables = every_table_with_its_rows(&path);
+        assert!(!tables.contains_key("player_match_stats"));
+        assert!(!tables.contains_key("team_match_stats"));
+    }
+
     /// Given a released v61 save holding a team and a message,
     /// When it is upgraded,
     /// Then every row of every table it already had is still there, value for value, and the two
@@ -917,6 +1033,11 @@ mod tests {
         let after = every_table_with_its_rows(&path);
 
         for (table, (columns, rows)) in &before {
+            // v066 replaced these two with compact tables: the history is carried over, and
+            // `a_v65_upgrade_carries_the_match_history_over_record_for_record` reads it back.
+            if matches!(table.as_str(), "player_match_stats" | "team_match_stats") {
+                continue;
+            }
             let (after_columns, after_rows) = &after[table];
             let kept: Vec<usize> = columns
                 .iter()

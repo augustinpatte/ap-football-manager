@@ -1247,6 +1247,7 @@ mod tests {
                 yellow_cards: 2,
                 red_cards: 0,
             }],
+            ..StatsState::default()
         }
     }
 

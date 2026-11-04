@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use domain::player::{Player, PlayerSeasonStats, Position};
-use domain::stats::PlayerMatchStatsRecord;
+use domain::stats::{PlayerMatchStatsRecord, PlayerStatsTotals};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -89,24 +89,19 @@ fn league_peers(game: &Game, player: &Player) -> (Option<PeerGroupDto>, HashSet<
     (Some(group), peer_ids)
 }
 
-fn aggregate_from_history(records: &[PlayerMatchStatsRecord]) -> Option<PlayerAggregate> {
-    if records.is_empty() {
-        return None;
+/// What the history holds of a player: the totals folded from seasons whose lines are no longer
+/// kept, plus every line still kept (see `domain::stats::StatsState::player_history_totals`).
+fn aggregate_from_totals(totals: &PlayerStatsTotals) -> PlayerAggregate {
+    PlayerAggregate {
+        minutes_played: totals.minutes_played,
+        shots: totals.shots,
+        shots_on_target: totals.shots_on_target,
+        passes_completed: totals.passes_completed,
+        passes_attempted: totals.passes_attempted,
+        tackles_won: totals.tackles_won,
+        interceptions: totals.interceptions,
+        fouls_committed: totals.fouls_committed,
     }
-
-    let mut aggregate = PlayerAggregate::default();
-    for record in records {
-        aggregate.minutes_played += record.minutes_played as u32;
-        aggregate.shots += record.shots as u32;
-        aggregate.shots_on_target += record.shots_on_target as u32;
-        aggregate.passes_completed += record.passes_completed as u32;
-        aggregate.passes_attempted += record.passes_attempted as u32;
-        aggregate.tackles_won += record.tackles_won as u32;
-        aggregate.interceptions += record.interceptions as u32;
-        aggregate.fouls_committed += record.fouls_committed as u32;
-    }
-
-    Some(aggregate)
 }
 
 fn aggregate_from_season_stats(stats: &PlayerSeasonStats) -> PlayerAggregate {
@@ -233,22 +228,10 @@ fn build_history_overview(
     let (peer_group, peer_ids) = league_peers(&game, &player);
 
     let Some(history_aggregates) = state.get_stats_state(|stats| {
-        let mut records_by_player: HashMap<String, Vec<PlayerMatchStatsRecord>> = HashMap::new();
-
-        for record in &stats.player_matches {
-            if peer_ids.contains(&record.player_id) {
-                records_by_player
-                    .entry(record.player_id.clone())
-                    .or_default()
-                    .push(record.clone());
-            }
-        }
-
-        records_by_player
+        stats
+            .player_history_totals(&peer_ids)
             .into_iter()
-            .filter_map(|(candidate_id, records)| {
-                aggregate_from_history(&records).map(|aggregate| (candidate_id, aggregate))
-            })
+            .map(|(candidate_id, totals)| (candidate_id, aggregate_from_totals(&totals)))
             .collect::<HashMap<_, _>>()
     }) else {
         return Ok(None);

@@ -1952,6 +1952,7 @@ mod live_session_tests {
                 yellow_cards: 1,
                 red_cards: 0,
             }],
+            ..domain::stats::StatsState::default()
         };
         let mut other_stats = old_stats.clone();
         other_stats.team_matches[0].fixture_id = "previous-b".to_string();
