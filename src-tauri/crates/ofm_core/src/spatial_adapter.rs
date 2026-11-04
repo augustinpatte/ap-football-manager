@@ -986,10 +986,13 @@ pub fn formation_geometry(formation: &str) -> Result<Vec<GeometrySlot>, Adaptati
         position: OfmPosition::Goalkeeper,
         base: Point { x: 5.0, y: 34.0 },
     }];
+    // The depths M12's reference 4-4-2 was calibrated with (defence 24-28 m, midfield 46-50 m, attack
+    // 70 m from the own goal line). A formation laid out shallower than the reference changes how
+    // much space the engine's block leaves behind it, so these are not cosmetic.
     let x_rows: Vec<f32> = if lines.len() == 3 {
-        vec![20.0, 40.0, 60.0]
+        vec![26.0, 48.0, 70.0]
     } else {
-        vec![20.0, 34.0, 50.0, 64.0]
+        vec![26.0, 40.0, 54.0, 70.0]
     };
     for ((count, row), x) in lines.iter().zip(positions).zip(x_rows) {
         for (index, position) in row.iter().enumerate().take(*count) {
@@ -1004,12 +1007,15 @@ pub fn formation_geometry(formation: &str) -> Result<Vec<GeometrySlot>, Adaptati
     }
     Ok(slots)
 }
+/// Lateral position of `index` among `count` players of one line: evenly spaced about the pitch centre,
+/// at most 16 m apart, so a pair of strikers stands at y = 26 and 42 and only a line of five or more
+/// reaches the flanks (y = 8 and 60).
 fn spread_y(count: usize, index: usize) -> f32 {
     if count == 1 {
-        34.0
-    } else {
-        8.0 + 52.0 * index as f32 / (count - 1) as f32
+        return 34.0;
     }
+    let pitch = (52.0 / (count - 1) as f32).min(16.0);
+    34.0 + (index as f32 - (count - 1) as f32 / 2.0) * pitch
 }
 
 #[cfg(test)]
@@ -1492,6 +1498,80 @@ mod tests {
             assert_eq!(slots, formation_geometry(formation).unwrap());
         }
     }
+    fn slots_of(formation: &str, position: Position) -> Vec<Point> {
+        formation_geometry(formation)
+            .unwrap()
+            .into_iter()
+            .filter(|slot| slot.position == position)
+            .map(|slot| slot.base)
+            .collect()
+    }
+
+    /// Given the 4-4-2, when laid out, then the pair of strikers stands centrally, not on the touchlines.
+    /// Run F4.4: the spread used to put two strikers at y = 8 and 60, which with the line depths below
+    /// moved a career match from 3.3 to about 5.9 goals.
+    #[test]
+    fn the_two_strikers_of_a_four_four_two_stand_centrally() {
+        let strikers = slots_of("4-4-2", Position::Striker);
+        assert_eq!(
+            strikers.iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
+            vec![(70.0, 26.0), (70.0, 42.0)]
+        );
+    }
+
+    /// Given the 4-4-2, when laid out, then the lines sit at the depths M12's reference 4-4-2 was
+    /// calibrated with (defence 26 m, midfield 48 m) and the back four at y = 10, 26, 42, 58.
+    #[test]
+    fn a_four_four_two_has_the_reference_line_depths() {
+        let slots = formation_geometry("4-4-2").unwrap();
+        let back: Vec<_> = slots
+            .iter()
+            .filter(|slot| {
+                matches!(
+                    slot.position,
+                    Position::RightBack | Position::CenterBack | Position::LeftBack
+                )
+            })
+            .collect();
+        assert_eq!(
+            back.iter()
+                .map(|s| (s.base.x, s.base.y))
+                .collect::<Vec<_>>(),
+            vec![(26.0, 10.0), (26.0, 26.0), (26.0, 42.0), (26.0, 58.0)]
+        );
+        let mids = slots_of("4-4-2", Position::CentralMidfielder);
+        assert_eq!(
+            mids.iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
+            vec![(48.0, 26.0), (48.0, 42.0)]
+        );
+    }
+
+    /// Given formations with a line of three and of five, and one with four lines, when laid out, then
+    /// three stand at y = 18, 34, 50, five reach the flanks (8 and 60), and the four-line formations use
+    /// the depths 26 / 40 / 54 / 70.
+    #[test]
+    fn lines_of_three_and_five_and_four_line_formations_are_laid_out_symmetrically() {
+        let centre_backs = slots_of("3-5-2", Position::CenterBack);
+        assert_eq!(
+            centre_backs.iter().map(|p| p.y).collect::<Vec<_>>(),
+            vec![18.0, 34.0, 50.0]
+        );
+        let mids = formation_geometry("3-5-2").unwrap();
+        let midfield_y: Vec<f32> = mids[4..9].iter().map(|slot| slot.base.y).collect();
+        assert_eq!(midfield_y.first().copied(), Some(8.0));
+        assert_eq!(midfield_y.last().copied(), Some(60.0));
+        let slots = formation_geometry("4-2-3-1").unwrap();
+        let xs: Vec<f32> = [1usize, 5, 7, 10]
+            .iter()
+            .map(|&i| slots[i].base.x)
+            .collect();
+        assert_eq!(xs, vec![26.0, 40.0, 54.0, 70.0]);
+        for formation in ["3-4-3", "4-3-3"] {
+            let attack = formation_geometry(formation).unwrap();
+            assert_eq!(attack.last().map(|slot| slot.base.x), Some(70.0));
+        }
+    }
+
     /// Given identical OFM inputs, when adapted twice, then JSON and digest are reproducible.
     #[test]
     fn adaptation_json_and_digest_are_reproducible() {

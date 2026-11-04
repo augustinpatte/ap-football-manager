@@ -29,6 +29,28 @@ fn start(seed: u64) -> InteractiveMatch {
     InteractiveMatch::start(&game(seed), identity(), "session-1").expect("starts")
 }
 
+/// Given an interactive match just started,
+/// Then the engine session it holds plays the F4.4 football (run F4.4: the instant path was covered,
+/// the interactive one could revert unseen).
+#[test]
+fn an_interactive_match_is_started_with_the_f44_football() {
+    use apfm_match_lab::sim::football::FootballConfig;
+    let cp = start(1).checkpoint().expect("checkpoint");
+    assert_eq!(cp.session.football, FootballConfig::full_match_f44());
+    assert!(cp.session.football.m12.continuous_line);
+}
+
+/// Given an interactive match restored from its checkpoint,
+/// Then it keeps the football the checkpoint recorded (a save made under F4.4 reloads as F4.4).
+#[test]
+fn a_restored_interactive_match_keeps_the_recorded_football() {
+    use apfm_match_lab::sim::football::FootballConfig;
+    let restored =
+        InteractiveMatch::restore(start(1).checkpoint().expect("checkpoint")).expect("restores");
+    let again = restored.checkpoint().expect("checkpoint");
+    assert_eq!(again.session.football, FootballConfig::full_match_f44());
+}
+
 fn run_for(m: &mut InteractiveMatch, minutes: u32) -> AdvanceOutcome {
     m.advance(AdvanceRequest {
         target: AdvanceTarget::ForMinutes(minutes),

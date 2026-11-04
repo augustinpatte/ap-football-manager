@@ -147,9 +147,10 @@ fn simulate_with_engine_output(
 /// `full_match_f43` is `full_match_f42` plus the final balance corrections (every team defends in the
 /// compact block, a beaten defender can stop an attack with a foul, a flatter keeper, walking is not
 /// rest); the earlier configurations are untouched, so a checkpoint written under one replays as it
-/// was recorded.
+/// was recorded. Run F4.4: `full_match_f44` is `full_match_f43` plus a defensive line that follows its
+/// instruction continuously instead of jumping 14 m between two values of the slider.
 pub fn match_football_config() -> FootballConfig {
-    FootballConfig::full_match_f43()
+    FootballConfig::full_match_f44()
 }
 
 #[cfg(test)]
@@ -157,13 +158,15 @@ mod football_configuration_tests {
     use super::*;
 
     /// Given the football every OFM match is played with,
-    /// Then it is the F4.3 one: every team in the compact block, a beaten defender able to stop an
+    /// Then it is the F4.4 one (F4.3 plus a continuous defensive line): every team in the compact block, a beaten defender able to stop an
     /// attack, a booked player's second caution read leniently, and walking not counted as rest. A
-    /// revert to the F4.2 football would be a behaviour change, so it has to fail here.
+    /// revert to F4.3 or F4.2 would be a behaviour change, so it has to fail here: `continuous_line`
+    /// is what tells F4.4 from F4.3.
     #[test]
-    fn every_ofm_match_is_played_with_the_f43_football() {
+    fn every_ofm_match_is_played_with_the_f44_football() {
         let config = match_football_config();
-        assert_eq!(config, FootballConfig::full_match_f43());
+        assert_eq!(config, FootballConfig::full_match_f44());
+        assert!(config.m12.continuous_line);
         assert!(config.m12.organised_block);
         assert!(config.referee.tactical_fouls);
         assert!(config.referee.booked_leniency > 0.0);
@@ -355,9 +358,19 @@ pub fn play_fixture(game: &mut Game, fixture_index: usize) -> Result<MatchReport
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use super::{SpatialRunError, build_selected_fixture_replay};
+    use super::{
+        AdaptedMatch, REPLAY_CONDITION_SAMPLE_MS, SpatialRunError, adapt_selected_fixture,
+        build_selected_fixture_replay, simulate,
+    };
     use crate::spatial_match_output::OutputDecodeError;
     use crate::{clock::GameClock, game::Game};
+    use apfm_match_lab::{
+        MatchInput,
+        sim::{
+            SimulationConfig, export::simulate_autonomous_with, football::FootballConfig,
+            motion::MotionConfig,
+        },
+    };
     use chrono::{TimeZone, Utc};
     use domain::{
         league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry},
@@ -568,6 +581,48 @@ pub(crate) mod tests {
         assert!(
             first.input.home.bench.iter().any(|id| id.contains("sub00")),
             "the best-covering twelve keep a goalkeeper"
+        );
+    }
+
+    /// The replay document the engine writes for `adapted` under an explicit football.
+    fn replay_under(adapted: &AdaptedMatch, mut football: FootballConfig) -> String {
+        let json = serde_json::to_string(&adapted.input).expect("serialise the input");
+        let input = MatchInput::from_json(&json).expect("the input parses");
+        football.m11.replay_interval_ms = REPLAY_CONDITION_SAMPLE_MS;
+        let output = simulate_autonomous_with(
+            &input,
+            SimulationConfig::from_input(&input),
+            MotionConfig::default(),
+            football,
+            |_| {},
+        )
+        .expect("the engine runs");
+        output.output.to_json().expect("the output serialises")
+    }
+
+    /// Given a match whose teams ask for a defensive line between two of the slider's anchors, where
+    /// the F4.3 and F4.4 footballs disagree,
+    /// When the instant path plays it,
+    /// Then it is the F4.4 match and not the F4.3 one (run F4.4: either call site could silently revert
+    /// to an earlier football, because the configuration test only looked at the function).
+    #[test]
+    fn the_instant_path_plays_the_f44_football() {
+        let mut adapted = adapt_selected_fixture(
+            &game_with_complete_m12_fixture(),
+            0,
+            "competition-m12-1",
+            "fixture-m12-1",
+        )
+        .expect("adapts");
+        adapted.input.home.tactics.line_height = 75;
+        adapted.input.away.tactics.line_height = 75;
+        let played = simulate(&adapted).expect("plays").replay_json;
+        let f44 = replay_under(&adapted, FootballConfig::full_match_f44());
+        let f43 = replay_under(&adapted, FootballConfig::full_match_f43());
+        assert_ne!(f44, f43, "the fixture does not tell F4.3 from F4.4 apart");
+        assert_eq!(
+            played, f44,
+            "the instant path is not playing the F4.4 football"
         );
     }
 

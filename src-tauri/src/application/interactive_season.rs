@@ -537,3 +537,183 @@ fn debug_one_season() {
     let (all, user, n) = league_goals_per_match(&game);
     println!("goals a league match: {all:.2} over {n} completed fixtures of the world; {user:.2} in the user's club's matches");
 }
+
+/// What the engine reads of a player: the plain mean of twelve attributes the adapter passes to M12.
+/// Deliberately not `ofm_core::player_rating` (position-weighted `ovr`, which the statistical model reads):
+/// the study compares the two sources, so it must not measure them with the model's own yardstick.
+fn engine_input_strength(p: &domain::player::Player) -> f64 {
+    let a = &p.attributes;
+    [
+        a.pace,
+        a.stamina,
+        a.strength,
+        a.passing,
+        a.shooting,
+        a.tackling,
+        a.dribbling,
+        a.defending,
+        a.positioning,
+        a.vision,
+        a.decisions,
+        a.composure,
+    ]
+    .iter()
+    .map(|v| f64::from(*v))
+    .sum::<f64>()
+        / 12.0
+}
+
+/// (engine-input strength of the best eleven non-keepers, keeper rating) of a club. Not
+/// `ofm_core::catchup::club_strength`, which is the statistical model's own measure and not public.
+fn club_input_strength(game: &Game, team: &str) -> (f64, f64) {
+    let mut outfield: Vec<f64> = Vec::new();
+    let mut keepers: Vec<f64> = Vec::new();
+    for p in game
+        .players
+        .iter()
+        .filter(|p| p.team_id.as_deref() == Some(team) && !p.retired)
+    {
+        if matches!(p.natural_position, domain::player::Position::Goalkeeper) {
+            keepers
+                .push((f64::from(p.attributes.reflexes) + f64::from(p.attributes.handling)) / 2.0);
+        } else {
+            outfield.push(engine_input_strength(p));
+        }
+    }
+    outfield.sort_by(|a, b| b.total_cmp(a));
+    keepers.sort_by(|a, b| b.total_cmp(a));
+    let top = outfield.iter().take(11).sum::<f64>() / outfield.len().clamp(1, 11) as f64;
+    (top, keepers.first().copied().unwrap_or(0.0))
+}
+
+/// F4.4 instrument: goals of every completed league fixture against the quality gap of its two clubs,
+/// for the user's club's engine matches and for the world's statistical-model matches, side by side.
+#[test]
+#[ignore = "F4.4 study: plays a season per seed (F44_SEEDS, default 7,11,23)"]
+fn scoring_response_by_quality_gap() {
+    let seeds: Vec<u64> = std::env::var("F44_SEEDS")
+        .unwrap_or_else(|_| "7,11,23".into())
+        .split(',')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    // bins of (stronger side's rating - weaker side's rating): [0,2) [2,4) [4,7) [7,+)
+    let edges = [0.0, 2.0, 4.0, 7.0, f64::MAX];
+    // [source: 0 engine, 1 model][bin] -> (n, strong goals, weak goals, strong wins, draws)
+    let mut acc = [[(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); 4]; 2];
+    for seed in seeds {
+        let state = career(seed);
+        let (_, game, _) = check_season(&state, &format!("gap study, seed {seed}"));
+        let team = game.manager.team_id.clone().unwrap_or_default();
+        let mut ratings: Vec<(String, f64, f64)> = game
+            .teams
+            .iter()
+            .map(|t| {
+                let (o, k) = club_input_strength(&game, &t.id);
+                (t.id.clone(), o, k)
+            })
+            .filter(|r| r.1 > 0.0)
+            .collect();
+        ratings.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let mean = ratings.iter().map(|r| r.1).sum::<f64>() / ratings.len().max(1) as f64;
+        let user = ratings.iter().position(|r| r.0 == team);
+        println!(
+            "[seed {seed}] {} clubs; outfield rating best {:.1}, median {:.1}, worst {:.1}, mean {mean:.1}; user rank {user:?}; keepers of the top 3: {:?}",
+            ratings.len(),
+            ratings[0].1,
+            ratings[ratings.len() / 2].1,
+            ratings[ratings.len() - 1].1,
+            ratings.iter().take(3).map(|r| (r.2 * 10.0).round() / 10.0).collect::<Vec<_>>(),
+        );
+        let lookup = |id: &str| ratings.iter().find(|r| r.0 == id).map(|r| r.1);
+        for fixture in game
+            .competitions
+            .iter()
+            .filter(|c| !c.standings.is_empty())
+            .flat_map(|c| c.fixtures.iter())
+            .filter(|f| f.status == domain::league::FixtureStatus::Completed)
+        {
+            let (Some(r), Some(h), Some(a)) = (
+                &fixture.result,
+                lookup(&fixture.home_team_id),
+                lookup(&fixture.away_team_id),
+            ) else {
+                continue;
+            };
+            let engine = usize::from(fixture.home_team_id != team && fixture.away_team_id != team);
+            let (strong, weak) = if h >= a {
+                (f64::from(r.home_goals), f64::from(r.away_goals))
+            } else {
+                (f64::from(r.away_goals), f64::from(r.home_goals))
+            };
+            let gap = (h - a).abs();
+            let bin = edges
+                .windows(2)
+                .position(|w| gap >= w[0] && gap < w[1])
+                .unwrap_or(3);
+            let cell = &mut acc[engine][bin];
+            cell.0 += 1.0;
+            cell.1 += strong;
+            cell.2 += weak;
+            cell.3 += f64::from(u8::from(strong > weak));
+            cell.4 += f64::from(u8::from(strong == weak));
+        }
+    }
+    for (src, name) in [
+        (0, "engine (user's club)"),
+        (1, "statistical model (others)"),
+    ] {
+        for (bin, label) in ["gap 0-2", "gap 2-4", "gap 4-7", "gap 7+"]
+            .iter()
+            .enumerate()
+        {
+            let c = acc[src][bin];
+            let n = c.0.max(1.0);
+            println!(
+                "{name:28} {label}: n={:4} strong {:.2} weak {:.2} total {:.2} win {:.0}% draw {:.0}%",
+                c.0, c.1 / n, c.2 / n, (c.1 + c.2) / n, 100.0 * c.3 / n, 100.0 * c.4 / n
+            );
+        }
+    }
+}
+
+/// F4.4 instrument: writes the M12 input of sampled scheduled league fixtures of a generated world
+/// (F44_DUMP_DIR, F44_SEED, F44_SAMPLE) so the engine can be run on the exact career inputs offline.
+#[test]
+#[ignore = "F4.4 study: writes adapted match inputs to F44_DUMP_DIR"]
+fn dump_adapted_career_inputs() {
+    let dir = std::env::var("F44_DUMP_DIR").expect("F44_DUMP_DIR");
+    let seed: u64 = std::env::var("F44_SEED")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(7);
+    let sample: usize = std::env::var("F44_SAMPLE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(60);
+    std::fs::create_dir_all(&dir).expect("dump dir");
+    let game = WorldSpec::gate(seed).build().expect("a generated world");
+    let mut picks = Vec::new();
+    for competition in game.competitions.iter().filter(|c| !c.standings.is_empty()) {
+        for (index, fixture) in competition.fixtures.iter().enumerate() {
+            if fixture.status == domain::league::FixtureStatus::Scheduled {
+                picks.push((competition.id.clone(), index, fixture.id.clone()));
+            }
+        }
+    }
+    let step = (picks.len() / sample.max(1)).max(1);
+    let mut written = 0;
+    for (competition_id, index, fixture_id) in picks.into_iter().step_by(step).take(sample) {
+        let Ok(adapted) = ofm_core::spatial_runner::adapt_selected_fixture(
+            &game,
+            index,
+            &competition_id,
+            &fixture_id,
+        ) else {
+            continue;
+        };
+        let json = serde_json::to_string(&adapted.input).expect("serialise the input");
+        std::fs::write(format!("{dir}/{written:03}.json"), json).expect("write");
+        written += 1;
+    }
+    println!("wrote {written} inputs of seed {seed} to {dir}");
+}
