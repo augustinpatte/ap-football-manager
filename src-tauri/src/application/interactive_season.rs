@@ -96,7 +96,7 @@ fn play_matches(state: &StateManager, matches: usize) -> Vec<MatchRecord> {
         let appearances_before = appearances(&before);
         let injured_ids: Vec<String> = user_squad(&before)
             .iter()
-            .filter(|p| p.injury.is_some())
+            .filter(|p| !p.can_play())
             .map(|p| p.id.clone())
             .collect();
         let reds_before: u32 = user_squad(&before).iter().map(|p| p.stats.red_cards).sum();
@@ -196,7 +196,7 @@ fn a_season_of_interactive_matches_carries_everything_forward() {
         "every table row equals its results: {faults:?}"
     );
     let violators: usize = records.iter().map(|r| r.played_while_injured).sum();
-    assert_eq!(violators, 0, "an injured player played");
+    assert_eq!(violators, 0, "an injured or suspended player played");
     for p in user_squad(&game) {
         assert!(p.condition <= 100);
     }
