@@ -13,8 +13,7 @@ Raw outputs of the studies were kept in the session scratch directory; the instr
 
 **Which code the studies measured.** The whole-match profiles, the grids, the dominance matrix, the ladders, the context and the scenario studies ran on the F4.3 configuration as of commits `5bb3bee` to `b2b45a8`. The later M12 commits
 are test and structure changes and are bit-identical for every earlier mode (the golden digests are unchanged), with two exceptions inside the F4.3 football itself: a booked player's **aerial** foul is now read with the same leniency as a ground foul
-(`4ab8eb2`), and the hold decision's willingness is multiplied in a different order (`b28fe7c`, equal up to float rounding). The pinned F4.3 digest was taken after them; **the discipline table was not re-measured after them**, and a few of its
-second yellows may now read as cautions.
+(`4ab8eb2`), and the hold decision's willingness is multiplied in a different order (`b28fe7c`, equal up to float rounding). The pinned F4.3 digest was taken after them, and **the 600-match profile (discipline, shot buckets, penalties) was re-run on the final head `dc6db5e` and is identical to every digit reported in sections 8 and 10**: neither exception changes a number there.
 
 ## 1. Executive verdict
 
