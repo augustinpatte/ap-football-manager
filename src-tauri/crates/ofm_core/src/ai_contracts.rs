@@ -186,44 +186,21 @@ fn plan_succession(
         return false;
     }
     let current_date = game.clock.current_date.date_naive();
-    let registered = club
-        .iter()
-        .map(|&position| &game.players[position])
-        .filter(|player| player.squad_role == domain::player::SquadRole::Senior)
-        .filter(|player| player.active_loan.is_none());
-    let mut current: [Vec<u8>; 4] = Default::default();
-    let mut planned = Vec::new();
-    for player in registered {
-        let group = group_index(&player.position);
-        current[group].push(player.ovr);
-        planned.push(crate::squad_outlook::PlannedPlayer {
-            ovr: player.ovr,
-            potential: player.potential,
-            age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
-            group,
-            contract_days: crate::contracts::contract_days_remaining(
-                player.contract_end(),
-                current_date,
-            ),
-        });
-    }
-    let planned = crate::squad_outlook::planned_levels(&planned);
+    let (current, planned) = crate::squad_outlook::club_outlook(
+        club.iter()
+            .map(|&position| &game.players[position])
+            .filter(|player| crate::squad_outlook::counts_toward_squad(player)),
+        current_date,
+    );
     // Where the first choices will drop most comes first.
     let mut at_risk: Vec<(i32, usize)> = (0..4)
-        .filter_map(|group| {
-            current[group].sort_unstable_by(|a, b| b.cmp(a));
-            crate::squad_outlook::succession_risk(&current[group], &planned[group], group).then(
-                || {
-                    (
-                        crate::squad_outlook::starters_drop(
-                            &current[group],
-                            &planned[group],
-                            group,
-                        ),
-                        group,
-                    )
-                },
-            )
+        .filter(|&group| {
+            crate::squad_outlook::has_room_for_a_successor(planned[group].len(), group)
+                && crate::squad_outlook::succession_risk(&current[group], &planned[group], group)
+        })
+        .map(|group| {
+            let drop = crate::squad_outlook::starters_drop(&current[group], &planned[group], group);
+            (drop, group)
         })
         .collect();
     at_risk.sort_unstable_by(|a, b| b.cmp(a));
@@ -1235,6 +1212,52 @@ mod tests {
             domain::player::SquadRole::Senior
         );
         assert_eq!(club_of(&game, "prospect"), None);
+    }
+
+    /// Given a club with a keeper of 35 and three young free-agent keepers, each expected to be better
+    /// than its cover a year on
+    /// When it plans its squad five reviews running
+    /// Then it signs two and stops: a succession replaces a departure, it does not stack the group
+    /// (a keeper group plans for three; the transition year carries one more).
+    #[test]
+    fn a_club_signs_successors_up_to_one_above_its_depth_and_no_more() {
+        let mut game = club_with_an_ageing_keeper(35);
+        for (id, ovr) in [("prospect_b", 57), ("prospect_c", 58)] {
+            let mut keeper = free_agent(id, Position::Goalkeeper, ovr);
+            keeper.potential = 78;
+            keeper.date_of_birth = format!("{}-01-01", TODAY.0 - 19);
+            game.players.push(keeper);
+        }
+        for _ in 0..5 {
+            apply_ai_squad_planning(&mut game, review_day());
+        }
+        assert_eq!(
+            signed_by_ai(&game, &["prospect", "prospect_b", "prospect_c"]),
+            2
+        );
+    }
+
+    /// Given a keeper of 35 who is the best the club has, a keeper of 36 likewise (a boundary pair)
+    /// When contracts running down are reviewed
+    /// Then the 35-year-old keeper is renewed (a keeper's renewal age is 35) and the 36-year-old is not.
+    #[test]
+    fn a_keeper_is_renewed_at_thirty_five_and_not_at_thirty_six() {
+        let renewed = |age| {
+            let mut game = world();
+            game.players.push(player(
+                "old_keeper",
+                "ai",
+                Position::Goalkeeper,
+                75,
+                age,
+                90,
+            ));
+            let before = contract_end(&game, "old_keeper");
+            apply_ai_contract_decisions(&mut game, review_day());
+            contract_end(&game, "old_keeper") != before
+        };
+        assert!(renewed(35));
+        assert!(!renewed(36));
     }
 
     /// Given a club of twenty-four seniors, and a free agent better than any of them

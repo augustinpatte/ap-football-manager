@@ -1,6 +1,6 @@
 //! Run F5.1: thirty seasons of the world, measured. Measurement only (`#[ignore]`d).
 //!
-//! `F51_SEEDS=1,2,3 F51_SEASONS=30 cargo test --release -p season-harness --test f51_world_health -- --ignored --nocapture`
+//! `F51_WORLD=gate|shipped F51_SEEDS=1,2,3 F51_SEASONS=30 cargo test --release -p season-harness --test f51_world_health -- --ignored --nocapture`
 //! (from `src-tauri/`, so the local M12 override applies).
 
 use season_harness::driver::{RunOptions, run_seasons};
@@ -20,7 +20,14 @@ fn env_list(name: &str, default: &str) -> Vec<u64> {
 fn f51_world_health_over_many_seasons() {
     let seasons = env_list("F51_SEASONS", "30")[0] as u32;
     for seed in env_list("F51_SEEDS", "1") {
-        let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+        // `F51_WORLD=shipped` plays the 440-club world a player gets; the default is the 80-club gate world.
+        let spec = if std::env::var("F51_WORLD").is_ok_and(|w| w == "shipped") {
+            WorldSpec::shipped(seed)
+        } else {
+            WorldSpec::gate(seed)
+        };
+        let mut game = spec.build().expect("the world builds");
+        eprintln!("== {} clubs", game.teams.len());
         let mut log = WorldHealthLog::starting_from(&game);
         let started = std::time::Instant::now();
         run_seasons(&mut game, RunOptions::seasons(seasons), &mut log).expect("seasons play");

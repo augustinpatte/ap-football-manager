@@ -23,6 +23,15 @@ SEEDS="${3:-12}"
 M12_DIR="${APFM_M12_DIR:-$HOME/apfm-match-lab}"
 FLAGS="${F52_FLAGS:-f52}"
 
+# The M12 checkout has to be the revision OFM pins: a gate that runs against another engine proves
+# nothing about the game. (A working-tree change is reported too; the pin is what ships.)
+PINNED="$(sed -n 's/.*apfm-match-lab = .*rev = "\([0-9a-f]*\)".*/\1/p' "$(dirname "$0")/../src-tauri/crates/ofm_core/Cargo.toml")"
+HEAD_REV="$(git -C "$M12_DIR" rev-parse HEAD)"
+if [ -z "$PINNED" ] || [ "$HEAD_REV" != "$PINNED" ]; then
+  echo "FAIL: M12 at $M12_DIR is $HEAD_REV, OFM pins ${PINNED:-nothing}" >&2
+  exit 2
+fi
+
 DUMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$DUMP_DIR"' EXIT
 
@@ -30,8 +39,8 @@ trap 'rm -rf "$DUMP_DIR"' EXIT
   F44_DUMP_DIR="$DUMP_DIR" F44_SEED="$WORLD_SEED" F44_SAMPLE="$INPUTS" \
     cargo test --release --lib dump_adapted_career_inputs -- --ignored --nocapture >/dev/null)
 
-PANEL="$(cd "$M12_DIR" && cargo build --release --example f52_realism 2>/dev/null &&
-  F52_DETAIL=1 ./target/release/examples/f52_realism "$DUMP_DIR" "$SEEDS" "prod|-|$FLAGS")"
+(cd "$M12_DIR" && cargo build --release --example f52_realism >/dev/null)
+PANEL="$(cd "$M12_DIR" && F52_DETAIL=1 ./target/release/examples/f52_realism "$DUMP_DIR" "$SEEDS" "prod|-|$FLAGS")"
 echo "$PANEL"
 
 # field NAME -> the number after it on the first (summary) line
@@ -49,6 +58,12 @@ OUTFIELD_KM="$(sed -n 's/^    km\/90 by position://p' <<<"$PANEL" | sed -E 's/GK
 
 fail=0
 check() { # name value min max provenance
+  # A value that is not a number is a failed measurement, never a pass.
+  if ! [[ "$2" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    printf 'FAIL  %-34s could not read a number from the panel (got "%s")\n' "$1" "$2" >&2
+    fail=1
+    return
+  fi
   if awk -v v="$2" -v lo="$3" -v hi="$4" 'BEGIN { exit !(v >= lo && v <= hi) }'; then
     printf 'PASS  %-34s %8s  in [%s, %s]  (%s)\n' "$1" "$2" "$3" "$4" "$5"
   else

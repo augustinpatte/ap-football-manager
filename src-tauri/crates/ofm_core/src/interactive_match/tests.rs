@@ -51,6 +51,21 @@ fn a_restored_interactive_match_keeps_the_recorded_football() {
     assert_eq!(again.session.football, FootballConfig::full_match_f52());
 }
 
+/// Given a checkpoint recorded under the F4.4 football (a match saved by the previous version)
+/// When it is restored
+/// Then it plays on as F4.4, flat dead-ball delay and all: a restore that re-read the current
+/// configuration instead of the recorded one would change a saved match under the player.
+#[test]
+fn a_checkpoint_recorded_under_f44_is_restored_and_stays_f44() {
+    use apfm_match_lab::sim::football::FootballConfig;
+    let mut cp = start(1).checkpoint().expect("checkpoint");
+    cp.session.football = FootballConfig::full_match_f44();
+    let restored = InteractiveMatch::restore(cp).expect("restores");
+    let again = restored.checkpoint().expect("checkpoint");
+    assert_eq!(again.session.football, FootballConfig::full_match_f44());
+    assert!(!again.session.football.m12.dead_ball_time);
+}
+
 fn run_for(m: &mut InteractiveMatch, minutes: u32) -> AdvanceOutcome {
     m.advance(AdvanceRequest {
         target: AdvanceTarget::ForMinutes(minutes),

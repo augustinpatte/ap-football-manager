@@ -352,10 +352,11 @@ fn a_club_that_just_sold_is_held_to_the_wage_bill_it_has_after_the_sale() {
     assert_eq!(club_of("sold-by-c").as_deref(), Some("a"));
 }
 
-/// Three clubs in a window. Club "b" has two forwards rated 75 and a third rated 66; every other
-/// club's forwards are rated 70 and aged 27. Club "c" has a listed 21-year-old forward rated 58
-/// with a potential of 78: worse than "b"'s cover today and still short of it (64) a year on.
-fn succession_market(buyers_starting_forwards_born: &str) -> Game {
+/// Three clubs in a window. Club "b" has two forwards rated 75 (born `starters_born`) and a third,
+/// the cover, rated `cover`; every other club's forwards are rated 70 and aged 27. Club "c" has a
+/// listed 20-year-old forward rated 58 with `potential`: worse than "b"'s cover today, and expected
+/// a year on to be 58 plus 40 % of the way to his potential (a planned 66 at 78).
+fn succession_market(starters_born: &str, cover: u8, potential: u8) -> Game {
     let mut game = make_game();
     game.players.clear();
     game.teams = vec![
@@ -378,17 +379,17 @@ fn succession_market(buyers_starting_forwards_born: &str) -> Game {
         }
         if player.team_id.as_deref() == Some("b") && player.position == Position::Forward {
             let starter = player.id.ends_with("0") || player.id.ends_with("1");
-            player.ovr = if starter { 75 } else { 66 };
+            player.ovr = if starter { 75 } else { cover };
             player.potential = player.ovr;
             if starter {
-                player.date_of_birth = buyers_starting_forwards_born.to_string();
+                player.date_of_birth = starters_born.to_string();
             }
         }
     }
     let mut prospect = squad_player("prospect", "c", Position::Forward, 20_000);
     prospect.transfer_listed = true;
     prospect.ovr = 58;
-    prospect.potential = 78;
+    prospect.potential = potential;
     prospect.date_of_birth = "2005-04-01".to_string();
     prospect.market_value = 600_000;
     game.players.push(prospect);
@@ -402,27 +403,54 @@ fn prospect_club(game: &Game) -> Option<String> {
         .and_then(|player| player.team_id.clone())
 }
 
-/// Given a club whose two first-choice forwards are 36, a third forward rated 66, and a listed
-/// 21-year-old rated 58 who will be 64 next year
-/// When the window's sweep runs
-/// Then the club signs him: it is buying the successor to two players about to retire, though
-/// he is no better than its cover today.
-#[test]
-fn a_club_with_two_ageing_forwards_buys_the_young_forward_who_will_replace_them() {
-    let mut game = succession_market("1990-04-01");
-
+fn market_sells_the_prospect_to(starters_born: &str, cover: u8, potential: u8) -> Option<String> {
+    let mut game = succession_market(starters_born, cover, potential);
     evaluate_transfer_market(&mut game);
-
-    assert_eq!(prospect_club(&game).as_deref(), Some("b"));
+    prospect_club(&game)
 }
 
-/// The same market with first-choice forwards of 27: nothing is leaving, the target is no better
-/// than the cover, and nobody buys him. The control that makes the case above about age.
+/// Given a club whose two first-choice forwards are 36, a cover rated 68, and a listed 20-year-old
+/// rated 58 who will be 66 next year (short of the cover either way)
+/// When the window's sweep runs
+/// Then the club signs him: it is buying the successor to two players about to retire (the group
+/// will be one short of its depth), whatever his rating.
 #[test]
-fn a_club_with_forwards_in_their_prime_does_not_buy_a_prospect_who_is_no_better_than_its_cover() {
-    let mut game = succession_market("1999-04-01");
+fn a_club_with_two_ageing_forwards_buys_the_young_forward_who_will_replace_them() {
+    assert_eq!(
+        market_sells_the_prospect_to("1990-04-01", 68, 78).as_deref(),
+        Some("b")
+    );
+}
 
-    evaluate_transfer_market(&mut game);
+/// The same market with first-choice forwards of 27: nothing is leaving, the target falls short of
+/// the cover today and a year on, and nobody buys him. The control that makes the case above about age.
+#[test]
+fn a_club_with_forwards_in_their_prime_does_not_buy_a_prospect_who_stays_short_of_its_cover() {
+    assert_eq!(
+        market_sells_the_prospect_to("1999-04-01", 68, 78).as_deref(),
+        Some("c")
+    );
+}
 
-    assert_eq!(prospect_club(&game).as_deref(), Some("c"));
+/// Given a club with forwards in their prime and a cover rated 60, and a listed 20-year-old rated 58
+/// with a potential of 78 (66 next year: six better than the cover)
+/// When the window's sweep runs
+/// Then the club signs him: he is no better than the cover today and clearly better than it a year on,
+/// which is what a club that builds on young players is buying.
+#[test]
+fn a_club_buys_a_prospect_who_will_be_better_than_its_cover_though_he_is_not_today() {
+    assert_eq!(
+        market_sells_the_prospect_to("1999-04-01", 60, 78).as_deref(),
+        Some("b")
+    );
+}
+
+/// The same market with a prospect whose potential is 60: next year he is 59, still short of the
+/// 60 cover, and nobody buys him. The control for the case above: it is his growth that sells him.
+#[test]
+fn a_club_does_not_buy_a_prospect_who_has_no_room_to_grow_past_its_cover() {
+    assert_eq!(
+        market_sells_the_prospect_to("1999-04-01", 60, 60).as_deref(),
+        Some("c")
+    );
 }

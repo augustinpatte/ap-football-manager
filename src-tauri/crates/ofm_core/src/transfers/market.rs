@@ -94,13 +94,7 @@ pub(crate) fn target_fills_a_need(levels: &[u8], group: usize, target_ovr: u8) -
 fn registered_seniors(game: &Game) -> impl Iterator<Item = (&str, &Player)> {
     game.players.iter().filter_map(|player| {
         let team_id = player.team_id.as_deref()?;
-        let counts = player.squad_role == domain::player::SquadRole::Senior
-            && player.active_loan.is_none()
-            && player
-                .injury
-                .as_ref()
-                .is_none_or(|injury| injury.days_remaining < LONG_INJURY_DAYS);
-        counts.then_some((team_id, player))
+        crate::squad_outlook::counts_toward_squad(player).then_some((team_id, player))
     })
 }
 

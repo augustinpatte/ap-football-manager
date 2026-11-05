@@ -64,7 +64,7 @@ use processing::{deal_registration_date, loan_deal_registration_date};
 pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
 pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;
-pub(crate) use realism::{group_is_thin, improvement_over_cover, window_phase};
+pub(crate) use realism::{LONG_INJURY_DAYS, group_is_thin, improvement_over_cover, window_phase};
 use registration::*;
 pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,

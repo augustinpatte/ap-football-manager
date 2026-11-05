@@ -258,31 +258,30 @@ fn a_starter_at_risk_of_injury_is_rested_for_a_deputy_who_is_not_fresh_either() 
     );
 }
 
-/// The control: the same deputy, but the stars are at 50 %, tired and not at risk. The deputy is not
-/// fresh enough to be worth the drop and the stars play on, so the test above is about the
-/// condition of the starter and not about a manager who rotates everyone.
+/// The boundary pair for the test above, one point either side of the band's edge (40 %): the same
+/// deputy (55 %, under the usual floor of 60) is fielded for a star at 39 % and not for one at 41 %.
+/// The star at 41 is tired but not at risk: it is the condition of the starter that opens the band,
+/// not a manager who rotates everyone.
 #[test]
-fn a_tired_starter_not_at_risk_of_injury_keeps_his_place_against_the_same_deputy() {
-    let mut squad = Vec::new();
-    for i in 0..11 {
-        squad.push(mk(&format!("star{i}"), 80, 50));
-    }
-    squad.push(mk("deputy", 55, 55));
-    let refs: Vec<&Player> = squad.iter().collect();
-
-    let xi = ai_select_starting_xi(
-        &refs,
-        "4-4-2",
-        management_quality(600),
-        1,
-        FixtureLoad::Normal,
-    );
-
-    assert!(
-        xi.iter().all(|p| p.id != "deputy"),
-        "a star at 50 % should play on: {:?}",
-        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
-    );
+fn the_injury_risk_band_opens_exactly_below_forty_percent() {
+    let deputy_starts = |star_condition: u8| {
+        let mut squad = Vec::new();
+        for i in 0..11 {
+            squad.push(mk(&format!("star{i}"), 80, star_condition));
+        }
+        squad.push(mk("deputy", 55, 55));
+        let refs: Vec<&Player> = squad.iter().collect();
+        let xi = ai_select_starting_xi(
+            &refs,
+            "4-4-2",
+            management_quality(600),
+            1,
+            FixtureLoad::Normal,
+        );
+        xi.iter().any(|p| p.id == "deputy")
+    };
+    assert!(deputy_starts(39), "a star at 39 % is at risk of injury");
+    assert!(!deputy_starts(41), "a star at 41 % is tired, not at risk");
 }
 
 /// The control for the test above: the same deputy and the same manager, but the stars are only a

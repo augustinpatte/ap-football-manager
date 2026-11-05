@@ -43,6 +43,34 @@ pub(crate) struct PlannedPlayer {
     pub contract_days: Option<i64>,
 }
 
+impl PlannedPlayer {
+    /// A player as planning sees him on `current_date`.
+    pub(crate) fn of(player: &domain::player::Player, current_date: chrono::NaiveDate) -> Self {
+        Self {
+            ovr: player.ovr,
+            potential: player.potential,
+            age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
+            group: crate::squad_floor::group_index(&player.position),
+            contract_days: crate::contracts::contract_days_remaining(
+                player.contract_end(),
+                current_date,
+            ),
+        }
+    }
+}
+
+/// Whether a player counts toward his club's squad today: a registered senior, not on loan, not
+/// out for the season. The one definition both the market's view of a squad and the club's own
+/// planning use, so the same club is never judged by two different counts.
+pub(crate) fn counts_toward_squad(player: &domain::player::Player) -> bool {
+    player.squad_role == domain::player::SquadRole::Senior
+        && player.active_loan.is_none()
+        && player
+            .injury
+            .as_ref()
+            .is_none_or(|injury| injury.days_remaining < crate::transfers::LONG_INJURY_DAYS)
+}
+
 /// His rating a year from now, as a club would expect it.
 pub(crate) fn expected_ovr_in_a_year(ovr: u8, potential: u8, age: i32, group: usize) -> u8 {
     // A keeper at 33 is where an outfielder is at 30.
@@ -133,6 +161,33 @@ pub(crate) fn succession_risk(current: &[u8], planned: &[u8], group: usize) -> b
     drops || newly_thin
 }
 
+/// One club's squad now and a year on, per position group, best first: `(current, planned)`.
+/// `squad` is the club's players who count toward it ([`counts_toward_squad`]).
+pub(crate) fn club_outlook<'a>(
+    squad: impl Iterator<Item = &'a domain::player::Player>,
+    current_date: chrono::NaiveDate,
+) -> ([Vec<u8>; 4], [Vec<u8>; 4]) {
+    let mut current: [Vec<u8>; 4] = Default::default();
+    let mut planning = Vec::new();
+    for player in squad {
+        let planned = PlannedPlayer::of(player, current_date);
+        current[planned.group].push(player.ovr);
+        planning.push(planned);
+    }
+    for group in &mut current {
+        group.sort_unstable_by(|a, b| b.cmp(a));
+    }
+    (current, planned_levels(&planning))
+}
+
+/// Whether a group may take on a successor: a succession replaces a departure, it does not stack a
+/// group above the depth it plans for (plus the one the transition year carries). Without this a
+/// club with an ageing keeper and a free-agent pool would keep signing keepers, each better than
+/// the cover it just signed, until the squad is full.
+pub(crate) fn has_room_for_a_successor(planned_len: usize, group: usize) -> bool {
+    planned_len <= MIN_PLAYERS_PER_GROUP[group].1 + PLANNING_MARGIN_PER_GROUP
+}
+
 /// Every club's registered seniors as planning sees them a year on, per position group, best
 /// first. `seniors` yields `(club id, player)` for the players who count toward a squad today
 /// (registered, not on loan, not out for the season): the caller owns that definition, so the
@@ -147,16 +202,7 @@ pub(crate) fn planned_levels_by_club<'a>(
         by_club
             .entry(club.to_string())
             .or_default()
-            .push(PlannedPlayer {
-                ovr: player.ovr,
-                potential: player.potential,
-                age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
-                group: crate::squad_floor::group_index(&player.position),
-                contract_days: crate::contracts::contract_days_remaining(
-                    player.contract_end(),
-                    current_date,
-                ),
-            });
+            .push(PlannedPlayer::of(player, current_date));
     }
     by_club
         .into_iter()
@@ -170,6 +216,30 @@ mod tests {
 
     const GK: usize = 0;
     const MID: usize = 2;
+
+    fn flat_attributes() -> domain::player::PlayerAttributes {
+        domain::player::PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+        }
+    }
 
     fn senior(group: usize, ovr: u8, potential: u8, age: i32) -> PlannedPlayer {
         PlannedPlayer {
@@ -282,41 +352,124 @@ mod tests {
         assert!(!succession_risk(&[80, 62, 60], &planned[GK], GK));
     }
 
-    /// Given a midfield with two starters retiring and a young replacement already as good
-    /// When the group is checked for succession risk
-    /// Then it is judged on the planned squad: four starters, three of them replaced at the
-    /// same level, is not a drop.
+    /// Given a midfield of three prime players at 70, a veteran of 36 at 70, a 19-year-old rated 66
+    /// with a potential of 80 and a bench player at 62
+    /// When the group is checked for succession risk, with and without the 19-year-old
+    /// Then with him there is none (he is expected to be 72, the group keeps its depth and its first
+    /// choices), and without him there is: the group goes under the depth a club plans for. The
+    /// pair is what proves it is his growth that removes the risk.
     #[test]
     fn a_ready_replacement_removes_the_risk() {
+        let core = [
+            senior(MID, 70, 70, 27),
+            senior(MID, 70, 70, 28),
+            senior(MID, 70, 70, 29),
+            senior(MID, 70, 70, 36),
+            senior(MID, 62, 62, 25),
+        ];
+        let prospect = senior(MID, 66, 80, 19);
+        let with_him: Vec<_> = core.iter().copied().chain([prospect]).collect();
+        let planned = planned_levels(&with_him);
+        assert_eq!(planned[MID], vec![72, 70, 70, 70, 62]);
+        assert!(!succession_risk(
+            &[70, 70, 70, 70, 66, 62],
+            &planned[MID],
+            MID
+        ));
+        let planned = planned_levels(&core);
+        assert!(succession_risk(&[70, 70, 70, 70, 62], &planned[MID], MID));
+    }
+
+    /// Given a midfield of six at 70 that loses two to retirement, so four remain at the same level
+    /// When the group is checked for succession risk
+    /// Then it is at risk and for depth alone: the first choices do not drop at all (the mean of
+    /// the starters is 70 before and after), the group is simply under the five a club plans for.
+    #[test]
+    fn departures_that_leave_a_group_under_its_depth_are_a_risk() {
         let players = [
             senior(MID, 70, 70, 27),
             senior(MID, 70, 70, 28),
             senior(MID, 70, 70, 29),
-            senior(MID, 70, 70, 27),
+            senior(MID, 70, 70, 30),
+            senior(MID, 70, 70, 35),
             senior(MID, 70, 70, 36),
-            senior(MID, 66, 80, 19),
-            senior(MID, 62, 62, 25),
         ];
-        let current = [70, 70, 70, 70, 70, 66, 62];
+        let current = [70, 70, 70, 70, 70, 70];
         let planned = planned_levels(&players);
-        assert!(!succession_risk(&current, &planned[MID], MID));
+        assert_eq!(planned[MID].len(), 4);
+        assert_eq!(starters_drop(&current, &planned[MID], MID), 0);
+        assert!(succession_risk(&current, &planned[MID], MID));
     }
 
-    /// Given a midfield of four that loses two to retirement and has nobody behind
-    /// When the group is checked for succession risk
-    /// Then it is at risk: the group goes under the depth a club plans for.
+    /// Given veterans past the renewal age on a contract with no end and on one that ended yesterday
+    /// When the club asks who will have gone in a year
+    /// Then the one with no end stays (the expiry sweep never ends it) and the one whose contract
+    /// has lapsed has gone.
     #[test]
-    fn departures_that_leave_a_group_under_its_depth_are_a_risk() {
-        let players = [
-            senior(MID, 72, 72, 35),
-            senior(MID, 71, 71, 36),
-            senior(MID, 70, 70, 27),
-            senior(MID, 69, 69, 28),
-            senior(MID, 68, 68, 29),
-        ];
-        let current = [72, 71, 70, 69, 68];
-        let planned = planned_levels(&players);
-        assert_eq!(planned[MID].len(), 3);
-        assert!(succession_risk(&current, &planned[MID], MID));
+    fn a_contract_with_no_end_stays_and_a_lapsed_one_has_gone() {
+        let veteran = |contract_days| PlannedPlayer {
+            contract_days,
+            ..senior(MID, 75, 75, 33)
+        };
+        assert!(!leaves_within_a_year(&veteran(None)));
+        assert!(leaves_within_a_year(&veteran(Some(-1))));
+    }
+
+    /// Given a group with room for its depth and one already at it
+    /// When a successor is considered
+    /// Then the club takes one more than it plans for and no more.
+    #[test]
+    fn a_group_takes_on_a_successor_only_up_to_one_above_its_depth() {
+        // Midfield plans for five (four plus the margin).
+        assert!(has_room_for_a_successor(4, MID));
+        assert!(has_room_for_a_successor(5, MID));
+        assert!(!has_room_for_a_successor(6, MID));
+    }
+
+    /// Given a club's players, one on loan, one out for 60 days, one out for 10 days, and an
+    /// academy player
+    /// When the squad that counts is read
+    /// Then only the one out for ten days and the healthy senior count.
+    #[test]
+    fn a_loanee_a_long_injury_and_an_academy_player_do_not_count_toward_the_squad() {
+        let mut healthy = domain::player::Player::new(
+            "h".into(),
+            "h".into(),
+            "h".into(),
+            "1998-01-01".into(),
+            "England".into(),
+            domain::player::Position::Midfielder,
+            flat_attributes(),
+        );
+        healthy.squad_role = domain::player::SquadRole::Senior;
+        let injured = |days| {
+            let mut p = healthy.clone();
+            p.injury = Some(domain::player::Injury {
+                name: "x".into(),
+                days_remaining: days,
+            });
+            p
+        };
+        let mut academy = healthy.clone();
+        academy.squad_role = domain::player::SquadRole::Youth;
+        let mut loanee = healthy.clone();
+        loanee.active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: "a".into(),
+            loan_team_id: "b".into(),
+            loan_team_name: None,
+            start_date: "2026-01-01".into(),
+            end_date: "2026-12-31".into(),
+            wage_contribution_pct: 50,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+        });
+        assert!(counts_toward_squad(&healthy));
+        assert!(counts_toward_squad(&injured(10)));
+        assert!(!counts_toward_squad(&injured(60)));
+        assert!(!counts_toward_squad(&academy));
+        assert!(!counts_toward_squad(&loanee));
     }
 }
