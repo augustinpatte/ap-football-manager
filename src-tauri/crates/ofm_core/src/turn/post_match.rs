@@ -1252,10 +1252,11 @@ mod tests {
         );
     }
 
-    /// Given a yellow card, a goal or an injury but no sending-off,
-    /// Then nobody is suspended: the ban comes from a dismissal and from nothing else.
+    /// Given a yellow card, a goal or an injury but no sending-off, and no card count near a
+    /// threshold,
+    /// Then nobody is suspended: a ban comes from a dismissal or from the fifth yellow of a season.
     #[test]
-    fn only_a_dismissal_suspends() {
+    fn events_that_are_neither_a_dismissal_nor_a_threshold_suspend_nobody() {
         let mut game = match_game();
         let mut ordinary = report(HashMap::new());
         ordinary.events = vec![
@@ -1318,5 +1319,36 @@ mod tests {
         assert_eq!(compact.events[0].player_id, None);
         assert_eq!(compact.events[0].own_goal_by.as_deref(), Some("away-4"));
         assert_eq!(compact.events[1].own_goal_by, None);
+    }
+
+    /// Given a player on four yellow cards this season,
+    /// When he is booked twice in one match (a second yellow, so a dismissal),
+    /// Then he misses one match, not two: the dismissal and the threshold are one ban.
+    #[test]
+    fn a_second_yellow_that_crosses_the_threshold_is_one_ban() {
+        let mut game = match_game();
+        game.players
+            .iter_mut()
+            .find(|p| p.id == "home-3")
+            .unwrap()
+            .stats
+            .yellow_cards = 4;
+        let mut sent_off = report(with_yellow("home-3", 2));
+        sent_off.events = vec![sending_off(70, engine::EventType::SecondYellow, "home-3")];
+        play(&mut game, &sent_off);
+        assert_eq!(banned(&game, "home-3"), 1);
+    }
+
+    /// Given a player with four yellow cards at the end of a season,
+    /// When the season's record is reset at the rollover and he is booked once the next season,
+    /// Then the card does not make a ban: a season starts with no yellow card held.
+    #[test]
+    fn yellow_cards_do_not_accumulate_across_a_rollover() {
+        let mut game = match_game();
+        let player = game.players.iter_mut().find(|p| p.id == "home-3").unwrap();
+        player.stats.yellow_cards = 4;
+        player.stats = domain::player::PlayerSeasonStats::default(); // what the rollover does
+        play(&mut game, &report(with_yellow("home-3", 1)));
+        assert_eq!(banned(&game, "home-3"), 0);
     }
 }

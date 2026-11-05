@@ -96,6 +96,21 @@ fn dormant_leagues_evolve_like_the_followed_one() {
     // nobody, so its squad runs down by design. It ended this world on exactly 15 seniors before
     // Run F5.0 (no margin) and on 11 after the world's trajectory moved.
     let users_club = game.manager.team_id.clone();
+    let users_club_id = users_club
+        .as_deref()
+        .expect("the harness keeps its manager employed");
+    let users_seniors = game
+        .players
+        .iter()
+        .filter(|p| {
+            p.team_id.as_deref() == Some(users_club_id) && p.squad_role == SquadRole::Senior
+        })
+        .count();
+    // A passive club runs down, but not to nothing: eleven is a side.
+    assert!(
+        users_seniors >= 11,
+        "the player's club ended with {users_seniors} seniors"
+    );
     let thin: Vec<&str> = game
         .teams
         .iter()
@@ -132,7 +147,7 @@ fn dormant_leagues_evolve_like_the_followed_one() {
     // A known divergence of the cheap tier, recorded in docs/APFM_RUN_F3_AUTONOMY.md; the bar
     // catches a larger one.
     assert!(
-        (f1.mean_ovr - f0.mean_ovr - (d1.mean_ovr - d0.mean_ovr)).abs() < 2.5,
+        (f1.mean_ovr - f0.mean_ovr - (d1.mean_ovr - d0.mean_ovr)).abs() < 2.0,
         "the two halves of the world drifted apart in quality"
     );
     assert!(

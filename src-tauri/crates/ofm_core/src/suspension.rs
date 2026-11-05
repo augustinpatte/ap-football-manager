@@ -10,7 +10,8 @@
 //! Yellow cards accumulate too: every [`YELLOW_CARDS_PER_BAN`]th yellow card of a season, in any
 //! competition of the club, is a one-match ban (the common threshold of the leagues, without their
 //! escalation at ten and fifteen). The count is the season's `stats.yellow_cards`, which resets with
-//! the rest of the season's record at the rollover, so a ban is not carried into the next season.
+//! the rest of the season's record at the rollover, so a season starts with no yellow card held; a ban already
+//! earned is served by the club's matches and so runs into the next season like any other.
 //!
 //! Who may play is [`domain::player::Player::can_play`], read by the squad selection of the user's
 //! assistant and of the computer-managed clubs alike.

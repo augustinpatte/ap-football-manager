@@ -1151,17 +1151,77 @@ mod tests {
         let mut stats = history_of(3);
         persist_stats_state(db.conn(), &stats).unwrap();
 
+        // A different number in every column, so a swapped or dropped one is seen.
         stats.player_totals = vec![PlayerStatsTotals {
             player_id: "fixture-0000-p0".to_string(),
-            minutes_played: 4_500,
-            ..PlayerStatsTotals::default()
+            minutes_played: 4_501,
+            shots: 2,
+            shots_on_target: 3,
+            passes_completed: 4,
+            passes_attempted: 5,
+            tackles_won: 6,
+            interceptions: 7,
+            fouls_committed: 8,
+        }];
+        stats.team_totals = vec![TeamStatsTotals {
+            team_id: "home".to_string(),
+            matches_played: 1,
+            goals_for: 2,
+            goals_against: 3,
+            possession_total: 4,
+            shots: 5,
+            shots_on_target: 6,
+            passes_completed: 7,
+            passes_attempted: 8,
+            tackles_won: 9,
+            interceptions: 10,
+            fouls_committed: 11,
         }];
         stats.totals_epoch = 1;
         persist_stats_state(db.conn(), &stats).unwrap();
 
         let loaded = load_stats_state(db.conn()).unwrap();
         assert_eq!(loaded.player_totals, stats.player_totals);
+        assert_eq!(loaded.team_totals, stats.team_totals);
         assert_eq!(loaded.totals_epoch, 1);
         assert_eq!(loaded.player_matches.len(), stats.player_matches.len());
+    }
+
+    /// Given one match of every kind of competition,
+    /// When the history is saved and read back through a second connection,
+    /// Then each match is of the kind it was: the default (a league) is not what a failure to store
+    /// the kind would read back as.
+    #[test]
+    fn every_kind_of_competition_survives_the_match_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("save.db");
+        let writer = GameDatabase::open(&path).unwrap();
+        let mut stats = StatsState::default();
+        for (index, (_, kind)) in super::super::fixture_competition::every_fixture_competition()
+            .into_iter()
+            .enumerate()
+        {
+            let mut played = a_match(&format!("fixture-{index}"));
+            for record in &mut played.player_matches {
+                record.competition = kind.clone();
+            }
+            for record in &mut played.team_matches {
+                record.competition = kind.clone();
+            }
+            stats.append(played);
+        }
+        persist_stats_state(writer.conn(), &stats).unwrap();
+
+        let reader = Connection::open(&path).unwrap();
+        let loaded = load_stats_state(&reader).unwrap();
+
+        assert_eq!(loaded.player_matches, stats.player_matches);
+        assert_eq!(loaded.team_matches, stats.team_matches);
+        let kinds: std::collections::HashSet<_> = loaded
+            .player_matches
+            .iter()
+            .map(|r| format!("{:?}", r.competition))
+            .collect();
+        assert_eq!(kinds.len(), 8, "{kinds:?}");
     }
 }

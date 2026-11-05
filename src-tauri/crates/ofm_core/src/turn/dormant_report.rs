@@ -246,3 +246,173 @@ pub(super) fn rested_eleven<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
     eligible.truncate(MATCH_XI);
     eligible
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::uniform_attributes;
+    use domain::player::{Player, Position};
+
+    /// Eleven players of one club: a goalkeeper, four defenders, four midfielders, two strikers.
+    fn eleven(club: &str) -> Vec<Player> {
+        (0..11)
+            .map(|n| {
+                let position = match n {
+                    0 => Position::Goalkeeper,
+                    1..=4 => Position::Defender,
+                    5..=8 => Position::Midfielder,
+                    _ => Position::Striker,
+                };
+                let mut player = Player::new(
+                    format!("{club}-{n}"),
+                    "P".into(),
+                    format!("{club} {n}"),
+                    "1998-01-01".into(),
+                    "England".into(),
+                    position.clone(),
+                    uniform_attributes(65),
+                );
+                player.position = position;
+                player.team_id = Some(club.into());
+                player
+            })
+            .collect()
+    }
+
+    fn report_of_seed(seed: u64, score: (u8, u8), home: &[Player], away: &[Player]) -> MatchReport {
+        let mut rng = crate::seed::rng_for_seed(seed, "dormant-report-test", "2030-08-10");
+        let (h, a): (Vec<&Player>, Vec<&Player>) = (home.iter().collect(), away.iter().collect());
+        lightweight_report(score, &h, &a, &mut rng)
+    }
+
+    /// Given four hundred lightweight matches of two elevens,
+    /// When their reports are read,
+    /// Then goals, cards, dismissals and injuries all occur, each event belongs to a player of the
+    /// side it names, the player's own line agrees with it (a second yellow is two yellows, a
+    /// dismissal ends the player's match at that minute, an injury ends it no later), nobody
+    /// assists his own goal, and the scorers' goals are the score.
+    #[test]
+    fn a_lightweight_report_is_consistent_and_draws_cards_and_injuries() {
+        let (home, away) = (eleven("home"), eleven("away"));
+        let ids =
+            |players: &[Player]| -> Vec<String> { players.iter().map(|p| p.id.clone()).collect() };
+        let (home_ids, away_ids) = (ids(&home), ids(&away));
+        let (mut yellows, mut seconds, mut reds, mut injuries, mut goals) = (0, 0, 0, 0, 0);
+        for seed in 0..400 {
+            let score = ((seed % 4) as u8, (seed % 3) as u8);
+            let report = report_of_seed(seed, score, &home, &away);
+            assert_eq!(report.home_goals, score.0);
+            assert_eq!(report.goals.len(), usize::from(score.0 + score.1));
+            let scored: u32 = report
+                .player_stats
+                .values()
+                .map(|s| u32::from(s.goals))
+                .sum();
+            assert_eq!(scored, u32::from(score.0 + score.1));
+            for goal in &report.goals {
+                let own = if goal.side == Side::Home {
+                    &home_ids
+                } else {
+                    &away_ids
+                };
+                assert!(own.contains(&goal.scorer_id), "scorer from the wrong club");
+                assert_ne!(
+                    goal.assist_id.as_ref(),
+                    Some(&goal.scorer_id),
+                    "assisted himself"
+                );
+                if let Some(assist) = &goal.assist_id {
+                    assert!(own.contains(assist), "assist from the wrong club");
+                }
+                goals += 1;
+            }
+            for event in &report.events {
+                let id = event.player_id.as_deref().unwrap_or_default();
+                if matches!(
+                    event.event_type,
+                    EventType::YellowCard
+                        | EventType::SecondYellow
+                        | EventType::RedCard
+                        | EventType::Injury
+                ) {
+                    let own = if event.side == Side::Home {
+                        &home_ids
+                    } else {
+                        &away_ids
+                    };
+                    assert!(
+                        own.iter().any(|p| p == id),
+                        "{:?} by {id} for the wrong side",
+                        event.event_type
+                    );
+                }
+                let line = report.player_stats.get(id);
+                match event.event_type {
+                    EventType::YellowCard => yellows += 1,
+                    EventType::SecondYellow => {
+                        seconds += 1;
+                        let line = line.expect("a line");
+                        assert_eq!((line.yellow_cards, line.red_cards), (2, 0));
+                        assert_eq!(line.minutes_played, event.minute);
+                    }
+                    EventType::RedCard => {
+                        reds += 1;
+                        let line = line.expect("a line");
+                        assert_eq!((line.yellow_cards, line.red_cards), (0, 1));
+                        assert_eq!(line.minutes_played, event.minute);
+                    }
+                    EventType::Injury => {
+                        injuries += 1;
+                        assert!(line.expect("a line").minutes_played <= event.minute);
+                    }
+                    _ => {}
+                }
+            }
+            assert!(report.events.windows(2).all(|w| w[0].minute <= w[1].minute));
+        }
+        assert!(goals > 400, "goals were drawn ({goals})");
+        assert!(yellows > 400, "yellow cards were drawn ({yellows})");
+        assert!(
+            seconds > 0 && reds > 0,
+            "dismissals were drawn ({seconds} second yellows, {reds} reds)"
+        );
+        assert!(injuries > 100, "injuries were drawn ({injuries})");
+    }
+
+    /// Given many goals drawn for a side of one goalkeeper, four defenders, four midfielders and two
+    /// strikers of equal attributes,
+    /// When the scorers are counted,
+    /// Then a striker scores far more than a defender, who scores more than the goalkeeper.
+    #[test]
+    fn goals_go_to_the_players_whose_position_scores_them() {
+        let (home, away) = (eleven("home"), eleven("away"));
+        let mut by_position: std::collections::HashMap<&str, u32> =
+            std::collections::HashMap::new();
+        for seed in 0..600 {
+            for goal in &report_of_seed(seed, (3, 0), &home, &away).goals {
+                let player = home
+                    .iter()
+                    .find(|p| p.id == goal.scorer_id)
+                    .expect("a home scorer");
+                let key = match player.position {
+                    Position::Striker => "striker",
+                    Position::Midfielder => "midfielder",
+                    Position::Defender => "defender",
+                    _ => "goalkeeper",
+                };
+                *by_position.entry(key).or_default() += 1;
+            }
+        }
+        let per_player = |key: &str, n: u32| {
+            f64::from(by_position.get(key).copied().unwrap_or(0)) / f64::from(n)
+        };
+        assert!(
+            per_player("striker", 2) > 2.0 * per_player("defender", 4),
+            "{by_position:?}"
+        );
+        assert!(
+            per_player("defender", 4) > per_player("goalkeeper", 1),
+            "{by_position:?}"
+        );
+    }
+}

@@ -44,6 +44,8 @@ struct Study {
     injuries_began: BTreeMap<String, u32>,
     bans_set: BTreeMap<String, u32>,
     season_reconciliation: Vec<String>,
+    /// Season totals that disagreed with the captures, and fixtures captured twice.
+    reconciliation_faults: u32,
     matches: u64,
     prev_injured: BTreeSet<String>,
     prev_suspended: BTreeMap<String, u8>,
@@ -255,6 +257,7 @@ impl SeasonObserver for Study {
         self.season_reconciliation.push(format!(
             "  uncaptured completed fixtures by kind: {uncaptured:?}"
         ));
+        self.reconciliation_faults += u32::try_from(faults.len()).unwrap_or(u32::MAX);
         self.season_reconciliation.push(format!(
             "season {season}: {completed} completed fixtures, {} captured, {} reconciliation faults",
             self.captures_per_fixture.len(),
@@ -455,12 +458,18 @@ fn a_season_of_full_matches_keeps_availability_and_reconciles() {
         "{}",
         invariants.report()
     );
-    assert!(
-        study
-            .season_reconciliation
-            .iter()
-            .all(|line| !line.contains("vs captured")),
+    assert_eq!(
+        study.reconciliation_faults, 0,
         "{:?}",
         study.season_reconciliation
+    );
+    assert!(
+        !study.bans_set.is_empty(),
+        "the control: bans were handed out and served during the season"
+    );
+    assert!(
+        study.matches > 1_000,
+        "the control: the season's matches were captured ({})",
+        study.matches
     );
 }

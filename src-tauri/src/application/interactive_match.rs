@@ -1327,7 +1327,7 @@ mod tests {
         match_lines_captured: bool,
         two_team_lines_captured: bool,
         players_who_played_are_tired: bool,
-        goals_on_the_table_equal_goals_credited: bool,
+        goals_credited_within_the_score: bool,
         a_second_finish_is_refused: bool,
     }
 
@@ -1372,7 +1372,7 @@ mod tests {
             match_lines_captured: players >= 22,
             two_team_lines_captured: teams == 2,
             players_who_played_are_tired: tired,
-            goals_on_the_table_equal_goals_credited: goals_ok,
+            goals_credited_within_the_score: goals_ok,
             a_second_finish_is_refused: second_finish.is_err(),
         }
     }
@@ -1424,9 +1424,9 @@ mod tests {
             crate::application::live_match::finish_live_match(&instant_m12).map(|_| ()),
         );
 
-        let lightweight = fresh_state();
+        let ofm_engine = fresh_state();
         start_live_match_with_identity(
-            &lightweight,
+            &ofm_engine,
             0,
             "instant",
             false,
@@ -1434,10 +1434,10 @@ mod tests {
             Some(FIXTURE),
         )
         .expect("live session");
-        crate::application::live_match::finish_live_match(&lightweight).expect("OFM finish");
-        let lightweight_consequences = consequences_of(
-            &lightweight,
-            crate::application::live_match::finish_live_match(&lightweight).map(|_| ()),
+        crate::application::live_match::finish_live_match(&ofm_engine).expect("OFM finish");
+        let ofm_engine_consequences = consequences_of(
+            &ofm_engine,
+            crate::application::live_match::finish_live_match(&ofm_engine).map(|_| ()),
         );
 
         assert_eq!(
@@ -1450,7 +1450,7 @@ mod tests {
                 match_lines_captured: true,
                 two_team_lines_captured: true,
                 players_who_played_are_tired: true,
-                goals_on_the_table_equal_goals_credited: true,
+                goals_credited_within_the_score: true,
                 a_second_finish_is_refused: true,
             }
         );
@@ -1459,7 +1459,7 @@ mod tests {
             "instant M12"
         );
         assert_eq!(
-            lightweight_consequences, interactive_consequences,
+            ofm_engine_consequences, interactive_consequences,
             "OFM engine"
         );
     }

@@ -480,6 +480,7 @@ mod tests {
     /// and the players' goals add up to the score: the score is the input, nothing is added to it.
     #[test]
     fn every_goal_of_a_dormant_score_belongs_to_a_player() {
+        let mut goals_seen = 0;
         for day in 1..=20 {
             let today = format!("2030-08-{day:02}");
             let mut game = make_dormant_game(&today);
@@ -493,9 +494,23 @@ mod tests {
             assert_eq!(result.away_scorers.len(), usize::from(result.away_goals));
             let credited: u32 = game.players.iter().map(|p| p.stats.goals).sum();
             assert_eq!(credited, u32::from(result.home_goals + result.away_goals));
+            for (scorers, club) in [
+                (&result.home_scorers, "home"),
+                (&result.away_scorers, "away"),
+            ] {
+                assert!(
+                    scorers.iter().all(|g| g.player_id.starts_with(club)),
+                    "a scorer from the wrong club: {scorers:?}"
+                );
+            }
+            goals_seen += u32::from(result.home_goals + result.away_goals);
             let assists: u32 = game.players.iter().map(|p| p.stats.assists).sum();
             assert!(assists <= credited, "no assist without a goal");
         }
+        assert!(
+            goals_seen > 20,
+            "the control: goals were scored in the twenty days"
+        );
     }
 
     /// Given a player of a dormant club serving a two-match ban, and a fit twelfth player,
@@ -670,5 +685,41 @@ mod tests {
         };
 
         assert_eq!(super::eleven_still_fit(&game, &club), vec![0, 3]);
+    }
+
+    /// Given a hundred and twenty dormant matchdays between the same two clubs,
+    /// When their players are read afterwards,
+    /// Then cards have produced bans and knocks have produced injuries on the players themselves:
+    /// the report's events become real consequences, not lines in a report nobody reads.
+    #[test]
+    fn dormant_cards_and_knocks_become_bans_and_injuries_on_players() {
+        let (mut bans, mut injuries, mut yellows, mut seen_goals) = (0, 0, 0, 0);
+        for day in 1..=28 {
+            for month in [8, 9, 10, 11] {
+                let today = format!("2030-{month:02}-{day:02}");
+                let mut game = make_dormant_game(&today);
+                add_squad(&mut game, "home", 70);
+                add_squad(&mut game, "away", 66);
+
+                simulate_dormant_competition_day(&mut game, 0, &today);
+
+                bans += game
+                    .players
+                    .iter()
+                    .filter(|p| p.suspended_matches > 0)
+                    .count();
+                injuries += game.players.iter().filter(|p| p.injury.is_some()).count();
+                yellows += game
+                    .players
+                    .iter()
+                    .map(|p| p.stats.yellow_cards)
+                    .sum::<u32>();
+                seen_goals += game.players.iter().map(|p| p.stats.goals).sum::<u32>();
+            }
+        }
+        assert!(seen_goals > 100, "goals ({seen_goals})");
+        assert!(yellows > 50, "yellow cards ({yellows})");
+        assert!(bans > 0, "no card ever became a ban");
+        assert!(injuries > 10, "no knock ever became an injury ({injuries})");
     }
 }

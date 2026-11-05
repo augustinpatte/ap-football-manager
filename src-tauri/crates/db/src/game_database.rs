@@ -958,7 +958,11 @@ mod tests {
         let players = vec![
             player("fx-1", "p-1", "2034-09-02", 7.4),
             player("fx-1", "p-2", "2034-09-02", 0.0),
-            player("fx-2", "p-1", "2034-09-09", 6.25),
+            // A cup tie, not the league the default would read back.
+            PlayerMatchStatsRecord {
+                competition: FixtureCompetition::Cup,
+                ..player("fx-2", "p-1", "2034-09-09", 6.25)
+            },
             // Disagrees with the other records of its match about the date: kept as written.
             player("fx-1", "p-3", "2034-09-03", 8.1),
         ];
@@ -977,7 +981,7 @@ mod tests {
                 conn.execute(
                     "INSERT INTO player_match_stats VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)",
                     rusqlite::params![
-                        r.fixture_id, r.season, r.matchday, r.date, "League", r.player_id,
+                        r.fixture_id, r.season, r.matchday, r.date, if r.competition == FixtureCompetition::Cup { "Cup" } else { "League" }, r.player_id,
                         r.team_id, r.opponent_team_id, r.home_team_id, r.away_team_id,
                         r.home_goals, r.away_goals, r.minutes_played, r.goals, r.assists, r.shots,
                         r.shots_on_target, r.passes_completed, r.passes_attempted, r.tackles_won,
