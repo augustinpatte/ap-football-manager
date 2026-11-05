@@ -448,6 +448,49 @@ mod tests {
         assert!(!game.cash_journal_dirty_ids.is_empty());
     }
 
+    /// Given a clock in the middle of a month, When the journal is folded, Then the cutoff is the
+    /// first of the month two years back, so that month's payments stay single and none is split.
+    #[test]
+    fn the_fold_cutoff_is_the_start_of_a_month() {
+        let mut game = make_game(vec![make_team("alpha", 5_000_000)]);
+        for day in [3, 10, 17, 24] {
+            let date = NaiveDate::from_ymd_opt(2032, 8, day).unwrap();
+            post(&mut game, "alpha", -1_000, CashKind::PlayerWages, date).unwrap();
+        }
+        post(
+            &mut game,
+            "alpha",
+            -1_000,
+            CashKind::PlayerWages,
+            NaiveDate::from_ymd_opt(2032, 7, 20).unwrap(),
+        )
+        .unwrap();
+        // 2034-08-15 minus 730 days is 2032-08-16, inside August: August is not folded whole.
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(2034, 8, 15, 12, 0, 0).unwrap());
+
+        fold_old_posts(&mut game);
+
+        assert_eq!(
+            game.cash_journal_fold_pending.as_deref(),
+            Some("2032-08-01")
+        );
+        let august_singles = game
+            .cash_journal
+            .iter()
+            .filter(|p| {
+                p.date.starts_with("2032-08")
+                    && !p.id.starts_with("fold:")
+                    && p.kind != CashKind::OpeningBalance
+            })
+            .count();
+        assert_eq!(august_singles, 4, "August's four payments stay single");
+        assert!(
+            game.cash_journal
+                .iter()
+                .any(|p| p.id == "fold:alpha:PlayerWages:2032-07")
+        );
+    }
+
     /// Given a journal with nothing older than two years, when the rollover folds it, then the file
     /// is told nothing: no pending cutoff, no queued posts.
     #[test]

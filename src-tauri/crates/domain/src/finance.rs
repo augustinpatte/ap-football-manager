@@ -75,6 +75,11 @@ impl Deref for CashJournal {
 /// Prefix of the id of a post that stands for many (see [`CashJournal::fold_before`]).
 pub const FOLDED_ID_PREFIX: &str = "fold:";
 
+/// One fold's group: club, kind name, `YYYY-MM`; and what it gathers: the kind, the exact total and
+/// the original posts (kept if the total cannot be represented).
+type FoldKey = (String, String, String);
+type FoldTotal = (CashKind, i128, Vec<CashPost>);
+
 impl CashJournal {
     /// Replaces every post dated before `cutoff` (`YYYY-MM-DD`) by one post per club, kind and month,
     /// and returns the ids of the posts it created.
@@ -96,7 +101,7 @@ impl CashJournal {
         if !self.posts.iter().any(foldable) {
             return Vec::new();
         }
-        let mut totals: BTreeMap<(String, String, String), (CashKind, i128)> = BTreeMap::new();
+        let mut totals: BTreeMap<FoldKey, FoldTotal> = BTreeMap::new();
         let mut kept = Vec::with_capacity(self.posts.len());
         for post in self.posts.iter() {
             if foldable(post) {
@@ -104,17 +109,20 @@ impl CashJournal {
                 let kind_name = format!("{:?}", post.kind);
                 let entry = totals
                     .entry((post.club_id.clone(), kind_name, month))
-                    .or_insert((post.kind, 0));
+                    .or_insert((post.kind, 0, Vec::new()));
                 entry.1 += i128::from(post.amount);
+                entry.2.push(post.clone());
             } else {
                 kept.push(post.clone());
             }
         }
         let mut created = Vec::with_capacity(totals.len());
-        for ((club_id, kind_name, month), (kind, total)) in totals {
+        for ((club_id, kind_name, month), (kind, total, originals)) in totals {
             // A month's total of one club and kind is far inside i64: it is a few hundred posts of
-            // wages. A total that were not is kept as it is rather than wrapped.
+            // wages. A total that were not is not folded: its posts are kept as they are, so the
+            // balance never changes.
             let Ok(amount) = i64::try_from(total) else {
+                kept.extend(originals);
                 continue;
             };
             let id = format!("{FOLDED_ID_PREFIX}{club_id}:{kind_name}:{month}");
@@ -274,6 +282,50 @@ mod tests {
                 .all(|id| id == "w9" || id.starts_with("fold:"))
         );
         assert_eq!(journal.cash_for("a"), once.cash_for("a"));
+    }
+
+    /// Given a month whose total does not fit an i64 (two posts of i64::MAX), when it is folded,
+    /// then its posts are kept as they are and the club's balance is unchanged: a fold never
+    /// loses money, even where it cannot sum it.
+    #[test]
+    fn a_month_that_cannot_be_summed_is_kept_whole() {
+        let mut journal = CashJournal::from_vec(vec![
+            dated("big1", "a", i64::MAX, CashKind::Matchday, "2030-08-04"),
+            dated("big2", "a", i64::MAX, CashKind::Matchday, "2030-08-11"),
+            dated("small", "a", -5, CashKind::PlayerWages, "2030-08-12"),
+        ]);
+        let before = journal.iter().map(|p| i128::from(p.amount)).sum::<i128>();
+
+        let created = journal.fold_before("2031-01-01");
+
+        assert_eq!(created, vec!["fold:a:PlayerWages:2030-08"]);
+        assert!(journal.iter().any(|p| p.id == "big1") && journal.iter().any(|p| p.id == "big2"));
+        assert_eq!(
+            journal.iter().map(|p| i128::from(p.amount)).sum::<i128>(),
+            before
+        );
+    }
+
+    /// Given a journal folded once, when a later cutoff folds it again, then the first fold's posts
+    /// are untouched, exactly the newly old month is folded, and the same cutoff changes nothing.
+    #[test]
+    fn a_second_fold_touches_only_what_became_old() {
+        let mut journal = sample_journal();
+        journal.fold_before("2031-01-01");
+        let once = journal.clone();
+        assert!(journal.fold_before("2031-01-01").is_empty());
+        assert_eq!(journal, once);
+
+        let created = journal.fold_before("2035-01-01");
+
+        assert_eq!(created, vec!["fold:a:PlayerWages:2032-03"]);
+        for id in [
+            "fold:a:PlayerWages:2030-08",
+            "fold:a:Matchday:2030-08",
+            "o1",
+        ] {
+            assert!(journal.iter().any(|p| p.id == id), "{id} was disturbed");
+        }
     }
 
     /// Given a journal with nothing older than the cutoff, when it is folded, then it is untouched

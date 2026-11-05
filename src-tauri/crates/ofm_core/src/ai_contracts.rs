@@ -18,7 +18,6 @@ use chrono::NaiveDate;
 use domain::player::Player;
 use domain::team::Team;
 
-use crate::contract_wage_policy::wage_policy_verdict;
 use crate::contracts::{
     RenewalDecision, RenewalOffer, apply_agreed_renewal, evaluate_renewal_offer,
     expected_contract_years, expected_wage, next_renewal_round, remaining_contract_days,
@@ -344,14 +343,21 @@ fn settled_renewal_wage(player: &Player, asked: u32, over_budget: bool) -> u32 {
 fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveDate) {
     let player = &game.players[player_index];
     let asked = expected_wage(player, team, current_date);
-    let over_budget =
-        team.wage_budget > 0 && crate::finances::calc_wages(game, &team.id) > team.wage_budget;
+    // The bill is worked out once: the verdict and the grace check below both need it.
+    let bill = crate::finances::calc_wages(game, &team.id);
+    let over_budget = team.wage_budget > 0 && bill > team.wage_budget;
     let wage = settled_renewal_wage(player, asked, over_budget);
     let offer = RenewalOffer {
         weekly_wage: wage,
         contract_years: expected_contract_years(player, current_date),
     };
-    let verdict = wage_policy_verdict(game, team, player, offer.weekly_wage);
+    let verdict = crate::contract_wage_policy::wage_policy_verdict_at_bill(
+        game,
+        team,
+        player,
+        offer.weekly_wage,
+        bill,
+    );
     if !verdict.permits() {
         return;
     }
@@ -371,7 +377,7 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
         ) - crate::finances::player_weekly_wage_for_team(player, &team.id);
         let books = crate::ai_finance_guard::SigningBooks {
             cash: team.finance,
-            weekly_bill: crate::finances::calc_wages(game, &team.id),
+            weekly_bill: bill,
             weekly_income: 0,
             wage_budget: team.wage_budget,
         };
@@ -408,6 +414,7 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
 mod tests {
     use super::*;
     use crate::clock::GameClock;
+    use crate::contract_wage_policy::wage_policy_verdict;
     use chrono::{Datelike, Duration, TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{PlayerAttributes, Position};
@@ -571,6 +578,46 @@ mod tests {
         assert_eq!(
             entry.contract.as_ref().map(|c| c.weekly_wage),
             Some(star.wage())
+        );
+    }
+
+    fn wage_of(game: &Game, id: &str) -> u32 {
+        game.players.iter().find(|p| p.id == id).unwrap().wage()
+    }
+
+    /// Given a content star whose contract is running down and an AI club inside its wage budget,
+    /// When the club reviews its contracts,
+    /// Then he is renewed with a raise (the control for the next test, which needs a raise to exist).
+    #[test]
+    fn a_club_inside_its_budget_renews_a_content_star_with_a_raise() {
+        let mut game = world();
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 80;
+        game.players.push(star);
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert!(wage_of(&game, "star") > 1_000, "{}", wage_of(&game, "star"));
+    }
+
+    /// Given the same star and a club whose wage bill is far over its budget,
+    /// When the club reviews its contracts,
+    /// Then his wage is never raised: the freeze is wired into the real renewal, not only into the
+    /// pure function. (Whether the board renews him at all is the wage policy's business.)
+    #[test]
+    fn a_club_over_its_budget_does_not_raise_a_content_stars_wage_at_renewal() {
+        let mut game = world();
+        game.teams[1].wage_budget = 1_000;
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 80;
+        game.players.push(star);
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert!(
+            wage_of(&game, "star") <= 1_000,
+            "{}",
+            wage_of(&game, "star")
         );
     }
 

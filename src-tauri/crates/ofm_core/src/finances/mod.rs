@@ -406,7 +406,12 @@ fn estimated_weekly_matchday_income(game: &Game, team: &Team) -> i64 {
         return 0;
     }
 
-    calc_matchday(team.stadium_capacity, recent_home_match_count, 0.76, 20.0)
+    calc_matchday(
+        team.stadium_capacity,
+        recent_home_match_count,
+        0.76,
+        20.0 * crate::club_economy::ticket_price_factor(team.reputation),
+    )
 }
 
 pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSnapshot> {
@@ -1297,7 +1302,7 @@ pub fn process_weekly_finances(game: &mut Game) {
                     team.stadium_capacity,
                     home_matches.get(team.id.as_str()).copied().unwrap_or(0),
                     0.76,
-                    20.0,
+                    20.0 * crate::club_economy::ticket_price_factor(team.reputation),
                 ),
         );
         if player_wages != 0 {

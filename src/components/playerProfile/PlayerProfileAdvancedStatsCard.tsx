@@ -174,7 +174,11 @@ export default function PlayerProfileAdvancedStatsCard({
       <CardHeader>{labels.title}</CardHeader>
       <CardBody>
         {!summary.detailRecorded && (
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          <p
+            id="advanced-stats-not-recorded"
+            role="note"
+            className="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
             {labels.detailNotRecorded}
           </p>
         )}
@@ -193,7 +197,10 @@ export default function PlayerProfileAdvancedStatsCard({
             })}
           </p>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:auto-rows-fr">
+        <div
+          aria-describedby={summary.detailRecorded ? undefined : "advanced-stats-not-recorded"}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:auto-rows-fr"
+        >
           {shownRows.map((row) => (
             <AdvancedStatCard
               key={row.id}

@@ -71,8 +71,6 @@ pub fn insert_dirty_cash_posts(conn: &Connection, game: &Game) -> Result<usize, 
     )
 }
 
-/// Overwrite saves only need new rows. A brand-new `.db` (`create_save`) must
-/// get the whole journal: loaded games have an empty dirty list.
 /// Removes the stored posts a fold replaced: everything before `cutoff` that is not an opening
 /// balance and not itself a fold. The folds are inserted by the same save, in the same transaction.
 fn remove_folded_posts(conn: &Connection, cutoff: &str) -> Result<usize, String> {
@@ -84,6 +82,8 @@ fn remove_folded_posts(conn: &Connection, cutoff: &str) -> Result<usize, String>
     .map_err(|_| WRITE_ERROR.to_string())
 }
 
+/// Overwrite saves only need new rows. A brand-new `.db` (`create_save`) must
+/// get the whole journal: loaded games have an empty dirty list.
 pub fn persist_cash_journal(conn: &Connection, game: &Game) -> Result<usize, String> {
     if cash_journal_has_rows(conn)? {
         if let Some(cutoff) = &game.cash_journal_fold_pending {
