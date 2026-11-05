@@ -684,7 +684,6 @@ struct ClubFacts {
     team_id: String,
     weekly_bill: i64,
     seniors: [usize; 4],
-    median_senior_wage: i64,
 }
 
 impl SigningContext {
@@ -732,7 +731,6 @@ impl SigningContext {
                 team_id: team_id.to_string(),
                 weekly_bill: crate::finances::calc_wages(game, team_id),
                 seniors: senior_counts(game, team_id),
-                median_senior_wage: median_senior_wage(game, team_id),
             });
         }
         self.club.as_ref().expect("just set")
@@ -867,9 +865,9 @@ fn best_signing(
     // Neither changes while candidates are turned down: work them out once. Judging each of up to
     // thousands of free agents with a scan of every player was the daily cost of a world where a
     // club cannot find a goalkeeper.
-    let (current_bill, seniors, median_wage) = {
+    let (current_bill, seniors) = {
         let facts = context.club_facts(game, &team.id);
-        (facts.weekly_bill, facts.seniors, facts.median_senior_wage)
+        (facts.weekly_bill, facts.seniors)
     };
     // A free agent is not on the bill, so signing him is judged as a purchase is: his whole wage
     // is new to it.
@@ -879,9 +877,9 @@ fn best_signing(
         current_bill,
         context.home_matches(game, &team.id),
     );
-    let room = (team.wage_budget - current_bill).max(0);
-    let pay_scale = median_wage * 3 / 2;
-    let affordable_wage = room.max(pay_scale);
+    // What the club can carry: the room under its wage ceiling. It bids that, if the player would
+    // not take it as an insult (`free_agent_bid`), instead of passing over everyone who asks more.
+    let room = books.room_for_wages();
     // A club short of the floor now needs him whatever it was asked.
     let required = required || !shortfall_of(seniors).is_empty();
 
@@ -893,9 +891,8 @@ fn best_signing(
         {
             continue;
         }
-        // A club that has a choice passes over, unjudged, a player who cannot ask less than it can
-        // afford.
-        if !required && i64::from(least_he_asks) > affordable_wage {
+        // A club that has a choice passes over, unjudged, a player it cannot bid enough for.
+        if !required && i64::from(crate::contracts::insulting_floor(least_he_asks)) > room {
             continue;
         }
         // And one who would not come: an elite free agent does not drop to a far smaller club
@@ -904,7 +901,8 @@ fn best_signing(
         if !required && crate::contracts::declines_on_standing(player, team, current_date) {
             continue;
         }
-        let wage = crate::contracts::expected_wage(player, team, current_date);
+        let ask = crate::contracts::expected_wage(player, team, current_date);
+        let wage = crate::contracts::free_agent_bid(ask, least_he_asks, room);
         if !wage_facts.purchase_verdict(team, player, wage).permits() {
             continue;
         }
@@ -912,10 +910,7 @@ fn best_signing(
         // to the policy's soft cap, is for the contracts it must make.
         let within_ambition =
             better_than.is_none() || current_bill + i64::from(wage) <= team.wage_budget;
-        if within_ambition
-            && i64::from(wage) <= affordable_wage
-            && books.can_add_wage(i64::from(wage))
-        {
+        if within_ambition && books.can_add_wage(i64::from(wage)) {
             return Some((index, wage));
         }
         if required && cheapest_allowed.is_none_or(|(_, cheapest)| wage < cheapest) {
@@ -954,21 +949,6 @@ pub(crate) fn promote_successor(
     game.players[index].squad_role = SquadRole::Senior;
     context.club_changed();
     Some(game.players[index].id.clone())
-}
-
-/// The median weekly wage of the club's registered seniors: the pay scale a newcomer is judged
-/// against. 0 for a club with none.
-fn median_senior_wage(game: &Game, team_id: &str) -> i64 {
-    let mut wages: Vec<i64> = game
-        .players
-        .iter()
-        .filter(|player| {
-            player.team_id.as_deref() == Some(team_id) && player.squad_role == SquadRole::Senior
-        })
-        .map(|player| i64::from(player.wage()))
-        .collect();
-    wages.sort_unstable();
-    wages.get(wages.len() / 2).copied().unwrap_or(0)
 }
 
 /// The club's academy player of this group it would promote first: the best

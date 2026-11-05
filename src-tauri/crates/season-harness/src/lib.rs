@@ -28,6 +28,7 @@ pub mod ageing;
 pub mod calendar;
 pub mod distribution;
 pub mod driver;
+pub mod finance_study;
 pub mod fingerprint;
 pub mod fm24;
 pub mod invariants;

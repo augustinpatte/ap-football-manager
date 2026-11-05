@@ -511,6 +511,29 @@ Each team tracks financial state:
 
 The `FinancesTab` displays an overview with cards for balance, wage budget, transfer budget, and a payroll table.
 
+### How an AI club keeps its wage bill (Run F5.3)
+
+The board's wage policy (`contract_wage_policy`) lets a bill rise to 110 % of the budget and, for a club
+already over it, a further `max(3 %, 25,000)` a week **at every decision**. That is right for one
+decision a manager takes and wrong for the dozen a club makes in a year: it let the poorest clubs of the
+shipped world grow their bills by a third a year on a revenue that does not grow (174 of 440 clubs in debt
+after thirty seasons). An AI club therefore answers to a second rule (`ai_finance_guard`):
+
+- its own signings and renewals stop at **the budget** (`AI_WAGE_CEILING_PCT`), and a club past it adds
+  nothing: a renewal at the wage he is paid or a cheaper replacement is the only decision it can take;
+- **a renewal is offered what fits** (`ai_contracts::affordable_renewal_wage`): the ask, held to the room
+  under the ceiling; a player not content with less leaves. A club in debt raises no wage at all. A club
+  with room also pays a player whose pay has fallen behind his value up to half as much again
+  (`contracts::quality_wage_catch_up`), so money in the bank buys quality;
+- **a free agent is bid for what the club can carry**, never below the line he would take as an insult
+  (`free_agent_bid`); a club short of its squad floor still signs, at the lowest bid;
+- **a recruit asking more than the youth minimum must fit the books too**; at the minimum he is taken
+  whatever the books say, so an academy is never emptied by a first team that spends what it has.
+
+The player's own club keeps the board's policy; nothing here applies to it. The instrument is
+`season-harness`'s `finance_study` (`tests/f53_finance_study.rs`, measurement) and the regression is
+`tests/f53_financial_stability.rs`; see `docs/APFM_RUN_F5_3_FINANCES_AND_PRESSING.md`.
+
 ---
 
 ## Transfers
@@ -597,6 +620,8 @@ Measured on a three-nation pyramid of 80 clubs over five seasons and three seeds
 (`tests/youth_intake_wages_probe.rs`, ignored, run in release): the board turned away none of 2,240
 planned recruits. From the second season on, every club sits over its wage budget on the policy's
 25,000-a-week grace, which is allowed per decision, so a recruit at the minimum cannot be refused.
+(Run F5.3: the same grace let a recruit in at whatever he asked, so an AI club's recruit who asks more than
+the minimum must also fit the club's books; one at the minimum is still never refused.)
 `tests/squad_floor_seasons.rs` fails if a solvent AI club ever goes two season ends running without
 a youngster.
 

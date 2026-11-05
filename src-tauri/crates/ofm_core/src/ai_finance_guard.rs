@@ -6,13 +6,15 @@
 //! contract runs. This is the second question, asked of every signing, renewal and purchase an AI
 //! club makes on its own:
 //!
-//! - **the wage budget, without the absolute grace**: the board's policy tolerates a club that is
-//!   already over its budget a further `max(3 %, 25 000)` a week at every decision. The 3 % is
-//!   proportional; the 25 000 is a margin sized for clubs paying hundreds of thousands, which at a
-//!   club whose whole budget is 13 000 is a licence to triple the bill one signing at a time. An AI
-//!   club that adds to its bill stays under the policy's soft cap ([`WAGE_SOFT_CAP_PCT`] of the
-//!   budget) or adds no more than the 3 % ([`LEGACY_OVER_BUDGET_GRACE_PCT`]) — the same policy,
-//!   with the grace scaled to the club;
+//! - **the wage budget, without any grace**: the board's policy tolerates a club that is already
+//!   over its budget a further `max(3 %, 25 000)` a week at *every* decision. The 25 000 is a margin
+//!   sized for clubs paying hundreds of thousands, which at a club whose whole budget is 13 000 is a
+//!   licence to triple the bill one signing at a time. The 3 % looks proportional, but it is
+//!   granted again to each of the dozen contracts a club signs or renews in a year, so it is a
+//!   licence to grow by a third a year (F5.3 measured +37 % at the renewals of the poorest clubs of
+//!   the shipped world, whose revenue does not grow). An AI club that adds to its bill therefore
+//!   stays under its budget ([`AI_WAGE_CEILING_PCT`]), and a club already past it adds nothing: a decision that does not grow the bill (a renewal at the wage he is
+//!   paid, a cheaper replacement) is the only one it can take;
 //! - **income it can count on**: its recurring sponsorship plus the gate its scheduled home league
 //!   matches bring, at the attendance and price the game itself uses to estimate one;
 //! - **the weekly result after the cost**: that income against the wage bill with the new wage;
@@ -26,12 +28,20 @@
 //! floor's emergency signing does not ask it either — a club that cannot put a side out has no
 //! margin worth protecting — but it chooses the cheapest player who will do (see `squad_floor`).
 
-use crate::contract_wage_policy::{LEGACY_OVER_BUDGET_GRACE_PCT, WAGE_SOFT_CAP_PCT};
 use crate::finances::calc_matchday;
 use crate::game::Game;
 use domain::league::FixtureCompetition;
 use domain::team::Team;
 use std::collections::HashMap;
+
+/// The share of its wage budget (per cent) an AI club's weekly bill may reach by its own choice.
+///
+/// The board's policy lets a bill rise to 110 % of the budget ([`crate::contract_wage_policy::WAGE_SOFT_CAP_PCT`]),
+/// a margin for the contracts a manager must make. An AI club used that margin as a target: F5.3
+/// measured the lower nations' clubs sitting at 100 to 112 % of a budget that is itself 77 % of their
+/// income, which after the ground's upkeep leaves nothing, so the first poor season is a debt.
+/// An AI club's own signings stop at the budget; only the squad floor's cheapest signing goes past.
+pub(crate) const AI_WAGE_CEILING_PCT: i64 = 100;
 
 /// Weeks of a weekly loss the club must hold in cash after a signing that makes it run one.
 pub(crate) const SAFETY_WEEKS: i64 = 52;
@@ -92,7 +102,7 @@ impl SigningBooks {
     }
 
     /// Whether the club may add `extra_weekly` to its wage bill: not while it is in debt, and not
-    /// past the policy's soft cap. The question for a signing on a free transfer or a renewal at a
+    /// past its budget. The question for a signing on a free transfer or a renewal at a
     /// raise — a wage, with no fee to pay and no reason to ask for a year of cash in hand: a club
     /// that earns less than it pays is held in check by its budget, as clubs have always been.
     pub(crate) fn can_add_wage(&self, extra_weekly: i64) -> bool {
@@ -102,11 +112,15 @@ impl SigningBooks {
         self.cash >= 0 && self.weekly_bill + extra_weekly <= self.bill_ceiling()
     }
 
-    /// The most the weekly bill may reach by adding wages: the policy's soft cap, or, for a club
-    /// already past it, what it pays plus the proportional grace.
-    fn bill_ceiling(&self) -> i64 {
-        (self.wage_budget * WAGE_SOFT_CAP_PCT / 100)
-            .max(self.weekly_bill + self.wage_budget * LEGACY_OVER_BUDGET_GRACE_PCT / 100)
+    /// The most the weekly bill may reach by adding wages: the budget itself. A club already past it
+    /// has no room at all (see the module note on why no grace is left).
+    pub(crate) fn bill_ceiling(&self) -> i64 {
+        self.wage_budget * AI_WAGE_CEILING_PCT / 100
+    }
+
+    /// What the bill may still grow by: the room under the ceiling, never negative.
+    pub(crate) fn room_for_wages(&self) -> i64 {
+        (self.bill_ceiling() - self.weekly_bill).max(0)
     }
 
     /// Whether the club can take on `extra_weekly` of wages, having paid `upfront` (a fee) now.
@@ -173,23 +187,54 @@ mod tests {
 
     /// Given a club already over its wage budget (13 000), with cash and income to spare
     /// When it takes on a wage
-    /// Then it may add no more than the proportional grace, 3 % of the budget — not the 25 000 the
-    ///      board's own policy allows — and a club under the soft cap may rise to it.
+    /// Then it may add nothing, however small: the proportional grace the board's policy allows
+    ///      at every decision is a licence to grow for ever once granted a dozen times a year; a
+    ///      club under its budget may rise to it, and a cut is always allowed.
     #[test]
-    fn a_club_over_its_wage_budget_adds_no_more_than_the_proportional_grace() {
+    fn a_club_over_its_wage_budget_adds_no_wage_at_all() {
         let club = SigningBooks {
             wage_budget: 13_000,
             ..books(50_000_000, 42_000, 1_000_000)
         };
-        assert!(club.can_carry(390, 0)); // 3 % of 13 000
-        assert!(!club.can_carry(391, 0));
+        assert!(!club.can_carry(1, 0));
+        assert!(!club.can_carry(390, 0)); // 3 % of 13 000: the old grace
+        assert!(club.can_carry(0, 0));
         assert!(club.can_carry(-1_000, 0));
         let under = SigningBooks {
             weekly_bill: 12_000,
             ..club
         };
-        assert!(under.can_carry(2_300, 0)); // 14 300 = 110 %
-        assert!(!under.can_carry(2_400, 0));
+        assert!(under.can_carry(1_000, 0)); // 13 000 = the budget
+        assert!(!under.can_carry(1_001, 0));
+    }
+
+    /// Given a club under its budget, one at it and one past it
+    /// When the room for wages is read
+    /// Then the first has what is left under the budget and the others none: the 110 % the board
+    ///      lets a manager use is not a target for an AI club.
+    #[test]
+    fn the_room_for_wages_is_what_is_left_under_the_budget() {
+        let club = SigningBooks {
+            wage_budget: 10_000,
+            ..books(0, 9_500, 0)
+        };
+        assert_eq!(club.room_for_wages(), 500);
+        assert_eq!(
+            SigningBooks {
+                weekly_bill: 10_000,
+                ..club
+            }
+            .room_for_wages(),
+            0
+        );
+        assert_eq!(
+            SigningBooks {
+                weekly_bill: 10_900,
+                ..club
+            }
+            .room_for_wages(),
+            0
+        );
     }
 
     /// Given a club that runs a weekly loss and holds little cash
@@ -202,8 +247,8 @@ mod tests {
             wage_budget: 100_000,
             ..books(10_000, 100_000, 100_000)
         };
-        assert!(club.can_add_wage(10_000)); // 110 000 = 110 % of the budget
-        assert!(!club.can_add_wage(10_001));
+        assert!(club.can_add_wage(0)); // already at the budget
+        assert!(!club.can_add_wage(1));
         assert!(club.can_add_wage(-5_000));
         assert!(!SigningBooks { cash: -1, ..club }.can_add_wage(1));
         assert!(SigningBooks { cash: -1, ..club }.can_add_wage(0));

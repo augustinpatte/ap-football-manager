@@ -409,15 +409,64 @@ fn settled_renewal_wage(player: &Player, asked: u32, over_budget: bool) -> u32 {
     asked.min(modest.max(paid))
 }
 
-/// Offer what the player expects, if the board allows the wage, and if he
-/// takes it put it into effect.
+/// The wage an AI club can offer to renew `player`: what he is worth to it (`wanted`), held to the
+/// room the club has under its wage ceiling.
+///
+/// A club never raises a wage by more than the room it has; a club with none renews at the wage
+/// the player is paid. This is the renegotiation: the club offers what it can carry and the
+/// player takes it or goes (`renew` asks him), instead of every renewal being waved through at the
+/// whole of his ask because the board's policy tolerates a little more at each decision.
+fn affordable_renewal_wage(
+    player: &Player,
+    team_id: &str,
+    wanted: u32,
+    books: &crate::ai_finance_guard::SigningBooks,
+) -> u32 {
+    let paid = player.last_known_wage();
+    let extra = |wage: u32| {
+        crate::finances::weekly_commitment_at_wage(player, team_id, i64::from(wage))
+            - crate::finances::player_weekly_wage_for_team(player, team_id)
+    };
+    if extra(wanted) <= books.room_for_wages() {
+        return wanted;
+    }
+    let room = u32::try_from(books.room_for_wages()).unwrap_or(u32::MAX);
+    let partial = paid.saturating_add(room).min(wanted);
+    if partial > paid && extra(partial) <= books.room_for_wages() {
+        return partial;
+    }
+    paid.min(wanted)
+}
+
+/// Offer what the player expects, held to what the club can carry, if the board allows the wage,
+/// and if he takes it put it into effect.
 fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveDate) {
     let player = &game.players[player_index];
     let asked = expected_wage(player, team, current_date);
-    // The bill is worked out once: the verdict and the grace check below both need it.
+    // The bill is worked out once: the verdict and the ceiling below both need it.
     let bill = crate::finances::calc_wages(game, &team.id);
     let over_budget = team.wage_budget > 0 && bill > team.wage_budget;
-    let wage = settled_renewal_wage(player, asked, over_budget);
+    // A club that has the room also pays a player whose pay has fallen behind his value what his
+    // value implies (`quality_wage_catch_up`); a club that has none is held to the ceiling below.
+    let mut wage = settled_renewal_wage(player, asked, over_budget)
+        .max(crate::contracts::quality_wage_catch_up(player));
+    // In a world with a simulation scope (every career; the single-league test worlds have none
+    // and keep OFM's legacy margin) the AI club's raise is held to the room under its ceiling,
+    // whoever he is: the squad floor lets a club keep a player over its policy, not raise him.
+    if !game.active_competition_ids.is_empty() {
+        let books = crate::ai_finance_guard::SigningBooks {
+            cash: team.finance,
+            weekly_bill: bill,
+            weekly_income: 0,
+            wage_budget: team.wage_budget,
+        };
+        wage = affordable_renewal_wage(player, &team.id, wage, &books);
+        let extra = crate::finances::weekly_commitment_at_wage(player, &team.id, i64::from(wage))
+            - crate::finances::player_weekly_wage_for_team(player, &team.id);
+        if team.finance < 0 && extra > 0 {
+            return;
+        }
+    }
     let offer = RenewalOffer {
         weekly_wage: wage,
         contract_years: expected_contract_years(player, current_date),
@@ -432,33 +481,9 @@ fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveD
     if !verdict.permits() {
         return;
     }
-    // The board's policy allows a club already over budget a further 25 000 a week at every
-    // decision, a margin sized for clubs paying hundreds of thousands: at a club whose whole
-    // budget is 16 000 it let every renewal pass at any raise. In a world with a simulation scope
-    // (every career; the single-league test worlds have none and keep OFM's legacy margin) an AI
-    // club's raise is held to the proportional grace as well, unless the squad floor is what lets
-    // it through.
-    if verdict == crate::contract_wage_policy::WagePolicyVerdict::WithinPolicy
-        && !game.active_competition_ids.is_empty()
-    {
-        let extra = crate::finances::weekly_commitment_at_wage(
-            player,
-            &team.id,
-            i64::from(offer.weekly_wage),
-        ) - crate::finances::player_weekly_wage_for_team(player, &team.id);
-        let books = crate::ai_finance_guard::SigningBooks {
-            cash: team.finance,
-            weekly_bill: bill,
-            weekly_income: 0,
-            wage_budget: team.wage_budget,
-        };
-        if !books.can_add_wage(extra) {
-            return;
-        }
-    }
-    // A player who settled for less than he asked has agreed already; one who asked and got it
-    // is judged as any renewal is.
-    if wage >= asked {
+    // A content player who settled for less than he asked has agreed already; one who asked and got
+    // it, and one who is not content and is offered less than he asked, are judged as any renewal is.
+    if wage >= asked || player.morale < CONTENT_MORALE {
         let outcome = evaluate_renewal_offer(player, team, current_date, &offer);
         if outcome.decision != RenewalDecision::Accepted {
             return;
@@ -690,6 +715,125 @@ mod tests {
             "{}",
             wage_of(&game, "star")
         );
+    }
+
+    fn books_with_room(room: i64) -> crate::ai_finance_guard::SigningBooks {
+        crate::ai_finance_guard::SigningBooks {
+            cash: 1_000_000,
+            weekly_bill: 100_000 - room,
+            weekly_income: 0,
+            wage_budget: 100_000,
+        }
+    }
+
+    /// Given a player paid 1 000 who wants 1 400 and a club with room for 700, 100 and none
+    /// When the club works out what it can offer
+    /// Then it offers all of it, the room it has on top of what he is paid, and what he is paid:
+    ///      a raise is never bigger than the room under the ceiling.
+    #[test]
+    fn a_renewal_is_offered_what_fits_under_the_ceiling_and_never_less_than_he_is_paid() {
+        let player = player("p", "ai", Position::Midfielder, 70, 27, 90);
+        assert_eq!(
+            affordable_renewal_wage(&player, "ai", 1_400, &books_with_room(700)),
+            1_400
+        );
+        assert_eq!(
+            affordable_renewal_wage(&player, "ai", 1_400, &books_with_room(300)),
+            1_300
+        );
+        assert_eq!(
+            affordable_renewal_wage(&player, "ai", 1_400, &books_with_room(0)),
+            1_000
+        );
+    }
+
+    /// Given a player who is not content, a club exactly at its wage budget in a world with a
+    /// simulation scope, and a contract running down
+    /// When the club reviews its contracts
+    /// Then his wage is not raised: he re-signs at the wage he is paid or goes, but the club does
+    ///      not carry a raise it has no room for (the board's grace at every decision let it).
+    #[test]
+    fn a_club_at_its_budget_does_not_raise_an_unhappy_players_wage_at_renewal() {
+        let mut game = world();
+        game.active_competition_ids = vec!["league".to_string()];
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 40;
+        game.players.push(star);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai");
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert!(
+            wage_of(&game, "star") <= 1_000,
+            "raised to {}",
+            wage_of(&game, "star")
+        );
+    }
+
+    /// Given a club in debt with room under its wage budget and an unhappy player asking a raise
+    /// When the club reviews its contracts
+    /// Then he is not raised: a club with cash below zero takes on no new weekly cost, whatever its
+    ///      budget says.
+    #[test]
+    fn a_club_in_debt_does_not_raise_a_wage_at_renewal_whatever_its_budget_says() {
+        let mut game = world();
+        game.active_competition_ids = vec!["league".to_string()];
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 40;
+        game.players.push(star);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai") * 2;
+        game.teams[1].finance = -1;
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert!(
+            wage_of(&game, "star") <= 1_000,
+            "raised to {}",
+            wage_of(&game, "star")
+        );
+    }
+
+    /// Given a content star paid 1 000 whose market value implies far more, at a club with a great
+    ///       deal of room under its wage budget, and the same star at a club exactly at its budget
+    /// When the clubs review their contracts
+    /// Then the first pays him what his value implies to keep him (a club spends what it has) and
+    ///      the second does not raise him: the room decides, not the value.
+    #[test]
+    fn a_club_with_room_pays_a_star_whose_pay_fell_behind_his_value_and_a_club_at_its_budget_does_not()
+     {
+        let build = |room: i64| {
+            let mut game = world();
+            game.active_competition_ids = vec!["league".to_string()];
+            let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+            star.morale = 80;
+            star.market_value = 10_000 * 200;
+            game.players.push(star);
+            game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai") + room;
+            game
+        };
+        let mut rich = build(1_000_000);
+        let mut at_budget = build(0);
+        apply_ai_contract_decisions(&mut rich, review_day());
+        apply_ai_contract_decisions(&mut at_budget, review_day());
+
+        assert_eq!(wage_of(&rich, "star"), 10_000);
+        assert!(wage_of(&at_budget, "star") <= 1_000);
+    }
+
+    /// The control: the same unhappy player at a club with room under its budget gets his raise,
+    /// so the test above fails for the ceiling and not for something else.
+    #[test]
+    fn a_club_with_room_under_its_budget_raises_an_unhappy_players_wage_at_renewal() {
+        let mut game = world();
+        game.active_competition_ids = vec!["league".to_string()];
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 40;
+        game.players.push(star);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai") * 2;
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert!(wage_of(&game, "star") > 1_000, "{}", wage_of(&game, "star"));
     }
 
     #[test]
@@ -1066,6 +1210,56 @@ mod tests {
             domain::player::PlayerMovementKind::FreeAgentSigning
         );
         assert_eq!(entry.to_team_id.as_deref(), Some("ai"));
+    }
+
+    /// What a free keeper rated 70 asks the club `ai` in the test world, as the AI club sees it.
+    fn the_free_keepers_ask(game: &Game) -> (u32, u32) {
+        let keeper = game.players.iter().find(|p| p.id == "free_keeper").unwrap();
+        let ask = expected_wage(keeper, &game.teams[1], today());
+        (ask, crate::contracts::insulting_floor(ask))
+    }
+
+    /// Given an AI club one keeper short, a free keeper asking more than the room under its wage
+    /// budget but more than the insult line, and the room
+    /// When it plans its squad
+    /// Then it signs him at what the room allows, not at his ask and not at nothing: the club bids
+    ///      what it can carry.
+    #[test]
+    fn a_club_bids_the_room_it_has_for_a_free_agent_who_asks_more() {
+        let mut game = world();
+        game.players.retain(|p| p.id != "ai_Goalkeeper2");
+        game.players
+            .push(free_agent("free_keeper", Position::Goalkeeper, 70));
+        let (ask, floor) = the_free_keepers_ask(&game);
+        let room = i64::from(floor + (ask - floor) / 2);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai") + room;
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(club_of(&game, "free_keeper"), Some("ai"));
+        assert_eq!(i64::from(wage_of(&game, "free_keeper")), room);
+        assert!(i64::from(ask) > room);
+    }
+
+    /// Given an AI club with no room at all under its budget that is below its floor in goal
+    /// When it plans its squad
+    /// Then it still signs a keeper, at the lowest bid he does not take as an insult: a squad
+    ///      floor is not a luxury, and the bid is not the ask.
+    #[test]
+    fn a_club_below_its_floor_with_no_room_signs_at_the_lowest_bid() {
+        let mut game = world();
+        game.players
+            .retain(|p| p.id != "ai_Goalkeeper2" && p.id != "ai_Goalkeeper1");
+        game.players
+            .push(free_agent("free_keeper", Position::Goalkeeper, 70));
+        let (ask, floor) = the_free_keepers_ask(&game);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai");
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(club_of(&game, "free_keeper"), Some("ai"));
+        assert_eq!(wage_of(&game, "free_keeper"), floor);
+        assert!(floor < ask);
     }
 
     fn signed_by_ai(game: &Game, ids: &[&str]) -> usize {

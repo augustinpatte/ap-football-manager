@@ -186,12 +186,31 @@ fn recruit_wage_ceiling(game: &Game, team_id: &str) -> u32 {
 /// judged as a newcomer to the bill. No academy player holds up the squad floor,
 /// so the floor's waiver never applies.
 fn agreed_wage(game: &Game, team: &Team, recruit: &Player, asking: u32) -> Option<u32> {
-    [asking, YOUTH_MINIMUM_WAGE.min(asking)]
-        .into_iter()
-        .find(|&wage| {
-            crate::contract_wage_policy::joining_wage_policy_verdict(game, team, recruit, wage)
+    // An AI club's recruit also has to fit its own books when he asks more than the youth minimum:
+    // the board's policy tolerates a little more at every decision for a club already over budget
+    // (see `ai_finance_guard`), which let every recruit of an over-budget academy through at
+    // whatever he asked. The minimum is not held to it: a club at its budget still takes its
+    // intake, at the least any player is paid, or the academies of every club that spends what it
+    // has would empty and the world's supply of youngsters with them (F5.3 measured 14 000 players
+    // falling to 10 300 in ten seasons). The player's club is left to its board.
+    let books = (game.manager.team_id.as_deref() != Some(team.id.as_str())).then(|| {
+        crate::ai_finance_guard::SigningBooks {
+            cash: team.finance,
+            weekly_bill: crate::finances::calc_wages(game, &team.id),
+            weekly_income: 0,
+            wage_budget: team.wage_budget,
+        }
+    });
+    let minimum = YOUTH_MINIMUM_WAGE.min(asking);
+    [asking, minimum].into_iter().find(|&wage| {
+        let fits_books = wage <= minimum
+            || books
+                .as_ref()
+                .is_none_or(|books| books.can_add_wage(i64::from(wage)));
+        fits_books
+            && crate::contract_wage_policy::joining_wage_policy_verdict(game, team, recruit, wage)
                 .permits()
-        })
+    })
 }
 
 /// What came of a club's intake: who joined, in plan order, and how many of the
@@ -771,6 +790,37 @@ mod tests {
                 recruit.wage()
             );
         }
+    }
+
+    /// Given an AI club exactly at its wage budget, and the same club as the player's
+    /// When a recruit asking 3 000 is judged
+    /// Then the AI club takes him at the youth minimum, not at his ask (its books have no room for
+    ///      more), while the player's club is left to its board and pays the ask. Both take him: an
+    ///      academy is not emptied because the first team spends what it has.
+    #[test]
+    fn an_ai_clubs_recruit_has_to_fit_its_books_unless_he_comes_at_the_minimum() {
+        let mut game = world_on_a_budget(100_000, 100_000);
+        let recruit = a_recruit_of("rival");
+        assert_eq!(
+            agreed_wage(&game, rival(&game), &recruit, 3_000),
+            Some(YOUTH_MINIMUM_WAGE)
+        );
+        // The board's policy alone (the 25 000 grace for a club over budget) would have paid him
+        // what he asked, which is the licence this closes.
+        assert!(
+            crate::contract_wage_policy::joining_wage_policy_verdict(
+                &game,
+                rival(&game),
+                &recruit,
+                3_000,
+            )
+            .permits()
+        );
+        game.manager.hire("rival".to_string());
+        assert_eq!(
+            agreed_wage(&game, rival(&game), &recruit, 3_000),
+            Some(3_000)
+        );
     }
 
     /// Given a club the board lets spend, a recruit joins on the wage he asks.
