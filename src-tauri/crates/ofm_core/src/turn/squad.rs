@@ -659,6 +659,11 @@ fn ai_select_starting_xi<'a>(
     const CONGESTED_MIN_FIT_TOLERANCE: f64 = 10.0;
     /// And what any of them will accept to get an exhausted player off the pitch.
     const EXHAUSTED_FIT_TOLERANCE: f64 = 20.0;
+    /// Below this a starter is at real risk of injury, not merely of a poor game: the match engine's
+    /// injury rate climbs with spent condition. A manager then accepts a deputy who is not fresh
+    /// either (`EXHAUSTED` or better, not `FRESH_FLOOR`) and a bigger drop in quality to avoid it.
+    const INJURY_RISK_CONDITION: f64 = 40.0;
+    const INJURY_RISK_FIT_TOLERANCE: f64 = 30.0;
     /// Extra quality drop accepted per point of condition below the manager's rest threshold.
     const TIREDNESS_TOLERANCE_PER_POINT: f64 = 0.4;
     /// How far the worst manager can misread a player's standard, either way.
@@ -713,7 +718,15 @@ fn ai_select_starting_xi<'a>(
         // point of condition under the manager's own threshold, up to the exhausted
         // player's: a flat figure here started 1-4 % of AI players under half fit, because
         // a star at 48 % has no fresh deputy within nine points of him (F5.0 §8).
-        let tolerance = if condition < EXHAUSTED {
+        let at_risk_of_injury = condition < INJURY_RISK_CONDITION;
+        let deputy_floor = if at_risk_of_injury {
+            EXHAUSTED
+        } else {
+            FRESH_FLOOR
+        };
+        let tolerance = if at_risk_of_injury {
+            INJURY_RISK_FIT_TOLERANCE
+        } else if condition < EXHAUSTED {
             EXHAUSTED_FIT_TOLERANCE
         } else {
             (fit_tolerance + TIREDNESS_TOLERANCE_PER_POINT * (rest_threshold - condition))
@@ -730,7 +743,7 @@ fn ai_select_starting_xi<'a>(
             // skews the formation's distribution (e.g. fielding a 5th midfielder
             // in place of a defender, which would leave the XI a man short).
             .filter(|player| player.position.to_group_position() == starter_group)
-            .filter(|player| f64::from(player.condition) >= FRESH_FLOOR)
+            .filter(|player| f64::from(player.condition) >= deputy_floor)
             .filter(|player| {
                 i16::from(player.condition) - i16::from(starter.condition) >= MIN_FRESHNESS_GAIN
             })

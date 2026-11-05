@@ -229,6 +229,62 @@ fn a_deeply_tired_star_is_rested_for_a_decent_deputy() {
     );
 }
 
+/// Given a first eleven at 30 % condition (a risk of injury, not merely of a poor game) and the only
+/// deputy 25 points worse and 55 % fit, which is under the usual floor for a deputy
+/// When the AI picks its side
+/// Then the deputy starts: a starter this spent is too likely to be hurt, and a manager accepts a
+/// bigger drop and a less fresh deputy to avoid it.
+#[test]
+fn a_starter_at_risk_of_injury_is_rested_for_a_deputy_who_is_not_fresh_either() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 30));
+    }
+    squad.push(mk("deputy", 55, 55));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().any(|p| p.id == "deputy"),
+        "a star at 30 % should make way for a 55 % deputy: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// The control: the same deputy, but the stars are at 50 %, tired and not at risk. The deputy is not
+/// fresh enough to be worth the drop and the stars play on, so the test above is about the
+/// condition of the starter and not about a manager who rotates everyone.
+#[test]
+fn a_tired_starter_not_at_risk_of_injury_keeps_his_place_against_the_same_deputy() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 50));
+    }
+    squad.push(mk("deputy", 55, 55));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().all(|p| p.id != "deputy"),
+        "a star at 50 % should play on: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
 /// The control for the test above: the same deputy and the same manager, but the stars are only a
 /// little tired (58 %, just under the 62.5 this manager rests at). The graded part of the tolerance
 /// is then nearly nothing and the stars play on. Without this the previous test would pass for a
