@@ -313,6 +313,15 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
     Ok(players)
 }
 
+/// A player's season statistics, with the detailed-minutes count a save from before it existed
+/// lacked filled in from the counters it did record.
+fn season_stats_from_json(json: &str) -> domain::player::PlayerSeasonStats {
+    let mut stats: domain::player::PlayerSeasonStats =
+        serde_json::from_str(json).unwrap_or_default();
+    stats.backfill_detail_minutes();
+    stats
+}
+
 fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let position_str: String = row.get(7)?;
     let attrs_json: String = row.get(8)?;
@@ -408,7 +417,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         ovr,
         potential,
         market_value: market_value_i64 as u64,
-        stats: serde_json::from_str(&stats_json).unwrap_or_default(),
+        stats: season_stats_from_json(&stats_json),
         career: serde_json::from_str(&career_json).unwrap_or_default(),
         // The contract columns are read only as a legacy input: they describe a contract
         // for a save from before the ledger, and are ignored once the entries hold one.
@@ -1468,6 +1477,31 @@ mod tests {
         assert_eq!(loaded[0].stats.fouls_committed, 14);
         assert_eq!(loaded[0].stats.avg_rating, 6.9);
         assert_eq!(loaded[0].stats.rated_appearances, 17);
+    }
+
+    #[test]
+    fn detail_minutes_survive_the_round_trip_and_a_legacy_season_is_backfilled() {
+        let db = test_db();
+        let mut recorded = sample_player("p-recorded", None);
+        recorded.stats.minutes_played = 2_000;
+        recorded.stats.detail_minutes_played = 450;
+        recorded.stats.shots = 5;
+        let mut dormant = sample_player("p-dormant", None);
+        dormant.stats.minutes_played = 2_700;
+        upsert_player(db.conn(), &recorded).unwrap();
+        upsert_player(db.conn(), &dormant).unwrap();
+        // A save from before the field: detail counters, no detailed minutes on record.
+        let mut legacy = sample_player("p-legacy", None);
+        legacy.stats.minutes_played = 900;
+        legacy.stats.passes_attempted = 300;
+        upsert_player(db.conn(), &legacy).unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+        let by_id = |id: &str| loaded.iter().find(|p| p.id == id).unwrap();
+
+        assert_eq!(by_id("p-recorded").stats.detail_minutes_played, 450);
+        assert_eq!(by_id("p-dormant").stats.detail_minutes_played, 0);
+        assert_eq!(by_id("p-legacy").stats.detail_minutes_played, 900);
     }
 
     #[test]

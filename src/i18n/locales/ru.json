@@ -1900,6 +1900,7 @@
     "per90": "За 90 мин.",
     "passAccuracy": "Точность передач",
     "percentile": "Процентиль",
+    "detailNotRecorded": "Подробная статистика не ведётся для матчей, сыгранных в фоновом режиме.",
     "percentileUnavailable": "Процентиль недоступен",
     "percentileGroup": "Сравнение с: {{position}} в {{league}}",
     "recentMatches": "Последние матчи",

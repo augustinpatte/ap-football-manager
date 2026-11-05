@@ -1900,6 +1900,7 @@
     "per90": "Por 90 min",
     "passAccuracy": "Precisión de pase",
     "percentile": "Percentil",
+    "detailNotRecorded": "Las estadísticas detalladas no se registran en los partidos jugados en segundo plano.",
     "percentileUnavailable": "Percentil no disponible",
     "percentileGroup": "Comparado con: {{position}} en {{league}}",
     "recentMatches": "Partidos recientes",

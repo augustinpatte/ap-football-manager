@@ -1900,6 +1900,7 @@
     "per90": "90 dakika başına",
     "passAccuracy": "Pas İsabeti",
     "percentile": "Yüzdelik Dilim",
+    "detailNotRecorded": "Arka planda oynanan maçlar için ayrıntılı istatistikler kaydedilmez.",
     "percentileUnavailable": "Yüzdelik dilim mevcut değil",
     "percentileGroup": "Karşılaştırma: {{league}} içinde {{position}}",
     "recentMatches": "Son Maçlar",

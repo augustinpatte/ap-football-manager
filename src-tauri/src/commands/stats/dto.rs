@@ -47,6 +47,10 @@ pub struct PlayerStatsOverviewDto {
     /// Who the percentiles compare the player with; `None` when the player has no league.
     pub peer_group: Option<PeerGroupDto>,
     pub season_rating_rated: bool,
+    /// Whether any minute of the player's season had its shots, passes and tackles recorded.
+    /// False for a player of a club in the dormant tier, whose lightweight matches record goals,
+    /// cards and minutes only: the metrics below are then empty, not zero.
+    pub detail_recorded: bool,
     pub metrics: PlayerStatsOverviewMetricsDto,
 }
 

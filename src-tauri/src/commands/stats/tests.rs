@@ -591,6 +591,54 @@ fn get_player_stats_overview_falls_back_to_current_season_totals_for_legacy_save
     assert_eq!(overview.metrics.shots.percentile, Some(100));
 }
 
+/// Given a player of a club in the dormant tier, whose season is 2,700 minutes, four goals and
+/// three cards and no shots, passes or tackles (the lightweight match records none),
+/// When the advanced statistics are read,
+/// Then no per-90 rate and no percentile is offered and the overview says the detail was not
+/// recorded: a rate over minutes that carried no counters would be a measured-looking zero.
+#[test]
+fn a_dormant_players_advanced_stats_are_not_recorded_rather_than_zero() {
+    let mut player = make_player("player-1", "team-1", Position::Striker);
+    player.stats = PlayerSeasonStats {
+        appearances: 30,
+        goals: 4,
+        yellow_cards: 3,
+        minutes_played: 2_700,
+        ..Default::default()
+    };
+    let state = StateManager::new();
+    state.set_game(make_game(vec![player]));
+
+    let overview = get_player_stats_overview_internal(&state, "player-1").unwrap();
+
+    assert!(!overview.detail_recorded);
+    assert!(!overview.percentile_eligible);
+    assert_eq!(overview.metrics.shots.per90, None);
+    assert_eq!(overview.metrics.tackles_won.per90, None);
+}
+
+/// The control: a full-engine season with the same minutes has its rates, and the overview says
+/// the detail was recorded. Without it the test above would pass for an overview that never
+/// reports detail.
+#[test]
+fn a_full_engine_players_advanced_stats_are_recorded() {
+    let mut player = make_player("player-1", "team-1", Position::Striker);
+    player.stats = PlayerSeasonStats {
+        appearances: 30,
+        minutes_played: 2_700,
+        detail_minutes_played: 2_700,
+        shots: 60,
+        ..Default::default()
+    };
+    let state = StateManager::new();
+    state.set_game(make_game(vec![player]));
+
+    let overview = get_player_stats_overview_internal(&state, "player-1").unwrap();
+
+    assert!(overview.detail_recorded);
+    assert_eq!(overview.metrics.shots.per90, Some(2.0));
+}
+
 #[test]
 fn get_player_match_history_returns_latest_matches_first_with_limit() {
     let state = StateManager::new();

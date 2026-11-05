@@ -499,6 +499,8 @@ fn synthesize_player_season(
         avg_rating: 0.0,
         rated_appearances: 0,
         minutes_played,
+        // The invented season carries detail counters for every minute it invents.
+        detail_minutes_played: minutes_played,
         // Invented seasons record no injuries.
         injured_days: 0,
         shots,

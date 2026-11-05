@@ -588,6 +588,30 @@ pub struct PlayerSeasonStats {
     pub tackles_won: u32,
     pub interceptions: u32,
     pub fouls_committed: u32,
+    /// Minutes of `minutes_played` whose shots, passes, tackles, interceptions and fouls were
+    /// recorded. A match the full engine played records them; a dormant club's lightweight match
+    /// records goals, assists, cards and ninety minutes and nothing else, so its minutes are not
+    /// here. A per-90 rate read over `minutes_played` would show those players with measured-looking
+    /// zeros (F5.1); read it over this instead.
+    #[serde(default)]
+    pub detail_minutes_played: u32,
+}
+
+impl PlayerSeasonStats {
+    /// A save from before `detail_minutes_played` existed has counters and no record of which
+    /// minutes they cover. Where any detail counter is non-zero the detail was recorded for every
+    /// minute (a lightweight season never writes one), so the minutes are the whole season's.
+    /// Idempotent, and a no-op once the field is set.
+    pub fn backfill_detail_minutes(&mut self) {
+        let has_detail = self.shots > 0
+            || self.passes_attempted > 0
+            || self.tackles_won > 0
+            || self.interceptions > 0
+            || self.fouls_committed > 0;
+        if self.detail_minutes_played == 0 && has_detail {
+            self.detail_minutes_played = self.minutes_played;
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -982,6 +1006,50 @@ impl Player {
 
 #[cfg(test)]
 mod tests {
+    /// Given a save from before the field existed (a season of full-engine detail, no record of
+    /// which minutes it covers), when it is backfilled, then the whole season's minutes are the
+    /// detailed ones.
+    #[test]
+    fn a_legacy_season_with_detail_counters_is_backfilled_to_all_its_minutes() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 900,
+            shots: 12,
+            passes_attempted: 300,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 900);
+    }
+
+    /// Given a dormant club's season (ninety minutes a match and no shots, passes or tackles),
+    /// when it is backfilled, then it still has no detailed minutes: nothing is fabricated.
+    #[test]
+    fn a_season_of_lightweight_matches_has_no_detailed_minutes() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 2_700,
+            goals: 4,
+            yellow_cards: 3,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 0);
+    }
+
+    /// Given a season whose detailed minutes are already recorded, when it is backfilled, then
+    /// they are not overwritten (a player who moved from a dormant club to an active one keeps the
+    /// minutes that were actually detailed).
+    #[test]
+    fn a_recorded_detail_minute_count_is_not_overwritten_by_the_backfill() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 2_000,
+            detail_minutes_played: 450,
+            shots: 5,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 450);
+    }
+
     use super::*;
 
     fn sample_attributes() -> PlayerAttributes {

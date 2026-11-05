@@ -184,6 +184,8 @@ export interface PlayerSeasonStats {
   avg_rating: number;
   rated_appearances?: number;
   minutes_played: number;
+  /** Minutes whose shots, passes and tackles were recorded; absent in a payload that predates it. */
+  detail_minutes_played?: number;
   shots?: number;
   shots_on_target?: number;
   passes_completed?: number;

@@ -1900,6 +1900,7 @@
     "per90": "Per 90 menit",
     "passAccuracy": "Akurasi Umpan",
     "percentile": "Persentil",
+    "detailNotRecorded": "Statistik pertandingan terperinci tidak dicatat untuk pertandingan yang dimainkan di latar belakang.",
     "percentileUnavailable": "Persentil tidak tersedia",
     "percentileGroup": "Dibandingkan dengan: {{position}} di {{league}}",
     "recentMatches": "Pertandingan Terakhir",

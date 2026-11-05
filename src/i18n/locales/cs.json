@@ -1900,6 +1900,7 @@
     "per90": "Na 90 minut",
     "passAccuracy": "Úspěšnost přihrávek",
     "percentile": "Percentil",
+    "detailNotRecorded": "Podrobné statistiky se u zápasů odehraných na pozadí nezaznamenávají.",
     "percentileUnavailable": "Percentil není k dispozici",
     "percentileGroup": "Porovnání s: {{position}} v {{league}}",
     "recentMatches": "Nedávné zápasy",

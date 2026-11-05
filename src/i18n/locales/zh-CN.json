@@ -1900,6 +1900,7 @@
     "per90": "每 90 分钟",
     "passAccuracy": "传球成功率",
     "percentile": "百分位",
+    "detailNotRecorded": "后台进行的比赛不会记录详细的比赛统计数据。",
     "percentileUnavailable": "百分位不可用",
     "percentileGroup": "对比对象：{{league}} 的{{position}}",
     "recentMatches": "近期比赛",

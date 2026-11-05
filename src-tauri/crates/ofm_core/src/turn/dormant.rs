@@ -174,6 +174,7 @@ fn settle_players(
             home: (home_id, &home.squad),
             away: (away_id, &away.squad),
             both_clubs: &both_clubs,
+            detailed: false,
         },
         &report,
     );
@@ -562,6 +563,32 @@ mod tests {
             if index >= 11 {
                 assert_eq!(player.condition, 100, "{} did not play", player.id);
             }
+        }
+    }
+
+    /// Given a dormant match, whose lightweight report measures goals, assists, cards and ninety
+    /// minutes and nothing else,
+    /// When it is played,
+    /// Then the players have minutes but no detailed minutes, and no shots, passes or tackles:
+    /// a per-90 rate over them would be a measured-looking zero, so nothing may be fabricated.
+    #[test]
+    fn a_dormant_match_records_minutes_but_no_detail_minutes() {
+        let today = "2030-08-10";
+        let mut game = make_dormant_game(today);
+        add_squad(&mut game, "home", 70);
+        add_squad(&mut game, "away", 60);
+
+        simulate_dormant_competition_day(&mut game, 0, today);
+
+        let played: Vec<_> = game
+            .players
+            .iter()
+            .filter(|p| p.stats.minutes_played > 0)
+            .collect();
+        assert!(!played.is_empty(), "nobody played");
+        for player in played {
+            assert_eq!(player.stats.detail_minutes_played, 0, "{}", player.id);
+            assert_eq!(player.stats.shots + player.stats.passes_attempted, 0);
         }
     }
 

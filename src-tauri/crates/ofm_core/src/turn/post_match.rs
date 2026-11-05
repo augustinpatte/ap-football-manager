@@ -222,6 +222,7 @@ pub(super) fn apply_match_report_in<F>(
             home: (home_team_id, &home_club),
             away: (away_team_id, &away_club),
             both_clubs: &both_clubs,
+            detailed: true,
         },
         report,
     );
@@ -340,6 +341,10 @@ pub(super) struct PlayedMatch<'a> {
     pub away: (&'a str, &'a [usize]),
     /// Both clubs' positions, ascending and distinct.
     pub both_clubs: &'a [usize],
+    /// Whether the report measured shots, passes, tackles and the like (a match engine did) or
+    /// only goals, cards and ninety minutes (the dormant tier's lightweight report). Decides
+    /// whether the minutes are detailed ones (`PlayerSeasonStats::detail_minutes_played`).
+    pub detailed: bool,
 }
 
 /// What a finalised match does to the people who played it: the season's statistics, the
@@ -358,7 +363,13 @@ pub(super) fn apply_player_consequences(
 ) {
     let (home_team_id, home_club) = played.home;
     let (away_team_id, away_club) = played.away;
-    apply_player_stats(game, report, home_team_id, away_team_id, played.both_clubs);
+    apply_player_stats(
+        game,
+        report,
+        (home_team_id, away_team_id),
+        played.both_clubs,
+        played.detailed,
+    );
     deplete_match_stamina(game, home_club, home_team_id, report);
     deplete_match_stamina(game, away_club, away_team_id, report);
     // The engine's injury events become real injuries, and the user's physio reports theirs.
@@ -525,9 +536,9 @@ fn report_players(game: &Game, report: &engine::MatchReport, both_clubs: &[usize
 fn apply_player_stats(
     game: &mut Game,
     report: &engine::MatchReport,
-    home_team_id: &str,
-    away_team_id: &str,
+    (home_team_id, away_team_id): (&str, &str),
     both_clubs: &[usize],
+    detailed: bool,
 ) {
     for position in report_players(game, report, both_clubs) {
         let player = &mut game.players[position];
@@ -538,6 +549,9 @@ fn apply_player_stats(
             player.stats.yellow_cards += ps.yellow_cards as u32;
             player.stats.red_cards += ps.red_cards as u32;
             player.stats.minutes_played += ps.minutes_played as u32;
+            if detailed {
+                player.stats.detail_minutes_played += ps.minutes_played as u32;
+            }
             player.stats.shots += ps.shots as u32;
             player.stats.shots_on_target += ps.shots_on_target as u32;
             player.stats.passes_completed += ps.passes_completed as u32;
@@ -1189,6 +1203,23 @@ mod tests {
             table.iter().map(|e| e.played).collect::<Vec<_>>(),
             vec![1, 1]
         );
+    }
+
+    /// Given a match the full engine reported (shots, passes and tackles are measured),
+    /// When it is finalised, Then the minutes count as detailed: a per-90 rate over them is real.
+    #[test]
+    fn a_full_engine_match_records_detail_minutes() {
+        let mut game = match_game();
+        apply_match_report(
+            &mut game,
+            0,
+            "home",
+            "away",
+            &report(with_yellow("home-3", 0)),
+        );
+        let player = game.players.iter().find(|p| p.id == "home-3").unwrap();
+        assert_eq!(player.stats.minutes_played, 90);
+        assert_eq!(player.stats.detail_minutes_played, 90);
     }
 
     /// Given a straight red card in a club match,

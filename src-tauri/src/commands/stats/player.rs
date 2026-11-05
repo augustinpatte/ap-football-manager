@@ -104,9 +104,14 @@ fn aggregate_from_totals(totals: &PlayerStatsTotals) -> PlayerAggregate {
     }
 }
 
+/// The minutes counted are the detailed ones: the season's shots, passes and tackles cover only
+/// those, so a rate over all minutes would credit a dormant club's players with zeros they did not
+/// earn. A save from before the count existed is backfilled here as it is on load.
 fn aggregate_from_season_stats(stats: &PlayerSeasonStats) -> PlayerAggregate {
+    let mut stats = stats.clone();
+    stats.backfill_detail_minutes();
     PlayerAggregate {
-        minutes_played: stats.minutes_played,
+        minutes_played: stats.detail_minutes_played,
         shots: stats.shots,
         shots_on_target: stats.shots_on_target,
         passes_completed: stats.passes_completed,
@@ -202,6 +207,7 @@ fn build_overview_from_aggregate(
         percentile_eligible: cohort.percentiles_computable,
         peer_group,
         season_rating_rated: ofm_core::match_rating::is_rated(season_avg_rating),
+        detail_recorded: player_aggregate.minutes_played > 0,
         metrics: PlayerStatsOverviewMetricsDto {
             shots: cohort.per90_metric(AdvancedStat::Shots, |a| a.shots),
             shots_on_target: cohort

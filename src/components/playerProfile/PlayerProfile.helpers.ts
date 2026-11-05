@@ -35,6 +35,11 @@ export interface PlayerAdvancedStatsSummary {
   peerGroup: PercentilePeerGroup | null;
   /** Decided by the backend; the squad-data fallback cannot know it. */
   seasonRatingRated: boolean;
+  /**
+   * False when no minute of the season had its shots, passes and tackles recorded (a club the
+   * game simulates in the background). The metrics are then empty, not zero.
+   */
+  detailRecorded: boolean;
   metrics: {
     shots: PlayerAdvancedMetric;
     shotsOnTarget: PlayerAdvancedMetric;
@@ -112,7 +117,11 @@ function calculatePassAccuracy(completed: number, attempted: number): number | n
  * only the backend defines, so none is guessed here.
  */
 export function buildPlayerAdvancedStats(player: PlayerData): PlayerAdvancedStatsSummary {
-  const minutesPlayed = statValue(player.stats.minutes_played);
+  // The detailed minutes are what the counters below cover; a payload that predates the count
+  // is read as fully detailed, as the backend does when it loads such a save.
+  const minutesPlayed = statValue(
+    player.stats.detail_minutes_played ?? player.stats.minutes_played,
+  );
   const shots = statValue(player.stats.shots);
   const shotsOnTarget = statValue(player.stats.shots_on_target);
   const passesCompleted = statValue(player.stats.passes_completed);
@@ -125,6 +134,7 @@ export function buildPlayerAdvancedStats(player: PlayerData): PlayerAdvancedStat
     percentileEligible: false,
     peerGroup: null,
     seasonRatingRated: false,
+    detailRecorded: minutesPlayed > 0,
     metrics: {
       shots: { total: shots, per90: calculatePer90(shots, minutesPlayed), percentile: null },
       shotsOnTarget: {
