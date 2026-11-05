@@ -275,12 +275,24 @@ Five read-only reviewers ran on `git diff f97caf83..HEAD` (the UI reviewer's bri
 
 ## 23. Exact commits
 
-OFM `claude/run-f5-1-intelligent-world`: `83a68b8c` economy, academy, wage freeze, rotation; `82a2b4d4` statistics contract;
-`…` the storage commit, then the review-fix and report commits (see `git log` on the branch). M12 `f5.1/intelligent-world`: no change, `d4e6f329`, the pin is unmodified.
+OFM `claude/run-f5-1-intelligent-world`, from `f97caf83`:
+
+| SHA | What |
+|---|---|
+| `83a68b8c` | club economy, academy baseline, wage freeze, debt-aware budget cut, graded rotation, `world_health` instrument |
+| `82a2b4d4` | statistics contract: detail minutes, "not recorded" card |
+| `59a5bd6e` | journal fold, v068 deflated retiree archives, studies, M12 gate script |
+| `6f9061ae` | review fixes and this report |
+| the commit that adds this table | SHAs and push status (it cannot name itself; `git log -1` on the branch) | M12 `f5.1/intelligent-world`: no change, `d4e6f329`, the pin is unmodified.
 
 ## 24. Push status
 
-See the last line of this section, written after the push.
+Both branches are **pushed**, nothing merged into `apfm/main`, `develop` or any other branch:
+
+* OFM `origin/claude/run-f5-1-intelligent-world`, code head `6f9061ae`;
+* M12 `origin/f5.1/intelligent-world` at `d4e6f329` (no change, so the OFM pin in `ofm_core/Cargo.toml` and `Cargo.lock` is unmodified and was not re-verified; M12's uncommitted licence change and untracked `LICENSE`/`NOTICE` were left as found; the viewer was not touched).
+
+No credential was read or written. User saves and original datasets were not touched.
 
 ## 25. GO / NO-GO
 
