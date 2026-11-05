@@ -417,7 +417,14 @@ remains the reference; its NO-GO stands.
 
 OFM `augustinpatte/ap-football-manager`, branch `claude/run-f5-0-universal-simulation`, from F4.4 head `67c67a77`:
 
-COMMITS_PLACEHOLDER
+| SHA | What |
+|---|---|
+| `5f68cd21` | one consequence stage; dormant clubs get real consequences; yellow accumulation; finalization guard; harness gate rule |
+| `db06fa83` | compact match history (v066), folded old seasons, deflated archive and replays (v067), storage benchmark |
+| `ef88c8eb` | mutation-driven test fixes |
+| `0501ca03` | reviewer findings: shared deflate module, translated replay errors, one scorers helper, split dormant day |
+| `37a7a29e` | test-reviewer findings: cards, injuries, scorers, all competition kinds and totals columns pinned |
+| `e3683901` | this report (a later commit amends only this section, if its SHA differs from the branch head) |
 
 M12 `augustinpatte/apfm-match-lab`, branch `f5.0/universal-simulation`: **no M12 change was needed**; the
 branch points at `d4e6f32`, the F4.4 head, and that is the revision OFM pins. The pin was verified with the
@@ -429,7 +436,12 @@ and in the viewer were left exactly as found. The viewer was not touched.
 
 ## 22. Push status and CI secret
 
-PUSH_PLACEHOLDER
+Both branches are **pushed** (`git push -u origin …`), nothing merged into `apfm/main`, `develop` or any other branch:
+
+* OFM `origin/claude/run-f5-0-universal-simulation` — `e3683901` (code head `37a7a29e`)
+* M12 `origin/f5.0/universal-simulation` — `d4e6f329` (no M12 change)
+
+No credential was read, printed or written; `gh secret list` shows names only.
 
 `APFM_ENGINE_READ_TOKEN`: `gh secret list --repo augustinpatte/ap-football-manager` returns **no secrets**
 (checked without reading any value). The workflows that check out the private engine
