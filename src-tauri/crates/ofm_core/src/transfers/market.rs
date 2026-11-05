@@ -89,23 +89,26 @@ pub(crate) fn target_fills_a_need(levels: &[u8], group: usize, target_ovr: u8) -
         .is_none_or(|first_cover| target_ovr > *first_cover)
 }
 
+/// The players who count toward a club's squad today: registered seniors, not on loan, not out
+/// for the season. Both the squad as it is and the squad a year on are read from this one list.
+fn registered_seniors(game: &Game) -> impl Iterator<Item = (&str, &Player)> {
+    game.players.iter().filter_map(|player| {
+        let team_id = player.team_id.as_deref()?;
+        let counts = player.squad_role == domain::player::SquadRole::Senior
+            && player.active_loan.is_none()
+            && player
+                .injury
+                .as_ref()
+                .is_none_or(|injury| injury.days_remaining < LONG_INJURY_DAYS);
+        counts.then_some((team_id, player))
+    })
+}
+
 /// Each club's registered seniors' ratings per position group, best first, for [`target_fills_a_need`].
 fn squad_levels_by_club(game: &Game) -> std::collections::HashMap<String, [Vec<u8>; 4]> {
     let mut levels: std::collections::HashMap<String, [Vec<u8>; 4]> =
         std::collections::HashMap::new();
-    for player in &game.players {
-        let Some(team_id) = player.team_id.as_deref() else {
-            continue;
-        };
-        if player.squad_role != domain::player::SquadRole::Senior
-            || player.active_loan.is_some()
-            || player
-                .injury
-                .as_ref()
-                .is_some_and(|injury| injury.days_remaining >= LONG_INJURY_DAYS)
-        {
-            continue;
-        }
+    for (team_id, player) in registered_seniors(game) {
         levels.entry(team_id.to_string()).or_default()[position_group_index(&player.position)]
             .push(player.ovr);
     }
@@ -420,6 +423,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .collect();
     let position_depths = squad_position_depths(game);
     let squad_levels = squad_levels_by_club(game);
+    // The squad a year on: who will have gone, who will have grown. A buyer's need, and what a
+    // target adds, are judged against this one, so a club plans its succession on the market
+    // instead of buying only once the hole has opened.
+    let planned_levels =
+        crate::squad_outlook::planned_levels_by_club(registered_seniors(game), current_date);
     // Whether the player himself would go: he is a party to every move, the AI's included.
     let consent = SweepConsent::new(game, &squad_levels);
     let home_matches: std::collections::HashMap<String, i64> =
@@ -716,7 +724,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
 
         // The list is score-sorted, so the first target clearing this club's
         // filters is its highest-appeal eligible signing.
-        let buyer_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
+        let buyer_levels = planned_levels.get(&buyer_id).cloned().unwrap_or_default();
+        // A loan fills the gap of this season, so it is read against today's squad.
+        let loan_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
         let buyer_books = crate::ai_finance_guard::SigningBooks::given(
             &buyer_team,
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
@@ -745,7 +755,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let fit = |target: &MarketTarget| -> (i32, bool) {
             let levels = &buyer_levels[target.position_group_index];
             (
-                improvement_over_cover(levels, target.position_group_index, target.ovr),
+                improvement_over_cover(levels, target.position_group_index, target.planned_ovr()),
                 group_is_thin(levels, target.position_group_index),
             )
         };
@@ -844,7 +854,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 && !target_fills_a_need(
                     &buyer_levels[target.position_group_index],
                     target.position_group_index,
-                    target.ovr,
+                    target.planned_ovr(),
                 )
             {
                 return false;
@@ -959,7 +969,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 && let Some(player_id) = try_ai_loan(
                     game,
                     &buyer_team,
-                    &buyer_levels,
+                    &loan_levels,
                     &buyer_books,
                     &loan_targets,
                     &moved_player_ids,

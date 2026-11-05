@@ -83,6 +83,7 @@ pub mod spatial_match_output;
 pub mod spatial_match_projection;
 pub mod spatial_runner;
 pub mod squad_floor;
+mod squad_outlook;
 pub mod squad_safety;
 pub(crate) mod stable_hash;
 pub mod staff_system;

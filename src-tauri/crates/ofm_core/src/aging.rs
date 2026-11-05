@@ -20,19 +20,26 @@ fn has_expired_contract(player: &Player, current_date: NaiveDate) -> bool {
         .is_some_and(|contract_end| contract_end < current_date)
 }
 
-fn retirement_chance(player: &Player, age: i32, current_date: NaiveDate) -> u32 {
-    if age < 33 {
-        return 0;
-    }
-
-    let mut chance: u32 = match age {
+/// The chance (percent) that a player of this age retires at a season's end, before anything
+/// about his own situation moves it. Squad planning reads the same table to see who is about to go.
+pub(crate) fn retirement_base_chance(age: i32) -> u32 {
+    match age {
+        ..=32 => 0,
         33 => 12,
         34 => 24,
         35 => 42,
         36 => 60,
         37 => 78,
         _ => 100,
-    };
+    }
+}
+
+fn retirement_chance(player: &Player, age: i32, current_date: NaiveDate) -> u32 {
+    if age < 33 {
+        return 0;
+    }
+
+    let mut chance = retirement_base_chance(age);
 
     if player.contract_end().is_none() || has_expired_contract(player, current_date) {
         chance += 18;

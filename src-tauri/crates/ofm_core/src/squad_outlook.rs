@@ -1,0 +1,322 @@
+//! A club's squad as it will be in a year, not as it is today.
+//!
+//! The market, the free-agent planner and the renewal review all asked the same question of a squad
+//! — "how deep and how good are we?" — about the squad of the day. A club whose best keeper is
+//! 35 looked as well covered as one whose best keeper is 25, until the day he retired and the club
+//! had to buy in a hurry. This module answers the question for the squad a year ahead: who is
+//! expected to have left (retired, or a veteran on an expiring contract the club will not renew),
+//! and what the others are expected to be rated (a prospect grows towards his potential, a
+//! veteran declines). Those are the numbers a club's need is judged against, so a club buys,
+//! signs and keeps with its succession in mind.
+//!
+//! The expectations are planning heuristics, not a forecast of the development model: a club
+//! planning a squad does not know a prospect's dice. They are deliberately coarse and bounded.
+
+use crate::squad_floor::{MIN_PLAYERS_PER_GROUP, PLANNING_MARGIN_PER_GROUP, STARTERS_PER_GROUP};
+
+/// A retirement this likely at the next season's end counts as a departure for planning. The
+/// chance table (`aging::retirement_base_chance`) crosses it at 35: a club plans around a
+/// 34-year-old, the season before the odds are even.
+const LIKELY_RETIREMENT_PCT: u32 = 40;
+
+/// How many rating points a group's first choices may be expected to lose before the club
+/// calls it a succession risk. Smaller drops are ordinary squad churn.
+const SUCCESSION_DROP: f32 = 3.0;
+
+/// Goalkeepers age later than outfield players, by this many years, in both decline and the
+/// age at which a club stops renewing them.
+const KEEPER_AGE_OFFSET: i32 = 3;
+
+/// The age after which a club does not give a player another contract for being good, by group.
+pub(crate) fn peak_age_limit(group: usize) -> i32 {
+    32 + if group == 0 { KEEPER_AGE_OFFSET } else { 0 }
+}
+
+/// One senior as planning sees him.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PlannedPlayer {
+    pub ovr: u8,
+    pub potential: u8,
+    pub age: i32,
+    pub group: usize,
+    /// Days left on his contract; `None` is a contract with no end.
+    pub contract_days: Option<i64>,
+}
+
+/// His rating a year from now, as a club would expect it.
+pub(crate) fn expected_ovr_in_a_year(ovr: u8, potential: u8, age: i32, group: usize) -> u8 {
+    // A keeper at 33 is where an outfielder is at 30.
+    let age = age - if group == 0 { KEEPER_AGE_OFFSET } else { 0 };
+    let room = f32::from(potential.saturating_sub(ovr));
+    let share = match age {
+        ..=20 => 0.40,
+        21..=22 => 0.30,
+        23..=24 => 0.20,
+        25..=26 => 0.10,
+        _ => 0.0,
+    };
+    let decline = match age {
+        ..=30 => 0,
+        31..=32 => 1,
+        33..=34 => 2,
+        _ => 3,
+    };
+    let grown = i32::from(ovr) + (room * share).round() as i32;
+    (grown - decline).clamp(1, 100) as u8
+}
+
+/// A player's rating a year on, as a club would expect it.
+pub(crate) fn expected_ovr_for(
+    player: &domain::player::Player,
+    current_date: chrono::NaiveDate,
+) -> u8 {
+    expected_ovr_in_a_year(
+        player.ovr,
+        player.potential,
+        domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
+        crate::squad_floor::group_index(&player.position),
+    )
+}
+
+/// Whether the club should plan without him a year from now: a likely retirement, or a veteran
+/// past his group's renewal age whose contract runs out within the renewal horizon (the review
+/// will not extend him unless the depth chart forces it, which is the very need being planned).
+pub(crate) fn leaves_within_a_year(player: &PlannedPlayer) -> bool {
+    if crate::aging::retirement_base_chance(player.age + 1) >= LIKELY_RETIREMENT_PCT {
+        return true;
+    }
+    player.age > peak_age_limit(player.group)
+        && player
+            .contract_days
+            .is_some_and(|days| days <= crate::ai_contracts::RENEWAL_HORIZON_DAYS)
+}
+
+/// The ratings of the seniors who stay, a year on, per position group, best first.
+pub(crate) fn planned_levels(players: &[PlannedPlayer]) -> [Vec<u8>; 4] {
+    let mut levels: [Vec<u8>; 4] = Default::default();
+    for player in players.iter().filter(|p| !leaves_within_a_year(p)) {
+        levels[player.group].push(expected_ovr_in_a_year(
+            player.ovr,
+            player.potential,
+            player.age,
+            player.group,
+        ));
+    }
+    for group in &mut levels {
+        group.sort_unstable_by(|a, b| b.cmp(a));
+    }
+    levels
+}
+
+fn mean_of_starters(levels: &[u8], group: usize) -> f32 {
+    let starters = STARTERS_PER_GROUP[group];
+    (0..starters)
+        .map(|slot| f32::from(levels.get(slot).copied().unwrap_or(0)))
+        .sum::<f32>()
+        / starters as f32
+}
+
+/// How many rating points (rounded) the group's first choices are expected to lose in a year.
+/// `current` and `planned` are best first.
+pub(crate) fn starters_drop(current: &[u8], planned: &[u8], group: usize) -> i32 {
+    (mean_of_starters(current, group) - mean_of_starters(planned, group)).round() as i32
+}
+
+/// Whether a group will be clearly worse or thinner a year from now than it is today: its first
+/// choices lose [`SUCCESSION_DROP`] points between them, or departures take it under the depth a
+/// club plans for. `current` and `planned` are best first.
+pub(crate) fn succession_risk(current: &[u8], planned: &[u8], group: usize) -> bool {
+    let planned_depth = MIN_PLAYERS_PER_GROUP[group].1 + PLANNING_MARGIN_PER_GROUP;
+    let drops =
+        mean_of_starters(current, group) - mean_of_starters(planned, group) >= SUCCESSION_DROP;
+    let newly_thin = planned.len() < planned_depth && current.len() >= planned_depth;
+    drops || newly_thin
+}
+
+/// Every club's registered seniors as planning sees them a year on, per position group, best
+/// first. `seniors` yields `(club id, player)` for the players who count toward a squad today
+/// (registered, not on loan, not out for the season): the caller owns that definition, so the
+/// planned squad and the current one are never counted by two different rules.
+pub(crate) fn planned_levels_by_club<'a>(
+    seniors: impl Iterator<Item = (&'a str, &'a domain::player::Player)>,
+    current_date: chrono::NaiveDate,
+) -> std::collections::HashMap<String, [Vec<u8>; 4]> {
+    let mut by_club: std::collections::HashMap<String, Vec<PlannedPlayer>> =
+        std::collections::HashMap::new();
+    for (club, player) in seniors {
+        by_club
+            .entry(club.to_string())
+            .or_default()
+            .push(PlannedPlayer {
+                ovr: player.ovr,
+                potential: player.potential,
+                age: domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
+                group: crate::squad_floor::group_index(&player.position),
+                contract_days: crate::contracts::contract_days_remaining(
+                    player.contract_end(),
+                    current_date,
+                ),
+            });
+    }
+    by_club
+        .into_iter()
+        .map(|(club, players)| (club, planned_levels(&players)))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GK: usize = 0;
+    const MID: usize = 2;
+
+    fn senior(group: usize, ovr: u8, potential: u8, age: i32) -> PlannedPlayer {
+        PlannedPlayer {
+            ovr,
+            potential,
+            age,
+            group,
+            contract_days: Some(900),
+        }
+    }
+
+    /// Given a 19-year-old with room to grow and a 30-year-old at his peak
+    /// When their rating a year on is planned
+    /// Then the prospect is expected to rise toward his potential and the veteran to hold.
+    #[test]
+    fn a_prospect_is_expected_to_grow_and_a_peak_player_to_hold() {
+        assert_eq!(expected_ovr_in_a_year(60, 80, 19, MID), 68);
+        assert_eq!(expected_ovr_in_a_year(75, 75, 30, MID), 75);
+    }
+
+    /// Given a prospect already at his potential
+    /// When his rating is planned
+    /// Then he is not expected to grow past it.
+    #[test]
+    fn nobody_is_expected_to_grow_past_his_potential() {
+        assert_eq!(expected_ovr_in_a_year(70, 70, 19, MID), 70);
+        assert_eq!(expected_ovr_in_a_year(72, 70, 19, MID), 72);
+    }
+
+    /// Given an outfield player and a keeper of the same age and rating
+    /// When their rating a year on is planned
+    /// Then the keeper holds up three years longer.
+    #[test]
+    fn a_keeper_declines_later_than_an_outfield_player() {
+        assert_eq!(expected_ovr_in_a_year(80, 80, 33, MID), 78);
+        assert_eq!(expected_ovr_in_a_year(80, 80, 33, GK), 80);
+        assert_eq!(expected_ovr_in_a_year(80, 80, 37, GK), 78);
+    }
+
+    /// Given a 34-year-old and a 33-year-old, both with long contracts
+    /// When the club asks who will have gone in a year
+    /// Then the 34-year-old counts as gone (retirement is a coin toss by the season's end) and
+    /// the 33-year-old does not.
+    #[test]
+    fn a_player_of_thirty_four_is_planned_around_and_one_of_thirty_three_is_not() {
+        assert!(leaves_within_a_year(&senior(GK, 80, 80, 34)));
+        assert!(!leaves_within_a_year(&senior(GK, 80, 80, 33)));
+    }
+
+    /// Given a 33-year-old outfield veteran and a 28-year-old, each on an expiring contract
+    /// When the club asks who will have gone in a year
+    /// Then the veteran is planned out (the review will not renew him for being good) and the
+    /// 28-year-old, who will be renewed, is kept.
+    #[test]
+    fn a_veteran_on_an_expiring_contract_is_planned_out_and_a_prime_player_is_not() {
+        let expiring = |age| PlannedPlayer {
+            contract_days: Some(100),
+            ..senior(MID, 75, 75, age)
+        };
+        assert!(leaves_within_a_year(&expiring(33)));
+        assert!(!leaves_within_a_year(&expiring(28)));
+    }
+
+    /// Given a keeper of 33 on an expiring contract
+    /// When the club asks who will have gone in a year
+    /// Then he is kept: a keeper's renewal age is three years later than an outfield player's.
+    #[test]
+    fn a_keeper_on_an_expiring_contract_is_kept_longer() {
+        let keeper = PlannedPlayer {
+            contract_days: Some(100),
+            ..senior(GK, 80, 80, 33)
+        };
+        assert!(!leaves_within_a_year(&keeper));
+    }
+
+    /// Given a keeper of 35 and a keeper of 28 and a prospect of 19
+    /// When the squad a year on is planned
+    /// Then the 35-year-old is not in it and the others are, best first, the prospect grown.
+    #[test]
+    fn planned_levels_drop_the_leavers_and_grow_the_prospect() {
+        let levels = planned_levels(&[
+            senior(GK, 80, 80, 35),
+            senior(GK, 62, 62, 28),
+            senior(GK, 55, 78, 19),
+        ]);
+        assert_eq!(levels[GK], vec![64, 62]);
+    }
+
+    /// Given a keeper of 35 rated 80 with a cover keeper of 62
+    /// When the group is checked for succession risk
+    /// Then it is at risk: the first choice drops 18 points.
+    #[test]
+    fn an_ageing_keeper_with_poor_cover_is_a_succession_risk() {
+        let players = [senior(GK, 80, 80, 35), senior(GK, 62, 62, 28)];
+        let planned = planned_levels(&players);
+        assert!(succession_risk(&[80, 62], &planned[GK], GK));
+    }
+
+    /// Given a keeper of 26 and one of 28 (the control for the case above)
+    /// When the group is checked for succession risk
+    /// Then it is not: nobody is leaving or declining.
+    #[test]
+    fn a_keeper_in_his_prime_is_not_a_succession_risk() {
+        let players = [
+            senior(GK, 80, 80, 26),
+            senior(GK, 62, 62, 28),
+            senior(GK, 60, 60, 24),
+        ];
+        let planned = planned_levels(&players);
+        assert!(!succession_risk(&[80, 62, 60], &planned[GK], GK));
+    }
+
+    /// Given a midfield with two starters retiring and a young replacement already as good
+    /// When the group is checked for succession risk
+    /// Then it is judged on the planned squad: four starters, three of them replaced at the
+    /// same level, is not a drop.
+    #[test]
+    fn a_ready_replacement_removes_the_risk() {
+        let players = [
+            senior(MID, 70, 70, 27),
+            senior(MID, 70, 70, 28),
+            senior(MID, 70, 70, 29),
+            senior(MID, 70, 70, 27),
+            senior(MID, 70, 70, 36),
+            senior(MID, 66, 80, 19),
+            senior(MID, 62, 62, 25),
+        ];
+        let current = [70, 70, 70, 70, 70, 66, 62];
+        let planned = planned_levels(&players);
+        assert!(!succession_risk(&current, &planned[MID], MID));
+    }
+
+    /// Given a midfield of four that loses two to retirement and has nobody behind
+    /// When the group is checked for succession risk
+    /// Then it is at risk: the group goes under the depth a club plans for.
+    #[test]
+    fn departures_that_leave_a_group_under_its_depth_are_a_risk() {
+        let players = [
+            senior(MID, 72, 72, 35),
+            senior(MID, 71, 71, 36),
+            senior(MID, 70, 70, 27),
+            senior(MID, 69, 69, 28),
+            senior(MID, 68, 68, 29),
+        ];
+        let current = [72, 71, 70, 69, 68];
+        let planned = planned_levels(&players);
+        assert_eq!(planned[MID].len(), 3);
+        assert!(succession_risk(&current, &planned[MID], MID));
+    }
+}

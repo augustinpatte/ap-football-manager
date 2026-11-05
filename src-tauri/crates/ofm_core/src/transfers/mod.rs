@@ -218,6 +218,19 @@ pub(crate) struct MarketTarget {
     status: PlayerStatus,
 }
 
+impl MarketTarget {
+    /// His rating a year on, which is what a club planning its squad is buying.
+    fn planned_ovr(&self) -> u8 {
+        let potential = (i32::from(self.ovr) + self.potential_gap).clamp(1, 100) as u8;
+        crate::squad_outlook::expected_ovr_in_a_year(
+            self.ovr,
+            potential,
+            self.age,
+            self.position_group_index,
+        )
+    }
+}
+
 pub(crate) struct LoanMarketCandidate {
     player_id: String,
     wage_contribution_pct: u8,

@@ -782,15 +782,36 @@ pub(crate) fn bring_in_one(
     sign_free_agent_for(game, team, group, required, None, context)
 }
 
+/// The bar a signing made to improve a squad has to clear.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum BetterThan {
+    /// Rated above this today: the cover the club has behind its starters.
+    Today(u8),
+    /// Expected to be rated above this a year from now (`squad_outlook`): a successor, who may
+    /// be no better than the cover today.
+    InAYear(u8),
+}
+
+impl BetterThan {
+    fn is_cleared_by(self, player: &Player, current_date: chrono::NaiveDate) -> bool {
+        match self {
+            BetterThan::Today(ovr) => player.ovr > ovr,
+            BetterThan::InAYear(ovr) => {
+                crate::squad_outlook::expected_ovr_for(player, current_date) > ovr
+            }
+        }
+    }
+}
+
 /// Sign a free agent of `group` for `team` if one passes the club's tests ([`best_signing`]),
-/// rated above `better_than` when that is given: the signing of a club that wants to improve a
-/// squad that already meets the floor.
+/// who clears `better_than` when that is given: the signing of a club that wants to improve a
+/// squad that already meets the floor, or to plan its succession.
 pub(crate) fn sign_free_agent_for(
     game: &mut Game,
     team: &Team,
     group: &Position,
     required: bool,
-    better_than: Option<u8>,
+    better_than: Option<BetterThan>,
     context: &mut SigningContext,
 ) -> Option<BroughtIn> {
     let current_date = game.clock.current_date.date_naive();
@@ -837,7 +858,7 @@ fn best_signing(
     team: &Team,
     group: &Position,
     required: bool,
-    better_than: Option<u8>,
+    better_than: Option<BetterThan>,
     current_date: chrono::NaiveDate,
     context: &mut SigningContext,
 ) -> Option<(usize, u32)> {
@@ -867,7 +888,9 @@ fn best_signing(
     let mut cheapest_allowed: Option<(usize, u32)> = None;
     for &(index, least_he_asks) in context.free_agents(game, group) {
         let player = &game.players[index];
-        if player.team_id.is_some() || better_than.is_some_and(|ovr| player.ovr <= ovr) {
+        if player.team_id.is_some()
+            || better_than.is_some_and(|bar| !bar.is_cleared_by(player, current_date))
+        {
             continue;
         }
         // A club that has a choice passes over, unjudged, a player who cannot ask less than it can
@@ -900,6 +923,37 @@ fn best_signing(
         }
     }
     cheapest_allowed
+}
+
+/// Promotes the club's own academy player of `group` who is expected to be rated above `bar` a
+/// year from now — the best of them by that expectation, then the oldest, then the lowest id —
+/// and returns his id. The succession a club builds at home costs no fee and no free-agent wage.
+pub(crate) fn promote_successor(
+    game: &mut Game,
+    team_id: &str,
+    group: &Position,
+    bar: u8,
+    context: &mut SigningContext,
+) -> Option<String> {
+    let current_date = game.clock.current_date.date_naive();
+    let index = game
+        .players
+        .iter()
+        .enumerate()
+        .filter(|(_, player)| player.team_id.as_deref() == Some(team_id))
+        .filter(|(_, player)| player.squad_role == SquadRole::Youth)
+        .filter(|(_, player)| player.position.to_group_position() == *group)
+        .filter(|(_, player)| BetterThan::InAYear(bar).is_cleared_by(player, current_date))
+        .max_by(|(_, left), (_, right)| {
+            crate::squad_outlook::expected_ovr_for(left, current_date)
+                .cmp(&crate::squad_outlook::expected_ovr_for(right, current_date))
+                .then_with(|| right.date_of_birth.cmp(&left.date_of_birth))
+                .then_with(|| right.id.cmp(&left.id))
+        })
+        .map(|(index, _)| index)?;
+    game.players[index].squad_role = SquadRole::Senior;
+    context.club_changed();
+    Some(game.players[index].id.clone())
 }
 
 /// The median weekly wage of the club's registered seniors: the pay scale a newcomer is judged
