@@ -131,5 +131,11 @@ resolve_path() {
     tail="/$(basename "$path")$tail"
     path="$(dirname "$path")"
   done
+  # An existing path that is a file (the app's preferences plist) cannot be `cd`ed into: resolve its
+  # folder and keep its name. Left alone, the failed `cd` yielded an empty root that matched every path.
+  if [ ! -d "$path" ]; then
+    tail="/$(basename "$path")$tail"
+    path="$(dirname "$path")"
+  fi
   printf '%s%s\n' "$(cd "$path" && pwd -P)" "$tail"
 }

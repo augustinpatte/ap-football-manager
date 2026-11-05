@@ -37,6 +37,14 @@ check_not "accepts an unrelated temp folder" overlaps_protected "$work/sandbox" 
 ln -s "$fake_home/apfootballmanager" "$work/innocent"
 check "refuses a symlink into protected data" overlaps_protected "$work/innocent" "$fake_home"
 
+# Given a real app whose preferences are a FILE (a plist) among the protected paths / When an unrelated
+# folder is checked / Then it is accepted: a protected file is not a folder that contains everything
+# (a `cd` into it failed and left an empty root, which matched every path). The file itself is still refused.
+mkdir -p "$fake_home/Library/Preferences"
+echo "prefs" > "$fake_home/Library/Preferences/$APP_IDENTIFIER.plist"
+check_not "accepts an unrelated folder when the app's preferences are a file" overlaps_protected "$work/sandbox" "$fake_home"
+check "refuses the preferences file itself" overlaps_protected "$fake_home/Library/Preferences/$APP_IDENTIFIER.plist" "$fake_home"
+
 # Given a default binary built from another revision / When --no-build is requested / Then the
 # harness can reject it before it opens a real-data session.
 current_binary="$work/current-binary"
