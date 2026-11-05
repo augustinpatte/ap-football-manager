@@ -27,7 +27,7 @@ use chrono::NaiveDate;
 use domain::player::{Player, Position, SquadRole};
 
 use super::horizon::{HORIZON, projected_shifts};
-use crate::player_rating::{formation_slots, positional_fit_for_assignment};
+use crate::player_rating::{formation_slots, natural_ovr, positional_fit_for_assignment};
 use crate::squad_outlook::PlannedPlayer;
 
 /// Players on the pitch.
@@ -147,11 +147,22 @@ impl Member {
     }
 }
 
-/// The rating of a player in each slot, today.
+/// The rating of a player in each slot, today: his rating less what the game takes off for playing
+/// that slot instead of his natural one (`positional_fit_for_assignment` against `natural_ovr`,
+/// the compatibility and footedness penalties and the difference in what each slot is rated on).
+/// Anchored on the stored `ovr`, the rating every screen, price and wage reads, so the model can
+/// never disagree with the game about how good a player is in his own position. A player not yet
+/// rated (`ovr` 0: built by hand, before `refresh_player_derived` has run) is read from his
+/// attributes alone.
 pub(crate) fn fits(player: &Player, slots: &[Position]) -> [f32; SLOTS] {
+    let anchor = if player.ovr == 0 {
+        0.0
+    } else {
+        f64::from(player.ovr) - natural_ovr(player)
+    };
     let mut fit = [UNCOVERED_FIT; SLOTS];
     for (cell, slot) in fit.iter_mut().zip(slots) {
-        *cell = positional_fit_for_assignment(player, slot) as f32;
+        *cell = (positional_fit_for_assignment(player, slot) + anchor).clamp(1.0, 99.0) as f32;
     }
     fit
 }
@@ -236,6 +247,32 @@ impl SquadModel {
         }
     }
 
+    /// A number that changes when anything the model's answers depend on changes: who is in the
+    /// squad, how good each is in each slot, how likely he is to be absent, where he is headed, the
+    /// formation and the horizon weights. Quantised to what moves a decision, so an unchanged squad
+    /// keeps its number from one day to the next and answers can be kept.
+    pub(crate) fn fingerprint(&self) -> u64 {
+        let mut bytes: Vec<u8> = Vec::with_capacity(self.members.len() * 48 + 32);
+        bytes.extend_from_slice(self.formation.as_bytes());
+        for weight in self.weights {
+            bytes.extend_from_slice(&((weight * 1_000.0).round() as u16).to_le_bytes());
+        }
+        for member in &self.members {
+            bytes.extend_from_slice(member.id.as_bytes());
+            bytes.extend_from_slice(&member.age.to_le_bytes());
+            bytes.push(member.ovr);
+            bytes.push(member.potential);
+            bytes.push((member.absence * 20.0).round() as u8);
+            for fit in member.fit {
+                bytes.extend_from_slice(&((fit * 10.0).round() as i16).to_le_bytes());
+            }
+            for shift in member.shift {
+                bytes.push(shift.map_or(u8::MAX, |s| (s.round() as i8) as u8));
+            }
+        }
+        crate::stable_hash::stable_hash(&bytes, 0x7371_7561_6473)
+    }
+
     /// The model after the squad takes on `member`.
     pub(crate) fn evaluate_with(&self, member: &Member) -> Evaluation {
         self.evaluate(Some(member), None)
@@ -244,6 +281,11 @@ impl SquadModel {
     /// The model after `id` leaves the squad.
     pub(crate) fn evaluate_without(&self, id: &str) -> Evaluation {
         self.evaluate(None, Some(id))
+    }
+
+    /// The model after `id` leaves and `member` takes his place in the squad.
+    pub(crate) fn evaluate_with_instead_of(&self, id: &str, member: &Member) -> Evaluation {
+        self.evaluate(Some(member), Some(id))
     }
 
     /// The squad as it stands.

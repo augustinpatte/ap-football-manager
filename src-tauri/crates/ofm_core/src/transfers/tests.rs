@@ -435,13 +435,16 @@ fn a_club_with_forwards_in_their_prime_does_not_buy_a_prospect_who_stays_short_o
 /// Given a club with forwards in their prime and a cover rated 60, and a listed 20-year-old rated 58
 /// with a potential of 78 (66 next year: six better than the cover)
 /// When the window's sweep runs
-/// Then the club signs him: he is no better than the cover today and clearly better than it a year on,
-/// which is what a club that builds on young players is buying.
+/// Then nobody signs him: he will be a better bench player next year, and a bench player is needed
+/// one match in ten. Squad Intelligence prices that at a few hundredths of a rating point across the
+/// side, which is not worth a transfer for a club whose starters are 27 and 75. (Until F5.4 a club
+/// bought him because he would beat its first cover; the succession case that does need him is
+/// `a_club_with_two_ageing_forwards_buys_the_young_forward_who_will_replace_them`.)
 #[test]
-fn a_club_buys_a_prospect_who_will_be_better_than_its_cover_though_he_is_not_today() {
+fn a_club_does_not_buy_a_prospect_who_will_only_be_better_than_its_bench() {
     assert_eq!(
         market_sells_the_prospect_to("1999-04-01", 60, 78).as_deref(),
-        Some("b")
+        Some("c")
     );
 }
 

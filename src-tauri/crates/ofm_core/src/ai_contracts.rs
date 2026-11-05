@@ -319,6 +319,9 @@ pub(crate) struct SquadFacts {
     seniors_by_group: [usize; 4],
     seniors: usize,
     median_ovr: u8,
+    /// What losing each senior would cost the side the club fields (Squad Intelligence), by player
+    /// id. Empty for a club the model cannot read.
+    sale_costs: std::collections::HashMap<String, f32>,
 }
 
 impl SquadFacts {
@@ -334,12 +337,32 @@ impl SquadFacts {
             }
         }
         ratings.sort_unstable();
+        let sale_costs = crate::squad_intelligence::ClubSquad::of(
+            game,
+            team_id,
+            crate::squad_intelligence::appetite::Appetite::NEUTRAL,
+        )
+        .map(|squad| {
+            squad
+                .sales(team_id)
+                .iter()
+                .map(|(id, case)| (id.clone(), case.net_loss))
+                .collect()
+        })
+        .unwrap_or_default();
         Self {
             team_id: team_id.to_string(),
             seniors_by_group,
             seniors: ratings.len(),
             median_ovr: ratings.get(ratings.len() / 2).copied().unwrap_or(0),
+            sale_costs,
         }
+    }
+
+    /// What the club's side would lose if `player_id` left and the cheapest replacement came in,
+    /// in strength points; `None` if the model does not hold him.
+    pub(crate) fn cost_of_losing(&self, player_id: &str) -> Option<f32> {
+        self.sale_costs.get(player_id).copied()
     }
 
     /// Whether `player` is counted among the club's seniors (then "the others" leave him out).
@@ -366,15 +389,36 @@ fn needed_for_depth(facts: &SquadFacts, player: &Player) -> bool {
         || facts.seniors - counted < PLANNING_TARGET_SENIORS
 }
 
-/// Good enough and young enough to want: a player at least as good as the squad's median, or a
-/// prospect whose potential would take him there. A young player who will never reach the level of
-/// the squad he is in is not worth another contract for being young.
+/// Good enough and young enough to want: a player the side would miss (the club could not replace
+/// him cheaply), a player at the squad's standard while the squad is within the size clubs plan
+/// for, or a prospect whose potential would take him to the squad's level. A young player who will
+/// never reach the level of the squad he is in is not worth another contract for being young, and
+/// neither is a player past his group's renewal age.
+///
+/// Missing him is read from the side the club fields: beyond the planned squad, a seventh
+/// midfielder rated above the median is not worth a contract the club's own eleven and bench do not
+/// need, and a forward below the median is when the club has no other. A club the model cannot read
+/// falls back to the median.
 fn worth_keeping(facts: &SquadFacts, player: &Player, current_date: NaiveDate) -> bool {
     let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
-    (age <= PROSPECT_AGE_LIMIT && player.potential >= facts.median_ovr)
-        || (age <= crate::squad_outlook::peak_age_limit(group_index(&player.position))
-            && player.ovr >= facts.median_ovr)
+    let prospect = age <= PROSPECT_AGE_LIMIT && player.potential >= facts.median_ovr;
+    let in_his_prime = age <= crate::squad_outlook::peak_age_limit(group_index(&player.position));
+    let at_the_standard = player.ovr >= facts.median_ovr;
+    let useful = match facts.cost_of_losing(&player.id) {
+        Some(cost) => {
+            cost >= crate::squad_intelligence::impact::SURPLUS_LOSS
+                || (at_the_standard && facts.seniors <= PLANNED_SQUAD_SIZE)
+        }
+        None => at_the_standard,
+    };
+    prospect || (in_his_prime && useful)
 }
+
+/// Seniors a club plans to carry: the depth it wants in every group (22).
+const PLANNED_SQUAD_SIZE: usize = crate::transfers::DESIRED_DEPTH[0]
+    + crate::transfers::DESIRED_DEPTH[1]
+    + crate::transfers::DESIRED_DEPTH[2]
+    + crate::transfers::DESIRED_DEPTH[3];
 
 /// A player this content (morale) re-signs for a modest raise rather than the whole of his ask.
 const CONTENT_MORALE: u8 = 65;

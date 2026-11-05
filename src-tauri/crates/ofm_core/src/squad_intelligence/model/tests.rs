@@ -86,23 +86,12 @@ fn adding_a_player_never_makes_the_squad_weaker() {
         for ovr in [40_u8, 60, 72, 85] {
             for age in [19, 27, 34] {
                 let signing = player(&format!("p{index}-{ovr}-{age}"), position.clone(), ovr, age);
-                let case = club
-                    .signing(
-                        &signing,
-                        Price {
-                            fee: 0,
-                            weekly_wage: 0,
-                        },
-                        0.0,
-                    )
-                    .unwrap();
+                let case = club.signing(&signing, 0.0).unwrap();
                 assert!(case.gain >= -1e-3, "{position:?} {ovr} {age}: {case:?}");
             }
         }
     }
 }
-
-use crate::squad_intelligence::impact::Price;
 
 /// Given a squad with two keepers and a squad with four
 /// When their expected strength is read

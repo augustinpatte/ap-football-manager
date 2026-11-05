@@ -34,5 +34,6 @@ pub mod fm24;
 pub mod invariants;
 pub mod lifecycle;
 pub mod reputation;
+pub mod squad_study;
 pub mod world_health;
 pub mod worlds;

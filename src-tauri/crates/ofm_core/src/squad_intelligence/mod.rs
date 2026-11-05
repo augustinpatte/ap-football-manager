@@ -33,14 +33,22 @@ mod scenarios;
 #[cfg(test)]
 pub(crate) mod test_squads;
 
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex};
+
 use chrono::NaiveDate;
 use domain::player::Player;
 use domain::team::Team;
 
 use appetite::Appetite;
-use impact::{Budget, Price, SaleCase, SigningCase, assess_sale, assess_signing};
+use impact::{Budget, Marginal, SaleCase, assess_sale, assess_signing};
 use model::{Evaluation, Member, SquadModel};
 use needs::Need;
+
+/// The sale cases of each club's latest squad, by club id: an answer is a pure function of the
+/// squad's fingerprint, so a stale entry is never read, only replaced.
+static SALES_CACHE: LazyLock<Mutex<HashMap<String, (u64, Arc<Vec<(String, SaleCase)>>)>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// A club's squad, assessed: the model, what it is worth as it stands, and the club's appetite.
 /// Built once per decision (or once per market sweep for a club) and asked many questions.
@@ -95,28 +103,54 @@ impl ClubSquad {
         needs::needs(&self.model, &self.base)
     }
 
-    /// What signing `player` at `price` would add, as this club reads him (`perceived_error`
-    /// rating points off his true level; zero for a club that sees the world as it is).
-    pub(crate) fn signing(
-        &self,
-        player: &Player,
-        price: Price,
-        perceived_error: f32,
-    ) -> Option<SigningCase> {
+    /// What signing `player` would add, as this club reads him (`perceived_error` rating points
+    /// off his true level; zero for a club that sees the world as it is). Price it with
+    /// [`Marginal::priced`].
+    pub(crate) fn signing(&self, player: &Player, perceived_error: f32) -> Option<Marginal> {
         let candidate = Member::candidate(player, &self.model.slots, self.today, perceived_error)?;
-        Some(self.signing_of(&candidate, price))
+        Some(self.signing_of(&candidate))
     }
 
     /// The same for a player already turned into a [`Member`].
-    pub(crate) fn signing_of(&self, candidate: &Member, price: Price) -> SigningCase {
-        assess_signing(
-            &self.model,
-            &self.base,
-            candidate,
-            price,
-            self.budget,
-            &self.appetite,
-        )
+    pub(crate) fn signing_of(&self, candidate: &Member) -> Marginal {
+        assess_signing(&self.model, &self.base, candidate)
+    }
+
+    /// What `player` would add to this season's side alone: the gain of a loan, which is over before
+    /// the future matters.
+    pub(crate) fn present_gain(&self, player: &Player) -> f32 {
+        let Some(candidate) = Member::candidate(player, &self.model.slots, self.today, 0.0) else {
+            return 0.0;
+        };
+        let with = self.model.evaluate_with(&candidate);
+        with.years[0].expected - self.base.years[0].expected
+    }
+
+    /// Set a marginal value against a price, for this club.
+    pub(crate) fn price(&self, marginal: &Marginal, price: impact::Price) -> impact::SigningCase {
+        marginal.priced(price, self.budget, &self.appetite)
+    }
+
+    /// What losing each senior would cost, kept for as long as the squad is the same. Asking for
+    /// all 26 of a club's players is 26 evaluations of the side; a club's squad does not change
+    /// from one day to the next, so the answer is kept by club until its fingerprint moves.
+    pub(crate) fn sales(&self, club_id: &str) -> Arc<Vec<(String, SaleCase)>> {
+        let fingerprint = self.model.fingerprint();
+        let mut cache = SALES_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((kept, sales)) = cache.get(club_id)
+            && *kept == fingerprint
+        {
+            return Arc::clone(sales);
+        }
+        let sales: Arc<Vec<(String, SaleCase)>> = Arc::new(
+            self.model
+                .members
+                .iter()
+                .map(|member| (member.id.clone(), self.sale(&member.id)))
+                .collect(),
+        );
+        cache.insert(club_id.to_string(), (fingerprint, Arc::clone(&sales)));
+        sales
     }
 
     /// What losing `player_id` would cost.

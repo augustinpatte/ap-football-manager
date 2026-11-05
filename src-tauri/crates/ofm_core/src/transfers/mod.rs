@@ -26,6 +26,7 @@ use uuid::Uuid;
 
 mod affordability;
 mod bids;
+mod buyer_view;
 mod consent;
 mod consts;
 mod deadline;
@@ -39,6 +40,7 @@ mod processing;
 mod promises;
 mod realism;
 mod registration;
+mod sale_view;
 mod strategy;
 mod terms;
 
@@ -64,12 +66,15 @@ use processing::{deal_registration_date, loan_deal_registration_date};
 pub use promises::{ERR_PROMISE_NOT_WANTED, process_stepping_stone_promises, wants_stepping_stone};
 pub(crate) use promises::{discounted_wage, make_promise, on_offer_refused, on_player_sold};
 use realism::*;
-pub(crate) use realism::{LONG_INJURY_DAYS, group_is_thin, improvement_over_cover, window_phase};
+pub(crate) use realism::{
+    DESIRED_DEPTH, LONG_INJURY_DAYS, group_is_thin, improvement_over_cover, window_phase,
+};
 use registration::*;
 pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
     player_has_pending_registration, transfer_window_is_open,
 };
+pub(crate) use sale_view::reinvestment_gain;
 pub(crate) use strategy::{Ambition, ClubProfile, Means};
 pub use strategy::{ClubStrategyReport, strategy_reports};
 pub use terms::{

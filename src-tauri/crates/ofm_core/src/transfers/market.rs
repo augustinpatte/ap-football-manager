@@ -4,6 +4,7 @@
 //! then walks the buying clubs and lets each open at most one approach — subject to the
 //! budget in `lifecycle`, which is what keeps a listed player from being buried in offers.
 
+use super::buyer_view::{BuyerView, squad_indices_by_club};
 use super::*;
 
 use crate::squad_floor::group_index as position_group_index;
@@ -121,6 +122,7 @@ fn player_statuses(
     current_date: NaiveDate,
     wage_bills: &std::collections::HashMap<String, i64>,
     division_moves: &std::collections::HashMap<String, crate::division_move::DivisionMove>,
+    strategies: &std::collections::HashMap<String, strategy::ClubProfile>,
 ) -> (
     std::collections::HashMap<String, PlayerStatus>,
     HashSet<String>,
@@ -153,13 +155,37 @@ fn player_statuses(
         if in_trouble {
             troubled.insert(team.id.clone());
         }
-        statuses.extend(club_statuses(
-            players,
-            &team.starting_xi_ids,
-            team.wage_budget,
-            in_trouble,
-            &age_of,
-        ));
+        // What each player is to his club: from what his sale would cost the side it fields (Squad
+        // Intelligence). The manager's own club keeps the rank-based reading: its players are not
+        // for an AI club to price, they are offered at the usual incoming fee.
+        if game.manager.team_id.as_deref() == Some(team.id.as_str()) {
+            statuses.extend(club_statuses(
+                players,
+                &team.starting_xi_ids,
+                team.wage_budget,
+                in_trouble,
+                &age_of,
+            ));
+        } else {
+            let profile = strategies
+                .get(&team.id)
+                .copied()
+                .unwrap_or(strategy::ClubProfile::NEUTRAL);
+            let squad = crate::squad_intelligence::ClubSquad::from_players(
+                players.iter().copied(),
+                team,
+                current_date,
+                crate::squad_intelligence::appetite::Appetite::of(&profile),
+            );
+            statuses.extend(sale_view::club_statuses_by_impact(
+                &squad,
+                &team.id,
+                players,
+                team.wage_budget,
+                in_trouble,
+                &age_of,
+            ));
+        }
     }
     (statuses, troubled)
 }
@@ -330,7 +356,7 @@ pub(crate) struct LoanTarget {
 fn try_ai_loan(
     game: &mut Game,
     borrower: &Team,
-    levels: &[Vec<u8>; 4],
+    view: &BuyerView,
     books: &crate::ai_finance_guard::SigningBooks,
     targets: &[LoanTarget],
     moved_player_ids: &HashSet<String>,
@@ -342,17 +368,16 @@ fn try_ai_loan(
             || moved_player_ids.contains(&target.player_id)
             || target.owner_reputation as i32 - borrower.reputation as i32
                 > MAX_BUYER_REPUTATION_DEFICIT
-            || !target_fills_a_need(
-                &levels[target.position_group_index],
-                target.position_group_index,
-                target.ovr,
-            )
         {
             continue;
         }
         let Some(player) = game.players.iter().find(|p| p.id == target.player_id) else {
             continue;
         };
+        // A loan is for this season: it has to make this season's side better.
+        if !view.worth_borrowing(player) {
+            continue;
+        }
         let Some(owner) = game.teams.iter().find(|t| t.id == target.owner_team_id) else {
             continue;
         };
@@ -449,8 +474,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .filter(|(_, change)| **change == crate::division_move::DivisionMove::Relegated)
         .map(|(club, _)| club.as_str())
         .collect();
-    let (statuses, troubled_clubs) =
-        player_statuses(game, current_date, &wage_bills, &division_moves);
+    let (statuses, troubled_clubs) = player_statuses(
+        game,
+        current_date,
+        &wage_bills,
+        &division_moves,
+        &strategies,
+    );
     // Relegated clubs that pay more than the budget of the division they now play in.
     let cutting_clubs: HashSet<String> = game
         .teams
@@ -465,6 +495,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .enumerate()
         .map(|(index, player)| (player.id.clone(), index))
         .collect();
+    // Where each club's players stand, for the buyer's reading of its own squad. A completed deal
+    // moves one index between two lists below.
+    let mut club_players = squad_indices_by_club(game);
+    let sale_view = sale_view::SaleView::new();
 
     // In a multi-competition world the clubs of the player's active scope shop every day, as in
     // OFM. The rest of the world shops too (a club abroad buys, sells and borrows by the same
@@ -719,8 +753,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         // The list is score-sorted, so the first target clearing this club's
         // filters is its highest-appeal eligible signing.
         let buyer_levels = planned_levels.get(&buyer_id).cloned().unwrap_or_default();
-        // A loan fills the gap of this season, so it is read against today's squad.
-        let loan_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
         let buyer_books = crate::ai_finance_guard::SigningBooks::given(
             &buyer_team,
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
@@ -745,11 +777,52 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             },
         );
         let buyer_cash = buyer_team.transfer_budget.min(buyer_team.finance);
-        // What he adds to this buyer, and whether the buyer is short in his group.
+        // What he adds to the side this buyer fields (Squad Intelligence: the team that plays its
+        // formation, not a broad group's first cover), and whether the buyer is short in his group.
+        let view = BuyerView::new(
+            game,
+            club_players.get(&buyer_id).map_or(&[][..], Vec::as_slice),
+            &buyer_team,
+            profile,
+            current_date,
+        );
+        // An exceptional offer for a player the club would not otherwise sell: whether the seller
+        // is better off for it (it cannot lose a player nobody replaces, and it can mend more than
+        // he is worth).
+        let exceptional_sale_is_rational = |target: &MarketTarget, fee: u64| -> bool {
+            let (Some(&index), Some(seller_team), Some(squad)) = (
+                player_index.get(&target.player_id),
+                game.teams
+                    .iter()
+                    .find(|team| team.id == target.owner_team_id),
+                club_players.get(&target.owner_team_id),
+            ) else {
+                return false;
+            };
+            sale_view.rational_sale(
+                game,
+                &sale_view::Seller {
+                    team: seller_team,
+                    squad,
+                    profile: strategies
+                        .get(&target.owner_team_id)
+                        .copied()
+                        .unwrap_or(strategy::ClubProfile::NEUTRAL),
+                    today: current_date,
+                },
+                &game.players[index],
+                fee,
+            )
+        };
+        let target_player = |target: &MarketTarget| {
+            player_index
+                .get(&target.player_id)
+                .map(|&index| &game.players[index])
+        };
         let fit = |target: &MarketTarget| -> (i32, bool) {
             let levels = &buyer_levels[target.position_group_index];
             (
-                improvement_over_cover(levels, target.position_group_index, target.planned_ovr()),
+                target_player(target).map_or(0, |player| view.points(player)),
                 group_is_thin(levels, target.position_group_index),
             )
         };
@@ -797,15 +870,20 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 {
                     return false;
                 }
-            } else if completed_ai_transfers >= max_completed_ai_transfers
-                || !willing_to_sell(
+            } else if completed_ai_transfers >= max_completed_ai_transfers {
+                return false;
+            }
+            // A club that would not sell him on the usual terms still hears an exceptional offer
+            // (settled below, once the fee is known).
+            let usual_terms = target.is_user_owned
+                || willing_to_sell(
                     target.status,
                     target.is_listed,
                     target.score,
                     phase,
                     target.contract_days,
-                )
-            {
+                );
+            if !usual_terms && !sale_view::is_exceptional(target.fee, target.value) {
                 return false;
             }
             let (improvement, thin) = fit(target);
@@ -843,16 +921,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             {
                 return false;
             }
-            // An AI club buys to fill a need it has, not for appeal alone.
-            if !target.is_user_owned
-                && !target_fills_a_need(
-                    &buyer_levels[target.position_group_index],
-                    target.position_group_index,
-                    target.planned_ovr(),
-                )
-            {
-                return false;
-            }
             // A club that cannot carry what it already pays sells and lends before it buys.
             if !target.is_user_owned && buyer_overstretched && target.fee > 0 {
                 return false;
@@ -864,11 +932,16 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if !target.is_user_owned && !profile.allows_spending(price, buyer_cash, thin) {
                 return false;
             }
-            // A dear signing has to be a real upgrade, or fill a hole.
+            if !usual_terms && !exceptional_sale_is_rational(target, price) {
+                return false;
+            }
+            // An AI club buys what improves the side by more than the money is worth to it, or
+            // fills a hole in its depth: never for appeal alone.
             if !target.is_user_owned
                 && !thin
-                && improvement < 3
-                && i128::from(price) * 100 > i128::from(buyer_team.transfer_budget) * 15
+                && !target_player(target)
+                    .and_then(|player| view.appraise(player, price))
+                    .is_some_and(|case| case.is_worth_it())
             {
                 return false;
             }
@@ -933,9 +1006,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 continue;
             };
             let (improvement, _) = fit(target);
+            let priced_points = target_player(target)
+                .and_then(|player| view.appraise(player, fee))
+                .map_or(0, |case| case.utility_points());
             let rank = target_rank(
                 target.score,
-                improvement,
+                priced_points,
                 geographic_affinity(&GeoFacts {
                     same_country,
                     buyer_reputation: buyer_team.reputation,
@@ -963,7 +1039,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 && let Some(player_id) = try_ai_loan(
                     game,
                     &buyer_team,
-                    &loan_levels,
+                    &view,
                     &buyer_books,
                     &loan_targets,
                     &moved_player_ids,
@@ -1045,6 +1121,15 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(record);
+            }
+            if let Some(&index) = player_index.get(&candidate.player_id) {
+                if let Some(seller) = club_players.get_mut(&candidate.owner_team_id) {
+                    seller.retain(|&held| held != index);
+                }
+                club_players
+                    .entry(buyer_id.clone())
+                    .or_default()
+                    .push(index);
             }
             moved_player_ids.insert(candidate.player_id);
             completed_ai_transfers += 1;

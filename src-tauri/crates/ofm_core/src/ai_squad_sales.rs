@@ -8,7 +8,8 @@
 //! On its weekly review day a club lists a player when it has a reason a club has:
 //!
 //! - **surplus**: he is deeper in the squad than the club needs in his position — behind the
-//!   starters of his group and the cover [`DESIRED_DEPTH`] asks for;
+//!   starters of his group and the cover [`DESIRED_DEPTH`] asks for (and the side the club fields
+//!   does not miss him);
 //! - **leaving anyway**: his contract runs out within the year and the club has decided not to
 //!   renew him (`ai_contracts::keeps`) — better a fee than nothing;
 //! - **the books**: the club is over its wage budget or in debt, and he is among the best paid of
@@ -22,12 +23,14 @@
 use crate::ai_contracts::{SquadFacts, keeps_given};
 use crate::game::Game;
 use crate::squad_floor::{STARTERS_PER_GROUP as STARTERS, group_index};
+use crate::squad_intelligence::ClubSquad;
+use crate::squad_intelligence::appetite::Appetite;
+use crate::squad_intelligence::impact::{REINVESTMENT_RATIO, STARTER_LOSS, SaleCase};
+use crate::transfers::reinvestment_gain;
 use domain::player::{Player, SquadRole};
 use domain::team::Team;
 
-/// Seniors a club wants in each group, `[GK, DEF, MID, FWD]`: the starters of a back four, a
-/// midfield four and a front two, with cover — 22 in all.
-const DESIRED_DEPTH: [usize; 4] = [3, 7, 7, 5];
+use crate::transfers::DESIRED_DEPTH;
 
 /// Players a club has on the list at once.
 const MAX_LISTED: usize = 3;
@@ -193,25 +196,42 @@ fn list_decisions(
 
     let in_trouble = bill > team.wage_budget || team.finance < 0;
     let facts = SquadFacts::of(game, &team.id);
-    let mut sellable: Vec<(usize, Reason)> = seniors
+    // What losing each of them would cost the side the club fields (Squad Intelligence): who is
+    // never sold, and who is sold to fund a stronger side.
+    let squad = ClubSquad::of(game, &team.id, Appetite::NEUTRAL);
+    let sales = squad.as_ref().map(|squad| squad.sales(&team.id));
+    let mut sellable: Vec<(usize, Reason, f32)> = seniors
         .iter()
         .copied()
         .filter_map(|index| {
+            let player = &game.players[index];
+            let case = sales
+                .as_ref()
+                .and_then(|sales| sales.iter().find(|(id, _)| *id == player.id))
+                .map(|(_, case)| *case);
+            let funds = squad
+                .as_ref()
+                .zip(case.as_ref())
+                .is_some_and(|(squad, case)| funds_a_bigger_need(squad, team, player, case));
             reason_to_sell(
                 &facts,
-                &game.players[index],
+                player,
                 ranks[&index],
+                case.as_ref(),
+                funds,
                 in_trouble,
                 current_date,
             )
-            .map(|reason| (index, reason))
+            .map(|reason| (index, reason, case.map_or(0.0, |case| case.net_loss)))
         })
         .collect();
     // The ones he would most like to see go first: surplus beyond need, then the leaving, then the
-    // dear; within each the lowest rated, then the dearest. Stable on id.
-    sellable.sort_by(|&(a, ra), &(b, rb)| {
+    // ones whose sale funds a stronger side, then the dear; within each the one the side misses
+    // least, then the lowest rated, then the dearest. Stable on id.
+    sellable.sort_by(|&(a, ra, la), &(b, rb, lb)| {
         let (a, b) = (&game.players[a], &game.players[b]);
         ra.cmp(&rb)
+            .then_with(|| la.total_cmp(&lb))
             .then_with(|| a.ovr.cmp(&b.ovr))
             .then_with(|| b.wage().cmp(&a.wage()))
             .then_with(|| a.id.cmp(&b.id))
@@ -219,7 +239,7 @@ fn list_decisions(
     let wanted: Vec<usize> = sellable
         .into_iter()
         .take(MAX_LISTED)
-        .map(|(index, _)| index)
+        .map(|(index, _, _)| index)
         .collect();
 
     let mut changes = Vec::new();
@@ -237,23 +257,44 @@ fn list_decisions(
 enum Reason {
     Surplus,
     LeavingAnyway,
+    FundsAStrongerSide,
     TheBooks,
+}
+
+/// Whether the money for this player would buy the club more than he is worth to its side, with
+/// the sale worth a tenth of the transfer budget at least: a spare asset, not loose change.
+fn funds_a_bigger_need(squad: &ClubSquad, team: &Team, player: &Player, case: &SaleCase) -> bool {
+    !case.critical
+        && player.market_value.saturating_mul(10)
+            >= u64::try_from(team.transfer_budget).unwrap_or(0)
+        && reinvestment_gain(squad, &player.id) >= REINVESTMENT_RATIO * case.net_loss
 }
 
 fn reason_to_sell(
     facts: &SquadFacts,
     player: &Player,
     rank_in_group: usize,
+    case: Option<&SaleCase>,
+    funds_a_need: bool,
     in_trouble: bool,
     current_date: chrono::NaiveDate,
 ) -> Option<Reason> {
     let group = group_index(&player.position);
+    // The side the club fields misses him badly and nobody replaces him, even on the cheap market:
+    // he is not for sale for any reason of the books or of planning.
+    if case.is_some_and(|case| case.critical) {
+        return None;
+    }
     if rank_in_group >= DESIRED_DEPTH[group] {
         return Some(Reason::Surplus);
     }
-    // Starters are not for sale for being unwanted: a club sells a starter only for the books.
-    if rank_in_group < STARTERS[group] {
-        return None;
+    // A first choice is not for sale for being unwanted: a club sells one only to fund a stronger
+    // side. A player the model cannot place is judged by his rank, as before.
+    let is_starter = case.map_or(rank_in_group < STARTERS[group], |case| {
+        case.net_loss >= STARTER_LOSS
+    });
+    if is_starter {
+        return funds_a_need.then_some(Reason::FundsAStrongerSide);
     }
     let days_left = crate::contracts::contract_days_remaining(player.contract_end(), current_date);
     if days_left.is_some_and(|days| days <= LEAVING_HORIZON_DAYS)
@@ -261,7 +302,10 @@ fn reason_to_sell(
     {
         return Some(Reason::LeavingAnyway);
     }
-    if in_trouble && rank_in_group > STARTERS[group] && player.wage() > 0 {
+    if funds_a_need {
+        return Some(Reason::FundsAStrongerSide);
+    }
+    if in_trouble && player.wage() > 0 {
         return Some(Reason::TheBooks);
     }
     None

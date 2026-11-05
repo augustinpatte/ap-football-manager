@@ -34,7 +34,8 @@ fn price(fee: u64) -> Price {
 
 fn case(club: &ClubSquad, position: Position, ovr: u8, age: i32, fee: u64) -> SigningCase {
     let candidate = player(&format!("cand-{position:?}-{ovr}"), position, ovr, age);
-    club.signing(&candidate, price(fee), 0.0).expect("a senior")
+    let marginal = club.signing(&candidate, 0.0).expect("a senior");
+    club.price(&marginal, price(fee))
 }
 
 fn group_of(position: &Position) -> usize {
@@ -71,7 +72,7 @@ fn a_striker_is_needed_and_a_third_goalkeeper_is_not() {
     println!("keeper {keeper:?}\nD {striker_d:?}\nE {striker_e:?}");
     assert!(!keeper.is_worth_it(), "{keeper:?}");
     assert!(striker_d.is_worth_it() && striker_e.is_worth_it());
-    assert!(striker_d.gain > keeper.gain * 3.0);
+    assert!(striker_d.gain() > keeper.gain() * 3.0);
 
     let careful = squad.club(
         "4-4-2",
@@ -130,7 +131,7 @@ fn a_defensive_weakness_beats_one_more_attacker() {
     println!("cb {centre_back:?}\nst {forward:?}");
     assert!(centre_back.is_worth_it());
     assert!(
-        centre_back.gain > forward.gain * 2.0,
+        centre_back.gain() > forward.gain() * 2.0,
         "{centre_back:?} {forward:?}"
     );
     assert!(centre_back.utility > forward.utility + 0.5);
@@ -156,9 +157,9 @@ fn a_thin_bench_makes_an_ordinary_squad_player_worth_signing() {
     let club = thin.club("4-4-2", CASH, comfortable());
     let cover = case(&club, CenterBack, 66, 27, 500_000);
     println!("{cover:?}");
-    assert!(cover.gain >= super::impact::MIN_GAIN, "{cover:?}");
-    assert_eq!(cover.reason, Reason::Depth);
-    assert!(cover.starts_at.is_none());
+    assert!(cover.gain() >= super::impact::MIN_GAIN, "{cover:?}");
+    assert_eq!(cover.marginal.reason, Reason::Depth);
+    assert!(cover.marginal.starts_at.is_none());
     let keeper_cover = case(&club, Goalkeeper, 66, 27, 500_000);
     assert!(
         keeper_cover.is_worth_it(),
@@ -178,8 +179,8 @@ fn a_full_bench_makes_the_same_player_redundant() {
 
 /// Given a balanced squad whose best striker is 35 and about to retire
 /// When a striker of 76 aged 24 is weighed, and the same player for a squad whose striker is 27
-/// Then he is worth signing for the first club and not for the second, and the first club's needs
-/// already list the succession.
+/// Then he is clearly worth signing for the first club and only marginally for the second, and the
+/// first club's needs already list the succession.
 #[test]
 fn an_ageing_striker_makes_a_successor_worth_signing() {
     let veteran = Squad::new()
@@ -216,8 +217,11 @@ fn an_ageing_striker_makes_a_successor_worth_signing() {
     );
     println!("with a veteran {old:?}\nwith a prime striker {young:?}");
     assert!(old.is_worth_it());
-    assert!(!young.is_worth_it(), "{young:?}");
-    assert!(old.gain > young.gain * 1.5);
+    // For the club with a prime striker he is a marginal upgrade the price all but eats; for the
+    // one losing its first choice he is clearly worth the money.
+    assert!(young.utility < 0.05, "{young:?}");
+    assert!(old.utility > young.utility + 0.15, "{old:?} {young:?}");
+    assert!(old.gain() > young.gain() * 1.5);
     let needs_of = |squad: &Squad| squad.club("4-4-2", CASH, comfortable()).needs();
     assert!(
         needs_of(&veteran)
@@ -264,7 +268,7 @@ fn needs_follow_the_formation_the_club_plays() {
     let signing_442 = case(&two_up, Striker, 76, 27, 5_000_000);
     let signing_451 = case(&one_up, Striker, 76, 27, 5_000_000);
     assert!(
-        signing_442.gain > signing_451.gain * 2.0,
+        signing_442.gain() > signing_451.gain() * 2.0,
         "{signing_442:?} {signing_451:?}"
     );
 }
@@ -291,7 +295,7 @@ fn losing_the_starting_keeper_changes_the_priorities_at_once() {
             .all(|need| need.group != 0 || need.severity < 6.0)
     );
     let keeper = case(&club_after, Goalkeeper, 70, 28, 2_000_000);
-    assert!(keeper.is_worth_it() && keeper.reason == Reason::Starter);
+    assert!(keeper.is_worth_it() && keeper.marginal.reason == Reason::Starter);
 }
 
 /// Given a serious injury to the starting keeper (out for sixty days)
