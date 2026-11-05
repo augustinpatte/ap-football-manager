@@ -424,7 +424,7 @@ OFM `augustinpatte/ap-football-manager`, branch `claude/run-f5-0-universal-simul
 | `ef88c8eb` | mutation-driven test fixes |
 | `0501ca03` | reviewer findings: shared deflate module, translated replay errors, one scorers helper, split dormant day |
 | `37a7a29e` | test-reviewer findings: cards, injuries, scorers, all competition kinds and totals columns pinned |
-| `e3683901` | this report (a later commit amends only this section, if its SHA differs from the branch head) |
+| `e3683901`, then one more | this report, and the record of these SHAs and of the push |
 
 M12 `augustinpatte/apfm-match-lab`, branch `f5.0/universal-simulation`: **no M12 change was needed**; the
 branch points at `d4e6f32`, the F4.4 head, and that is the revision OFM pins. The pin was verified with the
@@ -438,7 +438,7 @@ and in the viewer were left exactly as found. The viewer was not touched.
 
 Both branches are **pushed** (`git push -u origin …`), nothing merged into `apfm/main`, `develop` or any other branch:
 
-* OFM `origin/claude/run-f5-0-universal-simulation` — `e3683901` (code head `37a7a29e`)
+* OFM `origin/claude/run-f5-0-universal-simulation` — code head `37a7a29e`; the two commits after it change only this report
 * M12 `origin/f5.0/universal-simulation` — `d4e6f329` (no M12 change)
 
 No credential was read, printed or written; `gh secret list` shows names only.
