@@ -148,9 +148,11 @@ fn simulate_with_engine_output(
 /// compact block, a beaten defender can stop an attack with a foul, a flatter keeper, walking is not
 /// rest); the earlier configurations are untouched, so a checkpoint written under one replays as it
 /// was recorded. Run F4.4: `full_match_f44` is `full_match_f43` plus a defensive line that follows its
-/// instruction continuously instead of jumping 14 m between two values of the slider.
+/// instruction continuously instead of jumping 14 m between two values of the slider. Run F5.2:
+/// `full_match_f52` is `full_match_f44` plus the corrections that bring a match's volume of play to
+/// football's (dead-ball time, shot selection, in-box discipline).
 pub fn match_football_config() -> FootballConfig {
-    FootballConfig::full_match_f44()
+    FootballConfig::full_match_f52()
 }
 
 #[cfg(test)]
@@ -158,20 +160,22 @@ mod football_configuration_tests {
     use super::*;
 
     /// Given the football every OFM match is played with,
-    /// Then it is the F4.4 one (F4.3 plus a continuous defensive line): every team in the compact block, a beaten defender able to stop an
-    /// attack, a booked player's second caution read leniently, and walking not counted as rest. A
-    /// revert to F4.3 or F4.2 would be a behaviour change, so it has to fail here: `continuous_line`
-    /// is what tells F4.4 from F4.3.
+    /// Then it is the F5.2 one (F4.4 plus dead-ball time and the shot and discipline corrections), which keeps
+    /// everything F4.3 and F4.4 established: every team in the compact block, a beaten defender able to stop an
+    /// attack, a booked player's second caution read leniently, walking not counted as rest, and a continuous
+    /// defensive line. A revert to F4.4 would put the ball back in play for 96 % of a match, so it has to fail
+    /// here: `dead_ball_time` is what tells F5.2 from F4.4.
     #[test]
-    fn every_ofm_match_is_played_with_the_f44_football() {
+    fn every_ofm_match_is_played_with_the_f52_football() {
         let config = match_football_config();
-        assert_eq!(config, FootballConfig::full_match_f44());
+        assert_eq!(config, FootballConfig::full_match_f52());
+        assert!(config.m12.dead_ball_time);
         assert!(config.m12.continuous_line);
         assert!(config.m12.organised_block);
         assert!(config.referee.tactical_fouls);
         assert!(config.referee.booked_leniency > 0.0);
         assert!(config.condition.rest_cost < FootballConfig::full_match_f42().condition.rest_cost);
-        assert_ne!(config, FootballConfig::full_match_f42());
+        assert_ne!(config, FootballConfig::full_match_f44());
     }
 }
 
@@ -600,29 +604,26 @@ pub(crate) mod tests {
         output.output.to_json().expect("the output serialises")
     }
 
-    /// Given a match whose teams ask for a defensive line between two of the slider's anchors, where
-    /// the F4.3 and F4.4 footballs disagree,
+    /// Given a match played by F4.4 and by F5.2,
     /// When the instant path plays it,
-    /// Then it is the F4.4 match and not the F4.3 one (run F4.4: either call site could silently revert
+    /// Then it is the F5.2 match and not the F4.4 one (run F5.2: either call site could silently revert
     /// to an earlier football, because the configuration test only looked at the function).
     #[test]
-    fn the_instant_path_plays_the_f44_football() {
-        let mut adapted = adapt_selected_fixture(
+    fn the_instant_path_plays_the_f52_football() {
+        let adapted = adapt_selected_fixture(
             &game_with_complete_m12_fixture(),
             0,
             "competition-m12-1",
             "fixture-m12-1",
         )
         .expect("adapts");
-        adapted.input.home.tactics.line_height = 75;
-        adapted.input.away.tactics.line_height = 75;
         let played = simulate(&adapted).expect("plays").replay_json;
+        let f52 = replay_under(&adapted, FootballConfig::full_match_f52());
         let f44 = replay_under(&adapted, FootballConfig::full_match_f44());
-        let f43 = replay_under(&adapted, FootballConfig::full_match_f43());
-        assert_ne!(f44, f43, "the fixture does not tell F4.3 from F4.4 apart");
+        assert_ne!(f52, f44, "the fixture does not tell F4.4 from F5.2 apart");
         assert_eq!(
-            played, f44,
-            "the instant path is not playing the F4.4 football"
+            played, f52,
+            "the instant path is not playing the F5.2 football"
         );
     }
 

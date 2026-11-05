@@ -140,7 +140,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 [[package]]
 name = "apfm-match-lab"
 version = "0.1.0"
-source = "git+https://github.com/augustinpatte/apfm-match-lab?rev=d4e6f329d7e48279a9dce5f7f3c1b970f7ff2131#d4e6f329d7e48279a9dce5f7f3c1b970f7ff2131"
+source = "git+https://github.com/augustinpatte/apfm-match-lab?rev=ded5a8a7b2988fc857dd83f077506a65db8c54b8#ded5a8a7b2988fc857dd83f077506a65db8c54b8"
 dependencies = [
  "serde",
  "serde_json",
