@@ -895,7 +895,7 @@ const OVERALL_CORRECTION_STEPS: usize = 8;
 /// moved by the remaining difference, computed with the real rating, until it lands within one
 /// point. The same seed is replayed each time so only the centre moves, and the result is
 /// deterministic for a seeded `rng`.
-fn attributes_matching_overall(
+pub(super) fn attributes_matching_overall(
     overall: u8,
     position: &Position,
     rng: &mut impl Rng,

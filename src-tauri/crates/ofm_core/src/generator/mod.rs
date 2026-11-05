@@ -5,6 +5,18 @@ pub mod competition_def;
 pub mod definitions;
 pub mod file_format;
 mod generation;
+
+/// Attributes shaped the way the generator shapes them, rated `overall` in `position`, drawn from
+/// `seed`: for tests elsewhere in the crate that need players who behave like generated ones (an
+/// outfielder of 80 is a fair outfielder anywhere, a keeper is a keeper and little else).
+#[cfg(test)]
+pub(crate) fn attributes_rated(
+    overall: u8,
+    position: &domain::player::Position,
+    seed: u64,
+) -> domain::player::PlayerAttributes {
+    generation::attributes_matching_overall(overall, position, &mut crate::seed::rng_from_u64(seed))
+}
 pub mod package;
 mod package_warnings;
 pub mod scaffold;

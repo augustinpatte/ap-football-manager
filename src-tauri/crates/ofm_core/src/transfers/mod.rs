@@ -70,6 +70,7 @@ pub(crate) use registration::{
     has_pending_transfer_registration, player_has_active_or_pending_loan,
     player_has_pending_registration, transfer_window_is_open,
 };
+pub(crate) use strategy::{Ambition, ClubProfile, Means};
 pub use strategy::{ClubStrategyReport, strategy_reports};
 pub use terms::{
     ERR_INVALID_DEAL_TERMS, ERR_SELL_ON_UNAFFORDABLE, ensure_bonus_affordable,
