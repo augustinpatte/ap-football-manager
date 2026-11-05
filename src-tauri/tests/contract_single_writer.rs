@@ -29,6 +29,8 @@ const STAGING_ALLOWED: &[&str] = &[
     "crates/domain/src/contract_ledger.rs",
     "crates/ofm_core/src/generator/generation.rs",
     "crates/ofm_core/src/generator/mod.rs",
+    // Fits a generated squad's opening wages to what its club can earn; world generation only.
+    "crates/ofm_core/src/generator/club_shape.rs",
     // The FM24 adapter builds a world from an imported source before any career exists: it brings
     // OFM's own filler players down to the wage scale of their division, as world generation does
     // for its own players.

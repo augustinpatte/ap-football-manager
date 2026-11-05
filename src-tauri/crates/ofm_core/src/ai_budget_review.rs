@@ -28,6 +28,8 @@ use crate::game::Game;
 
 pub(crate) const MAX_RISE_PCT: i64 = 10;
 pub(crate) const MAX_CUT_PCT: i64 = 5;
+/// A club in debt is ordered to come back to its income faster than a solvent one drifts down.
+pub(crate) const MAX_CUT_IN_DEBT_PCT: i64 = 15;
 const WEEKS_PER_YEAR: i64 = 52;
 
 /// The share of income an AI club plans to spend on wages, from its reputation.
@@ -48,8 +50,13 @@ pub(crate) fn target_weekly_budget(yearly_income: i64, cash: i64, reputation: u3
 }
 
 /// The budget after the yearly limits: it moves towards `target` by no more than the caps.
-pub(crate) fn limited_budget(old: i64, target: i64) -> i64 {
-    let floor = old - old * MAX_CUT_PCT / 100;
+pub(crate) fn limited_budget(old: i64, target: i64, in_debt: bool) -> i64 {
+    let cut = if in_debt {
+        MAX_CUT_IN_DEBT_PCT
+    } else {
+        MAX_CUT_PCT
+    };
+    let floor = old - old * cut / 100;
     let ceiling = old + old * MAX_RISE_PCT / 100;
     target.clamp(floor.min(ceiling), ceiling)
 }
@@ -77,7 +84,10 @@ pub(crate) fn review_wage_budgets(game: &mut Game) {
         .map(|team| {
             let yearly = income.get(team.id.as_str()).copied().unwrap_or(0);
             let target = target_weekly_budget(yearly, team.finance, team.reputation);
-            (team.id.clone(), limited_budget(team.wage_budget, target))
+            (
+                team.id.clone(),
+                limited_budget(team.wage_budget, target, team.finance < 0),
+            )
         })
         .collect();
     for (team_id, budget) in reviewed {
@@ -107,8 +117,18 @@ mod tests {
 
     #[test]
     fn the_budget_moves_by_at_most_the_yearly_limits() {
-        assert_eq!(limited_budget(100_000, 1_000_000), 110_000);
-        assert_eq!(limited_budget(100_000, 10_000), 95_000);
-        assert_eq!(limited_budget(100_000, 103_000), 103_000);
+        assert_eq!(limited_budget(100_000, 1_000_000, false), 110_000);
+        assert_eq!(limited_budget(100_000, 10_000, false), 95_000);
+        assert_eq!(limited_budget(100_000, 103_000, false), 103_000);
+    }
+
+    /// Given a club in debt whose income has fallen far below its budget, when the board resets
+    /// the budget, then it may cut three times as fast as a solvent club (15 % against 5 %), so a
+    /// bill that outgrew the club's income is closed in years, not decades. The rise is unchanged.
+    #[test]
+    fn a_club_in_debt_may_cut_its_budget_faster() {
+        assert_eq!(limited_budget(100_000, 10_000, true), 85_000);
+        assert_eq!(limited_budget(100_000, 10_000, false), 95_000);
+        assert_eq!(limited_budget(100_000, 1_000_000, true), 110_000);
     }
 }

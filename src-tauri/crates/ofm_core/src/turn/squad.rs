@@ -659,6 +659,8 @@ fn ai_select_starting_xi<'a>(
     const CONGESTED_MIN_FIT_TOLERANCE: f64 = 10.0;
     /// And what any of them will accept to get an exhausted player off the pitch.
     const EXHAUSTED_FIT_TOLERANCE: f64 = 20.0;
+    /// Extra quality drop accepted per point of condition below the manager's rest threshold.
+    const TIREDNESS_TOLERANCE_PER_POINT: f64 = 0.4;
     /// How far the worst manager can misread a player's standard, either way.
     const MAX_MISJUDGEMENT: f64 = 9.0;
 
@@ -706,12 +708,16 @@ fn ai_select_starting_xi<'a>(
         if condition >= rest_threshold {
             continue; // Fresh enough — no reason to rotate.
         }
-        // A spent player comes out for anyone adequate; a merely tired one only
-        // for someone close to their own standard.
+        // A spent player comes out for anyone adequate; a tired one for someone the
+        // closer to his own standard the less tired he is. The tolerance grows with every
+        // point of condition under the manager's own threshold, up to the exhausted
+        // player's: a flat figure here started 1-4 % of AI players under half fit, because
+        // a star at 48 % has no fresh deputy within nine points of him (F5.0 §8).
         let tolerance = if condition < EXHAUSTED {
             EXHAUSTED_FIT_TOLERANCE
         } else {
-            fit_tolerance
+            (fit_tolerance + TIREDNESS_TOLERANCE_PER_POINT * (rest_threshold - condition))
+                .min(EXHAUSTED_FIT_TOLERANCE)
         };
 
         let starter_fit = positional_fit_for_assignment(starter, slot);

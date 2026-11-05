@@ -1,4 +1,5 @@
 mod authored_player;
+mod club_shape;
 pub mod clubs;
 pub mod competition_def;
 pub mod definitions;
@@ -739,6 +740,9 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
         .unwrap_or(DEFAULT_TEAM_REPUTATION_RANGE);
     let fin_range = tdef.finance_range.unwrap_or([500_000, 10_000_000]);
 
+    // Drawn exactly as before so every later draw of the world's stream is unchanged; it now only
+    // spreads clubs of one standing over a range of ground sizes (see `club_economy`).
+    let capacity_draw = rng.random_range(10000..80000);
     let mut team = domain::team::Team::new(
         team_id,
         tdef.name.clone(),
@@ -746,7 +750,7 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
         tdef.country.clone(),
         tdef.city.clone(),
         stadium,
-        rng.random_range(10000..80000),
+        capacity_draw,
     );
     // Inclusive *and* ordered, because `rand` panics on any empty range and that
     // panic is uniquely expensive here: `build_team` runs inside `start_new_game`,
@@ -769,6 +773,10 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
     );
     team.finance = rng.random_range(fin_lo..=fin_hi);
     team.reputation = rng.random_range(rep_lo..=rep_hi);
+    team.stadium_capacity = crate::club_economy::stadium_capacity(
+        team.reputation,
+        f64::from(capacity_draw - 10000) / 70000.0,
+    );
     team.wage_budget = (team.finance as f64 * 0.06) as i64;
     team.transfer_budget = (team.finance as f64 * 0.15) as i64;
     team.founded_year = tdef.founded_year.unwrap_or(rng.random_range(1880..1960));
@@ -867,6 +875,11 @@ fn build_club(
     team_players.push(academy_keeper);
 
     // A generated club has no authored players; `build_package_club` names them.
+    club_shape::shape_generated_club(
+        &team,
+        &mut team_players,
+        domain::age::season_midpoint(opening_year as i32),
+    );
     normalize_generated_team(
         &mut team,
         &mut team_players,

@@ -56,6 +56,9 @@ struct Study {
     condition_before: BTreeMap<String, u8>,
     /// (players with minutes, of whom below 50, sum of condition) for the user's club and the rest.
     kickoff: BTreeMap<bool, (u64, u64, u64)>,
+    /// Position group of each player, and a tally of AI players under 50 at kick-off by group.
+    group_before: BTreeMap<String, &'static str>,
+    tired_by_group: BTreeMap<&'static str, (u64, u64)>,
 }
 
 impl SeasonObserver for Study {
@@ -81,6 +84,11 @@ impl SeasonObserver for Study {
                 entry.0 += 1;
                 entry.1 += u64::from(condition < 50);
                 entry.2 += u64::from(condition);
+                if !is_user && let Some(group) = self.group_before.get(&record.player_id) {
+                    let tally = self.tired_by_group.entry(group).or_default();
+                    tally.0 += 1;
+                    tally.1 += u64::from(condition < 50);
+                }
             }
             if record.minutes_played == 0 {
                 self.zero_minute_records += 1;
@@ -117,6 +125,19 @@ impl SeasonObserver for Study {
     fn on_day_end(&mut self, game: &Game, _season: u32, _day: u32) {
         // State "before the next day" is the state at the end of this one.
         self.user_club = game.manager.team_id.clone();
+        self.group_before = game
+            .players
+            .iter()
+            .map(|p| {
+                let group = match p.position.to_group_position() {
+                    domain::player::Position::Goalkeeper => "GK",
+                    domain::player::Position::Defender => "DEF",
+                    domain::player::Position::Midfielder => "MID",
+                    _ => "FWD",
+                };
+                (p.id.clone(), group)
+            })
+            .collect();
         self.condition_before = game
             .players
             .iter()
@@ -336,6 +357,12 @@ fn report(study: &Study) {
             "{:>8} players with 45+ minutes: {n}, mean condition at kick-off {:.1}, share below 50: {:.1}%",
             if *is_user { "user" } else { "AI" },
             *sum as f64 / (*n).max(1) as f64,
+            100.0 * *tired as f64 / (*n).max(1) as f64
+        );
+    }
+    for (group, (n, tired)) in &study.tired_by_group {
+        println!(
+            "     AI {group}: {n} players with 45+ minutes, {:.1}% under 50 at kick-off",
             100.0 * *tired as f64 / (*n).max(1) as f64
         );
     }

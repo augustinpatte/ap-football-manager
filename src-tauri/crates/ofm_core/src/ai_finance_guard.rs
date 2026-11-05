@@ -65,7 +65,7 @@ pub(crate) fn expected_weekly_income(team: &Team, home_matches_this_season: i64)
         team.stadium_capacity,
         home_matches_this_season,
         ESTIMATED_ATTENDANCE,
-        ESTIMATED_TICKET,
+        ESTIMATED_TICKET * crate::club_economy::ticket_price_factor(team.reputation),
     ) / 52;
     sponsor + gate
 }

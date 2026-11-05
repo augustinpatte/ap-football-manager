@@ -21,6 +21,7 @@ pub mod career_stage;
 pub mod catchup;
 pub mod clock;
 pub mod club;
+pub mod club_economy;
 pub mod competition_completion;
 #[cfg(test)]
 pub(crate) mod competition_test_support;

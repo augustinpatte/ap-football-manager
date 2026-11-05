@@ -125,6 +125,27 @@ pub fn take_youth_intake(game: &mut Game, team_id: &str, date: NaiveDate, season
 /// Most points of potential the academy's staff add to or take from an intake's promise.
 pub const YOUTH_POTENTIAL_SWING: u8 = 3;
 
+/// How far a club's standing moves the promise of its intake, either way, in points of potential.
+/// An edge for the big academies (and a handicap for the small), well inside the bell's spread of
+/// about 5, so a small club still turns up an exceptional youngster now and then.
+const ACADEMY_STANDING_SWING: f64 = 1.0;
+
+/// Points of potential the academy adds to or takes from an intake's promise.
+///
+/// The youth department adds up to [`YOUTH_POTENTIAL_SWING`] over an empty one and never costs
+/// anything: an empty department is the baseline the world's bell was calibrated on. It used to be
+/// centred on a rating of 50, which made an empty department cost two points, and since no AI
+/// club ever staffed an academy the whole world's intakes were two points below the opening
+/// world's, which halved the number of players over 80 within a decade (F5.1 world study).
+/// A club's standing adds a symmetric edge of up to [`ACADEMY_STANDING_SWING`].
+pub(crate) fn academy_potential_shift(youth_rating: f64, reputation: u32) -> f64 {
+    let vacant = crate::staff_system::profile::VACANT_RATING;
+    let staff = ((youth_rating - vacant) / (100.0 - vacant)).clamp(0.0, 1.0)
+        * f64::from(YOUTH_POTENTIAL_SWING);
+    let standing = (crate::club_economy::stature(reputation) - 0.5) * 2.0 * ACADEMY_STANDING_SWING;
+    staff + standing
+}
+
 const YOUTH_MINIMUM_WAGE: u32 = crate::contracts::MINIMUM_DEFAULT_WAGE as u32;
 
 /// The most a recruit may ask a week at this club: a quarter above what the club's academy
@@ -217,8 +238,7 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
     // `YOUTH_POTENTIAL_SWING` points of potential either way, around the generator's own
     // calibration. A club with no youth staff loses a couple of points, never gains any.
     let youth_rating = crate::staff_system::profile::StaffProfile::of(game, &team.id).youth;
-    let potential_shift =
-        ((youth_rating - 50.0) / 50.0 * f64::from(YOUTH_POTENTIAL_SWING)).round() as i32;
+    let potential_shift = academy_potential_shift(youth_rating, team.reputation);
     plan.groups
         .iter()
         .filter_map(|group| {
@@ -230,8 +250,9 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
                 date.year() as u32,
                 &mut rng,
             );
-            recruit.potential = (i32::from(recruit.potential) + potential_shift)
-                .clamp(i32::from(recruit.ovr), 99) as u8;
+            recruit.potential = (f64::from(recruit.potential) + potential_shift)
+                .round()
+                .clamp(f64::from(recruit.ovr), 99.0) as u8;
             let own_terms = recruit
                 .contract_end()
                 .and_then(crate::contracts::parse_contract_date)
@@ -325,6 +346,55 @@ fn tell_the_player(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Given a club of middling standing with nobody in its youth department, when its intake's
+    /// promise is shifted, then nothing is lost: an empty department is the world's baseline, so
+    /// every AI club (none of which staffs one) draws the same bell as the opening world did.
+    #[test]
+    fn an_unstaffed_academy_of_middling_standing_draws_the_worlds_own_bell() {
+        let vacant = crate::staff_system::profile::VACANT_RATING;
+        assert_eq!(academy_potential_shift(vacant, 590), 0.0);
+    }
+
+    /// Given the same club with the best possible youth staff, when shifted, then it gains the
+    /// whole staff swing and no more.
+    #[test]
+    fn the_best_youth_staff_add_the_whole_swing() {
+        let shift = academy_potential_shift(100.0, 590);
+        assert!(
+            (shift - f64::from(YOUTH_POTENTIAL_SWING)).abs() < 1e-9,
+            "{shift}"
+        );
+    }
+
+    /// Given an unstaffed top club and an unstaffed bottom club, when shifted, then the big
+    /// club's academy is better on average and the small club's worse, by the same amount and
+    /// by less than a quarter of the bell's spread: an edge, not a monopoly.
+    #[test]
+    fn a_bigger_club_has_a_better_academy_without_a_monopoly() {
+        let vacant = crate::staff_system::profile::VACANT_RATING;
+        let (top, bottom) = (
+            academy_potential_shift(vacant, 780),
+            academy_potential_shift(vacant, 400),
+        );
+        assert!(top > 0.0 && bottom < 0.0);
+        assert!(
+            (top + bottom).abs() < 1e-9,
+            "symmetric around the world's bell"
+        );
+        assert!(
+            top <= 1.25,
+            "{top} is more than a quarter of a 5-point spread"
+        );
+    }
+
+    /// Given a youth rating below the vacant baseline (not reachable today, but a future staff
+    /// rule could), when shifted, then the staff term never goes negative.
+    #[test]
+    fn staff_never_cost_potential() {
+        assert_eq!(academy_potential_shift(0.0, 590), 0.0);
+    }
+
     use crate::clock::GameClock;
     use crate::squad_floor::MIN_PLAYERS_PER_GROUP;
     use crate::test_support::uniform_attributes;

@@ -766,7 +766,10 @@ fn sponsor_pitch_message_id(game: &Game) -> String {
     )
 }
 
-fn sponsor_pitch_partner(team_id: &str, current_date: chrono::DateTime<chrono::Utc>) -> String {
+pub(crate) fn sponsor_pitch_partner(
+    team_id: &str,
+    current_date: chrono::DateTime<chrono::Utc>,
+) -> String {
     const SPONSORS: [&[&str]; 8] = [
         &["Northstar", "Logistics"],
         &["Harbor", "Bank"],
@@ -1364,19 +1367,25 @@ pub fn process_weekly_finances(game: &mut Game) {
         }
     }
 
-    let gate_clubs: Vec<(String, u32, i64)> = game
+    let gate_clubs: Vec<(String, u32, i64, u32)> = game
         .teams
         .iter()
         .filter_map(|team| {
             let home_count = home_matches.get(team.id.as_str()).copied()?;
-            Some((team.id.clone(), team.stadium_capacity, home_count))
+            Some((
+                team.id.clone(),
+                team.stadium_capacity,
+                home_count,
+                team.reputation,
+            ))
         })
         .collect();
-    for (team_id, stadium_capacity, home_count) in gate_clubs {
+    for (team_id, stadium_capacity, home_count, reputation) in gate_clubs {
         // One gate per club per week, drawn from that club's own stream.
         let mut rng = game.rng_today(&format!("finances/matchday/{team_id}"));
         let attendance_pct = rng.random_range(60..=92) as f64 / 100.0;
-        let avg_ticket = rng.random_range(15..=25) as f64;
+        let avg_ticket =
+            rng.random_range(15..=25) as f64 * crate::club_economy::ticket_price_factor(reputation);
         let total_revenue = calc_matchday(stadium_capacity, home_count, attendance_pct, avg_ticket);
         let req = PostRequest::new(&team_id, total_revenue, CashKind::Matchday, post_date);
         let _ = commit_weekly_posts(game, std::slice::from_ref(&req));

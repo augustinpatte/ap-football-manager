@@ -200,6 +200,85 @@ fn an_exhausted_starter_is_not_replaced_by_a_hopeless_deputy() {
     );
 }
 
+/// Given a middling manager and a first eleven at 48 % condition (tired, but not yet "exhausted"),
+/// when a deputy 13 points worse and fully fresh is available, then the deputy starts: the more
+/// tired a starter is, the bigger the drop the manager accepts to rest him. A flat tolerance of
+/// nine points let a star at 48 % kick off whenever the nearest fresh player was ten worse, which
+/// is how 1-4 % of AI starters began a match under half fit (F5.0 §8).
+#[test]
+fn a_deeply_tired_star_is_rested_for_a_decent_deputy() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 48));
+    }
+    squad.push(mk("deputy", 67, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().any(|p| p.id == "deputy"),
+        "a star at 48 % should make way for a deputy 13 points worse: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// The control for the test above: the same deputy and the same manager, but the stars are only a
+/// little tired (58 %, just under the 62.5 this manager rests at). The graded part of the tolerance
+/// is then nearly nothing and the stars play on. Without this the previous test would pass for a
+/// manager who rotates everyone.
+#[test]
+fn a_slightly_tired_star_still_plays_against_the_same_deputy() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 58));
+    }
+    squad.push(mk("deputy", 67, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().all(|p| p.id.starts_with("star")),
+        "a star at 58 % is not worth a 13-point drop: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// However tired, a star is not replaced by someone more than twenty points worse: the graded
+/// tolerance is capped, so the match's importance is never traded away for a rest.
+#[test]
+fn the_graded_tolerance_is_capped() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 48));
+    }
+    squad.push(mk("scrub", 55, 100)); // 25 points worse
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(xi.iter().all(|p| p.id != "scrub"));
+}
+
 /// Quality is judgement, not willingness. Given two deputies of nearly equal
 /// standard, an elite manager always identifies the better one; a poor manager
 /// gets it wrong some of the time. Fixed seeds, so this is deterministic.

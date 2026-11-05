@@ -320,10 +320,20 @@ const CONTENT_PLAYER_MAX_RAISE_PCT: u32 = 10;
 
 /// What this player agrees to sign for, when the club asks for a renewal: the whole of what he
 /// `asked` unless he is content and the ask is a bigger raise than [`CONTENT_PLAYER_MAX_RAISE_PCT`].
-fn settled_renewal_wage(player: &Player, asked: u32) -> u32 {
+///
+/// A club that is already over its wage budget (`over_budget`) freezes a content player's wage:
+/// the modest raise, repeated at every renewal of an over-budget squad, was what kept 70 of 80
+/// clubs above their budgets for thirty seasons in the F5.1 world study. A player who is not
+/// content still asks for everything and the board's wage policy decides, so a freeze is never
+/// imposed on someone with a reason to leave. It is a cap, not a target: a player who asks for
+/// less than he is paid is not raised to his old wage.
+fn settled_renewal_wage(player: &Player, asked: u32, over_budget: bool) -> u32 {
     let paid = player.last_known_wage();
     if paid == 0 || player.morale < CONTENT_MORALE {
         return asked;
+    }
+    if over_budget {
+        return asked.min(paid);
     }
     let modest = crate::contracts::round_up_wage(paid * (100 + CONTENT_PLAYER_MAX_RAISE_PCT) / 100);
     asked.min(modest.max(paid))
@@ -334,7 +344,9 @@ fn settled_renewal_wage(player: &Player, asked: u32) -> u32 {
 fn renew(game: &mut Game, team: &Team, player_index: usize, current_date: NaiveDate) {
     let player = &game.players[player_index];
     let asked = expected_wage(player, team, current_date);
-    let wage = settled_renewal_wage(player, asked);
+    let over_budget =
+        team.wage_budget > 0 && crate::finances::calc_wages(game, &team.id) > team.wage_budget;
+    let wage = settled_renewal_wage(player, asked, over_budget);
     let offer = RenewalOffer {
         weekly_wage: wage,
         contract_years: expected_contract_years(player, current_date),
@@ -1141,12 +1153,46 @@ mod tests {
         content.morale = 80;
         content.stage_wage(1_000);
         // He could ask for 1 400; he settles for +10 %.
-        assert_eq!(settled_renewal_wage(&content, 1_400), 1_100);
+        assert_eq!(settled_renewal_wage(&content, 1_400, false), 1_100);
         // An ask below the cap is not raised to it.
-        assert_eq!(settled_renewal_wage(&content, 1_050), 1_050);
+        assert_eq!(settled_renewal_wage(&content, 1_050, false), 1_050);
         // A player who is not content asks for all of it.
         content.morale = 40;
-        assert_eq!(settled_renewal_wage(&content, 1_400), 1_400);
+        assert_eq!(settled_renewal_wage(&content, 1_400, false), 1_400);
+    }
+
+    /// Given a club over its wage budget and a content player on 1 000 who asks 1 400, when his
+    /// renewal is settled, then his wage is frozen: a club that cannot pay what it pays does not
+    /// pay more.
+    #[test]
+    fn a_club_over_its_wage_budget_freezes_a_content_players_wage() {
+        let mut content = player("c", "ai", Position::Midfielder, 70, 26, 100);
+        content.morale = 80;
+        content.stage_wage(1_000);
+        assert_eq!(settled_renewal_wage(&content, 1_400, true), 1_000);
+        // The control: the same player at a club inside its budget takes the modest raise.
+        assert_eq!(settled_renewal_wage(&content, 1_400, false), 1_100);
+    }
+
+    /// Given the same club over budget and a player who is not content, when his renewal is
+    /// settled, then he still asks for everything, so the board's wage policy decides and he
+    /// leaves if it refuses: a freeze is never imposed on an unhappy player.
+    #[test]
+    fn an_unhappy_player_is_not_frozen_by_an_over_budget_club() {
+        let mut unhappy = player("u", "ai", Position::Midfielder, 70, 26, 100);
+        unhappy.morale = 40;
+        unhappy.stage_wage(1_000);
+        assert_eq!(settled_renewal_wage(&unhappy, 1_400, true), 1_400);
+    }
+
+    /// Given a content player whose ask is below his current wage, when the club is over budget,
+    /// then the freeze never raises him: it is a cap, not a target.
+    #[test]
+    fn a_freeze_never_raises_a_wage() {
+        let mut content = player("c", "ai", Position::Midfielder, 70, 26, 100);
+        content.morale = 80;
+        content.stage_wage(1_000);
+        assert_eq!(settled_renewal_wage(&content, 900, true), 900);
     }
 
     #[test]
@@ -1154,6 +1200,6 @@ mod tests {
         let mut free = player("f", "ai", Position::Midfielder, 70, 26, 100);
         free.morale = 90;
         free.stage_wage(0);
-        assert_eq!(settled_renewal_wage(&free, 1_400), 1_400);
+        assert_eq!(settled_renewal_wage(&free, 1_400, true), 1_400);
     }
 }

@@ -190,6 +190,8 @@ fn process_day_common(game: &mut Game, today: &str) {
     crate::staff_system::ai::process_user_staff_expiry(game);
     crate::staff_system::ai::apply_ai_staff_management(game, weekday_num);
 
+    // AI clubs without a sponsor sign one, so the week's books already count it.
+    crate::club_economy::renew_ai_sponsorships(game);
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);
 
