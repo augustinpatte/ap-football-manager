@@ -30,25 +30,41 @@ fn start(seed: u64) -> InteractiveMatch {
 }
 
 /// Given an interactive match just started,
-/// Then the engine session it holds plays the F5.2 football (run F4.4: the instant path was covered,
-/// the interactive one could revert unseen; F5.2 keeps both on the same one).
+/// Then the engine session it holds plays the F5.3 football (run F4.4: the instant path was covered,
+/// the interactive one could revert unseen; F5.3 keeps both on the same one).
 #[test]
-fn an_interactive_match_is_started_with_the_f52_football() {
+fn an_interactive_match_is_started_with_the_f53_football() {
     use apfm_match_lab::sim::football::FootballConfig;
     let cp = start(1).checkpoint().expect("checkpoint");
-    assert_eq!(cp.session.football, FootballConfig::full_match_f52());
+    assert_eq!(cp.session.football, FootballConfig::full_match_f53());
     assert!(cp.session.football.m12.dead_ball_time);
+    assert!(cp.session.football.m12.press_costs.enabled);
 }
 
 /// Given an interactive match restored from its checkpoint,
-/// Then it keeps the football the checkpoint recorded (a save made under F5.2 reloads as F5.2).
+/// Then it keeps the football the checkpoint recorded (a save made under F5.3 reloads as F5.3).
 #[test]
 fn a_restored_interactive_match_keeps_the_recorded_football() {
     use apfm_match_lab::sim::football::FootballConfig;
     let restored =
         InteractiveMatch::restore(start(1).checkpoint().expect("checkpoint")).expect("restores");
     let again = restored.checkpoint().expect("checkpoint");
+    assert_eq!(again.session.football, FootballConfig::full_match_f53());
+}
+
+/// Given a checkpoint recorded under the F5.2 football (a match saved by the previous version)
+/// When it is restored
+/// Then it plays on as F5.2, with no press costs: a restore that re-read the current configuration
+/// instead of the recorded one would change a saved match under the player.
+#[test]
+fn a_checkpoint_recorded_under_f52_is_restored_and_stays_f52() {
+    use apfm_match_lab::sim::football::FootballConfig;
+    let mut cp = start(1).checkpoint().expect("checkpoint");
+    cp.session.football = FootballConfig::full_match_f52();
+    let restored = InteractiveMatch::restore(cp).expect("restores");
+    let again = restored.checkpoint().expect("checkpoint");
     assert_eq!(again.session.football, FootballConfig::full_match_f52());
+    assert!(!again.session.football.m12.press_costs.enabled);
 }
 
 /// Given a checkpoint recorded under the F4.4 football (a match saved by the previous version)
