@@ -174,7 +174,9 @@ export default function PlayerProfileAdvancedStatsCard({
       <CardHeader>{labels.title}</CardHeader>
       <CardBody>
         {!summary.detailRecorded && (
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{labels.detailNotRecorded}</p>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            {labels.detailNotRecorded}
+          </p>
         )}
         {summary.peerGroup && (
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">

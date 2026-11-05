@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 67;
+const EXPECTED_MIGRATION_COUNT: usize = 68;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -188,6 +188,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("v066_compact_match_history.sql", include_str!("sql/v066_compact_match_history.sql")),
     // V67: edition archive records and replays are stored deflated
     ("v067_compressed_archive_and_replays.sql", include_str!("sql/v067_compressed_archive_and_replays.sql")),
+    // V68: retired players and managers are stored deflated
+    ("v068_compressed_retiree_archives.sql", include_str!("sql/v068_compressed_retiree_archives.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -1043,6 +1045,7 @@ mod tests {
     ("v065_player_suspensions.sql", 0x8c7c919985762945),
     ("v066_compact_match_history.sql", 0x615221a4621a6474),
     ("v067_compressed_archive_and_replays.sql", 0x3e6ec1017c142503),
+    ("v068_compressed_retiree_archives.sql", 0xbd67d52ff2973a0e),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

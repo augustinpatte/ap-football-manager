@@ -150,12 +150,13 @@ impl Bench {
         let (history, other) = match_history_bytes(&path);
         let simulated = self.last_marker.elapsed().as_millis();
         self.rows.push(format!(
-            "{label:<14} fixtures={matches:>6} total={total:>11} history={history:>10} (+{:>9}) other={other:>10} (+{:>9}) files={:?} save_ms={save_ms:>5} load_ms={load_ms:>5} sim_ms_since_last={simulated:>6} rss_mb={} edition_archive={} stat_rows={}/{}",
+            "{label:<14} fixtures={matches:>6} total={total:>11} history={history:>10} (+{:>9}) other={other:>10} (+{:>9}) files={:?} save_ms={save_ms:>5} load_ms={load_ms:>5} sim_ms_since_last={simulated:>6} rss_mb={} edition_archive={} journal_posts={} stat_rows={}/{}",
             history - self.last_history,
             other - self.last_other,
             files.iter().map(|(n, s)| (n.rsplit('.').next().unwrap_or("").to_string(), *s)).collect::<Vec<_>>(),
             rss_mb(),
             game.edition_archive.len(),
+            game.cash_journal.len(),
             self.stats.player_matches.len(),
             self.stats.team_matches.len(),
         ));

@@ -39,8 +39,14 @@ fn persist_game_under_operation(
         .get_save_id()
         .filter(|id| !id.is_empty())
         .ok_or_else(|| "be.error.noActiveSaveSession".to_string())?;
-    let (game, flushed) = state
-        .get_game(|game| (game.clone(), game.cash_journal_dirty_ids.clone()))
+    let (game, flushed, folded) = state
+        .get_game(|game| {
+            (
+                game.clone(),
+                game.cash_journal_dirty_ids.clone(),
+                game.cash_journal_fold_pending.clone(),
+            )
+        })
         .ok_or_else(|| "be.error.noActiveGameSession".to_string())?;
     let stats = state
         .get_stats_state(|stats| stats.clone())
@@ -51,6 +57,10 @@ fn persist_game_under_operation(
     state.update_game(|live| {
         live.cash_journal_dirty_ids
             .retain(|id| !flushed.contains(id));
+        // Only the fold this save carried: a later rollover's is still owed to the file.
+        if live.cash_journal_fold_pending == folded {
+            live.cash_journal_fold_pending = None;
+        }
     });
     Ok(())
 }

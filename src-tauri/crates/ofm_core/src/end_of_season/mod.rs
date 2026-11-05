@@ -1043,6 +1043,8 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     // 4b. The boards of the AI clubs reset their wage budgets from a year of income.
     crate::ai_budget_review::review_wage_budgets(game);
+    // The budget review has read its year of income; older months are folded now.
+    crate::finances::journal::fold_old_posts(game);
 
     // 5. Record player career entries and reset stats
     for player in game.players.iter_mut() {

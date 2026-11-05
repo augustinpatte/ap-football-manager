@@ -441,6 +441,7 @@ impl GamePersistenceReader {
                 conn,
             )?),
             cash_journal_dirty_ids: Vec::new(),
+            cash_journal_fold_pending: None,
             squad_floor_top_ups: Vec::new(),
         };
         game.promote_legacy_league();

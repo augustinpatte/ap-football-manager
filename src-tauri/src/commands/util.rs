@@ -195,4 +195,81 @@ mod tests {
 
         let _ = fs::remove_dir_all(&path);
     }
+
+    /// Given a live game whose journal was folded at a rollover (single payments of an old month
+    /// replaced by one post, the file not yet told),
+    /// When the game is saved,
+    /// Then the file holds the fold and not the payments it replaced, the club's stored balance is
+    /// unchanged, and the pending marker is cleared so the next save does not repeat the work.
+    #[test]
+    fn a_fold_reaches_the_file_on_the_next_save_and_the_marker_is_cleared() {
+        use super::persist_active_game;
+        use db::save_manager::SaveManager;
+        use domain::finance::CashKind;
+        use ofm_core::finances::post;
+        use ofm_core::state::StateManager;
+        use std::fs;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("ofm-persist-fold-{unique}"));
+        fs::create_dir_all(&path).expect("temp dir");
+        let mut save_manager = SaveManager::init(&path).expect("save manager");
+        let mut team = make_team("team-1");
+        team.finance = 500_000;
+        let game = make_game(Some("team-1"), vec![team]);
+        let save_id = save_manager
+            .create_save(&game, "Journal Fold")
+            .expect("save");
+        let state = StateManager::new();
+        state.set_game(game);
+        state.set_save_id(save_id.clone());
+
+        state
+            .update_game(|live| {
+                for week in 0..4 {
+                    let date = chrono::NaiveDate::from_ymd_opt(2020, 3, 2).expect("date")
+                        + chrono::Duration::days(7 * week);
+                    post(live, "team-1", -100, CashKind::PlayerWages, date).expect("post");
+                }
+            })
+            .expect("update");
+        persist_active_game(&state, &mut save_manager).expect("first persist");
+        let stored = save_manager.load_game(&save_id).expect("reload");
+        let balance = stored.cash_journal.cash_for("team-1");
+        let singles = stored.cash_journal.len();
+        assert!(singles >= 5, "seed + four payments");
+
+        state
+            .update_game(|live| {
+                let created = live.cash_journal.fold_before("2021-01-01");
+                live.cash_journal_dirty_ids.extend(created);
+                live.cash_journal_fold_pending = Some("2021-01-01".to_string());
+            })
+            .expect("fold");
+        persist_active_game(&state, &mut save_manager).expect("fold persist");
+
+        assert!(
+            state
+                .get_game(|live| live.cash_journal_fold_pending.is_none())
+                .expect("live game"),
+            "the save that carried the fold clears the marker"
+        );
+        let folded = save_manager.load_game(&save_id).expect("reload");
+        assert_eq!(folded.cash_journal.cash_for("team-1"), balance);
+        assert!(
+            folded.cash_journal.len() < singles,
+            "{} < {singles}",
+            folded.cash_journal.len()
+        );
+        assert!(folded
+            .cash_journal
+            .iter()
+            .any(|p| p.id.starts_with("fold:")));
+
+        let _ = fs::remove_dir_all(&path);
+    }
 }

@@ -256,6 +256,25 @@ is skipped on the IPC payload because it only grows.
 - **Readers.** The Hall of Fame, a retiree's profile, his stats overview and the names on old
   results read the archive (`ofm_core::retirees`, `ofm_core::hall_of_fame`).
 
+### Storage of long careers (Run F5.0 and F5.1)
+
+Three stores are written once or folded so a thirty-season career stays compact. Their figures,
+measured on generated careers, are in `docs/APFM_RUN_F5_1_INTELLIGENT_WORLD.md` section 15.
+
+- **Deflated archives** (v067, v068). A finished competition edition, a replay, a retired player and a
+  retired manager are stored deflated in a `*_z` column with an empty JSON column; a row written
+  before the migration keeps its JSON and is still read. Nothing is rewritten.
+- **Folded cash journal.** The journal is append-only and was 54 % of a thirty-season file. At each
+  rollover `finances::journal::fold_old_posts` replaces every post older than two years (to the start
+  of its month) by one post per club, kind and month, with id `fold:<club>:<kind>:<YYYY-MM>`. A club's
+  cash is the sum of its posts and a fold changes no sum; opening balances are kept and a fold is
+  never folded again. The file is told on the next save: `Game::cash_journal_fold_pending` carries the
+  cutoff (runtime only, never saved), `journal_repo::persist_cash_journal` deletes the stored posts
+  before it that are not folds and inserts the folds in the same transaction, and
+  `application::saving` clears the marker once the save that carried it has succeeded. A save made
+  before the fold is compacted the first time it rolls over.
+- **Compact match history** (v066) and its retention window are described in the F5.0 report.
+
 ### Football Identity Notes
 
 - Legacy saves may still store `nationality` / `country` values such as `"GB"`, `"British"`, or demonyms like `"English"`.

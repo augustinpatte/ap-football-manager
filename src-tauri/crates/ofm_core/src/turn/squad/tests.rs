@@ -258,25 +258,32 @@ fn a_slightly_tired_star_still_plays_against_the_same_deputy() {
 }
 
 /// However tired, a star is not replaced by someone more than twenty points worse: the graded
-/// tolerance is capped, so the match's importance is never traded away for a rest.
+/// tolerance is capped. The elite manager is the one the cap binds on (his uncapped tolerance at
+/// 46 % is 12 + 0.4 x 29 = 23.6), so a deputy 22 points worse is the discriminating case: an
+/// uncapped tolerance would field him, the cap leaves the star in. Without the cap a manager's
+/// concern for the match would be traded away for a rest.
 #[test]
 fn the_graded_tolerance_is_capped() {
     let mut squad = Vec::new();
     for i in 0..11 {
-        squad.push(mk(&format!("star{i}"), 80, 48));
+        squad.push(mk(&format!("star{i}"), 80, 46));
     }
-    squad.push(mk("scrub", 55, 100)); // 25 points worse
+    squad.push(mk("scrub", 58, 100)); // 22 points worse
     let refs: Vec<&Player> = squad.iter().collect();
 
     let xi = ai_select_starting_xi(
         &refs,
         "4-4-2",
-        management_quality(600),
+        management_quality(900),
         1,
         FixtureLoad::Normal,
     );
 
-    assert!(xi.iter().all(|p| p.id != "scrub"));
+    assert!(
+        xi.iter().all(|p| p.id != "scrub"),
+        "a deputy 22 points worse must not start: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
 }
 
 /// Quality is judgement, not willingness. Given two deputies of nearly equal

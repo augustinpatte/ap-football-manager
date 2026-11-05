@@ -157,6 +157,128 @@ mod tests {
         }
     }
 
+    fn game_on(
+        date: (i32, u32, u32),
+        user_sponsor: Option<Sponsorship>,
+        ai_sponsor: Option<Sponsorship>,
+    ) -> Game {
+        use chrono::TimeZone;
+        use domain::manager::Manager;
+        use domain::team::Team;
+        let clock = crate::clock::GameClock::new(
+            chrono::Utc
+                .with_ymd_and_hms(date.0, date.1, date.2, 12, 0, 0)
+                .unwrap(),
+        );
+        let mut manager = Manager::new(
+            "mgr".into(),
+            "Test".into(),
+            "Manager".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
+        manager.hire("user".into());
+        let club = |id: &str, sponsor: Option<Sponsorship>| {
+            let mut team = Team::new(
+                id.into(),
+                id.into(),
+                id.to_uppercase(),
+                "England".into(),
+                "London".into(),
+                "Ground".into(),
+                30_000,
+            );
+            team.reputation = 700;
+            team.sponsorship = sponsor;
+            team
+        };
+        Game::new(
+            clock,
+            manager,
+            vec![club("user", user_sponsor), club("ai", ai_sponsor)],
+            vec![],
+            vec![],
+            vec![],
+        )
+    }
+
+    fn sponsor(weekly: i64, weeks: u32) -> Sponsorship {
+        Sponsorship {
+            sponsor_name: "Existing".into(),
+            base_value: weekly,
+            remaining_weeks: weeks,
+            bonus_criteria: Vec::new(),
+        }
+    }
+
+    fn sponsorship_of<'a>(game: &'a Game, id: &str) -> &'a Option<Sponsorship> {
+        &game
+            .teams
+            .iter()
+            .find(|team| team.id == id)
+            .unwrap()
+            .sponsorship
+    }
+
+    /// Given a Monday and an AI club with no sponsor, when sponsorships are renewed, then it signs
+    /// one for a year at the rate its reputation commands, and the player's club (which has none
+    /// either) is left to the player.
+    #[test]
+    fn an_ai_club_without_a_sponsor_signs_one_on_a_monday_and_the_players_club_does_not() {
+        let mut game = game_on((2026, 8, 3), None, None);
+
+        renew_ai_sponsorships(&mut game);
+
+        let signed = sponsorship_of(&game, "ai").as_ref().expect("a sponsor");
+        assert_eq!(signed.base_value, ai_sponsorship_weekly(700));
+        assert_eq!(signed.remaining_weeks, 52);
+        assert!(sponsorship_of(&game, "user").is_none());
+    }
+
+    /// Given any other day, when sponsorships are renewed, then nothing happens: the review is a
+    /// weekly one, not a daily one.
+    #[test]
+    fn sponsorships_are_only_renewed_on_mondays() {
+        let mut game = game_on((2026, 8, 4), None, None);
+        renew_ai_sponsorships(&mut game);
+        assert!(sponsorship_of(&game, "ai").is_none());
+    }
+
+    /// Given an AI club whose sponsor still has weeks to run, when sponsorships are renewed, then
+    /// the deal is kept as it is; and once it has run out a new one is signed.
+    #[test]
+    fn a_running_sponsor_is_kept_and_an_expired_one_is_replaced() {
+        let mut running = game_on((2026, 8, 3), None, Some(sponsor(1, 10)));
+        renew_ai_sponsorships(&mut running);
+        assert_eq!(
+            sponsorship_of(&running, "ai").as_ref().unwrap().base_value,
+            1
+        );
+
+        let mut expired = game_on((2026, 8, 3), None, Some(sponsor(1, 0)));
+        renew_ai_sponsorships(&mut expired);
+        assert_eq!(
+            sponsorship_of(&expired, "ai").as_ref().unwrap().base_value,
+            ai_sponsorship_weekly(700)
+        );
+    }
+
+    /// Given the AI's own estimate of what a club can count on, when two clubs have the same ground
+    /// and different reputations, then the bigger club expects more: the board plans on the gate it
+    /// will really sell.
+    #[test]
+    fn the_ai_finance_guard_expects_more_gate_at_a_bigger_club() {
+        let game = game_on((2026, 8, 3), None, None);
+        let mut small = game.teams[1].clone();
+        let mut big = game.teams[1].clone();
+        small.reputation = 400;
+        big.reputation = 780;
+        assert!(
+            crate::ai_finance_guard::expected_weekly_income(&big, 19)
+                > crate::ai_finance_guard::expected_weekly_income(&small, 19)
+        );
+    }
+
     /// Given the bottom, the middle and the top, when quality is shifted, then it is symmetric
     /// around the world's mean and a few points wide.
     #[test]

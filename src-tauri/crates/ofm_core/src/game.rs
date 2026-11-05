@@ -231,6 +231,13 @@ pub struct Game {
     /// `persist_active_game`.
     #[serde(skip)]
     pub cash_journal_dirty_ids: Vec<String>,
+    /// Set when the journal was folded (`CashJournal::fold_before`) and the file has not been told:
+    /// the first day, `YYYY-MM-DD`, from which posts were kept in full. The next save removes the
+    /// stored posts before it that are not folds, and the save that did so clears it
+    /// (`application::saving`). Never saved or sent over IPC: it is the pending half of an
+    /// operation, and a loaded game has nothing pending.
+    #[serde(skip)]
+    pub cash_journal_fold_pending: Option<String>,
     /// Every emergency squad top-up this session made
     /// ([`crate::squad_floor::restore_minimum_squad`]). A diagnostic, not game
     /// state: never saved or sent over IPC, so a loaded game starts it empty.
@@ -317,6 +324,7 @@ impl Game {
             cash_journal: CashJournal::default(),
             transfer_obligations: Vec::new(),
             cash_journal_dirty_ids: Vec::new(),
+            cash_journal_fold_pending: None,
             squad_floor_top_ups: Vec::new(),
         };
         game.promote_legacy_league();

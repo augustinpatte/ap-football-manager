@@ -73,8 +73,22 @@ pub fn insert_dirty_cash_posts(conn: &Connection, game: &Game) -> Result<usize, 
 
 /// Overwrite saves only need new rows. A brand-new `.db` (`create_save`) must
 /// get the whole journal: loaded games have an empty dirty list.
+/// Removes the stored posts a fold replaced: everything before `cutoff` that is not an opening
+/// balance and not itself a fold. The folds are inserted by the same save, in the same transaction.
+fn remove_folded_posts(conn: &Connection, cutoff: &str) -> Result<usize, String> {
+    conn.execute(
+        "DELETE FROM cash_journal
+         WHERE date < ?1 AND kind <> 'opening_balance' AND id NOT LIKE 'fold:%'",
+        params![cutoff],
+    )
+    .map_err(|_| WRITE_ERROR.to_string())
+}
+
 pub fn persist_cash_journal(conn: &Connection, game: &Game) -> Result<usize, String> {
     if cash_journal_has_rows(conn)? {
+        if let Some(cutoff) = &game.cash_journal_fold_pending {
+            remove_folded_posts(conn, cutoff)?;
+        }
         insert_dirty_cash_posts(conn, game)
     } else {
         insert_cash_posts(conn, game.cash_journal.iter())
@@ -217,5 +231,67 @@ mod tests {
         assert_eq!(load_cash_journal(db.conn()).unwrap().len(), 2);
         assert_eq!(persist_cash_journal(db.conn(), &game).unwrap(), 0);
         assert_eq!(load_cash_journal(db.conn()).unwrap().len(), 2);
+    }
+
+    fn dated_post(id: &str, club: &str, amount: i64, kind: CashKind, date: &str) -> CashPost {
+        CashPost {
+            id: id.to_string(),
+            club_id: club.to_string(),
+            amount,
+            kind,
+            date: date.to_string(),
+        }
+    }
+
+    /// Given a stored journal and a fold of its old months that a save is carrying,
+    /// When the cutoff is applied to the file,
+    /// Then the old single payments are gone, the opening balance, the recent payments and any
+    /// earlier fold stay, and the club's stored balance is what it was.
+    #[test]
+    fn a_fold_removes_the_stored_payments_it_replaced_and_nothing_else() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let stored = vec![
+            dated_post("o", "a", 1_000, CashKind::OpeningBalance, "2020-07-01"),
+            dated_post("old-fold", "a", -300, CashKind::PlayerWages, "2020-08-01"),
+            dated_post("w1", "a", -100, CashKind::PlayerWages, "2021-09-06"),
+            dated_post("w2", "a", -100, CashKind::PlayerWages, "2021-09-13"),
+            dated_post("recent", "a", -100, CashKind::PlayerWages, "2024-01-08"),
+        ];
+        // The id that marks a fold is part of the contract, so the earlier fold is named as one.
+        let mut stored = stored;
+        stored[1].id = "fold:a:PlayerWages:2020-08".to_string();
+        insert_cash_posts(db.conn(), stored.iter()).unwrap();
+        let balance_before: i64 = load_cash_journal(db.conn())
+            .unwrap()
+            .iter()
+            .map(|p| p.amount)
+            .sum();
+
+        let removed = remove_folded_posts(db.conn(), "2023-01-01").unwrap();
+        insert_cash_posts(
+            db.conn(),
+            std::iter::once(&dated_post(
+                "fold:a:PlayerWages:2021-09",
+                "a",
+                -200,
+                CashKind::PlayerWages,
+                "2021-09-01",
+            )),
+        )
+        .unwrap();
+
+        assert_eq!(removed, 2, "only the two single payments before the cutoff");
+        let after = load_cash_journal(db.conn()).unwrap();
+        let ids: Vec<&str> = after.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "o",
+                "fold:a:PlayerWages:2020-08",
+                "recent",
+                "fold:a:PlayerWages:2021-09"
+            ]
+        );
+        assert_eq!(after.iter().map(|p| p.amount).sum::<i64>(), balance_before);
     }
 }
