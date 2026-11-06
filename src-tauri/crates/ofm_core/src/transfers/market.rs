@@ -358,28 +358,38 @@ pub(crate) struct LoanTarget {
     player_id: String,
     owner_team_id: String,
     owner_reputation: u32,
+    position_group_index: usize,
     ovr: u8,
 }
 
-/// An AI club with nothing to buy borrows a loan-listed player who would improve its squad, on the
+/// Immutable inputs to one club's search for a loan. Keeping them together makes it explicit
+/// that a loan is judged from a single squad snapshot before the registration mutates the game.
+struct LoanSearch<'a> {
+    borrower: &'a Team,
+    levels: &'a [Vec<u8>; 4],
+    view: &'a BuyerView,
+    books: &'a crate::ai_finance_guard::SigningBooks,
+    targets: &'a [LoanTarget],
+    moved_player_ids: &'a HashSet<String>,
+    current_date: NaiveDate,
+}
+
+/// An AI club borrows a loan-listed player when he would improve a genuine current need, on the
 /// least share of his wage his club accepts, when it can carry that share. The same loan the
 /// player's own club can ask for (`make_loan_offer`): the owner's terms, the squad floor, the
 /// borrower's wage policy, all unchanged. Returns the player borrowed.
-fn try_ai_loan(
-    game: &mut Game,
-    borrower: &Team,
-    view: &BuyerView,
-    books: &crate::ai_finance_guard::SigningBooks,
-    targets: &[LoanTarget],
-    moved_player_ids: &HashSet<String>,
-    current_date: NaiveDate,
-) -> Option<String> {
-    let today = current_date.format("%Y-%m-%d").to_string();
-    for target in targets {
-        if target.owner_team_id == borrower.id
-            || moved_player_ids.contains(&target.player_id)
-            || target.owner_reputation as i32 - borrower.reputation as i32
+fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
+    let today = search.current_date.format("%Y-%m-%d").to_string();
+    for target in search.targets {
+        if target.owner_team_id == search.borrower.id
+            || search.moved_player_ids.contains(&target.player_id)
+            || target.owner_reputation as i32 - search.borrower.reputation as i32
                 > MAX_BUYER_REPUTATION_DEFICIT
+            || !target_fills_a_need(
+                &search.levels[target.position_group_index],
+                target.position_group_index,
+                target.ovr,
+            )
         {
             continue;
         }
@@ -387,7 +397,7 @@ fn try_ai_loan(
             continue;
         };
         // A loan is for this season: it has to make this season's side better.
-        if !view.worth_borrowing(player) {
+        if !search.view.worth_borrowing(player) {
             continue;
         }
         let Some(owner) = game.teams.iter().find(|t| t.id == target.owner_team_id) else {
@@ -400,12 +410,13 @@ fn try_ai_loan(
         {
             continue;
         }
-        let Some(end_date) = default_loan_end_date(current_date, player) else {
+        let Some(end_date) = default_loan_end_date(search.current_date, player) else {
             continue;
         };
         let share = minimum_loan_wage_contribution_pct(player, owner);
-        if !books.can_add_wage(loan_wage_share(player, share))
-            || validate_loan_borrower_affordability(game, &borrower.id, player, share).is_err()
+        if !search.books.can_add_wage(loan_wage_share(player, share))
+            || validate_loan_borrower_affordability(game, &search.borrower.id, player, share)
+                .is_err()
         {
             continue;
         }
@@ -414,7 +425,7 @@ fn try_ai_loan(
             game,
             &player_id,
             &target.owner_team_id,
-            &borrower.id,
+            &search.borrower.id,
             &today,
             &end_date,
             share,
@@ -459,6 +470,34 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // instead of buying only once the hole has opened.
     let planned_levels =
         crate::squad_outlook::planned_levels_by_club(registered_seniors(game), current_date);
+    let best_listed_loan_by_group = game
+        .players
+        .iter()
+        .filter_map(|player| {
+            (player.loan_listed
+                && player.team_id.is_some()
+                && !player_has_pending_registration(player))
+            .then_some((position_group_index(&player.position), player.ovr))
+        })
+        .fold([0_u8; 4], |mut best, (group, ovr)| {
+            best[group] = best[group].max(ovr);
+            best
+        });
+    let clubs_with_loan_needs: HashSet<&str> = squad_levels
+        .iter()
+        .filter_map(|(club, levels)| {
+            (0..4)
+                .any(|group| {
+                    best_listed_loan_by_group[group] > 0
+                        && target_fills_a_need(
+                            &levels[group],
+                            group,
+                            best_listed_loan_by_group[group],
+                        )
+                })
+                .then_some(club.as_str())
+        })
+        .collect();
     // Whether the player himself would go: he is a party to every move, the AI's included.
     let consent = SweepConsent::new(game, &squad_levels);
     let home_matches: std::collections::HashMap<String, i64> =
@@ -530,7 +569,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             // planning squad to price its sales, so retaining its shared need model activates a
             // real sporting need without another squad-model pass.
             let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need)
-                || clubs_with_squad_needs.contains(&team.id);
+                || clubs_with_squad_needs.contains(&team.id)
+                || clubs_with_loan_needs.contains(team.id.as_str());
             // A club with nothing pressing may wait: early in the window most do.
             let patient = !unmet_need
                 && !promoted_clubs.contains(team.id.as_str())
@@ -542,9 +582,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 && active_team_ids.as_ref().is_none_or(|ids| {
                     ids.contains(&team.id)
                         || crate::ai_tactics::review_weekday(&team.id) == weekday
-                        // A club with a hole in its squad does not wait for its review day once
-                        // the window is closing.
-                        || (phase >= WindowPhase::LastWeek && unmet_need)
+                        // A concrete depth, Squad Intelligence or loan need does not wait for a
+                        // review weekday. Clubs without one still amortise their market work.
+                        || unmet_need
                         // And in the last three days every club is in the market.
                         || whole_market_is_open(phase)
                 })
@@ -713,6 +753,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 player_id: player.id.clone(),
                 owner_team_id: owner.to_string(),
                 owner_reputation: team_reputation.get(owner).copied().unwrap_or(0),
+                position_group_index: position_group_index(&player.position),
                 ovr: player.ovr,
             })
         })
@@ -769,6 +810,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         // The list is score-sorted, so the first target clearing this club's
         // filters is its highest-appeal eligible signing.
         let buyer_levels = planned_levels.get(&buyer_id).cloned().unwrap_or_default();
+        let loan_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
         let buyer_books = crate::ai_finance_guard::SigningBooks::given(
             &buyer_team,
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
@@ -909,6 +951,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 &buyer_levels[target.position_group_index],
                 target.position_group_index,
             );
+            let actual_points = fit(target).0;
             // Clubs only chase players that fit their stature and a position they
             // actually need, so a single star doesn't draw the whole division. A club with a hole
             // to fill near the close will look a little higher.
@@ -938,7 +981,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     if same_country || thin || target.value >= CROSS_BORDER_FILLER_VALUE {
                         0
                     } else {
-                        fit(target).0
+                        actual_points
                     };
                 if !worth_the_border(same_country, target.value, improvement, thin) {
                     return false;
@@ -1079,12 +1122,15 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if completed_ai_loans < max_ai_loans
                 && let Some(player_id) = try_ai_loan(
                     game,
-                    &buyer_team,
-                    &view,
-                    &buyer_books,
-                    &loan_targets,
-                    &moved_player_ids,
-                    current_date,
+                    LoanSearch {
+                        borrower: &buyer_team,
+                        levels: &loan_levels,
+                        view: &view,
+                        books: &buyer_books,
+                        targets: &loan_targets,
+                        moved_player_ids: &moved_player_ids,
+                        current_date,
+                    },
                 )
             {
                 moved_player_ids.insert(player_id);
@@ -1147,6 +1193,24 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             .get(&candidate.player_id)
             .and_then(|&index| consent.terms_for(&game.players[index], &buyer_team, current_date))
             .unwrap_or_default();
+        if completed_ai_loans < max_ai_loans
+            && let Some(player_id) = try_ai_loan(
+                game,
+                LoanSearch {
+                    borrower: &buyer_team,
+                    levels: &loan_levels,
+                    view: &view,
+                    books: &buyer_books,
+                    targets: &loan_targets,
+                    moved_player_ids: &moved_player_ids,
+                    current_date,
+                },
+            )
+        {
+            moved_player_ids.insert(player_id);
+            completed_ai_loans += 1;
+            continue;
+        }
         if execute_transfer_with_terms(
             game,
             &candidate.player_id,

@@ -8,7 +8,7 @@
 //! rollover.
 
 use db::save_manager::SaveManager;
-use domain::delegation::DelegationMode;
+use domain::delegation::{DelegationMode, Duty};
 use domain::staff::StaffPost;
 use domain::stats::StatsState;
 use ofm_core::end_of_season::is_season_complete;
@@ -113,7 +113,7 @@ fn every_player_has_one_club(game: &Game) {
     }
 }
 
-/// Given the whole job handed over with a fee ceiling
+/// Given autonomous player recruitment handed over with a fee ceiling
 /// When a season is played with a reload in the middle of the window and another after the rollover
 /// Then nothing above the ceiling is paid, nobody is sold by the assistant, the world stays
 ///      consistent, and the assistant's memory is exactly what it was before each reload.
@@ -121,7 +121,10 @@ fn every_player_has_one_club(game: &Game) {
 fn a_delegated_career_recruits_within_its_ceiling_and_remembers_across_reloads() {
     let mut game = WorldSpec::gate(1).build().expect("the world builds");
     ensure_assistant(&mut game);
-    game.delegation.apply_mode(DelegationMode::Full);
+    // Total authority is intentionally governed by the club's books, not a per-deal ceiling.
+    // This scenario verifies the distinct, manager-configured ceiling path: one delegated duty
+    // may act without confirmation while remaining inside the explicit recruitment limit.
+    game.delegation.set(Duty::PlayerRecruitment, true, false);
     game.delegation.limits.max_transfer_fee = FEE_CEILING;
     game.delegation.limits.max_commitment = 12_000_000;
     game.delegation.limits.max_player_wage = 60_000;
@@ -223,7 +226,7 @@ fn a_delegated_career_recruits_within_its_ceiling_and_remembers_across_reloads()
     )
     .unwrap_or_else(|e| panic!("{e}"));
     reload(&mut game, "after the rollover");
-    assert_eq!(game.delegation.mode(), DelegationMode::Full);
+    assert_eq!(game.delegation.mode(), DelegationMode::Custom);
     assert_eq!(game.delegation.limits.max_transfer_fee, FEE_CEILING);
 
     ensure_assistant(&mut game);

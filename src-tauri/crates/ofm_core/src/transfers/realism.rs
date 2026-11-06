@@ -486,7 +486,7 @@ pub(crate) fn foreign_visibility(value: u64) -> f64 {
 /// A buyer's ranking of a target it could sign: the club's own interest in him, plus what he adds
 /// to the squad, weighted by geography.
 pub(crate) fn target_rank(interest_score: i32, improvement: i32, affinity: f64) -> f64 {
-    (f64::from(interest_score) + 4.0 * f64::from(improvement.clamp(0, 15))) * affinity
+    f64::from(interest_score) * affinity + 4.0 * f64::from(improvement.clamp(0, 15))
 }
 
 /// Whether a club with no hole in its squad goes shopping today. In the first weeks of the window
@@ -508,7 +508,7 @@ pub(crate) fn whole_market_is_open(phase: WindowPhase) -> bool {
 /// A foreign player worth less than this is not worth a trip across the border for a squad filler.
 pub(crate) const CROSS_BORDER_FILLER_VALUE: u64 = 500_000;
 /// The rating gain that does justify one.
-pub(crate) const CROSS_BORDER_MIN_GAIN: i32 = 4;
+pub(crate) const CROSS_BORDER_MIN_GAIN: i32 = 7;
 
 /// Whether a buyer would look abroad for this player: not a cheap squad filler, unless he is a
 /// clear upgrade or the buyer has nobody in the position at all. A home player is never refused here.
