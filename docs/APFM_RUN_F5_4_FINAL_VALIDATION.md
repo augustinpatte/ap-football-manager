@@ -81,4 +81,4 @@ sweep (especially listed-loan participation) against F5.3, then repeat a compara
 shipped-world benchmark before release.
 
 Starting validation commit: `1a2568d509802b30a371e4eeafa237af5752bd5a`.
-Final F5.4.1 validation commit: pending.
+Final F5.4.1 validation commit: `54be3a6f09864a60ca465abb2cbb669cca93395d`.
