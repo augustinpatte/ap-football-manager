@@ -293,6 +293,15 @@ pub(crate) fn profiles(
         .collect()
 }
 
+/// One club's profile, read as the sweep reads it: for a caller that works for a single club (the
+/// manager's assistant) and has no sweep to share the reading with.
+pub(crate) fn profile_of(game: &Game, team_id: &str) -> ClubProfile {
+    let wage_bills = crate::finances::wage_bills_by_club(game);
+    profiles(game, &wage_bills)
+        .remove(team_id)
+        .unwrap_or(ClubProfile::NEUTRAL)
+}
+
 /// A club's strategy in words, for the harness and for any screen that wants to say what a club is
 /// about. Read-only: nothing is stored.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]

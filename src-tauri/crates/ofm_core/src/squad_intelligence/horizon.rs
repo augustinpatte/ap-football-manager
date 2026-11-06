@@ -34,7 +34,7 @@ pub(crate) fn projected_shifts(player: &PlannedPlayer) -> [Option<f32>; HORIZON]
     let mut shifts = [None; HORIZON];
     shifts[0] = Some(0.0);
     let mut rating = player.ovr;
-    for year in 1..HORIZON {
+    for (year, shift) in shifts.iter_mut().enumerate().skip(1) {
         let years = year as i32;
         if leaves_within(player, years) {
             // Once gone, gone: a later year never brings him back.
@@ -46,7 +46,7 @@ pub(crate) fn projected_shifts(player: &PlannedPlayer) -> [Option<f32>; HORIZON]
             player.age + years - 1,
             player.group,
         );
-        shifts[year] = Some(f32::from(rating) - f32::from(player.ovr));
+        *shift = Some(f32::from(rating) - f32::from(player.ovr));
     }
     shifts
 }

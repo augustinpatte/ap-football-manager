@@ -137,7 +137,7 @@ impl SaleView {
         }
         let mut squads = self.squads.borrow_mut();
         let seller_squad = squads.entry(seller.team.id.clone()).or_insert_with(|| {
-            ClubSquad::from_players(
+            ClubSquad::for_planning(
                 seller.squad.iter().map(|&index| &game.players[index]),
                 seller.team,
                 seller.today,

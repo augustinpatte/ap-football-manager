@@ -704,7 +704,9 @@
       "Possession": "Topun sabırla dolaştırılmasını, temponun kontrol edilmesini ve daha temiz fırsatlar aranmasını teşvik eder.",
       "Counter": "Top kazanıldıktan sonra rakip yerleşmeden boş alanlara hızlı çıkışı teşvik eder.",
       "HighPress": "Takımın daha erken baskı yapmasını, topu ileride kazanmasını ve rakibi baskı altında tutmasını ister."
-    }
+    },
+    "protectFromSale": "Satıştan koru",
+    "removeSaleProtection": "Yardımcının satmasına izin ver"
   },
   "tactics": {
     "formationStyle": "Diziliş ve Stil",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Yetki devri modu",
         "manual": "Manuel",
-        "approval": "Onaylı",
+        "approval": "Temkinli",
         "full": "Tam",
         "custom": "Özel",
         "manualDesc": "Tüm kararları siz verirsiniz. Yardımcı yalnızca tavsiye eder.",
-        "approvalDesc": "Yardımcı rutin işleri yürütür, her önemli kararı size getirir.",
-        "fullDesc": "Yardımcı her şeyi aşağıdaki sınırlar içinde yürütür. Sınırı aşan her şey yine size gelir.",
-        "customDesc": "Görevler aşağıda tek tek ayarlanır."
+        "approvalDesc": "Yardımcı rutin işleri yürütür, her önemli kararı (bir transfer, bir satış, bir yenileme) okuyup yanıtlayabileceğiniz bir öneri olarak size getirir.",
+        "fullDesc": "Yardımcı her görevi kendisi yürütür — transfer, pazarlık, satış, yenileme — kulübün mali durumu ve kurallar içinde kalır ve korumaya aldığınız bir oyuncuyu asla satmaz.",
+        "customDesc": "Görevler aşağıda tek tek ayarlanır.",
+        "totalNote": "Tam yetki: yardımcı kulübün nakdi, maaş payı ve yönetimin kurallarıyla sınırlıdır; bu yüzden aşağıdaki harcama limitleri transfer ve yenilemelerde kullanılmaz. Korumaya aldığınız bir oyuncuyu asla satmaz.",
+        "limitsOnlyNote": "Bu mod aşağıdaki harcama limitleri içinde çalışır. Yardımcıya kulübün finansı üzerinde yetki vermek için Tam'ı seçin."
       },
       "limits": {
         "title": "Harcama sınırları",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Yardımcı raporu",
-        "body": "Patron, son raporumdan beri {{done}} karar aldım, {{left}} kararı size bıraktım. {{waiting}} öneri yanıtınızı bekliyor."
+        "body": "Patron, son raporumdan beri {{done}} karar aldım, {{left}} kararı size bıraktım. {{waiting}} öneri yanıtınızı bekliyor.",
+        "bodyTransfers": "Patron, son raporumdan beri aralarında {{signings}} transfer ve {{sales}} satış olmak üzere {{done}} karar aldım, {{left}} kararı size bıraktım. {{waiting}} öneri yanıtınızı bekliyor."
       },
       "assistantProposals": {
         "subject": "Bekleyen öneriler",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "{{name}} ile değiştir (seviye {{ovr}})",
       "renew": "{{name}} haftalık {{wage}} ile {{years}} yıl yenilensin",
       "renewPlayer": "{{player}} sözleşmesini haftalık {{wage}} ile {{years}} yıl yenile",
-      "signPlayer": "{{player}} ({{position}}) {{fee}} karşılığında transfer et, haftada {{wage}} ile {{years}} yıl"
+      "signPlayer": "{{player}} ({{position}}) {{fee}} karşılığında transfer et, haftada {{wage}} ile {{years}} yıl",
+      "sellPlayer": "{{player}} oyuncusunu {{club}} kulübüne {{fee}} karşılığında sat",
+      "counterOffer": "{{club}} kulübünden {{player}} için {{fee}} iste (teklifleri {{offered}})",
+      "listPlayer": "{{player}} oyuncusunu transfer listesine ekle"
     },
     "reason": {
       "vacancy": "Zorunlu bir kadro boş.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "Sözleşme bitmek üzere.",
       "aboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırının üzerinde.",
       "recruitNeed": "Kadronun bu mevkide bir oyuncuya ihtiyacı var.",
-      "recruitAboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırını veya onun adil bulduğu fiyatı aşıyor."
+      "recruitAboveLimit": "Bu, yardımcıya koyduğunuz bir harcama sınırını veya onun adil bulduğu fiyatı aşıyor.",
+      "recruitStarter": "{{role}} mevkiinde ilk on birde yer alır ve takıma yaklaşık {{gain}} reyting puanı katar.",
+      "recruitDepth": "Kadro {{role}} mevkii çevresinde dar: onu kapatır ve yaklaşık {{gain}} reyting puanı güç ekler.",
+      "recruitSuccession": "{{role}} mevkiindeki ilk tercih yaşlanıyor ya da ayrılıyor: o, halefi.",
+      "saleSurplus": "Takım onu pek aramaz (yaklaşık {{loss}} reyting puanı) ve bedel adil.",
+      "saleFunds": "Bu para takımın zayıf noktalarını onun katkısından daha fazla güçlendirir (onu kaybetmek yaklaşık {{loss}} reyting puanına mal olur).",
+      "saleFair": "Takımın vazgeçebileceği bir oyuncu için adil bir bedel (onu kaybetmek yaklaşık {{loss}} reyting puanına mal olur).",
+      "listSurplus": "Kadroda onun mevkiinde ihtiyaçtan fazla oyuncu var: takım yaklaşık {{loss}} reyting puanı kaybeder.",
+      "listLeaving": "Sözleşmesi bitiyor ve kulüp yenilemeyi planlamıyor.",
+      "listFunds": "Onu satmak daha güçlü bir takımı finanse eder: ayrılışı takıma yaklaşık {{loss}} reyting puanına mal olur.",
+      "listBooks": "Maaş yükü bütçeyi aşıyor ve o ilk on birde yer almıyor."
     },
     "log": {
       "hired": "{{name}} ({{post}}) haftalık {{wage}} ile işe alındı",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Sonraki maç için taktik planını belirledi ({{style}} stili)",
       "trainingIntensity": "Antrenmanı {{focus}} odağında, {{intensity}} yoğunlukta ayarladı",
       "offerDeclined": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: değerinin çok altında",
-      "offerKeepsStarter": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: ilk on birde yer alıyor"
+      "offerKeepsStarter": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: ilk on birde yer alıyor",
+      "offerDeclinedProtected": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: satılmamasını istemiştiniz",
+      "offerKept": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini reddetti: kulüp onu tutmayı tercih ediyor",
+      "offerAcceptedSurplus": "{{player}} oyuncusunu {{club}} kulübüne {{fee}} karşılığında sattı: takım onu pek aramaz ({{loss}} reyting puanı), haftalık {{wage}} maaşı yükten düşer",
+      "offerAcceptedFunds": "{{player}} oyuncusunu {{club}} kulübüne zayıf noktaları güçlendirmek için {{fee}} karşılığında sattı: takım yaklaşık {{loss}} reyting puanı kaybeder; haftalık {{wage}} maaşı yükten düşer",
+      "offerAcceptedFair": "{{player}} oyuncusunu {{club}} kulübüne {{fee}} karşılığında sattı, vazgeçilebilir bir oyuncu için adil bir bedel ({{loss}} reyting puanı)",
+      "offerCounteredAccepted": "{{club}} kulübünden {{player}} için {{asked}} istedi (teklifleri {{offered}}): kabul ettiler",
+      "offerCounteredAgain": "{{club}} kulübünden {{player}} için {{asked}} istedi (teklifleri {{offered}}): yeni bir teklifle döndüler",
+      "offerCounteredRefused": "{{club}} kulübünden {{player}} için {{asked}} istedi (teklifleri {{offered}}): görüşmeden çekildiler",
+      "offerNotAccepted": "{{club}} kulübünün {{player}} için yaptığı {{fee}} teklifini size bıraktı: mevcut durumda satış yapılamıyor",
+      "listedSurplus": "{{player}} oyuncusunu transfer listesine ekledi: kadroda onun mevkiinde ihtiyaçtan fazla oyuncu var (takıma {{loss}} reyting puanı)",
+      "listedLeaving": "{{player}} oyuncusunu transfer listesine ekledi: sözleşmesi bitiyor ve yenilenmeyecek",
+      "listedFunds": "{{player}} oyuncusunu daha güçlü bir takımı finanse etmek için transfer listesine ekledi (takıma {{loss}} reyting puanı)",
+      "listedBooks": "{{player}} oyuncusunu transfer listesine ekledi: maaş yükü bütçeyi aşıyor",
+      "delisted": "{{player}} oyuncusunu transfer listesinden çıkardı: takımın ona ihtiyacı var",
+      "released": "{{player}} oyuncusunun sözleşmesini tazminatla feshetti: kimse almadı ve maaş yükü bütçeyi aşıyor",
+      "listedApproved": "{{player}} oyuncusunu onayınız doğrultusunda transfer listesine ekledi",
+      "recruitNoLongerNeeded": "{{player}} ({{position}}) takibini bıraktı: kadronun artık ona ihtiyacı yok"
     }
   },
   "freeAgents": {

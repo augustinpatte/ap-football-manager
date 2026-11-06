@@ -704,7 +704,9 @@
     "adaptedFit": "Puede jugar ahí",
     "needsCover": "Necesita recambio",
     "makeStarter": "Poner de titular",
-    "sendToBench": "Enviar al banquillo"
+    "sendToBench": "Enviar al banquillo",
+    "protectFromSale": "Proteger de la venta",
+    "removeSaleProtection": "Permitir que el ayudante lo venda"
   },
   "tactics": {
     "formationStyle": "Formación y Estilo",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Modo de delegación",
         "manual": "Manual",
-        "approval": "Con aprobación",
+        "approval": "Prudente",
         "full": "Total",
         "custom": "Personalizado",
         "manualDesc": "Tú tomas todas las decisiones. El ayudante solo aconseja.",
-        "approvalDesc": "El ayudante lleva lo rutinario y te consulta cada decisión importante.",
-        "fullDesc": "El ayudante lo gestiona todo dentro de los límites de abajo. Lo que los supere sigue llegándote a ti.",
-        "customDesc": "Las tareas se ajustan una a una abajo."
+        "approvalDesc": "El ayudante lleva lo rutinario y te presenta cada decisión importante (un fichaje, una venta, una renovación) como una propuesta que puedes leer y responder.",
+        "fullDesc": "El ayudante gestiona él mismo cada tarea —fichar, negociar, vender, renovar— dentro de las finanzas del club y las normas, y nunca vende a un jugador que protejas.",
+        "customDesc": "Las tareas se ajustan una a una abajo.",
+        "totalNote": "Autoridad total: el ayudante se atiene a la caja del club, al margen salarial y a las normas de la directiva, así que los límites de gasto de abajo no se usan para fichajes ni renovaciones. Nunca vende a un jugador que protejas.",
+        "limitsOnlyNote": "Este modo funciona dentro de los límites de gasto de abajo. Elige Total para darle al ayudante autoridad sobre las finanzas del club."
       },
       "limits": {
         "title": "Límites de gasto",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Informe del ayudante",
-        "body": "Jefe, desde mi último informe tomé {{done}} decisión(es) y dejé {{left}} para ti. {{waiting}} propuesta(s) esperan tu respuesta."
+        "body": "Jefe, desde mi último informe tomé {{done}} decisión(es) y dejé {{left}} para ti. {{waiting}} propuesta(s) esperan tu respuesta.",
+        "bodyTransfers": "Jefe, desde mi último informe tomé {{done}} decisión(es), entre ellas {{signings}} fichaje(s) y {{sales}} venta(s), y dejé {{left}} para ti. {{waiting}} propuesta(s) esperan tu respuesta."
       },
       "assistantProposals": {
         "subject": "Propuestas pendientes",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Sustituir por {{name}} (nivel {{ovr}})",
       "renew": "Renovar a {{name}} con {{wage}} semanales por {{years}} años",
       "renewPlayer": "Renovar a {{player}} con {{wage}} semanales durante {{years}} años",
-      "signPlayer": "Fichar a {{player}} ({{position}}) por {{fee}}, con {{wage}} semanales durante {{years}} años"
+      "signPlayer": "Fichar a {{player}} ({{position}}) por {{fee}}, con {{wage}} semanales durante {{years}} años",
+      "sellPlayer": "Vender a {{player}} al {{club}} por {{fee}}",
+      "counterOffer": "Pedir al {{club}} {{fee}} por {{player}} (ofrecieron {{offered}})",
+      "listPlayer": "Poner a {{player}} en la lista de transferencias"
     },
     "reason": {
       "vacancy": "Un puesto obligatorio está vacío.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "El contrato está a punto de terminar.",
       "aboveLimit": "Esto supera un límite de gasto que fijaste al ayudante.",
       "recruitNeed": "La plantilla necesita un jugador en esta posición.",
-      "recruitAboveLimit": "Supera un límite de gasto que fijaste al ayudante, o el precio que él considera justo."
+      "recruitAboveLimit": "Supera un límite de gasto que fijaste al ayudante, o el precio que él considera justo.",
+      "recruitStarter": "Sería titular en el puesto de {{role}} y sumaría unos {{gain}} puntos de valoración al equipo.",
+      "recruitDepth": "La plantilla está justa en torno al puesto de {{role}}: lo cubriría y sumaría unos {{gain}} puntos de valoración de fuerza.",
+      "recruitSuccession": "Un titular en el puesto de {{role}} envejece o se marcha: él es el relevo.",
+      "saleSurplus": "El equipo apenas lo echaría de menos (unos {{loss}} puntos de valoración) y la cantidad es justa.",
+      "saleFunds": "El dinero reforzaría los puestos más flojos del equipo más de lo que él aporta (perderlo cuesta unos {{loss}} puntos de valoración).",
+      "saleFair": "Un precio justo por un jugador del que el equipo puede prescindir (perderlo cuesta unos {{loss}} puntos de valoración).",
+      "listSurplus": "La plantilla tiene más jugadores de los que necesita en su posición: el equipo perdería unos {{loss}} puntos de valoración.",
+      "listLeaving": "Su contrato está terminando y el club no piensa renovarlo.",
+      "listFunds": "Venderlo financiaría un equipo más fuerte: su baja le cuesta al equipo unos {{loss}} puntos de valoración.",
+      "listBooks": "La masa salarial supera el presupuesto y él no es de los que juegan."
     },
     "log": {
       "hired": "Fichó a {{name}} ({{post}}) por {{wage}} semanales",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Fijó el plan táctico del próximo partido (estilo {{style}})",
       "trainingIntensity": "Puso el entrenamiento en {{focus}} con intensidad {{intensity}}",
       "offerDeclined": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: muy por debajo de su valor",
-      "offerKeepsStarter": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: es titular"
+      "offerKeepsStarter": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: es titular",
+      "offerDeclinedProtected": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: pediste que no se vendiera",
+      "offerKept": "Rechazó la oferta de {{club}} de {{fee}} por {{player}}: el club prefiere conservarlo",
+      "offerAcceptedSurplus": "Vendió a {{player}} al {{club}} por {{fee}}: el equipo apenas lo echa de menos ({{loss}} puntos de valoración) y sus {{wage}} semanales salen de la masa salarial",
+      "offerAcceptedFunds": "Vendió a {{player}} al {{club}} por {{fee}} para reforzar los puestos más flojos: el equipo pierde unos {{loss}} puntos de valoración; sus {{wage}} semanales salen de la masa salarial",
+      "offerAcceptedFair": "Vendió a {{player}} al {{club}} por {{fee}}, un precio justo por un jugador prescindible ({{loss}} puntos de valoración)",
+      "offerCounteredAccepted": "Pidió al {{club}} {{asked}} por {{player}} (ofrecieron {{offered}}): aceptaron",
+      "offerCounteredAgain": "Pidió al {{club}} {{asked}} por {{player}} (ofrecieron {{offered}}): respondieron con otra oferta",
+      "offerCounteredRefused": "Pidió al {{club}} {{asked}} por {{player}} (ofrecieron {{offered}}): se retiraron",
+      "offerNotAccepted": "Dejó en tus manos la oferta de {{club}} de {{fee}} por {{player}}: la venta no puede hacerse tal como están las cosas",
+      "listedSurplus": "Puso a {{player}} en la lista de transferencias: la plantilla tiene más de los que necesita en su posición ({{loss}} puntos de valoración para el equipo)",
+      "listedLeaving": "Puso a {{player}} en la lista de transferencias: su contrato termina y no se renovará",
+      "listedFunds": "Puso a {{player}} en la lista de transferencias para financiar un equipo más fuerte ({{loss}} puntos de valoración para el equipo)",
+      "listedBooks": "Puso a {{player}} en la lista de transferencias: la masa salarial supera el presupuesto",
+      "delisted": "Quitó a {{player}} de la lista de transferencias: el equipo lo necesita",
+      "released": "Rescindió el contrato de {{player}}: nadie lo compró y la masa salarial supera el presupuesto",
+      "listedApproved": "Puso a {{player}} en la lista de transferencias, como aprobaste",
+      "recruitNoLongerNeeded": "Dejó de perseguir a {{player}} ({{position}}): la plantilla ya no lo necesita"
     }
   },
   "freeAgents": {

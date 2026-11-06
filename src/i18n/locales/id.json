@@ -704,7 +704,9 @@
       "Possession": "Mendorong tim mengalirkan bola dengan sabar, mengontrol tempo, dan mencari peluang yang lebih bersih.",
       "Counter": "Mengajak tim melancarkan serangan cepat setelah merebut bola, menyerang ruang sebelum lawan menyusun kembali.",
       "HighPress": "Meminta tim menekan lebih awal, merebut bola lebih tinggi di lapangan, dan terus memberi tekanan kepada lawan."
-    }
+    },
+    "protectFromSale": "Lindungi dari penjualan",
+    "removeSaleProtection": "Izinkan asisten menjualnya"
   },
   "tactics": {
     "formationStyle": "Formasi & Gaya",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Mode delegasi",
         "manual": "Manual",
-        "approval": "Dengan persetujuan",
+        "approval": "Hati-hati",
         "full": "Penuh",
         "custom": "Kustom",
         "manualDesc": "Anda membuat semua keputusan. Asisten hanya memberi saran.",
-        "approvalDesc": "Asisten menjalankan urusan rutin dan membawa setiap keputusan penting kepada Anda.",
-        "fullDesc": "Asisten menjalankan semuanya dalam batas di bawah. Yang melewati batas tetap datang kepada Anda.",
-        "customDesc": "Tugas diatur satu per satu di bawah."
+        "approvalDesc": "Asisten menjalankan urusan rutin dan membawa setiap keputusan penting (rekrutmen, penjualan, perpanjangan) kepada Anda sebagai usulan yang bisa Anda baca dan jawab.",
+        "fullDesc": "Asisten mengelola sendiri setiap tugas — rekrutmen, negosiasi, penjualan, perpanjangan — dalam batas keuangan klub dan aturan, dan tidak pernah menjual pemain yang Anda lindungi.",
+        "customDesc": "Tugas diatur satu per satu di bawah.",
+        "totalNote": "Otoritas penuh: asisten dibatasi oleh kas klub, ruang gaji, dan aturan dewan, sehingga batas pengeluaran di bawah tidak dipakai untuk rekrutmen dan perpanjangan. Dia tidak pernah menjual pemain yang Anda lindungi.",
+        "limitsOnlyNote": "Mode ini bekerja dalam batas pengeluaran di bawah. Pilih Penuh untuk memberi asisten otoritas atas keuangan klub."
       },
       "limits": {
         "title": "Batas pengeluaran",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Laporan asisten",
-        "body": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda."
+        "body": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda.",
+        "bodyTransfers": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan, termasuk {{signings}} rekrutmen dan {{sales}} penjualan, dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda."
       },
       "assistantProposals": {
         "subject": "Usulan menunggu",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Ganti dengan {{name}} (level {{ovr}})",
       "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
       "renewPlayer": "Perpanjang {{player}} dengan {{wage}} per minggu selama {{years}} tahun",
-      "signPlayer": "Rekrut {{player}} ({{position}}) seharga {{fee}}, dengan gaji {{wage}} per minggu selama {{years}} tahun"
+      "signPlayer": "Rekrut {{player}} ({{position}}) seharga {{fee}}, dengan gaji {{wage}} per minggu selama {{years}} tahun",
+      "sellPlayer": "Jual {{player}} ke {{club}} seharga {{fee}}",
+      "counterOffer": "Minta {{fee}} dari {{club}} untuk {{player}} (mereka menawar {{offered}})",
+      "listPlayer": "Masukkan {{player}} ke daftar transfer"
     },
     "reason": {
       "vacancy": "Posisi wajib masih kosong.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "Kontrak hampir berakhir.",
       "aboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten.",
       "recruitNeed": "Skuad membutuhkan pemain di posisi ini.",
-      "recruitAboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten, atau harga yang ia anggap wajar."
+      "recruitAboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten, atau harga yang ia anggap wajar.",
+      "recruitStarter": "Dia akan jadi pemain inti di posisi {{role}} dan menambah sekitar {{gain}} poin rating bagi tim.",
+      "recruitDepth": "Skuad kekurangan pemain di sekitar posisi {{role}}: dia akan menutupnya dan menambah sekitar {{gain}} poin rating kekuatan.",
+      "recruitSuccession": "Pemain utama di posisi {{role}} menua atau akan pergi: dia penggantinya.",
+      "saleSurplus": "Tim nyaris tidak kehilangan dia (sekitar {{loss}} poin rating) dan harganya wajar.",
+      "saleFunds": "Uang itu akan memperkuat posisi lemah tim lebih besar daripada sumbangan dia (kehilangannya bernilai sekitar {{loss}} poin rating).",
+      "saleFair": "Harga wajar untuk pemain yang bisa dilepas tim (kehilangannya bernilai sekitar {{loss}} poin rating).",
+      "listSurplus": "Skuad punya lebih banyak pemain di posisinya daripada yang dibutuhkan: tim hanya kehilangan sekitar {{loss}} poin rating.",
+      "listLeaving": "Kontraknya hampir habis dan klub tidak berencana memperpanjangnya.",
+      "listFunds": "Menjualnya akan mendanai tim yang lebih kuat: kepergiannya merugikan tim sekitar {{loss}} poin rating.",
+      "listBooks": "Total gaji melebihi anggaran dan dia bukan bagian dari tim inti."
     },
     "log": {
       "hired": "Merekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Menetapkan rencana taktik untuk pertandingan berikutnya (gaya {{style}})",
       "trainingIntensity": "Mengatur latihan ke {{focus}} dengan intensitas {{intensity}}",
       "offerDeclined": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: jauh di bawah nilainya",
-      "offerKeepsStarter": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: dia pemain inti"
+      "offerKeepsStarter": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: dia pemain inti",
+      "offerDeclinedProtected": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: Anda meminta dia tidak dijual",
+      "offerKept": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: klub lebih memilih mempertahankannya",
+      "offerAcceptedSurplus": "Menjual {{player}} ke {{club}} seharga {{fee}}: tim nyaris tidak kehilangan dia ({{loss}} poin rating), dan gajinya {{wage}} per minggu keluar dari total gaji",
+      "offerAcceptedFunds": "Menjual {{player}} ke {{club}} seharga {{fee}} untuk memperkuat posisi yang lemah: tim kehilangan sekitar {{loss}} poin rating; gajinya {{wage}} per minggu keluar dari total gaji",
+      "offerAcceptedFair": "Menjual {{player}} ke {{club}} seharga {{fee}}, harga wajar untuk pemain yang bisa dilepas ({{loss}} poin rating)",
+      "offerCounteredAccepted": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka setuju",
+      "offerCounteredAgain": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka datang dengan tawaran lain",
+      "offerCounteredRefused": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka mundur",
+      "offerNotAccepted": "Menyerahkan tawaran {{club}} sebesar {{fee}} untuk {{player}} kepada Anda: penjualan tidak bisa dilakukan dalam kondisi saat ini",
+      "listedSurplus": "Memasukkan {{player}} ke daftar transfer: skuad punya lebih banyak pemain di posisinya daripada yang dibutuhkan ({{loss}} poin rating bagi tim)",
+      "listedLeaving": "Memasukkan {{player}} ke daftar transfer: kontraknya hampir habis dan tidak akan diperpanjang",
+      "listedFunds": "Memasukkan {{player}} ke daftar transfer untuk mendanai tim yang lebih kuat ({{loss}} poin rating bagi tim)",
+      "listedBooks": "Memasukkan {{player}} ke daftar transfer: total gaji melebihi anggaran",
+      "delisted": "Menghapus {{player}} dari daftar transfer: tim membutuhkannya",
+      "released": "Mengakhiri kontrak {{player}} dengan pesangon: tidak ada yang membelinya dan total gaji melebihi anggaran",
+      "listedApproved": "Memasukkan {{player}} ke daftar transfer, sesuai persetujuan Anda",
+      "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya"
     }
   },
   "freeAgents": {

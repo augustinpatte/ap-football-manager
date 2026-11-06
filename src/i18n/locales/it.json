@@ -729,7 +729,9 @@
     "adaptedFit": "Può giocare lì",
     "needsCover": "Serve copertura",
     "makeStarter": "Metti titolare",
-    "sendToBench": "Manda in panchina"
+    "sendToBench": "Manda in panchina",
+    "protectFromSale": "Proteggi dalla vendita",
+    "removeSaleProtection": "Consenti al vice di venderlo"
   },
   "tactics": {
     "formationStyle": "Formazione e stile",
@@ -1188,13 +1190,15 @@
       "mode": {
         "title": "Modalità di delega",
         "manual": "Manuale",
-        "approval": "Con approvazione",
+        "approval": "Prudente",
         "full": "Totale",
         "custom": "Personalizzata",
         "manualDesc": "Prendi tu ogni decisione. Il vice si limita a consigliare.",
-        "approvalDesc": "Il vice gestisce l'ordinaria amministrazione e ti porta ogni decisione importante.",
-        "fullDesc": "Il vice gestisce tutto entro i limiti qui sotto. Ciò che li supera arriva comunque a te.",
-        "customDesc": "I compiti si impostano uno per uno qui sotto."
+        "approvalDesc": "Il vice gestisce l'ordinaria amministrazione e ti porta ogni decisione importante (un acquisto, una vendita, un rinnovo) come proposta che puoi leggere e a cui puoi rispondere.",
+        "fullDesc": "Il vice gestisce da solo ogni compito — acquistare, trattare, vendere, rinnovare — entro le finanze del club e le regole, e non vende mai un giocatore che proteggi.",
+        "customDesc": "I compiti si impostano uno per uno qui sotto.",
+        "totalNote": "Autorità totale: il vice rispetta la cassa del club, il margine salariale e le regole della dirigenza, quindi i limiti di spesa qui sotto non valgono per acquisti e rinnovi. Non vende mai un giocatore che proteggi.",
+        "limitsOnlyNote": "Questa modalità opera entro i limiti di spesa qui sotto. Scegli Totale per dare al vice autorità sulle finanze del club."
       },
       "limits": {
         "title": "Limiti di spesa",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Rapporto del vice",
-        "body": "Capo, dal mio ultimo rapporto ho preso {{done}} decisione/i e ne ho lasciate {{left}} a te. {{waiting}} proposta/e attendono la tua risposta."
+        "body": "Capo, dal mio ultimo rapporto ho preso {{done}} decisione/i e ne ho lasciate {{left}} a te. {{waiting}} proposta/e attendono la tua risposta.",
+        "bodyTransfers": "Capo, dal mio ultimo rapporto ho preso {{done}} decisione/i, tra cui {{signings}} acquisto/i e {{sales}} vendita/e, e ne ho lasciate {{left}} a te. {{waiting}} proposta/e attendono la tua risposta."
       },
       "assistantProposals": {
         "subject": "Proposte in attesa",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Sostituire con {{name}} (valore {{ovr}})",
       "renew": "Rinnovare {{name}} a {{wage}} a settimana per {{years}} anni",
       "renewPlayer": "Rinnovare {{player}} a {{wage}} a settimana per {{years}} anni",
-      "signPlayer": "Acquista {{player}} ({{position}}) per {{fee}}, a {{wage}} a settimana per {{years}} anni"
+      "signPlayer": "Acquista {{player}} ({{position}}) per {{fee}}, a {{wage}} a settimana per {{years}} anni",
+      "sellPlayer": "Vendi {{player}} al {{club}} per {{fee}}",
+      "counterOffer": "Chiedi {{fee}} al {{club}} per {{player}} (hanno offerto {{offered}})",
+      "listPlayer": "Metti {{player}} nella lista trasferimenti"
     },
     "reason": {
       "vacancy": "Un ruolo obbligatorio è vuoto.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "Il contratto sta per scadere.",
       "aboveLimit": "Supera un limite di spesa che hai fissato al vice.",
       "recruitNeed": "La rosa ha bisogno di un giocatore in questo ruolo.",
-      "recruitAboveLimit": "Supera un limite di spesa che hai fissato per il vice, o il prezzo che ritiene giusto."
+      "recruitAboveLimit": "Supera un limite di spesa che hai fissato per il vice, o il prezzo che ritiene giusto.",
+      "recruitStarter": "Sarebbe titolare nel ruolo di {{role}} e aggiungerebbe circa {{gain}} punti di valutazione alla squadra.",
+      "recruitDepth": "La rosa è corta intorno al ruolo di {{role}}: lo coprirebbe e aggiungerebbe circa {{gain}} punti di valutazione di forza.",
+      "recruitSuccession": "Un titolare nel ruolo di {{role}} sta invecchiando o andrà via: lui è il successore.",
+      "saleSurplus": "La squadra non ne sentirebbe quasi la mancanza (circa {{loss}} punti di valutazione) e la cifra è giusta.",
+      "saleFunds": "Il denaro rinforzerebbe i punti deboli della squadra più di quanto lui le dia (perderlo costa circa {{loss}} punti di valutazione).",
+      "saleFair": "Un prezzo giusto per un giocatore di cui la squadra può fare a meno (perderlo costa circa {{loss}} punti di valutazione).",
+      "listSurplus": "La rosa ha più giocatori del necessario nel suo ruolo: la squadra perderebbe circa {{loss}} punti di valutazione.",
+      "listLeaving": "Il suo contratto sta per scadere e il club non intende rinnovarlo.",
+      "listFunds": "Venderlo finanzierebbe una squadra più forte: la sua partenza costa alla squadra circa {{loss}} punti di valutazione.",
+      "listBooks": "Il monte stipendi supera il budget e lui non fa parte dell'undici titolare."
     },
     "log": {
       "hired": "Ha ingaggiato {{name}} ({{post}}) a {{wage}} a settimana",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Ha impostato il piano tattico per la prossima partita (stile {{style}})",
       "trainingIntensity": "Ha impostato l'allenamento su {{focus}} con intensità {{intensity}}",
       "offerDeclined": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: molto sotto il suo valore",
-      "offerKeepsStarter": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: è un titolare"
+      "offerKeepsStarter": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: è un titolare",
+      "offerDeclinedProtected": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: hai chiesto di non venderlo",
+      "offerKept": "Ha rifiutato l'offerta di {{club}} da {{fee}} per {{player}}: il club preferisce tenerlo",
+      "offerAcceptedSurplus": "Ha venduto {{player}} al {{club}} per {{fee}}: la squadra ne sente poco la mancanza ({{loss}} punti di valutazione) e i suoi {{wage}} a settimana escono dal monte stipendi",
+      "offerAcceptedFunds": "Ha venduto {{player}} al {{club}} per {{fee}} per rinforzare i punti deboli: la squadra perde circa {{loss}} punti di valutazione; i suoi {{wage}} a settimana escono dal monte stipendi",
+      "offerAcceptedFair": "Ha venduto {{player}} al {{club}} per {{fee}}, un prezzo giusto per un giocatore di cui si può fare a meno ({{loss}} punti di valutazione)",
+      "offerCounteredAccepted": "Ha chiesto {{asked}} al {{club}} per {{player}} (avevano offerto {{offered}}): hanno accettato",
+      "offerCounteredAgain": "Ha chiesto {{asked}} al {{club}} per {{player}} (avevano offerto {{offered}}): hanno risposto con una nuova offerta",
+      "offerCounteredRefused": "Ha chiesto {{asked}} al {{club}} per {{player}} (avevano offerto {{offered}}): si sono ritirati",
+      "offerNotAccepted": "Ha lasciato a te l'offerta di {{club}} da {{fee}} per {{player}}: la vendita non è possibile allo stato attuale",
+      "listedSurplus": "Ha messo {{player}} nella lista trasferimenti: la rosa ha più giocatori del necessario nel suo ruolo ({{loss}} punti di valutazione per la squadra)",
+      "listedLeaving": "Ha messo {{player}} nella lista trasferimenti: il suo contratto sta per scadere e non sarà rinnovato",
+      "listedFunds": "Ha messo {{player}} nella lista trasferimenti per finanziare una squadra più forte ({{loss}} punti di valutazione per la squadra)",
+      "listedBooks": "Ha messo {{player}} nella lista trasferimenti: il monte stipendi supera il budget",
+      "delisted": "Ha tolto {{player}} dalla lista trasferimenti: la squadra ha bisogno di lui",
+      "released": "Ha risolto il contratto di {{player}}: nessuno lo ha comprato e il monte stipendi supera il budget",
+      "listedApproved": "Ha messo {{player}} nella lista trasferimenti, come hai approvato",
+      "recruitNoLongerNeeded": "Ha smesso di inseguire {{player}} ({{position}}): la rosa non ha più bisogno di lui"
     }
   },
   "freeAgents": {

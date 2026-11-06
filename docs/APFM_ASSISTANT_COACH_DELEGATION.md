@@ -1,5 +1,14 @@
 # APFM — Assistant coach delegation (Run A)
 
+> **Superseded in part by Run F5.4.** The `With approval` preset is now **Prudent** and `Full` is **Total**
+> (same identifiers). Under Total the assistant is held to the club's cash, wage room and the board's
+> rules instead of the ceilings below, and may accept, counter and list (a sale, unlike a signing, was
+> never his before); the ceilings still apply to a duty that acts alone without Total authority. The
+> "he sells nobody" and "never accepts" statements below describe the original design. New command
+> `set_player_protected(player_id, protected)`. See `GAME_SYSTEMS.md` § "Delegation: Prudent and Total"
+> and `APFM_RUN_F5_4_SQUAD_INTELLIGENCE_AND_DELEGATION.md`.
+
+
 Branch `claude/gameplay-delegation`, based on `validation/runs1-4-m12`. Builds on the per-duty
 delegation of mission 9 (`APFM_DELEGATION_REPORT.md`); nothing there was replaced, so there is still
 one delegation architecture: `domain::delegation::DelegationState` on `Game`, run from

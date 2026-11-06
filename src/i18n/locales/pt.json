@@ -704,7 +704,9 @@
     "adaptedFit": "Pode jogar ali",
     "needsCover": "Precisa de cobertura",
     "makeStarter": "Colocar como titular",
-    "sendToBench": "Mandar para o banco"
+    "sendToBench": "Mandar para o banco",
+    "protectFromSale": "Proteger da venda",
+    "removeSaleProtection": "Permitir que o adjunto o venda"
   },
   "tactics": {
     "formationStyle": "Formação & Estilo",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Modo de delegação",
         "manual": "Manual",
-        "approval": "Com aprovação",
+        "approval": "Prudente",
         "full": "Total",
         "custom": "Personalizado",
         "manualDesc": "Tomas todas as decisões. O adjunto apenas aconselha.",
-        "approvalDesc": "O adjunto trata do dia a dia e traz-te cada decisão importante.",
-        "fullDesc": "O adjunto trata de tudo dentro dos limites abaixo. O que os exceder continua a chegar a ti.",
-        "customDesc": "As tarefas são definidas uma a uma abaixo."
+        "approvalDesc": "O adjunto trata do dia a dia e traz-te cada decisão importante (uma contratação, uma venda, uma renovação) como uma proposta que podes ler e responder.",
+        "fullDesc": "O adjunto gere ele próprio cada tarefa — contratar, negociar, vender, renovar — dentro das finanças do clube e das regras, e nunca vende um jogador que protejas.",
+        "customDesc": "As tarefas são definidas uma a uma abaixo.",
+        "totalNote": "Autoridade total: o adjunto fica limitado ao dinheiro do clube, à margem salarial e às regras da direção, por isso os limites de despesa abaixo não são usados em contratações nem renovações. Nunca vende um jogador que protejas.",
+        "limitsOnlyNote": "Este modo funciona dentro dos limites de despesa abaixo. Escolhe Total para dar ao adjunto autoridade sobre as finanças do clube."
       },
       "limits": {
         "title": "Limites de despesa",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Relatório do adjunto",
-        "body": "Chefe, desde o meu último relatório tomei {{done}} decisão(ões) e deixei {{left}} para ti. {{waiting}} proposta(s) aguardam a tua resposta."
+        "body": "Chefe, desde o meu último relatório tomei {{done}} decisão(ões) e deixei {{left}} para ti. {{waiting}} proposta(s) aguardam a tua resposta.",
+        "bodyTransfers": "Chefe, desde o meu último relatório tomei {{done}} decisão(ões), entre elas {{signings}} contratação(ões) e {{sales}} venda(s), e deixei {{left}} para ti. {{waiting}} proposta(s) aguardam a tua resposta."
       },
       "assistantProposals": {
         "subject": "Propostas pendentes",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Substituir por {{name}} (nível {{ovr}})",
       "renew": "Renovar {{name}} por {{wage}} semanais durante {{years}} anos",
       "renewPlayer": "Renovar {{player}} com {{wage}} por semana durante {{years}} anos",
-      "signPlayer": "Contratar {{player}} ({{position}}) por {{fee}}, com {{wage}} por semana durante {{years}} anos"
+      "signPlayer": "Contratar {{player}} ({{position}}) por {{fee}}, com {{wage}} por semana durante {{years}} anos",
+      "sellPlayer": "Vender {{player}} ao {{club}} por {{fee}}",
+      "counterOffer": "Pedir ao {{club}} {{fee}} por {{player}} (ofereceram {{offered}})",
+      "listPlayer": "Colocar {{player}} na lista de transferências"
     },
     "reason": {
       "vacancy": "Um lugar obrigatório está vazio.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "O contrato está prestes a terminar.",
       "aboveLimit": "Isto excede um limite de despesa que definiste para o adjunto.",
       "recruitNeed": "O plantel precisa de um jogador nesta posição.",
-      "recruitAboveLimit": "Isto ultrapassa um limite de despesa que definiu para o adjunto, ou o preço que ele considera justo."
+      "recruitAboveLimit": "Isto ultrapassa um limite de despesa que definiu para o adjunto, ou o preço que ele considera justo.",
+      "recruitStarter": "Seria titular na posição de {{role}} e acrescentaria cerca de {{gain}} pontos de avaliação à equipa.",
+      "recruitDepth": "O plantel está curto à volta da posição de {{role}}: ele cobriria essa falta e acrescentaria cerca de {{gain}} pontos de avaliação de força.",
+      "recruitSuccession": "Um titular na posição de {{role}} está a envelhecer ou a sair: ele é o sucessor.",
+      "saleSurplus": "A equipa mal daria pela falta dele (cerca de {{loss}} pontos de avaliação) e o valor é justo.",
+      "saleFunds": "O dinheiro reforçaria as posições mais fracas da equipa mais do que ele vale para ela (perdê-lo custa cerca de {{loss}} pontos de avaliação).",
+      "saleFair": "Um preço justo por um jogador de que a equipa pode prescindir (perdê-lo custa cerca de {{loss}} pontos de avaliação).",
+      "listSurplus": "O plantel tem mais jogadores do que precisa na posição dele: a equipa perderia cerca de {{loss}} pontos de avaliação.",
+      "listLeaving": "O contrato dele está a acabar e o clube não pensa renová-lo.",
+      "listFunds": "Vendê-lo financiaria uma equipa mais forte: a saída dele custa à equipa cerca de {{loss}} pontos de avaliação.",
+      "listBooks": "A folha salarial excede o orçamento e ele não é dos que jogam."
     },
     "log": {
       "hired": "Contratou {{name}} ({{post}}) por {{wage}} semanais",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Definiu o plano tático para o próximo jogo (estilo {{style}})",
       "trainingIntensity": "Pôs o treino em {{focus}} com intensidade {{intensity}}",
       "offerDeclined": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: muito abaixo do seu valor",
-      "offerKeepsStarter": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: é titular"
+      "offerKeepsStarter": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: é titular",
+      "offerDeclinedProtected": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: pediste que ele não fosse vendido",
+      "offerKept": "Recusou a proposta do {{club}} de {{fee}} por {{player}}: o clube prefere mantê-lo",
+      "offerAcceptedSurplus": "Vendeu {{player}} ao {{club}} por {{fee}}: a equipa mal dá pela falta dele ({{loss}} pontos de avaliação) e os {{wage}} por semana dele saem da folha salarial",
+      "offerAcceptedFunds": "Vendeu {{player}} ao {{club}} por {{fee}} para reforçar as posições mais fracas: a equipa perde cerca de {{loss}} pontos de avaliação; os {{wage}} por semana dele saem da folha salarial",
+      "offerAcceptedFair": "Vendeu {{player}} ao {{club}} por {{fee}}, um preço justo por um jogador dispensável ({{loss}} pontos de avaliação)",
+      "offerCounteredAccepted": "Pediu ao {{club}} {{asked}} por {{player}} (ofereceram {{offered}}): aceitaram",
+      "offerCounteredAgain": "Pediu ao {{club}} {{asked}} por {{player}} (ofereceram {{offered}}): voltaram com outra proposta",
+      "offerCounteredRefused": "Pediu ao {{club}} {{asked}} por {{player}} (ofereceram {{offered}}): desistiram",
+      "offerNotAccepted": "Deixou contigo a proposta do {{club}} de {{fee}} por {{player}}: a venda não pode ser feita tal como as coisas estão",
+      "listedSurplus": "Colocou {{player}} na lista de transferências: o plantel tem mais jogadores do que precisa na posição dele ({{loss}} pontos de avaliação para a equipa)",
+      "listedLeaving": "Colocou {{player}} na lista de transferências: o contrato dele está a acabar e não será renovado",
+      "listedFunds": "Colocou {{player}} na lista de transferências para financiar uma equipa mais forte ({{loss}} pontos de avaliação para a equipa)",
+      "listedBooks": "Colocou {{player}} na lista de transferências: a folha salarial excede o orçamento",
+      "delisted": "Retirou {{player}} da lista de transferências: a equipa precisa dele",
+      "released": "Rescindiu o contrato de {{player}}: ninguém o comprou e a folha salarial excede o orçamento",
+      "listedApproved": "Colocou {{player}} na lista de transferências, como aprovaste",
+      "recruitNoLongerNeeded": "Deixou de perseguir {{player}} ({{position}}): o plantel já não precisa dele"
     }
   },
   "freeAgents": {

@@ -704,7 +704,9 @@
     "adaptedFit": "可胜任",
     "needsCover": "需要轮换",
     "makeStarter": "设为首发",
-    "sendToBench": "放到替补席"
+    "sendToBench": "放到替补席",
+    "protectFromSale": "禁止出售",
+    "removeSaleProtection": "允许助理出售"
   },
   "tactics": {
     "formationStyle": "阵型与风格",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "委托模式",
         "manual": "手动",
-        "approval": "需批准",
+        "approval": "稳健",
         "full": "完全",
         "custom": "自定义",
         "manualDesc": "所有决定都由你做。助理教练只提供建议。",
-        "approvalDesc": "助理教练处理日常事务，每个重大决定都交给你。",
-        "fullDesc": "助理教练在下方限额内处理一切。超出限额的事仍交给你。",
-        "customDesc": "下方逐项设置各项职责。"
+        "approvalDesc": "助理教练处理日常事务，每个重大决定（签约、出售、续约）都会作为提案交给你，由你查看并答复。",
+        "fullDesc": "助理教练独立处理每项职责——签约、谈判、出售、续约——在俱乐部财务和规则范围内行事，绝不出售你保护的球员。",
+        "customDesc": "下方逐项设置各项职责。",
+        "totalNote": "完全授权：助理受俱乐部资金、薪资空间和董事会规定约束，因此下方的支出上限不适用于签约和续约。他绝不会出售你保护的球员。",
+        "limitsOnlyNote": "此模式在下方支出上限内运作。选择“完全”可授予助理对俱乐部财务的权限。"
       },
       "limits": {
         "title": "支出限额",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "助理教练报告",
-        "body": "老板，自上次报告以来，我做了 {{done}} 项决定，留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。"
+        "body": "老板，自上次报告以来，我做了 {{done}} 项决定，留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。",
+        "bodyTransfers": "老板，自上次报告以来，我做了 {{done}} 项决定（其中签约 {{signings}} 项、出售 {{sales}} 项），留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。"
       },
       "assistantProposals": {
         "subject": "提案待处理",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "由 {{name}} 接替（能力 {{ovr}}）",
       "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
       "renewPlayer": "以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
-      "signPlayer": "以 {{fee}} 签下 {{player}}（{{position}}），周薪 {{wage}}，合同 {{years}} 年"
+      "signPlayer": "以 {{fee}} 签下 {{player}}（{{position}}），周薪 {{wage}}，合同 {{years}} 年",
+      "sellPlayer": "以 {{fee}} 将 {{player}} 卖给{{club}}",
+      "counterOffer": "向{{club}}要价 {{fee}} 出售 {{player}}（对方报价 {{offered}}）",
+      "listPlayer": "将 {{player}} 加入转会名单"
     },
     "reason": {
       "vacancy": "必需职位空缺。",
@@ -4914,7 +4922,17 @@
       "contractEnding": "合同即将到期。",
       "aboveLimit": "这超出了你为助理教练设定的支出限额。",
       "recruitNeed": "球队在这个位置需要一名球员。",
-      "recruitAboveLimit": "这超出了你为助理设定的支出上限，或超出他认为合理的价格。"
+      "recruitAboveLimit": "这超出了你为助理设定的支出上限，或超出他认为合理的价格。",
+      "recruitStarter": "他会成为{{role}}位置的首发，为球队增加约 {{gain}} 点能力值。",
+      "recruitDepth": "球队在{{role}}位置附近人手不足：他能补上缺口，增加约 {{gain}} 点实力值。",
+      "recruitSuccession": "{{role}}位置的主力年事已高或即将离队：他是接班人。",
+      "saleSurplus": "球队几乎不会感到他的缺席（约 {{loss}} 点能力值），而且价格合理。",
+      "saleFunds": "这笔钱对球队薄弱位置的提升，大于他本人的价值（失去他约损失 {{loss}} 点能力值）。",
+      "saleFair": "对于球队可以割舍的球员来说，这是个合理的价格（失去他约损失 {{loss}} 点能力值）。",
+      "listSurplus": "球队在他的位置上人数超过所需：球队约损失 {{loss}} 点能力值。",
+      "listLeaving": "他的合同即将到期，俱乐部不打算续约。",
+      "listFunds": "卖掉他可以为更强的阵容筹资：他的离开使球队损失约 {{loss}} 点能力值。",
+      "listBooks": "薪资总额超出预算，而他不在主力阵容中。"
     },
     "log": {
       "hired": "已以每周 {{wage}} 聘请 {{name}}（{{post}}）",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "已为下一场比赛制定战术方案（{{style}}风格）",
       "trainingIntensity": "已将训练设为{{focus}}，强度{{intensity}}",
       "offerDeclined": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：远低于其身价",
-      "offerKeepsStarter": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：他是首发主力"
+      "offerKeepsStarter": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：他是首发主力",
+      "offerDeclinedProtected": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：你要求不出售他",
+      "offerKept": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：俱乐部更愿意留下他",
+      "offerAcceptedSurplus": "以 {{fee}} 将 {{player}} 卖给{{club}}：球队几乎不受影响（{{loss}} 点能力值），他每周 {{wage}} 的薪水从总额中扣除",
+      "offerAcceptedFunds": "以 {{fee}} 将 {{player}} 卖给{{club}}，用于补强薄弱位置：球队约损失 {{loss}} 点能力值；他每周 {{wage}} 的薪水从总额中扣除",
+      "offerAcceptedFair": "以 {{fee}} 将 {{player}} 卖给{{club}}，对可割舍的球员来说是合理价格（{{loss}} 点能力值）",
+      "offerCounteredAccepted": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方同意了",
+      "offerCounteredAgain": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方给出了新的报价",
+      "offerCounteredRefused": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方退出了谈判",
+      "offerNotAccepted": "把{{club}}为{{player}}开出的{{fee}}报价留给你处理：目前情况下无法完成出售",
+      "listedSurplus": "已将 {{player}} 加入转会名单：球队在他的位置上人数超过所需（对球队价值 {{loss}} 点能力值）",
+      "listedLeaving": "已将 {{player}} 加入转会名单：他的合同即将到期且不会续约",
+      "listedFunds": "已将 {{player}} 加入转会名单，为更强的阵容筹资（对球队价值 {{loss}} 点能力值）",
+      "listedBooks": "已将 {{player}} 加入转会名单：薪资总额超出预算",
+      "delisted": "已将 {{player}} 从转会名单移除：球队需要他",
+      "released": "已解除 {{player}} 的合同：无人接手，且薪资总额超出预算",
+      "listedApproved": "已按你的批准将 {{player}} 加入转会名单",
+      "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他"
     }
   },
   "freeAgents": {

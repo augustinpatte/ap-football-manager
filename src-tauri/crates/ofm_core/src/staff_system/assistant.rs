@@ -25,6 +25,10 @@ const GROUP_MINIMUM: [(Position, usize); 4] = [
     (Position::Midfielder, 5),
     (Position::Forward, 3),
 ];
+/// The expected rating points a slot of the side must be below the club's own standard before an
+/// assistant of 0 calls the position weak, and one of 100.
+const WEAK_SEVERITY_AT_ZERO: f64 = 8.0;
+const WEAK_SEVERITY_AT_100: f64 = 4.0;
 /// A starter this far below the match in condition is worth resting.
 const TIRED_BELOW: u8 = 60;
 /// A replacement must be this fit.
@@ -418,14 +422,29 @@ pub fn recommendations(game: &Game, team_id: &str) -> Vec<Recommendation> {
         o.sort_unstable_by(|a, b| b.cmp(a));
         o.iter().take(11).map(|v| f64::from(*v)).sum::<f64>() / 11.0_f64.max(o.len().min(11) as f64)
     };
-    for (position, minimum) in GROUP_MINIMUM {
+    // Where the side the club fields is weakest: the same reading the recruiter and the AI clubs
+    // make (Squad Intelligence). A sharper assistant calls a smaller shortfall weak: the severity he
+    // reacts to falls smoothly from [`WEAK_SEVERITY_AT_ZERO`] to [`WEAK_SEVERITY_AT_100`].
+    let weakness_threshold = WEAK_SEVERITY_AT_ZERO
+        - (WEAK_SEVERITY_AT_ZERO - WEAK_SEVERITY_AT_100)
+            * (profile.assistant / 100.0).clamp(0.0, 1.0);
+    let needs = crate::squad_intelligence::ClubSquad::of(
+        game,
+        team_id,
+        crate::squad_intelligence::appetite::Appetite::NEUTRAL.seen_by_assistant(profile.assistant),
+    )
+    .map(|squad| squad.needs())
+    .unwrap_or_default();
+    for (group_index, (position, minimum)) in GROUP_MINIMUM.into_iter().enumerate() {
         let fit: Vec<&&Player> = squad
             .iter()
             .filter(|pl| group(pl) == position && available(pl))
             .collect();
         let best = fit.iter().map(|pl| pl.ovr).max().unwrap_or(0);
         let too_few = fit.len() < minimum;
-        let too_weak = !fit.is_empty() && f64::from(best) + 8.0 < squad_best;
+        let weakest = needs.iter().find(|need| need.group == group_index);
+        let too_weak = !fit.is_empty()
+            && weakest.is_some_and(|need| f64::from(need.severity) >= weakness_threshold);
         if too_few || too_weak {
             out.push(Recommendation {
                 id: format!("weak-{position:?}"),
@@ -444,6 +463,10 @@ pub fn recommendations(game: &Game, team_id: &str) -> Vec<Recommendation> {
                     p("needed", minimum),
                     p("best", best),
                     p("squad", format!("{squad_best:.0}")),
+                    p(
+                        "role",
+                        weakest.map_or(String::new(), |need| format!("{:?}", need.position)),
+                    ),
                 ],
                 action: RecAction::None,
             });

@@ -8,12 +8,17 @@
 //!
 //! What the assistant adds is restraint:
 //!
-//! * **He acts on a need**, never on appeal: a position the assistant's own review calls weak, and
-//!   a player who would really improve it (or fill the thin group).
-//! * **Every bid goes through [`authorize`] first**, at the fee and wage that bid commits to. Within
-//!   the manager's ceilings and with the duty set to act alone, he bids; otherwise the bid becomes a
-//!   proposal and nothing is spent. A ceiling of zero (the default) means every signing is a
-//!   proposal.
+//! * **He acts on a need**, never on appeal. The need is Squad Intelligence's: the slot of the side
+//!   the club fields where it is weakest, the same reading the AI clubs' market makes, seen through
+//!   the assistant's own foresight; the target is the player whose marginal value to that side,
+//!   after his price, is greatest across the club's most severe needs. He reads a player he has not
+//!   signed through his own perception: a bounded error that shrinks smoothly with his rating.
+//! * **Every bid goes through [`authorize_in_books`] first**, at the fee and wage that bid commits
+//!   to. With the duty set to act alone, he bids if the step is within the manager's ceilings, or,
+//!   under Total authority, within what the club can carry; otherwise the bid becomes a proposal
+//!   and nothing is spent. A ceiling of zero (the default) means every signing is a proposal.
+//! * **He keeps checking the need.** If the squad changed since he chose him (the manager signed
+//!   someone, a player was lost) and the player no longer adds what he cost, he stops.
 //! * **One round per visit.** A negotiation is carried over several visits, three days apart, as the
 //!   manager would carry it over several days. Where the negotiation stands is the
 //!   [`ActiveApproach`] kept in the delegation state, so a reload carries on.
@@ -26,15 +31,22 @@ use chrono::{Days, NaiveDate};
 use domain::delegation::{
     ACTIVE_APPROACH_CAPACITY, ActiveApproach, DecisionOutcome, Duty, ProposalAction, ShelveReason,
 };
-use domain::player::{Player, Position, SquadRole};
+#[cfg(test)]
+use domain::player::Position;
+use domain::player::{Player, SquadRole};
 use domain::transfer_terms::TransferTerms;
 
-use super::assistant::{self, RecKind};
-use super::delegation::{date, log, param, record, stamp};
-use super::delegation_policy::{Authorization, Reason, Spend, authorize};
+use super::delegation::{books_of, date, log, param, record, stamp};
+use super::delegation_policy::{Authorization, Reason, Spend, authorize_in_books};
 use crate::game::Game;
 use crate::player_knowledge::{PlayerKnowledge, player_knowledge};
 use crate::squad_floor::{STARTERS_PER_GROUP, group_index};
+use crate::squad_intelligence::ClubSquad;
+use crate::squad_intelligence::appetite::Appetite;
+use crate::squad_intelligence::impact::{
+    MIN_GAIN, Marginal, Price, Reason as GainReason, SigningCase,
+};
+use crate::squad_intelligence::perception::blur_points;
 use crate::transfers::{
     TransferNegotiationDecision, TransferNegotiationOutcome, bid_is_possible, judge_in_game,
     make_transfer_bid_with_terms, round_transfer_fee,
@@ -49,8 +61,8 @@ const PACING_WINDOW_DAYS: u64 = 30;
 const ACTIVE_LIFETIME_DAYS: u64 = 45;
 /// Rounds of one negotiation before the assistant gives it up.
 const MAX_ROUNDS: u8 = 5;
-/// How much better than the first cover a player must be to be worth a fee, in rating points.
-const MIN_GAIN: i32 = 3;
+/// Most need groups the assistant looks for a player in at once, most severe first.
+const NEED_GROUPS_CONSIDERED: usize = 3;
 /// The assistant opens at this per cent of the price he reads the selling club to ask, and will not
 /// go past `CEILING_PCT_OF_ASK`. The opening has to clear the club's counter-offer floor (88 % of
 /// its price) or the talks end at once.
@@ -80,8 +92,30 @@ const SHELVE_DONE_DAYS: u64 = 365;
 struct Target {
     player_id: String,
     need: String,
+    /// The slot of the side he is to fill (`Striker`, `CenterBack`...).
+    role: String,
+    reason: GainReason,
+    /// What he adds to the side, in rating points across the eleven.
+    gain_points: i32,
     opening_fee: u64,
     max_fee: u64,
+    /// His value to the club after the price of the money, for choosing between needs.
+    utility: f32,
+}
+
+/// The assistant: who he is and how good, which is how well he reads a squad and a player.
+#[derive(Clone, Copy)]
+pub(super) struct Eye<'a> {
+    pub id: &'a str,
+    pub rating: f64,
+}
+
+fn reason_name(reason: GainReason) -> &'static str {
+    match reason {
+        GainReason::Starter => "starter",
+        GainReason::Depth => "depth",
+        GainReason::Succession => "succession",
+    }
 }
 
 fn after(game: &Game, days: u64) -> String {
@@ -92,37 +126,35 @@ fn after(game: &Game, days: u64) -> String {
         .to_string()
 }
 
-fn position_group(name: &str) -> Option<usize> {
-    let position = match name {
-        "Goalkeeper" => Position::Goalkeeper,
-        "Defender" => Position::Defender,
-        "Midfielder" => Position::Midfielder,
-        "Forward" => Position::Forward,
-        _ => return None,
-    };
-    Some(group_index(&position))
-}
-
 fn group_name(group: usize) -> &'static str {
     ["Goalkeeper", "Defender", "Midfielder", "Forward"][group.min(3)]
 }
 
-/// The groups the assistant's own review calls weak, by name, in the order he would deal with them.
-fn needs(game: &Game, team_id: &str) -> Vec<usize> {
-    let mut found: Vec<(u8, usize)> = assistant::recommendations(game, team_id)
-        .iter()
-        .filter(|rec| rec.kind == RecKind::WeakPosition)
-        .filter_map(|rec| {
-            let group = rec
-                .params
-                .iter()
-                .find(|(key, _)| key == "position")
-                .and_then(|(_, value)| position_group(value))?;
-            Some((rec.severity, group))
-        })
-        .collect();
-    found.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    found.into_iter().map(|(_, group)| group).collect()
+/// The club's squad as the assistant reads it, through his own foresight: how far ahead he looks
+/// grows smoothly with his rating.
+fn read_squad(game: &Game, team_id: &str, eye: Eye<'_>) -> Option<ClubSquad> {
+    let appetite =
+        Appetite::of(&crate::transfers::profile_of(game, team_id)).seen_by_assistant(eye.rating);
+    ClubSquad::of(game, team_id, appetite)
+}
+
+/// Where the squad is short, by broad group, most severe first, with the slot that is.
+struct GroupNeed {
+    group: usize,
+    role: String,
+}
+
+fn needs(squad: &ClubSquad) -> Vec<GroupNeed> {
+    let mut groups: Vec<GroupNeed> = Vec::new();
+    for need in squad.needs() {
+        if groups.iter().all(|found| found.group != need.group) {
+            groups.push(GroupNeed {
+                group: need.group,
+                role: format!("{:?}", need.position),
+            });
+        }
+    }
+    groups
 }
 
 /// Groups in which a purchase the club has agreed is still waiting for its registration date.
@@ -186,44 +218,26 @@ fn is_eligible(game: &Game, player: &Player, team_id: &str, today: &str) -> bool
         })
 }
 
-/// How good a buy he is, for ranking only: what he adds, what he may become, what he costs.
-fn appeal(player: &Player, gain: i32, today: NaiveDate, budget: i64) -> i64 {
-    let age = age_of(player, today);
-    let youth = if age <= 23 {
-        (i64::from(player.potential) - i64::from(player.ovr)) / 2
-    } else {
-        0
-    };
-    let ageing = i64::from((age - 29).max(0)) * 2;
-    let cost_share = if budget > 0 {
-        i64::try_from(player.market_value)
-            .unwrap_or(i64::MAX)
-            .saturating_mul(10)
-            / budget
-    } else {
-        10
-    };
-    i64::from(gain) * 3 + youth + if player.transfer_listed { 6 } else { 0 } - ageing - cost_share
-}
-
-/// The best player to approach for the squad's most pressing need, if there is one worth a bid.
-fn choose_target(game: &Game, team_id: &str) -> Option<Target> {
-    let team = game.teams.iter().find(|t| t.id == team_id)?;
+/// The best player to approach across the squad's most pressing needs, if there is one worth a bid.
+fn choose_target(game: &Game, team_id: &str, eye: Eye<'_>) -> Option<Target> {
     let today_date = date(game);
     let today = stamp(game);
-    let squad = levels(game, team_id);
-    let seniors: usize = squad.iter().map(Vec::len).sum();
+    let squad = read_squad(game, team_id, eye)?;
+    let levels = levels(game, team_id);
+    let seniors: usize = levels.iter().map(Vec::len).sum();
     if seniors >= SENIOR_SQUAD_CEILING {
         return None;
     }
-    let budget = team.transfer_budget.min(team.finance);
     let pending = groups_with_a_purchase_pending(game, team_id);
-    for group in needs(game, team_id) {
-        if pending.contains(&group) {
-            continue;
-        }
-        let thin = crate::transfers::group_is_thin(&squad[group], group);
-        let mut candidates: Vec<(i64, &Player, i32)> = game
+    let mut best: Option<Target> = None;
+    for need in needs(&squad)
+        .into_iter()
+        .filter(|need| !pending.contains(&need.group))
+        .take(NEED_GROUPS_CONSIDERED)
+    {
+        let group = need.group;
+        let thin = crate::transfers::group_is_thin(&levels[group], group);
+        let mut candidates: Vec<(f32, &Player, Marginal)> = game
             .players
             .iter()
             .filter(|p| group_index(&p.natural_position) == group)
@@ -237,31 +251,52 @@ fn choose_target(game: &Game, team_id: &str) -> Option<Target> {
                 }
             })
             .filter_map(|p| {
-                let gain = crate::transfers::improvement_over_cover(&squad[group], group, p.ovr);
+                let blur = blur_points(eye.rating, eye.id, &p.id, &player_knowledge(game, p));
+                let marginal = squad.signing(p, blur)?;
                 // A real improvement, or a body for a group that has too few: never a player who
                 // would sit behind the first cover.
-                let weak_starter = squad[group]
+                let weak_starter = levels[group]
                     .get(STARTERS_PER_GROUP[group].saturating_sub(1))
                     .is_none_or(|worst_starter| p.ovr > *worst_starter);
-                (gain >= MIN_GAIN || (thin && weak_starter)).then_some((
-                    appeal(p, gain, today_date, budget),
-                    p,
-                    gain,
-                ))
+                if marginal.gain < MIN_GAIN && !(thin && weak_starter) {
+                    return None;
+                }
+                // Ranked at his market value: the selling club's real ask is read in `weigh`.
+                let priced = squad.price(
+                    &marginal,
+                    Price {
+                        fee: p.market_value,
+                        weekly_wage: p.wage(),
+                    },
+                );
+                Some((priced.utility, p, marginal))
             })
             .collect();
-        candidates.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
-        for (_, player, _) in candidates.into_iter().take(SHORTLIST) {
-            if let Some(target) = weigh(game, team_id, player, group) {
-                return Some(target);
+        candidates.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
+        for (_, player, marginal) in candidates.into_iter().take(SHORTLIST) {
+            if let Some(target) = weigh(game, team_id, player, &need, &squad, &marginal, thin)
+                && best
+                    .as_ref()
+                    .is_none_or(|held| target.utility > held.utility)
+            {
+                best = Some(target);
+                break;
             }
         }
     }
-    None
+    best
 }
 
 /// Whether this player can actually be bid for and would come, and at what price.
-fn weigh(game: &Game, team_id: &str, player: &Player, group: usize) -> Option<Target> {
+fn weigh(
+    game: &Game,
+    team_id: &str,
+    player: &Player,
+    need: &GroupNeed,
+    squad: &ClubSquad,
+    marginal: &Marginal,
+    thin: bool,
+) -> Option<Target> {
     let team = game.teams.iter().find(|t| t.id == team_id)?;
     let seller = game
         .teams
@@ -292,6 +327,18 @@ fn weigh(game: &Game, team_id: &str, player: &Player, group: usize) -> Option<Ta
     {
         return None;
     }
+    // At the price he will really be asked for, he still has to add more than the money is worth
+    // to the club (or fill a hole in the depth).
+    let priced: SigningCase = squad.price(
+        marginal,
+        Price {
+            fee: opening_fee,
+            weekly_wage: player.wage(),
+        },
+    );
+    if !thin && !priced.is_worth_it() {
+        return None;
+    }
     // He has to be someone who would come to this club: a refusal no wage can answer ends it
     // before a bid is spent on it.
     let judgement = judge_in_game(game, player, team_id, &TransferTerms::default()).ok()?;
@@ -302,9 +349,13 @@ fn weigh(game: &Game, team_id: &str, player: &Player, group: usize) -> Option<Ta
     }
     Some(Target {
         player_id: player.id.clone(),
-        need: group_name(group).to_string(),
+        need: group_name(need.group).to_string(),
+        role: need.role.clone(),
+        reason: marginal.reason,
+        gain_points: marginal.points,
         opening_fee,
         max_fee,
+        utility: priced.utility,
     })
 }
 
@@ -336,7 +387,7 @@ fn terms_of(approach: &ActiveApproach) -> TransferTerms {
 
 /// The weekly rhythm of the duty: carry on the open negotiations, then, if there is room and a
 /// need, open one more.
-pub(super) fn player_recruitment(game: &mut Game, team_id: &str) {
+pub(super) fn player_recruitment(game: &mut Game, team_id: &str, eye: Eye<'_>) {
     let today = stamp(game);
     game.delegation.recruitment.forget_expired(&today);
     drop_forgotten_negotiations(game);
@@ -345,7 +396,7 @@ pub(super) fn player_recruitment(game: &mut Game, team_id: &str) {
     }
     let open: Vec<ActiveApproach> = game.delegation.recruitment.active.clone();
     for approach in open {
-        step(game, team_id, approach);
+        step(game, team_id, eye, approach);
     }
     let memory = &game.delegation.recruitment;
     let since = after_back(game, PACING_WINDOW_DAYS);
@@ -354,7 +405,7 @@ pub(super) fn player_recruitment(game: &mut Game, team_id: &str) {
     {
         return;
     }
-    let Some(target) = choose_target(game, team_id) else {
+    let Some(target) = choose_target(game, team_id, eye) else {
         return;
     };
     let approach = ActiveApproach {
@@ -366,12 +417,15 @@ pub(super) fn player_recruitment(game: &mut Game, team_id: &str) {
         wage: 0,
         years: 0,
         rounds: 0,
+        role: target.role.clone(),
+        gain: target.gain_points,
+        reason: reason_name(target.reason).to_string(),
     };
     game.delegation.recruitment.active.push(approach.clone());
     game.delegation
         .recruitment
         .record_approach(&target.player_id, &today);
-    step(game, team_id, approach);
+    step(game, team_id, eye, approach);
 }
 
 /// A negotiation that has been open for weeks without an end (the window shut on it, a season went
@@ -403,8 +457,30 @@ fn after_back(game: &Game, days: u64) -> String {
         .to_string()
 }
 
+/// Whether the player still adds what the assistant chose him for: the squad may have changed
+/// since (the manager signed someone, a player was lost or sold). A group short of players keeps
+/// its need whatever the rating.
+fn still_needed(game: &Game, team_id: &str, eye: Eye<'_>, player: &Player) -> bool {
+    let Some(squad) = read_squad(game, team_id, eye) else {
+        return false;
+    };
+    let group = group_index(&player.natural_position);
+    if crate::transfers::group_is_thin(&levels(game, team_id)[group], group) {
+        return true;
+    }
+    let blur = blur_points(
+        eye.rating,
+        eye.id,
+        &player.id,
+        &player_knowledge(game, player),
+    );
+    squad
+        .signing(player, blur)
+        .is_some_and(|marginal| marginal.gain >= MIN_GAIN)
+}
+
 /// One round of one negotiation.
-fn step(game: &mut Game, team_id: &str, mut approach: ActiveApproach) {
+fn step(game: &mut Game, team_id: &str, eye: Eye<'_>, mut approach: ActiveApproach) {
     let Some(player) = game
         .players
         .iter()
@@ -427,6 +503,10 @@ fn step(game: &mut Game, team_id: &str, mut approach: ActiveApproach) {
         give_up(game, &approach, &name, ShelveReason::ClubRefused);
         return;
     }
+    if !still_needed(game, team_id, eye, &player) {
+        stop_no_longer_needed(game, &approach, &name);
+        return;
+    }
     let terms = terms_of(&approach);
     let Some(spend) = commitment_of(
         game,
@@ -441,7 +521,17 @@ fn step(game: &mut Game, team_id: &str, mut approach: ActiveApproach) {
     // Past what he judges the player worth: the club asks more than the assistant would ever pay
     // on his own account, so the manager is asked instead.
     let beyond_judgement = approach.next_fee > approach.max_fee;
-    let authorization = authorize(&game.delegation, Duty::PlayerRecruitment, spend);
+    let wage_increase = match spend {
+        Spend::Transfer { weekly_wage, .. } => weekly_wage,
+        Spend::StaffContract { .. } | Spend::PlayerContract { .. } => 0,
+    };
+    let authorization = authorize_in_books(
+        &game.delegation,
+        Duty::PlayerRecruitment,
+        spend,
+        &books_of(game, team_id),
+        wage_increase,
+    );
     match authorization {
         Authorization::NotDelegated => {
             game.delegation.recruitment.finish(&approach.player_id);
@@ -474,7 +564,11 @@ fn propose(
     };
     let today = stamp(game);
     let reason_key = match reason {
-        Reason::ApprovalRequired if !beyond_judgement => "delegation.reason.recruitNeed",
+        Reason::ApprovalRequired if !beyond_judgement => match approach.reason.as_str() {
+            "depth" => "delegation.reason.recruitDepth",
+            "succession" => "delegation.reason.recruitSuccession",
+            _ => "delegation.reason.recruitStarter",
+        },
         _ => "delegation.reason.recruitAboveLimit",
     };
     game.delegation.propose(
@@ -490,6 +584,8 @@ fn propose(
         vec![
             param("player", name),
             param("position", &approach.need),
+            param("role", &approach.role),
+            param("gain", approach.gain),
             param("fee", fee),
             param("wage", weekly_wage),
             param("years", years),
@@ -569,6 +665,8 @@ fn finish_signed(
     params.push(param("player", name));
     params.push(param("fee", approach.next_fee));
     params.push(param("position", &approach.need));
+    params.push(param("role", &approach.role));
+    params.push(param("gain", approach.gain));
     log(game, Duty::PlayerRecruitment, key, params);
 }
 
@@ -596,6 +694,23 @@ fn give_up(game: &mut Game, approach: &ActiveApproach, name: &str, reason: Shelv
         },
         vec![param("player", name), param("position", &approach.need)],
         DecisionOutcome::LeftToManager,
+    );
+}
+
+/// The squad changed and the player is no longer what it needs: the negotiation is dropped, the
+/// player set aside, and the manager told why in the history.
+fn stop_no_longer_needed(game: &mut Game, approach: &ActiveApproach, name: &str) {
+    let until = after(game, SHELVE_NOT_POSSIBLE_DAYS);
+    game.delegation
+        .recruitment
+        .shelve(&approach.player_id, &until, ShelveReason::Done);
+    game.delegation.recruitment.finish(&approach.player_id);
+    record(
+        game,
+        Duty::PlayerRecruitment,
+        "delegation.log.recruitNoLongerNeeded",
+        vec![param("player", name), param("position", &approach.need)],
+        DecisionOutcome::Executed,
     );
 }
 
@@ -640,6 +755,9 @@ pub(super) fn sign_approved(
         wage,
         years,
         rounds: 0,
+        role: String::new(),
+        gain: 0,
+        reason: String::new(),
     };
     let outcome = make_transfer_bid_with_terms(game, player_id, fee, terms)?;
     approach.rounds = 1;
@@ -853,14 +971,33 @@ mod tests {
             }
         }
 
+        // A defence of 46 to 50 needs two good defenders, and the club's two best targets are the
+        // ones he signs: not the four lesser ones on the same list, not a third.
         let signed = defenders_signed(&g);
         assert_eq!(
             signed.len(),
-            1,
-            "one defender, not a shopping spree: {signed:?}"
+            2,
+            "the two good defenders, not a shopping spree: {signed:?}"
         );
+        assert!(signed.contains(&"od0".to_string()) && signed.contains(&"od1".to_string()));
         assert!(g.teams[0].finance < cash, "he was paid for");
-        assert!(cash - g.teams[0].finance <= 5_000_000, "within the ceiling");
+        // The ceiling is on each deal: every fee in the history is within it.
+        let fees: Vec<u64> = g
+            .delegation
+            .log
+            .iter()
+            .filter(|e| e.duty == Duty::PlayerRecruitment)
+            .filter_map(|e| e.params.iter().find(|(k, _)| k == "fee"))
+            .filter_map(|(_, fee)| fee.parse().ok())
+            .collect();
+        assert!(
+            fees.len() >= 2,
+            "both defenders are in the history: {fees:?}"
+        );
+        assert!(
+            fees.iter().all(|fee| *fee <= 5_000_000),
+            "within the ceiling: {fees:?}"
+        );
         assert!(
             g.delegation.proposals.is_empty(),
             "nothing needed the manager"
@@ -878,13 +1015,13 @@ mod tests {
         );
     }
 
-    /// Scenario 9. Given a ceiling below the price of any good defender
+    /// Scenario 9. Given a ceiling below the price of any player worth buying
     /// When the assistant visits
     /// Then he proposes the signing instead, and nothing is spent or moved.
     #[test]
     fn a_deal_above_his_limits_is_proposed_not_executed() {
         let mut g = game_needing_a_defender();
-        delegate(&mut g, false, 500_000);
+        delegate(&mut g, false, 100_000);
         let cash = g.teams[0].finance;
 
         for _ in 0..4 {
@@ -907,9 +1044,11 @@ mod tests {
     #[test]
     fn with_the_default_ceiling_nothing_is_ever_executed() {
         let mut g = game_needing_a_defender();
-        g.delegation
-            .apply_mode(domain::delegation::DelegationMode::Full);
+        // The duty acts alone, but the manager has given the assistant no ceiling and no Total
+        // authority.
+        g.delegation.set(Duty::PlayerRecruitment, true, false);
         assert_eq!(g.delegation.limits.max_transfer_fee, 0);
+        assert!(!g.delegation.limits.finance_bound);
         let cash = g.teams[0].finance;
 
         for _ in 0..10 {
@@ -1049,6 +1188,18 @@ mod tests {
         for p in g.players.iter_mut().filter(|p| p.id.starts_with('d')) {
             p.ovr = 72;
         }
+        // And a squad deep enough that nobody is missed behind the eleven: a keeper, a defender, two
+        // midfielders and two forwards of the same standard as the rest.
+        for (id, position, ovr) in [
+            ("k2", Position::Goalkeeper, 64),
+            ("d5", Position::Defender, 70),
+            ("m6", Position::Midfielder, 68),
+            ("m7", Position::Midfielder, 66),
+            ("f3", Position::Forward, 68),
+            ("f4", Position::Forward, 66),
+        ] {
+            g.players.push(member(id, "team1", position, ovr, 300_000));
+        }
         delegate(&mut g, false, 50_000_000);
 
         for _ in 0..4 {
@@ -1089,10 +1240,73 @@ mod tests {
             wage: 9_500,
             years: 4,
             rounds: 2,
+            role: "CenterBack".into(),
+            gain: 12,
+            reason: "depth".into(),
         });
         let json = serde_json::to_string(&g.delegation).unwrap();
         let back: domain::delegation::DelegationState = serde_json::from_str(&json).unwrap();
         assert_eq!(back, g.delegation);
         assert!(!back.recruitment.shelved.is_empty());
+    }
+
+    /// Given an assistant who is chasing a defender for a gap in the back four
+    /// When the manager signs six good defenders himself (a back four and cover as good as the target),
+    /// and the assistant's next visit comes
+    /// Then he stops chasing, says why in the history, bids nothing, and does not shop for the same gap
+    /// again: the manager's own signing changed the squad's needs and the assistant read them again.
+    #[test]
+    fn a_manual_signing_that_mends_the_need_ends_the_chase() {
+        let mut g = game_needing_a_defender();
+        g.delegation.set(Duty::PlayerRecruitment, true, false);
+        g.delegation.limits.max_transfer_fee = 50_000_000;
+        g.delegation.recruitment.replace(ActiveApproach {
+            player_id: "od0".into(),
+            started: stamp(&g),
+            need: "Defender".into(),
+            max_fee: 3_000_000,
+            next_fee: 2_500_000,
+            wage: 0,
+            years: 0,
+            rounds: 1,
+            role: "CenterBack".into(),
+            gain: 18,
+            reason: "starter".into(),
+        });
+        // The manager signs six defenders for the club himself: a back four and two as good as the
+        // man being chased on the bench.
+        for (id, ovr) in [
+            ("mine0", 74),
+            ("mine1", 73),
+            ("mine2", 72),
+            ("mine3", 71),
+            ("mine4", 70),
+            ("mine5", 69),
+        ] {
+            g.players
+                .push(member(id, "team1", Position::Defender, ovr, 1_000_000));
+        }
+
+        visit(&mut g);
+
+        assert!(
+            g.delegation.recruitment.active.is_empty(),
+            "the chase is over"
+        );
+        assert!(
+            g.delegation
+                .log
+                .iter()
+                .any(|e| e.title_key == "delegation.log.recruitNoLongerNeeded"),
+            "{:?}",
+            g.delegation
+                .log
+                .iter()
+                .map(|e| &e.title_key)
+                .collect::<Vec<_>>()
+        );
+        let od0 = g.players.iter().find(|p| p.id == "od0").unwrap();
+        assert!(od0.transfer_offers.is_empty(), "no bid was made");
+        assert!(g.delegation.recruitment.is_shelved("od0", &stamp(&g)));
     }
 }

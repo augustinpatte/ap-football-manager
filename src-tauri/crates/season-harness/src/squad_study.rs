@@ -67,6 +67,45 @@ fn group_of(player: &Player) -> usize {
 /// planning margin of one.
 const GROUP_NEED: [usize; 4] = [3, 5, 5, 3];
 
+/// The eleven a club could field today, chosen the way the game's lineup picker chooses when a club
+/// has no saved eleven: slot by slot in the formation's order, a natural keeper first in goal, the
+/// best positional fit among those not yet picked. Injured players are not available. Ties go to the
+/// lower player id, so the answer never depends on storage order. Not the picker's own function (it
+/// is private to the game); the same rule, so that a figure here is "what the game would play".
+fn fielded_eleven<'a>(
+    slots: &[domain::player::Position],
+    seniors: &[&'a Player],
+) -> Vec<(&'a Player, f64)> {
+    let mut available: Vec<&Player> = seniors
+        .iter()
+        .copied()
+        .filter(|p| p.injury.is_none())
+        .collect();
+    available.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut taken: Vec<&str> = Vec::new();
+    let mut eleven = Vec::new();
+    for (index, slot) in slots.iter().enumerate().take(11) {
+        let key = |p: &&Player| {
+            let keeper_first =
+                index == 0 && p.natural_position == domain::player::Position::Goalkeeper;
+            (keeper_first, positional_fit_for_assignment(p, slot))
+        };
+        let best = available
+            .iter()
+            .filter(|p| !taken.contains(&p.id.as_str()))
+            .fold(None::<&&Player>, |best, candidate| match best {
+                Some(held) if key(held) >= key(candidate) => Some(held),
+                _ => Some(candidate),
+            });
+        let Some(player) = best.copied() else {
+            break;
+        };
+        taken.push(player.id.as_str());
+        eleven.push((player, positional_fit_for_assignment(player, slot)));
+    }
+    eleven
+}
+
 fn read_club(
     game: &Game,
     team: &domain::team::Team,
@@ -75,15 +114,17 @@ fn read_club(
     before: &HashMap<String, Option<String>>,
 ) -> SquadYear {
     let slots = formation_slots(&team.formation);
-    let by_id: HashMap<&str, &Player> = squad.iter().map(|p| (p.id.as_str(), *p)).collect();
-    let mut fits = Vec::new();
-    let (mut out_of_group, mut goalkeeper_in_goal) = (0, false);
-    for (slot_index, id) in team.starting_xi_ids.iter().enumerate() {
-        let (Some(slot), Some(player)) = (slots.get(slot_index), by_id.get(id.as_str())) else {
-            continue;
-        };
-        fits.push(positional_fit_for_assignment(player, slot));
-        let slot_group = match slot.to_group_position() {
+    let seniors: Vec<&&Player> = squad
+        .iter()
+        .filter(|p| p.squad_role == SquadRole::Senior)
+        .collect();
+    let senior_refs: Vec<&Player> = seniors.iter().map(|p| **p).collect();
+    let eleven = fielded_eleven(&slots, &senior_refs);
+    let fits: Vec<f64> = eleven.iter().map(|(_, fit)| *fit).collect();
+    let mut out_of_group = 0;
+    let mut goalkeeper_in_goal = false;
+    for (slot_index, (player, _)) in eleven.iter().enumerate() {
+        let slot_group = match slots[slot_index].to_group_position() {
             domain::player::Position::Goalkeeper => 0,
             domain::player::Position::Defender => 1,
             domain::player::Position::Midfielder => 2,
@@ -96,16 +137,13 @@ fn read_club(
             goalkeeper_in_goal = true;
         }
     }
-    let seniors: Vec<&&Player> = squad
-        .iter()
-        .filter(|p| p.squad_role == SquadRole::Senior)
-        .collect();
+    let fielded: Vec<&str> = eleven.iter().map(|(p, _)| p.id.as_str()).collect();
     let mut by_group = [0_usize; 4];
     for player in &seniors {
         by_group[group_of(player)] += 1;
     }
     let xi_fit = fits.iter().sum::<f64>() / fits.len().max(1) as f64;
-    let in_xi = |p: &Player| team.starting_xi_ids.contains(&p.id);
+    let in_xi = |p: &Player| fielded.contains(&p.id.as_str());
     let usable_bench = seniors
         .iter()
         .filter(|p| !in_xi(p) && f64::from(p.ovr) >= xi_fit - 15.0)

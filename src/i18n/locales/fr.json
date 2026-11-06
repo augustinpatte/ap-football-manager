@@ -704,7 +704,9 @@
     "adaptedFit": "Peut y jouer",
     "needsCover": "Besoin d'une doublure",
     "makeStarter": "Mettre titulaire",
-    "sendToBench": "Envoyer sur le banc"
+    "sendToBench": "Envoyer sur le banc",
+    "protectFromSale": "Protéger de la vente",
+    "removeSaleProtection": "Autoriser l'adjoint à le vendre"
   },
   "tactics": {
     "formationStyle": "Formation & style",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Mode de délégation",
         "manual": "Manuel",
-        "approval": "Avec approbation",
+        "approval": "Prudent",
         "full": "Total",
         "custom": "Personnalisé",
         "manualDesc": "Vous prenez toutes les décisions. L'adjoint ne fait que conseiller.",
-        "approvalDesc": "L'adjoint gère le quotidien et vous soumet chaque décision importante.",
-        "fullDesc": "L'adjoint gère tout dans les limites ci-dessous. Ce qui les dépasse vous revient toujours.",
-        "customDesc": "Les tâches sont réglées une par une ci-dessous."
+        "approvalDesc": "L'adjoint gère le quotidien et vous soumet chaque décision importante (un recrutement, une vente, une prolongation) sous forme de proposition que vous pouvez lire et trancher.",
+        "fullDesc": "L'adjoint gère lui-même chaque tâche — recruter, négocier, vendre, prolonger — dans les limites des finances du club et des règles, et ne vend jamais un joueur que vous protégez.",
+        "customDesc": "Les tâches sont réglées une par une ci-dessous.",
+        "totalNote": "Autorité totale : l'adjoint est tenu par la trésorerie du club, la marge salariale et les règles de la direction ; les plafonds de dépense ci-dessous ne servent donc pas aux recrutements ni aux prolongations. Il ne vend jamais un joueur que vous protégez.",
+        "limitsOnlyNote": "Ce mode fonctionne dans les plafonds de dépense ci-dessous. Choisissez Total pour donner à l'adjoint autorité sur les finances du club."
       },
       "limits": {
         "title": "Plafonds de dépense",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Rapport de l'adjoint",
-        "body": "Chef, depuis mon dernier rapport j'ai pris {{done}} décision(s) et vous en ai laissé {{left}}. {{waiting}} proposition(s) attendent votre réponse."
+        "body": "Chef, depuis mon dernier rapport j'ai pris {{done}} décision(s) et vous en ai laissé {{left}}. {{waiting}} proposition(s) attendent votre réponse.",
+        "bodyTransfers": "Chef, depuis mon dernier rapport j'ai pris {{done}} décision(s), dont {{signings}} recrutement(s) et {{sales}} vente(s), et vous en ai laissé {{left}}. {{waiting}} proposition(s) attendent votre réponse."
       },
       "assistantProposals": {
         "subject": "Propositions en attente",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Remplacer par {{name}} (niveau {{ovr}})",
       "renew": "Prolonger {{name}} à {{wage}} par semaine sur {{years}} ans",
       "renewPlayer": "Prolonger {{player}} à {{wage}} par semaine pour {{years}} ans",
-      "signPlayer": "Recruter {{player}} ({{position}}) pour {{fee}}, à {{wage}} par semaine sur {{years}} ans"
+      "signPlayer": "Recruter {{player}} ({{position}}) pour {{fee}}, à {{wage}} par semaine sur {{years}} ans",
+      "sellPlayer": "Vendre {{player}} à {{club}} pour {{fee}}",
+      "counterOffer": "Demander {{fee}} à {{club}} pour {{player}} (ils ont offert {{offered}})",
+      "listPlayer": "Mettre {{player}} sur la liste des transferts"
     },
     "reason": {
       "vacancy": "Un poste obligatoire est vide.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "Le contrat arrive à échéance.",
       "aboveLimit": "Cela dépasse un plafond de dépense que vous avez fixé à l'adjoint.",
       "recruitNeed": "L'effectif a besoin d'un joueur à ce poste.",
-      "recruitAboveLimit": "Cela dépasse une limite de dépense que vous avez fixée à l'adjoint, ou le prix qu'il juge correct."
+      "recruitAboveLimit": "Cela dépasse une limite de dépense que vous avez fixée à l'adjoint, ou le prix qu'il juge correct.",
+      "recruitStarter": "Il serait titulaire au poste de {{role}} et ajouterait environ {{gain}} points de note à l'équipe.",
+      "recruitDepth": "L'effectif est court autour du poste de {{role}} : il le couvrirait et ajouterait environ {{gain}} points de note de solidité.",
+      "recruitSuccession": "Un titulaire au poste de {{role}} vieillit ou part : il est le successeur.",
+      "saleSurplus": "L'équipe ne le regretterait guère (environ {{loss}} points de note) et le prix est correct.",
+      "saleFunds": "L'argent renforcerait les points faibles de l'équipe plus qu'il ne lui apporte (le perdre coûte environ {{loss}} points de note).",
+      "saleFair": "Un prix correct pour un joueur dont l'équipe peut se passer (le perdre coûte environ {{loss}} points de note).",
+      "listSurplus": "L'effectif compte plus de joueurs que nécessaire à son poste : l'équipe perdrait environ {{loss}} points de note.",
+      "listLeaving": "Son contrat arrive à terme et le club ne compte pas le renouveler.",
+      "listFunds": "Le vendre financerait une équipe plus forte : son départ coûte environ {{loss}} points de note à l'équipe.",
+      "listBooks": "La masse salariale dépasse le budget et il ne fait pas partie de l'équipe type."
     },
     "log": {
       "hired": "A recruté {{name}} ({{post}}) à {{wage}} par semaine",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "A fixé le plan tactique du prochain match (style {{style}})",
       "trainingIntensity": "A réglé l'entraînement sur {{focus}}, intensité {{intensity}}",
       "offerDeclined": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : bien en dessous de sa valeur",
-      "offerKeepsStarter": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : il est titulaire"
+      "offerKeepsStarter": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : il est titulaire",
+      "offerDeclinedProtected": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : vous avez demandé qu'il ne soit pas vendu",
+      "offerKept": "A refusé l'offre de {{club}} de {{fee}} pour {{player}} : le club préfère le garder",
+      "offerAcceptedSurplus": "A vendu {{player}} à {{club}} pour {{fee}} : l'équipe ne le regrettera guère ({{loss}} points de note) et ses {{wage}} par semaine quittent la masse salariale",
+      "offerAcceptedFunds": "A vendu {{player}} à {{club}} pour {{fee}} afin de renforcer les points faibles : l'équipe perd environ {{loss}} points de note ; ses {{wage}} par semaine quittent la masse salariale",
+      "offerAcceptedFair": "A vendu {{player}} à {{club}} pour {{fee}}, un prix correct pour un joueur dont l'équipe peut se passer ({{loss}} points de note)",
+      "offerCounteredAccepted": "A demandé {{asked}} à {{club}} pour {{player}} (ils offraient {{offered}}) : ils ont accepté",
+      "offerCounteredAgain": "A demandé {{asked}} à {{club}} pour {{player}} (ils offraient {{offered}}) : ils ont fait une nouvelle offre",
+      "offerCounteredRefused": "A demandé {{asked}} à {{club}} pour {{player}} (ils offraient {{offered}}) : ils se sont retirés",
+      "offerNotAccepted": "A laissé l'offre de {{club}} de {{fee}} pour {{player}} à votre décision : la vente est impossible en l'état",
+      "listedSurplus": "A mis {{player}} sur la liste des transferts : l'effectif compte plus de joueurs que nécessaire à son poste ({{loss}} points de note pour l'équipe)",
+      "listedLeaving": "A mis {{player}} sur la liste des transferts : son contrat arrive à terme et ne sera pas renouvelé",
+      "listedFunds": "A mis {{player}} sur la liste des transferts pour financer une équipe plus forte ({{loss}} points de note pour l'équipe)",
+      "listedBooks": "A mis {{player}} sur la liste des transferts : la masse salariale dépasse le budget",
+      "delisted": "A retiré {{player}} de la liste des transferts : l'équipe a besoin de lui",
+      "released": "A résilié le contrat de {{player}} : personne ne l'a acheté et la masse salariale dépasse le budget",
+      "listedApproved": "A mis {{player}} sur la liste des transferts, comme vous l'avez approuvé",
+      "recruitNoLongerNeeded": "A cessé de viser {{player}} ({{position}}) : l'effectif n'a plus besoin de lui"
     }
   },
   "freeAgents": {

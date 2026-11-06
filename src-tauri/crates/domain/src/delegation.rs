@@ -30,8 +30,11 @@ pub enum Duty {
     /// The tactical plan for the next match: the nine phase dials, set from the club's style, the
     /// squad's legs and pace, and the recent results.
     Tactics,
-    /// Answering the offers other clubs make for the manager's players: the assistant turns down
-    /// the ones far below the player's worth, and leaves every other decision to the manager.
+    /// Selling: answering the offers other clubs make for the manager's players, and putting the
+    /// players the squad does not need on the transfer list. What the assistant may do alone
+    /// depends on the mode: the routine (turning down an insult, keeping a player nobody
+    /// replaces) is always his; accepting, countering and listing are his only with Total
+    /// authority, and are proposals to the manager otherwise.
     Offers,
 }
 
@@ -131,6 +134,22 @@ pub enum ProposalAction {
         wage: u32,
         years: u8,
     },
+    /// Accept a club's offer for one of the manager's players, at the fee offered.
+    AcceptOffer {
+        player_id: String,
+        offer_id: String,
+        fee: u64,
+    },
+    /// Ask a club for more than it offered.
+    CounterOffer {
+        player_id: String,
+        offer_id: String,
+        fee: u64,
+    },
+    /// Put a player the squad does not need on the transfer list.
+    ListForSale {
+        player_id: String,
+    },
 }
 
 /// A step waiting for the manager's answer.
@@ -177,9 +196,13 @@ pub struct DelegationLogEntry {
 pub enum DelegationMode {
     /// The manager does everything; the assistant only advises.
     Manual,
-    /// The assistant runs the routine and brings every major decision to the manager.
+    /// **Prudent.** The assistant runs the routine and brings every major decision (a signing, a
+    /// sale, a renewal) to the manager as a proposal he can read and answer.
     Approval,
-    /// The assistant runs everything within the manager's spending limits.
+    /// **Total.** The assistant manages every duty himself: recruiting, negotiating, selling,
+    /// renewing, releasing, hiring and the match-day duties. His authority is the club's finances
+    /// and the rules (board wage policy, affordability, registration, the player's consent) and the
+    /// manager's own instructions (protected players), not a ceiling the manager sets per deal.
     Full,
     /// Duties are set one by one and match none of the three presets.
     Custom,
@@ -202,6 +225,12 @@ pub struct DelegationLimits {
     /// Read through `ofm_core::staff_system::delegation_policy::authorize`; the transfer engine
     /// is the caller.
     pub max_transfer_fee: i64,
+    /// Total authority: a delegated duty that acts alone is held to what the club can carry (its
+    /// cash, its wage room, the board's wage policy and the transfer rules) instead of the
+    /// ceilings above, and may sell and list players. False for every state saved before it
+    /// existed, so nobody is given authority they did not ask for.
+    #[serde(default)]
+    pub finance_bound: bool,
 }
 
 impl Default for DelegationLimits {
@@ -211,6 +240,7 @@ impl Default for DelegationLimits {
             max_player_wage: 15_000,
             max_commitment: 3_000_000,
             max_transfer_fee: 0,
+            finance_bound: false,
         }
     }
 }
@@ -253,6 +283,103 @@ pub struct DelegationState {
     /// Duties the assistant is leaving to the manager until a day (`YYYY-MM-DD`).
     #[serde(default)]
     pub stood_back_until: Vec<(Duty, String)>,
+    /// What the assistant has in hand on the selling side.
+    #[serde(default)]
+    pub sales: SalesMemory,
+    /// Players the manager has said are not to be sold: the assistant turns down every offer for
+    /// them, never lists them and never proposes their sale.
+    #[serde(default)]
+    pub protected_players: Vec<String>,
+}
+
+/// Most players the manager can protect at once.
+pub const PROTECTED_CAPACITY: usize = 60;
+/// Most offers the sales memory keeps.
+pub const OFFER_RECORD_CAPACITY: usize = 60;
+/// Most players the assistant has on the list at once.
+pub const ASSISTANT_LISTING_CAPACITY: usize = 2;
+
+/// What the assistant did about an offer, so that a day processed twice does nothing twice.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OfferRecord {
+    pub offer_id: String,
+    /// `YYYY-MM-DD` of the last step taken on it.
+    pub date: String,
+    /// Counter-offers made on it.
+    #[serde(default)]
+    pub counters: u8,
+    /// Nothing more is to be done about it (accepted, turned down, left to the manager).
+    #[serde(default)]
+    pub settled: bool,
+}
+
+/// The assistant's working memory for selling: saved with the career, so a reload in the middle of
+/// a negotiation carries on and nothing is done twice.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SalesMemory {
+    /// Offers the assistant has acted on or left alone.
+    pub offers: Vec<OfferRecord>,
+    /// Players the assistant put on the list, and so may take off it. A player the manager listed
+    /// himself is never here.
+    pub listed: Vec<String>,
+    /// Players whose sale was proposed and refused, or whom the manager took off the list again,
+    /// until a day (`YYYY-MM-DD`): not raised again before then.
+    pub shelved: Vec<ShelvedTarget>,
+    /// Last day the assistant reviewed the squad for players to list.
+    pub last_listing_review: Option<String>,
+}
+
+impl SalesMemory {
+    pub fn record_for(&self, offer_id: &str) -> Option<&OfferRecord> {
+        self.offers.iter().find(|r| r.offer_id == offer_id)
+    }
+
+    /// The record of an offer, created if there is none.
+    pub fn record_mut(&mut self, offer_id: &str, today: &str) -> &mut OfferRecord {
+        if !self.offers.iter().any(|r| r.offer_id == offer_id) {
+            self.offers.push(OfferRecord {
+                offer_id: offer_id.to_string(),
+                date: today.to_string(),
+                counters: 0,
+                settled: false,
+            });
+            if self.offers.len() > OFFER_RECORD_CAPACITY {
+                let excess = self.offers.len() - OFFER_RECORD_CAPACITY;
+                self.offers.drain(..excess);
+            }
+        }
+        let last = self.offers.len() - 1;
+        let index = self
+            .offers
+            .iter()
+            .position(|r| r.offer_id == offer_id)
+            .unwrap_or(last);
+        &mut self.offers[index]
+    }
+
+    pub fn is_shelved(&self, player_id: &str, today: &str) -> bool {
+        self.shelved
+            .iter()
+            .any(|target| target.player_id == player_id && target.until.as_str() > today)
+    }
+
+    pub fn shelve(&mut self, player_id: &str, until: &str, reason: ShelveReason) {
+        self.shelved.retain(|target| target.player_id != player_id);
+        self.shelved.push(ShelvedTarget {
+            player_id: player_id.to_string(),
+            until: until.to_string(),
+            reason,
+        });
+        if self.shelved.len() > SHELF_CAPACITY {
+            let excess = self.shelved.len() - SHELF_CAPACITY;
+            self.shelved.drain(..excess);
+        }
+    }
+
+    pub fn forget_expired(&mut self, today: &str) {
+        self.shelved.retain(|target| target.until.as_str() > today);
+    }
 }
 
 /// Most targets the assistant puts aside at once, oldest dropped first.
@@ -311,6 +438,16 @@ pub struct ActiveApproach {
     /// Bids made so far.
     #[serde(default)]
     pub rounds: u8,
+    /// The slot of the side he is to fill (`CenterBack`, `Striker`...), for the report.
+    #[serde(default)]
+    pub role: String,
+    /// What he adds to the side, in rating points across the eleven, as the assistant read it
+    /// when he chose him.
+    #[serde(default)]
+    pub gain: i32,
+    /// Why he was chosen: `starter`, `depth` or `succession`.
+    #[serde(default)]
+    pub reason: String,
 }
 
 /// A bid the assistant made, kept for pacing.
@@ -419,11 +556,50 @@ impl Default for DelegationState {
             recruitment: RecruitmentMemory::default(),
             applied: Vec::new(),
             stood_back_until: Vec::new(),
+            sales: SalesMemory::default(),
+            protected_players: Vec::new(),
         }
     }
 }
 
+/// Which preset a set of duty settings amounts to.
+fn mode_of(settings: &[DutySetting]) -> DelegationMode {
+    if !settings.iter().any(|s| s.delegated) {
+        return DelegationMode::Manual;
+    }
+    let setting = |duty: Duty| settings.iter().find(|s| s.duty == duty);
+    let every_duty = Duty::ALL
+        .iter()
+        .all(|d| setting(*d).is_some_and(|s| s.delegated));
+    let delegated = || settings.iter().filter(|s| s.delegated);
+    let asks = delegated().all(|s| s.confirm_major);
+    let acts = delegated().all(|s| !s.confirm_major);
+    match (every_duty, asks, acts) {
+        (true, true, _) => DelegationMode::Approval,
+        (true, _, true) => DelegationMode::Full,
+        _ => DelegationMode::Custom,
+    }
+}
+
 impl DelegationState {
+    /// Whether the manager has said `player_id` is not to be sold.
+    pub fn is_protected(&self, player_id: &str) -> bool {
+        self.protected_players.iter().any(|id| id == player_id)
+    }
+
+    /// Protects (or stops protecting) a player. Protecting beyond [`PROTECTED_CAPACITY`] drops the
+    /// oldest, so the list never grows without end.
+    pub fn set_protected(&mut self, player_id: &str, protected: bool) {
+        self.protected_players.retain(|id| id != player_id);
+        if protected {
+            self.protected_players.push(player_id.to_string());
+            if self.protected_players.len() > PROTECTED_CAPACITY {
+                let excess = self.protected_players.len() - PROTECTED_CAPACITY;
+                self.protected_players.drain(..excess);
+            }
+        }
+    }
+
     pub fn setting(&self, duty: Duty) -> Option<&DutySetting> {
         self.settings.iter().find(|s| s.duty == duty)
     }
@@ -510,28 +686,7 @@ impl DelegationState {
     /// Which preset the duty settings amount to. Derived, never stored, so it cannot disagree
     /// with the settings it summarises.
     pub fn mode(&self) -> DelegationMode {
-        let delegated = |s: &&DutySetting| s.delegated;
-        if !self.settings.iter().any(|s| s.delegated) {
-            return DelegationMode::Manual;
-        }
-        let every_duty = Duty::ALL
-            .iter()
-            .all(|d| self.setting(*d).is_some_and(|s| s.delegated));
-        let asks = self
-            .settings
-            .iter()
-            .filter(delegated)
-            .all(|s| s.confirm_major);
-        let acts = self
-            .settings
-            .iter()
-            .filter(delegated)
-            .all(|s| !s.confirm_major);
-        match (every_duty, asks, acts) {
-            (true, true, _) => DelegationMode::Approval,
-            (true, _, true) => DelegationMode::Full,
-            _ => DelegationMode::Custom,
-        }
+        mode_of(&self.settings)
     }
 
     /// Applies a preset to every duty. A temporary manual pause retains the prior individual
@@ -549,15 +704,27 @@ impl DelegationState {
             }
             return;
         }
+        // Resuming after a pause restores what was there: the manager's own per-duty choices, or
+        // the preset he is asking for again. A different preset than the one paused is a new
+        // choice and is applied as one (pausing Total and then picking Prudent gives Prudent).
         if let Some(settings) = self.suspended_settings.take() {
-            self.settings = settings;
-            return;
+            let paused = mode_of(&settings);
+            if paused == DelegationMode::Custom || paused == mode {
+                self.settings = settings;
+                if paused == mode {
+                    self.limits.finance_bound = mode == DelegationMode::Full;
+                }
+                return;
+            }
         }
         let confirm_major = match mode {
             DelegationMode::Approval => true,
             DelegationMode::Full => false,
             DelegationMode::Manual | DelegationMode::Custom => return,
         };
+        // Total authority comes with the Total preset and goes with any other: choosing Prudent
+        // takes it back.
+        self.limits.finance_bound = mode == DelegationMode::Full;
         for duty in Duty::ALL {
             self.set(duty, true, confirm_major);
         }
@@ -783,5 +950,128 @@ mod tests {
         let old = r#"{"settings":[]}"#;
         let state: DelegationState = serde_json::from_str(old).unwrap();
         assert!(state.applied.is_empty() && state.stood_back_until.is_empty());
+    }
+
+    /// Given a state saved before sales authority, protected players and the sales memory existed
+    /// When it is read
+    /// Then nothing is protected, the assistant has no authority to sell and its memory is empty.
+    #[test]
+    fn a_state_from_before_total_authority_gives_none() {
+        let old = r#"{"settings":[{"duty":"Offers","delegated":true,"confirm_major":false}],
+            "limits":{"max_staff_wage":5000,"max_player_wage":15000,"max_commitment":3000000,
+            "max_transfer_fee":0}}"#;
+        let state: DelegationState = serde_json::from_str(old).unwrap();
+        assert!(!state.limits.finance_bound);
+        assert!(state.protected_players.is_empty());
+        assert_eq!(state.sales, SalesMemory::default());
+        assert!(state.is_delegated(Duty::Offers) && !state.needs_confirmation(Duty::Offers));
+    }
+
+    /// Given each preset
+    /// When it is applied
+    /// Then Total (Full) carries authority over the club's finances and Prudent (Approval) takes it
+    /// back; a manual pause does not change it.
+    #[test]
+    fn only_the_total_preset_carries_financial_authority() {
+        let mut state = DelegationState::default();
+        state.apply_mode(DelegationMode::Full);
+        assert!(state.limits.finance_bound);
+        state.apply_mode(DelegationMode::Approval);
+        assert!(!state.limits.finance_bound);
+        assert_eq!(state.mode(), DelegationMode::Approval);
+        state.apply_mode(DelegationMode::Full);
+        state.apply_mode(DelegationMode::Manual);
+        assert!(state.limits.finance_bound, "pausing is not revoking");
+    }
+
+    /// Given Total paused for a while
+    /// When the manager then picks Prudent
+    /// Then he gets Prudent: choosing a different preset is a new choice, not a resume.
+    #[test]
+    fn pausing_total_and_picking_prudent_gives_prudent() {
+        let mut state = DelegationState::default();
+        state.apply_mode(DelegationMode::Full);
+        state.apply_mode(DelegationMode::Manual);
+        state.apply_mode(DelegationMode::Approval);
+        assert_eq!(state.mode(), DelegationMode::Approval);
+        assert!(!state.limits.finance_bound);
+        assert!(Duty::ALL.iter().all(|d| state.needs_confirmation(*d)));
+    }
+
+    /// Given Total paused and then picked again
+    /// When it is resumed
+    /// Then it is Total again, with its authority.
+    #[test]
+    fn resuming_total_restores_total() {
+        let mut state = DelegationState::default();
+        state.apply_mode(DelegationMode::Full);
+        state.apply_mode(DelegationMode::Manual);
+        state.apply_mode(DelegationMode::Full);
+        assert_eq!(state.mode(), DelegationMode::Full);
+        assert!(state.limits.finance_bound);
+    }
+
+    /// Given a protected player
+    /// When protection is set, repeated and withdrawn
+    /// Then the list holds him once and then not at all, and never outgrows its capacity.
+    #[test]
+    fn protecting_a_player_is_idempotent_and_bounded() {
+        let mut state = DelegationState::default();
+        state.set_protected("p1", true);
+        state.set_protected("p1", true);
+        assert_eq!(state.protected_players, vec!["p1".to_string()]);
+        assert!(state.is_protected("p1"));
+        state.set_protected("p1", false);
+        assert!(!state.is_protected("p1"));
+        for i in 0..PROTECTED_CAPACITY + 10 {
+            state.set_protected(&format!("p{i}"), true);
+        }
+        assert_eq!(state.protected_players.len(), PROTECTED_CAPACITY);
+        assert!(
+            !state.is_protected("p0")
+                && state.is_protected(&format!("p{}", PROTECTED_CAPACITY + 9))
+        );
+    }
+
+    /// Given the sales memory asked about the same offer twice
+    /// When its record is read each time
+    /// Then it is one record, and a shelved player is back after his date.
+    #[test]
+    fn the_sales_memory_keeps_one_record_per_offer_and_forgets_on_time() {
+        let mut memory = SalesMemory::default();
+        memory.record_mut("o1", "2026-08-01").counters = 1;
+        assert_eq!(memory.record_mut("o1", "2026-08-02").counters, 1);
+        assert_eq!(memory.offers.len(), 1);
+        memory.shelve("p1", "2026-09-01", ShelveReason::ManagerDeclined);
+        assert!(memory.is_shelved("p1", "2026-08-31"));
+        assert!(!memory.is_shelved("p1", "2026-09-01"));
+        memory.forget_expired("2026-09-01");
+        assert!(memory.shelved.is_empty());
+    }
+
+    /// Given a negotiation saved in the middle, with what the assistant had worked out
+    /// When it is serialised and read back
+    /// Then every figure and the reason are kept: a reload carries the negotiation on.
+    #[test]
+    fn an_open_negotiation_survives_a_reload_with_its_reasons() {
+        let mut state = DelegationState::default();
+        state.recruitment.replace(ActiveApproach {
+            player_id: "p9".into(),
+            started: "2026-08-01".into(),
+            need: "Forward".into(),
+            max_fee: 9_000_000,
+            next_fee: 8_100_000,
+            wage: 20_000,
+            years: 3,
+            rounds: 2,
+            role: "Striker".into(),
+            gain: 14,
+            reason: "starter".into(),
+        });
+        state.sales.record_mut("o7", "2026-08-02").counters = 2;
+        state.set_protected("keeper", true);
+        let again: DelegationState =
+            serde_json::from_str(&serde_json::to_string(&state).unwrap()).unwrap();
+        assert_eq!(again, state);
     }
 }

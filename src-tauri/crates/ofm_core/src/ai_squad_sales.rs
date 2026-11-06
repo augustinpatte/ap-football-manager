@@ -24,8 +24,8 @@ use crate::ai_contracts::{SquadFacts, keeps_given};
 use crate::game::Game;
 use crate::squad_floor::{STARTERS_PER_GROUP as STARTERS, group_index};
 use crate::squad_intelligence::ClubSquad;
-use crate::squad_intelligence::appetite::Appetite;
 use crate::squad_intelligence::impact::{REINVESTMENT_RATIO, STARTER_LOSS, SaleCase};
+use crate::squad_intelligence::needs::NeedKind;
 use crate::transfers::reinvestment_gain;
 use domain::player::{Player, SquadRole};
 use domain::team::Team;
@@ -86,7 +86,7 @@ const RELEASE_MAX_CASH_SHARE_PCT: i64 = 2;
 /// no rule of the squad floor and whose contract has more than a year to run (a shorter one
 /// expires on its own sooner than the saving pays back the severance). A club in debt cannot
 /// afford it and does not.
-fn release_unsold_surplus(
+pub(crate) fn release_unsold_surplus(
     game: &mut Game,
     team: &Team,
     bill: i64,
@@ -163,14 +163,53 @@ fn list_decisions(
     bill: i64,
     current_date: chrono::NaiveDate,
 ) -> Vec<(usize, bool)> {
-    let seniors: Vec<usize> = game
-        .players
+    let wanted: Vec<usize> = ranked_sellable(game, team, bill, current_date)
+        .into_iter()
+        .take(MAX_LISTED)
+        .map(|candidate| candidate.index)
+        .collect();
+    let mut changes = Vec::new();
+    for (index, player) in game.players.iter().enumerate() {
+        let is_senior = player.team_id.as_deref() == Some(team.id.as_str())
+            && player.squad_role == SquadRole::Senior
+            && player.active_loan.is_none();
+        if !is_senior {
+            continue;
+        }
+        let should_be_listed = wanted.contains(&index);
+        if player.transfer_listed != should_be_listed {
+            changes.push((index, should_be_listed));
+        }
+    }
+    changes
+}
+
+/// A player a club could put on the list, and why.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ListingCandidate {
+    /// Where he stands in `game.players`.
+    pub index: usize,
+    pub reason: Reason,
+    /// What the side the club fields would lose, net of a cheap replacement, in strength points.
+    pub net_loss: f32,
+}
+
+/// The players a club would sell, the ones it would most like to see go first. The one definition
+/// of "sellable": the AI clubs list from it, and so does the manager's assistant — each applies
+/// its own policy to the answer. A player the side fielded cannot do without is never in it.
+pub(crate) fn ranked_sellable(
+    game: &Game,
+    team: &Team,
+    bill: i64,
+    current_date: chrono::NaiveDate,
+) -> Vec<ListingCandidate> {
+    let facts = SquadFacts::of(game, &team.id);
+    let seniors: Vec<usize> = facts
+        .club()
         .iter()
-        .enumerate()
-        .filter(|(_, player)| player.team_id.as_deref() == Some(team.id.as_str()))
-        .filter(|(_, player)| player.squad_role == SquadRole::Senior)
-        .filter(|(_, player)| player.active_loan.is_none())
-        .map(|(index, _)| index)
+        .copied()
+        .filter(|&index| game.players[index].squad_role == SquadRole::Senior)
+        .filter(|&index| game.players[index].active_loan.is_none())
         .collect();
 
     // Rank in his group by rating: 0 is the best. Ties: younger first, then id, so the answer
@@ -195,22 +234,37 @@ fn list_decisions(
     }
 
     let in_trouble = bill > team.wage_budget || team.finance < 0;
-    let facts = SquadFacts::of(game, &team.id);
     // What losing each of them would cost the side the club fields (Squad Intelligence): who is
-    // never sold, and who is sold to fund a stronger side.
-    let squad = ClubSquad::of(game, &team.id, Appetite::NEUTRAL);
-    let sales = squad.as_ref().map(|squad| squad.sales(&team.id));
-    let mut sellable: Vec<(usize, Reason, f32)> = seniors
+    // never sold, and who is sold to fund a stronger side. The cost is the dear part of the
+    // answer, so it is asked only where it can change it: of a player who is not the first choice
+    // of his group (a club does not list those), and who could be listed by some rule at all: he
+    // is beyond the depth the club plans for, or his contract is running out, or the club is in
+    // trouble with its books, or it has a weakness pressing enough for a sale to mend.
+    let pressing_need = facts.squad().is_some_and(|squad| {
+        squad
+            .needs()
+            .iter()
+            .any(|need| need.kind == NeedKind::Starter && need.severity >= PRESSING_NEED_SEVERITY)
+    });
+    let mut sellable: Vec<ListingCandidate> = seniors
         .iter()
         .copied()
         .filter_map(|index| {
             let player = &game.players[index];
-            let case = sales
-                .as_ref()
-                .and_then(|sales| sales.iter().find(|(id, _)| *id == player.id))
-                .map(|(_, case)| *case);
-            let funds = squad
-                .as_ref()
+            let group = group_index(&player.position);
+            let first_choice = ranks[&index] < STARTERS[group];
+            let listable_by_some_rule = ranks[&index] >= DESIRED_DEPTH[group]
+                || in_trouble
+                || pressing_need
+                || crate::contracts::contract_days_remaining(player.contract_end(), current_date)
+                    .is_some_and(|days| days <= LEAVING_HORIZON_DAYS);
+            let case = if first_choice || !listable_by_some_rule {
+                None
+            } else {
+                facts.sale_case(&player.id)
+            };
+            let funds = facts
+                .squad()
                 .zip(case.as_ref())
                 .is_some_and(|(squad, case)| funds_a_bigger_need(squad, team, player, case));
             reason_to_sell(
@@ -222,43 +276,51 @@ fn list_decisions(
                 in_trouble,
                 current_date,
             )
-            .map(|reason| (index, reason, case.map_or(0.0, |case| case.net_loss)))
+            .map(|reason| ListingCandidate {
+                index,
+                reason,
+                net_loss: case.map_or(0.0, |case| case.net_loss),
+            })
         })
         .collect();
     // The ones he would most like to see go first: surplus beyond need, then the leaving, then the
     // ones whose sale funds a stronger side, then the dear; within each the one the side misses
     // least, then the lowest rated, then the dearest. Stable on id.
-    sellable.sort_by(|&(a, ra, la), &(b, rb, lb)| {
-        let (a, b) = (&game.players[a], &game.players[b]);
-        ra.cmp(&rb)
-            .then_with(|| la.total_cmp(&lb))
-            .then_with(|| a.ovr.cmp(&b.ovr))
-            .then_with(|| b.wage().cmp(&a.wage()))
-            .then_with(|| a.id.cmp(&b.id))
+    sellable.sort_by(|a, b| {
+        let (pa, pb) = (&game.players[a.index], &game.players[b.index]);
+        a.reason
+            .cmp(&b.reason)
+            .then_with(|| a.net_loss.total_cmp(&b.net_loss))
+            .then_with(|| pa.ovr.cmp(&pb.ovr))
+            .then_with(|| pb.wage().cmp(&pa.wage()))
+            .then_with(|| pa.id.cmp(&pb.id))
     });
-    let wanted: Vec<usize> = sellable
-        .into_iter()
-        .take(MAX_LISTED)
-        .map(|(index, _, _)| index)
-        .collect();
-
-    let mut changes = Vec::new();
-    for &index in &seniors {
-        let should_be_listed = wanted.contains(&index);
-        if game.players[index].transfer_listed != should_be_listed {
-            changes.push((index, should_be_listed));
-        }
-    }
-    changes
+    sellable
 }
+
+/// A starter slot this many expected rating points below the club's own standard is a weakness a
+/// sale could mend; under it, selling a player to fund an upgrade is not worth considering.
+const PRESSING_NEED_SEVERITY: f32 = 4.0;
 
 /// Why a club would sell this player, most compelling first (the order is the sort order).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Reason {
+pub(crate) enum Reason {
     Surplus,
     LeavingAnyway,
     FundsAStrongerSide,
     TheBooks,
+}
+
+impl Reason {
+    /// The reason as the history names it.
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Surplus => "surplus",
+            Self::LeavingAnyway => "leaving",
+            Self::FundsAStrongerSide => "funds",
+            Self::TheBooks => "books",
+        }
+    }
 }
 
 /// Whether the money for this player would buy the club more than he is worth to its side, with

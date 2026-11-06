@@ -1047,6 +1047,8 @@ export interface GameStateData {
   /** Sent by the backend; the frontend reads these through their own commands. */
   custom_tactics?: unknown[];
   scouted_players?: unknown[];
+  /** What the manager has handed to the staff; the staff screen reads the rest through its own command. */
+  delegation?: { protected_players?: string[] };
   clock: {
     current_date: string;
     start_date: string;

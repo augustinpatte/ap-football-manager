@@ -555,6 +555,78 @@ The `TransfersTab` provides 4 views:
 - **Loans** — Loan-listed players
 - **Offers** — Incoming and outgoing transfer offers
 
+### Squad Intelligence (Run F5.4)
+
+One reading of a squad, used by every club that manages one: the AI clubs' market, listing and renewal
+reviews, and the manager's assistant. Code: `ofm_core/src/squad_intelligence/`.
+
+**The squad is a side that plays a formation.** For a club's formation (`formation_slots`, eleven
+granular slots) each senior has a rating in each slot: his stored `ovr` less the game's own penalty for
+playing that slot instead of his natural one (`positional_fit_for_assignment` against `natural_ovr`;
+compatibility, footedness, what each slot is rated on). The best eleven is an optimal assignment of
+players to slots (Hungarian algorithm; the lineup picker's slot-order walk spends a striker on attacking
+midfield before it reaches the forwards), a natural keeper first in goal, and a natural keeper counts as an
+emergency body at best away from goal. The bench covers the starters: each bench player covers at most two
+slots, a slot nobody is left to cover is played by an emergency body (rating 25), and a starter's chance of
+being absent (0.10 plus injury, suspension and fitness) weights his cover into the expected strength of the
+slot. The same is done for the squad one and two seasons on (`squad_outlook`'s growth, decline and
+retirement rules), and a club's value of a squad is the weighted sum, the weights being its appetite (a
+contender looks less far ahead than a developing club; a constrained club prices money higher). Nothing here
+is a bonus on a rating: a signing is worth what he changes in the side the model would field.
+
+| Question | Answer |
+|---|---|
+| What is the squad short of? | `needs()`: slot by slot, in expected rating points below the club's own standard, as **starter** (a weak first choice), **cover** (a weak replacement) or **succession** (a first choice leaving or declining). |
+| What would a signing add? | `Marginal`: the change in weighted expected strength, whether he starts and where, and whether it is the eleven, the depth or the future. Priced against the club's cash and wage budget by its appetite; worth making if it adds at least 0.12 of a rating point to the side (1.3 across the eleven) and the price does not eat it. |
+| What would a sale cost? | `SaleCase`: the loss with nobody coming, and **net of the cheapest replacement a club can sign** (a player no better than the club's average starter less 12). A loss under 0.03 is surplus; over 0.35 is critical: nobody replaces him. |
+
+Two readings of availability: *today* (a short injury or suspension raises a player's chance of a miss;
+what signings and needs are judged by) and *planning* (the ordinary chance for everyone; what a player is
+worth to his club, so that his status does not change with every knock). A long injury (45 days or more)
+takes a player out of the present's side in both.
+
+**AI clubs.** The buy side of `evaluate_transfer_market` asks `BuyerView` (a club's squad, its strategy
+profile, and what each target adds, kept while neither changes) instead of "is he above my first cover in
+his broad group": a club buys what improves the side by more than the money is worth to it, or fills a
+hole in its depth. A player's status for the sell side (`Indispensable` ... `Unwanted`, which sets
+willingness and asking price) comes from what his sale costs the side; a club also sells an important
+player for an exceptional fee (125 % of his value) when the money would mend more elsewhere than he is
+worth, and never one nobody replaces. The weekly listing review and the renewal review use the same
+costs; the squad floor and the planned depth (22 seniors) stay as hard rules around them.
+
+**Cost.** Marginals are kept by the fingerprint of the squad and of the candidate (a pure function of its
+key, whole-number ratings, availability in twentieths); a candidate is added to the solved squad as one
+chain of moves through the eleven slots (exact, because the squad's own side is optimal); a squad's sale
+costs are kept while its fingerprint holds, and a member who neither starts nor covers anyone costs nothing
+to lose without being evaluated.
+
+### Delegation: Prudent and Total (Run F5.4)
+
+`DelegationMode::Approval` is **Prudent** and `Full` is **Total** (the identifiers are unchanged so saves
+and callers are). Prudent: every major decision is a proposal the manager can read (what the player adds
+to the side, the fee, the wage, the weakness it mends) and answer; the assistant never repeats a refused
+one for months. Total: the assistant conducts recruiting, negotiation, renewals, hiring, selling, listing
+and releasing within the club's finances, and carries `DelegationLimits::finance_bound`: a delegated
+spend is authorised by the books (`authorize_in_books`: cash for the fee, wage room under the budget, the
+staff budget; the board's wage policy, affordability, registration and the player's consent apply to the
+step itself as to the manager's), not by a per-deal ceiling. Selling, countering and listing need Total
+(`authorize_sale`); turning down an insult or a protected player's offer is routine and is the assistant's
+in any mode. `finance_bound` is set only by choosing the mode (the limits command preserves it) and is
+false in every state saved before it existed, so nobody is given authority they did not ask for.
+
+The manager's own instructions stand: a **protected** player (`set_player_protected`) is never sold,
+listed or proposed; a lineup, tactic or training the manager changed is left alone for a few days; a
+player the manager listed or de-listed is not touched; a refused proposal shelves the player. Everything the
+assistant does is in the history with the reason and the figures (and the `Approved` outcome for what the
+manager approved), and nothing is done twice (`SalesMemory` records each offer it has acted on; it is
+saved with the career).
+
+How sharp the assistant is shows continuously: his foresight (the weight he gives the next two seasons,
+40 % to 100 % of the club's own), his reading of a player he has not signed (a bounded, deterministic error
+of up to 6 rating points, halved for a player a scout has reported on, none for his own), the share of the
+club's price he turns down (50 % to 75 %) and the premium he asks for a first choice (none at 30 and below,
+30 % at 100) all move smoothly with his rating.
+
 ---
 
 ## The Squad Floor

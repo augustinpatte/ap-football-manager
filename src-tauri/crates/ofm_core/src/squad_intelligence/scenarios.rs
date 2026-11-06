@@ -157,7 +157,7 @@ fn a_thin_bench_makes_an_ordinary_squad_player_worth_signing() {
     let club = thin.club("4-4-2", CASH, comfortable());
     let cover = case(&club, CenterBack, 66, 27, 500_000);
     println!("{cover:?}");
-    assert!(cover.gain() >= super::impact::MIN_GAIN, "{cover:?}");
+    assert!(cover.marginal.gain >= super::impact::MIN_GAIN, "{cover:?}");
     assert_eq!(cover.marginal.reason, Reason::Depth);
     assert!(cover.marginal.starts_at.is_none());
     let keeper_cover = case(&club, Goalkeeper, 66, 27, 500_000);
@@ -350,4 +350,42 @@ fn a_club_with_rising_midfielders_does_not_buy_one_that_blocks_them() {
     assert!(!veteran.is_worth_it(), "{veteran:?}");
     let star = case(&club, CentralMidfielder, 84, 27, 6_000_000);
     assert!(star.is_worth_it());
+}
+
+/// Given a club with keepers of 85, 83 and 55, and one with keepers of 85, 45 and 40
+/// When the cost of selling its second keeper (the first club) and its only good one (the second) is
+/// read
+/// Then selling the second keeper costs little and is not critical (a cheap cover can be signed behind
+/// the first), and selling the only good keeper is critical: nobody replaces him, even on the cheap
+/// market. The difference between selling a spare and selling the side.
+#[test]
+fn selling_a_second_keeper_costs_little_and_selling_the_only_good_one_is_critical() {
+    let keepers = |ratings: &[u8]| {
+        let mut squad = Squad::balanced();
+        squad.players.retain(|p| p.natural_position != Goalkeeper);
+        squad.add(Goalkeeper, ratings)
+    };
+    // The keeper who is `rank`-th best (0 the first) of the club's natural keepers.
+    let sale_of = |squad: &Squad, rank: usize| {
+        let club = squad.club("4-4-2", CASH, comfortable());
+        let mut keepers: Vec<_> = club
+            .model
+            .members
+            .iter()
+            .filter(|m| m.natural_keeper)
+            .collect();
+        keepers.sort_by_key(|keeper| std::cmp::Reverse(keeper.ovr));
+        let keeper_id = &keepers[rank].id;
+        let loss = (club.base.value - club.model.evaluate_without(keeper_id).value).max(0.0);
+        (club.sale(keeper_id), loss)
+    };
+    let (second_of_two, _) = sale_of(&keepers(&[85, 83, 55]), 1);
+    let (only_good_one, loss) = sale_of(&keepers(&[85, 45, 40]), 0);
+    println!("{second_of_two:?} {only_good_one:?}");
+    assert!(!second_of_two.critical, "{second_of_two:?}");
+    assert!(only_good_one.critical, "{only_good_one:?}");
+    assert!(only_good_one.net_loss > second_of_two.net_loss * 2.0);
+    // A cheap replacement is never as good as the player: the cap is applied.
+    assert!(only_good_one.net_loss < loss - 0.02);
+    assert!(only_good_one.net_loss > 0.5 * loss);
 }

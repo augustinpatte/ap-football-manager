@@ -319,50 +319,97 @@ pub(crate) struct SquadFacts {
     seniors_by_group: [usize; 4],
     seniors: usize,
     median_ovr: u8,
-    /// What losing each senior would cost the side the club fields (Squad Intelligence), by player
-    /// id. Empty for a club the model cannot read.
-    sale_costs: std::collections::HashMap<String, f32>,
+    /// The side the club fields, as planning sees it (Squad Intelligence); `None` for a club the
+    /// model cannot read.
+    squad: Option<crate::squad_intelligence::ClubSquad>,
+    /// Where the club's players stand in `game.players`, found in the one pass that counts them.
+    club: Vec<usize>,
+    /// What losing a senior would cost that side, by player id, worked out when first asked: a
+    /// review asks about the few players it is deciding on, not about all twenty-six.
+    sale_cases: std::cell::RefCell<
+        std::collections::HashMap<String, crate::squad_intelligence::impact::SaleCase>,
+    >,
 }
 
 impl SquadFacts {
     pub(crate) fn of(game: &Game, team_id: &str) -> Self {
         let mut seniors_by_group = [0; 4];
         let mut ratings: Vec<u8> = Vec::new();
-        for player in &game.players {
-            if player.team_id.as_deref() == Some(team_id)
-                && player.squad_role == domain::player::SquadRole::Senior
-            {
+        let mut club: Vec<usize> = Vec::new();
+        for (index, player) in game.players.iter().enumerate() {
+            if player.team_id.as_deref() != Some(team_id) {
+                continue;
+            }
+            club.push(index);
+            if player.squad_role == domain::player::SquadRole::Senior {
                 seniors_by_group[group_index(&player.position)] += 1;
                 ratings.push(player.ovr);
             }
         }
         ratings.sort_unstable();
-        let sale_costs = crate::squad_intelligence::ClubSquad::of(
-            game,
-            team_id,
-            crate::squad_intelligence::appetite::Appetite::NEUTRAL,
-        )
-        .map(|squad| {
-            squad
-                .sales(team_id)
-                .iter()
-                .map(|(id, case)| (id.clone(), case.net_loss))
-                .collect()
-        })
-        .unwrap_or_default();
+        // The squad the model reads is made of the players this one pass found.
+        let squad = game
+            .teams
+            .iter()
+            .find(|team| team.id == team_id)
+            .map(|team| {
+                crate::squad_intelligence::ClubSquad::for_planning(
+                    club.iter().map(|&index| &game.players[index]),
+                    team,
+                    game.clock.current_date.date_naive(),
+                    crate::squad_intelligence::appetite::Appetite::NEUTRAL,
+                )
+            });
         Self {
             team_id: team_id.to_string(),
             seniors_by_group,
             seniors: ratings.len(),
             median_ovr: ratings.get(ratings.len() / 2).copied().unwrap_or(0),
-            sale_costs,
+            squad,
+            club,
+            sale_cases: std::cell::RefCell::new(std::collections::HashMap::new()),
         }
+    }
+
+    /// Where the club's players stand in `game.players`.
+    pub(crate) fn club(&self) -> &[usize] {
+        &self.club
+    }
+
+    /// The side the club fields, as planning sees it.
+    pub(crate) fn squad(&self) -> Option<&crate::squad_intelligence::ClubSquad> {
+        self.squad.as_ref()
+    }
+
+    /// What losing `player_id` would cost the side (net of the cheapest replacement a club could
+    /// sign); `None` if the model does not hold him.
+    pub(crate) fn sale_case(
+        &self,
+        player_id: &str,
+    ) -> Option<crate::squad_intelligence::impact::SaleCase> {
+        let squad = self.squad.as_ref()?;
+        if let Some(case) = self.sale_cases.borrow().get(player_id) {
+            return Some(*case);
+        }
+        if !squad
+            .model
+            .members
+            .iter()
+            .any(|member| member.id == player_id)
+        {
+            return None;
+        }
+        let case = squad.sale(player_id);
+        self.sale_cases
+            .borrow_mut()
+            .insert(player_id.to_string(), case);
+        Some(case)
     }
 
     /// What the club's side would lose if `player_id` left and the cheapest replacement came in,
     /// in strength points; `None` if the model does not hold him.
     pub(crate) fn cost_of_losing(&self, player_id: &str) -> Option<f32> {
-        self.sale_costs.get(player_id).copied()
+        self.sale_case(player_id).map(|case| case.net_loss)
     }
 
     /// Whether `player` is counted among the club's seniors (then "the others" leave him out).
@@ -1455,10 +1502,12 @@ mod tests {
     /// Given a club with a keeper of 35 and three young free-agent keepers, each expected to be better
     /// than its cover a year on
     /// When it plans its squad five reviews running
-    /// Then it signs two and stops: a succession replaces a departure, it does not stack the group
-    /// (a keeper group plans for three; the transition year carries one more).
+    /// Then it signs one and stops: a succession replaces a departure, it does not stack the group
+    /// (a keeper group plans for three; the transition year carries one more). Until F5.4 it signed
+    /// two, up to that cap; with Squad Intelligence the second successor adds almost nothing once the
+    /// first has come (the side already has its next first choice), so it is not signed at all.
     #[test]
-    fn a_club_signs_successors_up_to_one_above_its_depth_and_no_more() {
+    fn a_club_signs_one_successor_and_not_a_second_for_the_same_gap() {
         let mut game = club_with_an_ageing_keeper(35);
         for (id, ovr) in [("prospect_b", 57), ("prospect_c", 58)] {
             let mut keeper = free_agent(id, Position::Goalkeeper, ovr);
@@ -1471,7 +1520,7 @@ mod tests {
         }
         assert_eq!(
             signed_by_ai(&game, &["prospect", "prospect_b", "prospect_c"]),
-            2
+            1
         );
     }
 

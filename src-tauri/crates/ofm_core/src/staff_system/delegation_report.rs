@@ -66,9 +66,17 @@ fn periodic_digest(game: &mut Game, team_id: &str, today: &str) {
     }
     let since = game.delegation.last_digest.clone().unwrap_or_default();
     let (mut done, mut left) = (0, 0);
+    let (mut signings, mut sales) = (0, 0);
     for entry in game.delegation.log.iter().filter(|e| e.date > since) {
         match entry.outcome {
-            DecisionOutcome::Executed | DecisionOutcome::Approved => done += 1,
+            DecisionOutcome::Executed | DecisionOutcome::Approved => {
+                done += 1;
+                match transfer_kind(&entry.title_key) {
+                    Some(TransferKind::Signing) => signings += 1,
+                    Some(TransferKind::Sale) => sales += 1,
+                    None => {}
+                }
+            }
             DecisionOutcome::LeftToManager => left += 1,
             // A declined proposal was the manager's own answer: nothing to report back.
             DecisionOutcome::Declined => {}
@@ -79,22 +87,49 @@ fn periodic_digest(game: &mut Game, team_id: &str, today: &str) {
         return;
     }
     let waiting = game.delegation.proposals.len();
+    // A fortnight with signings or sales says so; a quiet one stays a single short line.
+    let body = if signings + sales > 0 {
+        "be.msg.assistantDigest.bodyTransfers"
+    } else {
+        "be.msg.assistantDigest.body"
+    };
     let message = message(
         game,
         team_id,
         format!("assistant_digest_{team_id}_{today}"),
-        (
-            "be.msg.assistantDigest.subject",
-            "be.msg.assistantDigest.body",
-        ),
+        ("be.msg.assistantDigest.subject", body),
         &[
             ("done", done.to_string()),
             ("left", left.to_string()),
             ("waiting", waiting.to_string()),
+            ("signings", signings.to_string()),
+            ("sales", sales.to_string()),
         ],
         MessagePriority::Low,
     );
     crate::inbox::emit(game, message);
+}
+
+/// The two kinds of decision a manager wants named in the digest.
+enum TransferKind {
+    Signing,
+    Sale,
+}
+
+/// Whether a history entry is a signing or a sale the assistant made (agreed or done).
+fn transfer_kind(title_key: &str) -> Option<TransferKind> {
+    match title_key {
+        "delegation.log.recruitSigned"
+        | "delegation.log.recruitScheduled"
+        | "delegation.proposal.signPlayer.accepted" => Some(TransferKind::Signing),
+        key if key.starts_with("delegation.log.offerAccepted")
+            || key == "delegation.log.offerCounteredAccepted"
+            || key == "delegation.proposal.sellPlayer.accepted" =>
+        {
+            Some(TransferKind::Sale)
+        }
+        _ => None,
+    }
 }
 
 fn proposal_reminder(game: &mut Game, team_id: &str, today: &str) {

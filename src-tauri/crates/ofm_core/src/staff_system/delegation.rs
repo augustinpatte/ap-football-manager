@@ -14,8 +14,10 @@ use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::{self, RecAction, RecKind};
 use super::delegation_control as control;
-use super::delegation_policy::{Authorization, Reason, Spend, authorize};
-use super::delegation_recruitment as recruiting;
+use super::delegation_listing as listing;
+use super::delegation_offers as offers;
+use super::delegation_policy::{Authorization, Books, Reason, Spend, authorize_in_books};
+use super::delegation_recruitment::{self as recruiting, Eye};
 use super::delegation_report as report;
 use super::delegation_squad as squad;
 use super::market::{self, OfferResponse};
@@ -99,6 +101,22 @@ fn due(game: &Game, duty: Duty) -> bool {
     {
         Some(last) => (date(game) - last).num_days() >= duty.period_days(),
         None => true,
+    }
+}
+
+/// What the club can carry today: the books Total authority is measured against.
+pub(super) fn books_of(game: &Game, team_id: &str) -> Books {
+    let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
+        return Books {
+            transfer_cash: 0,
+            wage_room: 0,
+            staff_room: 0,
+        };
+    };
+    Books {
+        transfer_cash: team.transfer_budget.min(team.finance).max(0),
+        wage_room: (team.wage_budget - crate::finances::calc_wages(game, team_id)).max(0),
+        staff_room: market::staff_headroom(game, team_id),
     }
 }
 
@@ -211,10 +229,22 @@ pub fn run_after_day(game: &mut Game) {
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
-            Duty::PlayerRecruitment => recruiting::player_recruitment(game, &team_id),
+            Duty::PlayerRecruitment => recruiting::player_recruitment(
+                game,
+                &team_id,
+                Eye {
+                    id: &assistant_id,
+                    rating,
+                },
+            ),
             Duty::Tactics => control::tactics(game, &team_id, rating),
             Duty::Offers => {
-                super::delegation_offers::answer_derisory_offers(game, &team_id, rating)
+                let eye = Eye {
+                    id: &assistant_id,
+                    rating,
+                };
+                offers::answer_offers(game, &team_id, eye);
+                listing::review_listings(game, &team_id, eye);
             }
             Duty::Training => {}
         }
@@ -429,13 +459,15 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
             param("post", format!("{:?}", status.post)),
             param("wage", wage),
         ];
-        let authorization = authorize(
+        let authorization = authorize_in_books(
             &game.delegation,
             Duty::StaffRecruitment,
             Spend::StaffContract {
                 weekly_wage: wage,
                 years: 2,
             },
+            &books_of(game, team_id),
+            0,
         );
         if authorization != Authorization::Auto {
             game.delegation.propose(
@@ -540,13 +572,15 @@ fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
             param("wage", ask),
             param("years", years),
         ];
-        let authorization = authorize(
+        let authorization = authorize_in_books(
             &game.delegation,
             Duty::StaffRenewals,
             Spend::StaffContract {
                 weekly_wage: ask,
                 years,
             },
+            &books_of(game, team_id),
+            0,
         );
         if authorization != Authorization::Auto {
             game.delegation.propose(
@@ -590,8 +624,16 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
         .ok_or("be.error.delegation.proposalNotFound")?;
     let proposal = game.delegation.proposals.remove(index);
     if !accept {
-        if let ProposalAction::SignPlayer { player_id, .. } = &proposal.action {
-            recruiting::on_declined(game, player_id);
+        match &proposal.action {
+            ProposalAction::SignPlayer { player_id, .. } => {
+                recruiting::on_declined(game, player_id);
+            }
+            ProposalAction::AcceptOffer { player_id, .. }
+            | ProposalAction::CounterOffer { player_id, .. }
+            | ProposalAction::ListForSale { player_id } => {
+                offers::on_declined(game, player_id);
+            }
+            _ => {}
         }
         record(
             game,
@@ -653,6 +695,17 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
             wage,
             years,
         } => recruiting::sign_approved(game, player_id, *fee, *wage, *years),
+        ProposalAction::AcceptOffer {
+            player_id,
+            offer_id,
+            fee,
+        } => offers::accept_approved(game, player_id, offer_id, *fee),
+        ProposalAction::CounterOffer {
+            player_id,
+            offer_id,
+            fee,
+        } => offers::counter_approved(game, player_id, offer_id, *fee),
+        ProposalAction::ListForSale { player_id } => listing::list_approved(game, player_id),
     };
     if result.is_ok() {
         record(
@@ -876,12 +929,14 @@ mod tests {
         assert_eq!(g.scouting_assignments[0].scout_id, "scout1");
     }
 
-    /// Given full delegation and a limit below the asking wage, when the recruitment duty runs,
-    /// then the vacancy is proposed, not filled: the assistant signs nothing above a limit.
+    /// Given a duty that acts alone within the manager's ceilings (not Total authority) and a limit
+    /// below the asking wage, when the recruitment duty runs, then the vacancy is proposed, not
+    /// filled: the assistant signs nothing above a limit.
     #[test]
-    fn a_hire_above_the_wage_limit_is_proposed_even_in_full_delegation() {
+    fn a_hire_above_the_wage_limit_is_proposed_when_the_duty_acts_within_ceilings() {
         let mut g = game(Some(80), 6);
         g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.finance_bound = false;
         g.delegation.limits.max_staff_wage = 100;
         g.staff.retain(|s| s.post() != StaffPost::Physio);
         let mut free = staff_member("free", StaffPost::Physio, 70, "x");
@@ -896,10 +951,44 @@ mod tests {
                 .team_id
                 .is_none()
         );
-        assert_eq!(g.delegation.proposals.len(), 1);
+        // The hire is the one proposal of the staff duty; other duties may have their own.
+        let hires: Vec<_> = g
+            .delegation
+            .proposals
+            .iter()
+            .filter(|p| p.duty == Duty::StaffRecruitment)
+            .collect();
+        assert_eq!(hires.len(), 1);
+        assert_eq!(hires[0].reason_key, "delegation.reason.aboveLimit");
+    }
+
+    /// Given the same vacancy under Total authority and a wage the old ceiling forbids but the staff
+    /// budget can carry, when the recruitment duty runs, then the assistant hires him himself.
+    #[test]
+    fn under_total_authority_a_hire_within_the_staff_budget_is_made_without_asking() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.max_staff_wage = 100;
+        g.staff.retain(|s| s.post() != StaffPost::Physio);
+        let mut free = staff_member("free", StaffPost::Physio, 70, "x");
+        free.team_id = None;
+        g.staff.push(free);
+        g.teams[0].wage_budget = 50_000_000;
+        run_after_day(&mut g);
         assert_eq!(
-            g.delegation.proposals[0].reason_key,
-            "delegation.reason.aboveLimit"
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .as_deref(),
+            Some("team1")
+        );
+        assert!(
+            g.delegation
+                .proposals
+                .iter()
+                .all(|p| p.duty != Duty::StaffRecruitment)
         );
     }
 

@@ -349,6 +349,7 @@ pub fn run() {
             set_duty_delegation,
             set_delegation_mode,
             set_delegation_limits,
+            set_player_protected,
             resolve_delegation_proposal,
             get_assistant_recommendations,
             apply_assistant_recommendation,

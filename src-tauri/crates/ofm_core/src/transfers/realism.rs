@@ -524,14 +524,6 @@ pub(crate) fn worth_the_border(
         || improvement >= CROSS_BORDER_MIN_GAIN
 }
 
-/// Rating gain a target would bring over the buyer's first cover in his group (the player he
-/// would replace on the bench or in the eleven); a group with no cover yet counts as a clear gain.
-pub(crate) fn improvement_over_cover(levels: &[u8], group: usize, ovr: u8) -> i32 {
-    levels
-        .get(STARTERS_PER_GROUP[group])
-        .map_or(10, |cover| i32::from(ovr) - i32::from(*cover))
-}
-
 /// Whether a group is below the depth the floor plus the planning margin ask for.
 pub(crate) fn group_is_thin(levels: &[u8], group: usize) -> bool {
     use crate::squad_floor::{MIN_PLAYERS_PER_GROUP, PLANNING_MARGIN_PER_GROUP};

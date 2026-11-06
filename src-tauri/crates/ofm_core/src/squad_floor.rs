@@ -676,6 +676,9 @@ pub(crate) struct SigningContext {
     free_agents: Option<[Vec<(usize, u32)>; 4]>,
     home_matches: Option<HashMap<String, i64>>,
     club: Option<ClubFacts>,
+    /// The squad of the club being planned, as the model reads it: found once, valid until the club
+    /// signs or promotes someone (an improving signing is judged by what it adds to this).
+    squad: Option<(String, Option<crate::squad_intelligence::ClubSquad>)>,
 }
 
 /// What a club's signing decisions need to know about the club, counted once: valid until the club
@@ -739,6 +742,27 @@ impl SigningContext {
     /// The club has a new player: what was counted is out of date.
     fn club_changed(&mut self) {
         self.club = None;
+        self.squad = None;
+    }
+
+    /// The squad of `team_id` as the model reads it today, found once per club between changes.
+    fn modelled_squad(
+        &mut self,
+        game: &Game,
+        team_id: &str,
+    ) -> Option<crate::squad_intelligence::ClubSquad> {
+        if let Some((club, squad)) = &self.squad
+            && club == team_id
+        {
+            return squad.clone();
+        }
+        let squad = crate::squad_intelligence::ClubSquad::of(
+            game,
+            team_id,
+            crate::squad_intelligence::appetite::Appetite::NEUTRAL,
+        );
+        self.squad = Some((team_id.to_string(), squad.clone()));
+        squad
     }
 
     fn home_matches(&mut self, game: &Game, team_id: &str) -> i64 {
@@ -882,6 +906,14 @@ fn best_signing(
     let room = books.room_for_wages();
     // A club short of the floor now needs him whatever it was asked.
     let required = required || !shortfall_of(seniors).is_empty();
+    // A signing made to improve the squad has to add something to the side the club fields
+    // (Squad Intelligence), not merely be rated above the cover behind the starters: a keeper better
+    // than the third keeper adds nothing. The floor's signings are not asked this.
+    let squad = if required || better_than.is_none() {
+        None
+    } else {
+        context.modelled_squad(game, &team.id)
+    };
 
     let mut cheapest_allowed: Option<(usize, u32)> = None;
     for &(index, least_he_asks) in context.free_agents(game, group) {
@@ -893,6 +925,13 @@ fn best_signing(
         }
         // A club that has a choice passes over, unjudged, a player it cannot bid enough for.
         if !required && i64::from(crate::contracts::insulting_floor(least_he_asks)) > room {
+            continue;
+        }
+        if squad.as_ref().is_some_and(|squad| {
+            squad
+                .signing(player, 0.0)
+                .is_none_or(|marginal| marginal.gain < crate::squad_intelligence::impact::MIN_GAIN)
+        }) {
             continue;
         }
         // And one who would not come: an elite free agent does not drop to a far smaller club

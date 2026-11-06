@@ -10,9 +10,9 @@ use chrono::NaiveDate;
 use domain::delegation::{DecisionOutcome, Duty, ProposalAction};
 use domain::player::Player;
 
-use super::delegation::{date, log, matches_within, param, record, stamp};
+use super::delegation::{books_of, date, log, matches_within, param, record, stamp};
 use super::delegation_control as control;
-use super::delegation_policy::{Authorization, Reason, Spend, authorize};
+use super::delegation_policy::{Authorization, Reason, Spend, authorize_in_books};
 use crate::contract_wage_policy::wage_policy_verdict;
 use crate::contracts::{
     ContractWarningStage, DelegatedRenewalOptions, DelegatedRenewalResultStatus, RenewalAgreedBy,
@@ -166,13 +166,16 @@ pub(super) fn player_renewals(game: &mut Game, team_id: &str) {
     let today = stamp(game);
     let mut automatic: Vec<Terms> = Vec::new();
     for terms in renewal_candidates(game, team_id) {
-        let authorization = authorize(
+        let authorization = authorize_in_books(
             &game.delegation,
             Duty::PlayerRenewals,
             Spend::PlayerContract {
                 weekly_wage: terms.weekly_wage,
                 years: terms.years,
             },
+            &books_of(game, team_id),
+            // A renewal adds the raise to the weekly bill, not the whole wage.
+            terms.weekly_wage.saturating_sub(terms.current_wage),
         );
         match authorization {
             Authorization::Auto => automatic.push(terms),
@@ -311,8 +314,11 @@ mod tests {
     use domain::delegation::DelegationMode;
     use domain::player::Injury;
 
+    /// Every duty acting alone within the manager's ceilings: the tests here are about those
+    /// ceilings, so the Total authority the Full preset now carries is taken back.
     fn full(g: &mut Game) {
         g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.finance_bound = false;
     }
 
     fn named_eleven(g: &Game) -> Vec<String> {

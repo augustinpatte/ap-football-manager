@@ -69,8 +69,6 @@ pub(crate) enum Reason {
 pub(crate) struct Marginal {
     /// Change in the squad's weighted expected strength.
     pub gain: f32,
-    /// The part of it that is the better starting eleven.
-    pub starter_gain: f32,
     /// The slot he would start in today, if he would start.
     pub starts_at: Option<usize>,
     /// The gain in slot-rating points (the gain across all eleven slots), on the market's own
@@ -88,6 +86,7 @@ pub(crate) struct SigningCase {
 }
 
 impl SigningCase {
+    #[cfg(test)]
     pub(crate) fn gain(&self) -> f32 {
         self.marginal.gain
     }
@@ -126,27 +125,24 @@ pub(crate) fn assess_signing(
 ) -> Marginal {
     let with = model.evaluate_with(candidate);
     let gain = with.value - base.value;
-    let starter_gain: f32 = (0..model.weights.len())
-        .map(|year| model.weights[year] * (with.years[year].xi - base.years[year].xi))
-        .sum();
     // He is appended after the squad, so his index is the squad's length.
     let starts_at =
         (0..SLOTS).find(|&slot| with.years[0].starter_index[slot] == Some(model.members.len()));
     let now_gain = model.weights[0] * (with.years[0].expected - base.years[0].expected);
-    let reason = if gain > 0.0 && now_gain < gain * 0.25 {
+    let mut marginal = Marginal {
+        gain,
+        starts_at,
+        points: (gain * SLOTS as f32).round() as i32,
+        reason: Reason::Depth,
+    };
+    marginal.reason = if gain > 0.0 && now_gain < gain * 0.25 {
         Reason::Succession
-    } else if starts_at.is_some() {
+    } else if marginal.starts_at.is_some() {
         Reason::Starter
     } else {
         Reason::Depth
     };
-    Marginal {
-        gain,
-        starter_gain,
-        starts_at,
-        points: (gain * SLOTS as f32).round() as i32,
-        reason,
-    }
+    marginal
 }
 
 fn share(amount: f64, of: f64) -> f32 {
@@ -173,25 +169,47 @@ pub(crate) struct SaleCase {
 }
 
 /// The cost of letting `id` go.
+///
+/// A member who neither starts nor covers anyone in any horizon year costs nothing to lose, and is
+/// not evaluated. A loss under the surplus line stays under it once a replacement comes (the
+/// replacement is never better than the player, so it can only make the loss smaller): the one
+/// evaluation is the answer.
 pub(crate) fn assess_sale(model: &SquadModel, base: &Evaluation, id: &str) -> SaleCase {
+    let Some(index) = model.members.iter().position(|member| member.id == id) else {
+        return SaleCase {
+            loss: 0.0,
+            net_loss: 0.0,
+            critical: false,
+            surplus: true,
+        };
+    };
+    if !base.involves(index) {
+        return SaleCase {
+            loss: 0.0,
+            net_loss: 0.0,
+            critical: false,
+            surplus: true,
+        };
+    }
     let without = model.evaluate_without(id);
     let loss = (base.value - without.value).max(0.0);
-    let net_loss = model
-        .members
-        .iter()
-        .find(|member| member.id == id)
-        .map_or(loss, |member| {
-            let standard = base.years[0].starter.iter().sum::<f32>() / SLOTS as f32;
-            let cheap = cheap_replacement(member, standard - CHEAP_REPLACEMENT_BELOW_STANDARD);
-            let replaced = model.evaluate_with_instead_of(id, &cheap);
-            (base.value - replaced.value).max(0.0)
-        });
-    SaleCase {
+    let net_loss = if loss < SURPLUS_LOSS {
+        loss
+    } else {
+        let member = &model.members[index];
+        let standard = base.years[0].starter.iter().sum::<f32>() / SLOTS as f32;
+        let cheap = cheap_replacement(member, standard - CHEAP_REPLACEMENT_BELOW_STANDARD);
+        let replaced = model.evaluate_with_instead_of(id, &cheap);
+        (base.value - replaced.value).max(0.0)
+    };
+    let case = SaleCase {
         loss,
         net_loss,
         critical: net_loss >= CRITICAL_LOSS,
         surplus: net_loss < SURPLUS_LOSS,
-    }
+    };
+    debug_assert!(case.net_loss <= case.loss + f32::EPSILON);
+    case
 }
 
 /// The player who would come in his place for next to nothing: the same kind of player, no better
@@ -204,5 +222,6 @@ fn cheap_replacement(member: &Member, cap: f32) -> Member {
     }
     // A free agent is not a prospect and he is not going to retire either: held where he is.
     replacement.shift = [Some(0.0); super::horizon::HORIZON];
+    replacement.refresh_levels();
     replacement
 }

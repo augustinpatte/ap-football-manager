@@ -15,7 +15,10 @@ interface DelegationModeCardProps {
 
 const MODES: DelegationMode[] = ["manual", "approval", "full"];
 
-const LIMIT_FIELDS: { key: keyof DelegationLimits; step: number }[] = [
+/** The ceilings the manager edits; Total authority is not one of them (a mode sets it). */
+type LimitField = Exclude<keyof DelegationLimits, "finance_bound">;
+
+const LIMIT_FIELDS: { key: LimitField; step: number }[] = [
   { key: "max_staff_wage", step: 100 },
   { key: "max_player_wage", step: 500 },
   { key: "max_commitment", step: 100_000 },
@@ -49,6 +52,15 @@ export default function DelegationModeCard({
             ? t(`staff.delegation.mode.${mode}Desc`)
             : t("staff.delegation.noAssistant")}
         </p>
+        {hasAssistant && mode === "full" ? (
+          <p className="mt-1 text-caption text-fg-muted">
+            {t(
+              limits.finance_bound
+                ? "staff.delegation.mode.totalNote"
+                : "staff.delegation.mode.limitsOnlyNote",
+            )}
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <SegmentedControl<DelegationMode>
             labelledBy={labelId}

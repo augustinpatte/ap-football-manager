@@ -704,7 +704,9 @@
       "Possession": "Vybízí váš tým k trpělivé kombinaci, kontrole tempa zápasu a vyhledávání čistších příležitostí.",
       "Counter": "Nutí váš tým po zisku míče rychle vyrážet dopředu a útočit do volného prostoru, než se soupeř zformuje.",
       "HighPress": "Vyžaduje od týmu brzké napadání, získávání míčů výše na hřišti a neustálý tlak na soupeře."
-    }
+    },
+    "protectFromSale": "Chránit před prodejem",
+    "removeSaleProtection": "Povolit asistentovi prodej"
   },
   "tactics": {
     "formationStyle": "Rozestavení a styl",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Režim delegování",
         "manual": "Ruční",
-        "approval": "Se schválením",
+        "approval": "Opatrný",
         "full": "Plný",
         "custom": "Vlastní",
         "manualDesc": "Všechna rozhodnutí děláš ty. Asistent pouze radí.",
-        "approvalDesc": "Asistent zvládá rutinu a každé důležité rozhodnutí předkládá tobě.",
-        "fullDesc": "Asistent řeší vše v mezích níže. Co je překročí, stále míří k tobě.",
-        "customDesc": "Úkoly se nastavují jednotlivě níže."
+        "approvalDesc": "Asistent zvládá rutinu a každé důležité rozhodnutí (angažmá, prodej, prodloužení) předkládá tobě jako návrh, který si můžeš přečíst a zodpovědět.",
+        "fullDesc": "Asistent zvládá každý úkol sám — angažování, vyjednávání, prodej, prodlužování — v rámci financí klubu a pravidel a nikdy neprodá hráče, kterého chráníš.",
+        "customDesc": "Úkoly se nastavují jednotlivě níže.",
+        "totalNote": "Plná pravomoc: asistent se drží hotovosti klubu, mzdového prostoru a pravidel vedení, takže níže uvedené limity výdajů se pro angažmá a prodloužení nepoužívají. Nikdy neprodá hráče, kterého chráníš.",
+        "limitsOnlyNote": "Tento režim funguje v rámci limitů výdajů níže. Zvol Plný, aby asistent získal pravomoc nad financemi klubu."
       },
       "limits": {
         "title": "Limity výdajů",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Zpráva asistenta",
-        "body": "Šéfe, od poslední zprávy jsem učinil {{done}} rozhodnutí a {{left}} nechal tobě. Na tvou odpověď čeká {{waiting}} návrh(ů)."
+        "body": "Šéfe, od poslední zprávy jsem učinil {{done}} rozhodnutí a {{left}} nechal tobě. Na tvou odpověď čeká {{waiting}} návrh(ů).",
+        "bodyTransfers": "Šéfe, od poslední zprávy jsem učinil {{done}} rozhodnutí, z toho {{signings}} angažmá a {{sales}} prodejů, a {{left}} nechal tobě. Na tvou odpověď čeká {{waiting}} návrh(ů)."
       },
       "assistantProposals": {
         "subject": "Návrhy čekají",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Nahradit osobou {{name}} (úroveň {{ovr}})",
       "renew": "Prodloužit {{name}} za {{wage}} týdně na {{years}} let",
       "renewPlayer": "Prodloužit {{player}} za {{wage}} týdně na {{years}} let",
-      "signPlayer": "Angažovat {{player}} ({{position}}) za {{fee}}, s platem {{wage}} týdně na {{years}} let"
+      "signPlayer": "Angažovat {{player}} ({{position}}) za {{fee}}, s platem {{wage}} týdně na {{years}} let",
+      "sellPlayer": "Prodat hráče {{player}} klubu {{club}} za {{fee}}",
+      "counterOffer": "Požadovat od klubu {{club}} {{fee}} za hráče {{player}} (nabídli {{offered}})",
+      "listPlayer": "Dát hráče {{player}} na přestupovou listinu"
     },
     "reason": {
       "vacancy": "Povinné místo je prázdné.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "Smlouva brzy končí.",
       "aboveLimit": "Tohle překračuje limit výdajů, který jsi asistentovi nastavil.",
       "recruitNeed": "Kádr potřebuje hráče na tomto postu.",
-      "recruitAboveLimit": "Překračuje to limit výdajů, který jste asistentovi stanovili, nebo cenu, kterou považuje za férovou."
+      "recruitAboveLimit": "Překračuje to limit výdajů, který jste asistentovi stanovili, nebo cenu, kterou považuje za férovou.",
+      "recruitStarter": "Byl by v základní sestavě na postu {{role}} a týmu by přidal asi {{gain}} bodů hodnocení.",
+      "recruitDepth": "Kádr je kolem postu {{role}} úzký: hráč by ho pokryl a přidal asi {{gain}} bodů hodnocení síly.",
+      "recruitSuccession": "Hráč základní sestavy na postu {{role}} stárne nebo odchází: tento hráč je jeho nástupce.",
+      "saleSurplus": "Tým by ho sotva postrádal (asi {{loss}} bodů hodnocení) a částka je férová.",
+      "saleFunds": "Peníze by posílily slabší místa týmu víc, než kolik hráč týmu přináší (jeho ztráta stojí asi {{loss}} bodů hodnocení).",
+      "saleFair": "Férová cena za hráče, bez kterého se tým obejde (jeho ztráta stojí asi {{loss}} bodů hodnocení).",
+      "listSurplus": "Kádr má na jeho postu víc hráčů, než potřebuje: tým by přišel asi o {{loss}} bodů hodnocení.",
+      "listLeaving": "Jeho smlouva končí a klub ji neplánuje prodloužit.",
+      "listFunds": "Jeho prodej by financoval silnější tým: jeho odchod stojí tým asi {{loss}} bodů hodnocení.",
+      "listBooks": "Mzdový účet překračuje rozpočet a on nepatří do základní sestavy."
     },
     "log": {
       "hired": "Najal {{name}} ({{post}}) za {{wage}} týdně",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Stanovil taktický plán pro příští zápas (styl {{style}})",
       "trainingIntensity": "Nastavil trénink na {{focus}} s intenzitou {{intensity}}",
       "offerDeclined": "Odmítl nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}}: hluboko pod jeho hodnotou",
-      "offerKeepsStarter": "Odmítl nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}}: patří do základní sestavy"
+      "offerKeepsStarter": "Odmítl nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}}: patří do základní sestavy",
+      "offerDeclinedProtected": "Odmítl nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}}: žádal jsi, aby se neprodával",
+      "offerKept": "Odmítl nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}}: klub si ho raději nechá",
+      "offerAcceptedSurplus": "Prodal hráče {{player}} klubu {{club}} za {{fee}}: tým ho sotva postrádá ({{loss}} bodů hodnocení) a jeho {{wage}} týdně zmizí z mzdového účtu",
+      "offerAcceptedFunds": "Prodal hráče {{player}} klubu {{club}} za {{fee}}, aby posílil slabší místa: tým ztrácí asi {{loss}} bodů hodnocení; jeho {{wage}} týdně zmizí z mzdového účtu",
+      "offerAcceptedFair": "Prodal hráče {{player}} klubu {{club}} za {{fee}}, férová cena za hráče, bez kterého se tým obejde ({{loss}} bodů hodnocení)",
+      "offerCounteredAccepted": "Požadoval od klubu {{club}} {{asked}} za hráče {{player}} (nabídli {{offered}}): souhlasili",
+      "offerCounteredAgain": "Požadoval od klubu {{club}} {{asked}} za hráče {{player}} (nabídli {{offered}}): přišli s novou nabídkou",
+      "offerCounteredRefused": "Požadoval od klubu {{club}} {{asked}} za hráče {{player}} (nabídli {{offered}}): odstoupili od jednání",
+      "offerNotAccepted": "Nabídku klubu {{club}} ve výši {{fee}} za hráče {{player}} nechal na tobě: za současného stavu prodej nelze uskutečnit",
+      "listedSurplus": "Dal hráče {{player}} na přestupovou listinu: kádr má na jeho postu víc hráčů, než potřebuje ({{loss}} bodů hodnocení pro tým)",
+      "listedLeaving": "Dal hráče {{player}} na přestupovou listinu: jeho smlouva končí a nebude prodloužena",
+      "listedFunds": "Dal hráče {{player}} na přestupovou listinu, aby financoval silnější tým ({{loss}} bodů hodnocení pro tým)",
+      "listedBooks": "Dal hráče {{player}} na přestupovou listinu: mzdový účet překračuje rozpočet",
+      "delisted": "Odebral hráče {{player}} z přestupové listiny: tým ho potřebuje",
+      "released": "Vyplatil a ukončil smlouvu hráče {{player}}: nikdo ho nekoupil a mzdový účet překračuje rozpočet",
+      "listedApproved": "Dal hráče {{player}} na přestupovou listinu, jak jsi schválil",
+      "recruitNoLongerNeeded": "Přestal sledovat hráče {{player}} ({{position}}): kádr ho už nepotřebuje"
     }
   },
   "freeAgents": {

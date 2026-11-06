@@ -171,7 +171,7 @@ fn player_statuses(
                 .get(&team.id)
                 .copied()
                 .unwrap_or(strategy::ClubProfile::NEUTRAL);
-            let squad = crate::squad_intelligence::ClubSquad::from_players(
+            let squad = crate::squad_intelligence::ClubSquad::for_planning(
                 players.iter().copied(),
                 team,
                 current_date,
@@ -345,7 +345,6 @@ pub(crate) struct LoanTarget {
     player_id: String,
     owner_team_id: String,
     owner_reputation: u32,
-    position_group_index: usize,
     ovr: u8,
 }
 
@@ -696,7 +695,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 player_id: player.id.clone(),
                 owner_team_id: owner.to_string(),
                 owner_reputation: team_reputation.get(owner).copied().unwrap_or(0),
-                position_group_index: position_group_index(&player.position),
                 ovr: player.ovr,
             })
         })
@@ -886,7 +884,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if !usual_terms && !sale_view::is_exceptional(target.fee, target.value) {
                 return false;
             }
-            let (improvement, thin) = fit(target);
+            // The cheap tests come first, in front of anything that reads the buyer's side: a sweep
+            // puts thousands of targets in front of every buyer, and only the few that pass these
+            // are worth the evaluation of what they would add.
+            let thin = group_is_thin(
+                &buyer_levels[target.position_group_index],
+                target.position_group_index,
+            );
             // Clubs only chase players that fit their stature and a position they
             // actually need, so a single star doesn't draw the whole division. A club with a hole
             // to fill near the close will look a little higher.
@@ -911,6 +915,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 let same_country = team_country
                     .get(&target.owner_team_id)
                     .is_some_and(|country| *country == buyer_team.country);
+                // What he adds is only asked when the border decides the matter.
+                let improvement =
+                    if same_country || thin || target.value >= CROSS_BORDER_FILLER_VALUE {
+                        0
+                    } else {
+                        fit(target).0
+                    };
                 if !worth_the_border(same_country, target.value, improvement, thin) {
                     return false;
                 }
@@ -923,6 +934,18 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             }
             // A club that cannot carry what it already pays sells and lends before it buys.
             if !target.is_user_owned && buyer_overstretched && target.fee > 0 {
+                return false;
+            }
+            // Not better than the first cover of his group (a year on), and the group is not short:
+            // he cannot be a signing worth the evaluation. The side decides everything that gets
+            // past this.
+            if !target.is_user_owned
+                && !target_fills_a_need(
+                    &buyer_levels[target.position_group_index],
+                    target.position_group_index,
+                    target.planned_ovr(),
+                )
+            {
                 return false;
             }
             let Some(price) = price(target) else {

@@ -704,7 +704,9 @@
       "Possession": "Encourages your team to circulate the ball patiently, control the tempo, and look for cleaner openings.",
       "Counter": "Invites your team to break forward quickly after regaining the ball, attacking space before the opponent resets.",
       "HighPress": "Asks your team to close down earlier, win the ball higher up the pitch, and keep opponents under pressure."
-    }
+    },
+    "protectFromSale": "Protect from sale",
+    "removeSaleProtection": "Allow the assistant to sell"
   },
   "tactics": {
     "formationStyle": "Formation & Style",
@@ -1163,13 +1165,15 @@
       "mode": {
         "title": "Delegation mode",
         "manual": "Manual",
-        "approval": "With approval",
-        "full": "Full",
+        "approval": "Prudent",
+        "full": "Total",
         "custom": "Custom",
         "manualDesc": "You make every decision. The assistant only advises.",
-        "approvalDesc": "The assistant runs the routine and brings every major decision to you.",
-        "fullDesc": "The assistant runs everything within the limits below. Anything above a limit still comes to you.",
-        "customDesc": "Duties are set one by one below."
+        "approvalDesc": "The assistant runs the routine and brings every major decision (a signing, a sale, a renewal) to you as a proposal you can read and answer.",
+        "fullDesc": "The assistant manages every duty himself — recruiting, negotiating, selling, renewing — within the club's finances and the rules, and never sells a player you protect.",
+        "customDesc": "Duties are set one by one below.",
+        "totalNote": "Total authority: the assistant is held to the club's cash, wage room and the board's rules, so the spending limits below are not used for signings and renewals. He never sells a player you protect.",
+        "limitsOnlyNote": "This mode works within the spending limits below. Choose Total to give the assistant authority over the club's finances."
       },
       "limits": {
         "title": "Spending limits",
@@ -3819,7 +3823,8 @@
       },
       "assistantDigest": {
         "subject": "Assistant report",
-        "body": "Boss, since my last report I made {{done}} decision(s) and left {{left}} to you. {{waiting}} proposal(s) are waiting for your answer."
+        "body": "Boss, since my last report I made {{done}} decision(s) and left {{left}} to you. {{waiting}} proposal(s) are waiting for your answer.",
+        "bodyTransfers": "Boss, since my last report I made {{done}} decision(s), including {{signings}} signing(s) and {{sales}} sale(s), and left {{left}} to you. {{waiting}} proposal(s) are waiting for your answer."
       },
       "assistantProposals": {
         "subject": "Proposals waiting",
@@ -4906,7 +4911,10 @@
       "upgradeHire": "Replace with {{name}} (rated {{ovr}})",
       "renew": "Renew {{name}} at {{wage}} a week for {{years}} years",
       "renewPlayer": "Renew {{player}} at {{wage}} a week for {{years}} years",
-      "signPlayer": "Sign {{player}} ({{position}}) for {{fee}}, at {{wage}} a week for {{years}} years"
+      "signPlayer": "Sign {{player}} ({{position}}) for {{fee}}, at {{wage}} a week for {{years}} years",
+      "sellPlayer": "Sell {{player}} to {{club}} for {{fee}}",
+      "counterOffer": "Ask {{club}} for {{fee}} for {{player}} (they offered {{offered}})",
+      "listPlayer": "Put {{player}} on the transfer list"
     },
     "reason": {
       "vacancy": "A required seat is empty.",
@@ -4914,7 +4922,17 @@
       "contractEnding": "The contract is about to end.",
       "aboveLimit": "This is above a spending limit you set for the assistant.",
       "recruitNeed": "The squad needs a player in this position.",
-      "recruitAboveLimit": "This is above a spending limit you set for the assistant, or beyond the price he judges fair."
+      "recruitAboveLimit": "This is above a spending limit you set for the assistant, or beyond the price he judges fair.",
+      "recruitStarter": "He would start in the {{role}} slot and add about {{gain}} rating points to the side.",
+      "recruitDepth": "The squad is thin around the {{role}} slot: he would cover it and add about {{gain}} rating points of strength.",
+      "recruitSuccession": "A first choice in the {{role}} slot is ageing or leaving: he is the successor.",
+      "saleSurplus": "The side would hardly miss him (about {{loss}} rating points) and the fee is fair.",
+      "saleFunds": "The money would strengthen weaker places in the side by more than he is worth to it (losing him costs about {{loss}} rating points).",
+      "saleFair": "A fair price for a player the side can spare (losing him costs about {{loss}} rating points).",
+      "listSurplus": "The squad has more players than it needs in his position: the side would lose about {{loss}} rating points.",
+      "listLeaving": "His contract is running out and the club does not plan to renew it.",
+      "listFunds": "Selling him would fund a stronger side: he costs the side about {{loss}} rating points.",
+      "listBooks": "The wage bill is over budget and he is not one of the side."
     },
     "log": {
       "hired": "Hired {{name}} ({{post}}) at {{wage}} a week",
@@ -4934,7 +4952,24 @@
       "tacticsSet": "Set the tactical plan for the next match ({{style}} style)",
       "trainingIntensity": "Set training to {{focus}} at {{intensity}} intensity",
       "offerDeclined": "Turned down {{club}}'s offer of {{fee}} for {{player}}: far below his worth",
-      "offerKeepsStarter": "Turned down {{club}}'s offer of {{fee}} for {{player}}: he is in the first eleven"
+      "offerKeepsStarter": "Turned down {{club}}'s offer of {{fee}} for {{player}}: he is in the first eleven",
+      "offerDeclinedProtected": "Turned down {{club}}'s offer of {{fee}} for {{player}}: you asked that he not be sold",
+      "offerKept": "Turned down {{club}}'s offer of {{fee}} for {{player}}: the club prefers to keep him",
+      "offerAcceptedSurplus": "Sold {{player}} to {{club}} for {{fee}}: the side would hardly miss him ({{loss}} rating points), and his {{wage}} a week comes off the bill",
+      "offerAcceptedFunds": "Sold {{player}} to {{club}} for {{fee}} to strengthen weaker places: the side loses about {{loss}} rating points; his {{wage}} a week comes off the bill",
+      "offerAcceptedFair": "Sold {{player}} to {{club}} for {{fee}}, a fair price for a player the side can spare ({{loss}} rating points)",
+      "offerCounteredAccepted": "Asked {{club}} for {{asked}} for {{player}} (they offered {{offered}}): they agreed",
+      "offerCounteredAgain": "Asked {{club}} for {{asked}} for {{player}} (they offered {{offered}}): they came back with another offer",
+      "offerCounteredRefused": "Asked {{club}} for {{asked}} for {{player}} (they offered {{offered}}): they walked away",
+      "offerNotAccepted": "Left {{club}}'s offer of {{fee}} for {{player}} to you: the sale cannot be made as things stand",
+      "listedSurplus": "Put {{player}} on the transfer list: the squad has more in his position than it needs ({{loss}} rating points to the side)",
+      "listedLeaving": "Put {{player}} on the transfer list: his contract is running out and will not be renewed",
+      "listedFunds": "Put {{player}} on the transfer list to fund a stronger side ({{loss}} rating points to the side)",
+      "listedBooks": "Put {{player}} on the transfer list: the wage bill is over budget",
+      "delisted": "Took {{player}} off the transfer list: the side needs him",
+      "released": "Paid off {{player}}'s contract: nobody bought him and the wage bill is over budget",
+      "listedApproved": "Put {{player}} on the transfer list, as you approved",
+      "recruitNoLongerNeeded": "Stopped chasing {{player}} ({{position}}): the squad no longer needs him"
     }
   },
   "freeAgents": {

@@ -46,7 +46,12 @@ export type Duty =
   | "Tactics"
   | "Offers";
 
-/** The presets the duty settings amount to. `custom` is derived, never chosen. */
+/**
+ * The presets the duty settings amount to. `custom` is derived, never chosen. `approval` is shown
+ * as Prudent (every major decision is a proposal) and `full` as Total (the assistant conducts the
+ * whole strategy within the club's finances); the identifiers are kept so saves and callers do not
+ * change.
+ */
 export type DelegationMode = "manual" | "approval" | "full" | "custom";
 
 export type DecisionOutcome = "executed" | "approved" | "declined" | "leftToManager";
@@ -61,6 +66,12 @@ export interface DelegationLimits {
   max_commitment: number;
   /** Highest transfer fee; 0 sends every transfer to the manager. */
   max_transfer_fee: number;
+  /**
+   * Total authority: the assistant is held to the club's cash, wage room and the board's rules
+   * instead of the ceilings above, and may sell and list players. Set only by choosing the Total
+   * mode; the backend ignores any value sent with the limits.
+   */
+  finance_bound?: boolean;
 }
 
 export interface PostStatus {
@@ -120,6 +131,8 @@ export interface DelegationState {
   proposals: DelegationProposal[];
   log: DelegationLogEntry[];
   limits: DelegationLimits;
+  /** Players the manager has said are not to be sold. */
+  protected_players?: string[];
 }
 
 export interface StaffOverview {
@@ -203,6 +216,17 @@ export async function setDelegationMode(mode: DelegationMode): Promise<GameState
 
 export async function setDelegationLimits(limits: DelegationLimits): Promise<GameStateData> {
   return invoke<GameStateData>("set_delegation_limits", { limits });
+}
+
+/** Tells the assistant a player is not to be sold (or that he may be again). */
+export async function setPlayerProtected(
+  playerId: string,
+  protectedFromSale: boolean,
+): Promise<GameStateData> {
+  return invoke<GameStateData>("set_player_protected", {
+    playerId,
+    protected: protectedFromSale,
+  });
 }
 
 export async function resolveDelegationProposal(

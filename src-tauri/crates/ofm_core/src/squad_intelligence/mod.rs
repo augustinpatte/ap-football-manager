@@ -42,19 +42,31 @@ use domain::team::Team;
 
 use appetite::Appetite;
 use impact::{Budget, Marginal, SaleCase, assess_sale, assess_signing};
-use model::{Evaluation, Member, SquadModel};
+use model::{Availability, Evaluation, Member, SquadModel};
 use needs::Need;
+
+type Sales = Arc<Vec<(String, SaleCase)>>;
+type SalesCache = HashMap<String, (u64, Sales)>;
 
 /// The sale cases of each club's latest squad, by club id: an answer is a pure function of the
 /// squad's fingerprint, so a stale entry is never read, only replaced.
-static SALES_CACHE: LazyLock<Mutex<HashMap<String, (u64, Arc<Vec<(String, SaleCase)>>)>>> =
+static SALES_CACHE: LazyLock<Mutex<SalesCache>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// What each (squad, player) pair adds, by the fingerprints of both. A pure function of its key, so
+/// an entry is never stale, only unused; emptied when it grows past [`MARGINAL_CACHE_LIMIT`].
+static MARGINAL_CACHE: LazyLock<Mutex<HashMap<(u64, u64), Marginal>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Entries the marginal cache holds before it starts again (a few tens of megabytes at most).
+const MARGINAL_CACHE_LIMIT: usize = 400_000;
 
 /// A club's squad, assessed: the model, what it is worth as it stands, and the club's appetite.
 /// Built once per decision (or once per market sweep for a club) and asked many questions.
 #[derive(Debug, Clone)]
 pub(crate) struct ClubSquad {
     pub model: SquadModel,
+    /// [`SquadModel::fingerprint`], taken once: the squad does not change under a `ClubSquad`.
+    fingerprint: u64,
     pub base: Evaluation,
     pub appetite: Appetite,
     pub budget: Budget,
@@ -70,9 +82,37 @@ impl ClubSquad {
         today: NaiveDate,
         appetite: Appetite,
     ) -> Self {
-        let model = SquadModel::build(players, &team.formation, today, appetite.weights);
+        Self::build(players, team, today, appetite, Availability::Today)
+    }
+
+    /// The squad as planning sees it ([`Availability::Planning`]): for what a player is worth to
+    /// his club (status, listing, renewal, sale), which should not change with every knock.
+    pub(crate) fn for_planning<'a>(
+        players: impl Iterator<Item = &'a Player>,
+        team: &Team,
+        today: NaiveDate,
+        appetite: Appetite,
+    ) -> Self {
+        Self::build(players, team, today, appetite, Availability::Planning)
+    }
+
+    fn build<'a>(
+        players: impl Iterator<Item = &'a Player>,
+        team: &Team,
+        today: NaiveDate,
+        appetite: Appetite,
+        availability: Availability,
+    ) -> Self {
+        let model = SquadModel::build(
+            players,
+            &team.formation,
+            today,
+            appetite.weights,
+            availability,
+        );
         let base = model.evaluate_now();
         Self {
+            fingerprint: model.fingerprint(),
             model,
             base,
             appetite,
@@ -84,11 +124,29 @@ impl ClubSquad {
         }
     }
 
-    /// The squad of the club `team_id` in `game`.
+    /// The squad of the club `team_id` in `game`, as it is today.
     pub(crate) fn of(game: &crate::game::Game, team_id: &str, appetite: Appetite) -> Option<Self> {
         let team = game.teams.iter().find(|team| team.id == team_id)?;
         let today = game.clock.current_date.date_naive();
         Some(Self::from_players(
+            game.players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team_id)),
+            team,
+            today,
+            appetite,
+        ))
+    }
+
+    /// The squad of the club `team_id` in `game`, as planning sees it.
+    pub(crate) fn of_for_planning(
+        game: &crate::game::Game,
+        team_id: &str,
+        appetite: Appetite,
+    ) -> Option<Self> {
+        let team = game.teams.iter().find(|team| team.id == team_id)?;
+        let today = game.clock.current_date.date_naive();
+        Some(Self::for_planning(
             game.players
                 .iter()
                 .filter(|player| player.team_id.as_deref() == Some(team_id)),
@@ -105,10 +163,24 @@ impl ClubSquad {
 
     /// What signing `player` would add, as this club reads him (`perceived_error` rating points
     /// off his true level; zero for a club that sees the world as it is). Price it with
-    /// [`Marginal::priced`].
+    /// [`Marginal::priced`]. Kept for as long as neither the squad nor the player changes: a
+    /// market sweep asks the same club about the same players every day of a window.
     pub(crate) fn signing(&self, player: &Player, perceived_error: f32) -> Option<Marginal> {
         let candidate = Member::candidate(player, &self.model.slots, self.today, perceived_error)?;
-        Some(self.signing_of(&candidate))
+        let key = (self.fingerprint, SquadModel::fingerprint_of(&candidate));
+        {
+            let cache = MARGINAL_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(known) = cache.get(&key) {
+                return Some(*known);
+            }
+        }
+        let marginal = self.signing_of(&candidate);
+        let mut cache = MARGINAL_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.len() >= MARGINAL_CACHE_LIMIT {
+            cache.clear();
+        }
+        cache.insert(key, marginal);
+        Some(marginal)
     }
 
     /// The same for a player already turned into a [`Member`].
@@ -142,7 +214,7 @@ impl ClubSquad {
         {
             return Arc::clone(sales);
         }
-        let sales: Arc<Vec<(String, SaleCase)>> = Arc::new(
+        let sales: Sales = Arc::new(
             self.model
                 .members
                 .iter()

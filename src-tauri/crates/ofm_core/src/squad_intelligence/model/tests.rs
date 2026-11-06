@@ -121,14 +121,14 @@ fn a_long_injury_removes_a_player_for_now_and_not_for_later() {
         name: "x".into(),
         days_remaining: 60,
     });
-    let member = Member::of(&keeper, &slots_of("4-4-2"), today()).unwrap();
+    let member = Member::of(&keeper, &slots_of("4-4-2"), today(), Availability::Today).unwrap();
     assert!(member.shift[0].is_none());
     assert!(member.shift[1].is_some() && member.shift[2].is_some());
     keeper.injury = Some(domain::player::Injury {
         name: "x".into(),
         days_remaining: 10,
     });
-    let member = Member::of(&keeper, &slots_of("4-4-2"), today()).unwrap();
+    let member = Member::of(&keeper, &slots_of("4-4-2"), today(), Availability::Today).unwrap();
     assert!(member.shift[0].is_some());
     assert!(
         member.absence > BASE_ABSENCE,
@@ -147,9 +147,9 @@ fn only_senior_registered_players_are_in_the_squad() {
     academy.squad_role = SquadRole::Youth;
     let mut retired = senior.clone();
     retired.retired = true;
-    assert!(Member::of(&senior, &slots, today()).is_some());
-    assert!(Member::of(&academy, &slots, today()).is_none());
-    assert!(Member::of(&retired, &slots, today()).is_none());
+    assert!(Member::of(&senior, &slots, today(), Availability::Today).is_some());
+    assert!(Member::of(&academy, &slots, today(), Availability::Today).is_none());
+    assert!(Member::of(&retired, &slots, today(), Availability::Today).is_none());
 }
 
 /// Given a prospect aged 19 with a high ceiling
@@ -175,4 +175,366 @@ fn the_same_squad_gives_the_same_evaluation_every_time() {
     let squad = Squad::balanced();
     let (a, b) = (club(&squad), club(&squad));
     assert_eq!(a.base.value.to_bits(), b.base.value.to_bits());
+}
+
+/// Given a squad and a player asked about twice, and then the squad after it loses its striker
+/// When the answers are compared with a fresh evaluation
+/// Then the kept answer is the fresh one, and a changed squad is never answered from the old one.
+#[test]
+fn a_kept_answer_is_the_fresh_answer_and_never_outlives_a_change_of_squad() {
+    let squad = Squad::balanced();
+    let club = club(&squad);
+    let target = player("target", Striker, 80, 26);
+    let asked = club.signing(&target, 0.0).unwrap();
+    let again = club.signing(&target, 0.0).unwrap();
+    let candidate = Member::candidate(&target, &club.model.slots, today(), 0.0).unwrap();
+    let fresh = club.signing_of(&candidate);
+    assert_eq!(asked.gain.to_bits(), fresh.gain.to_bits());
+    assert_eq!(again.gain.to_bits(), fresh.gain.to_bits());
+
+    let mut weaker = Squad::balanced();
+    weaker
+        .players
+        .retain(|p| p.natural_position != Striker || p.ovr < 70);
+    let weaker = self::club(&weaker);
+    let after = weaker.signing(&target, 0.0).unwrap();
+    assert!(
+        after.gain > asked.gain,
+        "a club short of strikers gains more from one"
+    );
+}
+
+/// Given a squad with a deep bench and every member's own evaluation of the side without him
+/// When the members who neither start nor cover anyone in any horizon year are looked at
+/// Then the side without each of them is exactly the side with him (the claim that lets a whole
+/// squad's sale costs be read without twenty-six evaluations), and there are some such members.
+#[test]
+fn a_player_who_plays_no_part_costs_exactly_nothing_to_lose() {
+    let mut squad = Squad::balanced();
+    for (i, ovr) in [60_u8, 59, 58, 57, 56].into_iter().enumerate() {
+        squad
+            .players
+            .push(player(&format!("deep{i}"), CentralMidfielder, ovr, 27));
+        squad
+            .players
+            .push(player(&format!("deepback{i}"), CenterBack, ovr, 27));
+    }
+    let club = club(&squad);
+    let mut idle = 0;
+    for (index, member) in club.model.members.iter().enumerate() {
+        if club.base.involves(index) {
+            continue;
+        }
+        idle += 1;
+        let without = club.model.evaluate_without(&member.id);
+        assert_eq!(
+            without.value.to_bits(),
+            club.base.value.to_bits(),
+            "{}",
+            member.id
+        );
+    }
+    assert!(idle >= 3, "{idle} idle members");
+}
+
+/// Given every member of a squad
+/// When the cost of losing him is read, with and without a cheap replacement coming in
+/// Then the replacement never makes the loss bigger, and a loss under the surplus line is the
+/// same number either way: the shortcut in `assess_sale` loses nothing.
+#[test]
+fn a_replacement_never_makes_a_loss_bigger() {
+    let club = club(&Squad::balanced());
+    for member in &club.model.members {
+        let without = club.model.evaluate_without(&member.id);
+        let loss = (club.base.value - without.value).max(0.0);
+        let case = club.sale(&member.id);
+        assert!(
+            case.net_loss <= loss + 1e-4,
+            "{}: {} vs {}",
+            member.id,
+            case.net_loss,
+            loss
+        );
+        if loss < crate::squad_intelligence::impact::SURPLUS_LOSS {
+            assert!(case.surplus);
+        }
+    }
+}
+
+/// Given many random squads (random positions, ratings, ages, injuries) and random candidates
+/// When a candidate is added by the chain of moves and by a fresh solve of every year
+/// Then the side's strength is the same, year by year, to the thousandth of a point: the chain is
+/// exact. Where two elevens are equally strong the solver may pick either, and the cover read from
+/// them differs; the chain keeps the squad's own side unless a move strictly improves it, so a
+/// candidate who changes nothing in the eleven changes nothing there.
+#[test]
+fn adding_a_player_by_a_chain_is_exactly_a_fresh_solve() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(2026);
+    let mut worst_cover = 0.0_f32;
+    let mut improving = 0;
+    for case in 0..120 {
+        let size = rng.random_range(13..=26);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            let ovr = rng.random_range(48..=86);
+            let age = rng.random_range(17..=36);
+            let mut p = player(&format!("c{case}p{i}"), position, ovr, age);
+            if rng.random_range(0..10) == 0 {
+                p.injury = Some(domain::player::Injury {
+                    name: "x".into(),
+                    days_remaining: rng.random_range(5..=90),
+                });
+            }
+            squad.players.push(p);
+        }
+        let club = club(&squad);
+        for k in 0..6 {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            let candidate = player(
+                &format!("c{case}cand{k}"),
+                position,
+                rng.random_range(50..=90),
+                rng.random_range(17..=35),
+            );
+            let Some(member) = Member::candidate(&candidate, &club.model.slots, today(), 0.0)
+            else {
+                continue;
+            };
+            let chain = club.model.evaluate_with(&member);
+            let fresh = club.model.evaluate_with_fresh(&member);
+            for year in 0..HORIZON {
+                assert!(
+                    (chain.years[year].xi - fresh.years[year].xi).abs() < 1e-3,
+                    "case {case} cand {k} year {year}: chain {} fresh {}",
+                    chain.years[year].xi,
+                    fresh.years[year].xi
+                );
+            }
+            if chain.years[0].xi > club.base.years[0].xi + 1e-3 {
+                improving += 1;
+            } else if chain.years[0].xi < club.base.years[0].xi + 1e-3 {
+                // The eleven is untouched: its starters are the squad's own.
+                assert_eq!(
+                    chain.years[0].starter_index, club.base.years[0].starter_index,
+                    "case {case} cand {k}"
+                );
+            }
+            worst_cover = worst_cover.max((chain.value - fresh.value).abs());
+        }
+    }
+    assert!(
+        improving > 30,
+        "the test must include real improvements: {improving}"
+    );
+    assert!(worst_cover < 0.5, "covers differ by {worst_cover}");
+    println!("improving {improving}, worst cover difference {worst_cover}");
+}
+
+/// Given a player with a short injury
+/// When he is read for a signing (today) and for planning
+/// Then today's reading raises his chance of missing a match and planning's does not: what he is
+/// worth to his club does not change with every knock. A long injury is absent for the present in
+/// both.
+#[test]
+fn planning_reads_a_short_injury_as_an_ordinary_risk_and_today_does_not() {
+    let mut p = player("p", Striker, 75, 26);
+    p.injury = Some(domain::player::Injury {
+        name: "x".into(),
+        days_remaining: 10,
+    });
+    let slots = slots_of("4-4-2");
+    let today_member = Member::of(&p, &slots, today(), Availability::Today).unwrap();
+    let planning = Member::of(&p, &slots, today(), Availability::Planning).unwrap();
+    assert!(today_member.absence > BASE_ABSENCE);
+    assert_eq!(planning.absence, BASE_ABSENCE);
+    p.injury = Some(domain::player::Injury {
+        name: "x".into(),
+        days_remaining: 90,
+    });
+    for availability in [Availability::Today, Availability::Planning] {
+        let member = Member::of(&p, &slots, today(), availability).unwrap();
+        assert!(member.shift[0].is_none() && member.shift[1].is_some());
+    }
+}
+
+/// Cost of the layer's operations on a world the size of the shipped one: 440 squads of 26, a
+/// shortlist of 300 candidates each, and the sale analysis of every squad. Prints microseconds
+/// per operation; asserts nothing (a timing is not a test). Run with
+/// `cargo test --release -p ofm_core --lib squad_intelligence::model::tests::benchmark -- --ignored --nocapture`.
+#[test]
+#[ignore = "timing, not a test"]
+fn benchmark_the_cost_of_one_sweep_in_a_world_of_440_clubs() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        Striker,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+    let squads: Vec<Squad> = (0..440)
+        .map(|club| {
+            let mut squad = Squad::new();
+            for i in 0..26 {
+                let position: Position = positions[i % positions.len()].clone();
+                squad.players.push(player(
+                    &format!("k{club}p{i}"),
+                    position,
+                    rng.random_range(52..=80),
+                    rng.random_range(18..=35),
+                ));
+            }
+            squad
+        })
+        .collect();
+    let targets: Vec<domain::player::Player> = (0..300)
+        .map(|i| {
+            player(
+                &format!("t{i}"),
+                positions[i % positions.len()].clone(),
+                rng.random_range(55..=88),
+                rng.random_range(18..=34),
+            )
+        })
+        .collect();
+
+    let started = std::time::Instant::now();
+    let clubs: Vec<_> = squads.iter().map(club).collect();
+    let build = started.elapsed();
+
+    let started = std::time::Instant::now();
+    let mut gain = 0.0_f32;
+    for club in &clubs {
+        for target in &targets[..30] {
+            let member = Member::candidate(target, &club.model.slots, today(), 0.0).unwrap();
+            gain += club.signing_of(&member).gain;
+        }
+    }
+    let signings = started.elapsed();
+
+    let started = std::time::Instant::now();
+    let mut loss = 0.0_f32;
+    for club in &clubs {
+        for member in &club.model.members {
+            loss += club.sale(&member.id).net_loss;
+        }
+    }
+    let sales = started.elapsed();
+    println!(
+        "440 squads built in {build:?} ({:.0} us each); {} candidate evaluations in {signings:?} ({:.1} us each); {} sale analyses in {sales:?} ({:.1} us each) [{gain} {loss}]",
+        build.as_micros() as f64 / 440.0,
+        440 * 30,
+        signings.as_micros() as f64 / (440.0 * 30.0),
+        440 * 26,
+        sales.as_micros() as f64 / (440.0 * 26.0),
+    );
+}
+
+/// The cover as it was first written: eleven rounds, each taking the best remaining pairing of an
+/// uncovered slot and a bench player with room.
+fn cover_by_repeated_best_pair(
+    squad: &[&Member],
+    used: &[bool],
+    year: usize,
+) -> ([f32; SLOTS], [Option<usize>; SLOTS]) {
+    let bench: Vec<usize> = (0..squad.len())
+        .filter(|&index| !used[index] && squad[index].shift[year].is_some())
+        .collect();
+    let mut taken = vec![0_u8; bench.len()];
+    let mut covered = [false; SLOTS];
+    let mut cover = [UNCOVERED_FIT; SLOTS];
+    let mut index_of = [None; SLOTS];
+    for _ in 0..SLOTS {
+        let mut best: Option<(usize, usize, f32)> = None;
+        for slot in (0..SLOTS).filter(|&slot| !covered[slot]) {
+            for (position, &index) in bench.iter().enumerate() {
+                if taken[position] >= SLOTS_PER_COVER {
+                    continue;
+                }
+                let Some(level) = squad[index].level(slot, year) else {
+                    continue;
+                };
+                if best.is_none_or(|(_, _, best_level)| level > best_level) {
+                    best = Some((slot, position, level));
+                }
+            }
+        }
+        let Some((slot, position, level)) = best else {
+            break;
+        };
+        covered[slot] = true;
+        taken[position] += 1;
+        cover[slot] = level;
+        index_of[slot] = Some(bench[position]);
+    }
+    (cover, index_of)
+}
+
+/// Given many random squads
+/// When the cover is assigned by sorting the pairings once, and by taking the best remaining pairing
+/// again and again
+/// Then every slot has the same cover rated the same and the same player covering it: the faster
+/// way is the same way.
+#[test]
+fn sorting_the_pairings_once_assigns_the_cover_exactly_as_picking_the_best_again_and_again() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(99);
+    for case in 0..200 {
+        let size = rng.random_range(12..=30);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            squad.players.push(player(
+                &format!("c{case}p{i}"),
+                position,
+                rng.random_range(45..=88),
+                rng.random_range(17..=36),
+            ));
+        }
+        let club = club(&squad);
+        let refs: Vec<&Member> = club.model.members.iter().collect();
+        for year in 0..HORIZON {
+            let view = club.base.years[year];
+            let used: Vec<bool> = (0..refs.len())
+                .map(|index| view.starter_index.contains(&Some(index)))
+                .collect();
+            let (cover, index_of) = cover_by_repeated_best_pair(&refs, &used, year);
+            assert_eq!(view.cover, cover, "case {case} year {year}");
+            assert_eq!(view.cover_index, index_of, "case {case} year {year}");
+        }
+    }
 }

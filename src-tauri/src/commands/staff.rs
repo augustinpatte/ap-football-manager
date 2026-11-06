@@ -331,12 +331,40 @@ pub fn set_delegation_limits(
     mutate_active_game(&state, |game| set_limits(game, limits))
 }
 
-pub fn set_limits(game: &mut Game, limits: DelegationLimits) -> Result<(), String> {
+pub fn set_limits(game: &mut Game, mut limits: DelegationLimits) -> Result<(), String> {
     user_team_id(game)?;
     if limits.max_commitment < 0 || limits.max_transfer_fee < 0 {
         return Err("be.error.delegation.invalidLimits".to_string());
     }
+    // Total authority is given and taken back by choosing a mode, never by editing a ceiling: a
+    // caller that omits the flag must not revoke it, and one that sets it must not grant it.
+    limits.finance_bound = game.delegation.limits.finance_bound;
     game.delegation.limits = limits;
+    Ok(())
+}
+
+/// Tells the assistant a player is not to be sold (or that he may be again). Enforced in the
+/// backend: the assistant turns down every offer for a protected player and never lists him.
+#[tauri::command]
+pub fn set_player_protected(
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+    protected: bool,
+) -> Result<Game, String> {
+    info!("[cmd] set_player_protected: {player_id} protected={protected}");
+    mutate_active_game(&state, |game| set_protected(game, &player_id, protected))
+}
+
+pub fn set_protected(game: &mut Game, player_id: &str, protected: bool) -> Result<(), String> {
+    let team_id = user_team_id(game)?;
+    let at_club = game
+        .players
+        .iter()
+        .any(|p| p.id == player_id && p.team_id.as_deref() == Some(team_id.as_str()));
+    if !at_club {
+        return Err("be.error.playerNotInClub".to_string());
+    }
+    game.delegation.set_protected(player_id, protected);
     Ok(())
 }
 
@@ -716,6 +744,7 @@ mod tests {
             max_player_wage: 9_000,
             max_commitment: 1_000_000,
             max_transfer_fee: 250_000,
+            finance_bound: false,
         };
         set_limits(&mut game, limits.clone()).unwrap();
         assert_eq!(game.delegation.limits, limits);
@@ -735,5 +764,92 @@ mod tests {
         let game = with_posts(make_game(), &[("p1", StaffPost::Physio, 50, 2_000, true)]);
         let recs = assistant::recommendations(&game, "team-1");
         assert!(recs.iter().any(|r| r.id == "no-assistant"));
+    }
+
+    fn game_with_an_assistant_and_a_player() -> Game {
+        let mut game = with_posts(
+            make_game(),
+            &[("assist", StaffPost::AssistantManager, 70, 1_000, true)],
+        );
+        game.players.push(a_player("p1", "team-1"));
+        game
+    }
+
+    fn a_player(id: &str, club: &str) -> domain::player::Player {
+        let attributes = domain::player::PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+        };
+        let mut player = domain::player::Player::new(
+            id.to_string(),
+            id.to_string(),
+            id.to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            domain::player::Position::Midfielder,
+            attributes,
+        );
+        player.team_id = Some(club.to_string());
+        player.ovr = 70;
+        player
+    }
+
+    /// Given Total authority
+    /// When the manager edits the ceilings with a limits value that leaves the flag off (an older
+    /// screen, or any caller)
+    /// Then the authority is untouched: ceilings never revoke or grant it.
+    #[test]
+    fn editing_the_ceilings_never_changes_the_total_authority() {
+        let mut game = game_with_an_assistant_and_a_player();
+        set_mode(&mut game, DelegationMode::Full).unwrap();
+        assert!(game.delegation.limits.finance_bound);
+
+        let mut edited = game.delegation.limits.clone();
+        edited.finance_bound = false;
+        edited.max_transfer_fee = 5_000_000;
+        set_limits(&mut game, edited).unwrap();
+        assert!(game.delegation.limits.finance_bound, "not revoked");
+        assert_eq!(game.delegation.limits.max_transfer_fee, 5_000_000);
+
+        set_mode(&mut game, DelegationMode::Approval).unwrap();
+        let mut grab = game.delegation.limits.clone();
+        grab.finance_bound = true;
+        set_limits(&mut game, grab).unwrap();
+        assert!(!game.delegation.limits.finance_bound, "not granted");
+    }
+
+    /// Given the manager's player and another club's
+    /// When the manager protects each
+    /// Then only his own can be protected, and protecting twice is one entry.
+    #[test]
+    fn only_a_player_of_the_managers_club_can_be_protected() {
+        let mut game = game_with_an_assistant_and_a_player();
+        game.players.push(a_player("p2", "elsewhere"));
+        set_protected(&mut game, "p1", true).unwrap();
+        set_protected(&mut game, "p1", true).unwrap();
+        assert_eq!(game.delegation.protected_players, vec!["p1".to_string()]);
+        assert_eq!(
+            set_protected(&mut game, "p2", true).err(),
+            Some("be.error.playerNotInClub".to_string())
+        );
+        set_protected(&mut game, "p1", false).unwrap();
+        assert!(game.delegation.protected_players.is_empty());
     }
 }

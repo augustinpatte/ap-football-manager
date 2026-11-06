@@ -159,7 +159,22 @@ fn the_assistants_recruitment_memory_survives_two_reloads() {
         wage: 41_000,
         years: 4,
         rounds: 2,
+        role: "CenterBack".to_string(),
+        gain: 17,
+        reason: "starter".to_string(),
     });
+    // F5.4: Total authority, the manager's protected players and what the assistant has in hand on
+    // the selling side survive the same two reloads.
+    game.delegation.limits.finance_bound = true;
+    game.delegation.set_protected("keeper-1", true);
+    game.delegation
+        .sales
+        .record_mut("offer-7", "2026-08-05")
+        .counters = 2;
+    game.delegation.sales.listed.push("surplus-3".to_string());
+    game.delegation
+        .sales
+        .shelve("star-2", "2026-11-01", ShelveReason::ManagerDeclined);
     game.delegation
         .recruitment
         .shelve("someone-else", "2026-10-01", ShelveReason::PlayerRefused);
@@ -196,6 +211,17 @@ fn the_assistants_recruitment_memory_survives_two_reloads() {
     let second = SaveManager::init(&saves).unwrap().load_game(&id).unwrap();
     assert_eq!(second.delegation, game.delegation);
     assert_eq!(second.delegation.recruitment.active[0].wage, 41_000);
+    assert_eq!(second.delegation.recruitment.active[0].gain, 17);
+    assert!(second.delegation.limits.finance_bound);
+    assert!(second.delegation.is_protected("keeper-1"));
+    assert_eq!(
+        second
+            .delegation
+            .sales
+            .record_for("offer-7")
+            .map(|r| r.counters),
+        Some(2)
+    );
     assert!(
         second
             .delegation
