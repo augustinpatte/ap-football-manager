@@ -22,9 +22,10 @@ use ofm_core::game::Game;
 use ofm_core::transfers::{
     LoanOfferDecision, TransferNegotiationDecision, counter_loan_offer, counter_offer,
     evaluate_transfer_market, exercise_loan_buy_option, generate_incoming_transfer_offers,
-    make_loan_offer, make_transfer_bid, process_loan_development_reports, process_loan_returns,
-    process_pending_loan_registrations, process_pending_transfer_registrations,
-    respond_to_loan_offer, respond_to_offer, seed_opening_ai_loan_market,
+    make_loan_offer, make_transfer_bid, market_buyer_evaluations, process_loan_development_reports,
+    process_loan_returns, process_pending_loan_registrations,
+    process_pending_transfer_registrations, respond_to_loan_offer, respond_to_offer,
+    seed_opening_ai_loan_market,
 };
 
 fn default_attrs() -> PlayerAttributes {

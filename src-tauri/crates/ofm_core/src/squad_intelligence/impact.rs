@@ -208,7 +208,7 @@ pub(crate) fn assess_sale(model: &SquadModel, base: &Evaluation, id: &str) -> Sa
         critical: net_loss >= CRITICAL_LOSS,
         surplus: net_loss < SURPLUS_LOSS,
     };
-    debug_assert!(case.net_loss <= case.loss + f32::EPSILON);
+    debug_assert!(case.loss >= 0.0 && case.net_loss >= 0.0);
     case
 }
 

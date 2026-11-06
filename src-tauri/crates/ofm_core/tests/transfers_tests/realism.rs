@@ -77,6 +77,32 @@ fn only_buyer_funded(game: &mut Game, buyer: &str) {
     }
 }
 
+fn rate(player: &mut Player, rating: u8) {
+    player.ovr = rating;
+    player.potential = rating;
+    player.attributes = PlayerAttributes {
+        pace: rating,
+        stamina: rating,
+        strength: rating,
+        agility: rating,
+        passing: rating,
+        shooting: rating,
+        tackling: rating,
+        dribbling: rating,
+        defending: rating,
+        positioning: rating,
+        vision: rating,
+        decisions: rating,
+        composure: rating,
+        aggression: rating,
+        teamwork: rating,
+        leadership: rating,
+        handling: rating,
+        reflexes: rating,
+        aerial: rating,
+    };
+}
+
 /// A. A big English club goes abroad for a clearly better player than anyone it could find at home.
 #[test]
 fn a_big_english_club_signs_a_clear_upgrade_in_france() {
@@ -272,6 +298,51 @@ fn a_club_with_a_vacant_position_signs_for_it() {
     set_days_left(&mut game, 0);
     evaluate_transfer_market(&mut game);
     assert_eq!(owner(&game, "keeper").as_deref(), Some("needy"));
+}
+
+/// Given a club with planned depth in every broad group, two elite goalkeepers and a weak attack
+/// When the live AI market sweeps during the early window
+/// Then Squad Intelligence's attacking need activates the club and it signs the available striker.
+#[test]
+fn a_weak_attack_enters_the_market_even_when_legacy_depth_is_complete() {
+    let mut game = world(
+        vec![
+            // On 2026-08-01 this id is outside the early-window discretionary-shopping draw.
+            // The club must therefore enter because of its shared squad need, not by chance.
+            club("buyer", "England", 600, 50_000_000),
+            club("seller", "England", 600, 0),
+        ],
+        vec![forward("needed-striker", "seller", 82, 2_000_000)],
+    );
+    for player in &mut game.players {
+        if player.team_id.as_deref() == Some("buyer") {
+            match player.position.to_group_position() {
+                Position::Goalkeeper => {
+                    rate(player, if player.id.ends_with("-0") { 85 } else { 83 })
+                }
+                Position::Forward => rate(player, 45),
+                _ => rate(player, 72),
+            }
+        } else if player.id == "needed-striker" {
+            rate(player, 82);
+        }
+    }
+    only_buyer_funded(&mut game, "buyer");
+    set_days_left(&mut game, 60);
+
+    let evaluated_before = market_buyer_evaluations();
+    evaluate_transfer_market(&mut game);
+    assert!(
+        market_buyer_evaluations() > evaluated_before,
+        "the critical attacking need activates the buyer in the early window"
+    );
+
+    // The next ordinary market day completes the same live pipeline: target discovery, ranking,
+    // consent, financial checks and execution.
+    set_days_left(&mut game, 40);
+    evaluate_transfer_market(&mut game);
+
+    assert_eq!(owner(&game, "needed-striker").as_deref(), Some("buyer"));
 }
 
 /// H. A club already over its wage budget buys nobody, however good the player.

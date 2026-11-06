@@ -55,6 +55,10 @@ pub fn take_deal_log() -> Vec<DealRecord> {
 /// its new division is above the reputation it earned in the old one.
 const PROMOTED_REPUTATION_REACH: u32 = 50;
 
+/// An imbalance large enough to warrant immediate market participation before a club's ordinary
+/// review day. Smaller needs still inform target appraisal once the club is shopping.
+const URGENT_SQUAD_NEED_SEVERITY: f32 = 7.0;
+
 /// The age from which an AI club will not pay a transfer fee for a player: his career is nearly
 /// over and the fee buys no resale. A goalkeeper's lasts longer. Free agents and loans are not
 /// bound by it: they cost no fee.
@@ -126,6 +130,7 @@ fn player_statuses(
 ) -> (
     std::collections::HashMap<String, PlayerStatus>,
     HashSet<String>,
+    HashSet<String>,
 ) {
     let mut by_club: std::collections::HashMap<&str, Vec<&Player>> =
         std::collections::HashMap::new();
@@ -140,6 +145,7 @@ fn player_statuses(
         |player: &Player| domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
     let mut statuses = std::collections::HashMap::new();
     let mut troubled = HashSet::new();
+    let mut clubs_with_squad_needs = HashSet::new();
     for team in &game.teams {
         let Some(players) = by_club.get(team.id.as_str()) else {
             continue;
@@ -177,6 +183,13 @@ fn player_statuses(
                 current_date,
                 crate::squad_intelligence::appetite::Appetite::of(&profile),
             );
+            if squad
+                .needs()
+                .iter()
+                .any(|need| need.severity >= URGENT_SQUAD_NEED_SEVERITY)
+            {
+                clubs_with_squad_needs.insert(team.id.clone());
+            }
             statuses.extend(sale_view::club_statuses_by_impact(
                 &squad,
                 &team.id,
@@ -187,7 +200,7 @@ fn player_statuses(
             ));
         }
     }
-    (statuses, troubled)
+    (statuses, troubled, clubs_with_squad_needs)
 }
 
 /// Current squad depth per club and broad position group, computed once so the
@@ -473,7 +486,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .filter(|(_, change)| **change == crate::division_move::DivisionMove::Relegated)
         .map(|(club, _)| club.as_str())
         .collect();
-    let (statuses, troubled_clubs) = player_statuses(
+    let (statuses, troubled_clubs, clubs_with_squad_needs) = player_statuses(
         game,
         current_date,
         &wage_bills,
@@ -512,7 +525,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .iter()
         .filter(|team| Some(team.id.as_str()) != user_team_id.as_deref())
         .filter(|team| {
-            let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need);
+            // `position_depths` keeps the squad floor safe, but it cannot see a weak striker
+            // behind two excellent goalkeepers. `player_statuses` has already built this club's
+            // planning squad to price its sales, so retaining its shared need model activates a
+            // real sporting need without another squad-model pass.
+            let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need)
+                || clubs_with_squad_needs.contains(&team.id);
             // A club with nothing pressing may wait: early in the window most do.
             let patient = !unmet_need
                 && !promoted_clubs.contains(team.id.as_str())
