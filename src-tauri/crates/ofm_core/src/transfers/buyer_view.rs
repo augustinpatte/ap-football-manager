@@ -37,7 +37,8 @@ pub(super) fn squad_indices_by_club(game: &Game) -> HashMap<String, Vec<usize>> 
 /// One buyer's reading of the targets in front of it.
 pub(super) struct BuyerView {
     squad: ClubSquad,
-    starter_needs: Vec<Position>,
+    /// Each weak starting slot, with the rating points the model expects it to cost.
+    starter_needs: Vec<(Position, f32)>,
     /// What each target would add, by player id. `None`: he is not a senior the model can place.
     memo: RefCell<HashMap<String, Option<Marginal>>>,
 }
@@ -63,7 +64,7 @@ impl BuyerView {
             .needs()
             .into_iter()
             .filter(|need| need.kind == crate::squad_intelligence::needs::NeedKind::Starter)
-            .map(|need| need.position)
+            .map(|need| (need.position, need.severity))
             .collect();
         Self {
             squad,
@@ -72,9 +73,33 @@ impl BuyerView {
         }
     }
 
-    /// A broad-group depth check cannot rule out a specialist for a weak starting slot.
+    /// A broad-group depth check cannot rule out a specialist for a weak starting slot. Both his
+    /// natural position and any position he is trained to cover count.
     pub(super) fn has_starter_need_for(&self, player: &Player) -> bool {
-        self.starter_needs.contains(&player.natural_position)
+        self.starter_need_severity_for(player).is_some()
+    }
+
+    /// The rating points the weak starting slot he would fill is expected to cost, if any.
+    fn starter_need_severity_for(&self, player: &Player) -> Option<f32> {
+        self.starter_needs
+            .iter()
+            .filter(|(position, _)| {
+                *position == player.natural_position
+                    || player.alternate_positions.contains(position)
+            })
+            .map(|(_, severity)| *severity)
+            .max_by(f32::total_cmp)
+    }
+
+    /// What the club values a signing at, in rating points: the expected gain to the side, or the
+    /// size of the weak starting slot he fixes. Expected points divide a specialist's contribution
+    /// across the eleven, so a deep group can hide a hole in the side that is actually fielded;
+    /// the slot's own severity keeps that improvement visible.
+    pub(super) fn improvement(&self, player: &Player) -> i32 {
+        let severity = self
+            .starter_need_severity_for(player)
+            .map_or(0, |severity| severity.round() as i32);
+        self.points(player).max(severity)
     }
 
     /// What `player` would add to this club's squad, before any price.

@@ -77,6 +77,17 @@ fn only_buyer_funded(game: &mut Game, buyer: &str) {
     }
 }
 
+/// Leaves the named borrower as the only club with the wage room a loan needs. A loan does not
+/// check a transfer budget, so `only_buyer_funded` alone leaves an incidental club in the market;
+/// this keeps a scenario that asks what one borrower does from being won by another.
+fn only_buyer_can_borrow(game: &mut Game, buyer: &str) {
+    for team in &mut game.teams {
+        if team.id != buyer && team.id != "team-1" {
+            team.wage_budget = 0;
+        }
+    }
+}
+
 fn rate(player: &mut Player, rating: u8) {
     player.ovr = rating;
     player.potential = rating;
@@ -500,6 +511,32 @@ fn an_alternate_position_can_address_a_starting_gap() {
     assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
 }
 
+/// Given a weak left-back slot, a covered right-back slot and a target whose only full-back
+/// natural position is right-back
+/// When the production market weighs him for his alternate left-back position
+/// Then the alternate position alone can connect him to the starting need.
+#[test]
+fn an_alternate_position_addresses_a_starter_need_when_the_natural_slot_is_covered() {
+    let mut game = full_back_market_world();
+    // The right-back slot is covered, so his natural position is not a need. Only the alternate
+    // left-back position can address the weak slot the side fields.
+    let mut right_back = forward("strong-right-back", "buyer", 85, 0);
+    right_back.transfer_listed = false;
+    right_back.position = Position::RightBack;
+    right_back.natural_position = Position::RightBack;
+    rate(&mut right_back, 85);
+    game.players.push(right_back);
+    let player = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "needed-left-back")
+        .unwrap();
+    player.natural_position = Position::RightBack;
+    player.alternate_positions.push(Position::LeftBack);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
+}
+
 /// Given a weak left-back slot and a suitable player listed for loan
 /// When the production market considers the loan
 /// Then broad centre-back depth does not veto the tactical improvement.
@@ -516,6 +553,7 @@ fn a_loan_can_address_a_starting_gap_despite_broad_depth() {
     player.date_of_birth = "2006-01-01".to_string();
     player.potential = 80;
     player.stage_contract_end(Some("2028-06-30".to_string()));
+    only_buyer_can_borrow(&mut game, "buyer");
     evaluate_transfer_market(&mut game);
     let player = game
         .players

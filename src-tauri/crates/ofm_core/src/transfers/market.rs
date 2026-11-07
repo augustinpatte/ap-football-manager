@@ -68,15 +68,18 @@ pub(crate) fn retirement_horizon_age(position_group_index: usize) -> i32 {
 
 /// Whether a club has a realistic reason to pursue a target: it isn't far below
 /// the player's current club in stature, and it isn't already overloaded in the
-/// player's position group.
+/// player's position group. A player who fills a weak starting slot is a reason
+/// even when the broad group is deep: eight centre-backs do not cover a full-back
+/// slot the side actually fields.
 pub(crate) fn buyer_has_genuine_interest(
     buyer_reputation: u32,
     owner_reputation: u32,
     buyer_position_depth: usize,
+    fills_a_starting_need: bool,
 ) -> bool {
     let reputation_deficit = owner_reputation as i32 - buyer_reputation as i32;
     reputation_deficit <= MAX_BUYER_REPUTATION_DEFICIT
-        && buyer_position_depth < POSITION_GROUP_SURPLUS_THRESHOLD
+        && (fills_a_starting_need || buyer_position_depth < POSITION_GROUP_SURPLUS_THRESHOLD)
 }
 /// Whether a target would make a buyer's squad better where it matters: the club is thin in his
 /// group (under the floor plus the planning margin) or he is rated above its first cover — the
@@ -393,21 +396,23 @@ fn invalidate_loan_views(
 fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
     let today = search.current_date.format("%Y-%m-%d").to_string();
     for target in search.targets {
+        let Some(player) = game.players.iter().find(|p| p.id == target.player_id) else {
+            continue;
+        };
         if target.owner_team_id == search.borrower.id
             || search.moved_player_ids.contains(&target.player_id)
             || target.owner_reputation as i32 - search.borrower.reputation as i32
                 > MAX_BUYER_REPUTATION_DEFICIT
-            || !target_fills_a_need(
+            // A broad group can look covered while the side the club fields has a weak slot: the
+            // same exception the purchase path makes for a specialist, judged on the squad model.
+            || (!target_fills_a_need(
                 &search.levels[target.position_group_index],
                 target.position_group_index,
                 target.ovr,
-            )
+            ) && !search.view.has_starter_need_for(player))
         {
             continue;
         }
-        let Some(player) = game.players.iter().find(|p| p.id == target.player_id) else {
-            continue;
-        };
         // A loan is for this season: it has to make this season's side better.
         if !search.view.worth_borrowing(player) {
             continue;
@@ -910,7 +915,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let fit = |target: &MarketTarget| -> (i32, bool) {
             let levels = &buyer_levels[target.position_group_index];
             (
-                target_player(target).map_or(0, |player| view.points(player)),
+                target_player(target).map_or(0, |player| view.improvement(player)),
                 group_is_thin(levels, target.position_group_index),
             )
         };
@@ -993,10 +998,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             } else {
                 0
             };
+            let fills_a_starting_need =
+                target_player(target).is_some_and(|player| view.has_starter_need_for(player));
             if !buyer_has_genuine_interest(
                 buyer_team.reputation,
                 target.owner_reputation.saturating_sub(reach),
                 available_buyer_depths[target.position_group_index],
+                fills_a_starting_need,
             ) {
                 return false;
             }
