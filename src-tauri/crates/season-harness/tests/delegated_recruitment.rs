@@ -113,6 +113,81 @@ fn every_player_has_one_club(game: &Game) {
     }
 }
 
+/// Given a club with a defensive need and Total delegation
+/// When the assistant manages a complete season
+/// Then multiple transfers complete while the club retains nonnegative cash and a consistent squad.
+#[test]
+fn total_delegation_manages_multiple_transfers_within_live_finances() {
+    let mut game = WorldSpec::gate(1).build().expect("the world builds");
+    ensure_assistant(&mut game);
+    give_the_club_a_need(&mut game);
+    game.delegation.apply_mode(DelegationMode::Full);
+    let user = user_team(&game);
+    let options = RunOptions::seasons(1);
+    let mut invariants = Invariants::new(&game);
+    let mut lifecycle = Lifecycle::new(&game);
+    let mut day = 0;
+    while !is_season_complete(&game) {
+        day += 1;
+        assert!(day < 460, "the season did not complete");
+        play_day(
+            &mut game,
+            options,
+            1,
+            day,
+            &mut (&mut invariants, &mut lifecycle),
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+        every_player_has_one_club(&game);
+        let club = game.teams.iter().find(|team| team.id == user).unwrap();
+        for player_id in &club.starting_xi_ids {
+            let player = game
+                .players
+                .iter()
+                .find(|player| &player.id == player_id)
+                .unwrap();
+            assert_eq!(
+                player.team_id.as_deref(),
+                Some(user.as_str()),
+                "day {day}: stale lineup reference {player_id}"
+            );
+        }
+        assert!(club.finance >= 0, "day {day}: cash is {}", club.finance);
+        assert!(
+            club.transfer_budget >= 0,
+            "day {day}: negative transfer budget"
+        );
+        let wage_bill = ofm_core::finances::wage_bills_by_club(&game)
+            .get(&user)
+            .copied()
+            .unwrap_or(0);
+        assert!(
+            wage_bill <= club.wage_budget,
+            "day {day}: wage bill {wage_bill} exceeds budget {}",
+            club.wage_budget
+        );
+    }
+    assert_eq!(game.delegation.mode(), DelegationMode::Full);
+    let arrivals: std::collections::HashSet<&str> = game
+        .competitions
+        .iter()
+        .flat_map(|competition| &competition.transfer_log)
+        .filter(|transfer| transfer.to_team_id == user)
+        .filter(|transfer| {
+            game.players.iter().any(|player| {
+                player.id == transfer.player_id && player.team_id.as_deref() == Some(user.as_str())
+            })
+        })
+        .map(|transfer| transfer.player_id.as_str())
+        .collect();
+    assert!(
+        arrivals.len() >= 2,
+        "fewer than two distinct recruits joined the club"
+    );
+    assert!(invariants.is_clean(), "{}", invariants.report());
+    assert!(lifecycle.is_clean(), "{}", lifecycle.report());
+}
+
 /// Given autonomous player recruitment handed over with a fee ceiling
 /// When a season is played with a reload in the middle of the window and another after the rollover
 /// Then nothing above the ceiling is paid, nobody is sold by the assistant, the world stays

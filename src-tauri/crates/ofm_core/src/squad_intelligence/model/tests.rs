@@ -8,6 +8,82 @@ fn club(squad: &Squad) -> crate::squad_intelligence::ClubSquad {
     squad.club("4-4-2", 30_000_000, Appetite::NEUTRAL)
 }
 
+/// Given identical slot ratings for an outfielder and a natural goalkeeper
+/// When their candidate fingerprints are calculated
+/// Then the keeper's different outfield coverage cannot reuse the outfielder's cached appraisal.
+#[test]
+fn candidate_cache_distinguishes_a_goalkeeper_from_an_outfielder() {
+    let club = club(&Squad::balanced());
+    let candidate = player("candidate", Striker, 80, 25);
+    let outfielder = Member::candidate(&candidate, &club.model.slots, today(), 0.0).unwrap();
+    let mut goalkeeper = outfielder.clone();
+    goalkeeper.natural_keeper = true;
+    goalkeeper.refresh_levels();
+    assert_ne!(outfielder.levels[0][1], goalkeeper.levels[0][1]);
+    assert_ne!(
+        SquadModel::fingerprint_of(&outfielder),
+        SquadModel::fingerprint_of(&goalkeeper)
+    );
+    let mut changed_squad = club.model.clone();
+    changed_squad.members[0].natural_keeper = !changed_squad.members[0].natural_keeper;
+    changed_squad.members[0].refresh_levels();
+    assert_ne!(club.model.fingerprint(), changed_squad.fingerprint());
+}
+
+/// Given equal candidates, one projected to decline and another projected to leave
+/// When their candidate fingerprints are calculated
+/// Then the absent season cannot reuse the declining player's cached appraisal.
+#[test]
+fn candidate_cache_distinguishes_decline_from_departure() {
+    let club = club(&Squad::balanced());
+    let candidate = player("candidate", Striker, 80, 25);
+    let mut declining = Member::candidate(&candidate, &club.model.slots, today(), 0.0).unwrap();
+    declining.shift[1] = Some(-1.0);
+    declining.refresh_levels();
+    let mut departed = declining.clone();
+    departed.shift[1] = None;
+    departed.refresh_levels();
+    assert_ne!(declining.level(1, 1), departed.level(1, 1));
+    assert_ne!(
+        SquadModel::fingerprint_of(&declining),
+        SquadModel::fingerprint_of(&departed)
+    );
+    let mut declining_squad = club.model.clone();
+    declining_squad.members[0].shift[1] = Some(-1.0);
+    let mut departed_squad = declining_squad.clone();
+    departed_squad.members[0].shift[1] = None;
+    assert_ne!(declining_squad.fingerprint(), departed_squad.fingerprint());
+}
+
+/// Given two otherwise identical veterans, one declining and one expected to retire
+/// When their signings are appraised through the shared cache
+/// Then each cached result matches an independently calculated appraisal.
+#[test]
+fn cached_signings_do_not_confuse_decline_with_retirement() {
+    let club = club(&Squad::new());
+    let mut declining = player("cache-decline", Striker, 2, 33);
+    declining.ovr = 2;
+    declining.potential = 2;
+    let mut retiring = declining.clone();
+    retiring.date_of_birth = "1992-01-01".to_string();
+    let declining_member = Member::candidate(&declining, &club.model.slots, today(), 0.0).unwrap();
+    let retiring_member = Member::candidate(&retiring, &club.model.slots, today(), 0.0).unwrap();
+    let fresh_declining = club.signing_of(&declining_member);
+    let fresh_retiring = club.signing_of(&retiring_member);
+    assert_ne!(
+        fresh_declining.gain.to_bits(),
+        fresh_retiring.gain.to_bits()
+    );
+    assert_eq!(
+        club.signing(&declining, 0.0).unwrap().gain.to_bits(),
+        fresh_declining.gain.to_bits()
+    );
+    assert_eq!(
+        club.signing(&retiring, 0.0).unwrap().gain.to_bits(),
+        fresh_retiring.gain.to_bits()
+    );
+}
+
 /// Given random cost matrices with more columns than rows
 /// When the Hungarian assignment solves them
 /// Then its total equals the best total of every possible assignment.

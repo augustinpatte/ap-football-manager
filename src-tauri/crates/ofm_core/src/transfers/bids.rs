@@ -269,7 +269,32 @@ pub(crate) fn create_incoming_user_offer(
     buyer_name: &str,
     today: &str,
 ) {
-    let new_offer_id = Uuid::new_v4().to_string();
+    let seed = game.seed.to_string();
+    let mut sequence = 0_usize;
+    let new_offer_id = loop {
+        let id = crate::seed::derived_id(&[
+            "incoming-transfer-offer",
+            &seed,
+            &candidate.player_id,
+            buyer_id,
+            today,
+            &sequence.to_string(),
+        ]);
+        let in_offers = game
+            .players
+            .iter()
+            .any(|player| player.transfer_offers.iter().any(|offer| offer.id == id));
+        let in_sales_memory = game
+            .delegation
+            .sales
+            .offers
+            .iter()
+            .any(|offer| offer.offer_id == id);
+        if !in_offers && !in_sales_memory {
+            break id;
+        }
+        sequence += 1;
+    };
     let (player_name, interested_clubs) = {
         let Some(player) = game
             .players
@@ -1286,6 +1311,64 @@ pub fn counter_offer(
 mod acceptance_tests {
     use super::super::tests::{acceptance_game, assert_acceptance_notice, incoming_transfer};
     use super::*;
+
+    /// Given the same career snapshot and two incoming bids on the same day
+    /// When the market creates those bids in each replay
+    /// Then corresponding IDs match and the two bids remain distinct.
+    #[test]
+    fn incoming_offer_ids_are_replayable_and_distinct() {
+        let mut first = acceptance_game("team1", false);
+        let mut replay = first.clone();
+        let candidate = MarketCandidate {
+            player_id: "player-award".to_string(),
+            owner_team_id: "team1".to_string(),
+            fee: 1_000_000,
+        };
+        for game in [&mut first, &mut replay] {
+            create_incoming_user_offer(game, &candidate, "team2", "Buyer", "2026-01-12");
+            create_incoming_user_offer(game, &candidate, "team2", "Buyer", "2026-01-12");
+        }
+        let first_ids: Vec<_> = first.players[0]
+            .transfer_offers
+            .iter()
+            .map(|offer| &offer.id)
+            .collect();
+        let replay_ids: Vec<_> = replay.players[0]
+            .transfer_offers
+            .iter()
+            .map(|offer| &offer.id)
+            .collect();
+        assert_eq!(first_ids.len(), 2);
+        assert_ne!(first_ids[0], first_ids[1]);
+        assert_eq!(first_ids, replay_ids);
+    }
+
+    /// Given an old offer retained only in the assistant's sales memory
+    /// When the same club makes another offer on the same day
+    /// Then the new offer cannot be mistaken for the completed one.
+    #[test]
+    fn incoming_offer_ids_do_not_reuse_sales_memory() {
+        let mut game = acceptance_game("team1", false);
+        let candidate = MarketCandidate {
+            player_id: "player-award".to_string(),
+            owner_team_id: "team1".to_string(),
+            fee: 1_000_000,
+        };
+        create_incoming_user_offer(&mut game, &candidate, "team2", "Buyer", "2026-01-12");
+        let previous_id = game.players[0].transfer_offers[0].id.clone();
+        game.delegation
+            .sales
+            .offers
+            .push(domain::delegation::OfferRecord {
+                offer_id: previous_id.clone(),
+                date: "2026-01-12".to_string(),
+                counters: 0,
+                settled: true,
+            });
+        game.players[0].transfer_offers.clear();
+        create_incoming_user_offer(&mut game, &candidate, "team2", "Buyer", "2026-01-12");
+        assert_ne!(game.players[0].transfer_offers[0].id, previous_id);
+    }
 
     fn bid(deferred: bool) {
         let mut game = acceptance_game("team2", deferred);

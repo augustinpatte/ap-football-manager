@@ -276,6 +276,33 @@ pub(crate) fn keep_squads_at_the_floor(game: &mut Game) {
     }
 }
 
+pub(crate) fn warn_user_after_rollover(game: &mut Game) {
+    let Some(team_id) = game.manager.team_id.clone() else {
+        return;
+    };
+    let shortfall = squad_shortfall(game, &team_id);
+    warn_user_when_not_playing(game, &team_id, &shortfall);
+}
+
+fn warn_user_when_not_playing(
+    game: &mut Game,
+    team_id: &str,
+    shortfall: &[(Shortage, usize)],
+) -> bool {
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let match_still_to_play = game.competitions_in_play().iter().any(|competition| {
+        competition.fixtures.iter().any(|fixture| {
+            fixture.date == today
+                && fixture.status != domain::league::FixtureStatus::Completed
+                && (fixture.home_team_id == team_id || fixture.away_team_id == team_id)
+        })
+    });
+    if match_still_to_play {
+        return false;
+    }
+    warn_user_club_is_short(game, team_id, shortfall)
+}
+
 /// Bring a loaded or freshly built world up to the floor.
 ///
 /// A save written before the floor was enforced, or a package whose author
@@ -285,11 +312,6 @@ pub(crate) fn keep_squads_at_the_floor(game: &mut Game) {
 /// kick-off gate and its own message instead. Returns whether anything
 /// changed, so a loaded save knows it needs writing back.
 pub fn repair_squads_on_load(game: &mut Game) -> bool {
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-    let user_club_plays_today =
-        game.manager.team_id.as_ref().is_some_and(|team_id| {
-            crate::training::teams_playing_on(game, &today).contains(team_id)
-        });
     // Only what changed the game counts: a save whose one short club is the
     // player's, already warned, must not be rewritten on every load.
     let users_club = game.manager.team_id.clone();
@@ -304,10 +326,8 @@ pub fn repair_squads_on_load(game: &mut Game) -> bool {
             report_unfilled_ai_club(&team_id, &top_up);
         }
     }
-    if let Some(team_id) = users_club
-        && !user_club_plays_today
-    {
-        changed |= warn_user_club_is_short(game, &team_id, &users_shortfall);
+    if let Some(team_id) = users_club {
+        changed |= warn_user_when_not_playing(game, &team_id, &users_shortfall);
     }
     changed
 }
@@ -1872,6 +1892,45 @@ mod tests {
         assert!(!repair_squads_on_load(&mut matchday), "nothing was changed");
         assert!(matchday.messages.is_empty());
         assert!(!squad_shortfall(&matchday, "club").is_empty());
+    }
+
+    /// Given a managed club short of its squad floor after rollover
+    /// When the rollover warning is emitted before loading the same state
+    /// Then load repair does not add a second warning or change the squad.
+    #[test]
+    fn a_rollover_warning_is_not_repeated_on_load() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        warn_user_after_rollover(&mut game);
+        assert_eq!(game.messages.len(), 1);
+        let players_before = game.players.len();
+        assert!(!repair_squads_on_load(&mut game));
+        assert_eq!(game.messages.len(), 1);
+        assert_eq!(game.players.len(), players_before);
+    }
+
+    /// Given a managed club short of its squad floor and playing today
+    /// When the rollover warning is checked
+    /// Then it waits for the matchday handling instead of sending an early warning.
+    #[test]
+    fn a_rollover_warning_waits_when_the_club_plays_today() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        with_fixture_on(&mut game, "2026-08-01");
+        warn_user_after_rollover(&mut game);
+        assert!(game.messages.is_empty());
+    }
+
+    /// Given a short managed squad whose match today has already finished
+    /// When the rollover warning is checked
+    /// Then the manager receives the warning rather than waiting for a past match.
+    #[test]
+    fn a_finished_match_does_not_suppress_a_rollover_warning() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        with_fixture_on(&mut game, "2026-08-01");
+        game.league.as_mut().unwrap().fixtures[0].status = domain::league::FixtureStatus::Completed;
+
+        warn_user_after_rollover(&mut game);
+
+        assert_eq!(game.messages.len(), 1);
     }
 
     /// Given a save whose only short club is the player's, already warned,

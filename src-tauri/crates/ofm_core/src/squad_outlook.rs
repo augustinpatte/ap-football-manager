@@ -188,28 +188,6 @@ pub(crate) fn has_room_for_a_successor(planned_len: usize, group: usize) -> bool
     planned_len <= MIN_PLAYERS_PER_GROUP[group].1 + PLANNING_MARGIN_PER_GROUP
 }
 
-/// Every club's registered seniors as planning sees them a year on, per position group, best
-/// first. `seniors` yields `(club id, player)` for the players who count toward a squad today
-/// (registered, not on loan, not out for the season): the caller owns that definition, so the
-/// planned squad and the current one are never counted by two different rules.
-pub(crate) fn planned_levels_by_club<'a>(
-    seniors: impl Iterator<Item = (&'a str, &'a domain::player::Player)>,
-    current_date: chrono::NaiveDate,
-) -> std::collections::HashMap<String, [Vec<u8>; 4]> {
-    let mut by_club: std::collections::HashMap<String, Vec<PlannedPlayer>> =
-        std::collections::HashMap::new();
-    for (club, player) in seniors {
-        by_club
-            .entry(club.to_string())
-            .or_default()
-            .push(PlannedPlayer::of(player, current_date));
-    }
-    by_club
-        .into_iter()
-        .map(|(club, players)| (club, planned_levels(&players)))
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

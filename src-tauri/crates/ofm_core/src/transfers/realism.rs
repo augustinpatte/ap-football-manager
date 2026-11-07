@@ -917,7 +917,9 @@ mod mission12_tests {
     fn a_cheap_foreign_filler_is_not_worth_the_border_but_an_upgrade_or_a_hole_is() {
         assert!(worth_the_border(true, 100_000, 0, false));
         assert!(!worth_the_border(false, 100_000, 1, false));
-        assert!(worth_the_border(false, 100_000, 4, false));
+        assert!(!worth_the_border(false, 100_000, 4, false));
+        assert!(!worth_the_border(false, 100_000, 6, false));
+        assert!(worth_the_border(false, 100_000, 7, false));
         assert!(worth_the_border(false, 100_000, 0, true));
         assert!(worth_the_border(false, 500_000, 0, false));
     }

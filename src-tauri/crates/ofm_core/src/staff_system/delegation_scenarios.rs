@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 //! The delegation scenarios across both modes: what the assistant does with offers, listings and
 //! signings under Prudent (every major decision is a proposal) and under Total (he conducts the
 //! whole strategy within the club's finances), and what he never does in either.

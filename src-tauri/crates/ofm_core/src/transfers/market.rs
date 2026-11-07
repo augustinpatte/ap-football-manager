@@ -374,6 +374,18 @@ struct LoanSearch<'a> {
     current_date: NaiveDate,
 }
 
+fn invalidate_loan_views(
+    sale_view: &sale_view::SaleView,
+    targets: &[LoanTarget],
+    player_id: &str,
+    borrower_id: &str,
+) {
+    if let Some(target) = targets.iter().find(|target| target.player_id == player_id) {
+        sale_view.invalidate(&target.owner_team_id);
+    }
+    sale_view.invalidate(borrower_id);
+}
+
 /// An AI club borrows a loan-listed player when he would improve a genuine current need, on the
 /// least share of his wage his club accepts, when it can carry that share. The same loan the
 /// player's own club can ask for (`make_loan_offer`): the owner's terms, the squad floor, the
@@ -465,11 +477,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         .collect();
     let position_depths = squad_position_depths(game);
     let squad_levels = squad_levels_by_club(game);
-    // The squad a year on: who will have gone, who will have grown. A buyer's need, and what a
-    // target adds, are judged against this one, so a club plans its succession on the market
-    // instead of buying only once the hole has opened.
-    let planned_levels =
-        crate::squad_outlook::planned_levels_by_club(registered_seniors(game), current_date);
     let best_listed_loan_by_group = game
         .players
         .iter()
@@ -809,8 +816,31 @@ pub fn evaluate_transfer_market(game: &mut Game) {
 
         // The list is score-sorted, so the first target clearing this club's
         // filters is its highest-appeal eligible signing.
-        let buyer_levels = planned_levels.get(&buyer_id).cloned().unwrap_or_default();
-        let loan_levels = squad_levels.get(&buyer_id).cloned().unwrap_or_default();
+        let (loan_levels, buyer_levels) = crate::squad_outlook::club_outlook(
+            club_players
+                .get(&buyer_id)
+                .into_iter()
+                .flatten()
+                .map(|&index| &game.players[index])
+                .filter(|player| {
+                    player.team_id.as_deref() == Some(buyer_id.as_str())
+                        && crate::squad_outlook::counts_toward_squad(player)
+                }),
+            current_date,
+        );
+        let mut available_buyer_depths = [0_usize; 4];
+        for &index in club_players.get(&buyer_id).map_or(&[][..], Vec::as_slice) {
+            let player = &game.players[index];
+            if player.team_id.as_deref() == Some(buyer_id.as_str())
+                && player.squad_role == domain::player::SquadRole::Senior
+                && player
+                    .injury
+                    .as_ref()
+                    .is_none_or(|injury| injury.days_remaining < LONG_INJURY_DAYS)
+            {
+                available_buyer_depths[position_group_index(&player.position)] += 1;
+            }
+        }
         let buyer_books = crate::ai_finance_guard::SigningBooks::given(
             &buyer_team,
             wage_bills.get(&buyer_id).copied().unwrap_or(0),
@@ -951,7 +981,6 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 &buyer_levels[target.position_group_index],
                 target.position_group_index,
             );
-            let actual_points = fit(target).0;
             // Clubs only chase players that fit their stature and a position they
             // actually need, so a single star doesn't draw the whole division. A club with a hole
             // to fill near the close will look a little higher.
@@ -967,25 +996,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if !buyer_has_genuine_interest(
                 buyer_team.reputation,
                 target.owner_reputation.saturating_sub(reach),
-                buyer_depths[target.position_group_index],
+                available_buyer_depths[target.position_group_index],
             ) {
                 return false;
-            }
-            // A cheap foreign filler is not worth the trip.
-            if !target.is_user_owned {
-                let same_country = team_country
-                    .get(&target.owner_team_id)
-                    .is_some_and(|country| *country == buyer_team.country);
-                // What he adds is only asked when the border decides the matter.
-                let improvement =
-                    if same_country || thin || target.value >= CROSS_BORDER_FILLER_VALUE {
-                        0
-                    } else {
-                        actual_points
-                    };
-                if !worth_the_border(same_country, target.value, improvement, thin) {
-                    return false;
-                }
             }
             // Nobody pays a fee for a player at the end of his career, a goalkeeper's coming later.
             if !target.is_user_owned
@@ -997,17 +1010,32 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if !target.is_user_owned && buyer_overstretched && target.fee > 0 {
                 return false;
             }
-            // Not better than the first cover of his group (a year on), and the group is not short:
-            // he cannot be a signing worth the evaluation. The side decides everything that gets
-            // past this.
+            // The first cover usually screens weak targets cheaply, but broad groups cannot see
+            // a specialist for a weak starting slot. The side appraises that exception below.
             if !target.is_user_owned
                 && !target_fills_a_need(
                     &buyer_levels[target.position_group_index],
                     target.position_group_index,
                     target.planned_ovr(),
                 )
+                && !target_player(target).is_some_and(|player| view.has_starter_need_for(player))
             {
                 return false;
+            }
+            // A cheap foreign filler is not worth the trip.
+            if !target.is_user_owned {
+                let same_country = team_country
+                    .get(&target.owner_team_id)
+                    .is_some_and(|country| *country == buyer_team.country);
+                let improvement =
+                    if same_country || thin || target.value >= CROSS_BORDER_FILLER_VALUE {
+                        0
+                    } else {
+                        fit(target).0
+                    };
+                if !worth_the_border(same_country, target.value, improvement, thin) {
+                    return false;
+                }
             }
             let Some(price) = price(target) else {
                 return false;
@@ -1133,6 +1161,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     },
                 )
             {
+                invalidate_loan_views(&sale_view, &loan_targets, &player_id, &buyer_id);
                 moved_player_ids.insert(player_id);
                 completed_ai_loans += 1;
             }
@@ -1207,6 +1236,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 },
             )
         {
+            invalidate_loan_views(&sale_view, &loan_targets, &player_id, &buyer_id);
             moved_player_ids.insert(player_id);
             completed_ai_loans += 1;
             continue;
@@ -1221,6 +1251,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         )
         .is_ok()
         {
+            sale_view.invalidate(&candidate.owner_team_id);
+            sale_view.invalidate(&buyer_id);
             if let Some(record) = deal_record {
                 DEAL_LOG
                     .lock()

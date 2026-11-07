@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 //! Squads for the scenario tests, written in football terms: "a keeper of 85", "a striker of 61".
 //!
 //! A player here is a specialist: an outfielder has no hands and a keeper no engine, so an

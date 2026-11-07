@@ -345,6 +345,7 @@ impl SquadModel {
         }
         for member in &self.members {
             bytes.extend_from_slice(member.id.as_bytes());
+            bytes.push(u8::from(member.natural_keeper));
             bytes.extend_from_slice(&member.age.to_le_bytes());
             bytes.push(member.ovr);
             bytes.push(member.potential);
@@ -353,7 +354,8 @@ impl SquadModel {
                 bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
             }
             for shift in member.shift {
-                bytes.push(shift.map_or(u8::MAX, |s| (s.round() as i8) as u8));
+                bytes
+                    .extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
             }
         }
         crate::stable_hash::stable_hash(&bytes, 0x7371_7561_6473)
@@ -364,12 +366,13 @@ impl SquadModel {
     /// headed. Quantised like [`SquadModel::fingerprint`].
     pub(crate) fn fingerprint_of(member: &Member) -> u64 {
         let mut bytes: Vec<u8> = Vec::with_capacity(48);
+        bytes.push(u8::from(member.natural_keeper));
         bytes.push((member.absence * ABSENCE_STEPS).round() as u8);
         for fit in member.fit {
             bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
         }
         for shift in member.shift {
-            bytes.push(shift.map_or(u8::MAX, |s| (s.round() as i8) as u8));
+            bytes.extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
         }
         crate::stable_hash::stable_hash(&bytes, 0x6d65_6d62_6572)
     }

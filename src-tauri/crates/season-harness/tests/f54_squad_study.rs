@@ -34,6 +34,8 @@ fn f54_squads_by_standing() {
         let mut squads = SquadLog::starting_from(&game);
         let mut finance = FinanceLog::starting_from(&game);
         let mut health = WorldHealthLog::starting_from(&game);
+        let buyers_before = ofm_core::transfers::market_buyer_evaluations();
+        let first_date = game.clock.current_date.date_naive();
         let started = std::time::Instant::now();
         run_seasons(
             &mut game,
@@ -42,8 +44,13 @@ fn f54_squads_by_standing() {
         )
         .expect("seasons play");
         eprintln!(
-            "== seed {seed}: {seasons} seasons in {:.0?}",
-            started.elapsed()
+            "== seed {seed}: {seasons} seasons in {:.3}s",
+            started.elapsed().as_secs_f64()
+        );
+        eprintln!(
+            "== seed {seed}: {} market buyer evaluations over {} calendar days",
+            ofm_core::transfers::market_buyer_evaluations() - buyers_before,
+            (game.clock.current_date.date_naive() - first_date).num_days()
         );
         let wanted: Vec<usize> = [1usize, 2, 3, 5, 10, 15, 20, 25, 30]
             .into_iter()

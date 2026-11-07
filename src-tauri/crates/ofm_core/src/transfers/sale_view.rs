@@ -122,6 +122,10 @@ impl SaleView {
         }
     }
 
+    pub(super) fn invalidate(&self, club_id: &str) {
+        self.squads.borrow_mut().remove(club_id);
+    }
+
     /// Whether the seller would let `player` go for `fee` although he is not for sale on the usual
     /// terms: the offer is exceptional, he is not indispensable, and the seller has weaknesses
     /// elsewhere that the money would mend by a good deal more than he is worth to the side.

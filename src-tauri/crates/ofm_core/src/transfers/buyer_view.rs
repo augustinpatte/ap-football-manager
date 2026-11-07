@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
-use domain::player::Player;
+use domain::player::{Player, Position};
 use domain::team::Team;
 
 use super::ClubProfile;
@@ -37,6 +37,7 @@ pub(super) fn squad_indices_by_club(game: &Game) -> HashMap<String, Vec<usize>> 
 /// One buyer's reading of the targets in front of it.
 pub(super) struct BuyerView {
     squad: ClubSquad,
+    starter_needs: Vec<Position>,
     /// What each target would add, by player id. `None`: he is not a senior the model can place.
     memo: RefCell<HashMap<String, Option<Marginal>>>,
 }
@@ -49,15 +50,31 @@ impl BuyerView {
         profile: ClubProfile,
         today: NaiveDate,
     ) -> Self {
+        let squad = ClubSquad::from_players(
+            squad
+                .iter()
+                .map(|&index| &game.players[index])
+                .filter(|player| player.team_id.as_deref() == Some(team.id.as_str())),
+            team,
+            today,
+            Appetite::of(&profile),
+        );
+        let starter_needs = squad
+            .needs()
+            .into_iter()
+            .filter(|need| need.kind == crate::squad_intelligence::needs::NeedKind::Starter)
+            .map(|need| need.position)
+            .collect();
         Self {
-            squad: ClubSquad::from_players(
-                squad.iter().map(|&index| &game.players[index]),
-                team,
-                today,
-                Appetite::of(&profile),
-            ),
+            squad,
+            starter_needs,
             memo: RefCell::new(HashMap::new()),
         }
+    }
+
+    /// A broad-group depth check cannot rule out a specialist for a weak starting slot.
+    pub(super) fn has_starter_need_for(&self, player: &Player) -> bool {
+        self.starter_needs.contains(&player.natural_position)
     }
 
     /// What `player` would add to this club's squad, before any price.
@@ -96,5 +113,40 @@ impl BuyerView {
     /// Whether a loan of `player` would make the side better, which is all a club asks of one.
     pub(super) fn worth_borrowing(&self, player: &Player) -> bool {
         self.gain_this_season(player) >= MIN_GAIN
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Given a squad index captured before a player leaves the club
+    /// When the buyer's view is rebuilt after the move
+    /// Then the departed player is not included in the buyer's squad.
+    #[test]
+    fn a_departed_player_is_not_in_the_buyers_view() {
+        let mut game = super::super::tests::acceptance_game("team1", false);
+        let team = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team1")
+            .unwrap()
+            .clone();
+        let player_id = game.players[0].id.clone();
+        game.players[0].team_id = Some("team2".to_string());
+        let view = BuyerView::new(
+            &game,
+            &[0],
+            &team,
+            ClubProfile::NEUTRAL,
+            game.clock.current_date.date_naive(),
+        );
+        assert!(
+            view.squad
+                .model
+                .members
+                .iter()
+                .all(|member| member.id != player_id)
+        );
     }
 }

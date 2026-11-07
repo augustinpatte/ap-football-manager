@@ -95,6 +95,9 @@ fn production_code(path: &Path) -> String {
 /// `#[cfg(test)] mod tests;`, which declares test code that lives in another file and
 /// can appear anywhere in the file.
 fn production_source(text: &str) -> String {
+    if text.starts_with("#![cfg(test)]\n") || text.starts_with("#![cfg(test)]\r\n") {
+        return String::new();
+    }
     let mut rest = text;
     let mut offset = 0;
     while let Some(at) = rest.find("#[cfg(test)]") {
@@ -278,5 +281,24 @@ fn production_code_ends_only_at_an_inline_test_module() {
     assert!(
         production_source(file_backed).contains("stage_wage"),
         "a `mod tests;` declaration hid the production code after it"
+    );
+}
+
+/// Given a file gated entirely to tests and a production file containing the same text later
+/// When the guard selects production source
+/// Then only the file-level test gate excludes the fixture.
+#[test]
+fn a_file_level_test_gate_excludes_only_the_gated_file() {
+    assert_eq!(
+        production_source("#![cfg(test)]\nplayer.stage_wage(1);\n"),
+        ""
+    );
+    assert_eq!(
+        production_source("#![cfg(test)]\r\nplayer.stage_wage(1);\r\n"),
+        ""
+    );
+    assert!(
+        production_source("fn live() { player.stage_wage(1); }\n// #![cfg(test)]\n")
+            .contains("stage_wage(")
     );
 }
