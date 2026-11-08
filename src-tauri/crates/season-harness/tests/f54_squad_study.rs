@@ -34,7 +34,9 @@ fn f54_squads_by_standing() {
         let mut squads = SquadLog::starting_from(&game);
         let mut finance = FinanceLog::starting_from(&game);
         let mut health = WorldHealthLog::starting_from(&game);
+        ofm_core::transfers::enable_deal_log();
         let buyers_before = ofm_core::transfers::market_buyer_evaluations();
+        let participation_before = ofm_core::transfers::market_participation();
         let first_date = game.clock.current_date.date_naive();
         let started = std::time::Instant::now();
         run_seasons(
@@ -51,6 +53,16 @@ fn f54_squads_by_standing() {
             "== seed {seed}: {} market buyer evaluations over {} calendar days",
             ofm_core::transfers::market_buyer_evaluations() - buyers_before,
             (game.clock.current_date.date_naive() - first_date).num_days()
+        );
+        let participation = ofm_core::transfers::market_participation();
+        let after: Vec<u64> = participation
+            .iter()
+            .zip(participation_before)
+            .map(|(now, before)| now - before)
+            .collect();
+        eprintln!(
+            "== seed {seed}: participation teams {} | positional need {} | squad need {} | loan need {} | shopped {} | review day {} | closing need {} | whole market {}",
+            after[0], after[1], after[2], after[3], after[4], after[5], after[6], after[7]
         );
         let wanted: Vec<usize> = [1usize, 2, 3, 5, 10, 15, 20, 25, 30]
             .into_iter()

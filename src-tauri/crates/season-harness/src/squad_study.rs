@@ -13,7 +13,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use domain::finance::CashKind;
-use domain::player::{Player, SquadRole};
+use domain::player::{Player, PlayerMovementKind, SquadRole};
 use ofm_core::game::Game;
 use ofm_core::player_rating::{formation_slots, positional_fit_for_assignment};
 
@@ -48,10 +48,46 @@ pub struct SquadYear {
     /// Players who joined since the last reading, and how many of them barely played.
     pub joined: usize,
     pub joined_unused: usize,
+    /// Joiners split by how they arrived: permanent transfer, free agent, loan, other.
+    pub joined_by_kind: [usize; JOINER_KINDS],
+    pub unused_by_kind: [usize; JOINER_KINDS],
     /// Transfer fees the club paid out in the season, in euros.
     pub fees_paid: i64,
     pub points_per_game: Option<f64>,
     pub league: Option<String>,
+}
+
+/// How a player arrived at the club he is at now, for splitting the joiner count.
+pub const JOINER_KINDS: usize = 4;
+pub const JOINER_KIND_LABELS: [&str; JOINER_KINDS] = ["Transfer", "FreeAgent", "Loan", "Other"];
+
+/// The kind of arrival that put a player at his current club. A loan is read first: the player
+/// plays for the borrower, so the latest arrival at that club is a loan even if an earlier entry
+/// was the permanent move to his parent.
+fn joiner_kind(player: &Player) -> usize {
+    if player.active_loan.is_some() {
+        return 2;
+    }
+    let Some(club) = player.team_id.as_deref() else {
+        return 3;
+    };
+    let latest = player.movement_history.iter().rev().find(|entry| {
+        entry.to_team_id.as_deref() == Some(club)
+            && matches!(
+                entry.kind,
+                PlayerMovementKind::PermanentTransfer
+                    | PlayerMovementKind::FreeAgentSigning
+                    | PlayerMovementKind::LoanToBuy
+                    | PlayerMovementKind::LoanStart
+                    | PlayerMovementKind::InitialContract
+            )
+    });
+    match latest.map(|entry| entry.kind.clone()) {
+        Some(PlayerMovementKind::PermanentTransfer | PlayerMovementKind::LoanToBuy) => 0,
+        Some(PlayerMovementKind::FreeAgentSigning) => 1,
+        Some(PlayerMovementKind::LoanStart) => 2,
+        _ => 3,
+    }
 }
 
 fn group_of(player: &Player) -> usize {
@@ -66,6 +102,11 @@ fn group_of(player: &Player) -> usize {
 /// Seniors a group needs: the floor (2 keepers, 4 defenders, 4 midfielders, 2 forwards) plus the
 /// planning margin of one.
 const GROUP_NEED: [usize; 4] = [3, 5, 5, 3];
+
+/// The depth a club plans to carry in each group (`ofm_core::transfers`'s `DESIRED_DEPTH`, which is
+/// crate-private; this measurement copy is the same `[GK, DEF, MID, FWD]` plan `ai_squad_sales`
+/// sells down to).
+const PLANNED_DEPTH: [usize; 4] = [3, 7, 7, 5];
 
 /// The eleven a club could field today, chosen the way the game's lineup picker chooses when a club
 /// has no saved eleven: slot by slot in the formation's order, a natural keeper first in goal, the
@@ -156,13 +197,18 @@ fn read_club(
         .collect();
     let n = ages.len().max(1) as f64;
     let (mut joined, mut joined_unused) = (0, 0);
+    let mut joined_by_kind = [0_usize; JOINER_KINDS];
+    let mut unused_by_kind = [0_usize; JOINER_KINDS];
     for player in &seniors {
         if let Some(previous) = before.get(&player.id)
             && previous.as_deref() != Some(team.id.as_str())
         {
             joined += 1;
+            let kind = joiner_kind(player);
+            joined_by_kind[kind] += 1;
             if player.stats.appearances <= 2 && !in_xi(player) {
                 joined_unused += 1;
+                unused_by_kind[kind] += 1;
             }
         }
     }
@@ -183,10 +229,34 @@ fn read_club(
         share_old: ages.iter().filter(|a| **a >= 32).count() as f64 / n,
         joined,
         joined_unused,
+        joined_by_kind,
+        unused_by_kind,
         fees_paid: 0,
         points_per_game: None,
         league: None,
     }
+}
+
+/// One completed AI permanent transfer as the market and the season saw it: the buyer's intended
+/// role at the moment of the deal, the fee, and what the player actually did afterwards.
+#[derive(Debug, Clone)]
+pub struct ObservedDeal {
+    pub buyer_id: String,
+    pub position_group: usize,
+    pub role: &'static str,
+    pub starts_at: Option<usize>,
+    pub points: i32,
+    pub gain: f32,
+    pub fee: u64,
+    pub age: i32,
+    pub weekly_wage: u32,
+    /// The buyer's available senior group depth when the deal was agreed.
+    pub buyer_group_depth: usize,
+    pub buyer_planned_depth: usize,
+    /// The day the deal completed (`YYYY-MM-DD`).
+    pub date: String,
+    /// Season appearances at the next rollover.
+    pub appearances: u32,
 }
 
 /// Every club's season, one reading per rollover.
@@ -194,6 +264,8 @@ fn read_club(
 pub struct SquadLog {
     /// `years[s - 1]` is season `s`.
     pub years: Vec<Vec<SquadYear>>,
+    /// Completed AI permanent transfers, one list per season.
+    pub deals: Vec<Vec<ObservedDeal>>,
     /// The league champion's founding tier, per season.
     pub champions: Vec<Vec<usize>>,
     tiers: HashMap<String, usize>,
@@ -283,6 +355,30 @@ impl SquadLog {
                 champions.push(self.tiers.get(team).copied().unwrap_or(0));
             }
         }
+        self.deals.push(
+            ofm_core::transfers::take_deal_log()
+                .into_iter()
+                .map(|deal| ObservedDeal {
+                    appearances: game
+                        .players
+                        .iter()
+                        .find(|player| player.id == deal.player_id)
+                        .map_or(0, |player| player.stats.appearances),
+                    buyer_id: deal.buyer_id,
+                    position_group: deal.position_group,
+                    role: deal.role,
+                    starts_at: deal.starts_at,
+                    points: deal.points,
+                    gain: deal.gain,
+                    fee: deal.fee,
+                    age: deal.age,
+                    weekly_wage: deal.weekly_wage,
+                    buyer_group_depth: deal.buyer_group_depth,
+                    buyer_planned_depth: deal.buyer_planned_depth,
+                    date: deal.date,
+                })
+                .collect(),
+        );
         self.years.push(year);
         self.champions.push(champions);
         self.before = who_is_where(game);
@@ -386,11 +482,31 @@ pub fn report(log: &SquadLog, wanted: &[usize]) -> String {
             proxy_predicts_points(year).map_or("n/a".to_string(), |r| format!("{r:.2}")),
         ));
     }
+    for &season in wanted {
+        if let Some(deals) = season.checked_sub(1).and_then(|i| log.deals.get(i)) {
+            let clubs = log
+                .years
+                .get(season - 1)
+                .map_or(1, |year| year.len().max(1)) as f64;
+            out.push_str(&deal_report(deals, clubs, season));
+        }
+    }
     if let Some(last) = wanted
         .iter()
         .rev()
-        .find_map(|s| s.checked_sub(1).and_then(|i| log.years.get(i)))
+        .find_map(|&season| season.checked_sub(1).and_then(|i| log.years.get(i)))
     {
+        let n = last.len().max(1) as f64;
+        out.push_str("\njoiners by arrival, last wanted season:\nkind | joined/club | unused %\n");
+        for (kind, label) in JOINER_KIND_LABELS.iter().enumerate() {
+            let joined: usize = last.iter().map(|c| c.joined_by_kind[kind]).sum();
+            let unused: usize = last.iter().map(|c| c.unused_by_kind[kind]).sum();
+            out.push_str(&format!(
+                "{label} | {:.2} | {:.0}%\n",
+                joined as f64 / n,
+                100.0 * unused as f64 / joined.max(1) as f64,
+            ));
+        }
         out.push_str("\nby founding reputation quartile, last wanted season:\ntier | XI fit | weak slots/club | usable bench | seniors | fees/club (M)\n");
         for tier in 0..4 {
             let group: Vec<&SquadYear> = last.iter().filter(|c| c.tier == tier).collect();
@@ -408,6 +524,104 @@ pub fn report(log: &SquadLog, wanted: &[usize]) -> String {
     out
 }
 
+/// Permanent AI transfers of one season, split by what the buyer's squad model said the signing
+/// was for, and by what the player actually did. A "Starter" who never played and a "Succession"
+/// who was always going to be cover are different things; the print separates them.
+fn deal_report(deals: &[ObservedDeal], clubs: f64, season: usize) -> String {
+    let mut out = String::new();
+    out.push_str(&format!(
+        "\nseason {season}: permanent AI transfers by buyer's intended role: {} deals ({:.2}/club)\nrole | n | starts now | group at or above need floor | unused % | mean points | mean fee (k) | mean apps | mean age | mean depth now/planned\n",
+        deals.len(),
+        deals.len() as f64 / clubs
+    ));
+    for role in ["Starter", "Depth", "Succession", "None"] {
+        let group: Vec<&ObservedDeal> = deals.iter().filter(|deal| deal.role == role).collect();
+        if group.is_empty() {
+            continue;
+        }
+        let n = group.len() as f64;
+        out.push_str(&format!(
+            "{} | {} | {} | {} | {:.0}% | {:.1} | {:.0} | {:.1} | {:.1} | {:.1}/{:.1}\n",
+            role,
+            group.len(),
+            group.iter().filter(|deal| deal.starts_at.is_some()).count(),
+            group
+                .iter()
+                .filter(|deal| deal.buyer_group_depth >= GROUP_NEED[deal.position_group])
+                .count(),
+            100.0 * group.iter().filter(|deal| deal.appearances <= 2).count() as f64 / n,
+            mean(group.iter().map(|deal| f64::from(deal.points))),
+            mean(group.iter().map(|deal| deal.fee as f64)) / 1000.0,
+            mean(group.iter().map(|deal| f64::from(deal.appearances))),
+            mean(group.iter().map(|deal| f64::from(deal.age))),
+            mean(group.iter().map(|deal| deal.buyer_group_depth as f64)),
+            mean(group.iter().map(|deal| deal.buyer_planned_depth as f64)),
+        ));
+    }
+    let opening: Vec<&ObservedDeal> = deals
+        .iter()
+        .filter(|deal| !is_mid_season(&deal.date))
+        .collect();
+    let mid: Vec<&ObservedDeal> = deals
+        .iter()
+        .filter(|deal| is_mid_season(&deal.date))
+        .collect();
+    let unused = |group: &[&ObservedDeal]| {
+        100.0 * group.iter().filter(|deal| deal.appearances <= 2).count() as f64
+            / group.len().max(1) as f64
+    };
+    let full: Vec<&ObservedDeal> = deals
+        .iter()
+        .filter(|deal| deal.buyer_group_depth >= PLANNED_DEPTH[deal.position_group])
+        .collect();
+    let by_group = |group: usize| {
+        deals
+            .iter()
+            .filter(|deal| deal.position_group == group)
+            .count()
+    };
+    out.push_str(&format!(
+        "context: groups GK {} / DEF {} / MID {} / FWD {} | proof: {} deals ({:.0}%) into a group already at DESIRED_DEPTH, {:.0}% unused\n",
+        by_group(0),
+        by_group(1),
+        by_group(2),
+        by_group(3),
+        full.len(),
+        100.0 * full.len() as f64 / deals.len().max(1) as f64,
+        unused(&full),
+    ));
+    out.push_str(&format!(
+        "unused by window: opening {} deals {:.0}% | mid-season {} deals {:.0}%\n",
+        opening.len(),
+        unused(&opening),
+        mid.len(),
+        unused(&mid),
+    ));
+    let mut by_buyer_group: HashMap<(&str, usize), usize> = HashMap::new();
+    for deal in deals {
+        *by_buyer_group
+            .entry((deal.buyer_id.as_str(), deal.position_group))
+            .or_default() += 1;
+    }
+    let repeated_clubs = by_buyer_group.values().filter(|count| **count >= 2).count();
+    let repeated_deals: usize = by_buyer_group.values().filter(|count| **count >= 2).sum();
+    out.push_str(&format!(
+        "clubs with 2+ permanent transfers in one position group: {} ({:.1}%), {} deals\n",
+        repeated_clubs,
+        100.0 * repeated_clubs as f64 / clubs,
+        repeated_deals,
+    ));
+    out
+}
+
+/// Whether a deal completed in the mid-season window. Dates are `YYYY-MM-DD`, which orders as it
+/// reads; the opening window runs from the summer into early autumn, the second one in January.
+fn is_mid_season(date: &str) -> bool {
+    date.get(5..7)
+        .and_then(|month| month.parse::<u32>().ok())
+        .is_some_and(|month| month <= 2)
+}
+
 /// A one-line summary of the whole run, for comparing two trees at a glance: the mean over every
 /// season of the numbers that matter most.
 pub fn summary(log: &SquadLog) -> String {
@@ -415,8 +629,18 @@ pub fn summary(log: &SquadLog) -> String {
     let n = all.len().max(1) as f64;
     let joined: usize = all.iter().map(|c| c.joined).sum();
     let unused: usize = all.iter().map(|c| c.joined_unused).sum();
+    let mut kinds = String::new();
+    for (kind, label) in JOINER_KIND_LABELS.iter().enumerate() {
+        let kind_joined: usize = all.iter().map(|c| c.joined_by_kind[kind]).sum();
+        let kind_unused: usize = all.iter().map(|c| c.unused_by_kind[kind]).sum();
+        kinds.push_str(&format!(
+            " | {label} {:.2}/club {:.0}% unused",
+            kind_joined as f64 / n,
+            100.0 * kind_unused as f64 / kind_joined.max(1) as f64,
+        ));
+    }
     format!(
-        "SUMMARY club-seasons {} | XI fit {:.2} | weak-slot clubs {:.1}% | out-of-group {:.3} | keeper hole {:.1}% | usable bench {:.2} | thin groups {:.3} | unused joiners {:.1}% | fees/club-season {:.2} M",
+        "SUMMARY club-seasons {} | XI fit {:.2} | weak-slot clubs {:.1}% | out-of-group {:.3} | keeper hole {:.1}% | usable bench {:.2} | thin groups {:.3} | unused joiners {:.1}% | fees/club-season {:.2} M{}",
         all.len(),
         mean(all.iter().map(|c| c.xi_fit)),
         100.0 * all.iter().filter(|c| c.weak_slots > 0).count() as f64 / n,
@@ -426,5 +650,6 @@ pub fn summary(log: &SquadLog) -> String {
         mean(all.iter().map(|c| c.thin_groups as f64)),
         100.0 * unused as f64 / joined.max(1) as f64,
         mean(all.iter().map(|c| c.fees_paid as f64)) / 1e6,
+        kinds,
     )
 }

@@ -18,11 +18,27 @@ pub fn market_buyer_evaluations() -> u64 {
     BUYER_EVALUATIONS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// Why the world's clubs entered the market, for the harness, one counter per question:
+/// `[teams considered, positional need, Squad Intelligence need, loan need, shopped, shopped on
+/// their review day, shopped for a need in the closing week, shopped because the whole market is
+/// open]`. Measurement only, like `BUYER_EVALUATIONS`; it never feeds a decision.
+pub const PARTICIPATION_COUNTERS: usize = 8;
+static PARTICIPATION: [std::sync::atomic::AtomicU64; PARTICIPATION_COUNTERS] =
+    [const { std::sync::atomic::AtomicU64::new(0) }; PARTICIPATION_COUNTERS];
+
+pub fn market_participation() -> [u64; PARTICIPATION_COUNTERS] {
+    std::array::from_fn(|index| PARTICIPATION[index].load(std::sync::atomic::Ordering::Relaxed))
+}
+
 /// What the market knew about one completed AI transfer when it was made: the harness's view of
 /// *why* a price was what it was. It never feeds a decision, and nothing is recorded unless the
 /// harness switches the log on.
 #[derive(Debug, Clone)]
 pub struct DealRecord {
+    pub player_id: String,
+    pub buyer_id: String,
+    pub position_group: usize,
+    pub ovr: u8,
     pub status: &'static str,
     pub phase: &'static str,
     pub listed: bool,
@@ -31,12 +47,23 @@ pub struct DealRecord {
     pub value: u64,
     pub age: i32,
     pub contract_days: Option<i64>,
+    pub date: String,
     pub buyer_reputation: u32,
     pub seller_reputation: u32,
     pub buyer_country: String,
     pub seller_country: String,
     pub improvement: i32,
     pub thin: bool,
+    /// The buyer's senior depth in the target's broad group when the deal was agreed: how many it
+    /// already had available, and how many it planned to have a year on.
+    pub buyer_group_depth: usize,
+    pub buyer_planned_depth: usize,
+    /// What the buyer's own squad model said he would add when the deal was agreed.
+    pub role: &'static str,
+    pub starts_at: Option<usize>,
+    pub points: i32,
+    pub gain: f32,
+    pub weekly_wage: u32,
 }
 
 static DEAL_LOG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -82,19 +109,28 @@ pub(crate) fn buyer_has_genuine_interest(
         && (fills_a_starting_need || buyer_position_depth < POSITION_GROUP_SURPLUS_THRESHOLD)
 }
 /// Whether a target would make a buyer's squad better where it matters: the club is thin in his
-/// group (under the floor plus the planning margin) or he is rated above its first cover — the
-/// player just behind the starters. `levels` is the buyer's seniors in that group, best first.
+/// group (under the floor plus the planning margin) or he is rated above the bar the club's plan
+/// sets for that group. `levels` is the buyer's seniors in that group, best first.
+///
+/// Building up to [`DESIRED_DEPTH`] is a need; beyond it, only a first-team upgrade is. A club
+/// sells down to the same plan (`ai_squad_sales`), so a fee for an eighth defender, a fourth
+/// goalkeeper or another cover player is a fee for someone the club would itself sell: the
+/// shipped world's AI clubs bought goalkeepers at several times the rate of any outfield group,
+/// and four-fifths of those signings never played.
 ///
 /// Buying whoever scores best on appeal, whatever the buyer already has, sent clubs after players
 /// worse than the ones on their bench; a transfer should come from a need.
 pub(crate) fn target_fills_a_need(levels: &[u8], group: usize, target_ovr: u8) -> bool {
-    use crate::squad_floor::{
-        MIN_PLAYERS_PER_GROUP, PLANNING_MARGIN_PER_GROUP, STARTERS_PER_GROUP,
+    use crate::squad_floor::STARTERS_PER_GROUP;
+    if group_is_thin(levels, group) {
+        return true;
+    }
+    let bar = if levels.len() >= DESIRED_DEPTH[group] {
+        STARTERS_PER_GROUP[group].saturating_sub(1)
+    } else {
+        STARTERS_PER_GROUP[group]
     };
-    let thin = levels.len() < MIN_PLAYERS_PER_GROUP[group].1 + PLANNING_MARGIN_PER_GROUP;
-    thin || levels
-        .get(STARTERS_PER_GROUP[group])
-        .is_none_or(|first_cover| target_ovr > *first_cover)
+    levels.get(bar).is_none_or(|cover| target_ovr > *cover)
 }
 
 /// The players who count toward a club's squad today: registered seniors, not on loan, not out
@@ -580,9 +616,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             // behind two excellent goalkeepers. `player_statuses` has already built this club's
             // planning squad to price its sales, so retaining its shared need model activates a
             // real sporting need without another squad-model pass.
-            let unmet_need = position_depths.get(&team.id).is_some_and(has_unmet_need)
-                || clubs_with_squad_needs.contains(&team.id)
-                || clubs_with_loan_needs.contains(team.id.as_str());
+            let positional_need = position_depths.get(&team.id).is_some_and(has_unmet_need);
+            let squad_need = clubs_with_squad_needs.contains(&team.id);
+            let loan_need = clubs_with_loan_needs.contains(team.id.as_str());
+            let unmet_need = positional_need || squad_need || loan_need;
             // A club with nothing pressing may wait: early in the window most do.
             let patient = !unmet_need
                 && !promoted_clubs.contains(team.id.as_str())
@@ -590,16 +627,44 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     phase,
                     crate::stable_hash::stable_hash(team.id.as_bytes(), day_number),
                 );
-            !patient
-                && active_team_ids.as_ref().is_none_or(|ids| {
-                    ids.contains(&team.id)
-                        || crate::ai_tactics::review_weekday(&team.id) == weekday
-                        // A concrete depth, Squad Intelligence or loan need does not wait for a
-                        // review weekday. Clubs without one still amortise their market work.
-                        || unmet_need
-                        // And in the last three days every club is in the market.
-                        || whole_market_is_open(phase)
-                })
+            let in_scope = active_team_ids
+                .as_ref()
+                .is_none_or(|ids| ids.contains(&team.id));
+            let review_day = crate::ai_tactics::review_weekday(&team.id) == weekday;
+            let whole_market = whole_market_is_open(phase);
+            // A real hole is acted on at once once the window is closing, but before that it only
+            // shapes what a dormant club buys on the day it shops. Letting a need bypass the
+            // review day at every phase makes every out-of-scope club a daily shopper: it multiplied
+            // the sweep's work and its completed deals about fivefold, and the extra deals were
+            // cover that never played while the sides' elevens were unchanged.
+            let closing_need = phase >= WindowPhase::LastWeek && unmet_need;
+            let selected = !patient && (in_scope || review_day || closing_need || whole_market);
+            let count = |index: usize| {
+                PARTICIPATION[index].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            };
+            count(0);
+            if positional_need {
+                count(1);
+            }
+            if squad_need {
+                count(2);
+            }
+            if loan_need {
+                count(3);
+            }
+            if selected {
+                count(4);
+                if review_day {
+                    count(5);
+                }
+                if closing_need {
+                    count(6);
+                }
+                if whole_market {
+                    count(7);
+                }
+            }
+            selected
         })
         .map(|team| team.id.clone())
         .collect();
@@ -1204,7 +1269,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             .then(|| {
                 let player = &game.players[*player_index.get(&target.player_id)?];
                 let (improvement, thin) = fit(target);
+                let marginal = view.marginal(player);
                 Some(DealRecord {
+                    player_id: target.player_id.clone(),
+                    buyer_id: buyer_id.clone(),
+                    position_group: target.position_group_index,
+                    ovr: player.ovr,
                     status: target.status.name(),
                     phase: phase.name(),
                     listed: target.is_listed,
@@ -1213,6 +1283,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     value: target.value,
                     age: target.age,
                     contract_days: contract_days_remaining(current_date, player.contract_end()),
+                    date: today.clone(),
                     buyer_reputation: buyer_team.reputation,
                     seller_reputation: target.owner_reputation,
                     buyer_country: buyer_team.country.clone(),
@@ -1222,6 +1293,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                         .unwrap_or_default(),
                     improvement,
                     thin,
+                    buyer_group_depth: available_buyer_depths[target.position_group_index],
+                    buyer_planned_depth: buyer_levels[target.position_group_index].len(),
+                    role: marginal.map_or("None", |marginal| marginal.reason.name()),
+                    starts_at: marginal.and_then(|marginal| marginal.starts_at),
+                    points: marginal.map_or(0, |marginal| marginal.points),
+                    gain: marginal.map_or(0.0, |marginal| marginal.gain),
+                    weekly_wage: player.wage(),
                 })
             })
             .flatten();
@@ -1290,4 +1368,44 @@ pub fn evaluate_transfer_market(game: &mut Game) {
 }
 pub fn generate_incoming_transfer_offers(game: &mut Game) {
     evaluate_transfer_market(game);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::target_fills_a_need;
+
+    /// Given a club carrying the seven defenders it plans for, with four starters and three cover
+    /// players, when a defender better than its first cover but worse than its last starter is
+    /// offered, then the club passes: it would sell the eighth body it was buying.
+    #[test]
+    fn a_full_group_pays_only_for_a_first_team_upgrade() {
+        let levels = [70, 70, 70, 70, 60, 60, 60];
+        assert!(!target_fills_a_need(&levels, 1, 65));
+        assert!(target_fills_a_need(&levels, 1, 72));
+    }
+
+    /// Given a club one defender short of the seven it plans for, when a defender better than its
+    /// first cover is offered, then it fills the need: building toward the plan is allowed.
+    #[test]
+    fn a_group_below_its_plan_may_upgrade_its_cover() {
+        let levels = [70, 70, 70, 70, 60, 60];
+        assert!(target_fills_a_need(&levels, 1, 65));
+    }
+
+    /// Given a group under the floor plus planning margin, when any player for it is offered, then
+    /// he fills the need: a club short of bodies takes one.
+    #[test]
+    fn a_thin_group_takes_any_body() {
+        let levels = [60, 60, 60];
+        assert!(target_fills_a_need(&levels, 1, 40));
+    }
+
+    /// Given the three keepers a club plans for, when a better backup is offered, then it is not a
+    /// fee signing: only a better number one is.
+    #[test]
+    fn a_goalkeeper_group_at_its_plan_pays_only_for_a_better_number_one() {
+        let levels = [75, 65, 60];
+        assert!(!target_fills_a_need(&levels, 0, 70));
+        assert!(target_fills_a_need(&levels, 0, 76));
+    }
 }

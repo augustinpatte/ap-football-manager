@@ -166,6 +166,111 @@ fn dormant_clubs_outside_the_active_scope_skip_the_market() {
     );
 }
 
+/// A dormant club that is short of forwards and is the only club able to buy, on a day that is
+/// (`on_review_day`) or is not its own review weekday, with `days_remaining` until the close.
+fn dormant_buyer_with_a_need(days_remaining: i64, on_review_day: bool) -> Game {
+    use chrono::{Datelike, Duration};
+    use domain::league::{League, StandingEntry};
+
+    let mut game = make_game();
+    game.teams.push(make_team("team3", "Gamma FC", 700));
+    game.competitions = vec![
+        League {
+            id: "active-league".to_string(),
+            standings: vec![
+                StandingEntry::new("team1".to_string()),
+                StandingEntry::new("team3".to_string()),
+            ],
+            ..Default::default()
+        },
+        League {
+            id: "dormant-league".to_string(),
+            standings: vec![StandingEntry::new("team2".to_string())],
+            ..Default::default()
+        },
+    ];
+    game.active_competition_ids = vec!["active-league".to_string()];
+    // Two senior forwards is below the group's floor plus planning margin: a real depth need.
+    for index in 0..2 {
+        let mut forward = Player::new(
+            format!("team2-forward-{index}"),
+            "Squad".to_string(),
+            "Forward".to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            sample_attributes(),
+        );
+        forward.team_id = Some("team2".to_string());
+        forward.stage_contract_end(Some("2028-06-30".to_string()));
+        forward.stage_wage(10_000);
+        game.players.push(forward);
+    }
+    // Only team2 can buy: the club inside the active scope has nothing to spend.
+    for team in game.teams.iter_mut().filter(|team| team.id == "team3") {
+        team.finance = 0;
+        team.transfer_budget = 0;
+    }
+    // The window is early until the last week, so a need does not yet let a club skip its day.
+    game.season_context.transfer_window.days_remaining = Some(days_remaining);
+    let review = crate::ai_tactics::review_weekday("team2");
+    let mut date = Utc.with_ymd_and_hms(2026, 1, 12, 12, 0, 0).unwrap();
+    while (date.weekday().num_days_from_monday() == review) != on_review_day {
+        date += Duration::days(1);
+    }
+    game.clock = GameClock::new(date);
+    game
+}
+
+fn bids_from_team2(game: &Game) -> bool {
+    game.players
+        .iter()
+        .find(|player| player.id == "player-award")
+        .is_some_and(|player| {
+            player
+                .transfer_offers
+                .iter()
+                .any(|offer| offer.from_team_id == "team2")
+        })
+}
+
+/// Given a club outside the player's active scope with a real hole in its squad, when the market
+/// sweeps early in the window on a day that is not its review weekday, then it does not bid: a need
+/// shapes what the club buys on its day, it does not make it shop every day.
+#[test]
+fn a_dormant_club_with_a_need_waits_for_its_review_day_early_in_the_window() {
+    let mut game = dormant_buyer_with_a_need(60, false);
+    evaluate_transfer_market(&mut game);
+    assert!(
+        !bids_from_team2(&game),
+        "a club outside the active scope must not shop daily merely because it has a need"
+    );
+}
+
+/// Given the same dormant club, when the sweep lands on its own review weekday, then it works its
+/// squad: the rule delays the club's reaction, it does not silence it.
+#[test]
+fn a_dormant_club_with_a_need_shops_on_its_review_day() {
+    let mut game = dormant_buyer_with_a_need(60, true);
+    evaluate_transfer_market(&mut game);
+    assert!(
+        bids_from_team2(&game),
+        "a dormant club still works its squad on its own review day"
+    );
+}
+
+/// Given the same dormant club, when the window is in its last week, then a real need no longer
+/// waits for the review day.
+#[test]
+fn a_dormant_club_with_a_need_shops_before_the_window_closes() {
+    let mut game = dormant_buyer_with_a_need(5, false);
+    evaluate_transfer_market(&mut game);
+    assert!(
+        bids_from_team2(&game),
+        "in the last week a real need must not wait for the review day"
+    );
+}
+
 // Shared fixtures for the acceptance routes, with enough depth to permit a departure.
 pub(super) fn acceptance_game(owner: &str, deferred: bool) -> Game {
     let mut game = make_game();

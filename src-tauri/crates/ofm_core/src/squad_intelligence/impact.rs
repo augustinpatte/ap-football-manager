@@ -64,6 +64,16 @@ pub(crate) enum Reason {
     Succession,
 }
 
+impl Reason {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            Self::Starter => "Starter",
+            Self::Depth => "Depth",
+            Self::Succession => "Succession",
+        }
+    }
+}
+
 /// What a player would add to a squad, before the price.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Marginal {
