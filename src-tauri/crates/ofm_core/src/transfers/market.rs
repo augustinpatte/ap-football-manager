@@ -54,6 +54,15 @@ pub struct DealRecord {
     pub seller_country: String,
     pub improvement: i32,
     pub thin: bool,
+    /// The buyer's formation at the time of the deal.
+    pub buyer_formation: String,
+    /// The buyer's registered seniors in the target's group, best first: what `target_fills_a_need`
+    /// and `group_is_thin` read.
+    pub buyer_levels: Vec<u8>,
+    /// The target's natural position and any he is trained to cover.
+    pub natural_position: String,
+    pub alternate_positions: Vec<String>,
+    pub potential: u8,
     /// The buyer's senior depth in the target's broad group when the deal was agreed: how many it
     /// already had available, and how many it planned to have a year on.
     pub buyer_group_depth: usize,
@@ -1051,6 +1060,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 &buyer_levels[target.position_group_index],
                 target.position_group_index,
             );
+            // Below the floor the club is not choosing a signing, it is fielding a side: any body
+            // will do. At the floor it has the bodies it needs and is choosing again.
+            let below_floor = buyer_levels[target.position_group_index].len()
+                < crate::squad_floor::MIN_PLAYERS_PER_GROUP[target.position_group_index].1;
             // Clubs only chase players that fit their stature and a position they
             // actually need, so a single star doesn't draw the whole division. A club with a hole
             // to fill near the close will look a little higher.
@@ -1120,15 +1133,23 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             if !usual_terms && !exceptional_sale_is_rational(target, price) {
                 return false;
             }
-            // An AI club buys what improves the side by more than the money is worth to it, or
-            // fills a hole in its depth: never for appeal alone.
-            if !target.is_user_owned
-                && !thin
-                && !target_player(target)
+            // An AI club buys what improves the side by more than the money is worth to it. A club
+            // short of bodies may waive the price test, but never the question of whether the
+            // player adds anything at all: that is the third keeper a club with two already has,
+            // and the fee for a spectator. The floor is the model's own (`MIN_GAIN`), the same one
+            // the loan path asks of a borrower, so a fee is not a way round it. Only a club under
+            // the legal squad floor, which must find a body to field a side, is excused entirely.
+            if !target.is_user_owned {
+                let valued = target_player(target)
                     .and_then(|player| view.appraise(player, price))
-                    .is_some_and(|case| case.is_worth_it())
-            {
-                return false;
+                    .is_some_and(|case| match (below_floor, thin) {
+                        (true, _) => true,
+                        (false, true) => case.adds_something(),
+                        (false, false) => case.is_worth_it(),
+                    });
+                if !valued {
+                    return false;
+                }
             }
             buyer_team.transfer_budget >= price as i64
                 && buyer_team.finance >= price as i64
@@ -1293,6 +1314,15 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                         .unwrap_or_default(),
                     improvement,
                     thin,
+                    buyer_formation: buyer_team.formation.clone(),
+                    buyer_levels: buyer_levels[target.position_group_index].clone(),
+                    natural_position: format!("{:?}", player.natural_position),
+                    alternate_positions: player
+                        .alternate_positions
+                        .iter()
+                        .map(|position| format!("{position:?}"))
+                        .collect(),
+                    potential: player.potential,
                     buyer_group_depth: available_buyer_depths[target.position_group_index],
                     buyer_planned_depth: buyer_levels[target.position_group_index].len(),
                     role: marginal.map_or("None", |marginal| marginal.reason.name()),

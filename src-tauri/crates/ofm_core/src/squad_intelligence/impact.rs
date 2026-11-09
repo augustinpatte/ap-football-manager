@@ -103,7 +103,14 @@ impl SigningCase {
 
     /// Whether the signing is worth making: a real gain that the money does not eat.
     pub(crate) fn is_worth_it(&self) -> bool {
-        self.marginal.gain >= MIN_GAIN && self.utility > 0.0
+        self.adds_something() && self.utility > 0.0
+    }
+
+    /// Whether the club's own model can see any gain at all, before the price. The floor under
+    /// every transfer: the loan path already asks it of a borrower (`worth_borrowing`), and a fee
+    /// must not be a way round it.
+    pub(crate) fn adds_something(&self) -> bool {
+        self.marginal.gain >= MIN_GAIN
     }
 
     /// The utility in slot-rating points, for ranking against the market's own scale.

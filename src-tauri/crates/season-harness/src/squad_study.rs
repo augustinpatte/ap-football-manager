@@ -253,6 +253,12 @@ pub struct ObservedDeal {
     /// The buyer's available senior group depth when the deal was agreed.
     pub buyer_group_depth: usize,
     pub buyer_planned_depth: usize,
+    /// The buyer's formation and its registered seniors in the target's group, best first.
+    pub buyer_formation: String,
+    pub buyer_levels: Vec<u8>,
+    pub natural_position: String,
+    pub alternate_positions: Vec<String>,
+    pub potential: u8,
     /// The day the deal completed (`YYYY-MM-DD`).
     pub date: String,
     /// Season appearances at the next rollover.
@@ -375,6 +381,11 @@ impl SquadLog {
                     weekly_wage: deal.weekly_wage,
                     buyer_group_depth: deal.buyer_group_depth,
                     buyer_planned_depth: deal.buyer_planned_depth,
+                    buyer_formation: deal.buyer_formation,
+                    buyer_levels: deal.buyer_levels,
+                    natural_position: deal.natural_position,
+                    alternate_positions: deal.alternate_positions,
+                    potential: deal.potential,
                     date: deal.date,
                 })
                 .collect(),
@@ -524,6 +535,91 @@ pub fn report(log: &SquadLog, wanted: &[usize]) -> String {
     out
 }
 
+/// The smallest model gain worth a transfer at all (`squad_intelligence::impact::MIN_GAIN`, which
+/// is crate-private; this measurement copy is the same threshold).
+const MIN_GAIN: f32 = 0.12;
+
+/// A group under the floor plus planning margin: the market waives the price test for such a
+/// buyer, but still asks whether the signing adds anything (`transfers::realism::group_is_thin`).
+/// Measurement copy of that threshold.
+const THIN_BELOW: [usize; 4] = [3, 5, 5, 3];
+
+/// How a deal sat against the two gates the market applies before appraising a signing: the thin
+/// group, which waives the price test, and the model's own minimum gain. A signing the club's model
+/// valued below [`MIN_GAIN`] was one the appraisal rule existed to refuse (a club under the legal
+/// squad floor is the one exception, and buys a body regardless).
+fn gate_report(deals: &[ObservedDeal]) -> String {
+    let mut out = String::new();
+    let unused = |group: &[&ObservedDeal]| {
+        100.0 * group.iter().filter(|deal| deal.appearances <= 2).count() as f64
+            / group.len().max(1) as f64
+    };
+    out.push_str(
+        "value gate: group | n | thin group at deal | model gain < MIN_GAIN | unused % of those\n",
+    );
+    for (group, label) in ["GK", "DEF", "MID", "FWD"].iter().enumerate() {
+        let in_group: Vec<&ObservedDeal> = deals
+            .iter()
+            .filter(|deal| deal.position_group == group)
+            .collect();
+        if in_group.is_empty() {
+            continue;
+        }
+        let thin: Vec<&ObservedDeal> = in_group
+            .iter()
+            .copied()
+            .filter(|deal| deal.buyer_planned_depth < THIN_BELOW[group])
+            .collect();
+        let worthless: Vec<&ObservedDeal> = in_group
+            .iter()
+            .copied()
+            .filter(|deal| deal.gain < MIN_GAIN)
+            .collect();
+        let worthless_thin = worthless
+            .iter()
+            .filter(|deal| deal.buyer_planned_depth < THIN_BELOW[group])
+            .count();
+        out.push_str(&format!(
+            "{label} | {} | {} | {} ({worthless_thin} thin) | {:.0}%\n",
+            in_group.len(),
+            thin.len(),
+            worthless.len(),
+            unused(&worthless),
+        ));
+    }
+    let worthless: Vec<&ObservedDeal> = deals.iter().filter(|deal| deal.gain < MIN_GAIN).collect();
+    out.push_str(&format!(
+        "total: {} of {} deals ({:.0}%) below MIN_GAIN, {:.0}% unused, mean {:.1} apps, {:.0}k fee\n",
+        worthless.len(),
+        deals.len(),
+        100.0 * worthless.len() as f64 / deals.len().max(1) as f64,
+        unused(&worthless),
+        mean(worthless.iter().map(|deal| f64::from(deal.appearances))),
+        mean(worthless.iter().map(|deal| deal.fee as f64)) / 1000.0,
+    ));
+    out.push_str("GK deals (buyer | formation | date | fee k | levels | natural/alt | role | gain | apps):\n");
+    for deal in deals
+        .iter()
+        .filter(|deal| deal.position_group == 0)
+        .take(10)
+    {
+        out.push_str(&format!(
+            "  {} | {} | {} | {} | {:?} | {}/{:?} | {} | {:.2} | {}\n",
+            deal.buyer_id,
+            deal.buyer_formation,
+            deal.date,
+            deal.fee / 1000,
+            deal.buyer_levels,
+            deal.natural_position,
+            deal.alternate_positions,
+            deal.role,
+            deal.gain,
+            deal.appearances,
+        ));
+    }
+    out
+}
+
 /// Permanent AI transfers of one season, split by what the buyer's squad model said the signing
 /// was for, and by what the player actually did. A "Starter" who never played and a "Succession"
 /// who was always going to be cover are different things; the print separates them.
@@ -570,6 +666,7 @@ fn deal_report(deals: &[ObservedDeal], clubs: f64, season: usize) -> String {
         100.0 * group.iter().filter(|deal| deal.appearances <= 2).count() as f64
             / group.len().max(1) as f64
     };
+    out.push_str(&gate_report(deals));
     let full: Vec<&ObservedDeal> = deals
         .iter()
         .filter(|deal| deal.buyer_group_depth >= PLANNED_DEPTH[deal.position_group])

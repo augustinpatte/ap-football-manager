@@ -772,3 +772,94 @@ fn a_small_club_does_not_go_abroad_for_a_cheap_marginal_filler() {
         Some("fra-small")
     );
 }
+
+/// A goalkeeper of `ovr` for sale at `club`, rated on the same attributes as the depth players the
+/// world gives every squad.
+fn keeper(id: &str, club: &str, ovr: u8, value: u64) -> Player {
+    let mut player = Player::new(
+        id.to_string(),
+        format!("{id}. Test"),
+        format!("{id} Test"),
+        "1999-01-01".to_string(),
+        "England".to_string(),
+        Position::Goalkeeper,
+        default_attrs(),
+    );
+    player.team_id = Some(club.to_string());
+    player.ovr = ovr;
+    player.potential = ovr;
+    player.market_value = value;
+    player.transfer_listed = true;
+    player.stage_wage(10_000);
+    player
+}
+
+/// A funded buyer with `kept` senior keepers (85, then 82) and a keeper for sale elsewhere. The
+/// buyer's keepers and the target are the same age, so the only difference between them is rating.
+fn keeper_world(kept: usize, target_ovr: u8) -> Game {
+    let mut game = world(
+        vec![
+            club("eng-buyer", "England", 900, 90_000_000),
+            club("eng-seller", "England", 700, 0),
+        ],
+        vec![keeper("keeper-target", "eng-seller", target_ovr, 2_000_000)],
+    );
+    only_buyer_funded(&mut game, "eng-buyer");
+    let mut buyer_keepers: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("eng-buyer")
+                && player.natural_position == Position::Goalkeeper
+        })
+        .map(|player| player.id.clone())
+        .collect();
+    buyer_keepers.sort();
+    let ratings = [85_u8, 82, 79];
+    for (rank, id) in buyer_keepers.iter().enumerate() {
+        if rank >= kept {
+            continue;
+        }
+        if let Some(player) = game.players.iter_mut().find(|player| &player.id == id) {
+            player.ovr = ratings[rank];
+            player.potential = ratings[rank];
+            player.date_of_birth = "1999-01-01".to_string();
+        }
+    }
+    let surplus: Vec<String> = buyer_keepers.into_iter().skip(kept).collect();
+    game.players.retain(|player| !surplus.contains(&player.id));
+    set_days_left(&mut game, 20);
+    game
+}
+
+/// Given a club carrying two senior goalkeepers, when a third keeper who would displace neither is
+/// offered, then it does not pay for him: a third keeper who never plays is not a signing, it is a
+/// fee for a spectator.
+#[test]
+fn a_club_with_two_goalkeepers_does_not_pay_for_a_third_who_would_not_play() {
+    let mut game = keeper_world(2, 60);
+    evaluate_transfer_market(&mut game);
+    assert_ne!(
+        owner(&game, "keeper-target").as_deref(),
+        Some("eng-buyer"),
+        "a keeper rated below both seniors must not be bought as a third"
+    );
+}
+
+/// Given the same club, when the keeper for sale is better than its number one, then it signs him:
+/// a genuine first-team upgrade is still a signing.
+#[test]
+fn a_club_with_two_goalkeepers_still_buys_a_better_number_one() {
+    let mut game = keeper_world(2, 88);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}
+
+/// Given a club with a single senior keeper, when a modest keeper is offered, then it signs him: a
+/// club genuinely short of bodies still fills the hole.
+#[test]
+fn a_club_with_one_goalkeeper_still_signs_a_second() {
+    let mut game = keeper_world(1, 60);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}
