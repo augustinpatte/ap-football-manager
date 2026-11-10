@@ -79,6 +79,10 @@ impl Reason {
 pub(crate) struct Marginal {
     /// Change in the squad's weighted expected strength.
     pub gain: f32,
+    /// Change in this season's expected strength alone: what he does for the side the club fields
+    /// now, before any future year is counted. On the same scale as `MIN_GAIN` and as the loan
+    /// path's `worth_borrowing`, not weighted by how much the club counts the present.
+    pub now_gain: f32,
     /// The slot he would start in today, if he would start.
     pub starts_at: Option<usize>,
     /// The gain in slot-rating points (the gain across all eleven slots), on the market's own
@@ -113,6 +117,13 @@ impl SigningCase {
         self.marginal.gain >= MIN_GAIN
     }
 
+    /// Whether he makes the side better this season, not only in a future one. A club short of
+    /// bodies may waive the price for a player who helps it field a better eleven today; a player
+    /// whose whole value is a later horizon has to be worth his fee on the club's own scale.
+    pub(crate) fn helps_now(&self) -> bool {
+        self.marginal.now_gain >= MIN_GAIN
+    }
+
     /// The utility in slot-rating points, for ranking against the market's own scale.
     pub(crate) fn utility_points(&self) -> i32 {
         (self.utility * SLOTS as f32).round() as i32
@@ -145,14 +156,16 @@ pub(crate) fn assess_signing(
     // He is appended after the squad, so his index is the squad's length.
     let starts_at =
         (0..SLOTS).find(|&slot| with.years[0].starter_index[slot] == Some(model.members.len()));
-    let now_gain = model.weights[0] * (with.years[0].expected - base.years[0].expected);
+    let now_gain = with.years[0].expected - base.years[0].expected;
+    let now_share = model.weights[0] * now_gain;
     let mut marginal = Marginal {
         gain,
+        now_gain,
         starts_at,
         points: (gain * SLOTS as f32).round() as i32,
         reason: Reason::Depth,
     };
-    marginal.reason = if gain > 0.0 && now_gain < gain * 0.25 {
+    marginal.reason = if gain > 0.0 && now_share < gain * 0.25 {
         Reason::Succession
     } else if marginal.starts_at.is_some() {
         Reason::Starter

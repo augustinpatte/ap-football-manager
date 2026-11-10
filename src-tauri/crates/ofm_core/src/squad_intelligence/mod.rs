@@ -188,14 +188,20 @@ impl ClubSquad {
         assess_signing(&self.model, &self.base, candidate)
     }
 
+    /// Measurement only: where the model and the game's own picker would place `player`, and whom
+    /// he would displace, for the harness's market trace. Never feeds a decision.
+    pub(crate) fn placement(&self, player: &Player) -> Option<model::Placement> {
+        let candidate = Member::candidate(player, &self.model.slots, self.today, 0.0)?;
+        Some(self.model.placement_of(&candidate))
+    }
+
     /// What `player` would add to this season's side alone: the gain of a loan, which is over before
     /// the future matters.
     pub(crate) fn present_gain(&self, player: &Player) -> f32 {
         let Some(candidate) = Member::candidate(player, &self.model.slots, self.today, 0.0) else {
             return 0.0;
         };
-        let with = self.model.evaluate_with(&candidate);
-        with.years[0].expected - self.base.years[0].expected
+        self.signing_of(&candidate).now_gain
     }
 
     /// Set a marginal value against a price, for this club.

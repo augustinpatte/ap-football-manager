@@ -112,6 +112,15 @@ impl BuyerView {
         marginal
     }
 
+    /// Measurement only: where the club's model and the game's own picker would place `player`
+    /// over the horizon, for the harness's market trace. Never feeds a decision.
+    pub(super) fn placement(
+        &self,
+        player: &Player,
+    ) -> Option<crate::squad_intelligence::model::Placement> {
+        self.squad.placement(player)
+    }
+
     /// The signing of `player` for `fee`, as this club values it. His wage is read as what he
     /// earns now, the figure a club can see.
     pub(super) fn appraise(&self, player: &Player, fee: u64) -> Option<SigningCase> {

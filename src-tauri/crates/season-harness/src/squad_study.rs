@@ -263,6 +263,21 @@ pub struct ObservedDeal {
     pub date: String,
     /// Season appearances at the next rollover.
     pub appearances: u32,
+    /// Measurement only: the model's and the real picker's placement of the signing over the
+    /// horizon, and whom he would displace.
+    pub placement: Option<ObservedPlacement>,
+}
+
+/// A signing's pathway as the harness records it (measurement only).
+#[derive(Debug, Clone, Copy)]
+pub struct ObservedPlacement {
+    pub now_gain: f32,
+    pub model_start: [Option<u8>; 3],
+    pub greedy_start: [Option<u8>; 3],
+    pub blocker_slot: [Option<u8>; 3],
+    pub blocker_ovr: [Option<u8>; 3],
+    pub blocker_age: [Option<i32>; 3],
+    pub blocker_keeper: [bool; 3],
 }
 
 /// Every club's season, one reading per rollover.
@@ -387,6 +402,15 @@ impl SquadLog {
                     alternate_positions: deal.alternate_positions,
                     potential: deal.potential,
                     date: deal.date,
+                    placement: deal.placement.map(|placement| ObservedPlacement {
+                        now_gain: placement.now_gain,
+                        model_start: placement.model_start,
+                        greedy_start: placement.greedy_start,
+                        blocker_slot: placement.blocker_slot,
+                        blocker_ovr: placement.blocker_ovr,
+                        blocker_age: placement.blocker_age,
+                        blocker_keeper: placement.blocker_keeper,
+                    }),
                 })
                 .collect(),
         );
@@ -620,6 +644,124 @@ fn gate_report(deals: &[ObservedDeal]) -> String {
     out
 }
 
+/// How succession signings actually sit in the squad, year by year: does the model's future gain
+/// come from a starting place, and would the game's own picker ever give it to him? Distinguishes a
+/// credible pathway from cover that only the model can see (measurement only).
+fn pathway_report(deals: &[ObservedDeal]) -> String {
+    let mut out = String::new();
+    let succession: Vec<&ObservedDeal> = deals
+        .iter()
+        .filter(|deal| deal.role == "Succession")
+        .collect();
+    if succession.is_empty() {
+        return out;
+    }
+    let unused = |group: &[&ObservedDeal]| {
+        100.0 * group.iter().filter(|deal| deal.appearances <= 2).count() as f64
+            / group.len().max(1) as f64
+    };
+    let placement = |deal: &ObservedDeal| deal.placement;
+    let starts = |deal: &ObservedDeal, year: usize| {
+        placement(deal).is_some_and(|p| p.model_start[year].is_some())
+    };
+    let greedy = |deal: &ObservedDeal, year: usize| {
+        placement(deal).is_some_and(|p| p.greedy_start[year].is_some())
+    };
+    let never_starts = succession
+        .iter()
+        .filter(|deal| !(starts(deal, 0) || starts(deal, 1) || starts(deal, 2)))
+        .count();
+    let pathway = succession
+        .iter()
+        .filter(|deal| starts(deal, 1) || starts(deal, 2))
+        .count();
+    let visible = succession
+        .iter()
+        .filter(|deal| (1..3).any(|year| starts(deal, year) && greedy(deal, year)))
+        .count();
+    let vacant = succession
+        .iter()
+        .filter(|deal| {
+            (1..3).any(|year| {
+                placement(deal).is_some_and(|p| {
+                    p.model_start[year].is_some() && p.blocker_slot[year].is_none()
+                })
+            })
+        })
+        .count();
+    let displaced: Vec<i32> = succession
+        .iter()
+        .filter_map(|deal| {
+            let p = placement(deal)?;
+            (1..3).find_map(|year| {
+                (p.model_start[year].is_some() && p.blocker_slot[year].is_some())
+                    .then_some(p.blocker_age[year])
+                    .flatten()
+            })
+        })
+        .collect();
+    out.push_str(&format!(
+        "succession pathway: {} deals | model starts y1 {} y2 {} | greedy starts y1 {} y2 {} | \
+         model never starts {} | future slot vacant {} | displaced mean age {:.1} | unused {:.0}%\n",
+        succession.len(),
+        succession.iter().filter(|deal| starts(deal, 1)).count(),
+        succession.iter().filter(|deal| starts(deal, 2)).count(),
+        succession.iter().filter(|deal| greedy(deal, 1)).count(),
+        succession.iter().filter(|deal| greedy(deal, 2)).count(),
+        never_starts,
+        vacant,
+        mean(displaced.iter().map(|age| f64::from(*age))),
+        unused(&succession),
+    ));
+    out.push_str(&format!(
+        "succession pathway: model sees a start in {} | the real picker would give him one in {} | \
+         model-only pathway {}\n",
+        pathway,
+        visible,
+        pathway.saturating_sub(visible),
+    ));
+    // Measurement copy of `squad_floor::MIN_PLAYERS_PER_GROUP`, by group index.
+    const FLOOR: [usize; 4] = [2, 4, 4, 2];
+    let below_floor = succession
+        .iter()
+        .filter(|deal| deal.buyer_planned_depth < FLOOR[deal.position_group])
+        .count();
+    let at_floor = succession
+        .iter()
+        .filter(|deal| deal.buyer_planned_depth == FLOOR[deal.position_group])
+        .count();
+    let thin = succession
+        .iter()
+        .filter(|deal| deal.buyer_planned_depth < THIN_BELOW[deal.position_group])
+        .count();
+    let helps_now = succession
+        .iter()
+        .filter(|deal| deal.placement.is_some_and(|p| p.now_gain >= MIN_GAIN))
+        .count();
+    out.push_str(&format!(
+        "succession gate: thin {thin} | at floor {at_floor} | below floor {below_floor} | \
+         now gain >= MIN_GAIN {helps_now} | price waived (thin at/above floor) {}\n",
+        thin - below_floor,
+    ));
+    let mut per_slot: HashMap<(&str, usize), usize> = HashMap::new();
+    for deal in &succession {
+        *per_slot
+            .entry((deal.buyer_id.as_str(), deal.position_group))
+            .or_insert(0) += 1;
+    }
+    let duplicate_clubs = per_slot.values().filter(|&&count| count > 1).count();
+    let duplicate_deals: usize = per_slot
+        .values()
+        .filter(|&&count| count > 1)
+        .map(|&count| count - 1)
+        .sum();
+    out.push_str(&format!(
+        "succession duplicates: {duplicate_clubs} club-groups bought more than one, \
+         {duplicate_deals} extra deals for the same group\n",
+    ));
+    out
+}
+
 /// Permanent AI transfers of one season, split by what the buyer's squad model said the signing
 /// was for, and by what the player actually did. A "Starter" who never played and a "Succession"
 /// who was always going to be cover are different things; the print separates them.
@@ -667,6 +809,7 @@ fn deal_report(deals: &[ObservedDeal], clubs: f64, season: usize) -> String {
             / group.len().max(1) as f64
     };
     out.push_str(&gate_report(deals));
+    out.push_str(&pathway_report(deals));
     let full: Vec<&ObservedDeal> = deals
         .iter()
         .filter(|deal| deal.buyer_group_depth >= PLANNED_DEPTH[deal.position_group])

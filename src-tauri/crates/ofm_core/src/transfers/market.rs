@@ -73,6 +73,25 @@ pub struct DealRecord {
     pub points: i32,
     pub gain: f32,
     pub weekly_wage: u32,
+    /// Measurement only: where the club's model and the game's own greedy picker would place him
+    /// over the horizon, and whom he would displace. Never feeds a decision.
+    pub placement: Option<DealPlacement>,
+}
+
+/// What the harness's market trace records about one signing's pathway (measurement only).
+#[derive(Debug, Clone, Copy)]
+pub struct DealPlacement {
+    /// Gain in this season's expected strength alone.
+    pub now_gain: f32,
+    /// Slot the model starts him in, year 0/1/2.
+    pub model_start: [Option<u8>; 3],
+    /// Slot the game's greedy picker would start him in, year 0/1/2.
+    pub greedy_start: [Option<u8>; 3],
+    /// The player he displaces in each year, if the slot was occupied.
+    pub blocker_slot: [Option<u8>; 3],
+    pub blocker_ovr: [Option<u8>; 3],
+    pub blocker_age: [Option<i32>; 3],
+    pub blocker_keeper: [bool; 3],
 }
 
 static DEAL_LOG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -1139,12 +1158,18 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             // and the fee for a spectator. The floor is the model's own (`MIN_GAIN`), the same one
             // the loan path asks of a borrower, so a fee is not a way round it. Only a club under
             // the legal squad floor, which must find a body to field a side, is excused entirely.
+            //
+            // A thin club's waiver is for a player who makes the side better *now*. A player whose
+            // value is all in a later season is a succession signing, and a succession signing has
+            // to be worth its fee on the club's own scale like any other: without that, a club at
+            // the floor bought future bench cover with the price test waived, and the cover never
+            // started even in its own model.
             if !target.is_user_owned {
                 let valued = target_player(target)
                     .and_then(|player| view.appraise(player, price))
                     .is_some_and(|case| match (below_floor, thin) {
                         (true, _) => true,
-                        (false, true) => case.adds_something(),
+                        (false, true) => case.is_worth_it() || case.helps_now(),
                         (false, false) => case.is_worth_it(),
                     });
                 if !valued {
@@ -1291,6 +1316,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 let player = &game.players[*player_index.get(&target.player_id)?];
                 let (improvement, thin) = fit(target);
                 let marginal = view.marginal(player);
+                let placement = view.placement(player);
                 Some(DealRecord {
                     player_id: target.player_id.clone(),
                     buyer_id: buyer_id.clone(),
@@ -1330,6 +1356,23 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     points: marginal.map_or(0, |marginal| marginal.points),
                     gain: marginal.map_or(0.0, |marginal| marginal.gain),
                     weekly_wage: player.wage(),
+                    placement: placement.map(|placement| DealPlacement {
+                        now_gain: placement.now_gain,
+                        model_start: placement.model_start,
+                        greedy_start: placement.greedy_start,
+                        blocker_slot: std::array::from_fn(|year| {
+                            placement.blocker[year].map(|blocker| blocker.slot)
+                        }),
+                        blocker_ovr: std::array::from_fn(|year| {
+                            placement.blocker[year].map(|blocker| blocker.ovr)
+                        }),
+                        blocker_age: std::array::from_fn(|year| {
+                            placement.blocker[year].map(|blocker| blocker.age)
+                        }),
+                        blocker_keeper: std::array::from_fn(|year| {
+                            placement.blocker[year].is_some_and(|blocker| blocker.natural_keeper)
+                        }),
+                    }),
                 })
             })
             .flatten();

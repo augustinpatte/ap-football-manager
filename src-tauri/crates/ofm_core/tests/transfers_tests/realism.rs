@@ -863,3 +863,79 @@ fn a_club_with_one_goalkeeper_still_signs_a_second() {
     evaluate_transfer_market(&mut game);
     assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
 }
+
+/// A young keeper at `club`: `ovr` today, `potential` ahead, for sale at `value`.
+fn young_keeper(id: &str, club: &str, ovr: u8, potential: u8, value: u64) -> Player {
+    let mut player = keeper(id, club, ovr, value);
+    player.potential = potential;
+    player.date_of_birth = "2006-01-01".to_string();
+    player
+}
+
+/// A funded buyer whose number one is 36 and will retire, with two young keepers behind him, and a
+/// young keeper for sale elsewhere who would be the number one a season from now. `cash` is all the
+/// buyer has. The seller also has a better prospect, so the target is cover to them, not their
+/// future.
+fn successor_world(cash: i64, value: u64) -> Game {
+    let mut game = world(
+        vec![
+            club("eng-buyer", "England", 900, cash),
+            club("eng-seller", "England", 700, 0),
+        ],
+        vec![young_keeper("keeper-target", "eng-seller", 60, 88, value)],
+    );
+    let mut rival = young_keeper("keeper-rival", "eng-seller", 62, 94, 50_000_000);
+    rival.transfer_listed = false;
+    game.players.push(rival);
+    only_buyer_funded(&mut game, "eng-buyer");
+    let mut buyer_keepers: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("eng-buyer")
+                && player.natural_position == Position::Goalkeeper
+        })
+        .map(|player| player.id.clone())
+        .collect();
+    buyer_keepers.sort();
+    let profiles = [
+        // The number one: 36 now, so the club plans without him in a season.
+        (85_u8, "1990-01-01"),
+        // Two young keepers who stay: the club is at the floor a season on, not below it.
+        (60_u8, "2001-01-01"),
+        (55_u8, "2002-01-01"),
+    ];
+    for (id, (ovr, dob)) in buyer_keepers.iter().zip(profiles) {
+        if let Some(player) = game.players.iter_mut().find(|player| &player.id == id) {
+            player.ovr = ovr;
+            player.potential = ovr;
+            player.date_of_birth = dob.to_string();
+        }
+    }
+    // Deadline day: the seller will do business, so the only question left is the buyer's.
+    set_days_left(&mut game, 0);
+    game
+}
+
+/// Given a club at the floor a season on with little cash, when the young keeper who would be its
+/// number one next season is offered for more than half of that cash, then it does not buy him: a
+/// club that can already field a side must still find a future-only signing worth its fee.
+#[test]
+fn a_constrained_club_at_the_floor_does_not_pay_for_a_successor_who_cannot_play_yet() {
+    let mut game = successor_world(2_200_000, 1_050_000);
+    evaluate_transfer_market(&mut game);
+    assert_ne!(
+        owner(&game, "keeper-target").as_deref(),
+        Some("eng-buyer"),
+        "a bench keeper who only covers in a later season must be worth his fee"
+    );
+}
+
+/// Given the same club with money to spare, when the same young keeper is offered on the same terms,
+/// then it signs him: a genuine successor who is worth the money is still a succession signing.
+#[test]
+fn a_club_at_the_floor_still_signs_a_successor_who_is_worth_the_fee() {
+    let mut game = successor_world(20_000_000, 1_050_000);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}

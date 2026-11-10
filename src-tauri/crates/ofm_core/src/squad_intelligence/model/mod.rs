@@ -517,6 +517,106 @@ fn year_view_from(
     view
 }
 
+/// Measurement only: how a candidate sits in the club's plans and in the side the match picker
+/// would actually field, year by year. Read by the harness's market trace; it never feeds a
+/// decision.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Placement {
+    /// Gain in this season's expected strength alone.
+    pub now_gain: f32,
+    /// Slot the model starts him in, year by year (`None`: not a starter).
+    pub model_start: [Option<u8>; HORIZON],
+    /// Slot the game's greedy picker would start him in, year by year.
+    pub greedy_start: [Option<u8>; HORIZON],
+    /// For each year he starts in the model, the player the club would otherwise start in that
+    /// slot: `None` means the slot was vacant (a genuine succession hole).
+    pub blocker: [Option<Blocker>; HORIZON],
+}
+
+/// The player a signing would displace in the model's side, for the harness's trace.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Blocker {
+    pub slot: u8,
+    pub ovr: u8,
+    pub age: i32,
+    pub natural_keeper: bool,
+}
+
+impl SquadModel {
+    /// Measurement only: where `candidate` would sit today and in each horizon year, under the
+    /// model's assignment and under the game's own greedy walk, and whom he would displace.
+    pub(crate) fn placement_of(&self, candidate: &Member) -> Placement {
+        let with = self.evaluate_with(candidate);
+        let newcomer = self.members.len();
+        let mut placement = Placement {
+            now_gain: with.years[0].expected - self.base.years[0].expected,
+            ..Placement::default()
+        };
+        let squad: Vec<&Member> = self.members.iter().chain(Some(candidate)).collect();
+        for year in 0..HORIZON {
+            placement.model_start[year] = (0..SLOTS)
+                .find(|&slot| with.years[year].starter_index[slot] == Some(newcomer))
+                .map(|slot| slot as u8);
+            placement.greedy_start[year] = greedy_picks_with(&squad, year)
+                .iter()
+                .position(|pick| *pick == Some(newcomer))
+                .map(|slot| slot as u8);
+            if let Some(slot) = placement.model_start[year] {
+                placement.blocker[year] = self.base.years[year].starter_index[usize::from(slot)]
+                    .map(|index| {
+                        let member = &self.members[index];
+                        Blocker {
+                            slot,
+                            ovr: member.ovr,
+                            age: member.age,
+                            natural_keeper: member.natural_keeper,
+                        }
+                    });
+            }
+        }
+        placement
+    }
+}
+
+/// Measurement only: the side the game's own greedy picker would field from `squad` in horizon
+/// year `year`. Mirrors `turn::squad::first_choice_eleven`: slots in order, the best remaining
+/// fit for the slot each time, a natural keeper in goal, ties to the smaller id.
+fn greedy_picks_with(squad: &[&Member], year: usize) -> [Option<usize>; SLOTS] {
+    let mut picks = [None; SLOTS];
+    let mut used = vec![false; squad.len()];
+    for (slot, pick) in picks.iter_mut().enumerate() {
+        let mut best: Option<(i64, usize, &str)> = None;
+        for (index, member) in squad.iter().enumerate() {
+            if used[index] {
+                continue;
+            }
+            let Some(level) = member.level(slot, year) else {
+                continue;
+            };
+            let level = if slot == 0 && member.natural_keeper {
+                level + KEEPER_IN_GOAL
+            } else {
+                level
+            };
+            let cost = (level * MILLI).round() as i64;
+            let better = match best {
+                None => true,
+                Some((best_cost, _, best_id)) => {
+                    cost > best_cost || (cost == best_cost && member.id.as_str() < best_id)
+                }
+            };
+            if better {
+                best = Some((cost, index, member.id.as_str()));
+            }
+        }
+        if let Some((_, index, _)) = best {
+            *pick = Some(index);
+            used[index] = true;
+        }
+    }
+    picks
+}
+
 /// The best side of one horizon year as an assignment, with what each starter would cost to play in
 /// every other slot: all that is needed to add a player to it.
 #[derive(Debug, Clone, Copy)]
