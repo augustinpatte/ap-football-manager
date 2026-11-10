@@ -5,6 +5,10 @@
 //! administrative registration date (same-day for a small domestic deal, a few days for a large or
 //! international one, never past the closing day), and the player is still at his club until then.
 
+#[expect(
+    dead_code,
+    reason = "a shared fixture: this file uses only part of it; owner=#589"
+)]
 mod market_fixtures;
 
 use chrono::{Datelike, NaiveDate};

@@ -2052,7 +2052,11 @@ mod tests {
             2026,
         );
 
-        crate::player_identity::upgrade_player_identity(&mut player, None);
+        crate::player_identity::upgrade_player_identity(
+            &mut player,
+            None,
+            domain::age::season_midpoint(2026),
+        );
 
         assert_eq!(
             player.weak_foot, 5,

@@ -327,7 +327,11 @@ pub fn generate_national_team_player(
     // is what keeps him out of every club's reach (`Player::is_on_free_market`).
     agent.id = format!("{}{}", domain::player::NATIONAL_POOL_ID_PREFIX, agent.id);
     // Specific from the start, like every other player made after the world is built.
-    crate::player_identity::upgrade_player_identity(&mut agent, None);
+    crate::player_identity::upgrade_player_identity(
+        &mut agent,
+        None,
+        domain::age::season_midpoint(opening_year as i32),
+    );
     agent
 }
 

@@ -12,7 +12,7 @@ use domain::finance::CashKind;
 use domain::season::TransferWindowStatus;
 use domain::team::{DefensiveLine, PitchWidth, TacticsPhaseSettings};
 use domain::transfer_terms::{TransferObligation, TransferTerms};
-use market_fixtures::{PLAYER_ID, game_with, pending_offer, player, prospect, set_date};
+use market_fixtures::{PLAYER_ID, game_with, pending_offer, prospect, rated_player, set_date};
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     TransferNegotiationDecision, make_transfer_bid_with_terms, respond_to_offer,
@@ -28,12 +28,10 @@ fn user_team(game: &Game) -> &domain::team::Team {
 /// The fixture prospect owned by `small-club`, and a user club with a non-default tactical set-up:
 /// an attacking shape, a deeper defensive shape, wide and high instructions and one saved tactic.
 fn career_with_tactics() -> Game {
-    let mut owned = player("1999-01-01");
+    let mut owned = rated_player("1999-01-01", 70);
     owned.team_id = Some("small-club".to_string());
     owned.stage_contract_end(Some("2029-06-30".to_string()));
     owned.stage_wage(10_000);
-    owned.ovr = 70;
-    owned.potential = 70;
     let mut game = game_with(owned);
 
     let team = game.teams.iter_mut().find(|t| t.id == USER).unwrap();

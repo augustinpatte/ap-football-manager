@@ -5,6 +5,10 @@
 //! standard contract completed on the spot: Jordan Henderson was signed after a negotiation
 //! between clubs and no step with the player was ever shown.
 
+#[expect(
+    dead_code,
+    reason = "a shared fixture: this file uses only part of it; owner=#589"
+)]
 mod market_fixtures;
 
 use domain::player::TransferOfferStatus;

@@ -17,7 +17,7 @@ use domain::delegation::{ActiveApproach, Duty, ProposalAction, ShelveReason};
 use domain::player::{Player, TransferOfferStatus};
 use domain::season::TransferWindowStatus;
 use domain::transfer_terms::TransferTerms;
-use market_fixtures::{PLAYER_ID, game_with, player, prospect, set_date};
+use market_fixtures::{PLAYER_ID, game_with, player, prospect, rated_player, set_date};
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     TransferNegotiationDecision, make_transfer_bid_with_terms,
@@ -30,12 +30,10 @@ const FEE: u64 = 40_000_000;
 /// A star of a bigger club, hesitant to drop down,, whom the user's club can sign only if it pays him
 /// what he asks, with the window shut until the new year.
 fn closed_window_market() -> Game {
-    let mut owned = player("1998-01-01");
+    let mut owned = rated_player("1998-01-01", 86);
     owned.team_id = Some("big-club".to_string());
     owned.stage_contract_end(Some("2029-06-30".to_string()));
     owned.stage_wage(10_000);
-    owned.ovr = 86;
-    owned.potential = 86;
     owned.market_value = 8_000_000;
     owned.morale = 75;
     let mut game = game_with(owned);
@@ -232,12 +230,10 @@ fn the_assistants_recruitment_memory_survives_two_reloads() {
 
 /// A fair move up for a player of a small club, with a month of open window left.
 fn open_window_market() -> Game {
-    let mut owned = player("1999-01-01");
+    let mut owned = rated_player("1999-01-01", 70);
     owned.team_id = Some("small-club".to_string());
     owned.stage_contract_end(Some("2029-06-30".to_string()));
     owned.stage_wage(10_000);
-    owned.ovr = 70;
-    owned.potential = 70;
     owned.market_value = 8_000_000;
     owned.morale = 75;
     let mut game = game_with(owned);

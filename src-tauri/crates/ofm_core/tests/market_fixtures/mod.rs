@@ -36,6 +36,46 @@ pub fn attrs() -> PlayerAttributes {
     }
 }
 
+/// Outfield attributes at one flat level. The rating is the weighted average of the attributes, so
+/// a flat block rates at exactly `level` whichever granular role the identity upgrade infers — a
+/// fixture that sets `ovr` without matching attributes stores a rating its own attributes
+/// contradict, which the world audit rejects and a reload re-derives.
+pub fn attrs_at(level: u8) -> PlayerAttributes {
+    PlayerAttributes {
+        pace: level,
+        stamina: level,
+        strength: level,
+        agility: level,
+        passing: level,
+        shooting: level,
+        tackling: level,
+        dribbling: level,
+        defending: level,
+        positioning: level,
+        vision: level,
+        decisions: level,
+        composure: level,
+        aggression: level,
+        teamwork: level,
+        leadership: level,
+        // Goalkeeping craft is irrelevant to an outfield rating; leave it where the base fixture
+        // has it so an outfield helper cannot accidentally create a keeper.
+        handling: 30,
+        reflexes: 30,
+        aerial: level,
+    }
+}
+
+/// A fixture player whose stored rating agrees with his attributes at `level`, so saving and
+/// reloading does not change him.
+pub fn rated_player(date_of_birth: &str, level: u8) -> Player {
+    let mut player = player(date_of_birth);
+    player.attributes = attrs_at(level);
+    player.ovr = level;
+    player.potential = level;
+    player
+}
+
 pub fn player(date_of_birth: &str) -> Player {
     let mut player = Player::new(
         PLAYER_ID.to_string(),
