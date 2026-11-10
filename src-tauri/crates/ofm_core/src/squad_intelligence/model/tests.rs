@@ -86,7 +86,8 @@ fn repeated_slots_share_their_fit_without_changing_it() {
 /// Given a player out on loan, and the same player with no loan
 /// When the club reads him as a possible signing
 /// Then the loan neither keeps him out of the model nor changes how the signing is read: a loan is
-/// a state the club can end, not the player's level.
+/// a state the club can end, not the player's level. (In the borrower's own squad he is a member
+/// marked `loaned_in`; see the tests on loaned-in players below.)
 #[test]
 fn a_loaned_player_is_read_as_the_signing_he_would_be() {
     let club = club(&Squad::balanced());
@@ -113,9 +114,17 @@ fn a_loaned_player_is_read_as_the_signing_he_would_be() {
         SquadModel::fingerprint_of(&from_loan),
         SquadModel::fingerprint_of(&from_owned)
     );
-    assert!(
-        Member::of(&loaned, &club.model.slots, today(), Availability::Today).is_none(),
-        "the squad's own model still leaves a loaned player out"
+    let in_the_squad = Member::of(&loaned, &club.model.slots, today(), Availability::Today)
+        .expect("the borrower's own model holds a player on loan to it");
+    assert!(in_the_squad.loaned_in);
+    assert_eq!(
+        in_the_squad.fit, from_owned.fit,
+        "being on loan changes how long he is planned for, not how good he is"
+    );
+    assert_eq!(
+        in_the_squad.shift,
+        [Some(0.0), None, None],
+        "this loan has ended"
     );
 }
 
@@ -875,4 +884,116 @@ fn fractional_and_equal_cover_ratings_keep_the_pairing_order() {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// A player on loan to the club is part of the side it fields, for as long as the loan lasts
+// ---------------------------------------------------------------------------
+
+/// A copy of `signing` on loan to the club from `days_left` days before the loan ends.
+fn on_loan_until(mut signing: domain::player::Player, days_left: i64) -> domain::player::Player {
+    let end = today() + chrono::Duration::days(days_left);
+    signing.active_loan = Some(domain::player::ActiveLoan {
+        parent_team_id: "parent".to_string(),
+        loan_team_id: "club".to_string(),
+        loan_team_name: None,
+        start_date: (today() - chrono::Duration::days(30))
+            .format("%Y-%m-%d")
+            .to_string(),
+        end_date: end.format("%Y-%m-%d").to_string(),
+        wage_contribution_pct: 50,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    signing.team_id = Some("club".to_string());
+    signing
+}
+
+fn squad_with(loaned: domain::player::Player) -> crate::squad_intelligence::ClubSquad {
+    let mut squad = Squad::balanced();
+    squad.players.push(loaned);
+    club(&squad)
+}
+
+/// Given a club whose best striker is 75 and a striker of 88 on loan to it for another season
+/// When the squad model is built
+/// Then the loaned striker is in the model and starts today, as the lineup picker will field him.
+#[test]
+fn a_player_on_loan_to_the_club_starts_for_it_in_the_model() {
+    let club = squad_with(on_loan_until(player("star", Striker, 88, 26), 400));
+    let index = club
+        .model
+        .members
+        .iter()
+        .position(|member| member.id == "star")
+        .expect("the loaned player is a member of the borrower's squad");
+    assert!(club.model.members[index].loaned_in);
+    assert!(
+        club.base.years[0].starter_index.contains(&Some(index)),
+        "he is one of the eleven"
+    );
+}
+
+/// Given loans that end in four months, in a year and a half, and in three years
+/// When each loaned player is projected over the horizon
+/// Then he is there for exactly the seasons the loan covers and gone after, whatever his contract
+/// with the club that owns him says.
+#[test]
+fn a_loaned_player_is_in_the_plans_only_while_the_loan_lasts() {
+    let there = |days_left: i64| {
+        let club = squad_with(on_loan_until(player("star", Striker, 88, 26), days_left));
+        club.model
+            .members
+            .iter()
+            .find(|member| member.id == "star")
+            .expect("a member")
+            .shift
+            .map(|shift| shift.is_some())
+    };
+    assert_eq!(there(120), [true, false, false]);
+    assert_eq!(there(560), [true, true, false]);
+    assert_eq!(there(1_100), [true, true, true]);
+}
+
+/// Given a club with a player on loan to it
+/// When the cost of every sale is read
+/// Then the loaned player is not among those it could sell, and asking about him is the same
+/// answer as for a player the club does not hold: he is not the club's to sell.
+#[test]
+fn a_club_cannot_sell_a_player_it_has_only_borrowed() {
+    let club = squad_with(on_loan_until(player("star", Striker, 88, 26), 400));
+    assert!(club.sales("club").iter().all(|(id, _)| id != "star"));
+    let case = club.sale("star");
+    assert!(case.surplus && case.loss == 0.0);
+}
+
+/// Given the same club with and without a loaned striker of 88
+/// When the strikers' slots are read for need
+/// Then a club that has borrowed the striker no longer has a starter need up front.
+#[test]
+fn a_borrowed_striker_closes_the_need_he_was_borrowed_for() {
+    let mut weak = Squad::balanced();
+    weak.players.retain(|p| p.natural_position != Striker);
+    weak.players
+        .extend([player("s1", Striker, 58, 27), player("s2", Striker, 57, 27)]);
+    let without = club(&weak);
+    let mut with = weak.players.clone();
+    with.push(on_loan_until(player("star", Striker, 88, 26), 400));
+    let with = club(&Squad { players: with });
+    let starter_needs = |club: &crate::squad_intelligence::ClubSquad| {
+        club.needs()
+            .iter()
+            .filter(|need| need.kind == crate::squad_intelligence::needs::NeedKind::Starter)
+            .map(|need| need.severity)
+            .sum::<f32>()
+    };
+    assert!(
+        starter_needs(&with) < starter_needs(&without),
+        "{} against {}",
+        starter_needs(&with),
+        starter_needs(&without)
+    );
 }

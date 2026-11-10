@@ -225,6 +225,7 @@ impl ClubSquad {
             self.model
                 .members
                 .iter()
+                .filter(|member| !member.loaned_in)
                 .map(|member| (member.id.clone(), self.sale(&member.id)))
                 .collect(),
         );

@@ -8,8 +8,8 @@
 //! own raw slot rating (`positional_fit_for_assignment`), which neither side's tie-breaking or
 //! rounding can bias, and the model's anchored rating is reported beside it.
 //!
-//! It also counts the one place the two read different pools: a player on loan *to* a club carries
-//! that club's `team_id`, so the picker fields him while `Member::of` does not see him.
+//! A player on loan *to* a club carries that club's `team_id`, so the picker fields him; before P4's
+//! second slice `Member::of` did not see him, and the loaned-in count here showed the blind spot.
 //! It decides nothing and changes nothing.
 
 use chrono::NaiveDate;
@@ -19,15 +19,15 @@ use super::model::{Availability, SLOTS, SquadModel, greedy_picks_with};
 use crate::game::Game;
 use crate::player_rating::positional_fit_for_assignment;
 
-/// One club's model side against the picker's, on the same healthy, non-loaned seniors today.
+/// One club's model side against the picker's, on the same healthy seniors today.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LineupGap {
     pub team_id: String,
-    /// Healthy seniors both sides were chosen from (players on loan to the club left out).
+    /// Healthy seniors both sides were chosen from (players on loan to the club included).
     pub pool: usize,
-    /// Players on loan to the club, healthy, whom the picker may field and the model cannot see.
+    /// Healthy players on loan to the club in the pool.
     pub loaned_in: usize,
-    /// Of the real picker's eleven, chosen from everyone healthy, how many are on loan to the club.
+    /// Of the real picker's eleven, how many are on loan to the club.
     pub loaned_in_starters: u8,
     /// Mean raw slot rating of the model's optimal side.
     pub optimal_raw: f32,
@@ -72,16 +72,14 @@ fn gap_of(
     healthy: &[&Player],
     today: NaiveDate,
 ) -> Option<LineupGap> {
-    let pool: Vec<&Player> = healthy
-        .iter()
-        .copied()
-        .filter(|p| p.active_loan.is_none())
-        .collect();
+    // The model reads players on loan to the club (a borrower's squad includes them while the loan
+    // lasts), as the picker does, so both choose from everyone healthy.
+    let pool: Vec<&Player> = healthy.to_vec();
     if pool.len() < SLOTS {
         return None;
     }
-    let loaned_in = healthy.len() - pool.len();
-    let loaned_in_starters = crate::turn::squad::first_choice_eleven(healthy, formation)
+    let loaned_in = pool.iter().filter(|p| p.active_loan.is_some()).count();
+    let loaned_in_starters = crate::turn::squad::first_choice_eleven(&pool, formation)
         .iter()
         .filter(|p| p.active_loan.is_some())
         .count() as u8;

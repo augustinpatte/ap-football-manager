@@ -205,7 +205,13 @@ pub(crate) struct SaleCase {
 /// replacement is never better than the player, so it can only make the loss smaller): the one
 /// evaluation is the answer.
 pub(crate) fn assess_sale(model: &SquadModel, base: &Evaluation, id: &str) -> SaleCase {
-    let Some(index) = model.members.iter().position(|member| member.id == id) else {
+    // A player the club has only borrowed is not the club's to sell: he costs it nothing to lose,
+    // as a player it does not hold.
+    let Some(index) = model
+        .members
+        .iter()
+        .position(|member| member.id == id && !member.loaned_in)
+    else {
         return SaleCase {
             loss: 0.0,
             net_loss: 0.0,

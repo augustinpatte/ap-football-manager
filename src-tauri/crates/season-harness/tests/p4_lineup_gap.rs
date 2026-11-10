@@ -117,7 +117,7 @@ fn describe(sample: &Sample) -> String {
          starter is left out {:>5.1}% (mean {:.2}) | moved {:.2}\n{:<18} raw rating per slot, \
          optimal - picker: mean {:.3} p50 {:.3} p90 {:.3} max {:.3} | optimal - mirror {:.3} | \
          modelled optimal - picker {:.3}\n{:<18} loaned-in healthy per club {:.2} | clubs fielding a \
-         loaned-in starter (invisible to the model) {:>5.1}% | mirror disagrees with the real \
+         loaned-in starter {:>5.1}% | mirror disagrees with the real \
          picker in {:.2} slots",
         sample.label,
         sample.gaps.len(),

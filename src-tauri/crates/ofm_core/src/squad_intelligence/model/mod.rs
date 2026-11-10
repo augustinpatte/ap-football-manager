@@ -81,6 +81,10 @@ pub(crate) struct Member {
     pub age: i32,
     pub ovr: u8,
     pub potential: u8,
+    /// He is on loan to the club (his `team_id` is the borrower's, his contract the parent's). He
+    /// starts and covers for the club like anyone, for as long as the loan lasts, but is not the
+    /// club's to sell or renew.
+    pub loaned_in: bool,
     /// His rating in each slot of the formation today, before any horizon shift.
     pub fit: [f32; SLOTS],
     /// Chance he is not available for a given match.
@@ -94,19 +98,22 @@ pub(crate) struct Member {
 
 impl Member {
     /// A player as the model sees him on `today`, for the slots of a formation. `None` for a
-    /// player who is not part of a senior squad (academy, retired, on loan).
+    /// player who is not part of a senior squad (academy, retired). A player on loan *to* the club
+    /// is part of it while the loan lasts: the lineup picker fields him, so the model must too.
     pub(crate) fn of(
         player: &Player,
         slots: &[Position],
         today: NaiveDate,
         availability: Availability,
     ) -> Option<Self> {
-        if player.squad_role != SquadRole::Senior || player.active_loan.is_some() || player.retired
-        {
+        if player.squad_role != SquadRole::Senior || player.retired {
             return None;
         }
         let planned = PlannedPlayer::of(player, today);
         let mut shift = projected_shifts(&planned);
+        if let Some(loan) = &player.active_loan {
+            end_shifts_with_the_loan(&mut shift, &loan.end_date, today);
+        }
         let out_now = player
             .injury
             .as_ref()
@@ -120,6 +127,7 @@ impl Member {
             age: planned.age,
             ovr: player.ovr,
             potential: player.potential,
+            loaned_in: player.active_loan.is_some(),
             fit: fits(player, slots),
             absence: match availability {
                 Availability::Today => absence_of(player),
@@ -164,6 +172,7 @@ impl Member {
             age: planned.age,
             ovr: player.ovr,
             potential: player.potential,
+            loaned_in: false,
             fit: fits(player, slots),
             absence: absence_of(player),
             shift,
@@ -200,6 +209,20 @@ impl Member {
                 };
                 self.levels[year][slot] = (fit + shift).clamp(1.0, 99.0);
             }
+        }
+    }
+}
+
+/// A loaned player is in the club's plans for the horizon years the loan covers and no longer: a
+/// year `y` after this one is covered when the loan still runs more than `y` seasons from today.
+/// A loan whose end cannot be read covers the present only.
+fn end_shifts_with_the_loan(shift: &mut [Option<f32>; HORIZON], loan_end: &str, today: NaiveDate) {
+    let days_left = NaiveDate::parse_from_str(loan_end, "%Y-%m-%d")
+        .map(|end| (end - today).num_days())
+        .unwrap_or(0);
+    for (year, slot) in shift.iter_mut().enumerate().skip(1) {
+        if days_left <= 365 * year as i64 {
+            *slot = None;
         }
     }
 }

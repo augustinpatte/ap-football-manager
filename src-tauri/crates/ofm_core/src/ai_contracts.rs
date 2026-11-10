@@ -395,7 +395,7 @@ impl SquadFacts {
             .model
             .members
             .iter()
-            .any(|member| member.id == player_id)
+            .any(|member| member.id == player_id && !member.loaned_in)
         {
             return None;
         }
