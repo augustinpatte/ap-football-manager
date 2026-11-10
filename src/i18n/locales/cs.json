@@ -707,7 +707,9 @@
       "HighPress": "Vyžaduje od týmu brzké napadání, získávání míčů výše na hřišti a neustálý tlak na soupeře."
     },
     "protectFromSale": "Chránit před prodejem",
-    "removeSaleProtection": "Povolit asistentovi prodej"
+    "removeSaleProtection": "Povolit asistentovi prodej",
+    "columnsChoose": "Sloupce",
+    "columnsShowAll": "Zobrazit všechny sloupce"
   },
   "tactics": {
     "formationStyle": "Rozestavení a styl",

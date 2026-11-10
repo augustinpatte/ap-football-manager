@@ -707,7 +707,9 @@
     "makeStarter": "设为首发",
     "sendToBench": "放到替补席",
     "protectFromSale": "禁止出售",
-    "removeSaleProtection": "允许助理出售"
+    "removeSaleProtection": "允许助理出售",
+    "columnsChoose": "列",
+    "columnsShowAll": "显示所有列"
   },
   "tactics": {
     "formationStyle": "阵型与风格",

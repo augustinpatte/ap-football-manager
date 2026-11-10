@@ -707,7 +707,9 @@
     "makeStarter": "Colocar como titular",
     "sendToBench": "Mandar para o banco",
     "protectFromSale": "Proteger da venda",
-    "removeSaleProtection": "Permitir que o adjunto o venda"
+    "removeSaleProtection": "Permitir que o adjunto o venda",
+    "columnsChoose": "Colunas",
+    "columnsShowAll": "Mostrar todas as colunas"
   },
   "tactics": {
     "formationStyle": "Formação & Estilo",

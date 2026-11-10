@@ -707,7 +707,9 @@
       "HighPress": "Asks your team to close down earlier, win the ball higher up the pitch, and keep opponents under pressure."
     },
     "protectFromSale": "Protect from sale",
-    "removeSaleProtection": "Allow the assistant to sell"
+    "removeSaleProtection": "Allow the assistant to sell",
+    "columnsChoose": "Columns",
+    "columnsShowAll": "Show all columns"
   },
   "tactics": {
     "formationStyle": "Formation & Style",

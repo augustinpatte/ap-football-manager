@@ -707,7 +707,9 @@
       "HighPress": "Takımın daha erken baskı yapmasını, topu ileride kazanmasını ve rakibi baskı altında tutmasını ister."
     },
     "protectFromSale": "Satıştan koru",
-    "removeSaleProtection": "Yardımcının satmasına izin ver"
+    "removeSaleProtection": "Yardımcının satmasına izin ver",
+    "columnsChoose": "Sütunlar",
+    "columnsShowAll": "Tüm sütunları göster"
   },
   "tactics": {
     "formationStyle": "Diziliş ve Stil",

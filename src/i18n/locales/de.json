@@ -707,7 +707,9 @@
     "makeStarter": "In die Startelf",
     "sendToBench": "Auf die Bank",
     "protectFromSale": "Vor Verkauf schützen",
-    "removeSaleProtection": "Verkauf durch den Co-Trainer erlauben"
+    "removeSaleProtection": "Verkauf durch den Co-Trainer erlauben",
+    "columnsChoose": "Spalten",
+    "columnsShowAll": "Alle Spalten anzeigen"
   },
   "tactics": {
     "formationStyle": "Formation & Stil",

@@ -707,7 +707,9 @@
       "HighPress": "Meminta tim menekan lebih awal, merebut bola lebih tinggi di lapangan, dan terus memberi tekanan kepada lawan."
     },
     "protectFromSale": "Lindungi dari penjualan",
-    "removeSaleProtection": "Izinkan asisten menjualnya"
+    "removeSaleProtection": "Izinkan asisten menjualnya",
+    "columnsChoose": "Kolom",
+    "columnsShowAll": "Tampilkan semua kolom"
   },
   "tactics": {
     "formationStyle": "Formasi & Gaya",

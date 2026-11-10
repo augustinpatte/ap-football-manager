@@ -732,7 +732,9 @@
     "makeStarter": "Metti titolare",
     "sendToBench": "Manda in panchina",
     "protectFromSale": "Proteggi dalla vendita",
-    "removeSaleProtection": "Consenti al vice di venderlo"
+    "removeSaleProtection": "Consenti al vice di venderlo",
+    "columnsChoose": "Colonne",
+    "columnsShowAll": "Mostra tutte le colonne"
   },
   "tactics": {
     "formationStyle": "Formazione e stile",

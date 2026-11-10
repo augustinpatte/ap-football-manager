@@ -707,7 +707,9 @@
     "makeStarter": "Сделать игроком основы",
     "sendToBench": "Отправить в запас",
     "protectFromSale": "Защитить от продажи",
-    "removeSaleProtection": "Разрешить помощнику продавать"
+    "removeSaleProtection": "Разрешить помощнику продавать",
+    "columnsChoose": "Столбцы",
+    "columnsShowAll": "Показать все столбцы"
   },
   "tactics": {
     "formationStyle": "Схема и стиль",
