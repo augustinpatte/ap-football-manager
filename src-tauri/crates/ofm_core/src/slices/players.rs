@@ -352,9 +352,10 @@ fn matches_status(player: &Player, status: PlayerStatusFilter) -> bool {
         PlayerStatusFilter::All => true,
         PlayerStatusFilter::Transfer => player.transfer_listed,
         PlayerStatusFilter::Loan => player.loan_listed,
-        PlayerStatusFilter::FreeAgent => player.team_id.is_none(),
+        // A player made up to fill a national squad is nobody's to sign.
+        PlayerStatusFilter::FreeAgent => player.is_on_free_market(),
         PlayerStatusFilter::Available => {
-            player.team_id.is_none() || player.transfer_listed || player.loan_listed
+            player.is_on_free_market() || player.transfer_listed || player.loan_listed
         }
     }
 }

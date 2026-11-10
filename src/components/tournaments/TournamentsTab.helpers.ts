@@ -63,9 +63,11 @@ export function summarizeCompetitionProgress(
     sortedMatchdays,
     completedMatchdays,
     totalMatchdays,
-    totalGoals: competitiveFixtures
-      .filter((fixture) => fixture.result)
-      .reduce((sum, fixture) => sum + (fixture.result!.home_goals + fixture.result!.away_goals), 0),
+    totalGoals: competitiveFixtures.reduce(
+      (sum, fixture) =>
+        fixture.result ? sum + fixture.result.home_goals + fixture.result.away_goals : sum,
+      0,
+    ),
     completedMatches: competitiveFixtures.filter((fixture) => fixture.status === "Completed")
       .length,
   };

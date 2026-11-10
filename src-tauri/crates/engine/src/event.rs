@@ -75,10 +75,23 @@ pub enum EventType {
 /// built from it never claims something that was not simulated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EventDetail {
-    Shot { danger: DangerBand },
-    Save { quality: SaveQuality },
-    Foul { severity: FoulSeverity },
-    Goal { context: GoalContext },
+    Shot {
+        danger: DangerBand,
+    },
+    Save {
+        quality: SaveQuality,
+    },
+    Foul {
+        severity: FoulSeverity,
+    },
+    Goal {
+        context: GoalContext,
+    },
+    /// A goal put into his own net by `by`, a player of the side the goal is *not* credited to. The
+    /// timeline entry has no scorer (nobody is credited with a goal); this says whose it was.
+    OwnGoal {
+        by: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -169,5 +182,25 @@ mod tests {
                 context: GoalContext::Equaliser
             })
         );
+    }
+}
+
+#[cfg(test)]
+mod own_goal_contract {
+    use super::*;
+
+    /// The frontend reads `{ "OwnGoal": { "by": "<player id>" } }` (serde's external tagging); this
+    /// pins the shape the TypeScript `EventDetail` union is written against.
+    #[test]
+    fn an_own_goal_detail_serialises_the_way_the_frontend_reads_it() {
+        let detail = EventDetail::OwnGoal { by: "p9".into() };
+        assert_eq!(
+            serde_json::to_value(&detail).expect("serialises"),
+            serde_json::json!({ "OwnGoal": { "by": "p9" } })
+        );
+        let back: EventDetail =
+            serde_json::from_value(serde_json::json!({ "OwnGoal": { "by": "p9" } }))
+                .expect("reads");
+        assert_eq!(back, detail);
     }
 }

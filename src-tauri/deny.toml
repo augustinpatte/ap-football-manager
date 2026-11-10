@@ -101,6 +101,10 @@ deny = []
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# The match engine (APFM M12) is a private repository of this project's own, pinned to an exact
+# revision in `ofm_core/Cargo.toml` and recorded in `Cargo.lock`, so it cannot move under a ref.
+# It is the only git dependency; anything else still has to be argued for in a pull request.
+allow-git = ["https://github.com/augustinpatte/apfm-match-lab"]
 
 [advisories]
 # Not run on pull requests; see the header. It runs weekly instead, from

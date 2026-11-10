@@ -62,6 +62,11 @@ export async function setStartingXi(playerIds: string[]): Promise<GameStateData>
   return invoke<GameStateData>("set_starting_xi", { playerIds });
 }
 
+/** Sets the saved defensive shape; M12 keeps player identity and changes anchors by phase. */
+export async function setOutOfPossessionFormation(formation: string): Promise<GameStateData> {
+  return invoke<GameStateData>("set_out_of_possession_formation", { formation });
+}
+
 export async function setPlayerRole(
   playerId: string,
   role: PlayerRole | null,
@@ -79,8 +84,15 @@ export async function setPlayerRole(
 export async function applyTacticPreset(
   formation: string,
   playStyle: string,
+  tacticsPhase?: TacticsPhaseSettings,
+  outOfPossessionFormation?: string,
 ): Promise<GameStateData> {
-  return invoke<GameStateData>("apply_tactic_preset", { formation, playStyle });
+  return invoke<GameStateData>("apply_tactic_preset", {
+    formation,
+    playStyle,
+    tacticsPhase,
+    outOfPossessionFormation,
+  });
 }
 
 /** Whether the user's phase dials differ from the blueprint their play style implies. */

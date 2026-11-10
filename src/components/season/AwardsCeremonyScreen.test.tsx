@@ -5,6 +5,7 @@ import type { GameStateData, ManagerData, PlayerData, TeamData } from "../../sto
 import type { SeasonAwardsData } from "../../store/types";
 import AwardsCeremonyScreen from "./AwardsCeremonyScreen";
 import { createSeasonContext } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -235,8 +236,8 @@ describe("AwardsCeremonyScreen", () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Victor Vale" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Alpha FC" })[0]!);
+    fireEvent.click(defined(screen.getAllByRole("button", { name: "Victor Vale" })[0]));
+    fireEvent.click(defined(screen.getAllByRole("button", { name: "Alpha FC" })[0]));
     fireEvent.click(screen.getByRole("button", { name: "Continue to dashboard" }));
 
     expect(onSelectPlayer).toHaveBeenCalledWith("player-1");

@@ -40,6 +40,14 @@ interface ResolvedManagerWinner {
   teamId: string | null;
 }
 
+/** A click handler for an id that may be missing, or a screen that may not offer navigation. */
+function bindSelection(
+  id: string | null,
+  onSelect: ((id: string) => void) | undefined,
+): (() => void) | undefined {
+  return id && onSelect ? () => onSelect(id) : undefined;
+}
+
 export default function AwardsCeremonyScreen({
   season,
   leagueName,
@@ -110,11 +118,7 @@ export default function AwardsCeremonyScreen({
           teamName={managerOfSeason.teamName}
           valueLabel={t("awardsCeremony.winRate")}
           value={managerOfSeason.winRate}
-          onSelectTeam={
-            managerOfSeason.teamId && onSelectTeam
-              ? () => onSelectTeam(managerOfSeason.teamId!)
-              : undefined
-          }
+          onSelectTeam={bindSelection(managerOfSeason.teamId, onSelectTeam)}
         />
         <WinnerCard
           icon={<Trophy className="h-6 w-6" />}
@@ -124,14 +128,8 @@ export default function AwardsCeremonyScreen({
           teamName={goldenBoot.teamName}
           valueLabel={t("awardsCeremony.goals")}
           value={goldenBoot.value}
-          onSelectName={
-            goldenBoot.playerId && onSelectPlayer
-              ? () => onSelectPlayer(goldenBoot.playerId!)
-              : undefined
-          }
-          onSelectTeam={
-            goldenBoot.teamId && onSelectTeam ? () => onSelectTeam(goldenBoot.teamId!) : undefined
-          }
+          onSelectName={bindSelection(goldenBoot.playerId, onSelectPlayer)}
+          onSelectTeam={bindSelection(goldenBoot.teamId, onSelectTeam)}
         />
         {hasPlayerOfYear && (
           <WinnerCard
@@ -142,16 +140,8 @@ export default function AwardsCeremonyScreen({
             teamName={playerOfYear.teamName}
             valueLabel={t("awardsCeremony.rating")}
             value={playerOfYear.value}
-            onSelectName={
-              playerOfYear.playerId && onSelectPlayer
-                ? () => onSelectPlayer(playerOfYear.playerId!)
-                : undefined
-            }
-            onSelectTeam={
-              playerOfYear.teamId && onSelectTeam
-                ? () => onSelectTeam(playerOfYear.teamId!)
-                : undefined
-            }
+            onSelectName={bindSelection(playerOfYear.playerId, onSelectPlayer)}
+            onSelectTeam={bindSelection(playerOfYear.teamId, onSelectTeam)}
           />
         )}
       </div>

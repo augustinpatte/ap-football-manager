@@ -97,6 +97,7 @@ export function PlayerRowDetails({
   loanOffersForThisPlayer,
 }: PlayerRowDetailsProps) {
   const tierOf = useRatingTiers();
+  const playerTeamId = player.team_id;
   const {
     view,
     onSelectPlayer,
@@ -142,16 +143,16 @@ export function PlayerRowDetails({
       </td>
       <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
       <td className="py-2.5 px-4">
-        {player.team_id ? (
+        {playerTeamId ? (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onSelectTeam(player.team_id!);
+              onSelectTeam(playerTeamId);
             }}
             className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
           >
-            {getTeamName(gameState.teams, player.team_id)}
+            {getTeamName(gameState.teams, playerTeamId)}
           </button>
         ) : (
           <span className="text-sm text-gray-600 dark:text-gray-400">{t("common.freeAgent")}</span>
@@ -254,12 +255,13 @@ export function TransferPlayerRow({ state, player }: TransferPlayerRowProps) {
       : availableScouts.length === 0
         ? "unavailable"
         : "ready";
+  const teamId = player.team_id;
   const contextItems = [
     buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
-    ...(player.team_id
+    ...(teamId
       ? [
           buildViewTeamMenuItem(t, () => {
-            onSelectTeam(player.team_id!);
+            onSelectTeam(teamId);
           }),
         ]
       : []),

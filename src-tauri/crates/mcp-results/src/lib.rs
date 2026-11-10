@@ -56,6 +56,39 @@ mod tests {
         assert_eq!(back, value);
     }
 
+    fn accepted_bid(registration_date: Option<&str>) -> transfers::BidMade {
+        transfers::BidMade {
+            player_name: "A. Player".to_string(),
+            fee: 5_000_000,
+            decision: "accepted".to_string(),
+            suggested_fee: None,
+            is_terminal: true,
+            mood: "positive".to_string(),
+            tension: 20,
+            patience: 70,
+            round: 1,
+            player_asks_weekly_wage: None,
+            player_asks_contract_years: None,
+            registration_date: registration_date.map(str::to_string),
+        }
+    }
+
+    /// Given an accepted bid whose registration is on a later day
+    /// When it is shown to an agent
+    /// Then the date is stated with what it means (he has not moved and nothing is paid), so
+    ///      "accepted" is not read as "completed"; a bid with no date says nothing of the kind.
+    #[test]
+    fn an_accepted_bid_says_when_it_is_registered() {
+        let scheduled = accepted_bid(Some("2026-08-04")).to_string();
+        assert!(
+            scheduled.contains("**Registration**: 2026-08-04"),
+            "{scheduled}"
+        );
+        assert!(scheduled.contains("stays at his club"), "{scheduled}");
+        assert!(!accepted_bid(None).to_string().contains("Registration"));
+        round_trips(accepted_bid(Some("2026-08-04")));
+    }
+
     /// Given a result that is a tagged enum
     /// When it is serialized
     /// Then it is an object that names its variant, and a client reads it back.

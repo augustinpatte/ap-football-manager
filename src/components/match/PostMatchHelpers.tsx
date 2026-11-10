@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { MatchSnapshot, MatchEvent } from "./types";
-import { getPlayerName } from "./helpers";
+import { goalPlayerLabel } from "./helpers";
 import { Badge } from "../ui";
 import { Circle, Star } from "lucide-react";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
@@ -50,6 +51,7 @@ export function renderScorers(
   snapshot: MatchSnapshot,
   events: MatchEvent[],
   side: "Home" | "Away",
+  t: TFunction,
 ) {
   const goals = events.filter(
     (e) => e.side === side && (e.event_type === "Goal" || e.event_type === "PenaltyGoal"),
@@ -73,7 +75,7 @@ export function renderScorers(
           </span>
           <Circle className="w-3 h-3 fill-current text-accent-400" />
           <span className="text-gray-800 dark:text-gray-200 font-medium">
-            {getPlayerName(snapshot, g.player_id)}
+            {goalPlayerLabel(snapshot, g, t)}
           </span>
           {g.event_type === "PenaltyGoal" && (
             <Badge variant="accent" size="sm">

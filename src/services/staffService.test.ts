@@ -6,6 +6,7 @@ import {
   proposeStaffContract,
   releaseStaff,
   setDutyDelegation,
+  setPlayerProtected,
 } from "./staffService";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -56,6 +57,17 @@ describe("staffService", () => {
     await expect(releaseStaff("staff-2")).resolves.toBe(response);
     expect(mockedInvoke).toHaveBeenCalledWith("release_staff", {
       staffId: "staff-2",
+    });
+  });
+
+  it("tells the assistant a player is not to be sold", async () => {
+    const game = { manager: {} };
+    mockedInvoke.mockResolvedValueOnce(game);
+
+    await expect(setPlayerProtected("p-9", true)).resolves.toBe(game);
+    expect(mockedInvoke).toHaveBeenCalledWith("set_player_protected", {
+      playerId: "p-9",
+      protected: true,
     });
   });
 });

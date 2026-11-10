@@ -1,6 +1,6 @@
 use crate::game::Game;
 use crate::player_rating::{
-    effective_rating_for_assignment, formation_slots, natural_ovr, positional_fit_for_assignment,
+    effective_rating_for_assignment, formation_slots, positional_fit_for_assignment,
 };
 use crate::stable_hash::stable_hash;
 use domain::player::Position as DomainPosition;
@@ -54,11 +54,7 @@ pub(crate) fn build_team_with_bench_from(
     };
 
     let eligible = crate::match_day_eligibility::eligible_among(club);
-    let available_players: Vec<_> = eligible
-        .iter()
-        .copied()
-        .filter(|p| p.injury.is_none())
-        .collect();
+    let available_players: Vec<_> = eligible.iter().copied().filter(|p| p.can_play()).collect();
     let player_roles = team.map(|t| &t.player_roles);
     // `deployed` is the granular slot the player occupies; `None` for the bench,
     // where the player's own position is used instead. The engine's coarse
@@ -116,15 +112,15 @@ pub(crate) fn build_team_with_bench_from(
         .into_iter()
         .filter(|player| !used_ids.contains(&player.id))
         .collect();
-    bench_domain.sort_by(|left, right| {
-        natural_ovr(right)
-            .partial_cmp(&natural_ovr(left))
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    let bench = bench_domain
-        .into_iter()
-        .map(|p| convert_player(p, None))
-        .collect();
+    // Everyone fit and not starting is *available*; the match sheet names a bounded bench.
+    crate::matchday_bench::rank_for_bench(&mut bench_domain);
+    let bench = crate::matchday_bench::select_matchday_bench(
+        &bench_domain,
+        crate::matchday_bench::M12_MAX_BENCH,
+    )
+    .into_iter()
+    .map(|p| convert_player(p, None))
+    .collect();
 
     let team_data = TeamData {
         id: team_id.to_string(),
@@ -136,6 +132,42 @@ pub(crate) fn build_team_with_bench_from(
     };
 
     (team_data, bench)
+}
+
+/// Least management quality the user's assistant picks a side with. Below it, the position-group
+/// rotation thresholds are so lax that a tired eleven keeps playing, and the misjudgement of
+/// who can deputise grows to a size no manager would put his name to.
+const ASSISTANT_QUALITY_FLOOR: f64 = 0.6;
+
+/// The slot-aligned eleven the user's assistant would send out at the next match: the club's best
+/// fit side, with tired starters rested the way an AI club's manager would rest them.
+///
+/// Deterministic for a given game state: the only variation, the assistant's misjudgement of
+/// who can deputise, is seeded from the club and the date. Returns nothing when fewer fit
+/// players than the formation has slots are available, so a short side is never saved over a
+/// manager's own (the kick-off fills it from the treatment room instead).
+pub(crate) fn delegated_eleven(game: &Game, team_id: &str, assistant_rating: f64) -> Vec<String> {
+    let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
+        return Vec::new();
+    };
+    let club = crate::match_day_eligibility::club_players(&game.players, team_id);
+    let available: Vec<&domain::player::Player> =
+        crate::match_day_eligibility::eligible_among(&club)
+            .into_iter()
+            .filter(|p| p.can_play())
+            .collect();
+    let quality = management_quality_from_rating(assistant_rating.clamp(0.0, 100.0).round() as u8)
+        .max(ASSISTANT_QUALITY_FLOOR);
+    let seed = selection_seed(
+        team_id,
+        &game.clock.current_date.format("%Y-%m-%d").to_string(),
+    );
+    let load = fixture_load(game, team_id);
+    let eleven = ai_select_starting_xi(&available, &team.formation, quality, seed, load);
+    if eleven.len() < formation_slots(&team.formation).len().min(11) {
+        return Vec::new();
+    }
+    eleven.into_iter().map(|p| p.id.clone()).collect()
 }
 
 /// Replace, in place, only the saved starters the pool policy benches (youth outside the
@@ -627,6 +659,13 @@ fn ai_select_starting_xi<'a>(
     const CONGESTED_MIN_FIT_TOLERANCE: f64 = 10.0;
     /// And what any of them will accept to get an exhausted player off the pitch.
     const EXHAUSTED_FIT_TOLERANCE: f64 = 20.0;
+    /// Below this a starter is at real risk of injury, not merely of a poor game: the match engine's
+    /// injury rate climbs with spent condition. A manager then accepts a deputy who is not fresh
+    /// either (`EXHAUSTED` or better, not `FRESH_FLOOR`) and a bigger drop in quality to avoid it.
+    const INJURY_RISK_CONDITION: f64 = 40.0;
+    const INJURY_RISK_FIT_TOLERANCE: f64 = 30.0;
+    /// Extra quality drop accepted per point of condition below the manager's rest threshold.
+    const TIREDNESS_TOLERANCE_PER_POINT: f64 = 0.4;
     /// How far the worst manager can misread a player's standard, either way.
     const MAX_MISJUDGEMENT: f64 = 9.0;
 
@@ -674,12 +713,24 @@ fn ai_select_starting_xi<'a>(
         if condition >= rest_threshold {
             continue; // Fresh enough — no reason to rotate.
         }
-        // A spent player comes out for anyone adequate; a merely tired one only
-        // for someone close to their own standard.
-        let tolerance = if condition < EXHAUSTED {
+        // A spent player comes out for anyone adequate; a tired one for someone the
+        // closer to his own standard the less tired he is. The tolerance grows with every
+        // point of condition under the manager's own threshold, up to the exhausted
+        // player's: a flat figure here started 1-4 % of AI players under half fit, because
+        // a star at 48 % has no fresh deputy within nine points of him (F5.0 §8).
+        let at_risk_of_injury = condition < INJURY_RISK_CONDITION;
+        let deputy_floor = if at_risk_of_injury {
+            EXHAUSTED
+        } else {
+            FRESH_FLOOR
+        };
+        let tolerance = if at_risk_of_injury {
+            INJURY_RISK_FIT_TOLERANCE
+        } else if condition < EXHAUSTED {
             EXHAUSTED_FIT_TOLERANCE
         } else {
-            fit_tolerance
+            (fit_tolerance + TIREDNESS_TOLERANCE_PER_POINT * (rest_threshold - condition))
+                .min(EXHAUSTED_FIT_TOLERANCE)
         };
 
         let starter_fit = positional_fit_for_assignment(starter, slot);
@@ -692,7 +743,7 @@ fn ai_select_starting_xi<'a>(
             // skews the formation's distribution (e.g. fielding a 5th midfielder
             // in place of a defender, which would leave the XI a man short).
             .filter(|player| player.position.to_group_position() == starter_group)
-            .filter(|player| f64::from(player.condition) >= FRESH_FLOOR)
+            .filter(|player| f64::from(player.condition) >= deputy_floor)
             .filter(|player| {
                 i16::from(player.condition) - i16::from(starter.condition) >= MIN_FRESHNESS_GAIN
             })

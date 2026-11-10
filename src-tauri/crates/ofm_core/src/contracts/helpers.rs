@@ -97,6 +97,26 @@ pub(crate) fn reference_player_wage(player: &Player) -> u32 {
     round_up_wage(derived_wage.min(u32::MAX as u64) as u32)
 }
 
+/// What a club that has room offers a player it wants to keep whose pay has fallen behind his value:
+/// the wage his market value implies.
+///
+/// A wage that only ever follows the wage he was paid last never follows his rating: an academy
+/// graduate rated 75 who started on the youth minimum asks for a tenth more at every renewal, and a
+/// club with a hundred million in the bank has no way to pay him what he is worth. F5.3 measured what
+/// that does once the wage ratchet is closed: the rich clubs used 60 to 70 % of their wage budgets,
+/// the poor ones all of theirs, and the strongest quarter of the world's clubs stopped being
+/// stronger than the weakest. Whether the club can afford the catch-up is not decided here
+/// (`ai_contracts::affordable_renewal_wage` holds it to the room under the wage ceiling), so this
+/// raises nothing at a club with none: a club spends what it has, no more.
+pub(crate) fn quality_wage_catch_up(player: &Player) -> u32 {
+    if player.last_known_wage() == 0 {
+        return 0;
+    }
+    round_up_wage(
+        (player.market_value / MARKET_VALUE_TO_WAGE_RATIO).min(u64::from(u32::MAX)) as u32,
+    )
+}
+
 pub(crate) fn importance_wage_multiplier(player: &Player) -> f32 {
     if player.market_value >= 2_000_000 {
         return 1.18;
@@ -131,15 +151,28 @@ pub(crate) fn minimum_acceptable_wage(current_wage: u32) -> u32 {
     ((current_wage as f32) * 0.85).floor() as u32
 }
 
+/// The lowest wage a player will not take as an insult, for the wage he anchors on.
+pub(crate) fn insulting_floor(anchor_wage: u32) -> u32 {
+    ((anchor_wage as f32) * 0.65).floor() as u32
+}
+
 pub(crate) fn is_insulting_wage_offer(
     reference_wage: u32,
     expected_wage: u32,
     offered_wage: u32,
 ) -> bool {
-    let anchor_wage = reference_wage.max(expected_wage);
-    let insulting_floor = ((anchor_wage as f32) * 0.65).floor() as u32;
+    offered_wage < insulting_floor(reference_wage.max(expected_wage))
+}
 
-    offered_wage < insulting_floor
+/// What an AI club bids a free agent who `asks` a wage when it can carry `room` more a week: what
+/// it can carry, if that is more than he would take as an insult and less than he asks, so a club
+/// adapts its recruitment to its means instead of passing over everyone priced on a richer scale.
+/// A bid never exceeds the ask and never falls below the insult line: the club that cannot reach
+/// it does not make the bid worth making, and the caller decides whether it must sign anyway.
+pub(crate) fn free_agent_bid(asks: u32, reference_wage: u32, room: i64) -> u32 {
+    let room = u32::try_from(room.max(0)).unwrap_or(u32::MAX);
+    asks.min(room)
+        .max(insulting_floor(reference_wage.max(asks)))
 }
 
 pub(crate) fn remaining_contract_days(player: &Player, current_date: NaiveDate) -> i64 {
@@ -255,5 +288,53 @@ mod tests {
 
         // 700 x 0.95 (fringe) x 1.10 (under six months left) = 732, asked as 740 (it was 1 000).
         assert_eq!(ask, 740);
+    }
+
+    /// Given a free agent who asks 10 000
+    /// When a club bids with room for 20 000, 8 000, 3 000 and none
+    /// Then it bids his ask when it can, what it can when that is above the insult line (6 500),
+    ///      and the insult line when it cannot: never less than that, never more than he asks.
+    #[test]
+    fn an_ai_bid_is_what_the_club_can_carry_within_what_he_would_not_take_as_an_insult() {
+        assert_eq!(free_agent_bid(10_000, 9_000, 20_000), 10_000);
+        assert_eq!(free_agent_bid(10_000, 9_000, 8_000), 8_000);
+        assert_eq!(free_agent_bid(10_000, 9_000, 3_000), 6_500);
+        assert_eq!(free_agent_bid(10_000, 9_000, 0), 6_500);
+        assert_eq!(free_agent_bid(10_000, 9_000, -5_000), 6_500);
+    }
+
+    /// The insult line is the one a renewal is judged by, so a bid made at it is not refused as one.
+    #[test]
+    fn the_lowest_bid_is_not_an_insulting_offer() {
+        let ask = 12_345;
+        let lowest = free_agent_bid(ask, 10_000, 0);
+        assert!(!is_insulting_wage_offer(10_000, ask, lowest));
+        assert!(is_insulting_wage_offer(10_000, ask, lowest - 1));
+    }
+
+    /// Given a player paid 1 000 whose market value implies 4 000 a week, one whose value implies
+    /// 1 200, and one with no wage on record
+    /// When the catch-up is worked out
+    /// Then the first and the second are offered what their value implies and the third nothing:
+    ///      the catch-up is a wage for a player the club keeps, not a wage for a stranger.
+    #[test]
+    fn a_players_pay_catches_up_with_his_value() {
+        let player = |wage: u32, value: u64| {
+            let mut p = Player::new(
+                "p".to_string(),
+                "P".to_string(),
+                "P".to_string(),
+                "1998-03-01".to_string(),
+                "France".to_string(),
+                Position::Midfielder,
+                attributes(),
+            );
+            p.market_value = value;
+            p.stage_wage(wage);
+            p
+        };
+        assert_eq!(quality_wage_catch_up(&player(1_000, 4_000 * 200)), 4_000);
+        assert_eq!(quality_wage_catch_up(&player(1_000, 1_200 * 200)), 1_200);
+        assert_eq!(quality_wage_catch_up(&player(0, 4_000 * 200)), 0);
     }
 }

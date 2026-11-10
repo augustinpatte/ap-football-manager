@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useTranslation } from "react-i18next";
-import { setPlayerRole } from "../../services/squadService";
+import { setOutOfPossessionFormation, setPlayerRole } from "../../services/squadService";
 
 import TacticsPitch from "./TacticsPitch";
 import TacticsPlayerList from "./TacticsPlayerList";
@@ -49,6 +49,7 @@ export default function TacticsTab({
     handleFormationChange,
     handlePlayStyleChange,
     handleApplyTacticPreset,
+    handleApplyCustomTactic,
     handleAssignBestFit,
     handlePromoteBenchPlayer,
     handleDemoteStarter,
@@ -90,10 +91,13 @@ export default function TacticsTab({
     gameState,
     formation,
     activePlayStyle,
+    outOfPossessionFormation: team?.out_of_possession_formation || formation,
+    tacticsPhase: team?.tactics_phase,
     initialPreset,
     onFormationChange: handleFormationChange,
     onPlayStyleChange: handlePlayStyleChange,
     onApplyPreset: handleApplyTacticPreset,
+    onApplyCustomTactic: handleApplyCustomTactic,
   });
 
   if (!team) {
@@ -111,6 +115,7 @@ export default function TacticsTab({
         activeTactic={activeTactic}
         activePlayStyle={activePlayStyle}
         formation={formation}
+        outOfPossessionFormation={team.out_of_possession_formation || formation}
         isDirty={isCommandBarDirty}
         canReset={canResetTactic}
         onReset={() => {
@@ -122,6 +127,13 @@ export default function TacticsTab({
         onDuplicate={handleDuplicateTactic}
         onFormationChange={(nextFormation) => {
           void handleFormationChange(nextFormation);
+        }}
+        onOutOfPossessionFormationChange={(nextFormation) => {
+          void setOutOfPossessionFormation(nextFormation)
+            .then(onGameUpdate)
+            .catch((error: unknown) => {
+              console.error("Failed to set out-of-possession formation:", error);
+            });
         }}
         onPlayStyleChange={(playStyle) => {
           void handlePlayStyleChange(playStyle);
@@ -235,8 +247,11 @@ export default function TacticsTab({
       {/* Inspector modal — only when both players are selected for comparison */}
       {selectedPlayer && comparePlayer && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="fixed inset-0 z-40 cursor-default bg-black/50 backdrop-blur-sm"
             onClick={clearLineupSelection}
           />
           <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4">

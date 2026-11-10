@@ -250,4 +250,123 @@ describe("EndOfSeasonScreen", () => {
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     expect(onGameUpdate).toHaveBeenCalled();
   });
+
+  // The backend crowns the champion from the competition's own tiebreakers (head-to-head first in
+  // some countries) and sends the table already in order; the screen must show that order, not
+  // re-rank by goal difference and contradict the champion, promotion and relegation it decided.
+  it("shows the backend's finishing order when the competition authors its tiebreakers", () => {
+    const game = createGameState();
+    const league = game.league;
+    if (!league) throw new Error("fixture has a league");
+    const [alpha, beta] = league.standings;
+    game.league = {
+      ...league,
+      rules: {
+        format: "LeagueTable",
+        counts_in_season_flow: true,
+        tiebreakers: ["Points", "HeadToHeadPoints"],
+      },
+      standings: [
+        { ...beta, points: 83, goals_for: 60, goals_against: 40 },
+        { ...alpha, points: 83, goals_for: 72, goals_against: 30 },
+      ],
+    };
+
+    render(<EndOfSeasonScreen gameState={game} onGameUpdate={vi.fn()} />);
+
+    expect(screen.getByText("2nd")).toBeInTheDocument();
+    expect(screen.queryByText("1st")).not.toBeInTheDocument();
+    expect(screen.getByText("endOfSeason.leagueChampions")).toBeInTheDocument();
+  });
+
+  // The summary is the backend's account of the rollover: whether the club went up or down and
+  // what became of the cups it entered. The last step of the season must say so.
+  it("tells the manager about the promotion and the cups after the season rolls over", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      game: createGameState(),
+      summary: {
+        season: 6,
+        league_name: "Premier League",
+        champion_id: "team-2",
+        champion_name: "Beta FC",
+        user_position: 2,
+        user_points: 75,
+        user_won: 22,
+        user_drawn: 9,
+        user_lost: 7,
+        user_goals_for: 65,
+        user_goals_against: 35,
+        golden_boot_player: "",
+        golden_boot_goals: 0,
+        poty_player: "",
+        poty_rating: 0,
+        total_teams: 2,
+        season_awards: createAwards(),
+        user_division_move: "Promoted",
+        user_next_league_id: "league-1",
+        user_next_league_name: "Premier League",
+        user_cup_results: [
+          {
+            competition_id: "cup-1",
+            competition_name: "League Cup",
+            champion_id: "team-1",
+            champion_name: "Alpha FC",
+            user_won: true,
+          },
+          {
+            competition_id: "cup-2",
+            competition_name: "Super Cup",
+            champion_id: "team-2",
+            champion_name: "Beta FC",
+            user_won: false,
+          },
+        ],
+      },
+    });
+
+    render(<EndOfSeasonScreen gameState={createGameState()} onGameUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start next season" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continue to dashboard" }));
+
+    expect(await screen.findByText("endOfSeason.promoted")).toBeInTheDocument();
+    expect(screen.getByText("endOfSeason.cupWon")).toBeInTheDocument();
+    expect(screen.getByText("endOfSeason.cupLost")).toBeInTheDocument();
+  });
+
+  it("does not announce a division change for a club that stayed, and lists no cup it skipped", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      game: createGameState(),
+      summary: {
+        season: 6,
+        league_name: "Premier League",
+        champion_id: "team-1",
+        champion_name: "Alpha FC",
+        user_position: 1,
+        user_points: 83,
+        user_won: 25,
+        user_drawn: 8,
+        user_lost: 5,
+        user_goals_for: 72,
+        user_goals_against: 30,
+        golden_boot_player: "",
+        golden_boot_goals: 0,
+        poty_player: "",
+        poty_rating: 0,
+        total_teams: 2,
+        season_awards: createAwards(),
+        user_division_move: "Stayed",
+        user_next_league_id: "league-1",
+        user_next_league_name: "Premier League",
+        user_cup_results: [],
+      },
+    });
+
+    render(<EndOfSeasonScreen gameState={createGameState()} onGameUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Start next season" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continue to dashboard" }));
+
+    expect(await screen.findByText("endOfSeason.stayedUp")).toBeInTheDocument();
+    expect(screen.queryByText("endOfSeason.promoted")).not.toBeInTheDocument();
+    expect(screen.queryByText("endOfSeason.cupResults")).not.toBeInTheDocument();
+  });
 });

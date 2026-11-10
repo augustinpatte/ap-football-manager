@@ -1,6 +1,6 @@
 use log::info;
 
-use ofm_core::contracts::{contract_warning_stage, has_let_expire_intent};
+use ofm_core::contracts::contract_needs_attention;
 use ofm_core::game::Game;
 use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
 use ofm_core::squad_safety::{project_user_team_planned_exit_safety, user_team_squad_safety};
@@ -267,10 +267,7 @@ fn key_contract_risk_blocker(
     let risky_key_players: Vec<&str> = effective_xi_players
         .into_iter()
         .take(3)
-        .filter(|player| {
-            !has_let_expire_intent(player)
-                && contract_warning_stage(player.contract_end(), current_date).is_some()
-        })
+        .filter(|player| contract_needs_attention(player, current_date))
         .map(|player| player.match_name.as_str())
         .collect();
 
@@ -296,10 +293,7 @@ fn contract_wage_risk_blocker(
     let at_risk_wages: u32 = roster
         .iter()
         .copied()
-        .filter(|player| {
-            !has_let_expire_intent(player)
-                && contract_warning_stage(player.contract_end(), current_date).is_some()
-        })
+        .filter(|player| contract_needs_attention(player, current_date))
         .map(|player| player.wage())
         .sum();
 

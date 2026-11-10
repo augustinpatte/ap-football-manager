@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { FreeAgentContractProjection } from "../../services/freeAgentService";
 import FreeAgentContractModal from "./FreeAgentContractModal";
+import type { FreeAgentTalkPanelData } from "./useFreeAgentContractFlow";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -35,6 +36,7 @@ vi.mock("react-i18next", () => ({
       if (key === "transfers.close") return "Close";
       return key;
     },
+    i18n: { language: "en" },
   }),
 }));
 
@@ -153,6 +155,19 @@ function createProjection(
   };
 }
 
+function idleTalkPanel(overrides: Partial<FreeAgentTalkPanelData> = {}): FreeAgentTalkPanelData {
+  return {
+    squadCapacity: null,
+    interest: null,
+    talk: null,
+    rivals: [],
+    busy: false,
+    onAcceptCounter: vi.fn(),
+    onWithdraw: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe("FreeAgentContractModal", () => {
   it("renders the contract offer state", () => {
     render(
@@ -164,17 +179,8 @@ describe("FreeAgentContractModal", () => {
         contractLength="3"
         onContractLengthChange={vi.fn()}
         projection={createProjection()}
-        feedback={{
-          mood: "firm",
-          headline_key: "headline",
-          detail_key: "detail",
-          tension: 50,
-          patience: 65,
-          round: 1,
-          params: {},
-        }}
-        statusMessage="Offer accepted"
-        statusClassName="text-primary-500"
+        talkPanel={idleTalkPanel()}
+        errorMessage="Offer refused by the board"
         submitting={false}
         submitDisabled={false}
         onSubmit={vi.fn()}
@@ -185,10 +191,57 @@ describe("FreeAgentContractModal", () => {
     expect(screen.getByRole("dialog", { name: "Offer Contract" })).toBeInTheDocument();
     expect(screen.getByText("Free Agent")).toBeInTheDocument();
     expect(screen.getByText("Projected financial impact")).toBeInTheDocument();
-    expect(screen.getByText("Offer accepted")).toBeInTheDocument();
+    expect(screen.getByText("Offer refused by the board")).toBeInTheDocument();
     expect(screen.getByLabelText("Contract Length")).toHaveAttribute("max", "5");
     // Cash runway now carries a unit instead of a bare number (#300).
     expect(screen.getByText("Cash runway 42 weeks -> 31 weeks")).toBeInTheDocument();
+  });
+
+  /**
+   * Given an offer already with the player
+   * When the form shows
+   * Then the submit button says it is pending, so a second click is not invited.
+   */
+  it("shows the offer as pending while the player has not answered", () => {
+    render(
+      <FreeAgentContractModal
+        player={createPlayer()}
+        teams={[createTeam()]}
+        wage="4000"
+        onWageChange={vi.fn()}
+        contractLength="3"
+        onContractLengthChange={vi.fn()}
+        projection={createProjection()}
+        talkPanel={idleTalkPanel({
+          talk: {
+            id: "fat:1",
+            club_id: "team-1",
+            status: "awaiting_response",
+            weekly_wage: 4000,
+            contract_years: 3,
+            signing_bonus: 0,
+            promise_stepping_stone: false,
+            round: 1,
+            opened_on: "2026-08-01",
+            updated_on: "2026-08-01",
+            respond_on: "2026-08-03",
+            counter_wage: null,
+            counter_years: null,
+            counter_expires_on: null,
+            closed_on: null,
+            reason: null,
+            made_by_manager: true,
+          },
+        })}
+        errorMessage={null}
+        submitting={false}
+        submitDisabled
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "freeAgents.talk.offerPending" })).toBeDisabled();
   });
 
   it("wires input, submit, and close interactions", () => {
@@ -206,9 +259,8 @@ describe("FreeAgentContractModal", () => {
         contractLength="3"
         onContractLengthChange={onContractLengthChange}
         projection={createProjection()}
-        feedback={null}
-        statusMessage={null}
-        statusClassName="text-gray-500"
+        talkPanel={idleTalkPanel()}
+        errorMessage={null}
         submitting={false}
         submitDisabled={false}
         onSubmit={onSubmit}
@@ -246,9 +298,8 @@ describe("FreeAgentContractModal", () => {
         contractLength="3"
         onContractLengthChange={vi.fn()}
         projection={createProjection()}
-        feedback={null}
-        statusMessage=""
-        statusClassName=""
+        talkPanel={idleTalkPanel()}
+        errorMessage={null}
         submitting={false}
         submitDisabled={false}
         onSubmit={vi.fn()}
@@ -279,9 +330,8 @@ describe("FreeAgentContractModal", () => {
         contractLength="3"
         onContractLengthChange={vi.fn()}
         projection={createProjection()}
-        feedback={null}
-        statusMessage={null}
-        statusClassName="text-gray-500"
+        talkPanel={idleTalkPanel()}
+        errorMessage={null}
         submitting={false}
         submitDisabled={false}
         onSubmit={vi.fn()}

@@ -13,6 +13,7 @@ import {
   Dialog,
   DialogCloseButton,
   InjuryBadge,
+  SuspensionBadge,
   JerseyIcon,
   PageToolbar,
   PitchToken,
@@ -269,6 +270,7 @@ function DisplaySection() {
         <Badge size="md">medium</Badge>
         <InjuryBadge injury={{ name: "Hamstring strain", days_remaining: 4 }} />
         <InjuryBadge injury={{ name: "Metatarsal fracture", days_remaining: 42 }} />
+        <SuspensionBadge matches={3} />
       </Row>
       <div className="grid max-w-md gap-2">
         {(["auto", "primary", "accent", "success", "danger", "muted"] as const).map(

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import { getSquad, setPlayerSquadRole } from "./squadService";
+import { getSquad, setOutOfPossessionFormation, setPlayerSquadRole } from "./squadService";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -22,6 +22,17 @@ describe("squadService", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("set_player_squad_role", {
       playerId: "player-1",
       squadRole: "Youth",
+    });
+  });
+
+  /** Given a defensive formation selected in tactics, when it is saved, then the IPC command receives it verbatim. */
+  it("calls the out-of-possession formation backend command", async () => {
+    const response = { manager: { id: "manager-1" } };
+    mockedInvoke.mockResolvedValueOnce(response);
+
+    await expect(setOutOfPossessionFormation("5-4-1")).resolves.toBe(response);
+    expect(mockedInvoke).toHaveBeenCalledWith("set_out_of_possession_formation", {
+      formation: "5-4-1",
     });
   });
   // Given the backend squad projection, when the service fetches it, then the

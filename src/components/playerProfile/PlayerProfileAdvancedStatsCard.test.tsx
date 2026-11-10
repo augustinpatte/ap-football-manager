@@ -9,6 +9,7 @@ const SUMMARY: PlayerAdvancedStatsSummary = {
   percentileEligible: true,
   peerGroup: null,
   seasonRatingRated: false,
+  detailRecorded: true,
   metrics: {
     shots: { total: 20, per90: 4, percentile: 2 },
     shotsOnTarget: { total: 10, per90: 2, percentile: null },
@@ -18,6 +19,9 @@ const SUMMARY: PlayerAdvancedStatsSummary = {
     foulsCommitted: { total: 5, per90: 1, percentile: null },
   },
 };
+
+const DETAIL_NOT_RECORDED =
+  "Detailed match statistics are not recorded for matches played in the background.";
 
 describe("PlayerProfileAdvancedStatsCard percentiles", () => {
   beforeAll(async () => {
@@ -89,5 +93,43 @@ describe("PlayerProfileAdvancedStatsCard percentiles", () => {
     render(<PlayerProfileAdvancedStatsCard summary={SUMMARY} t={i18n.t} />);
 
     expect(screen.queryByText(/Compared with/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a player of a club the game simulates in the background (no minute of his season had
+   * its shots and passes recorded)
+   * When the card renders
+   * Then it says so and shows no number, not a row of zeros
+   */
+  it("shows nothing measured, and says why, when the detail was not recorded", () => {
+    const unrecorded: PlayerAdvancedStatsSummary = {
+      ...SUMMARY,
+      detailRecorded: false,
+      metrics: {
+        shots: { total: 0, per90: null, percentile: null },
+        shotsOnTarget: { total: 0, per90: null, percentile: null },
+        passes: { completed: 0, attempted: 0, accuracy: null, percentile: null },
+        tacklesWon: { total: 0, per90: null, percentile: null },
+        interceptions: { total: 0, per90: null, percentile: null },
+        foulsCommitted: { total: 0, per90: null, percentile: null },
+      },
+    };
+
+    render(<PlayerProfileAdvancedStatsCard summary={unrecorded} t={(key) => key} />);
+
+    expect(screen.getByText(DETAIL_NOT_RECORDED)).toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.queryByText("0 / 0")).not.toBeInTheDocument();
+  });
+
+  /**
+   * The control for the test above: with the detail recorded, the note is absent and the totals
+   * show, so the previous test cannot pass for a card that hides everything.
+   */
+  it("shows the totals and no note when the detail was recorded", () => {
+    render(<PlayerProfileAdvancedStatsCard summary={SUMMARY} t={(key) => key} />);
+
+    expect(screen.queryByText(DETAIL_NOT_RECORDED)).not.toBeInTheDocument();
+    expect(screen.getByText("20")).toBeInTheDocument();
   });
 });

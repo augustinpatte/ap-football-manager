@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type React from "react";
 import type { MatchEvent, MatchSnapshot } from "./types";
 import type { FixtureData, GameStateData } from "../../store/gameStore";
@@ -172,6 +173,19 @@ export function getEventTypeLabel(eventType: string, t?: TranslateFn): string {
   const fallbackLabel = humanizeEventType(eventType);
 
   return t ? t(`match.eventTypes.${eventType}`, { defaultValue: fallbackLabel }) : fallbackLabel;
+}
+
+/**
+ * The name to show beside a goal in a match feed: the scorer, or for an own goal (which has no
+ * scorer) "Own goal: <the player who put it in>". One place, so no list shows a goal with no name.
+ */
+export function goalPlayerLabel(snapshot: MatchSnapshot, evt: MatchEvent, t: TFunction): string {
+  if (evt.detail && "OwnGoal" in evt.detail) {
+    return t("match.replayFeed.ownGoal", {
+      player: getPlayerName(snapshot, evt.detail.OwnGoal.by),
+    });
+  }
+  return getPlayerName(snapshot, evt.player_id);
 }
 
 export function getPlayerName(snapshot: MatchSnapshot, playerId: string | null): string {

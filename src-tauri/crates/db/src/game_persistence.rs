@@ -15,6 +15,7 @@ use crate::repositories::{
     edition_archive_repo, journal_repo, league_repo, manager_repo, message_repo, meta_repo,
     national_team_repo, news_repo, objective_repo, player_repo, retired_manager_repo,
     retired_player_repo, scouting_repo, staff_repo, stats_repo, team_repo,
+    transfer_obligation_repo,
 };
 
 pub struct GamePersistenceWriter;
@@ -48,12 +49,27 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
+        Self::write_game_stats_and_match(db, game, stats, save_id, save_name, None)
+    }
+
+    /// The career, its stats and the interactive match in progress (or none), in one transaction:
+    /// a save never holds a finished fixture next to the checkpoint of the match that finished it.
+    pub fn write_game_stats_and_match(
+        db: &GameDatabase,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        save_name: &str,
+        interactive_match: Option<&crate::interactive_match_repo::StoredMatch>,
+    ) -> Result<(), String> {
         let transaction = db
             .conn()
             .unchecked_transaction()
             .map_err(|_| game_persistence_write_error())?;
         write_game_to_connection(&transaction, game, save_id, save_name)?;
         stats_repo::persist_stats_state(&transaction, stats)?;
+        crate::interactive_match_repo::replace(&transaction, interactive_match)
+            .map_err(|_| game_persistence_write_error())?;
         transaction
             .commit()
             .map_err(|_| game_persistence_write_error())?;
@@ -162,6 +178,7 @@ fn write_game_to_connection(
     edition_archive_repo::persist_new_editions(conn, &game.edition_archive)?;
     custom_tactic_repo::replace_custom_tactics(conn, &game.custom_tactics)?;
     delegation_repo::replace_delegation(conn, &game.delegation)?;
+    transfer_obligation_repo::replace_transfer_obligations(conn, &game.transfer_obligations)?;
     retired_player_repo::archive_retired_players(conn, &game.retired_players)?;
     retired_manager_repo::archive_retired_managers(conn, &game.retired_managers)?;
     national_team_repo::replace_national_teams(conn, &game.national_teams)?;
@@ -294,6 +311,7 @@ impl GamePersistenceReader {
         let edition_archive = edition_archive_repo::load_editions(conn)?;
         let custom_tactics = custom_tactic_repo::load_custom_tactics(conn)?;
         let delegation = delegation_repo::load_delegation(conn)?;
+        let transfer_obligations = transfer_obligation_repo::load_transfer_obligations(conn)?;
         let retired_players = retired_player_repo::load_retired_players(conn)?;
         let retired_managers = retired_manager_repo::load_retired_managers(conn)?;
         let national_teams = national_team_repo::load_national_teams(conn)?;
@@ -391,6 +409,7 @@ impl GamePersistenceReader {
             delegation,
             retired_players,
             calendar_fingerprint: None,
+            calendar_repair_pending: false,
             day_start: None,
             retired_managers,
             archived_messages,
@@ -417,10 +436,12 @@ impl GamePersistenceReader {
                 serde_json::from_str(&meta.package_lockfile_json)
                     .map_err(|_| "be.error.gamePersistence.loadFailed".to_string())?
             },
+            transfer_obligations,
             cash_journal: domain::finance::CashJournal::from_vec(journal_repo::load_cash_journal(
                 conn,
             )?),
             cash_journal_dirty_ids: Vec::new(),
+            cash_journal_fold_pending: None,
             squad_floor_top_ups: Vec::new(),
         };
         game.promote_legacy_league();

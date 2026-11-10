@@ -226,6 +226,7 @@ export function PitchToken({
   }, [showTooltip, summary]);
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: hover is the pointer path to the summary; the keyboard path is the `focused` prop, set when a control inside the token takes focus.
     <div
       ref={tokenRef}
       className="flex w-full flex-col items-center gap-0.5"

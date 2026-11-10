@@ -47,7 +47,7 @@ export default function TournamentsTopScorers({
           <div className="divide-y divide-gray-100 dark:divide-navy-600">
             {topScorers.map((entry, i) => (
               <ContextMenu
-                items={menuItems(entry.playerId, entry.playerName!.team_id)}
+                items={menuItems(entry.playerId, entry.playerName.team_id)}
                 key={entry.playerId}
               >
                 <div
@@ -59,10 +59,10 @@ export default function TournamentsTopScorers({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
-                      {entry.playerName!.full_name}
+                      {entry.playerName.full_name}
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {entry.playerName!.team_name ?? entry.playerName!.team_id ?? ""}
+                      {entry.playerName.team_name ?? entry.playerName.team_id ?? ""}
                     </p>
                   </div>
                   <span className="font-heading font-bold text-lg text-accent-500 dark:text-accent-400 tabular-nums">

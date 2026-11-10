@@ -13,7 +13,7 @@ import {
   type TeamTalkTone,
 } from "./types";
 import MatchEventSideBadge from "./MatchEventSideBadge";
-import { getEventDisplay, getPlayerName, makeTeamFallback } from "./helpers";
+import { getEventDisplay, goalPlayerLabel, makeTeamFallback } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
 import { SubPanel } from "./SubPanel";
 import { applyRoleChange } from "./applyRoleChange";
@@ -257,7 +257,7 @@ export default function HalfTimeBreak({
                         </span>
                         <span>{display.icon}</span>
                         <span className={`${display.color} font-medium truncate`}>
-                          {getPlayerName(snapshot, evt.player_id)}
+                          {goalPlayerLabel(snapshot, evt, t)}
                         </span>
                         <MatchEventSideBadge
                           side={evt.side}

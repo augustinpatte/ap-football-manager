@@ -15,6 +15,7 @@ import DashboardHeader, {
   type DashboardMatchModeMeta,
 } from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
+import FastForwardDialog from "../components/dashboard/FastForwardDialog";
 import FiredModal from "../components/dashboard/FiredModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
@@ -49,6 +50,7 @@ import {
   getUnreadMessagesCount,
 } from "../components/dashboard/dashboardHelpers";
 import { useAdvanceTime } from "../hooks/useAdvanceTime";
+import { useFastForward } from "../hooks/useFastForward";
 import { Cpu, Eye, Gamepad2 } from "lucide-react";
 import { formatDate, formatDateFull, getFixtureCompetitionName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
@@ -350,6 +352,14 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     settings.continue_to_next_event,
   );
 
+  // Advance until a chosen date: the dialog, its progress and its result.
+  const setShowFiredModal = useGameStore((state) => state.setShowFiredModal);
+  const fastForward = useFastForward(
+    gameState?.clock.current_date ?? "",
+    setGameState,
+    useCallback(() => setShowFiredModal(true), [setShowFiredModal]),
+  );
+
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     setSaveError(null);
@@ -486,6 +496,11 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     setShowContinueMenu(!showContinueMenu);
   }
 
+  function handleOpenFastForward(): void {
+    setShowContinueMenu(false);
+    fastForward.open();
+  }
+
   function handleSelectMatchMode(mode: MatchModeType): void {
     setMatchMode(mode);
     setShowContinueMenu(false);
@@ -605,6 +620,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
         onDismissDigest={dismissDigest}
         onDigestStop={abortDigest}
       />
+      <FastForwardDialog state={fastForward} />
       <FiredModal />
 
       {/* Main Content Area */}
@@ -640,6 +656,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
           onSelectSearchPlayer={handleSelectSearchPlayer}
           onSelectSearchTeam={handleSelectSearchTeam}
           onSkipToMatchDay={handleSkipToMatchDay}
+          onFastForward={handleOpenFastForward}
           onToggleContinueMenu={handleToggleContinueMenu}
           saveFlash={saveFlash}
           searchOpen={searchOpen}

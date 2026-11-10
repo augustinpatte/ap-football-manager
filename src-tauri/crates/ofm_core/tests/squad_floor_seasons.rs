@@ -14,9 +14,10 @@
 //! them, and parts of the day still draw from ambient randomness. So the proof is
 //! a property: it must hold on every seed, on every run of it.
 
-use chrono::{TimeZone, Utc};
+use chrono::{Months, TimeZone, Utc};
+use domain::contract_ledger::{ContractRecord, ContractSource, MovementLedger};
 use domain::manager::Manager;
-use domain::player::{Position, SquadRole};
+use domain::player::{Player, PlayerMovementEntry, PlayerMovementKind, Position, SquadRole};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::generator::{
@@ -81,6 +82,24 @@ fn ai_clubs(game: &Game) -> Vec<String> {
         .map(|team| team.id.clone())
         .filter(|id| Some(id) != game.manager.team_id.as_ref())
         .collect()
+}
+
+/// Whether the season-end intake on `date` created this player: his first recorded movement is
+/// the free-agent signing the intake writes, with its contract starting that day.
+///
+/// The current contract is not the marker. A transfer writes a new contract from the day the move
+/// happens (`transfers::execution`), and a renewal does the same, so a recruit sold or renewed in
+/// the weeks after the intake no longer starts his current contract on the intake date. His first
+/// ledger entry still does, and only the intake creates a player that way.
+fn created_by_the_intake_on(player: &Player, date: &str) -> bool {
+    player.movement_history.first().is_some_and(|entry| {
+        entry.kind == PlayerMovementKind::FreeAgentSigning
+            && entry.date == date
+            && entry.contract.as_ref().is_some_and(|contract| {
+                contract.source == ContractSource::FreeAgent
+                    && contract.start.as_deref() == Some(date)
+            })
+    })
 }
 
 /// The world's population at one season's end.
@@ -362,11 +381,103 @@ fn a_world_with_no_free_agents_and_no_academies_still_finishes_every_day() {
     let season_end = today.format("%Y-%m-%d").to_string();
     for newcomer in newcomers {
         assert!(
-            newcomer.contract_start() == Some(season_end.as_str()) && newcomer.team_id.is_some(),
+            created_by_the_intake_on(newcomer, &season_end),
             "{} was created, and not by the season end's intake",
             newcomer.id
         );
+        assert!(
+            newcomer.team_id.is_some(),
+            "{} was created by the intake and left without a club",
+            newcomer.id
+        );
     }
+}
+
+/// Given an intake recruit and a paid transfer fourteen days later — which writes a new contract
+/// from the day of the move — when the test asks whether the intake created him, then it still
+/// says the intake date even though his current contract starts on the transfer date; and a
+/// player created another way on that same date is still rejected.
+#[test]
+fn a_recruit_transferred_after_the_intake_is_still_recognised_as_intake_created() {
+    let mut game = seeded_world(SEEDS[0]);
+    let intake_date = game.clock.current_date.date_naive();
+    ofm_core::youth_intake::apply_youth_intake(&mut game, intake_date, 2026);
+    let intake_day = intake_date.format("%Y-%m-%d").to_string();
+    let index = game
+        .players
+        .iter()
+        .position(|player| created_by_the_intake_on(player, &intake_day))
+        .expect("the intake created at least one recruit");
+    let seller = game.players[index]
+        .team_id
+        .clone()
+        .expect("an intake recruit joins a club");
+    let buyer = game
+        .teams
+        .iter()
+        .find(|team| team.id != seller)
+        .expect("the world has a second club")
+        .id
+        .clone();
+
+    // What `execute_transfer_with_terms` writes when a club buys him: a permanent transfer whose
+    // contract starts on the day of the move, not on the day the intake signed him.
+    let transfer_date = intake_date + chrono::Duration::days(14);
+    let transfer_day = transfer_date.format("%Y-%m-%d").to_string();
+    let contract_end = transfer_date
+        .checked_add_months(Months::new(36))
+        .expect("the transfer's contract end")
+        .format("%Y-%m-%d")
+        .to_string();
+    let player = &mut game.players[index];
+    let wage = player.wage().max(1);
+    player.team_id = Some(buyer.clone());
+    player
+        .record_movement(PlayerMovementEntry {
+            from_team_id: Some(seller),
+            to_team_id: Some(buyer),
+            fee: Some(1_000_000),
+            contract: Some(ContractRecord {
+                start: Some(transfer_day.clone()),
+                end: Some(contract_end.clone()),
+                weekly_wage: wage,
+                source: ContractSource::Transfer,
+            }),
+            ..PlayerMovementEntry::new(transfer_day.clone(), PlayerMovementKind::PermanentTransfer)
+        })
+        .expect("the ledger records the transfer");
+
+    // The contract's start moves with the transfer: this is the marker the season test used to
+    // read, and it is no longer the intake date.
+    assert_eq!(
+        game.players[index].contract_start(),
+        Some(transfer_day.as_str())
+    );
+    // His creation does not: the first entry is still the intake's signing.
+    assert!(
+        created_by_the_intake_on(&game.players[index], &intake_day),
+        "a recruit sold after the intake is still an intake recruit"
+    );
+
+    // A player created another way on the same day — the generator's opening contract — does not
+    // pass, so the check still tells an intake recruit from a player created outside it.
+    let mut outsider = game.players[index].clone();
+    outsider.movement_history = MovementLedger::default();
+    outsider
+        .record_movement(PlayerMovementEntry {
+            contract: Some(ContractRecord {
+                start: Some(intake_day.clone()),
+                end: Some(contract_end),
+                weekly_wage: 1,
+                source: ContractSource::Initial,
+            }),
+            ..PlayerMovementEntry::new(intake_day.clone(), PlayerMovementKind::InitialContract)
+        })
+        .expect("the ledger records the opening contract");
+    assert!(
+        !created_by_the_intake_on(&outsider, &intake_day),
+        "an opening contract is not an intake signing"
+    );
 }
 
 /// Given seeded generated worlds, when twelve seasons are played, then the

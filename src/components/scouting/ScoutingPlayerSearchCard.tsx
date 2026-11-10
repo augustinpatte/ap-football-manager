@@ -103,9 +103,8 @@ export default function ScoutingPlayerSearchCard({
             <tbody>
               {players.map((player) => {
                 const isScouting = alreadyScoutingIds.has(player.id);
-                const team = player.team_id
-                  ? getTeamName(teams, player.team_id)
-                  : t("common.freeAgent");
+                const teamId = player.team_id;
+                const team = teamId ? getTeamName(teams, teamId) : t("common.freeAgent");
                 const scoutState = isScouting
                   ? "already-assigned"
                   : sendingPlayerId === player.id
@@ -121,10 +120,10 @@ export default function ScoutingPlayerSearchCard({
                         }),
                       ]
                     : []),
-                  ...(player.team_id && onSelectTeam
+                  ...(teamId && onSelectTeam
                     ? [
                         buildViewTeamMenuItem(t, () => {
-                          onSelectTeam(player.team_id!);
+                          onSelectTeam(teamId);
                         }),
                       ]
                     : []),

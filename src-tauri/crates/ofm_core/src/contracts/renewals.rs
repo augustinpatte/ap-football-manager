@@ -178,6 +178,12 @@ pub fn propose_renewal(
         return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
+    // Opening talks, whatever comes of them, is dealing with the expiry warning.
+    mark_contract_warning_handled(
+        &mut game.players[player_index],
+        game.clock.current_date.date_naive(),
+    );
+
     if offer.contract_years == 0 || offer.contract_years > MAX_CONTRACT_YEARS {
         let current_date = game.clock.current_date.date_naive();
         let round = next_renewal_round(&game.players[player_index], None);

@@ -42,7 +42,7 @@ export function usePackageAssetSrc(path: string | null | undefined): string | nu
   const [packageSrc, setPackageSrc] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isPackageQualifiedAsset(path)) {
+    if (!path || !isPackageQualifiedAsset(path)) {
       setPackageSrc(null);
       return;
     }
@@ -51,7 +51,7 @@ export function usePackageAssetSrc(path: string | null | undefined): string | nu
     resolveAppDataDir()
       .then((dir) => {
         if (!active) return;
-        setPackageSrc(convertFileSrc(joinAssetRoot(dir, path!.trim())));
+        setPackageSrc(convertFileSrc(joinAssetRoot(dir, path.trim())));
       })
       .catch(() => {
         // No app data dir means no package assets; the caller's fallback

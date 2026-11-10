@@ -90,6 +90,93 @@ impl FmAttrs {
     }
 }
 
+/// The scale a save's attribute columns are stored on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AttributeScale {
+    /// FM's own 1-20.
+    OneToTwenty,
+    /// FM's 1-20 times five, which is what `ATTRIBUTE_COLUMNS` documents.
+    OneToHundred,
+}
+
+/// Which scale `rows` are on, read from the data rather than assumed: no attribute of any player
+/// above 20 can only be FM's own 1-20 (a database of professionals always holds a 90 somewhere on
+/// the 1-100 scale: pace, acceleration, finishing). Unknown (`None`) for no rows.
+pub fn detect_attribute_scale(rows: &[PlayerRow]) -> Option<AttributeScale> {
+    let highest = rows
+        .iter()
+        .flat_map(|row| row.attrs.0.values())
+        .copied()
+        .max()?;
+    Some(if highest <= 20 {
+        AttributeScale::OneToTwenty
+    } else {
+        AttributeScale::OneToHundred
+    })
+}
+
+/// Puts `rows` on the 1-100 scale, once. A save already on 1-100 is not touched, so the factor
+/// can never be applied twice. Returns the scale the rows were found on.
+pub fn normalise_attribute_scale(rows: &mut [PlayerRow]) -> Option<AttributeScale> {
+    let scale = detect_attribute_scale(rows)?;
+    if scale == AttributeScale::OneToTwenty {
+        for row in rows.iter_mut() {
+            for value in row.attrs.0.values_mut() {
+                *value *= 5;
+            }
+        }
+    }
+    Some(scale)
+}
+
+/// A bare player row for tests of conversion: a club player with the given ability, position
+/// notes and attributes (every other attribute 50).
+#[cfg(test)]
+pub(crate) fn sample_row(
+    ca: i64,
+    pa: i64,
+    position_code: &str,
+    attributes: &[(&'static str, i64)],
+) -> PlayerRow {
+    PlayerRow {
+        person_id: 1,
+        fm_uid: None,
+        fm_uid_status: String::new(),
+        first_name: "A".into(),
+        last_name: "Player".into(),
+        common_name: None,
+        birth_date: Some("1998-01-01".into()),
+        nation: Some("England".into()),
+        height_cm: None,
+        club_id: 1,
+        club_name: String::new(),
+        team_slot: Some(0),
+        team_is_youth: false,
+        registered_club_id: None,
+        registered_club_name: None,
+        registered_slot: None,
+        registered_is_youth: false,
+        wage_gbp_week: 0,
+        wage_original: 0,
+        wage_source: String::new(),
+        start_date: None,
+        end_date: None,
+        contract_type_code: None,
+        squad_status_code: None,
+        ca,
+        pa,
+        rep_current: None,
+        rep_home: None,
+        rep_world: None,
+        foot_left: 50,
+        foot_right: 80,
+        value_gbp: None,
+        value_source: None,
+        attrs: FmAttrs::from_pairs(attributes),
+        positions: BTreeMap::from([(position_code.to_string(), 20)]),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct CompetitionRow {
     pub id: i64,
@@ -499,6 +586,11 @@ impl Source {
         for player in &mut players {
             player.positions = by_person.remove(&player.person_id).unwrap_or_default();
         }
+        if normalise_attribute_scale(&mut players) == Some(AttributeScale::OneToTwenty) {
+            eprintln!(
+                "world.db attributes are on FM's own 1-20 scale: scaled x5 once to the 1-100 scale the adapter reads"
+            );
+        }
         Ok(players)
     }
 
@@ -602,6 +694,11 @@ impl Source {
         }
         for player in &mut players {
             player.positions = by_person.remove(&player.person_id).unwrap_or_default();
+        }
+        if normalise_attribute_scale(&mut players) == Some(AttributeScale::OneToTwenty) {
+            eprintln!(
+                "world.db attributes are on FM's own 1-20 scale: scaled x5 once to the 1-100 scale the adapter reads"
+            );
         }
         Ok(players)
     }

@@ -1,4 +1,5 @@
 use crate::game::Game;
+use crate::interactive_match::InteractiveMatch;
 use crate::live_match_manager::LiveMatchSession;
 use crate::spatial_runner::PreparedSpatialReplay;
 use domain::stats::StatsState;
@@ -52,6 +53,10 @@ pub struct StateManager {
     active_game: Mutex<Option<Game>>,
     active_stats: Mutex<Option<StatsState>>,
     live_match: Mutex<Option<LiveMatchSession>>,
+    /// The M12 session being played interactively for the fixture the live session identifies.
+    interactive_match: Mutex<Option<InteractiveMatch>>,
+    /// A translation key to show once: a match saved in progress could not be resumed.
+    restore_notice: Mutex<Option<String>>,
     spatial_replay: Mutex<Option<PreparedSpatialReplay>>,
     active_save_id: Mutex<Option<String>>,
     /// Last career token handed out (`next_career_token`); 0 is never issued.
@@ -70,6 +75,8 @@ impl StateManager {
             active_game: Mutex::new(None),
             active_stats: Mutex::new(None),
             live_match: Mutex::new(None),
+            interactive_match: Mutex::new(None),
+            restore_notice: Mutex::new(None),
             spatial_replay: Mutex::new(None),
             active_save_id: Mutex::new(None),
             last_career_token: AtomicU64::new(0),
@@ -101,6 +108,7 @@ impl StateManager {
         clear_option(&self.active_game);
         clear_option(&self.active_stats);
         clear_option(&self.live_match);
+        clear_option(&self.interactive_match);
         clear_option(&self.spatial_replay);
     }
 
@@ -164,6 +172,38 @@ impl StateManager {
 
     pub fn take_spatial_replay(&self) -> Option<PreparedSpatialReplay> {
         take_option(&self.spatial_replay)
+    }
+
+    pub fn set_restore_notice(&self, key: Option<String>) {
+        *self
+            .restore_notice
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = key;
+    }
+
+    /// The notice, once: asking again returns nothing.
+    pub fn take_restore_notice(&self) -> Option<String> {
+        self.restore_notice
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take()
+    }
+
+    pub fn set_interactive_match(&self, interactive: InteractiveMatch) {
+        set_option(&self.interactive_match, interactive);
+    }
+
+    pub fn take_interactive_match(&self) -> Option<InteractiveMatch> {
+        take_option(&self.interactive_match)
+    }
+
+    /// Runs `f` on the interactive match while its slot is locked, so two callers can never
+    /// advance or command the same session at once.
+    pub fn with_interactive_match<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut InteractiveMatch) -> R,
+    {
+        with_option_mut(&self.interactive_match, f)
     }
 
     pub fn take_live_match(&self) -> Option<LiveMatchSession> {

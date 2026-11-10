@@ -704,11 +704,14 @@
     "adaptedFit": "可胜任",
     "needsCover": "需要轮换",
     "makeStarter": "设为首发",
-    "sendToBench": "放到替补席"
+    "sendToBench": "放到替补席",
+    "protectFromSale": "禁止出售",
+    "removeSaleProtection": "允许助理出售"
   },
   "tactics": {
     "formationStyle": "阵型与风格",
     "formation": "阵型",
+    "outOfPossessionFormation": "无球时",
     "playStyle": "比赛风格",
     "lineupTab": "首发",
     "rolesTab": "定位球与角色",
@@ -845,7 +848,20 @@
       "wing-play": "边路进攻",
       "high-press": "高位压迫",
       "counter-attack": "防守反击",
-      "low-block": "低位防守"
+      "low-block": "低位防守",
+      "control-possession": "控球控制",
+      "tiki-taka": "Tiki-Taka 风格",
+      "vertical-tiki-taka": "纵向 Tiki-Taka",
+      "gegenpress": "反抢压迫",
+      "direct-counter": "直接反击",
+      "direct-play": "直接打法",
+      "mid-block": "中位防守",
+      "high-defensive-line": "高位防线",
+      "defensive": "防守",
+      "attacking": "进攻",
+      "long-ball": "长传",
+      "park-the-bus": "摆大巴",
+      "fast-transition": "快速转换"
     },
     "tableInteractionHint": "右键点击球员可使用快速操作。",
     "makeCaptain": "设为队长",
@@ -867,7 +883,20 @@
       "wing-play": "提供自然宽度、更早靠近禁区的支援，以及更多前插跑动。",
       "high-press": "将防线整体前提，要求更激进的压迫，并投入更多前场人数。",
       "counter-attack": "在重新获得球权后，依靠更稳妥的中场基础快速发动反击。",
-      "low-block": "为后防线提供更多保护，并在承受压力时保持更紧凑的形态。"
+      "low-block": "为后防线提供更多保护，并在承受压力时保持更紧凑的形态。",
+      "control-possession": "通过短传和耐心的控球，以及稳定的中场保护来掌控比赛。",
+      "tiki-taka": "以紧凑的短传和近距离接应，在彼此衔接的线条间推进。",
+      "vertical-tiki-taka": "将短传配合与高位防线结合，更早地把球向前推进。",
+      "gegenpress": "丢球后立刻以高位防线和持续反抢追逐皮球。",
+      "direct-counter": "先紧凑防守，再快速长传攻击对手身后的空间。",
+      "direct-play": "通过宽度选择和更少的中场传递，尽早将球送向前场。",
+      "mid-block": "以紧凑的中位防守保护中路空间，而不会完全退守。",
+      "high-defensive-line": "让球队保持高位，压缩场地并支持主动控球。",
+      "defensive": "优先采用狭窄低位阵型，并纪律严明地保护禁区。",
+      "attacking": "利用宽度、高位防线和最后三区的快速支援投入更多进攻人数。",
+      "long-ball": "先建立低位稳固基础，再用长传迅速争夺纵深。",
+      "park-the-bus": "极深、狭窄且被动地退守，封堵禁区内外的空间。",
+      "fast-transition": "以快速转换和积极压迫，将夺回球权立刻变成进攻。"
     },
     "clearSelection": "清除选择",
     "compareWithSelected": "与已选球员比较",
@@ -1117,7 +1146,12 @@
         "Scouting": "球探",
         "Youth": "青训",
         "StaffRecruitment": "员工招募",
-        "StaffRenewals": "员工续约"
+        "StaffRenewals": "员工续约",
+        "Lineup": "阵容与轮换",
+        "PlayerRenewals": "球员续约",
+        "PlayerRecruitment": "球员招募",
+        "Tactics": "战术准备",
+        "Offers": "收到的报价"
       },
       "confirmMajor": "重大决定前先征求我",
       "delegate": "委派",
@@ -1127,7 +1161,35 @@
       "accept": "接受",
       "decline": "拒绝",
       "log": "近期决定",
-      "noLog": "暂无决定。"
+      "noLog": "暂无决定。",
+      "mode": {
+        "title": "委托模式",
+        "manual": "手动",
+        "approval": "稳健",
+        "full": "完全",
+        "custom": "自定义",
+        "manualDesc": "所有决定都由你做。助理教练只提供建议。",
+        "approvalDesc": "助理教练处理日常事务，每个重大决定（签约、出售、续约）都会作为提案交给你，由你查看并答复。",
+        "fullDesc": "助理教练独立处理每项职责——签约、谈判、出售、续约——在俱乐部财务和规则范围内行事，绝不出售你保护的球员。",
+        "customDesc": "下方逐项设置各项职责。",
+        "totalNote": "完全授权：助理受俱乐部资金、薪资空间和董事会规定约束，因此下方的支出上限不适用于签约和续约。他绝不会出售你保护的球员。",
+        "limitsOnlyNote": "此模式在下方支出上限内运作。选择“完全”可授予助理对俱乐部财务的权限。"
+      },
+      "limits": {
+        "title": "支出限额",
+        "intro": "助理教练无需询问即可承诺的金额。超出部分将作为提案交给你。",
+        "max_staff_wage": "员工周薪",
+        "max_player_wage": "球员续约周薪",
+        "max_commitment": "单份合同总额",
+        "max_transfer_fee": "转会费",
+        "transferNote": "转会费限额为 0 表示所有转会都由你决定。",
+        "save": "保存限额"
+      },
+      "outcome": {
+        "approved": "已批准",
+        "declined": "已拒绝",
+        "leftToManager": "留给你"
+      }
     },
     "assistant": {
       "title": "助理教练的建议",
@@ -1414,9 +1476,9 @@
     "bidAmount": "出价金额(€百万)",
     "bidImpactTitle": "预计影响",
     "bidImpactTransferBudget": "转会预算 {{before}} → {{after}}",
-    "bidImpactTransferBudgetDeferred": "转会预算 {{before}} → {{after}}（转会窗于 {{date}} 打开时）",
+    "bidImpactTransferBudgetDeferred": "转会预算 {{before}} → {{after}}（于 {{date}} 注册时）",
     "bidImpactBalance": "俱乐部余额 {{before}} → {{after}}",
-    "bidImpactBalanceDeferred": "俱乐部余额 {{before}} → {{after}}（转会窗于 {{date}} 打开时）",
+    "bidImpactBalanceDeferred": "俱乐部余额 {{before}} → {{after}}（于 {{date}} 注册时）",
     "bidImpactWagePressure": "预计工资预算占用 {{percent}}%",
     "bidImpactOverTransferBudget": "这笔报价超出了你的转会预算",
     "bidImpactOverBalance": "这笔报价会让俱乐部陷入负债",
@@ -1498,7 +1560,7 @@
     "talksResumeOn": "谈判可于 {{date}} 恢复。",
     "transferFeedbackAcceptedHeadline": "对方俱乐部已准备成交。",
     "transferFeedbackAcceptedDetail": "你的报价落在他们可接受的范围内,谈判迅速推进。",
-    "transferFeedbackScheduledHeadline": "交易已约定在下个注册窗口完成。",
+    "transferFeedbackScheduledHeadline": "交易已约定，注册手续正在办理。",
     "transferFeedbackScheduledDetail": "条款已被接受。注册安排在 {{date}}。",
     "transferFeedbackCounterHeadline": "他们希望得到更多才肯握手。",
     "transferFeedbackCounterDetail": "出价已足够接近,谈判仍在继续,但对方暗示的价位更接近 {{fee}}。",
@@ -1509,7 +1571,79 @@
     "registrationFailureInsufficientFunds": "注册失败：买方资金不足",
     "registrationFailureLoanConflict": "注册失败：租借冲突",
     "registrationFailurePlayerUnavailable": "注册失败：球员不可转会",
-    "registrationFailureRegistrationBlocked": "注册受阻"
+    "registrationFailureRegistrationBlocked": "注册受阻",
+    "deadline": {
+      "title": "截止日关注",
+      "phase": {
+        "early": "转会窗口开放",
+        "mid": "转会窗口开放",
+        "last_week": "最后一周",
+        "last_72h": "最后72小时",
+        "deadline_day": "截止日"
+      },
+      "needsResponse": "有 {{count}} 项谈判等待你的答复",
+      "nothingPending": "目前没有需要你答复的事项。",
+      "lapseWarning": "未答复的谈判将在窗口关闭时终止。",
+      "pendingList": "进行中的谈判",
+      "recentDeals": "市场动态",
+      "dealLine": "{{player}} 以 {{fee}} 从 {{from}} 转会至 {{to}}",
+      "scheduledFor": "{{date}} 完成注册",
+      "state": {
+        "incoming_offer": "收到报价",
+        "counter_received": "收到还价",
+        "awaiting_club": "等待俱乐部答复",
+        "scheduled_registration": "交易已达成"
+      }
+    },
+    "promise": {
+      "label": "承诺不阻碍日后转会",
+      "hint": "如果你承诺日后不阻碍他合适的转会，年轻球员可能接受较低薪水。拒绝这样的报价就是违背承诺。",
+      "bidHint": "如果你承诺日后不阻碍他合适的转会，他可能接受较小的俱乐部。"
+    },
+    "terms": {
+      "title": "交易条款",
+      "instalments": "付款方式",
+      "instalmentsSingle": "一次付清",
+      "instalmentsCount": "{{count}} 笔年度付款",
+      "sellOn": "转售分成条款（下次转会费的百分比）",
+      "signingBonus": "签字费（百万）",
+      "hint": "分期越长费用越高；转售分成条款会降低价格。球员在签约时领取签字费。",
+      "bonusHint": "签约时在薪水之外支付，从现金和转会预算中扣除。",
+      "projectionInstalments": "现在支付 {{now}}，之后每隔一年再付 {{count}} 笔，每笔 {{amount}}。",
+      "projectionBonus": "签字费 {{amount}}，在完成转会时支付。",
+      "signingBonusEuros": "签字费（整数欧元）",
+      "invalid": "请使用 1 至 {{instalments}} 笔付款、0 至 {{sellOn}}% 的转售分成，以及不小于 0 的签字费。"
+    },
+    "transferFeedbackPlayerRefusesHeadline": "球员拒绝了这次转会",
+    "transferFeedbackPlayerRefusesDetail": "两家俱乐部本可达成一致，但他不想要这次转会：俱乐部、他在队中的角色或条件都不合他意。",
+    "transferFeedbackPlayerWantsMoreHeadline": "球员要求更好的条件",
+    "transferFeedbackPlayerWantsMoreDetail": "两家俱乐部就 {{fee}} 达成一致，但他只愿以每周 {{wage}}、{{years}} 年的合同签约。",
+    "playerTerms": {
+      "wage": "球员周薪",
+      "years": "合同年限（年）",
+      "hint": "两项都留空则使用标准条件。他会根据薪资、年限、俱乐部地位以及自己在队中的角色来评估这次转会。",
+      "meetTerms": "提供他要求的条件",
+      "outlookKeen": "他会很乐意这次转会。",
+      "outlookHesitant": "他有些犹豫：预计他会要求更好的条件。",
+      "outlookUnlikely": "他不太可能加盟这家俱乐部。",
+      "expects": "他期望每周约 {{wage}}，合同 {{years}} 年。"
+    },
+    "squadCapacity": {
+      "summary": "一线队名单：{{count}} / {{max}} · 青年队 {{youth}} · 租入 {{loanedIn}} · 外租 {{loanedOut}}",
+      "room": "一线队名单还剩 {{free}} 个名额。",
+      "full": "名单已无空位：签约前请腾出 {{release}} 个。这是俱乐部的注册上限，并非球员拒绝。"
+    },
+    "transferFeedbackPlayerTermsHeadline": "俱乐部已达成一致——现在需要球员同意",
+    "transferFeedbackPlayerTermsDetail": "两家俱乐部就 {{fee}} 达成一致。目前尚未完成任何手续：他愿意以每周 {{wage}}、为期 {{years}} 年签约。请向他提交合同以完成交易，或修改条件。",
+    "bidPlayerTalks": "俱乐部已达成一致，现在敲定球员合同。",
+    "submitPlayerTerms": "向球员提交合同",
+    "restriction": {
+      "onLoanTitle": "租借中",
+      "onLoanDetail": "他租借在{{club}}，至 {{date}} 为止，在此之前无法接洽。",
+      "pendingTitle": "已达成转会协议",
+      "pendingDetail": "他的转会将于 {{date}} 办理注册。",
+      "pendingDetailNoDate": "他的转会正在等待办理注册。"
+    }
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -1770,6 +1904,7 @@
     "per90": "每 90 分钟",
     "passAccuracy": "传球成功率",
     "percentile": "百分位",
+    "detailNotRecorded": "后台进行的比赛不会记录详细的比赛统计数据。",
     "percentileUnavailable": "百分位不可用",
     "percentileGroup": "对比对象：{{league}} 的{{position}}",
     "recentMatches": "近期比赛",
@@ -1789,6 +1924,8 @@
     "avgRating": "平均评分",
     "careerHistory": "职业生涯",
     "noCareer": "暂无职业履历 — 首个赛季。",
+    "careerSimulated": "模拟",
+    "careerSimulatedNote": "标记为“模拟”的赛季是在创建此世界时生成的，并非该球员的真实记录。",
     "movementHistory": "转会流动历史",
     "noMovementHistory": "还没有记录转会或租借流动。",
     "movementPermanentTransfer": "转会",
@@ -1824,7 +1961,16 @@
     "renewalProjectionWageBill": "周薪总支出 {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "薪资预算占用 {{before}}% → {{after}}%",
     "renewalProjectionRunway": "现金储备 {{before}} → {{after}}",
-    "ratingTrend": "评分趋势"
+    "ratingTrend": "评分趋势",
+    "promise": {
+      "title": "跳板承诺",
+      "active": "有效至 {{date}}：不得阻止更大俱乐部的合适报价。",
+      "fulfilled": "已兑现：他获准离队。",
+      "lapsed": "到期，未被违背。",
+      "breached": "已违背：合适的报价被拒绝，他目前不愿谈合同。"
+    },
+    "suspendedShort": "停赛",
+    "suspendedTitle": "停赛 — 还需缺席的比赛场次：{{matches}}"
   },
   "teamProfile": {
     "clubInfo": "俱乐部信息",
@@ -2028,17 +2174,27 @@
     "confidence": "置信度"
   },
   "match": {
-    "simulateWithM12": "使用 M12 模拟",
-    "watchWithM12": "使用 M12 观看 2D 比赛",
-    "m12SimulationFailed": "M12 无法完成这场比赛。",
+    "simulateWithM12": "快速模拟",
+    "watchWithM12": "观看 2D 比赛",
+    "m12SimulationFailed": "无法模拟这场比赛，未做任何更改。",
     "replayUnavailable": "此回放不可用或已损坏。",
-    "replayPitch": "M12 回放球场",
+    "replayPitch": "2D 比赛球场",
     "pauseReplay": "暂停",
     "playReplay": "播放",
     "replaySpeed": "播放速度",
     "replayTimeline": "回放时间轴",
     "goToResult": "查看结果",
-    "reviewMatch": "回看比赛",
+    "reviewMatch": "2D 回放",
+    "viewMode": {
+      "heading": "选择这场比赛的进行方式",
+      "liveDesc": "通过文字解说逐分钟跟进比赛，并可随时调整。此模式使用经典引擎，没有 2D 球场。",
+      "watchDesc": "观看全部 22 名球员和足球在球场上的移动。只有选择“查看结果”后，结果才会生效。",
+      "quickDesc": "立即完成比赛并直接查看结果。2D 回放会被保存，之后仍可观看。"
+    },
+    "replayNotRecorded": "这场比赛没有记录 2D 回放。只有通过“观看 2D 比赛”或“快速模拟”进行的比赛才会保留回放；实时比赛和委托比赛没有。",
+    "replayUnsupportedSchema": "此回放的保存格式无法被当前版本播放。",
+    "replayNoFrames": "这场比赛没有球员移动数据，因此无法以 2D 显示。比赛结果和统计数据不受影响。",
+    "replayPlayersOnPitch": "场上球员：主队 {{home}} 人 · 客队 {{away}} 人（共 {{total}} 人）",
     "backToSchedule": "返回赛程",
     "live": "直播中",
     "paused": "已暂停",
@@ -2690,7 +2846,99 @@
     "resume": "继续",
     "pausedResumesAt": "已暂停 · 将以{{speed}}继续",
     "playingAt": "正在以{{speed}}进行",
-    "spaceKey": "空格"
+    "spaceKey": "空格",
+    "replayPreparationFailed": "无法准备 2D 比赛。未做任何更改。",
+    "replayViews": "比赛视图",
+    "replayTab": {
+      "pitch": "2D 球场",
+      "condition": "体能状态",
+      "stats": "统计",
+      "lineup": "阵容与换人"
+    },
+    "replayTeam": {
+      "home": "主队",
+      "away": "客队"
+    },
+    "replayUnknownPlayer": "一名球员",
+    "replayGoalBanner": "进球！{{player}} · {{minute}}'",
+    "replayFeedTitle": "比赛事件",
+    "replayFeed": {
+      "kickoff": "开球",
+      "halfTime": "中场休息",
+      "secondHalfStart": "下半场开始",
+      "fullTime": "全场结束",
+      "goal": "进球：{{player}}",
+      "ownGoal": "乌龙球：{{player}}",
+      "shotSaved": "射门被扑出：{{player}}",
+      "shotOffTarget": "射门偏出：{{player}}",
+      "shotBlocked": "射门被封堵：{{player}}",
+      "woodwork": "击中门框：{{player}}",
+      "yellowCard": "黄牌：{{player}}",
+      "secondYellow": "两黄变红被罚下：{{player}}",
+      "redCard": "红牌：{{player}}",
+      "substitution": "换人：{{player}} 替换 {{other}}",
+      "injury": "受伤：{{player}}",
+      "corner": "角球",
+      "foul": "{{player}} 犯规",
+      "offside": "越位：{{player}}"
+    },
+    "replayStats": {
+      "title": "截至第 {{minute}} 分钟的统计",
+      "possession": "控球率",
+      "goals": "进球",
+      "shots": "射门",
+      "shotsOnTarget": "射正",
+      "corners": "角球",
+      "fouls": "犯规",
+      "offsides": "越位",
+      "yellowCards": "黄牌",
+      "redCards": "红牌"
+    },
+    "replayCondition": {
+      "title": "球员体能状态",
+      "hint": "100 表示体力充沛。比赛引擎每秒记录一次。",
+      "none": "此回放未记录球员体能状态。"
+    },
+    "replayLineup": {
+      "onPitch": "场上",
+      "bench": "替补席",
+      "gone": "已离场",
+      "substituted": "被换下",
+      "sentOff": "被罚下",
+      "replayOnly": "这是已完成模拟的回放。战术与换人需在实时比赛中决定；此处的任何操作都不会改变结果。"
+    },
+    "interactive": {
+      "heading": "比赛管理",
+      "manage": "管理比赛",
+      "manageDesc": "比赛进行中由你做出战术决策和换人安排。比赛结束后结果才会生效。",
+      "play": "开始",
+      "resume": "继续",
+      "toEnd": "直接踢到终场",
+      "applyTactics": "应用战术",
+      "assistant": "由助理教练指挥我的球队",
+      "assistantHint": "助理教练负责常规调整，你下达的指令始终优先。",
+      "assistantUnavailable": "请先在“职员”中将比赛日战术委托给助理教练，才能启用。",
+      "finish": "结束比赛",
+      "orderRefused": "指令被拒绝：{{reason}}",
+      "pendingNote": "换人将在比赛下一次停球时进行。",
+      "fullTimeHint": "比赛结束。结束比赛以应用结果。",
+      "matchFailed": "比赛无法继续，未做任何更改。",
+      "rejection": {
+        "stale_revision": "指令送达前比赛已继续进行，请重试。",
+        "no_substitutions_left": "已没有换人名额。",
+        "no_window_left": "已没有换人机会。",
+        "goalkeeper_mismatch": "守门员只能由守门员替换。",
+        "already_played": "该球员已经参加过本场比赛。",
+        "not_on_pitch": "该球员不在场上。",
+        "not_on_bench": "该球员不在替补席上。",
+        "duplicate_request": "该球员已在一项待执行的换人中。",
+        "not_pending": "该球员没有待执行的换人。",
+        "match_finished": "比赛已经结束。",
+        "formation_needs_eleven_players": "场上有球员因伤倒地时，不能更改阵型。",
+        "unauthorized": "无法下达该指令。",
+        "other": "比赛引擎拒绝了该指令。"
+      }
+    }
   },
   "endOfSeason": {
     "seasonComplete": "赛季结束",
@@ -2709,7 +2957,13 @@
     "nGoals": "{{count}} 个进球",
     "playerOfYear": "年度最佳球员",
     "avgRating": "平均评分：{{rating}}",
-    "continueDashboard": "继续至主控台"
+    "continueDashboard": "继续至主控台",
+    "promoted": "升入{{league}}",
+    "relegated": "降入{{league}}",
+    "stayedUp": "留在{{league}}",
+    "cupResults": "杯赛结果",
+    "cupWon": "你们赢得了{{cup}}",
+    "cupLost": "{{cup}}：{{champion}}夺得冠军"
   },
   "notifications": {
     "attentionRequired": "需要关注",
@@ -2978,7 +3232,11 @@
         "loanBuyOptionNotAvailable": "该球员目前没有可执行的租借买断选项",
         "invalidYouthScoutingRegion": "不支持的青年球探区域。",
         "invalidYouthScoutingObjective": "不支持的青年球探目标。",
-        "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。"
+        "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。",
+        "invalidDealTerms": "这些交易条款不被允许。",
+        "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。",
+        "playerRefusesMove": "球员不愿加盟那家俱乐部。",
+        "playerRefusesLoan": "球员不愿租借到那家俱乐部。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",
@@ -2989,7 +3247,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "终止这份合同会让你的阵容无法在比赛日排出首发十一人",
         "noAssistantManagerAssigned": "你的球队没有分配助理教练",
         "playerHasNoTeam": "该球员没有所属球队",
-        "boardWagePolicy": "这次续约被董事会薪资政策阻止。请将每周薪资控制在接近 {{budget}} 的水平以恢复状况。"
+        "boardWagePolicy": "这次续约被董事会薪资政策阻止。请将每周薪资控制在接近 {{budget}} 的水平以恢复状况。",
+        "promiseNotWanted": "这名球员不需要跳板承诺。"
       },
       "scouting": {
         "scoutNotFound": "未找到球探",
@@ -3036,7 +3295,46 @@
       },
       "delegation": {
         "noAssistant": "委派事务需要一名助理教练。",
-        "proposalNotFound": "该提案已不存在。"
+        "proposalNotFound": "该提案已不存在。",
+        "invalidMode": "无法应用该委托模式。",
+        "invalidLimits": "支出限额不能为负数。",
+        "wagePolicy": "董事会的薪资政策不再允许这些条件。",
+        "signingRefusedByClub": "出售方俱乐部不会同意这笔签约。",
+        "signingRefusedByPlayer": "无论你能提供什么条件，球员都不会加盟。"
+      },
+      "freeAgents": {
+        "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
+        "talksBrokenOff": "该球员暂时不会与你的俱乐部谈判。",
+        "tooManyOpenTalks": "你开启的谈判太多。请等待答复或撤回一份报价。",
+        "squadFull": "一线队名单已满：{{max}} 个名额已占用 {{count}} 个。签下新球员前请先腾出 {{release}} 个名额：解约、出售、外租或将球员调入青年队。",
+        "noCounterToAnswer": "该球员没有需要你答复的还价。",
+        "counterExpired": "他的还价已过期。",
+        "noOpenTalk": "你没有与该球员的进行中报价。",
+        "invalidOffer": "这不是有效的合同报价。"
+      },
+      "fastForward": {
+        "invalidDate": "这不是有效的日期。",
+        "targetNotInFuture": "请选择今天之后的日期。",
+        "targetTooFar": "该日期太远，无法一次性推进。",
+        "alreadyRunning": "已有另一次快进正在进行。",
+        "careerChanged": "快进期间生涯发生了变化，因此已停止。"
+      },
+      "spatialReplay": {
+        "inputRejected": "无法准备 2D 比赛：阵容被拒绝（{{code}}）。未做任何更改。",
+        "engineFailed": "2D 比赛引擎无法运行此比赛：{{detail}}。未做任何更改。",
+        "outputInvalid": "2D 比赛引擎返回的结果未通过验证（{{code}}）。未做任何更改。",
+        "notPrepared": "尚未准备 2D 比赛。请先重新打开 2D 视图，再查看结果。"
+      },
+      "interactive": {
+        "noActiveMatch": "当前没有进行中的比赛。",
+        "notYourMatch": "你的俱乐部不参加这场比赛。",
+        "assistantNotDelegated": "尚未将比赛日战术委托给助理教练。",
+        "notFinished": "比赛尚未打到终场。",
+        "alreadyCompleted": "这场比赛已经完成。",
+        "unsupportedFormation": "比赛引擎无法使用该阵型。",
+        "nothingToChange": "该指令没有任何改变。",
+        "engineFailed": "比赛引擎无法继续，未做任何更改。",
+        "savedMatchDiscarded": "中途保存的比赛无法恢复，将从开球重新开始。"
       }
     },
     "sender": {
@@ -3079,9 +3377,27 @@
       "sportsDaily": "体育日报"
     },
     "msg": {
+      "freeAgentTalk": {
+        "counter": {
+          "subject": "{{player}} 想要其他条件",
+          "body": "{{player}} 对 {{team}} 的报价作出还价：每周 {{wage}}，合同 {{years}} 年。他的条件有效 {{days}} 天。"
+        },
+        "rejected": {
+          "subject": "{{player}} 拒绝了 {{team}}",
+          "body": "{{player}} 拒绝了 {{team}} 的报价。打开他的档案查看原因。"
+        },
+        "lost": {
+          "subject": "{{player}} 已与 {{team}} 签约",
+          "body": "{{player}} 选择了另一家俱乐部 {{team}}，而不是你的报价。"
+        },
+        "lapsed": {
+          "subject": "对 {{player}} 的报价已失效",
+          "body": "对 {{player}} 的报价无果而终：他的还价没有及时得到答复，或者俱乐部已负担不起这笔交易。"
+        }
+      },
       "world": {
         "randomName": "随机世界",
-        "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",
+        "randomDescription": "一个完全虚构的世界，包含 {{teamCount}} 家生成的俱乐部。所有俱乐部、球员和姓名均为虚构。",
         "exportedName": "导出的世界",
         "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队"
       },
@@ -3505,6 +3821,19 @@
         "totalSubject": "无人可补齐阵容",
         "totalBody": "老板，一线队只剩 {{have}} 名球员，少于俱乐部必须保留的 {{floor}} 人，而青训和自由球员市场都没有人能填补空缺。"
       },
+      "assistantDigest": {
+        "subject": "助理教练报告",
+        "body": "老板，自上次报告以来，我做了 {{done}} 项决定，留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。",
+        "bodyTransfers": "老板，自上次报告以来，我做了 {{done}} 项决定（其中签约 {{signings}} 项、出售 {{sales}} 项），留给你 {{left}} 项。有 {{waiting}} 项提案等你答复。"
+      },
+      "assistantProposals": {
+        "subject": "提案待处理",
+        "body": "老板，职员页签中有 {{count}} 项提案等你答复。"
+      },
+      "assistantMissing": {
+        "subject": "没有助理教练执行你的委托",
+        "body": "助理教练职位空缺，因此已委托的职责无法执行。请聘请新的助理教练以恢复。"
+      },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",
         "body": "老板,我梳理了{{team}}的续约名单。{{successes}}个已完成,{{stalled}}个仍在推进,{{failures}}个未成。",
@@ -3613,7 +3942,23 @@
       "transferInterest": {
         "subject": "对 {{player}} 的转会兴趣",
         "body": "对 {{player}} 提出有效报价的俱乐部：{{n}}。最新询问：{{team}}（{{fee}}）。请在转会标签页查看报价并回应。",
-        "actionReview": "查看报价"
+        "actionReview": "查看报价",
+        "actionRespond": "回复报价",
+        "option": {
+          "accept": {
+            "label": "接受报价",
+            "description": "以报价出售球员给该俱乐部。"
+          },
+          "reject": {
+            "label": "拒绝报价",
+            "description": "拒绝。该俱乐部在冷却期后可能再来。"
+          }
+        },
+        "effect": {
+          "accepted": "{{player}} 的出售已谈妥。",
+          "rejected": "对 {{player}} 的报价已被拒绝。",
+          "expired": "该 {{player}} 的报价已失效。请查看转会页面。"
+        }
       },
       "loanAgreed": {
         "subject": "租借已达成：{{player}}",
@@ -3644,6 +3989,34 @@
       "matchesMoved": {
         "subject": "比赛已改期",
         "body": "您的部分比赛已改期，以保证球员的休息时间并避开国际比赛日：\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} 感到被背叛",
+          "body": "{{player}} 曾被承诺 {{team}} 不会阻碍合适的转会，但一份合适的报价被拒绝了。他的信任与士气下降，目前不愿讨论新合同。"
+        },
+        "fulfilled": {
+          "subject": "{{player}} 向你致谢",
+          "body": "{{team}} 信守承诺，让 {{player}} 转投更大的俱乐部。"
+        },
+        "lapsed": {
+          "subject": "对 {{player}} 的承诺已期满",
+          "body": "对 {{player}} 的承诺到期，{{team}} 从未阻碍过合适的转会。他因此对你多了一分信任。"
+        }
+      },
+      "deadlineExpired": {
+        "subject": "转会截止",
+        "body": "窗口已关闭。{{count}} 项未答复的谈判已作废。"
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "已支付 {{player}} 的分期款",
+          "body": "{{player}} 第 {{number}}/{{of}} 期：已向 {{club}} 支付 {{amount}}。"
+        },
+        "received": {
+          "subject": "已收到 {{player}} 的分期款",
+          "body": "{{player}} 第 {{number}}/{{of}} 期：已收到 {{club}} 支付的 {{amount}}。"
+        }
       }
     },
     "news": {
@@ -4536,19 +4909,159 @@
       "hire": "以每周 {{wage}} 聘请 {{name}}（{{post}}）",
       "upgradeRelease": "解雇 {{replaces}}（能力 {{current}}）",
       "upgradeHire": "由 {{name}} 接替（能力 {{ovr}}）",
-      "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年"
+      "renew": "以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
+      "renewPlayer": "以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
+      "signPlayer": "以 {{fee}} 签下 {{player}}（{{position}}），周薪 {{wage}}，合同 {{years}} 年",
+      "sellPlayer": "以 {{fee}} 将 {{player}} 卖给{{club}}",
+      "counterOffer": "向{{club}}要价 {{fee}} 出售 {{player}}（对方报价 {{offered}}）",
+      "listPlayer": "将 {{player}} 加入转会名单"
     },
     "reason": {
       "vacancy": "必需职位空缺。",
       "upgrade": "有明显更优的候选人。",
-      "contractEnding": "合同即将到期。"
+      "contractEnding": "合同即将到期。",
+      "aboveLimit": "这超出了你为助理教练设定的支出限额。",
+      "recruitNeed": "球队在这个位置需要一名球员。",
+      "recruitAboveLimit": "这超出了你为助理设定的支出上限，或超出他认为合理的价格。",
+      "recruitStarter": "他会成为{{role}}位置的首发，为球队增加约 {{gain}} 点能力值。",
+      "recruitDepth": "球队在{{role}}位置附近人手不足：他能补上缺口，增加约 {{gain}} 点实力值。",
+      "recruitSuccession": "{{role}}位置的主力年事已高或即将离队：他是接班人。",
+      "saleSurplus": "球队几乎不会感到他的缺席（约 {{loss}} 点能力值），而且价格合理。",
+      "saleFunds": "这笔钱对球队薄弱位置的提升，大于他本人的价值（失去他约损失 {{loss}} 点能力值）。",
+      "saleFair": "对于球队可以割舍的球员来说，这是个合理的价格（失去他约损失 {{loss}} 点能力值）。",
+      "listSurplus": "球队在他的位置上人数超过所需：球队约损失 {{loss}} 点能力值。",
+      "listLeaving": "他的合同即将到期，俱乐部不打算续约。",
+      "listFunds": "卖掉他可以为更强的阵容筹资：他的离开使球队损失约 {{loss}} 点能力值。",
+      "listBooks": "薪资总额超出预算，而他不在主力阵容中。"
     },
     "log": {
       "hired": "已以每周 {{wage}} 聘请 {{name}}（{{post}}）",
       "promoted": "已将 {{player}} 从青训提拔",
       "recoveryOrdered": "已将训练改为恢复",
       "renewed": "已以每周 {{wage}} 与 {{name}} 续约 {{years}} 年",
-      "scoutSent": "已派球探观察 {{player}}"
+      "scoutSent": "已派球探观察 {{player}}",
+      "lineupChosen": "已确定下一场比赛的首发十一人（{{changes}} 处变动）",
+      "playerRenewed": "已以周薪 {{wage}} 与 {{player}} 续约 {{years}} 年",
+      "playerRenewalLeft": "{{player}} 的合同留给你处理",
+      "recruitSigned": "以 {{fee}} 签下 {{player}}（{{position}}）",
+      "recruitScheduled": "已就 {{player}}（{{position}}）以 {{fee}} 达成协议；将于 {{date}} 注册",
+      "recruitClubRefused": "放弃 {{player}}（{{position}}）：其俱乐部不愿以合理价格出售",
+      "recruitPlayerRefused": "放弃 {{player}}（{{position}}）：他不愿加盟",
+      "recruitNotPossible": "放弃 {{player}}（{{position}}）：交易无法达成",
+      "managerOverride": "这是你亲自改的，助理教练在 {{until}} 之前不再干预",
+      "tacticsSet": "已为下一场比赛制定战术方案（{{style}}风格）",
+      "trainingIntensity": "已将训练设为{{focus}}，强度{{intensity}}",
+      "offerDeclined": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：远低于其身价",
+      "offerKeepsStarter": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：他是首发主力",
+      "offerDeclinedProtected": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：你要求不出售他",
+      "offerKept": "已拒绝{{club}}为{{player}}开出的{{fee}}报价：俱乐部更愿意留下他",
+      "offerAcceptedSurplus": "以 {{fee}} 将 {{player}} 卖给{{club}}：球队几乎不受影响（{{loss}} 点能力值），他每周 {{wage}} 的薪水从总额中扣除",
+      "offerAcceptedFunds": "以 {{fee}} 将 {{player}} 卖给{{club}}，用于补强薄弱位置：球队约损失 {{loss}} 点能力值；他每周 {{wage}} 的薪水从总额中扣除",
+      "offerAcceptedFair": "以 {{fee}} 将 {{player}} 卖给{{club}}，对可割舍的球员来说是合理价格（{{loss}} 点能力值）",
+      "offerCounteredAccepted": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方同意了",
+      "offerCounteredAgain": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方给出了新的报价",
+      "offerCounteredRefused": "向{{club}}要价 {{asked}} 出售 {{player}}（对方报价 {{offered}}）：对方退出了谈判",
+      "offerNotAccepted": "把{{club}}为{{player}}开出的{{fee}}报价留给你处理：目前情况下无法完成出售",
+      "listedSurplus": "已将 {{player}} 加入转会名单：球队在他的位置上人数超过所需（对球队价值 {{loss}} 点能力值）",
+      "listedLeaving": "已将 {{player}} 加入转会名单：他的合同即将到期且不会续约",
+      "listedFunds": "已将 {{player}} 加入转会名单，为更强的阵容筹资（对球队价值 {{loss}} 点能力值）",
+      "listedBooks": "已将 {{player}} 加入转会名单：薪资总额超出预算",
+      "delisted": "已将 {{player}} 从转会名单移除：球队需要他",
+      "released": "已解除 {{player}} 的合同：无人接手，且薪资总额超出预算",
+      "listedApproved": "已按你的批准将 {{player}} 加入转会名单",
+      "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他"
     }
+  },
+  "freeAgents": {
+    "talk": {
+      "title": "谈判",
+      "interest": {
+        "keen": "他很可能接受这些条件。",
+        "hesitant": "他犹豫不决，可能会要求其他条件。",
+        "unlikely": "他不太可能接受这些条件。"
+      },
+      "expects": "他期望每周约 {{wage}}，合同 {{years}} 年。",
+      "place": {
+        "key": "在你的俱乐部，他将是核心球员。",
+        "starter": "在你的俱乐部，他将是主力。",
+        "rotation": "在你的俱乐部，他将是轮换球员。",
+        "backup": "在你的俱乐部，他将是替补。"
+      },
+      "responseTime": "报价后他会在 {{min}} 至 {{max}} 天内答复。",
+      "awaiting": "报价已发出。他将在 {{date}} 答复。",
+      "counter": "他要求每周 {{wage}}，合同 {{years}} 年。他的条件有效至 {{date}}。",
+      "acceptCounter": "接受他的条件",
+      "withdraw": "撤回报价",
+      "rivals": "还有其他俱乐部在与他谈判：{{clubs}}。",
+      "ended": {
+        "rejected": "他拒绝了报价。",
+        "withdrawn": "你撤回了报价。",
+        "lost_to_rival": "他已与其他俱乐部签约。",
+        "lapsed": "报价已失效。"
+      },
+      "offerPending": "报价待答复"
+    },
+    "reason": {
+      "wage_too_low": "薪资低于他能争取到的水平。",
+      "club_below_his_level": "你的俱乐部远低于他的水平。",
+      "no_place_in_side_for_him": "他在你的球队里无法成为主力。",
+      "contract_too_short": "合同比他想要的短。",
+      "offer_insulting": "他认为报价是一种侮辱，两周内不会与你谈。",
+      "talks_broken_off": "他对谈判已失去耐心。",
+      "better_offer_elsewhere": "其他俱乐部给出了更好的报价。",
+      "club_cannot_afford": "你的俱乐部已负担不起这笔交易。",
+      "manager_withdrew": "你撤回了报价。",
+      "counter_expired": "他的还价没有及时得到答复。"
+    }
+  },
+  "fastForward": {
+    "menuTitle": "快进到指定日期",
+    "menuDesc": "一次性推进数天、数周或数月",
+    "title": "快进到指定日期",
+    "targetLabel": "快进至",
+    "preset": {
+      "week": "+1 周",
+      "month": "+1 个月",
+      "threeMonths": "+3 个月"
+    },
+    "daysAhead": "需推进天数：{{days}}",
+    "invalidTarget": "请选择今天之后的日期。",
+    "policyLabel": "停止条件",
+    "policy": {
+      "decisions": "仅在需要决定时",
+      "decisionsDesc": "你的比赛由系统代打。有事需要你批准时停止。",
+      "nextMatch": "我的下一场比赛之前",
+      "nextMatchDesc": "在你下一场比赛当天、开赛之前停止。",
+      "target": "直达该日期",
+      "targetDesc": "绝不因决定而停下：比赛照常进行、赛季自动结算，事后会列出被略过的事项。"
+    },
+    "start": "开始",
+    "progressDays": "第 {{done}} 天，共 {{total}} 天",
+    "progressMatches": "已进行的你的比赛：{{matches}}",
+    "stop": "停止",
+    "stopping": "今天结束后停止…",
+    "result": {
+      "targetReached": "已到达 {{date}}",
+      "nextMatch": "已在你的下一场比赛前停止",
+      "decisions": "已停止：需要你做出决定",
+      "seasonComplete": "赛季已结束：请结算赛季以继续",
+      "managerFired": "你已被解雇",
+      "cancelled": "应你的要求已停止",
+      "dayLimit": "已停止：一次推进的天数过多",
+      "error": "快进未能完成"
+    },
+    "summary": "已进行 {{days}} 天，从 {{from}} 到 {{to}}",
+    "seasonsRolled": "已结算赛季：{{seasons}}",
+    "decisionsTitle": "需要你关注",
+    "passedTitle": "途中被略过",
+    "decision": {
+      "blocker": "阵容或合同问题",
+      "delegationProposal": "助理的提议",
+      "incomingTransferOffer": "有人对你的一名球员报价",
+      "incomingLoanOffer": "有人想租借你的一名球员",
+      "freeAgentCounterOffer": "一名自由球员提出了还价",
+      "transferDeadline": "转会窗口关闭时仍有谈判未结束"
+    },
+    "resume": "继续"
   }
 }

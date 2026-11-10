@@ -707,8 +707,8 @@ describe("ScheduleTab", () => {
     expect(onSelectTeam).not.toHaveBeenCalled();
   });
 
-  /** Given a completed fixture with no persisted replay, when Review match is selected, then the schedule shows an error. */
-  it("reports an unavailable historical replay", async () => {
+  /** Given a completed fixture with no persisted replay, when the replay is requested, then the schedule says none was recorded (not that a file is corrupt). */
+  it("explains that a match without a stored replay never recorded one", async () => {
     const completedFixture = {
       ...makeGroup().fixtures[0],
       id: "missing-replay",
@@ -725,7 +725,7 @@ describe("ScheduleTab", () => {
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("match.replayUnavailable");
+    expect(await screen.findByRole("alert")).toHaveTextContent("match.replayNotRecorded");
   });
 
   /** Given a slow replay read, when Review match is clicked repeatedly, then the Tauri load command is sent once. */

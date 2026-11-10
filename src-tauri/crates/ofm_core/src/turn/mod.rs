@@ -2,6 +2,7 @@ mod calendar_sweep;
 pub(crate) mod cup_renewal;
 mod cup_round_summary;
 mod dormant;
+mod dormant_report;
 mod match_injuries;
 pub(crate) mod matchday_lookups;
 mod news;
@@ -35,6 +36,9 @@ pub use round_summary::{
 /// Players with 1 day remaining are cleared (fully recovered).
 fn progress_injury_recovery(game: &mut Game) {
     for player in game.players.iter_mut() {
+        if player.injury.is_some() {
+            player.stats.injured_days += 1;
+        }
         if let Some(mut injury) = player.injury.take()
             && injury.days_remaining > 1
         {
@@ -179,10 +183,15 @@ fn process_day_common(game: &mut Game, today: &str) {
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
     crate::ai_contracts::apply_ai_contract_decisions(game, weekday_num);
     crate::contracts::process_contract_expiries(game);
+    // Free agents answer the offers whose time has come, now that expiries have put the day's
+    // new ones on the market.
+    crate::contracts::process_free_agent_talks(game);
     // Staff contracts run out like players'; AI clubs fill, renew and trim their staff.
     crate::staff_system::ai::process_user_staff_expiry(game);
     crate::staff_system::ai::apply_ai_staff_management(game, weekday_num);
 
+    // AI clubs without a sponsor sign one, so the week's books already count it.
+    crate::club_economy::renew_ai_sponsorships(game);
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);
 
@@ -197,9 +206,13 @@ fn process_day_common(game: &mut Game, today: &str) {
     scouting::process_scouting(game);
     transfers::process_pending_transfer_registrations(game);
     transfers::process_pending_loan_registrations(game);
+    // Later instalments of fees agreed in earlier windows or seasons fall due whatever the window.
+    transfers::process_transfer_obligations(game);
     // AI clubs say whom they would sell before the market looks for what is for sale.
     crate::ai_squad_sales::apply_ai_listing_decisions(game, weekday_num);
     transfers::generate_incoming_transfer_offers(game);
+    // After the market has had its last say on the closing day, whatever is still unanswered ends.
+    transfers::expire_negotiations_at_deadline(game);
     // After every step above that can take a player away from a club — expiry,
     // registrations and the AI market — and the loan returns that opened the day.
     crate::ai_contracts::apply_ai_squad_planning(game, weekday_num);
@@ -249,9 +262,7 @@ where
     // scoreline only, keeping the dormant world moving without the full engine.
     let dormant_competitions = dormant_competition_indices_due_today(game, today);
     if !dormant_competitions.is_empty() {
-        for competition_index in dormant_competitions {
-            dormant::simulate_dormant_competition_day(game, competition_index, today);
-        }
+        dormant::simulate_dormant_day(game, &dormant_competitions, today);
     }
 
     // National-team football: window friendlies and any running World Cup.
@@ -277,9 +288,11 @@ pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
 where
     F: FnMut(StatsState),
 {
+    calendar_sweep::settle_loaded_calendar(game);
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     transfers::process_loan_development_reports(game);
     transfers::process_loan_returns(game);
+    transfers::process_stepping_stone_promises(game);
 
     simulate_the_rest_of_the_world(game, &today, on_capture);
 
@@ -312,6 +325,7 @@ where
     info!("[turn] finish_live_match_day: {}", today);
     transfers::process_loan_development_reports(game);
     transfers::process_loan_returns(game);
+    transfers::process_stepping_stone_promises(game);
     generate_matchday_news(game, &today);
 
     // The rest of the world had a day too. The player's own fixture is already settled, so it is
@@ -411,6 +425,45 @@ mod tests {
         staff.nationality = "GB".to_string();
         staff.wage = 200;
         staff
+    }
+
+    /// Given a player with a three-day injury and a fit one
+    /// When four days of recovery are processed
+    /// Then the injured one has three injured days on his season record, is fit again, and the
+    /// fit one has none: the record is what the season's development reads.
+    #[test]
+    fn every_injured_day_is_counted_on_the_season_record() {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 16, 12, 0, 0).unwrap());
+        let manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let mut hurt = make_player();
+        hurt.injury = Some(domain::player::Injury {
+            name: "Calf".to_string(),
+            days_remaining: 3,
+        });
+        let mut fit = make_player();
+        fit.id = "player2".to_string();
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![make_team()],
+            vec![hurt, fit],
+            vec![],
+            vec![],
+        );
+
+        for _ in 0..4 {
+            super::progress_injury_recovery(&mut game);
+        }
+
+        assert_eq!(game.players[0].stats.injured_days, 3);
+        assert!(game.players[0].injury.is_none());
+        assert_eq!(game.players[1].stats.injured_days, 0);
     }
 
     #[test]

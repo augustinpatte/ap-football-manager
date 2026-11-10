@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { User, Calendar, Shield, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react";
 import { ProgressBar, CountryFlag } from "./ui";
+import { ACTIVATABLE_FOCUS_CLASS, activatable } from "../lib/activatable";
 import { countryName } from "../lib/countries";
 import type { ScoutReportData } from "../store/gameStore";
 
@@ -44,10 +45,10 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
 
   return (
     <div
-      onClick={() => onPlayerClick?.(report.player_id)}
+      {...activatable(onPlayerClick ? () => onPlayerClick(report.player_id) : undefined)}
       className={`mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gradient-to-br from-gray-50 to-white dark:from-navy-700 dark:to-navy-800 overflow-hidden ${
         onPlayerClick
-          ? "cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all"
+          ? `cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all ${ACTIVATABLE_FOCUS_CLASS}`
           : ""
       }`}
     >

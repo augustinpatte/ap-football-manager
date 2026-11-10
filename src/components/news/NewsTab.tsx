@@ -384,7 +384,8 @@ function HeroArticle({
           {(article.team_ids ?? []).length > 0 && onSelectTeam && (
             <div className="flex gap-1.5">
               {(article.team_ids ?? []).slice(0, 3).map((tid) => (
-                <span
+                <button
+                  type="button"
                   key={tid}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -393,7 +394,7 @@ function HeroArticle({
                   className="text-[10px] font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 bg-primary-500/5 hover:bg-primary-500/10 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                 >
                   {teamNames[tid] ?? tid}
-                </span>
+                </button>
               ))}
             </div>
           )}

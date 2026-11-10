@@ -35,3 +35,20 @@ pub(crate) fn idle_operation(state: &StateManager) -> Result<MutexGuard<'static,
     ensure_idle(state)?;
     Ok(guard)
 }
+
+/// Whether the live session is an interactive match that can be checkpointed into a save.
+fn checkpointable(state: &StateManager) -> bool {
+    state
+        .with_interactive_match(|m| m.checkpoint().is_ok())
+        .unwrap_or(false)
+}
+
+/// Like [`idle_operation`] for saving: an interactive match in progress does not block a save
+/// (it is stored with the career); any other live match still does.
+pub(crate) fn savable_operation(state: &StateManager) -> Result<MutexGuard<'static, ()>, String> {
+    let guard = operation();
+    if state.with_live_match(|_| ()).is_some() && !checkpointable(state) {
+        return Err("be.error.liveMatch.inProgress".to_string());
+    }
+    Ok(guard)
+}

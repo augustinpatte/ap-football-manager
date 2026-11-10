@@ -29,7 +29,7 @@ pub struct UserMatchdayOutcome {
 
 /// The user's league round on one date: which matchday it is, and the table before it was played.
 /// Scoped to the DATE, because a round can be spread over several days once a match is postponed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LeagueRoundContext {
     pub date: String,
     pub matchday: u32,
@@ -179,6 +179,69 @@ where
         report,
         league_round_context,
     })
+}
+
+/// Where the user's fixture due today is: which competition to swap into the legacy slot, and the
+/// fixture's index within it.
+///
+/// The competition is an `Option` because for a save written before `competitions` existed there is
+/// no competition to name — the fixture is reachable only through the legacy `game.league` mirror,
+/// and the answer is "leave the mirror alone". That used to be encoded as an index one past the end
+/// of `competitions`, which read as an out-of-range bug at every call site and stopped anyone
+/// guarding against a genuinely bad index.
+pub fn scheduled_user_fixture(game: &Game, today: &str) -> Option<(Option<usize>, usize)> {
+    let user_team_id = game.manager.team_id.as_ref()?;
+    for (competition_index, competition) in game.competitions.iter().enumerate() {
+        if !game.active_competition_ids.is_empty()
+            && !game.active_competition_ids.contains(&competition.id)
+        {
+            continue;
+        }
+        if let Some(fixture_index) =
+            competition
+                .fixtures
+                .iter()
+                .enumerate()
+                .find_map(|(index, fixture)| {
+                    if fixture.date == today
+                        && fixture.status == FixtureStatus::Scheduled
+                        && (fixture.home_team_id == *user_team_id
+                            || fixture.away_team_id == *user_team_id)
+                    {
+                        Some(index)
+                    } else {
+                        None
+                    }
+                })
+        {
+            return Some((Some(competition_index), fixture_index));
+        }
+    }
+    // Fall back to the legacy `game.league` mirror, for saves written before
+    // competitions existed. When the mirror *is* one of the competitions, name
+    // it — not competition zero: the caller replaces `game.league` with whatever
+    // it finds there, so a hardcoded zero handed the user a stranger's fixture.
+    // When it is not, there is nothing to name, and `None` says so: the mirror
+    // already holds the fixture and must be left as it is.
+    let league = game.league.as_ref()?;
+    let mirror_index = game
+        .competitions
+        .iter()
+        .position(|competition| competition.id == league.id);
+    league
+        .fixtures
+        .iter()
+        .enumerate()
+        .find_map(|(index, fixture)| {
+            if fixture.date == today
+                && fixture.status == FixtureStatus::Scheduled
+                && (fixture.home_team_id == *user_team_id || fixture.away_team_id == *user_team_id)
+            {
+                Some((mirror_index, index))
+            } else {
+                None
+            }
+        })
 }
 
 /// Whether `fixture` is still `Scheduled` although its day is `on_or_before` or earlier — a

@@ -314,7 +314,11 @@ pub const CATALOG: &[CatalogEntry] = &[
     ),
     (
         "transfer_free_agent_preview",
-        &[("player_id", "string"), ("weekly_wage", "integer")],
+        &[
+            ("contract_years", "integer"),
+            ("player_id", "string"),
+            ("weekly_wage", "integer"),
+        ],
         &["player_id", "weekly_wage"],
     ),
     (

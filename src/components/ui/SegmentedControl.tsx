@@ -67,6 +67,7 @@ export function SegmentedControl<V extends string>({
       {options.map((option, index) => {
         const checked = option.value === value;
         return (
+          // biome-ignore lint/a11y/useSemanticElements: segments are styled buttons in a radiogroup with a roving tab stop and arrow-key movement (handleKeyDown), the ARIA radio pattern; native radios would not give the segmented layout.
           <button
             key={option.value}
             ref={(node) => {

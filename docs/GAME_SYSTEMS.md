@@ -511,6 +511,29 @@ Each team tracks financial state:
 
 The `FinancesTab` displays an overview with cards for balance, wage budget, transfer budget, and a payroll table.
 
+### How an AI club keeps its wage bill (Run F5.3)
+
+The board's wage policy (`contract_wage_policy`) lets a bill rise to 110 % of the budget and, for a club
+already over it, a further `max(3 %, 25,000)` a week **at every decision**. That is right for one
+decision a manager takes and wrong for the dozen a club makes in a year: it let the poorest clubs of the
+shipped world grow their bills by a third a year on a revenue that does not grow (174 of 440 clubs in debt
+after thirty seasons). An AI club therefore answers to a second rule (`ai_finance_guard`):
+
+- its own signings and renewals stop at **the budget** (`AI_WAGE_CEILING_PCT`), and a club past it adds
+  nothing: a renewal at the wage he is paid or a cheaper replacement is the only decision it can take;
+- **a renewal is offered what fits** (`ai_contracts::affordable_renewal_wage`): the ask, held to the room
+  under the ceiling; a player not content with less leaves. A club in debt raises no wage at all. A club
+  with room also pays a player whose pay has fallen behind his value up to half as much again
+  (`contracts::quality_wage_catch_up`), so money in the bank buys quality;
+- **a free agent is bid for what the club can carry**, never below the line he would take as an insult
+  (`free_agent_bid`); a club short of its squad floor still signs, at the lowest bid;
+- **a recruit asking more than the youth minimum must fit the books too**; at the minimum he is taken
+  whatever the books say, so an academy is never emptied by a first team that spends what it has.
+
+The player's own club keeps the board's policy; nothing here applies to it. The instrument is
+`season-harness`'s `finance_study` (`tests/f53_finance_study.rs`, measurement) and the regression is
+`tests/f53_financial_stability.rs`; see `docs/APFM_RUN_F5_3_FINANCES_AND_PRESSING.md`.
+
 ---
 
 ## Transfers
@@ -531,6 +554,78 @@ The `TransfersTab` provides 4 views:
 - **Market** — Available players from other teams
 - **Loans** — Loan-listed players
 - **Offers** — Incoming and outgoing transfer offers
+
+### Squad Intelligence (Run F5.4)
+
+One reading of a squad, used by every club that manages one: the AI clubs' market, listing and renewal
+reviews, and the manager's assistant. Code: `ofm_core/src/squad_intelligence/`.
+
+**The squad is a side that plays a formation.** For a club's formation (`formation_slots`, eleven
+granular slots) each senior has a rating in each slot: his stored `ovr` less the game's own penalty for
+playing that slot instead of his natural one (`positional_fit_for_assignment` against `natural_ovr`;
+compatibility, footedness, what each slot is rated on). The best eleven is an optimal assignment of
+players to slots (Hungarian algorithm; the lineup picker's slot-order walk spends a striker on attacking
+midfield before it reaches the forwards), a natural keeper first in goal, and a natural keeper counts as an
+emergency body at best away from goal. The bench covers the starters: each bench player covers at most two
+slots, a slot nobody is left to cover is played by an emergency body (rating 25), and a starter's chance of
+being absent (0.10 plus injury, suspension and fitness) weights his cover into the expected strength of the
+slot. The same is done for the squad one and two seasons on (`squad_outlook`'s growth, decline and
+retirement rules), and a club's value of a squad is the weighted sum, the weights being its appetite (a
+contender looks less far ahead than a developing club; a constrained club prices money higher). Nothing here
+is a bonus on a rating: a signing is worth what he changes in the side the model would field.
+
+| Question | Answer |
+|---|---|
+| What is the squad short of? | `needs()`: slot by slot, in expected rating points below the club's own standard, as **starter** (a weak first choice), **cover** (a weak replacement) or **succession** (a first choice leaving or declining). |
+| What would a signing add? | `Marginal`: the change in weighted expected strength, whether he starts and where, and whether it is the eleven, the depth or the future. Priced against the club's cash and wage budget by its appetite; worth making if it adds at least 0.12 of a rating point to the side (1.3 across the eleven) and the price does not eat it. |
+| What would a sale cost? | `SaleCase`: the loss with nobody coming, and **net of the cheapest replacement a club can sign** (a player no better than the club's average starter less 12). A loss under 0.03 is surplus; over 0.35 is critical: nobody replaces him. |
+
+Two readings of availability: *today* (a short injury or suspension raises a player's chance of a miss;
+what signings and needs are judged by) and *planning* (the ordinary chance for everyone; what a player is
+worth to his club, so that his status does not change with every knock). A long injury (45 days or more)
+takes a player out of the present's side in both.
+
+**AI clubs.** The buy side of `evaluate_transfer_market` asks `BuyerView` (a club's squad, its strategy
+profile, and what each target adds, kept while neither changes) instead of "is he above my first cover in
+his broad group": a club buys what improves the side by more than the money is worth to it, or fills a
+hole in its depth. A player's status for the sell side (`Indispensable` ... `Unwanted`, which sets
+willingness and asking price) comes from what his sale costs the side; a club also sells an important
+player for an exceptional fee (125 % of his value) when the money would mend more elsewhere than he is
+worth, and never one nobody replaces. The weekly listing review and the renewal review use the same
+costs; the squad floor and the planned depth (22 seniors) stay as hard rules around them.
+
+**Cost.** Marginals are kept by the fingerprint of the squad and of the candidate (a pure function of its
+key, whole-number ratings, availability in twentieths); a candidate is added to the solved squad as one
+chain of moves through the eleven slots (exact, because the squad's own side is optimal); a squad's sale
+costs are kept while its fingerprint holds, and a member who neither starts nor covers anyone costs nothing
+to lose without being evaluated.
+
+### Delegation: Prudent and Total (Run F5.4)
+
+`DelegationMode::Approval` is **Prudent** and `Full` is **Total** (the identifiers are unchanged so saves
+and callers are). Prudent: every major decision is a proposal the manager can read (what the player adds
+to the side, the fee, the wage, the weakness it mends) and answer; the assistant never repeats a refused
+one for months. Total: the assistant conducts recruiting, negotiation, renewals, hiring, selling, listing
+and releasing within the club's finances, and carries `DelegationLimits::finance_bound`: a delegated
+spend is authorised by the books (`authorize_in_books`: cash for the fee, wage room under the budget, the
+staff budget; the board's wage policy, affordability, registration and the player's consent apply to the
+step itself as to the manager's), not by a per-deal ceiling. Selling, countering and listing need Total
+(`authorize_sale`); turning down an insult or a protected player's offer is routine and is the assistant's
+in any mode. `finance_bound` is set only by choosing the mode (the limits command preserves it) and is
+false in every state saved before it existed, so nobody is given authority they did not ask for.
+
+The manager's own instructions stand: a **protected** player (`set_player_protected`) is never sold,
+listed or proposed; a lineup, tactic or training the manager changed is left alone for a few days; a
+player the manager listed or de-listed is not touched; a refused proposal shelves the player. Everything the
+assistant does is in the history with the reason and the figures (and the `Approved` outcome for what the
+manager approved), and nothing is done twice (`SalesMemory` records each offer it has acted on; it is
+saved with the career).
+
+How sharp the assistant is shows continuously: his foresight (the weight he gives the next two seasons,
+40 % to 100 % of the club's own), his reading of a player he has not signed (a bounded, deterministic error
+of up to 6 rating points, halved for a player a scout has reported on, none for his own), the share of the
+club's price he turns down (50 % to 75 %) and the premium he asks for a first choice (none at 30 and below,
+30 % at 100) all move smoothly with his rating.
 
 ---
 
@@ -597,6 +692,8 @@ Measured on a three-nation pyramid of 80 clubs over five seasons and three seeds
 (`tests/youth_intake_wages_probe.rs`, ignored, run in release): the board turned away none of 2,240
 planned recruits. From the second season on, every club sits over its wage budget on the policy's
 25,000-a-week grace, which is allowed per decision, so a recruit at the minimum cannot be refused.
+(Run F5.3: the same grace let a recruit in at whatever he asked, so an AI club's recruit who asks more than
+the minimum must also fit the club's books; one at the minimum is still never refused.)
 `tests/squad_floor_seasons.rs` fails if a solvent AI club ever goes two season ends running without
 a youngster.
 
@@ -604,3 +701,36 @@ Measured on a seeded compact world with a league: the world opens below the inta
 grows for about a dozen seasons, and then holds at about a fifth above its opening size, with around
 six academy players and seven free agents per club. `tests/squad_floor_seasons.rs` asserts that
 band over twelve seasons on three seeds.
+
+## Free-agent negotiations
+
+A manager's offer to a player without a club is a *talk*, not a signing: the player answers one to three game
+days later, weighing the pay against what he can command, the club's standing and squad level against his own,
+the place he would have in the side, the length of the contract, how long he has been out of work and any rival
+offers; he accepts, asks for other terms (a counter-offer that stands three days), or refuses. AI clubs bid for
+the best free agents through the same talks, and every signing — negotiated, rival or squad-floor — ends in
+`contracts::sign_free_agent`, which refuses a player who already has a club and closes every other open talk.
+The daily step is `contracts::process_free_agent_talks`. Rules, numbers, before/after scenarios and limits:
+[`APFM_FREE_AGENT_NEGOTIATIONS.md`](APFM_FREE_AGENT_NEGOTIATIONS.md).
+
+## Suspensions
+
+A sending-off keeps a player out of his club's next matches: three for a straight red card, one for a
+second yellow (`ofm_core::suspension`). The ban is set from the card events of the match report, whichever
+engine played it, counted down by the club's matches (not by days, so it runs through a quiet fortnight and
+into the next season), and read by every squad selection through `Player::can_play()`, the same predicate
+that keeps an injured player out. It is stored as `players.suspended_matches` (migration v065) and shown
+as a badge in the squad and tactics lists. Rules, numbers and limits: [`APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md`](APFM_RUN_F4_2_FOOTBALL_INTELLIGENCE.md).
+
+### Where the fouls come from (Run F4.3)
+
+A foul is something a player does, never an event drawn to reach a rate. Two sources exist in the engine.
+A tackle on the carrier is judged when the bodies touch, as before. New in F4.3: a defender who has been
+beaten (behind a carrier who is running at goal and still within an arm's reach) decides whether to stop
+the attack by holding him. The decision rises with how promising the attack is (distance to goal,
+defenders goal-side, the carrier's speed) and with the defender's aggression, and falls when the foul
+would be a penalty, would deny an obvious chance (a sending-off) or would be a second caution. The referee
+then reads the act on the ordinary scale (careless, reckless, excessive force); a booked player's
+borderline second caution is read more leniently, as a referee would. Cards, bans and
+`Player::can_play()` are unchanged. Numbers, references and limits:
+[`APFM_RUN_F4_3_FINAL_BALANCE.md`](APFM_RUN_F4_3_FINAL_BALANCE.md) section 8.

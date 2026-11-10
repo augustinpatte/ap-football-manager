@@ -556,7 +556,11 @@ export default function YouthAcademyTab({
                             {player.condition}%
                           </span>
                         </td>
-                        <td className="py-2.5 px-4" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="py-2.5 px-4"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
                             onClick={(e) => {

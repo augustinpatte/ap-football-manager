@@ -13,21 +13,30 @@ use rand::Rng;
 
 const CATCHUP_XI: usize = 11;
 
+/// A club's likely eleven: its best match-day-eligible players by rating, ties broken on id so the
+/// choice never depends on storage order. `club` is one club's players.
+pub(crate) fn likely_eleven<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
+    let mut eligible = crate::match_day_eligibility::eligible_among(club);
+    eligible.sort_by(|a, b| b.ovr.cmp(&a.ovr).then_with(|| a.id.cmp(&b.id)));
+    eligible.truncate(CATCHUP_XI);
+    eligible
+}
+
+/// Average OVR of a club's likely eleven, used as scoreline strength. Falls back to a neutral
+/// rating when the club has no players on the books.
+pub(crate) fn strength_of_eleven(eleven: &[&Player]) -> f64 {
+    if eleven.is_empty() {
+        return 50.0;
+    }
+    let total: u32 = eleven.iter().map(|p| u32::from(p.ovr)).sum();
+    f64::from(total) / eleven.len() as f64
+}
+
 /// Average OVR of a club's best XI, used as scoreline strength. Falls back to a
 /// neutral rating when the club has no players on the books.
 pub(crate) fn club_strength(players: &[Player], club_id: &str) -> f64 {
-    let mut ovrs: Vec<u8> =
-        crate::match_day_eligibility::match_day_eligible_players(players, club_id)
-            .into_iter()
-            .map(|p| p.ovr)
-            .collect();
-    if ovrs.is_empty() {
-        return 50.0;
-    }
-    ovrs.sort_unstable_by(|a, b| b.cmp(a));
-    let count = ovrs.len().min(CATCHUP_XI);
-    let total: u32 = ovrs.iter().take(count).map(|&o| u32::from(o)).sum();
-    total as f64 / count as f64
+    let club = crate::match_day_eligibility::club_players(players, club_id);
+    strength_of_eleven(&likely_eleven(&club))
 }
 
 /// Settle one fixture of `competition` by scoreline alone: a score drawn from
@@ -52,7 +61,7 @@ pub(crate) fn resolve_fixture_by_scoreline(
 /// [`resolve_fixture_by_scoreline`], with each club's strength read from
 /// `strength_of` rather than recounted from the players: the one resolver,
 /// for a caller that settles many fixtures and has the strengths to hand.
-fn resolve_fixture_with_strengths(
+pub(crate) fn resolve_fixture_with_strengths(
     competition: &mut League,
     fixture_index: usize,
     strength_of: impl Fn(&str) -> f64,

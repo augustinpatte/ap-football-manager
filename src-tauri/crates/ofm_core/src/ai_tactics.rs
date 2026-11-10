@@ -242,7 +242,7 @@ fn read_squad(squad: &[&Player]) -> Option<SquadReading> {
         candidates.sort_by(|a, b| b.ovr.cmp(&a.ovr).then_with(|| a.id.cmp(&b.id)));
     };
 
-    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.injury.is_none()).collect();
+    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.can_play()).collect();
     if available.is_empty() {
         // An entire squad in the treatment room is still the squad the manager
         // has to plan around.
@@ -324,12 +324,21 @@ struct FormReading {
 /// `game.teams` while holding this, and a key borrowed out of the fixture list
 /// would pin `game.competitions` for the whole loop.
 fn read_form(game: &Game) -> std::collections::HashMap<String, FormReading> {
+    read_form_of(game, None)
+}
+
+/// [`read_form`], for one club when `only` names it: the assistant planning his own side's next
+/// match has no use for the other clubs' results.
+fn read_form_of(game: &Game, only: Option<&str>) -> std::collections::HashMap<String, FormReading> {
     let mut results: std::collections::HashMap<&str, Vec<(&str, u32, u32)>> = Default::default();
     for fixture in game
         .competitions_in_play()
         .iter()
         .flat_map(|competition| competition.fixtures.iter())
         .filter(|fixture| fixture.status == FixtureStatus::Completed)
+        .filter(|fixture| {
+            only.is_none_or(|id| fixture.home_team_id == id || fixture.away_team_id == id)
+        })
     {
         let Some(result) = fixture.result.as_ref() else {
             continue;
@@ -505,6 +514,32 @@ fn match_plan(
     }
 
     settings
+}
+
+/// The plan an assistant manager takes into the next match of `team_id`: what the weekly review
+/// gives an AI club, from the same style, results and (when the planner can read the squad)
+/// players. An assistant who cannot read a squad plans from style and results alone, so he may
+/// ask a tired side to press; a good one does not.
+pub(crate) fn plan_for_club(
+    game: &Game,
+    team_id: &str,
+    reads_the_squad: bool,
+) -> TacticsPhaseSettings {
+    let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
+        return TacticsPhaseSettings::default();
+    };
+    let reading = reads_the_squad
+        .then(|| {
+            let squad: Vec<&Player> = game
+                .players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team_id))
+                .collect();
+            read_squad(&squad)
+        })
+        .flatten();
+    let form = read_form_of(game, Some(team_id));
+    match_plan(&team.play_style, reading.as_ref(), form.get(team_id))
 }
 
 /// Every club the player does not manage looks at how it plays, once a week.
@@ -1080,5 +1115,59 @@ mod tests {
              the week at all",
             days.len()
         );
+    }
+
+    fn tired_high_press_club() -> Game {
+        let mut game = form_game();
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "home")
+            .unwrap()
+            .play_style = PlayStyle::HighPress;
+        for index in 0..14 {
+            let mut attributes = crate::test_support::uniform_attributes(60);
+            attributes.stamina = 30;
+            let mut player = Player::new(
+                format!("home-{index}"),
+                format!("home-{index}"),
+                format!("home-{index}"),
+                "1998-01-01".into(),
+                "England".into(),
+                Position::Midfielder,
+                attributes,
+            );
+            player.team_id = Some("home".into());
+            game.players.push(player);
+        }
+        game
+    }
+
+    /// Given a pressing club whose players have no legs
+    /// When an assistant who reads the squad plans for it, and one who does not
+    /// Then the first asks for less pressing; the second plans from style and results alone.
+    #[test]
+    fn a_plan_for_one_club_reads_the_squad_only_when_the_planner_can() {
+        let game = tired_high_press_club();
+
+        let reads = plan_for_club(&game, "home", true);
+        let blind = plan_for_club(&game, "home", false);
+
+        assert_eq!(reads.pressing_intensity, PressingIntensity::Medium);
+        assert_ne!(blind.pressing_intensity, reads.pressing_intensity);
+    }
+
+    /// Given a club that has conceded heavily
+    /// When a plan is made for it
+    /// Then it differs from its style's blueprint, and it is the one the weekly review gives the
+    /// AI clubs: the assistant and an AI manager reason alike.
+    #[test]
+    fn a_plan_for_one_club_reacts_to_results_like_the_weekly_review() {
+        let mut game = form_game();
+        let plan = plan_for_club(&game, "home", true);
+        assert_ne!(plan, blueprint_for(&PlayStyle::Attacking));
+
+        apply_ai_tactical_reviews(&mut game, review_weekday("home"));
+        let reviewed = game.teams.iter().find(|t| t.id == "home").unwrap();
+        assert_eq!(plan, reviewed.tactics_phase);
     }
 }

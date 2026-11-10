@@ -6,7 +6,7 @@ import type { PlayerData, TeamMatchRolesData } from "../../store/gameStore";
 import type { DragState, SquadSection } from "../squad/SquadTab.helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { getPlayerOvr } from "../../lib/helpers";
-import { Badge, InjuryBadge } from "../ui";
+import { Badge, InjuryBadge, SuspensionBadge } from "../ui";
 import ContextMenu from "../ContextMenu";
 import { buildTacticsPlayerContextMenuItems } from "./TacticsContextMenu.helpers";
 import TacticsFilters from "./TacticsFilters";
@@ -162,7 +162,9 @@ function PlayerRow({
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
             {player.match_name || player.full_name}
           </span>
-          {player.injury ? (
+          {player.suspended_matches ? (
+            <SuspensionBadge matches={player.suspended_matches} />
+          ) : player.injury ? (
             <InjuryBadge injury={player.injury} />
           ) : (
             <span

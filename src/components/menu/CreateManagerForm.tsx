@@ -39,11 +39,15 @@ function NationalityFieldFallback({ error }: { error?: string }) {
 
   return (
     <div id="create-manager-field-nationality">
-      <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <label
+        htmlFor="create-manager-nationality"
+        className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+      >
         {t("createManager.countryOfOrigin")}
       </label>
       <div className="relative">
         <button
+          id="create-manager-nationality"
           type="button"
           disabled
           className={`w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-navy-900 ${
@@ -119,10 +123,14 @@ export default function CreateManagerForm({
 
       <div className="flex gap-3">
         <div className="flex-1" id="create-manager-field-firstName">
-          <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <label
+            htmlFor="create-manager-first-name"
+            className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+          >
             {t("createManager.firstName")}
           </label>
           <input
+            id="create-manager-first-name"
             maxLength={30}
             className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-navy-900 dark:text-white dark:placeholder:text-gray-500 ${
               formErrors.firstName
@@ -145,10 +153,14 @@ export default function CreateManagerForm({
         </div>
 
         <div className="flex-1" id="create-manager-field-lastName">
-          <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <label
+            htmlFor="create-manager-last-name"
+            className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+          >
             {t("createManager.lastName")}
           </label>
           <input
+            id="create-manager-last-name"
             maxLength={30}
             className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-navy-900 dark:text-white dark:placeholder:text-gray-500 ${
               formErrors.lastName
@@ -172,12 +184,12 @@ export default function CreateManagerForm({
       </div>
 
       <div id="create-manager-field-dob">
-        <label
+        <span
           id={dobLabelId}
           className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
         >
           {t("createManager.dob")}
-        </label>
+        </span>
         <DatePicker
           labelledBy={dobLabelId}
           value={formData.dob}
@@ -229,7 +241,10 @@ export default function CreateManagerForm({
         </div>
 
         <div className="flex-1" id="create-manager-field-startPhase">
-          <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <label
+            htmlFor="create-manager-start-phase"
+            className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+          >
             {t("createManager.startPhase")}
           </label>
           <Select

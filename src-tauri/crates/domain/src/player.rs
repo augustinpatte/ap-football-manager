@@ -42,6 +42,10 @@ pub struct Player {
     pub fitness: u8,
 
     pub injury: Option<Injury>,
+    /// Matches of his club this player must still miss after a sending-off (Run F4.2). Counted down
+    /// by the club's matches, not by days; 0 = available. Unlike an injury nothing shortens it.
+    #[serde(default)]
+    pub suspended_matches: u8,
     pub team_id: Option<String>,
     #[serde(default)]
     pub retired: bool,
@@ -413,6 +417,11 @@ pub struct ContractRenewalState {
     pub last_outcome: Option<RenewalSessionOutcome>,
     pub conversation_round: u8,
     pub exit_intent: Option<ContractExitIntent>,
+    /// The expiry warning the manager has dealt with (answered the player's message, opened
+    /// renewal talks, or chosen to carry on), as `"{contract end}|{stage}"`. The key holds the
+    /// contract and the stage, so a later stage, or the next contract, warns again; the same one
+    /// does not interrupt the advance a second time.
+    pub warning_handled: Option<String>,
 }
 
 impl Default for ContractRenewalState {
@@ -425,6 +434,7 @@ impl Default for ContractRenewalState {
             last_outcome: None,
             conversation_round: 0,
             exit_intent: None,
+            warning_handled: None,
         }
     }
 }
@@ -454,6 +464,14 @@ pub struct PlayerMoraleCore {
     pub pending_promise: Option<PlayerPromise>,
     pub talk_cooldown_until: Option<String>,
     pub renewal_state: Option<ContractRenewalState>,
+    /// What the signing club promised in order to land him: not to stand in the way of a
+    /// suitable move later. Stored here, with the rest of what he remembers about his manager,
+    /// so it persists in the same JSON column and old saves read it as `None`.
+    pub stepping_stone_promise: Option<SteppingStonePromise>,
+    /// Contract talks with clubs while he has none. Kept here, in the JSON column that already
+    /// holds the rest of his morale record, so a save written mid-negotiation reloads intact and
+    /// an older save reads it as empty.
+    pub free_agent_talks: Vec<crate::free_agent_talk::FreeAgentTalk>,
 }
 
 impl Default for PlayerMoraleCore {
@@ -465,6 +483,59 @@ impl Default for PlayerMoraleCore {
             pending_promise: None,
             talk_cooldown_until: None,
             renewal_state: None,
+            stepping_stone_promise: None,
+            free_agent_talks: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SteppingStonePromiseStatus {
+    /// The club is still bound by it.
+    #[default]
+    Active,
+    /// He was sold to a club that met the terms of the promise.
+    Fulfilled,
+    /// It ran out without the club ever blocking a suitable move.
+    Lapsed,
+    /// The club turned away a suitable offer while bound by it.
+    Breached,
+}
+
+/// A promise not to obstruct a suitable future transfer.
+///
+/// Measurable terms: from `protected_from` until `expires_on`, an offer is *suitable* when the
+/// bidder's reputation is at least `min_buyer_reputation` and the fee is at least
+/// `min_fee_pct_of_value` per cent of his market value on the day. Refusing a suitable offer
+/// breaches the promise; selling to a suitable bidder fulfils it; running out unbroken lapses it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct SteppingStonePromise {
+    pub club_id: String,
+    /// `YYYY-MM-DD`.
+    pub made_on: String,
+    /// Before this date the club is not yet bound: a player who has just arrived is not owed an
+    /// immediate exit.
+    pub protected_from: String,
+    pub expires_on: String,
+    pub min_buyer_reputation: u32,
+    pub min_fee_pct_of_value: u8,
+    pub status: SteppingStonePromiseStatus,
+    pub resolved_on: Option<String>,
+}
+
+impl Default for SteppingStonePromise {
+    fn default() -> Self {
+        Self {
+            club_id: String::new(),
+            made_on: String::new(),
+            protected_from: String::new(),
+            expires_on: String::new(),
+            min_buyer_reputation: 0,
+            min_fee_pct_of_value: 80,
+            status: SteppingStonePromiseStatus::Active,
+            resolved_on: None,
         }
     }
 }
@@ -507,6 +578,9 @@ pub struct PlayerSeasonStats {
     /// and matches from before ratings existed are not among them.
     pub rated_appearances: u32,
     pub minutes_played: u32,
+    /// Days spent injured this season. Feeds the season's development.
+    #[serde(default)]
+    pub injured_days: u32,
     pub shots: u32,
     pub shots_on_target: u32,
     pub passes_completed: u32,
@@ -514,6 +588,30 @@ pub struct PlayerSeasonStats {
     pub tackles_won: u32,
     pub interceptions: u32,
     pub fouls_committed: u32,
+    /// Minutes of `minutes_played` whose shots, passes, tackles, interceptions and fouls were
+    /// recorded. A match the full engine played records them; a dormant club's lightweight match
+    /// records goals, assists, cards and ninety minutes and nothing else, so its minutes are not
+    /// here. A per-90 rate read over `minutes_played` would show those players with measured-looking
+    /// zeros (F5.1); read it over this instead.
+    #[serde(default)]
+    pub detail_minutes_played: u32,
+}
+
+impl PlayerSeasonStats {
+    /// A save from before `detail_minutes_played` existed has counters and no record of which
+    /// minutes they cover. Where any detail counter is non-zero the detail was recorded for every
+    /// minute (a lightweight season never writes one), so the minutes are the whole season's.
+    /// Idempotent, and a no-op once the field is set.
+    pub fn backfill_detail_minutes(&mut self) {
+        let has_detail = self.shots > 0
+            || self.passes_attempted > 0
+            || self.tackles_won > 0
+            || self.interceptions > 0
+            || self.fouls_committed > 0;
+        if self.detail_minutes_played == 0 && has_detail {
+            self.detail_minutes_played = self.minutes_played;
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -524,6 +622,13 @@ pub struct CareerEntry {
     pub appearances: u32,
     pub goals: u32,
     pub assists: u32,
+    /// True when the world generator made this season up (`history_generation`) rather than it
+    /// being played in this game or authored in a world file. A player is shown at his current club
+    /// for every past season of a generated history, with invented appearances; this flag is the
+    /// only thing that tells that apart from a real record. Absent in older saves, which therefore
+    /// read as not synthetic: they cannot be told apart after the fact.
+    #[serde(default)]
+    pub synthetic: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -613,6 +718,12 @@ pub struct TransferOffer {
     /// re-opens talks — so it can never answer "how long ago was this club turned away".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closed_on: Option<String>,
+    /// What the buyer attached to the fee. Absent in an older save, which reads as a plain fee.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::transfer_terms::TransferTerms::is_plain"
+    )]
+    pub terms: crate::transfer_terms::TransferTerms,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -806,7 +917,39 @@ pub fn compute_traits(attrs: &PlayerAttributes, _position: &Position) -> Vec<Pla
     traits
 }
 
+/// Prefix of the id of a player the World Cup made up to fill a thin national squad. The id is the
+/// only mark: it is a plain string every save already stores, so no column or migration is needed.
+pub const NATIONAL_POOL_ID_PREFIX: &str = "np-";
+
 impl Player {
+    /// Whether the player can be named in a match squad: not injured and not suspended. One
+    /// predicate, so a rule that keeps a player out (an injury, a ban) cannot be applied to the
+    /// lineup in one place and forgotten in another.
+    pub fn can_play(&self) -> bool {
+        self.injury.is_none() && self.suspended_matches == 0
+    }
+}
+
+impl Player {
+    /// A player invented to complete a national squad, who belongs to the national team's pool and
+    /// to no club's market. Recognised by his id, or, for a save written before ids carried the
+    /// prefix, by what only such a player looks like: unattached, still wearing the shirt number
+    /// the generator gave him, and with no recorded movement. A released or sold player has a
+    /// movement, and neither the FM24 import nor a package gives a free agent a shirt, so no
+    /// player of the world matches the second test.
+    pub fn is_national_pool_filler(&self) -> bool {
+        self.id.starts_with(NATIONAL_POOL_ID_PREFIX)
+            || (self.team_id.is_none()
+                && self.jersey_number.is_some()
+                && self.movement_history.is_empty())
+    }
+
+    /// Whether a club could sign him today as a free agent: unattached, not retired, and not one
+    /// of the players made up for a national squad.
+    pub fn is_on_free_market(&self) -> bool {
+        self.team_id.is_none() && !self.retired && !self.is_national_pool_filler()
+    }
+
     pub fn new(
         id: String,
         match_name: String,
@@ -839,6 +982,7 @@ impl Player {
             fitness: 75,
             injury: None,
             team_id: None,
+            suspended_matches: 0,
             retired: false,
             squad_role: SquadRole::Senior,
             traits,
@@ -862,6 +1006,50 @@ impl Player {
 
 #[cfg(test)]
 mod tests {
+    /// Given a save from before the field existed (a season of full-engine detail, no record of
+    /// which minutes it covers), when it is backfilled, then the whole season's minutes are the
+    /// detailed ones.
+    #[test]
+    fn a_legacy_season_with_detail_counters_is_backfilled_to_all_its_minutes() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 900,
+            shots: 12,
+            passes_attempted: 300,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 900);
+    }
+
+    /// Given a dormant club's season (ninety minutes a match and no shots, passes or tackles),
+    /// when it is backfilled, then it still has no detailed minutes: nothing is fabricated.
+    #[test]
+    fn a_season_of_lightweight_matches_has_no_detailed_minutes() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 2_700,
+            goals: 4,
+            yellow_cards: 3,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 0);
+    }
+
+    /// Given a season whose detailed minutes are already recorded, when it is backfilled, then
+    /// they are not overwritten (a player who moved from a dormant club to an active one keeps the
+    /// minutes that were actually detailed).
+    #[test]
+    fn a_recorded_detail_minute_count_is_not_overwritten_by_the_backfill() {
+        let mut stats = PlayerSeasonStats {
+            minutes_played: 2_000,
+            detail_minutes_played: 450,
+            shots: 5,
+            ..Default::default()
+        };
+        stats.backfill_detail_minutes();
+        assert_eq!(stats.detail_minutes_played, 450);
+    }
+
     use super::*;
 
     fn sample_attributes() -> PlayerAttributes {
@@ -950,5 +1138,63 @@ mod tests {
         assert_eq!(player.natural_position, Position::Midfielder);
         assert!(!player.retired);
         assert!(player.movement_history.is_empty());
+    }
+
+    fn bare_player(id: &str) -> Player {
+        Player::new(
+            id.into(),
+            id.into(),
+            id.into(),
+            "2000-01-01".into(),
+            "GB".into(),
+            Position::Midfielder,
+            sample_attributes(),
+        )
+    }
+
+    /// Given a player whose id carries the national-pool prefix
+    /// When the market is asked about him
+    /// Then he is a filler and not a free agent.
+    #[test]
+    fn a_national_pool_id_marks_a_filler_that_is_not_on_the_market() {
+        let filler = bare_player("np-1234");
+        assert!(filler.is_national_pool_filler());
+        assert!(!filler.is_on_free_market());
+    }
+
+    /// Given an ordinary unattached player (no shirt, no history)
+    /// When the market is asked about him
+    /// Then he is a free agent; retired, or signed, he is not.
+    #[test]
+    fn an_ordinary_unattached_player_is_on_the_market_until_retired_or_signed() {
+        let mut agent = bare_player("fa-1");
+        assert!(agent.is_on_free_market());
+        agent.retired = true;
+        assert!(!agent.is_on_free_market());
+        agent.retired = false;
+        agent.team_id = Some("club".into());
+        assert!(!agent.is_on_free_market());
+    }
+
+    /// Given a save written before filler ids carried a prefix: an unattached player still wearing
+    /// the generator's shirt number with no movement history
+    /// When the market is asked about him
+    /// Then he is recognised as a filler, while the same player once released (a movement
+    /// recorded) is a genuine free agent.
+    #[test]
+    fn a_filler_from_an_older_save_is_recognised_by_shirt_and_empty_history() {
+        let mut legacy = bare_player("6f9619ff-8b86-d011-b42d-00c04fc964ff");
+        legacy.jersey_number = Some(9);
+        assert!(legacy.is_national_pool_filler());
+
+        let mut released = legacy.clone();
+        released
+            .record_movement(PlayerMovementEntry::new(
+                "2026-07-01",
+                PlayerMovementKind::Released,
+            ))
+            .expect("a release is recordable");
+        assert!(!released.is_national_pool_filler());
+        assert!(released.is_on_free_market());
     }
 }

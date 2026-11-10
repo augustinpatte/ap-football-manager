@@ -66,6 +66,8 @@ pub enum SpatialShotOutcome {
     Saved,
     Blocked,
     OffTarget,
+    /// Struck the post or the bar and stayed out. The career counts it as off target.
+    HitWoodwork,
     Goal,
 }
 
@@ -185,7 +187,6 @@ pub enum ProjectionError {
     PlayerStatOverflow(String),
     InvalidRating(String),
     InvalidSubstitution(String),
-    OwnGoalCannotBeProjected(String),
 }
 
 impl std::fmt::Display for ProjectionError {
@@ -218,6 +219,8 @@ pub fn project(
     if matches!(input.end_status, SpatialEndStatus::ShootoutComplete) != home_penalties.is_some() {
         return Err(ProjectionError::ShootoutStatusMismatch);
     }
+    let mut player_stats = project_player_stats(&input.player_stats)?;
+    record_discipline(&mut player_stats, &projected_events.events);
     Ok(ProjectedMatch {
         report: MatchReport {
             home_goals,
@@ -226,7 +229,7 @@ pub fn project(
             away_stats: project_team_stats(&input.away_stats, away_goals),
             events: projected_events.events,
             goals: projected_events.goals,
-            player_stats: project_player_stats(&input.player_stats)?,
+            player_stats,
             home_possession: f64::from(input.home_stats.possession_pct),
             total_minutes: total_minutes(input),
             home_penalties,
@@ -282,7 +285,20 @@ fn validate_events(
             return Err(ProjectionError::DuplicateEvent);
         }
         for player_id in event_players(&event.kind) {
-            validate_player(player_id, event.side, &home, &away)?;
+            // an own goal is credited to the side that benefits; its scorer plays for the other one
+            let own_goal_scorer = matches!(
+                &event.kind,
+                SpatialEventKind::Goal { scorer_id, own_goal: true, .. } if scorer_id == player_id
+            );
+            let expected = if own_goal_scorer {
+                match event.side {
+                    SpatialSide::Home => SpatialSide::Away,
+                    SpatialSide::Away => SpatialSide::Home,
+                }
+            } else {
+                event.side
+            };
+            validate_player(player_id, expected, &home, &away)?;
         }
         if let SpatialEventKind::Substitution {
             player_off_id,
@@ -416,6 +432,7 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
     for event in &input.events {
         let side = side(event.side);
         let minute = minute(event.t_ms);
+        let mut detail = None;
         let (event_type, player_id, secondary_player_id) = match &event.kind {
             SpatialEventKind::Goal {
                 scorer_id,
@@ -423,28 +440,35 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
                 own_goal,
             } => {
                 if *own_goal {
-                    return Err(ProjectionError::OwnGoalCannotBeProjected(scorer_id.clone()));
+                    // Counts for the side it is credited to; nobody is credited with a goal, so
+                    // there is no scorer in the timeline and no `GoalDetail`; the detail says whose
+                    // it was.
+                    detail = Some(engine::EventDetail::OwnGoal {
+                        by: scorer_id.clone(),
+                    });
+                    (EventType::Goal, None, None)
+                } else {
+                    goals.push(GoalDetail {
+                        minute,
+                        scorer_id: scorer_id.clone(),
+                        assist_id: assist_id.clone(),
+                        goal_source: if previous_was_penalty {
+                            GoalSource::Penalty
+                        } else {
+                            GoalSource::OpenPlay
+                        },
+                        side,
+                    });
+                    (
+                        if previous_was_penalty {
+                            EventType::PenaltyGoal
+                        } else {
+                            EventType::Goal
+                        },
+                        Some(scorer_id.clone()),
+                        assist_id.clone(),
+                    )
                 }
-                goals.push(GoalDetail {
-                    minute,
-                    scorer_id: scorer_id.clone(),
-                    assist_id: assist_id.clone(),
-                    goal_source: if previous_was_penalty {
-                        GoalSource::Penalty
-                    } else {
-                        GoalSource::OpenPlay
-                    },
-                    side,
-                });
-                (
-                    if previous_was_penalty {
-                        EventType::PenaltyGoal
-                    } else {
-                        EventType::Goal
-                    },
-                    Some(scorer_id.clone()),
-                    assist_id.clone(),
-                )
             }
             SpatialEventKind::Penalty { taker_id } => {
                 (EventType::PenaltyAwarded, Some(taker_id.clone()), None)
@@ -453,7 +477,9 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
                 match outcome {
                     SpatialShotOutcome::Saved => EventType::ShotSaved,
                     SpatialShotOutcome::Blocked => EventType::ShotBlocked,
-                    SpatialShotOutcome::OffTarget => EventType::ShotOffTarget,
+                    SpatialShotOutcome::OffTarget | SpatialShotOutcome::HitWoodwork => {
+                        EventType::ShotOffTarget
+                    }
                     SpatialShotOutcome::Goal => EventType::ShotOnTarget,
                 },
                 Some(player_id.clone()),
@@ -515,7 +541,7 @@ fn project_events(input: &SpatialMatchResult) -> Result<ProjectedEvents, Project
             zone: Zone::Midfield,
             player_id,
             secondary_player_id,
-            detail: None,
+            detail,
         });
         previous_was_penalty = matches!(event.kind, SpatialEventKind::Penalty { .. });
     }
@@ -549,6 +575,32 @@ fn project_team_stats(stats: &SpatialTeamStats, goals: u8) -> TeamStats {
     }
 }
 
+/// Writes each player's cautions, dismissals and fouls from the timeline's own cards and fouls (the
+/// referee's decisions in the engine that played the match). The engine's player statistics carry
+/// none of them, so before Run F4.2 a sending-off reached the timeline and the team totals but never
+/// the player's season record, his morale or a ban. A second yellow is a second caution and a
+/// dismissal; a straight red is a dismissal; a player with no entry in the statistics gets none.
+fn record_discipline(stats: &mut HashMap<String, PlayerMatchStats>, events: &[MatchEvent]) {
+    for event in events {
+        let Some(player) = event.player_id.as_deref() else {
+            continue;
+        };
+        let Some(entry) = stats.get_mut(player) else {
+            continue;
+        };
+        match event.event_type {
+            EventType::YellowCard => entry.yellow_cards = entry.yellow_cards.saturating_add(1),
+            EventType::SecondYellow => {
+                entry.yellow_cards = entry.yellow_cards.saturating_add(1);
+                entry.red_cards = entry.red_cards.saturating_add(1);
+            }
+            EventType::RedCard => entry.red_cards = entry.red_cards.saturating_add(1),
+            EventType::Foul => entry.fouls_committed = entry.fouls_committed.saturating_add(1),
+            _ => {}
+        }
+    }
+}
+
 fn project_player_stats(
     stats: &[SpatialPlayerStats],
 ) -> Result<HashMap<String, PlayerMatchStats>, ProjectionError> {
@@ -578,6 +630,7 @@ fn project_player_stats(
                     yellow_cards: 0,
                     red_cards: 0,
                     rating: stat.rating,
+                    physical_load: None,
                 },
             )
             .is_some()

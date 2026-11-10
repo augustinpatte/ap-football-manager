@@ -21,6 +21,8 @@ type ActiveDealWorkspaceProps = {
     | "bidTarget"
     | "bidAmount"
     | "setBidAmount"
+    | "bidTerms"
+    | "setBidTerms"
     | "bidFee"
     | "bidProjection"
     | "bidFeedback"
@@ -60,10 +62,15 @@ type ActiveDealWorkspaceProps = {
     | "setContractWage"
     | "contractLength"
     | "setContractLength"
+    | "steppingStoneAvailable"
+    | "signingBonus"
+    | "setSigningBonus"
+    | "signingBonusError"
+    | "promiseSteppingStone"
+    | "setPromiseSteppingStone"
     | "contractProjection"
-    | "contractFeedback"
-    | "contractStatusMessage"
-    | "contractStatusClassName"
+    | "talkPanel"
+    | "contractError"
     | "contractSubmitting"
     | "contractSubmitDisabled"
     | "submitFreeAgentContract"
@@ -77,6 +84,8 @@ type TransferBidDialogProps = {
     | "gameState"
     | "bidAmount"
     | "setBidAmount"
+    | "bidTerms"
+    | "setBidTerms"
     | "myTeam"
     | "bidFee"
     | "bidProjection"
@@ -127,11 +136,15 @@ type FreeAgentDealDialogProps = {
     | "setContractWage"
     | "contractLength"
     | "setContractLength"
+    | "steppingStoneAvailable"
+    | "signingBonus"
+    | "setSigningBonus"
+    | "signingBonusError"
+    | "promiseSteppingStone"
+    | "setPromiseSteppingStone"
     | "contractProjection"
-    | "contractFeedback"
-    | "contractStatusMessage"
-    | "t"
-    | "contractStatusClassName"
+    | "talkPanel"
+    | "contractError"
     | "contractSubmitting"
     | "contractSubmitDisabled"
     | "submitFreeAgentContract"
@@ -215,6 +228,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidFee,
     bidProjection,
     bidFeedback,
@@ -254,10 +269,15 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractProjection,
-    contractFeedback,
-    contractStatusMessage,
-    contractStatusClassName,
+    talkPanel,
+    contractError,
     contractSubmitting,
     contractSubmitDisabled,
     submitFreeAgentContract,
@@ -283,6 +303,8 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 teams={gameState.teams}
                 bidAmount={bidAmount}
                 onBidAmountChange={setBidAmount}
+                bidTerms={bidTerms}
+                onBidTermsChange={setBidTerms}
                 myTeam={myTeam ?? null}
                 bidFee={bidFee}
                 bidProjection={bidProjection}
@@ -348,10 +370,15 @@ export function ActiveDealWorkspace({ state }: ActiveDealWorkspaceProps) {
                 onWageChange={setContractWage}
                 contractLength={contractLength}
                 onContractLengthChange={setContractLength}
+                steppingStoneAvailable={steppingStoneAvailable}
+                signingBonus={signingBonus}
+                onSigningBonusChange={setSigningBonus}
+                signingBonusError={signingBonusError}
+                promiseSteppingStone={promiseSteppingStone}
+                onPromiseSteppingStoneChange={setPromiseSteppingStone}
                 projection={contractProjection}
-                feedback={contractFeedback}
-                statusMessage={contractStatusMessage(t)}
-                statusClassName={contractStatusClassName}
+                talkPanel={talkPanel}
+                errorMessage={contractError}
                 submitting={contractSubmitting}
                 submitDisabled={contractSubmitDisabled}
                 showPlayerSummary={false}
@@ -379,6 +406,8 @@ export function TransferBidDialog({ state }: TransferBidDialogProps) {
     gameState,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     myTeam,
     bidFee,
     bidProjection,
@@ -404,6 +433,8 @@ export function TransferBidDialog({ state }: TransferBidDialogProps) {
         teams={gameState.teams}
         bidAmount={bidAmount}
         onBidAmountChange={setBidAmount}
+        bidTerms={bidTerms}
+        onBidTermsChange={setBidTerms}
         myTeam={myTeam ?? null}
         bidFee={bidFee}
         bidProjection={bidProjection}
@@ -481,11 +512,15 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
     setContractWage,
     contractLength,
     setContractLength,
+    steppingStoneAvailable,
+    signingBonus,
+    setSigningBonus,
+    signingBonusError,
+    promiseSteppingStone,
+    setPromiseSteppingStone,
     contractProjection,
-    contractFeedback,
-    contractStatusMessage,
-    t,
-    contractStatusClassName,
+    talkPanel,
+    contractError,
     contractSubmitting,
     contractSubmitDisabled,
     submitFreeAgentContract,
@@ -501,10 +536,15 @@ export function FreeAgentDealDialog({ state }: FreeAgentDealDialogProps) {
         onWageChange={setContractWage}
         contractLength={contractLength}
         onContractLengthChange={setContractLength}
+        steppingStoneAvailable={steppingStoneAvailable}
+        signingBonus={signingBonus}
+        onSigningBonusChange={setSigningBonus}
+        signingBonusError={signingBonusError}
+        promiseSteppingStone={promiseSteppingStone}
+        onPromiseSteppingStoneChange={setPromiseSteppingStone}
         projection={contractProjection}
-        feedback={contractFeedback}
-        statusMessage={contractStatusMessage(t)}
-        statusClassName={contractStatusClassName}
+        talkPanel={talkPanel}
+        errorMessage={contractError}
         submitting={contractSubmitting}
         submitDisabled={contractSubmitDisabled}
         onSubmit={submitFreeAgentContract}

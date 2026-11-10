@@ -47,6 +47,8 @@ pub fn finish_live_match(state: &StateManager) -> Result<FinishLiveMatchResponse
     let mut session = state
         .take_live_match()
         .ok_or("be.error.noActiveLiveMatch")?;
+    // The day's match is being finished another way: an interactive match for it is stale.
+    drop(state.take_interactive_match());
 
     // The GUI only finishes after FullTime, but MCP's match_finish can be
     // called mid-match — persisting a partial score (or a half-taken
@@ -74,6 +76,7 @@ pub fn finish_spatial_match(
     let session = state
         .take_live_match()
         .ok_or("be.error.noActiveLiveMatch")?;
+    drop(state.take_interactive_match());
     let context = FinalizationContext::from(&session);
     match finish_taken_live_match(state, context, report) {
         Ok(response) => Ok(response),
@@ -233,6 +236,8 @@ pub fn start_live_match_with_identity(
     fixture_id: Option<&str>,
 ) -> Result<engine::MatchSnapshot, String> {
     let _operation = super::live_session::idle_operation(state)?;
+    // A new live session starts a new match: whatever interactive match was left is stale.
+    drop(state.take_interactive_match());
     info!(
         "[cmd] start_live_match: fixture={}, mode={}, competition={:?}, fixture_id={:?}",
         fixture_index, mode, competition_id, fixture_id

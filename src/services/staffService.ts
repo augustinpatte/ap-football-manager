@@ -39,7 +39,40 @@ export type Duty =
   | "Scouting"
   | "Youth"
   | "MatchPreparation"
-  | "StaffRenewals";
+  | "StaffRenewals"
+  | "Lineup"
+  | "PlayerRenewals"
+  | "PlayerRecruitment"
+  | "Tactics"
+  | "Offers";
+
+/**
+ * The presets the duty settings amount to. `custom` is derived, never chosen. `approval` is shown
+ * as Prudent (every major decision is a proposal) and `full` as Total (the assistant conducts the
+ * whole strategy within the club's finances); the identifiers are kept so saves and callers do not
+ * change.
+ */
+export type DelegationMode = "manual" | "approval" | "full" | "custom";
+
+export type DecisionOutcome = "executed" | "approved" | "declined" | "leftToManager";
+
+/** What the assistant may commit without asking; each figure caps one decision. */
+export interface DelegationLimits {
+  /** Highest weekly wage for a staff hire or renewal. */
+  max_staff_wage: number;
+  /** Highest weekly wage for a player renewal. */
+  max_player_wage: number;
+  /** Highest weekly wage x 52 x years of a single contract. */
+  max_commitment: number;
+  /** Highest transfer fee; 0 sends every transfer to the manager. */
+  max_transfer_fee: number;
+  /**
+   * Total authority: the assistant is held to the club's cash, wage room and the board's rules
+   * instead of the ceilings above, and may sell and list players. Set only by choosing the Total
+   * mode; the backend ignores any value sent with the limits.
+   */
+  finance_bound?: boolean;
+}
 
 export interface PostStatus {
   post: StaffPost;
@@ -90,12 +123,16 @@ export interface DelegationLogEntry {
   duty: Duty;
   title_key: string;
   params: [string, string][];
+  outcome: DecisionOutcome;
 }
 
 export interface DelegationState {
   settings: DutySetting[];
   proposals: DelegationProposal[];
   log: DelegationLogEntry[];
+  limits: DelegationLimits;
+  /** Players the manager has said are not to be sold. */
+  protected_players?: string[];
 }
 
 export interface StaffOverview {
@@ -104,6 +141,7 @@ export interface StaffOverview {
   members: MemberView[];
   budget: StaffBudgetView;
   delegation: DelegationState;
+  delegation_mode: DelegationMode;
   has_assistant: boolean;
 }
 
@@ -170,6 +208,25 @@ export async function setDutyDelegation(
   confirmMajor: boolean,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("set_duty_delegation", { duty, delegated, confirmMajor });
+}
+
+export async function setDelegationMode(mode: DelegationMode): Promise<GameStateData> {
+  return invoke<GameStateData>("set_delegation_mode", { mode });
+}
+
+export async function setDelegationLimits(limits: DelegationLimits): Promise<GameStateData> {
+  return invoke<GameStateData>("set_delegation_limits", { limits });
+}
+
+/** Tells the assistant a player is not to be sold (or that he may be again). */
+export async function setPlayerProtected(
+  playerId: string,
+  protectedFromSale: boolean,
+): Promise<GameStateData> {
+  return invoke<GameStateData>("set_player_protected", {
+    playerId,
+    protected: protectedFromSale,
+  });
 }
 
 export async function resolveDelegationProposal(

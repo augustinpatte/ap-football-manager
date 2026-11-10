@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureData, GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import TournamentsTab from "./TournamentsTab";
 import { createSeasonContext } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -319,7 +320,7 @@ describe("TournamentsTab", () => {
   it("renders a knockout bracket with byes when a cup is selected", () => {
     const state = createGameState(true);
     state.competitions = [
-      state.league!,
+      defined(state.league, "league"),
       {
         id: "cup-1",
         name: "FA Cup",
@@ -362,7 +363,7 @@ describe("TournamentsTab", () => {
   it("renders group tables for a group-and-knockout competition", () => {
     const state = createGameState(true);
     state.competitions = [
-      state.league!,
+      defined(state.league, "league"),
       {
         id: "cl-1",
         name: "Continental Champions Cup",
@@ -438,7 +439,7 @@ describe("TournamentsTab", () => {
       },
     ];
     state.competitions = [
-      state.league!,
+      defined(state.league, "league"),
       {
         id: "wc-2026",
         name: "World Cup 2026",
@@ -505,7 +506,7 @@ describe("TournamentsTab", () => {
       world_cup_champions: [{ year: 2026, nation_code: "BR", nation_name: "Brazil" }],
     };
     state.competitions = [
-      state.league!,
+      defined(state.league, "league"),
       {
         id: "wc-2026",
         name: "World Cup 2026",
@@ -532,7 +533,7 @@ describe("TournamentsTab", () => {
     const state = createGameState(true);
     state.world_history = { world_cup_champions: [] };
     state.competitions = [
-      state.league!,
+      defined(state.league, "league"),
       {
         id: "wc-2026",
         name: "World Cup 2026",
@@ -747,7 +748,8 @@ describe("TournamentsTab", () => {
   it("shows the awards as honours once the backend says the season is over", async () => {
     vi.mocked(invoke).mockResolvedValue(emptyAwards);
     const state = createGameState(true);
-    state.league!.fixtures = state.league!.fixtures.map((fixture) => ({
+    const league = defined(state.league, "league");
+    league.fixtures = league.fixtures.map((fixture) => ({
       ...fixture,
       status: "Scheduled" as const,
       result: null,

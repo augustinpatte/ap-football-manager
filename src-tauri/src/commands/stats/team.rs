@@ -1,4 +1,4 @@
-use domain::stats::TeamMatchStatsRecord;
+use domain::stats::{TeamMatchStatsRecord, TeamStatsTotals};
 use ofm_core::state::StateManager;
 
 use super::dto::{
@@ -25,27 +25,22 @@ struct TeamAggregate {
     fouls_committed: u32,
 }
 
-fn aggregate_team_history(records: &[TeamMatchStatsRecord]) -> Option<TeamAggregate> {
-    if records.is_empty() {
-        return None;
+/// What the history holds of a team: the totals folded from seasons whose lines are no longer
+/// kept, plus every line still kept (see `domain::stats::StatsState::team_history_totals`).
+fn aggregate_from_totals(totals: &TeamStatsTotals) -> TeamAggregate {
+    TeamAggregate {
+        matches_played: totals.matches_played,
+        goals_for: totals.goals_for,
+        goals_against: totals.goals_against,
+        possession_total: totals.possession_total,
+        shots: totals.shots,
+        shots_on_target: totals.shots_on_target,
+        passes_completed: totals.passes_completed,
+        passes_attempted: totals.passes_attempted,
+        tackles_won: totals.tackles_won,
+        interceptions: totals.interceptions,
+        fouls_committed: totals.fouls_committed,
     }
-
-    let mut aggregate = TeamAggregate::default();
-    for record in records {
-        aggregate.matches_played += 1;
-        aggregate.goals_for += record.goals_for as u32;
-        aggregate.goals_against += record.goals_against as u32;
-        aggregate.possession_total += record.possession_pct as u32;
-        aggregate.shots += record.shots as u32;
-        aggregate.shots_on_target += record.shots_on_target as u32;
-        aggregate.passes_completed += record.passes_completed as u32;
-        aggregate.passes_attempted += record.passes_attempted as u32;
-        aggregate.tackles_won += record.tackles_won as u32;
-        aggregate.interceptions += record.interceptions as u32;
-        aggregate.fouls_committed += record.fouls_committed as u32;
-    }
-
-    Some(aggregate)
 }
 
 fn build_team_overview(aggregate: &TeamAggregate) -> TeamStatsOverviewDto {
@@ -113,18 +108,11 @@ pub fn get_team_stats_overview_internal(
 ) -> Result<Option<TeamStatsOverviewDto>, String> {
     ensure_team_exists(state, team_id)?;
 
-    let Some(records) = state.get_stats_state(|stats| {
-        stats
-            .team_matches
-            .iter()
-            .filter(|record| record.team_id == team_id)
-            .cloned()
-            .collect::<Vec<_>>()
-    }) else {
+    let Some(totals) = state.get_stats_state(|stats| stats.team_history_totals(team_id)) else {
         return Ok(None);
     };
 
-    Ok(aggregate_team_history(&records).map(|aggregate| build_team_overview(&aggregate)))
+    Ok(totals.map(|totals| build_team_overview(&aggregate_from_totals(&totals))))
 }
 
 pub fn get_team_match_history_internal(

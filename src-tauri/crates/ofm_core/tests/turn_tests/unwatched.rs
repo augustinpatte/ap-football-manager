@@ -159,17 +159,16 @@ fn a_squad_too_short_to_field_eleven_is_topped_up_from_the_injured() {
 }
 
 // ---------------------------------------------------------------------------
-// A dormant match is a scoreline, not a workout
+// A dormant match is a lightweight match, and still a match
 //
-// Competitions outside the player's active scope are resolved by a
-// scoreline-only model that charges nobody any condition. Their clubs have not
-// played ninety minutes in any physical sense, so the training ground's "you
-// played today" gate must not close on them — or they lose the day's recovery
-// every matchday and get nothing for it.
+// Competitions outside the player's active scope are resolved by the lightweight tier, which
+// charges its eleven the same condition a full match does (Run F5.0). Their clubs have played
+// ninety minutes in a physical sense, so the training ground's "you played today" gate closes on
+// them as it does on any club: the eleven are charged, and nobody recovers on the matchday.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn a_club_in_a_dormant_competition_still_recovers_on_its_matchday() {
+fn a_club_in_a_dormant_competition_is_charged_on_its_matchday_like_an_active_one() {
     let mut game = make_game_with_match();
     add_idle_club(&mut game, "dormant_home", 50);
     add_idle_club(&mut game, "dormant_away", 50);
@@ -213,9 +212,12 @@ fn a_club_in_a_dormant_competition_still_recovers_on_its_matchday() {
     );
     let after = condition_of(&game, "dormant_home");
     assert!(
-        after.iter().zip(&before).all(|(now, was)| now > was),
-        "a scoreline-only match costs nothing, so its rest day must still restore: \
-         {before:?} -> {after:?}"
+        after.iter().zip(&before).all(|(now, was)| now <= was),
+        "a club that played today does not recover today: {before:?} -> {after:?}"
+    );
+    assert!(
+        after.iter().zip(&before).any(|(now, was)| now < was),
+        "the dormant match charged its eleven: {before:?} -> {after:?}"
     );
 }
 

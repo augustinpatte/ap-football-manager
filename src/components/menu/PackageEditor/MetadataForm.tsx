@@ -212,7 +212,7 @@ export function MetadataForm({
 
         {projectDir && (
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>{t("worldEditor.packageLogo")}</label>
+            <span className={labelClass}>{t("worldEditor.packageLogo")}</span>
             <div className="flex items-center gap-3">
               {logoDataUrl ? (
                 <img
@@ -253,9 +253,8 @@ export function MetadataForm({
 
         {/* License picker */}
         <div className="flex flex-col gap-1">
-          <label className={labelClass}>{t("worldEditor.license")}</label>
           <LabeledSelect
-            label=""
+            label={t("worldEditor.license")}
             value={selectedLicenseKey}
             options={SPDX_LICENSES.map((l) => l.id)}
             optionLabels={Object.fromEntries(SPDX_LICENSES.map((l) => [l.id, l.name]))}

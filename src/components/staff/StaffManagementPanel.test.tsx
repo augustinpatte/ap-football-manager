@@ -53,8 +53,30 @@ function overview(overrides: Partial<StaffOverview> = {}): StaffOverview {
           reason_key: "delegation.reason.vacancy",
         },
       ],
-      log: [],
+      log: [
+        {
+          date: "2026-08-02",
+          duty: "Lineup",
+          title_key: "delegation.log.lineupChosen",
+          params: [["changes", "2"]],
+          outcome: "executed",
+        },
+        {
+          date: "2026-08-03",
+          duty: "PlayerRenewals",
+          title_key: "delegation.log.playerRenewalLeft",
+          params: [["player", "Ace"]],
+          outcome: "leftToManager",
+        },
+      ],
+      limits: {
+        max_staff_wage: 5000,
+        max_player_wage: 15000,
+        max_commitment: 3000000,
+        max_transfer_fee: 0,
+      },
     },
+    delegation_mode: "approval",
     has_assistant: true,
     ...overrides,
   };
@@ -90,6 +112,36 @@ describe("StaffManagementPanel", () => {
     expect(await screen.findByTestId("rec-rec-1")).toBeInTheDocument();
   });
 
+  it("offers the tactical-preparation duty and reports a manager override as left to the manager", () => {
+    const base = overview();
+    render(
+      <StaffManagementPanel
+        overview={{
+          ...base,
+          delegation: {
+            ...base.delegation,
+            settings: [{ duty: "Tactics", delegated: true, confirm_major: false }],
+            log: [
+              {
+                date: "2026-08-04",
+                duty: "Tactics",
+                title_key: "delegation.log.managerOverride",
+                params: [["until", "2026-08-07"]],
+                outcome: "leftToManager",
+              },
+            ],
+          },
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("duty-Tactics")).toBeInTheDocument();
+    const entry = screen.getByText(/delegation\.log\.managerOverride/);
+    expect(entry).toHaveTextContent('"until":"2026-08-07"');
+    expect(entry).toHaveTextContent("staff.delegation.outcome.leftToManager");
+  });
+
   it("hands a duty over and takes it back", async () => {
     const onGameUpdate = vi.fn();
     render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);
@@ -115,6 +167,54 @@ describe("StaffManagementPanel", () => {
       }),
     );
     expect(onGameUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it("lists the lineup and player-renewal duties among those that can be handed over", () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+    expect(screen.getByTestId("duty-Lineup")).toBeInTheDocument();
+    expect(screen.getByTestId("duty-PlayerRenewals")).toBeInTheDocument();
+    expect(screen.getByTestId("duty-PlayerRecruitment")).toBeInTheDocument();
+  });
+
+  it("switches the whole job to full delegation in one click", async () => {
+    const onGameUpdate = vi.fn();
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);
+
+    expect(screen.getByRole("radio", { name: "staff.delegation.mode.approval" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "staff.delegation.mode.full" }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_delegation_mode", { mode: "full" }),
+    );
+    expect(onGameUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves spending limits only once they differ from the saved ones", async () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+
+    const save = screen.getByRole("button", { name: "staff.delegation.limits.save" });
+    expect(save).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("staff.delegation.limits.max_transfer_fee"), {
+      target: { value: "250000" },
+    });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_delegation_limits", {
+        limits: {
+          max_staff_wage: 5000,
+          max_player_wage: 15000,
+          max_commitment: 3000000,
+          max_transfer_fee: 250000,
+        },
+      }),
+    );
+  });
+
+  it("shows what the assistant did, and marks what he left to the manager", () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+    expect(screen.getByText(/delegation\.log\.lineupChosen/)).toBeInTheDocument();
+    const left = screen.getByText(/delegation\.log\.playerRenewalLeft/);
+    expect(left).toHaveTextContent("staff.delegation.outcome.leftToManager");
   });
 
   it("cannot delegate without an assistant", () => {

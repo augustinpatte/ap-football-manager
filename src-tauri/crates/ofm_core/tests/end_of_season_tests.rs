@@ -7,6 +7,7 @@ use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
 use domain::team::{FinancialTransactionKind, Team};
 use ofm_core::clock::GameClock;
+use ofm_core::end_of_season::UserDivisionMove;
 use ofm_core::end_of_season::{
     advance_to_next_season, berth_qualified_entrants, continental_qualified_entrants,
     expected_fixture_count, is_season_complete, process_end_of_season, resolve_continental_fields,
@@ -1107,6 +1108,123 @@ fn promoted_user_receives_a_promotion_message() {
         msg.i18n_params.get("division"),
         Some(&"ENG First Division".to_string())
     );
+}
+
+/// Given a user relegated at the rollover,
+/// When the season is processed,
+/// Then the summary the end-of-season screen reads says Relegated and names the new division.
+#[test]
+fn the_summary_says_a_relegated_user_goes_down_and_names_the_new_division() {
+    let mut game = make_two_division_game("team2");
+
+    let summary = process_end_of_season(&mut game);
+
+    assert_eq!(summary.user_division_move, UserDivisionMove::Relegated);
+    assert_eq!(summary.user_next_league_name, "ENG Second Division");
+}
+
+/// Given a user promoted at the rollover,
+/// When the season is processed,
+/// Then the summary says Promoted and names the division the club moves up to.
+#[test]
+fn the_summary_says_a_promoted_user_goes_up_and_names_the_new_division() {
+    let mut game = make_two_division_game("team3");
+
+    let summary = process_end_of_season(&mut game);
+
+    assert_eq!(summary.user_division_move, UserDivisionMove::Promoted);
+    assert_eq!(summary.user_next_league_name, "ENG First Division");
+}
+
+/// Given a user who keeps their division,
+/// When the season is processed,
+/// Then the summary says Stayed and names the division the club is still in.
+#[test]
+fn the_summary_says_a_user_who_stays_stays() {
+    let mut game = make_two_division_game("team1");
+
+    let summary = process_end_of_season(&mut game);
+
+    assert_eq!(summary.user_division_move, UserDivisionMove::Stayed);
+    assert_eq!(summary.user_next_league_name, "ENG First Division");
+}
+
+/// Given a summary written before the division and cup fields existed,
+/// When it is read back,
+/// Then it loads, as a user who stayed with no cups: an old save keeps loading.
+#[test]
+fn a_summary_without_the_new_fields_still_loads() {
+    let legacy = serde_json::json!({
+        "season": 3, "league_name": "L", "champion_id": "c", "champion_name": "C",
+        "user_position": 1, "user_points": 1, "user_won": 1, "user_drawn": 0, "user_lost": 0,
+        "user_goals_for": 1, "user_goals_against": 0, "golden_boot_player": "", "golden_boot_goals": 0,
+        "poty_player": "", "poty_rating": 0.0, "total_teams": 2,
+        "season_awards": serde_json::to_value(ofm_core::season_awards::SeasonAwards::default()).unwrap(),
+    });
+
+    let summary: ofm_core::end_of_season::EndOfSeasonSummary =
+        serde_json::from_value(legacy).expect("a legacy summary loads");
+
+    assert_eq!(summary.user_division_move, UserDivisionMove::Stayed);
+    assert!(summary.user_cup_results.is_empty());
+}
+
+fn archive_cup_edition(game: &mut Game, cup_id: &str, champion: &str, entrants: &[&str]) {
+    let mut cup = domestic_cup(cup_id, "ENG", "europe", champion, "teamX");
+    cup.fixtures[0].away_team_id = entrants[0].to_string();
+    game.edition_archive
+        .push(domain::edition_archive::CompletedEdition {
+            competition_id: cup_id.to_string(),
+            season: 1,
+            completed_on: "2026-05-10".to_string(),
+            champion_id: champion.to_string(),
+            participant_ids: entrants.iter().map(|id| id.to_string()).collect(),
+            standings: vec![],
+            groups: vec![],
+            knockout_rounds: vec![],
+            fixtures: cup.fixtures.clone(),
+            movements: None,
+        });
+    game.competitions.push(cup);
+}
+
+/// Given two completed domestic cup editions, one the user's club entered and won, one it never
+///       entered,
+/// When the season is processed,
+/// Then the summary lists only the cup the club entered, with the champion and that the user won.
+#[test]
+fn the_summary_lists_the_cups_the_user_entered_and_whether_they_won() {
+    let mut game = make_two_division_game("team1");
+    archive_cup_edition(&mut game, "eng-cup", "team1", &["team1", "team3"]);
+    archive_cup_edition(&mut game, "other-cup", "team3", &["team3", "team4"]);
+
+    let summary = process_end_of_season(&mut game);
+
+    assert_eq!(
+        summary.user_cup_results.len(),
+        1,
+        "{:?}",
+        summary.user_cup_results
+    );
+    let cup = &summary.user_cup_results[0];
+    assert_eq!(cup.competition_id, "eng-cup");
+    assert_eq!(cup.champion_id, "team1");
+    assert!(cup.user_won);
+}
+
+/// Given a cup the user's club entered and lost,
+/// When the season is processed,
+/// Then the summary names the other champion and says the user did not win.
+#[test]
+fn the_summary_names_the_champion_of_a_cup_the_user_lost() {
+    let mut game = make_two_division_game("team1");
+    archive_cup_edition(&mut game, "eng-cup", "team3", &["team1", "team3"]);
+
+    let summary = process_end_of_season(&mut game);
+
+    let cup = &summary.user_cup_results[0];
+    assert_eq!(cup.champion_name, "Third FC");
+    assert!(!cup.user_won);
 }
 
 #[test]
@@ -3770,6 +3888,7 @@ fn make_retired_player(id: &str) -> domain::player::Player {
         appearances: 30,
         goals: 5,
         assists: 8,
+        synthetic: false,
     });
     p
 }

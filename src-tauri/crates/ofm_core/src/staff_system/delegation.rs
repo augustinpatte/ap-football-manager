@@ -8,11 +8,18 @@
 //! major decisions: with `confirm_major` they are left as proposals instead of being made.
 
 use chrono::NaiveDate;
-use domain::delegation::{DelegationLogEntry, Duty, ProposalAction};
+use domain::delegation::{DecisionOutcome, DelegationLogEntry, Duty, ProposalAction};
 use domain::staff::{Staff, StaffPost};
 use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::{self, RecAction, RecKind};
+use super::delegation_control as control;
+use super::delegation_listing as listing;
+use super::delegation_offers as offers;
+use super::delegation_policy::{Authorization, Books, Reason, Spend, authorize_in_books};
+use super::delegation_recruitment::{self as recruiting, Eye};
+use super::delegation_report as report;
+use super::delegation_squad as squad;
 use super::market::{self, OfferResponse};
 use super::profile::{StaffProfile, team_staff};
 use crate::game::Game;
@@ -27,15 +34,15 @@ pub const UPGRADE_MARGIN: u8 = 12;
 /// Proposals older than this are dropped.
 pub const PROPOSAL_LIFETIME_DAYS: i64 = 21;
 
-fn date(game: &Game) -> NaiveDate {
+pub(super) fn date(game: &Game) -> NaiveDate {
     game.clock.current_date.date_naive()
 }
 
-fn stamp(game: &Game) -> String {
+pub(super) fn stamp(game: &Game) -> String {
     date(game).format("%Y-%m-%d").to_string()
 }
 
-fn user_team(game: &Game) -> Option<String> {
+pub(super) fn user_team(game: &Game) -> Option<String> {
     game.manager.team_id.clone()
 }
 
@@ -48,17 +55,38 @@ fn perceived(assistant_rating: f64, assistant_id: &str, candidate: &Staff) -> f6
     f64::from(candidate.overall()) + unit * blur
 }
 
-fn log(game: &mut Game, duty: Duty, title_key: &str, params: Vec<(String, String)>) {
+pub(super) fn log(game: &mut Game, duty: Duty, title_key: &str, params: Vec<(String, String)>) {
+    record(game, duty, title_key, params, DecisionOutcome::Executed);
+}
+
+pub(super) fn record(
+    game: &mut Game,
+    duty: Duty,
+    title_key: &str,
+    params: Vec<(String, String)>,
+    outcome: DecisionOutcome,
+) {
     let date = stamp(game);
     game.delegation.push_log(DelegationLogEntry {
         date,
         duty,
         title_key: title_key.to_string(),
         params,
+        outcome,
     });
 }
 
-fn param(k: &str, v: impl ToString) -> (String, String) {
+/// Why a step is a proposal: the manager's standing request, or a limit he set.
+fn reason_key(authorization: Authorization, usual: &'static str) -> &'static str {
+    match authorization {
+        Authorization::NeedsApproval(Reason::ApprovalRequired) | Authorization::Auto => usual,
+        Authorization::NeedsApproval(_) | Authorization::NotDelegated => {
+            "delegation.reason.aboveLimit"
+        }
+    }
+}
+
+pub(super) fn param(k: &str, v: impl ToString) -> (String, String) {
     (k.to_string(), v.to_string())
 }
 
@@ -76,7 +104,23 @@ fn due(game: &Game, duty: Duty) -> bool {
     }
 }
 
-fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> {
+/// What the club can carry today: the books Total authority is measured against.
+pub(super) fn books_of(game: &Game, team_id: &str) -> Books {
+    let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
+        return Books {
+            transfer_cash: 0,
+            wage_room: 0,
+            staff_room: 0,
+        };
+    };
+    Books {
+        transfer_cash: team.transfer_budget.min(team.finance).max(0),
+        wage_room: (team.wage_budget - crate::finances::calc_wages(game, team_id)).max(0),
+        staff_room: market::staff_headroom(game, team_id),
+    }
+}
+
+pub(super) fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> {
     let staff = team_staff(game, team_id);
     let a = staff
         .iter()
@@ -85,11 +129,30 @@ fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> {
 }
 
 /// Before the day's training: a delegated training plan.
+///
+/// Written only if the manager has not set the training himself since (see
+/// [`control::manager_is_in_control`]); the history records a change of intensity and a recovery
+/// order, the decisions, not the daily rotation of the focus.
 pub fn run_training(game: &mut Game, weekday_num: u32) {
     let Some(team_id) = user_team(game) else {
         return;
     };
     if !game.delegation.is_delegated(Duty::Training) || assistant_of(game, &team_id).is_none() {
+        return;
+    }
+    let Some(current) = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .map(control::training_print)
+    else {
+        return;
+    };
+    let changed = game
+        .delegation
+        .applied(Duty::Training)
+        .is_some_and(|applied| applied != current);
+    if control::manager_is_in_control(game, Duty::Training, changed) {
         return;
     }
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
@@ -100,23 +163,33 @@ pub fn run_training(game: &mut Game, weekday_num: u32) {
         return;
     };
     drop(by_club);
-    let crisis = focus == TrainingFocus::Recovery && intensity == TrainingIntensity::Low;
-    let changed_to_recovery = crisis
-        && game
-            .teams
-            .iter()
-            .find(|t| t.id == team_id)
-            .is_some_and(|t| t.training_focus != TrainingFocus::Recovery);
-    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
-        team.training_focus = focus;
-        team.training_intensity = intensity;
-    }
-    if changed_to_recovery {
+    let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) else {
+        return;
+    };
+    let eased_to_recovery = focus == TrainingFocus::Recovery
+        && intensity == TrainingIntensity::Low
+        && team.training_focus != TrainingFocus::Recovery;
+    let intensity_changed = team.training_intensity != intensity;
+    team.training_focus = focus.clone();
+    team.training_intensity = intensity.clone();
+    let print = control::training_print(team);
+    game.delegation.record_applied(Duty::Training, &print);
+    if eased_to_recovery {
         log(
             game,
             Duty::Training,
             "delegation.log.recoveryOrdered",
             vec![],
+        );
+    } else if intensity_changed {
+        log(
+            game,
+            Duty::Training,
+            "delegation.log.trainingIntensity",
+            vec![
+                param("focus", format!("{focus:?}")),
+                param("intensity", format!("{intensity:?}")),
+            ],
         );
     }
 }
@@ -127,30 +200,57 @@ pub fn run_after_day(game: &mut Game) {
         return;
     };
     let Some((assistant_id, rating)) = assistant_of(game, &team_id) else {
+        report::note_missing_assistant(game, &team_id);
         return;
     };
     let today = stamp(game);
+    // The eleven is named before the preparation reads it.
     for duty in [
+        Duty::Lineup,
         Duty::MatchPreparation,
         Duty::Scouting,
         Duty::Youth,
         Duty::StaffRecruitment,
         Duty::StaffRenewals,
+        Duty::PlayerRenewals,
+        Duty::PlayerRecruitment,
+        Duty::Tactics,
+        Duty::Offers,
     ] {
         if !due(game, duty) {
             continue;
         }
         game.delegation.mark_run(duty, &today);
         match duty {
+            Duty::Lineup => squad::lineup(game, &team_id, rating),
             Duty::MatchPreparation => match_preparation(game, &team_id),
             Duty::Scouting => scouting(game, &team_id, rating),
             Duty::Youth => youth(game, &team_id),
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
+            Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
+            Duty::PlayerRecruitment => recruiting::player_recruitment(
+                game,
+                &team_id,
+                Eye {
+                    id: &assistant_id,
+                    rating,
+                },
+            ),
+            Duty::Tactics => control::tactics(game, &team_id, rating),
+            Duty::Offers => {
+                let eye = Eye {
+                    id: &assistant_id,
+                    rating,
+                };
+                offers::answer_offers(game, &team_id, eye);
+                listing::review_listings(game, &team_id, eye);
+            }
             Duty::Training => {}
         }
     }
     expire_proposals(game);
+    report::notify(game, &team_id);
 }
 
 /// Rests tired starters and covers injured ones when a match is a day away, and sets the
@@ -182,7 +282,7 @@ fn match_preparation(game: &mut Game, team_id: &str) {
     }
 }
 
-fn matches_within(game: &Game, team_id: &str, days: i64) -> bool {
+pub(super) fn matches_within(game: &Game, team_id: &str, days: i64) -> bool {
     let today = date(game);
     game.competitions_in_play()
         .iter()
@@ -327,7 +427,6 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
         .iter()
         .find(|t| t.id == team_id)
         .map_or(0, |t| t.reputation);
-    let confirm = game.delegation.needs_confirmation(Duty::StaffRecruitment);
     let today = stamp(game);
     for status in market::structure(game, team_id) {
         if !status.is_vacant() {
@@ -360,7 +459,17 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
             param("post", format!("{:?}", status.post)),
             param("wage", wage),
         ];
-        if confirm {
+        let authorization = authorize_in_books(
+            &game.delegation,
+            Duty::StaffRecruitment,
+            Spend::StaffContract {
+                weekly_wage: wage,
+                years: 2,
+            },
+            &books_of(game, team_id),
+            0,
+        );
+        if authorization != Authorization::Auto {
             game.delegation.propose(
                 Duty::StaffRecruitment,
                 &today,
@@ -371,7 +480,7 @@ fn recruitment(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) 
                 },
                 "delegation.proposal.hire",
                 params,
-                "delegation.reason.vacancy",
+                reason_key(authorization, "delegation.reason.vacancy"),
             );
         } else if market::hire(game, team_id, &id, wage, 2).is_ok() {
             log(game, Duty::StaffRecruitment, "delegation.log.hired", params);
@@ -443,7 +552,6 @@ fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
         .iter()
         .find(|t| t.id == team_id)
         .map_or(0, |t| t.reputation);
-    let confirm = game.delegation.needs_confirmation(Duty::StaffRenewals);
     let today = stamp(game);
     let ending: Vec<(String, String, u32)> = team_staff(game, team_id)
         .into_iter()
@@ -464,7 +572,17 @@ fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
             param("wage", ask),
             param("years", years),
         ];
-        if confirm {
+        let authorization = authorize_in_books(
+            &game.delegation,
+            Duty::StaffRenewals,
+            Spend::StaffContract {
+                weekly_wage: ask,
+                years,
+            },
+            &books_of(game, team_id),
+            0,
+        );
+        if authorization != Authorization::Auto {
             game.delegation.propose(
                 Duty::StaffRenewals,
                 &today,
@@ -475,7 +593,7 @@ fn renewals(game: &mut Game, team_id: &str, assistant_id: &str, rating: f64) {
                 },
                 "delegation.proposal.renew",
                 params,
-                "delegation.reason.contractEnding",
+                reason_key(authorization, "delegation.reason.contractEnding"),
             );
         } else if market::negotiate_renewal(game, team_id, &id, ask, years)
             .is_ok_and(|r| r == OfferResponse::Accepted)
@@ -506,6 +624,24 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
         .ok_or("be.error.delegation.proposalNotFound")?;
     let proposal = game.delegation.proposals.remove(index);
     if !accept {
+        match &proposal.action {
+            ProposalAction::SignPlayer { player_id, .. } => {
+                recruiting::on_declined(game, player_id);
+            }
+            ProposalAction::AcceptOffer { player_id, .. }
+            | ProposalAction::CounterOffer { player_id, .. }
+            | ProposalAction::ListForSale { player_id } => {
+                offers::on_declined(game, player_id);
+            }
+            _ => {}
+        }
+        record(
+            game,
+            proposal.duty,
+            &proposal.title_key,
+            proposal.params,
+            DecisionOutcome::Declined,
+        );
         return Ok(());
     }
     let result = match &proposal.action {
@@ -547,16 +683,38 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
             scout_id,
             player_id,
         } => crate::scouting::send_scout(game, scout_id, player_id),
+        ProposalAction::RenewPlayer {
+            player_id,
+            wage,
+            years,
+        } => squad::renew_player(game, &team_id, player_id, *wage, *years),
         ProposalAction::RestPlayers { .. } => Ok(()),
+        ProposalAction::SignPlayer {
+            player_id,
+            fee,
+            wage,
+            years,
+        } => recruiting::sign_approved(game, player_id, *fee, *wage, *years),
+        ProposalAction::AcceptOffer {
+            player_id,
+            offer_id,
+            fee,
+        } => offers::accept_approved(game, player_id, offer_id, *fee),
+        ProposalAction::CounterOffer {
+            player_id,
+            offer_id,
+            fee,
+        } => offers::counter_approved(game, player_id, offer_id, *fee),
+        ProposalAction::ListForSale { player_id } => listing::list_approved(game, player_id),
     };
     if result.is_ok() {
-        let date = stamp(game);
-        game.delegation.push_log(DelegationLogEntry {
-            date,
-            duty: proposal.duty,
-            title_key: format!("{}.accepted", proposal.title_key),
-            params: proposal.params,
-        });
+        record(
+            game,
+            proposal.duty,
+            &format!("{}.accepted", proposal.title_key),
+            proposal.params,
+            DecisionOutcome::Approved,
+        );
     }
     result
 }
@@ -565,6 +723,7 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
 mod tests {
     use super::super::assistant::tests::{game, staff_member};
     use super::*;
+    use domain::delegation::DelegationMode;
     use domain::player::SquadRole;
 
     fn delegate(g: &mut Game, duty: Duty, confirm: bool) {
@@ -768,6 +927,225 @@ mod tests {
         run_after_day(&mut g);
         assert_eq!(g.scouting_assignments.len(), 1);
         assert_eq!(g.scouting_assignments[0].scout_id, "scout1");
+    }
+
+    /// Given a duty that acts alone within the manager's ceilings (not Total authority) and a limit
+    /// below the asking wage, when the recruitment duty runs, then the vacancy is proposed, not
+    /// filled: the assistant signs nothing above a limit.
+    #[test]
+    fn a_hire_above_the_wage_limit_is_proposed_when_the_duty_acts_within_ceilings() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.finance_bound = false;
+        g.delegation.limits.max_staff_wage = 100;
+        g.staff.retain(|s| s.post() != StaffPost::Physio);
+        let mut free = staff_member("free", StaffPost::Physio, 70, "x");
+        free.team_id = None;
+        g.staff.push(free);
+        run_after_day(&mut g);
+        assert!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
+        // The hire is the one proposal of the staff duty; other duties may have their own.
+        let hires: Vec<_> = g
+            .delegation
+            .proposals
+            .iter()
+            .filter(|p| p.duty == Duty::StaffRecruitment)
+            .collect();
+        assert_eq!(hires.len(), 1);
+        assert_eq!(hires[0].reason_key, "delegation.reason.aboveLimit");
+    }
+
+    /// Given the same vacancy under Total authority and a wage the old ceiling forbids but the staff
+    /// budget can carry, when the recruitment duty runs, then the assistant hires him himself.
+    #[test]
+    fn under_total_authority_a_hire_within_the_staff_budget_is_made_without_asking() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.max_staff_wage = 100;
+        g.staff.retain(|s| s.post() != StaffPost::Physio);
+        let mut free = staff_member("free", StaffPost::Physio, 70, "x");
+        free.team_id = None;
+        g.staff.push(free);
+        g.teams[0].wage_budget = 50_000_000;
+        run_after_day(&mut g);
+        assert_eq!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .as_deref(),
+            Some("team1")
+        );
+        assert!(
+            g.delegation
+                .proposals
+                .iter()
+                .all(|p| p.duty != Duty::StaffRecruitment)
+        );
+    }
+
+    /// Given the manager answers proposals, when he accepts one and declines another, then the
+    /// history records each answer with its outcome.
+    #[test]
+    fn the_history_records_what_the_manager_answered() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Approval);
+        let required: Vec<StaffPost> = StaffPost::ALL
+            .iter()
+            .copied()
+            .filter(|p| p.required() > 0 && *p != StaffPost::AssistantManager)
+            .take(2)
+            .collect();
+        g.staff.retain(|s| !required.contains(&s.post()));
+        for (id, post) in ["p", "a"].into_iter().zip(required) {
+            let mut free = staff_member(id, post, 70, "x");
+            free.team_id = None;
+            g.staff.push(free);
+        }
+        run_after_day(&mut g);
+        let ids: Vec<String> = g
+            .delegation
+            .proposals
+            .iter()
+            .map(|p| p.id.clone())
+            .collect();
+        assert!(ids.len() >= 2, "{ids:?}");
+        resolve_proposal(&mut g, &ids[0], true).unwrap();
+        resolve_proposal(&mut g, &ids[1], false).unwrap();
+        let outcomes: Vec<DecisionOutcome> = g.delegation.log.iter().map(|e| e.outcome).collect();
+        assert_eq!(
+            outcomes,
+            vec![DecisionOutcome::Approved, DecisionOutcome::Declined]
+        );
+    }
+
+    /// Given full delegation switched back to manual and on again, when days pass, then the
+    /// assistant acts only while the manager has handed duties over.
+    #[test]
+    fn switching_between_manual_and_full_delegation_takes_effect_at_once() {
+        let mut g = game(Some(80), 6);
+        g.staff.retain(|s| s.post() != StaffPost::Physio);
+        let mut free = staff_member("free", StaffPost::Physio, 70, "x");
+        free.team_id = None;
+        g.staff.push(free);
+        g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.apply_mode(DelegationMode::Manual);
+        run_after_day(&mut g);
+        assert!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .is_none()
+        );
+        assert!(g.delegation.log.is_empty());
+        g.delegation.apply_mode(DelegationMode::Full);
+        run_after_day(&mut g);
+        assert_eq!(
+            g.staff
+                .iter()
+                .find(|s| s.id == "free")
+                .unwrap()
+                .team_id
+                .as_deref(),
+            Some("team1")
+        );
+    }
+
+    /// Given a fortnight of delegated decisions, when it is over, then the manager gets one
+    /// digest, and not a second one the next day.
+    #[test]
+    fn a_fortnight_of_decisions_makes_one_digest() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        log(
+            &mut g,
+            Duty::Training,
+            "delegation.log.recoveryOrdered",
+            vec![],
+        );
+        let digests = |g: &Game| {
+            g.messages
+                .iter()
+                .filter(|m| m.id.starts_with("assistant_digest_"))
+                .count()
+        };
+        run_after_day(&mut g);
+        assert_eq!(digests(&g), 1);
+        g.clock.current_date += chrono::Duration::days(1);
+        log(
+            &mut g,
+            Duty::Training,
+            "delegation.log.recoveryOrdered",
+            vec![],
+        );
+        run_after_day(&mut g);
+        assert_eq!(digests(&g), 1, "no second digest inside the fortnight");
+        g.clock.current_date += chrono::Duration::days(14);
+        run_after_day(&mut g);
+        assert_eq!(digests(&g), 2);
+    }
+
+    /// Given proposals that stay unanswered for days, when each day ends, then the manager is
+    /// reminded at most every three days.
+    #[test]
+    fn waiting_proposals_do_not_nag_every_day() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Approval);
+        g.staff.retain(|s| s.post() != StaffPost::Physio);
+        let mut free = staff_member("free", StaffPost::Physio, 70, "x");
+        free.team_id = None;
+        g.staff.push(free);
+        for _ in 0..6 {
+            run_after_day(&mut g);
+            g.clock.current_date += chrono::Duration::days(1);
+        }
+        let reminders = g
+            .messages
+            .iter()
+            .filter(|m| m.id.starts_with("assistant_proposals_"))
+            .count();
+        assert_eq!(reminders, 2);
+    }
+
+    /// Given duties handed over and an assistant who has left, when a day ends, then the
+    /// manager is told once, and nothing is done in the meantime.
+    #[test]
+    fn an_assistant_who_leaves_is_missed_once() {
+        let mut g = game(None, 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        run_after_day(&mut g);
+        run_after_day(&mut g);
+        let notices = g
+            .messages
+            .iter()
+            .filter(|m| m.id.starts_with("assistant_missing_"))
+            .count();
+        assert_eq!(notices, 1);
+        assert!(g.delegation.log.is_empty());
+    }
+
+    /// Given full delegation, when a match season rolls into the next one, then the settings,
+    /// limits and history are untouched by the rollover.
+    #[test]
+    fn delegation_settings_survive_a_json_round_trip_with_limits_and_history() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        g.delegation.limits.max_staff_wage = 1_234;
+        log(&mut g, Duty::Lineup, "delegation.log.lineupChosen", vec![]);
+        let json = serde_json::to_string(&g).unwrap();
+        let back: Game = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.delegation, g.delegation);
+        assert_eq!(back.delegation.mode(), DelegationMode::Full);
     }
 
     #[test]
