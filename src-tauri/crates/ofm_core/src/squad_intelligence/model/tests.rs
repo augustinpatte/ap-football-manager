@@ -55,6 +55,70 @@ fn candidate_cache_distinguishes_decline_from_departure() {
     assert_ne!(declining_squad.fingerprint(), departed_squad.fingerprint());
 }
 
+/// Given a formation that names the same position more than once
+/// When a player's fit is read for its slots
+/// Then every repetition carries the fit of the first one, and every distinct slot is rated on its
+/// own: sharing the work never changes an answer.
+#[test]
+fn repeated_slots_share_their_fit_without_changing_it() {
+    let p = player("fits", CenterBack, 77, 26);
+    let slots = slots_of("4-4-2");
+    let fit = fits(&p, &slots);
+    for slot_index in 0..slots.len() {
+        let first = slots[..slot_index]
+            .iter()
+            .position(|earlier| *earlier == slots[slot_index]);
+        if let Some(first) = first {
+            assert_eq!(
+                fit[slot_index].to_bits(),
+                fit[first].to_bits(),
+                "slot {slot_index} repeats slot {first}"
+            );
+        } else {
+            assert!(
+                (1.0..=99.0).contains(&fit[slot_index]),
+                "slot {slot_index} must be rated"
+            );
+        }
+    }
+}
+
+/// Given a player out on loan, and the same player with no loan
+/// When the club reads him as a possible signing
+/// Then the loan neither keeps him out of the model nor changes how the signing is read: a loan is
+/// a state the club can end, not the player's level.
+#[test]
+fn a_loaned_player_is_read_as_the_signing_he_would_be() {
+    let club = club(&Squad::balanced());
+    let mut loaned = player("loaned", Striker, 80, 25);
+    loaned.active_loan = Some(domain::player::ActiveLoan {
+        parent_team_id: "parent".to_string(),
+        loan_team_id: "club".to_string(),
+        loan_team_name: None,
+        start_date: "2025-07-01".to_string(),
+        end_date: "2026-06-30".to_string(),
+        wage_contribution_pct: 50,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    let mut owned = loaned.clone();
+    owned.active_loan = None;
+    let from_loan = Member::candidate(&loaned, &club.model.slots, today(), 0.0)
+        .expect("a loan can be made permanent");
+    let from_owned = Member::candidate(&owned, &club.model.slots, today(), 0.0).unwrap();
+    assert_eq!(
+        SquadModel::fingerprint_of(&from_loan),
+        SquadModel::fingerprint_of(&from_owned)
+    );
+    assert!(
+        Member::of(&loaned, &club.model.slots, today(), Availability::Today).is_none(),
+        "the squad's own model still leaves a loaned player out"
+    );
+}
+
 /// Given two otherwise identical veterans, one declining and one expected to retire
 /// When their signings are appraised through the shared cache
 /// Then each cached result matches an independently calculated appraisal.

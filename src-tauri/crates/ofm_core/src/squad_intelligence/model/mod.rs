@@ -139,16 +139,34 @@ impl Member {
         today: NaiveDate,
         perceived_error: f32,
     ) -> Option<Self> {
-        let mut signed = player.clone();
-        signed.active_loan = None;
-        let mut member = Self::of(&signed, slots, today, Availability::Today)?;
-        let mut planned = PlannedPlayer::of(&signed, today);
-        planned.contract_days = Some(NEW_CONTRACT_DAYS);
-        let out_now = member.shift[0].is_none();
-        member.shift = projected_shifts(&planned);
-        if out_now {
-            member.shift[0] = None;
+        // A loan is what the club could end by signing him, so unlike [`Member::of`] this reads a
+        // loaned player as available. Read the player directly instead of cloning him only to
+        // clear `active_loan`: the clone is one of the market's larger costs and changes nothing
+        // else the member is built from.
+        if player.squad_role != SquadRole::Senior || player.retired {
+            return None;
         }
+        let mut planned = PlannedPlayer::of(player, today);
+        planned.contract_days = Some(NEW_CONTRACT_DAYS);
+        let mut shift = projected_shifts(&planned);
+        if player
+            .injury
+            .as_ref()
+            .is_some_and(|injury| injury.days_remaining >= LONG_INJURY_DAYS)
+        {
+            shift[0] = None;
+        }
+        let mut member = Self {
+            id: player.id.clone(),
+            natural_keeper: player.natural_position == Position::Goalkeeper,
+            age: planned.age,
+            ovr: player.ovr,
+            potential: player.potential,
+            fit: fits(player, slots),
+            absence: absence_of(player),
+            shift,
+            levels: [[0.0; SLOTS]; HORIZON],
+        };
         if perceived_error != 0.0 {
             for fit in &mut member.fit {
                 *fit = (*fit + perceived_error).clamp(1.0, 99.0).round();
@@ -198,10 +216,19 @@ pub(crate) fn fits(player: &Player, slots: &[Position]) -> [f32; SLOTS] {
         f64::from(player.ovr) - natural_ovr(player)
     };
     let mut fit = [UNCOVERED_FIT; SLOTS];
-    for (cell, slot) in fit.iter_mut().zip(slots) {
-        *cell = (positional_fit_for_assignment(player, slot) + anchor)
-            .clamp(1.0, 99.0)
-            .round() as f32;
+    for slot_index in 0..fit.len().min(slots.len()) {
+        let slot = &slots[slot_index];
+        // A formation often asks the same position twice (two centre backs, two strikers). The
+        // rating of a slot does not depend on where it sits, so rate it once and copy the answer.
+        fit[slot_index] = slots[..slot_index]
+            .iter()
+            .position(|earlier| earlier == slot)
+            .map(|earlier| fit[earlier])
+            .unwrap_or_else(|| {
+                (positional_fit_for_assignment(player, slot) + anchor)
+                    .clamp(1.0, 99.0)
+                    .round() as f32
+            });
     }
     fit
 }
