@@ -27,6 +27,13 @@ schema; one stage = one commit = tests first.
 * Stage 4: checklist written, **not performed**. A launch smoke test only was run in P2.5. Stages 5-8 not started.
 * P2.5 (`docs/APFM_P25_VALIDATION_REPORT.md`): starting-XI persistence fixed (`3ce15a34`), Staff tab lands on proposals (`a64e30a8`), alert ordering, journey tests tightened. Column chooser (stage 5) still not built; its settings field is authorised.
 
+* P3 (`docs/APFM_P3_MANAGEMENT_UX_REPORT.md`): the six Staff accessibility defects fixed and `components/staff/`
+  added to `FINISHED_FOLDERS`; alert and inbox navigation tested through the real `Dashboard`; three usability
+  defects fixed (keyboard access to a player, squad filters kept across a profile visit, silent failures in
+  Staff Management and Inbox); tactics preset/payload tests added (no behaviour change); **stage 5 (column
+  chooser) done for the squad table** with the `squad_hidden_columns` setting; delegation resync after a
+  refused proposal answer and clearer proposals. Still no person has played the window.
+
 See `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for evidence and limits.
 
 ## 2. Stages
@@ -81,6 +88,9 @@ Risk scale: **L**ow / **M**edium / **H**igh = chance the stage needs rework or e
 * Risk: this is where defects hidden behind green component tests will appear. Reserve time.
 
 ### Stage 5 — Column chooser for squad and transfer tables (gap G2) · risk M
+
+**Status: done for the squad table in P3 (`b842b231`).** The setting is `squad_hidden_columns` (hidden ids,
+default none). The transfer tables are not done.
 
 * Change: persist a per-table set of visible columns in settings; no new data, only visibility.
 * Tests first: model test (default set, toggle, persistence round-trip); component test.

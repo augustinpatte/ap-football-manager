@@ -1,6 +1,6 @@
 # APFM manual GUI acceptance checklist
 
-**Status: nothing on this page has been performed.** No graphical session has been run by the
+**Status: nothing on this page has been performed.** (P3 added rows 2.7-2.10, 4.8, 7.7, 7.8 and sharpened 2.3, 4.6, 7.5, 10.2; see `APFM_P3_MANAGEMENT_UX_REPORT.md`.) No graphical session has been run by the
 agent that wrote it, in this or any earlier APFM session. Every "Result" cell is empty on purpose.
 Until a person has filled them in, the career journey is **not** verified from the window; see
 `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for what the automated tests do and do not cover.
@@ -38,9 +38,13 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 |---|---|---|---|
 | 2.1 | Squad tab | Players, positions, key attributes, contract, fitness, availability (injury/suspension) shown | |
 | 2.2 | Sort by each column header | Order changes and the sort indicator moves | |
-| 2.3 | Open a player profile and go back | Back returns to the same tab and scroll position | |
+| 2.3 | Type a search, pick a position and a status filter, sort by a column, open a player profile and go back | Back returns to the Squad tab with the **same search, filters and sort** (held since P3). **Scroll position is not kept** (known gap): note whether the jump to the top is a nuisance | |
 | 2.4 | Choose a formation | Pitch redraws with that shape | |
 | 2.5 | Swap a bench player into the eleven | The player takes **the vacated slot**, not the end of the list | |
+| 2.7 | Click **Columns** on the squad filter bar | A panel lists nine optional columns (not the name), all ticked. Unticking Age removes the Age header and its cells at once; Show all columns brings everything back | |
+| 2.8 | Hide a few columns, close the game window completely, relaunch, open Squad | The same columns are still hidden (the choice is saved in the settings file) | |
+| 2.9 | Sort by Age, then hide Age | The table falls back to the default order (by position); no column you cannot see orders the rows | |
+| 2.10 | Keyboard only: Tab to a player's name and press Enter | That player's profile opens (the name is now a button). In the Columns panel Space toggles a box and Esc closes the panel and returns focus to the button | |
 | 2.6 | Place a left-back at right-back, save, close to menu, load the save | The eleven is **identical** before and after: the inverted pair is kept (fixed in `3ce15a34`). Only a save written before format 9 is repaired, once, on its first load. Report any reordering as a defect | |
 
 ## 3. Tactics
@@ -62,7 +66,8 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 | 4.3 | Double-click Continue quickly | One day advances, not two; no duplicate simulation | |
 | 4.4 | Schedule tab | Upcoming matches, past results, other events | |
 | 4.5 | Inbox: open a message, use its action button | Lands on the relevant tab/modal for that message | |
-| 4.6 | Alerts and sidebar badges | Unread/urgent count agrees with the Inbox; an alert click goes to the tab it names | |
+| 4.6 | Alerts and sidebar badges | Unread/urgent count agrees with the Inbox; an alert click goes to the tab it names, and with a screen reader or keyboard the focus lands on the opened screen (not on the alert); a new alert is announced politely | |
+| 4.8 | Inbox: make an action fail if you can (for example answer a message whose situation has changed) | A red notice in your language says why; the button stays; it clears on the next attempt. No silent dead button | |
 | 4.7 | Leave the XI incomplete on a match day | Blocker modal appears before the match and names what to fix | |
 
 ## 5. Match
@@ -93,7 +98,9 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 | 7.2 | With an assistant: set Approval, then Full, then back to Manual | Mode shows each time; duty toggles agree | |
 | 7.3 | Advance days until a proposal appears | **Dashboard shows an alert "N staff proposal(s) waiting…"** even on a single-day advance. On a match day with an unfit XI, the lineup alert is listed above it | |
 | 7.4 | Click that alert | Opens the Staff tab **already on the Management view**, with Accept and Decline visible without another click (fixed in `a64e30a8`) | |
-| 7.5 | Accept one proposal and reject another | The action happens or not; alert count drops and disappears at zero | |
+| 7.5 | Accept one proposal and reject another | The action happens or not; alert count drops and disappears at zero. Each proposal shows its duty and date under the reason | |
+| 7.7 | Accept a proposal whose conditions have since changed (for example the budget dropped) | The reason is shown, **and the proposal leaves the list and the dashboard count** (it no longer lingers to fail twice) | |
+| 7.8 | Open Staff > Management with a slow or failing backend if you can | It says Loading, or why it failed with a Retry button; never a blank panel | |
 | 7.6 | Protect a player from sale | The assistant does not list or propose selling them | |
 
 ## 8. Save, quit, reload
@@ -120,7 +127,7 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 | # | Do | Expect | Result |
 |---|---|---|---|
 | 10.1 | Switch English ↔ French on every tab above | No raw `be.error.*` or `dashboard.alerts.*` key visible; no English left in French | |
-| 10.2 | Keyboard only through a tab, a modal and a table | Focus ring visible; Esc closes modals; nothing traps focus | |
+| 10.2 | Keyboard only through a tab, a modal and a table | Focus ring visible; Esc closes modals; nothing traps focus. Staff tab: the three view buttons and role filters say pressed/not pressed to a screen reader | |
 | 10.3 | Resize to a small window | Sidebar and tables remain usable | |
 
 ## Sign-off
