@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Bugün maç var, ilk 11'inizi ayarlayın",
       "financeCrisis": "Finansal durum kritik — bakiye {{balance}}, kalan süre {{weeks}} hafta",
       "financeRunway": "Nakit yeterliliği {{count}} haftaya düştü",
-      "wagePressure": "Maaş yükü bütçenin %{{percent}}'i seviyesinde"
+      "wagePressure": "Maaş yükü bütçenin %{{percent}}'i seviyesinde",
+      "delegationProposals": "Karar bekleyen {{count}} ekip önerisi var"
     },
     "unemployedBanner": "Şu anda kulüpsüzsünüz. Gelen kutunuza iş teklifleri gelebilir.",
     "digestAdvancing": "İlerliyor...",

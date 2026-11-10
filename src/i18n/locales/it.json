@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "C'è partita oggi! Imposta il tuo XI titolare",
       "financeCrisis": "Finanze critiche — saldo {{balance}}, autonomia {{weeks}} settimana/e",
       "financeRunway": "Autonomia di cassa ridotta a {{count}} settimana/e",
-      "wagePressure": "Monte ingaggi al {{percent}}% del budget"
+      "wagePressure": "Monte ingaggi al {{percent}}% del budget",
+      "delegationProposals": "{{count}} proposta/e dello staff in attesa della tua decisione"
     },
     "unemployedBanner": "Attualmente sei senza club. Le offerte di lavoro potrebbero arrivare nella tua casella di posta.",
     "digestAdvancing": "Avanzamento...",

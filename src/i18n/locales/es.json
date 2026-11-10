@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial",
       "financeCrisis": "Finanzas críticas — saldo {{balance}}, margen {{weeks}} semana(s)",
       "financeRunway": "Margen de caja reducido a {{count}} semana(s)",
-      "wagePressure": "Masa salarial al {{percent}}% del presupuesto"
+      "wagePressure": "Masa salarial al {{percent}}% del presupuesto",
+      "delegationProposals": "{{count}} propuesta(s) del personal esperan tu decisión"
     },
     "unemployedBanner": "Actualmente no tiene club. Las ofertas de trabajo pueden llegar a su bandeja de entrada.",
     "digestAdvancing": "Avanzando...",

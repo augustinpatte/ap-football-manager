@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Tem jogo hoje! Ajuste sua escalação titular",
       "financeCrisis": "Finanças críticas — saldo {{balance}}, autonomia de {{weeks}} semana(s)",
       "financeRunway": "Autonomia de caixa reduzida para {{count}} semana(s)",
-      "wagePressure": "Folha salarial em {{percent}}% do orçamento"
+      "wagePressure": "Folha salarial em {{percent}}% do orçamento",
+      "delegationProposals": "{{count}} proposta(s) da comissão aguardando sua decisão"
     },
     "unemployedBanner": "Você está atualmente sem clube. Ofertas de emprego podem chegar na sua caixa de entrada.",
     "digestAdvancing": "Avançando...",

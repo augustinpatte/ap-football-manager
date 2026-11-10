@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Dnes se hraje zápas! Zvolte základní sestavu",
       "financeCrisis": "Kritické finance — bilance {{balance}}, zbývá týdnů: {{weeks}}",
       "financeRunway": "Finanční rezerva klesla na týdnů: {{count}}",
-      "wagePressure": "Platový rozpočet je na {{percent}} %"
+      "wagePressure": "Platový rozpočet je na {{percent}} %",
+      "delegationProposals": "Návrhy štábu čekající na vaše rozhodnutí: {{count}}"
     },
     "unemployedBanner": "Momentálně jste bez angažmá. Nabídky práce vám mohou přijít do doručené pošty.",
     "digestAdvancing": "Postup v čase...",

@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Match aujourd'hui ! Définissez votre onze de départ",
       "financeCrisis": "Finances critiques — solde {{balance}}, autonomie {{weeks}} semaine(s)",
       "financeRunway": "Autonomie de trésorerie réduite à {{count}} semaine(s)",
-      "wagePressure": "Masse salariale à {{percent}}% du budget"
+      "wagePressure": "Masse salariale à {{percent}}% du budget",
+      "delegationProposals": "{{count}} proposition(s) du staff en attente de votre décision"
     },
     "unemployedBanner": "Vous êtes actuellement sans club. Des offres d'emploi pourraient arriver dans votre boîte de réception.",
     "digestAdvancing": "Avancement...",

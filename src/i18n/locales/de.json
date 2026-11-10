@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein",
       "financeCrisis": "Finanzen kritisch — Kontostand {{balance}}, Reichweite {{weeks}} Woche(n)",
       "financeRunway": "Liquidität reicht nur noch für {{count}} Woche(n)",
-      "wagePressure": "Lohnkosten bei {{percent}}% des Budgets"
+      "wagePressure": "Lohnkosten bei {{percent}}% des Budgets",
+      "delegationProposals": "{{count}} Vorschlag/Vorschläge des Stabs warten auf deine Entscheidung"
     },
     "unemployedBanner": "Sie sind derzeit ohne Verein. Jobangebote könnten in Ihrem Posteingang eintreffen.",
     "digestAdvancing": "Vorrücken...",

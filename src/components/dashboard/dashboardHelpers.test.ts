@@ -447,6 +447,42 @@ describe("dashboardHelpers", (): void => {
     expect(alerts.map((alert) => alert.id)).toContain("finance_crisis");
   });
 
+  /**
+   * Given the assistant has left three proposals waiting for the manager's answer
+   * When the dashboard alerts are built
+   * Then one alert carries the count and sends the manager to the Staff tab, where they are answered.
+   */
+  it("raises one alert for pending delegation proposals, pointing at the Staff tab", (): void => {
+    const gameState = createGameState({
+      delegation: { proposals: [{ id: "d1" }, { id: "d2" }, { id: "d3" }] },
+    });
+
+    const alerts = getDashboardAlerts(gameState, false, translateDashboardAlert);
+    const proposalAlerts = alerts.filter((alert) => alert.id === "delegation_proposals");
+
+    expect(proposalAlerts).toHaveLength(1);
+    expect(proposalAlerts[0].tab).toBe("Staff");
+    expect(proposalAlerts[0].severity).toBe("warn");
+    expect(proposalAlerts[0].text).toBe(
+      `dashboard.alerts.delegationProposals:${JSON.stringify({ count: 3 })}`,
+    );
+  });
+
+  /**
+   * Given no proposal is waiting (an empty list, or a save with no delegation block at all)
+   * When the dashboard alerts are built
+   * Then there is no proposal alert, so it disappears once the last proposal is resolved.
+   */
+  it("raises no proposal alert when none are pending", (): void => {
+    const empty = createGameState({ delegation: { proposals: [] } });
+    const absent = createGameState();
+
+    for (const gameState of [empty, absent]) {
+      const ids = getDashboardAlerts(gameState, false, translateDashboardAlert).map((a) => a.id);
+      expect(ids).not.toContain("delegation_proposals");
+    }
+  });
+
   it("does not warn about an incomplete Starting XI when a healthy roster can normalize a partial saved lineup", (): void => {
     const roster = [
       createPlayer({ id: "p1", position: "Goalkeeper", natural_position: "Goalkeeper" }),

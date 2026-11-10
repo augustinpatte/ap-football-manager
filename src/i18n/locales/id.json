@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Ada pertandingan hari ini! Atur Starting XI",
       "financeCrisis": "Keuangan kritis — saldo {{balance}}, sisa {{weeks}} minggu",
       "financeRunway": "Sisa kas tinggal {{count}} minggu",
-      "wagePressure": "Beban gaji mencapai {{percent}}% dari anggaran"
+      "wagePressure": "Beban gaji mencapai {{percent}}% dari anggaran",
+      "delegationProposals": "{{count}} usulan staf menunggu keputusan Anda"
     },
     "unemployedBanner": "Kamu sedang tanpa klub. Tawaran pekerjaan akan tiba di kotak masuk.",
     "digestAdvancing": "Melanjutkan...",

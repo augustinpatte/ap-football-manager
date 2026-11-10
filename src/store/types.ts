@@ -1047,8 +1047,12 @@ export interface GameStateData {
   /** Sent by the backend; the frontend reads these through their own commands. */
   custom_tactics?: unknown[];
   scouted_players?: unknown[];
-  /** What the manager has handed to the staff; the staff screen reads the rest through its own command. */
-  delegation?: { protected_players?: string[] };
+  /**
+   * What the manager has handed to the staff. `proposals` are the steps the assistant is holding for
+   * the manager's answer (the dashboard only counts them); the staff screen reads the rest through
+   * its own command.
+   */
+  delegation?: { protected_players?: string[]; proposals?: { id: string }[] };
   clock: {
     current_date: string;
     start_date: string;
