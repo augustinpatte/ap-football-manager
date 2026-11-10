@@ -567,7 +567,7 @@ struct Scratch {
     slot_cost: Vec<i64>,
     bench: Vec<usize>,
     taken: Vec<u8>,
-    pairs: Vec<(f32, u8, u16)>,
+    pairs: Vec<u64>,
     solver: Solver,
 }
 
@@ -1023,28 +1023,47 @@ fn assign_cover(squad: &[&Member], year: usize, view: &mut YearView, scratch: &m
     pairs.clear();
     for (position, &index) in bench.iter().enumerate() {
         for slot in 0..SLOTS {
-            pairs.push((squad[index].levels[year][slot], slot as u8, position as u16));
+            pairs.push(pairing_key(
+                squad[index].levels[year][slot],
+                slot,
+                position,
+            ));
         }
     }
-    pairs.sort_unstable_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+    pairs.sort_unstable();
     taken.clear();
     taken.resize(bench.len(), 0);
     let mut covered = [false; SLOTS];
     let mut left = SLOTS;
-    for &(level, slot, position) in pairs.iter() {
-        let (slot, position) = (usize::from(slot), usize::from(position));
+    for &key in pairs.iter() {
+        let slot = ((key >> 16) & 0xF) as usize;
+        let position = (key & 0xFFFF) as usize;
         if covered[slot] || taken[position] >= SLOTS_PER_COVER {
             continue;
         }
         covered[slot] = true;
         taken[position] += 1;
-        view.cover[slot] = level;
+        view.cover[slot] = squad[bench[position]].levels[year][slot];
         view.cover_index[slot] = Some(bench[position]);
         left -= 1;
         if left == 0 {
             break;
         }
     }
+}
+
+/// Packs a pairing into one number whose ascending order is the pairing's order: level descending,
+/// then slot, then bench position. A level's `f32` bits are turned into the integer order that
+/// `total_cmp` defines first, so fractional and equal levels keep exactly the place they had.
+fn pairing_key(level: f32, slot: usize, position: usize) -> u64 {
+    let bits = level.to_bits();
+    let order = if bits & 0x8000_0000 == 0 {
+        bits | 0x8000_0000
+    } else {
+        !bits
+    };
+    let rank = u64::from(u32::MAX - order);
+    (rank << 20) | ((slot as u64) << 16) | position as u64
 }
 
 #[cfg(test)]

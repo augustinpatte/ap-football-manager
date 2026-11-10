@@ -806,3 +806,73 @@ fn sorting_the_pairings_once_assigns_the_cover_exactly_as_picking_the_best_again
         }
     }
 }
+
+/// Given slot levels that are fractional and often exactly equal
+/// When the cover is assigned by sorting packed pairings once, and by taking the best remaining
+/// pairing again and again
+/// Then the same player covers each slot at the same rating: the packed order keeps the old
+/// tie-break of slot before bench position.
+#[test]
+fn fractional_and_equal_cover_ratings_keep_the_pairing_order() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(5151);
+    for case in 0..60 {
+        let size = rng.random_range(12..=30);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            squad.players.push(player(
+                &format!("f{case}p{i}"),
+                position,
+                rng.random_range(45..=88),
+                rng.random_range(17..=36),
+            ));
+        }
+        let mut club = club(&squad);
+        for (i, member) in club.model.members.iter_mut().enumerate() {
+            for year in 0..HORIZON {
+                for slot in 0..SLOTS {
+                    // Thirds, so exact equality and fractional differences both occur, and some
+                    // levels sit under the emergency body's 25.
+                    let step = (case * 31 + i * 17 + slot * 7 + year * 13) % 97;
+                    member.levels[year][slot] = 18.0 + step as f32 / 3.0;
+                }
+            }
+        }
+        let refs: Vec<&Member> = club.model.members.iter().collect();
+        for year in 0..HORIZON {
+            let view = club.base.years[year];
+            let used: Vec<bool> = (0..refs.len())
+                .map(|index| view.starter_index.contains(&Some(index)))
+                .collect();
+            let (cover, index_of) = cover_by_repeated_best_pair(&refs, &used, year);
+            let mut scratch = Scratch {
+                used,
+                ..Scratch::default()
+            };
+            let mut assigned = EMPTY_YEAR;
+            assign_cover(&refs, year, &mut assigned, &mut scratch);
+            assert_eq!(
+                assigned.cover.map(f32::to_bits),
+                cover.map(f32::to_bits),
+                "case {case} year {year} cover"
+            );
+            assert_eq!(
+                assigned.cover_index, index_of,
+                "case {case} year {year} cover index"
+            );
+        }
+    }
+}
