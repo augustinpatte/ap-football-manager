@@ -389,3 +389,33 @@ fn selling_a_second_keeper_costs_little_and_selling_the_only_good_one_is_critica
     assert!(only_good_one.net_loss < loss - 0.02);
     assert!(only_good_one.net_loss > 0.5 * loss);
 }
+
+/// Given two clubs with the same eleven of the same ratings, one of 24-year-olds and one of
+/// 33-year-olds, and a prospect of 60 who will be 78 in two seasons
+/// When each prices him
+/// Then the ageing club values him more: its own starters will have declined or retired by the time
+/// he arrives, which is what a club "planning a squad over time" means.
+#[test]
+fn an_ageing_squad_values_a_prospect_more_than_a_young_one_does() {
+    let squad_aged = |age: i32| {
+        let mut squad = Squad::new();
+        for (position, ratings) in [
+            (Goalkeeper, &[74u8, 66][..]),
+            (LeftBack, &[72, 66]),
+            (RightBack, &[72, 66]),
+            (CenterBack, &[74, 72, 68, 66]),
+            (LeftMidfielder, &[72, 66]),
+            (RightMidfielder, &[72, 66]),
+            (CentralMidfielder, &[74, 72, 68, 66]),
+            (Striker, &[75, 73, 67]),
+        ] {
+            let aged: Vec<(u8, i32)> = ratings.iter().map(|&ovr| (ovr, age)).collect();
+            squad = squad.add_aged(position, &aged);
+        }
+        squad.club("4-4-2", CASH, comfortable())
+    };
+    let prospect = with_potential(player("prospect", Striker, 60, 19), 80);
+    let worth = |club: &ClubSquad| club.signing(&prospect, 0.0).expect("a senior").gain;
+    let (young, ageing) = (worth(&squad_aged(24)), worth(&squad_aged(33)));
+    assert!(ageing > young, "ageing {ageing} against young {young}");
+}

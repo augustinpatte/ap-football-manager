@@ -575,4 +575,141 @@ mod tests {
             }
         }
     }
+
+    // --- Seven clubs in seven situations ------------------------------------
+    //
+    // Each names a club by what has happened to it, not by a category: nothing here is a club type,
+    // each is facts fed to the one derivation, and the assertion is what a market buyer then prefers
+    // and why. They are the situations the strategy exists to tell apart.
+
+    fn club_with(update: impl FnOnce(&mut ClubFacts)) -> ClubProfile {
+        let mut facts = facts();
+        update(&mut facts);
+        classify(&facts)
+    }
+
+    /// An immediate improvement: a player in his prime who adds a lot to the side.
+    fn proven(fee: u64) -> TargetFacts {
+        TargetFacts {
+            age: 27,
+            potential_gap: 0,
+            improvement: 6,
+            fee,
+            value: 20_000_000,
+        }
+    }
+
+    /// Given a club at the top of its league with a fifth of its squad's value in cash
+    /// When it classifies and weighs a proven player against a prospect
+    /// Then it is a wealthy contender, prefers the player who helps now, and can pay his fee.
+    #[test]
+    fn a_wealthy_contender_prefers_the_player_who_helps_now() {
+        let club = club_with(|f| {
+            f.standing_pct = 0.05;
+            f.cash = 30_000_000;
+        });
+        assert_eq!(
+            (club.ambition, club.means),
+            (Ambition::Contender, Means::Wealthy)
+        );
+        assert!(club.rank_weight(&proven(15_000_000)) > club.rank_weight(&prospect(2_000_000)));
+        assert!(club.allows_spending(15_000_000, 30_000_000, false));
+    }
+
+    /// Given a club whose cash is a sliver of its squad's value
+    /// When it weighs an expensive player against a free one, and a large fee for one player
+    /// Then it is constrained, prefers the free player, and will not stake a quarter of its cash on
+    /// one signing unless it has a hole to fill.
+    #[test]
+    fn a_financially_constrained_club_prefers_free_players_and_guards_its_cash() {
+        let club = club_with(|f| f.cash = 2_000_000);
+        assert_eq!(club.means, Means::Constrained);
+        assert!(club.rank_weight(&proven(0)) > club.rank_weight(&proven(19_000_000)));
+        assert!(!club.allows_spending(1_000_000, 2_000_000, false));
+        assert!(
+            club.allows_spending(1_000_000, 2_000_000, true),
+            "a hole is the exception"
+        );
+    }
+
+    /// Given a small club in the league it has just joined, with no season behind it there
+    /// When it classifies
+    /// Then it is a fighter that takes a free player over a priced one of the same quality.
+    #[test]
+    fn a_promoted_club_aims_at_what_it_can_afford() {
+        let club = club_with(|f| {
+            f.standing_pct = 0.9;
+            f.finished_pct = None;
+        });
+        assert_eq!(club.ambition, Ambition::Fighter);
+        assert!(club.rank_weight(&proven(0)) > club.rank_weight(&proven(15_000_000)));
+    }
+
+    /// Given the same promoted club, which won the division below
+    /// When it classifies
+    /// Then it is still a fighter: finishing first in a lower division says nothing about how it
+    /// will do in this one.
+    ///
+    /// Known gap, not fixed: a season record stores the position but not the division it was
+    /// earned in, so `profiles` reads last season's finish against the club's *current* league and
+    /// lifts a promoted champion to Established. Needs the tier on `TeamSeasonRecord` (a
+    /// `serde(default)` field in a JSON column), see docs/APFM_P4_IMPLEMENTATION_REPORT.md.
+    #[test]
+    #[ignore = "known gap: the division a finish was earned in is not recorded"]
+    fn a_promoted_champion_is_still_a_fighter_in_its_new_division() {
+        let club = club_with(|f| {
+            f.standing_pct = 0.9;
+            f.finished_pct = Some(0.0);
+        });
+        assert_eq!(club.ambition, Ambition::Fighter);
+    }
+
+    /// Given a club built around its academy and young squad
+    /// When it weighs a prospect against a veteran
+    /// Then its youth focus is high, it favours the prospect and marks the veteran down.
+    #[test]
+    fn a_youth_built_club_prefers_the_prospect() {
+        let club = club_with(|f| {
+            f.young_share = 0.35;
+            f.training_facility = 5;
+        });
+        assert!(club.youth_focus > 0.9);
+        assert!(club.rank_weight(&prospect(1_000_000)) > 1.3);
+        assert!(club.rank_weight(&veteran(1_000_000)) < 0.8);
+    }
+
+    /// Given a club that finished at the foot of the table although its reputation puts it among
+    /// the best, and the same club a year earlier with no season behind it
+    /// When each classifies
+    /// Then poor results take it down a step, and only a step: it is still a club of its stature.
+    #[test]
+    fn poor_results_lower_a_clubs_ambition_by_one_step() {
+        let before = club_with(|f| {
+            f.standing_pct = 0.1;
+            f.finished_pct = None;
+        });
+        let after = club_with(|f| {
+            f.standing_pct = 0.1;
+            f.finished_pct = Some(0.95);
+        });
+        assert_eq!(
+            (before.ambition, after.ambition),
+            (Ambition::Contender, Ambition::Established)
+        );
+    }
+
+    /// Given one club under two managers, one who trusts youth and one who doubts it
+    /// When it classifies under each
+    /// Then the club's ambition and means (its philosophy and its books) are the same and only the
+    /// youth focus, which a manager tilts, differs.
+    #[test]
+    fn a_new_manager_tilts_a_club_without_changing_what_it_is() {
+        let under = |trust: f64| club_with(|f| f.manager_youth_trust = trust);
+        let (believer, sceptic) = (under(1.0), under(0.0));
+        assert_eq!(
+            (believer.ambition, believer.means),
+            (sceptic.ambition, sceptic.means)
+        );
+        assert!(believer.youth_focus > sceptic.youth_focus);
+    }
 }
