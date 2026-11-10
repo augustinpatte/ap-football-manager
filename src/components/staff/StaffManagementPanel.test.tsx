@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameStateData } from "../../store/gameStore";
@@ -243,6 +243,90 @@ describe("StaffManagementPanel", () => {
         recommendationId: "rec-1",
       }),
     );
+  });
+
+  /**
+   * Given a proposal the backend drops when it cannot carry it out (the budget moved, the member
+   *       signed elsewhere),
+   * when the manager accepts it and the backend refuses,
+   * then the reason is shown and the game is read again, so the dead proposal leaves the list and
+   *      the dashboard's count instead of waiting there to fail a second time.
+   */
+  it("reads the game again after a refused answer, because the proposal is gone", async () => {
+    const afterRefusal = { delegation: { proposals: [] } } as unknown as GameStateData;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_assistant_recommendations") return [];
+      if (command === "resolve_delegation_proposal") throw "be.error.staff.offerRefused";
+      if (command === "get_active_game") return afterRefusal;
+      return {} as GameStateData;
+    });
+    const onGameUpdate = vi.fn();
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "staff.delegation.accept" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    await waitFor(() => expect(onGameUpdate).toHaveBeenCalledWith(afterRefusal));
+  });
+
+  /**
+   * Given a refusal and a game that cannot be read again,
+   * when the manager accepts,
+   * then the reason still shows: the resync is a courtesy and never hides the error.
+   */
+  it("still shows the reason when the game cannot be read again", async () => {
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_assistant_recommendations") return [];
+      throw "be.error.staff.offerRefused";
+    });
+    const onGameUpdate = vi.fn();
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "staff.delegation.accept" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(onGameUpdate).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given a proposal from the recruitment duty, made on 1 August,
+   * when it is listed,
+   * then it says which duty it belongs to and when it was made: the manager sees who is asking.
+   */
+  it("names the duty and the date a proposal comes from", () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+
+    const proposal = screen.getByTestId("proposal-prop-1");
+
+    expect(proposal).toHaveTextContent("staff.delegation.duties.StaffRecruitment");
+    expect(proposal).toHaveTextContent("2026-08-01");
+  });
+
+  /**
+   * Given several proposals and duties whose buttons all read Accept, Decline, Delegate,
+   * when a screen reader lands on one,
+   * then its description says which proposal or duty it answers, without changing its name.
+   */
+  it("describes each repeated button by the proposal or duty it belongs to", () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+
+    const proposal = within(screen.getByTestId("proposal-prop-1"));
+    const title = /^delegation\.proposal\.hire/;
+    expect(
+      proposal.getByRole("button", { name: "staff.delegation.accept" }),
+    ).toHaveAccessibleDescription(title);
+    expect(
+      proposal.getByRole("button", { name: "staff.delegation.decline" }),
+    ).toHaveAccessibleDescription(title);
+
+    const training = within(screen.getByTestId("duty-Training"));
+    expect(
+      training.getByRole("button", { name: "staff.delegation.takeBack" }),
+    ).toHaveAccessibleDescription("staff.delegation.duties.Training");
+    const scouting = within(screen.getByTestId("duty-Scouting"));
+    expect(
+      scouting.getByRole("button", { name: "staff.delegation.delegate" }),
+    ).toHaveAccessibleDescription("staff.delegation.duties.Scouting");
   });
 
   it("shows the backend's error when an action fails", async () => {

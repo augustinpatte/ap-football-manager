@@ -25,6 +25,8 @@ interface FakeProposal {
 const backend = {
   pending: [] as FakeProposal[],
   resolved: [] as { proposalId: string; accept: boolean }[],
+  /** When set, the next answer is refused after the backend has dropped the proposal, as it does. */
+  refuseNextAnswer: false,
 };
 
 function gameWithPending(): GameStateData {
@@ -123,8 +125,14 @@ const invokeMock = vi.fn(async (command: string, args?: Record<string, unknown>)
       const proposalId = String(args?.proposalId);
       backend.resolved.push({ proposalId, accept: args?.accept === true });
       backend.pending = backend.pending.filter((proposal) => proposal.id !== proposalId);
+      if (backend.refuseNextAnswer) {
+        backend.refuseNextAnswer = false;
+        throw "be.error.staff.offerRefused";
+      }
       return gameWithPending();
     }
+    case "get_active_game":
+      return gameWithPending();
     default:
       throw new Error(`unexpected command ${command}`);
   }
@@ -151,6 +159,7 @@ function DashboardHost({ initial }: { initial: GameStateData }) {
 function renderDashboard(proposalIds: string[]) {
   backend.pending = proposalIds.map((id) => ({ id }));
   backend.resolved = [];
+  backend.refuseNextAnswer = false;
   return render(<DashboardHost initial={gameWithPending()} />);
 }
 
@@ -213,6 +222,24 @@ describe("delegation proposals, from the dashboard alert to the answer", () => {
       expect(screen.queryByRole("button", { name: EN_ALERT })).not.toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: "Decline" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given two proposals, and an accept the backend refuses after dropping that proposal,
+   * when the manager accepts the first,
+   * then the reason shows, the dead proposal leaves the list, and the dashboard alert counts only
+   *      the one that is left.
+   */
+  it("drops a proposal the backend could not carry out, from the list and the alert", async () => {
+    renderDashboard(["prop-1", "prop-2"]);
+    backend.refuseNextAnswer = true;
+    fireEvent.click(screen.getByRole("button", { name: EN_ALERT }));
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "Accept" }))[0]);
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^1 staff proposal/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Accept" })).toHaveLength(1));
   });
 
   it("reads in French: the alert, the screen it opens and the two answers", async () => {

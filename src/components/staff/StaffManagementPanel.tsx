@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { GameStateData } from "../../store/gameStore";
@@ -14,6 +14,7 @@ import {
   setDelegationMode,
   setDutyDelegation,
 } from "../../services/staffService";
+import { getActiveGame } from "../../services/sessionService";
 import { resolveBackendError } from "../../utils/backendI18n";
 import { formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
@@ -71,6 +72,8 @@ export default function StaffManagementPanel({
   const [recs, setRecs] = useState<AssistantRecommendation[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // Several buttons read alike (Accept, Decline, Delegate); each is described by what it acts on.
+  const describeId = useId();
 
   const proposalsCount = overview?.delegation.proposals.length ?? 0;
   const refreshRecs = useCallback(() => {
@@ -91,6 +94,13 @@ export default function StaffManagementPanel({
       refreshRecs();
     } catch (err) {
       setError(resolveBackendError(err));
+      // A refused answer may still have changed the game: the backend drops a proposal it cannot
+      // carry out. Read the game again so the list and the dashboard do not keep showing it.
+      try {
+        onGameUpdate(await getActiveGame());
+      } catch (resyncError) {
+        console.error("Failed to read the game after a refused answer:", resyncError);
+      }
     } finally {
       setBusy(null);
     }
@@ -174,7 +184,9 @@ export default function StaffManagementPanel({
                   data-testid={`duty-${duty}`}
                   className="flex flex-wrap items-center justify-between gap-2"
                 >
-                  <span className="text-body">{t(`staff.delegation.duties.${duty}`)}</span>
+                  <span id={`${describeId}-duty-${duty}`} className="text-body">
+                    {t(`staff.delegation.duties.${duty}`)}
+                  </span>
                   <span className="flex items-center gap-3">
                     {delegated ? (
                       <span className="flex items-center gap-2 text-caption text-fg-muted">
@@ -193,6 +205,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant={delegated ? "outline" : "primary"}
+                      aria-describedby={`${describeId}-duty-${duty}`}
                       disabled={busy !== null || (!delegated && !overview.has_assistant)}
                       onClick={() =>
                         void run(`duty-${duty}`, () => setDutyDelegation(duty, !delegated, confirm))
@@ -221,15 +234,20 @@ export default function StaffManagementPanel({
                   data-testid={`proposal-${proposal.id}`}
                   className="grid gap-1"
                 >
-                  <p className="text-body font-medium">
+                  <p id={`${describeId}-${proposal.id}`} className="text-body font-medium">
                     {t(proposal.title_key, named(proposal.params))}
                   </p>
                   <p className="text-caption text-fg-muted">
                     {t(proposal.reason_key, named(proposal.params))}
                   </p>
+                  <p className="text-caption text-fg-subtle">
+                    {t(`staff.delegation.duties.${proposal.duty}`)} ·{" "}
+                    {proposal.created.slice(0, 10)}
+                  </p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
+                      aria-describedby={`${describeId}-${proposal.id}`}
                       disabled={busy !== null}
                       onClick={() =>
                         void run(proposal.id, () => resolveDelegationProposal(proposal.id, true))
@@ -240,6 +258,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-describedby={`${describeId}-${proposal.id}`}
                       disabled={busy !== null}
                       onClick={() =>
                         void run(proposal.id, () => resolveDelegationProposal(proposal.id, false))
@@ -285,7 +304,10 @@ export default function StaffManagementPanel({
             <ul className="mt-2 grid gap-3">
               {recs.map((rec) => (
                 <li key={rec.id} data-testid={`rec-${rec.id}`} className="grid gap-1">
-                  <p className="flex items-center gap-2 text-body font-medium">
+                  <p
+                    id={`${describeId}-${rec.id}`}
+                    className="flex items-center gap-2 text-body font-medium"
+                  >
                     <Badge
                       variant={
                         rec.severity >= 3 ? "danger" : rec.severity === 2 ? "primary" : "neutral"
@@ -303,6 +325,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant="outline"
+                      aria-describedby={`${describeId}-${rec.id}`}
                       disabled={busy !== null}
                       onClick={() => void run(rec.id, () => applyAssistantRecommendation(rec.id))}
                     >
