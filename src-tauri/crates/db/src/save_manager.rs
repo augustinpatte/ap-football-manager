@@ -203,12 +203,8 @@ impl SaveManager {
         let save_id = uuid::Uuid::new_v4().to_string();
         let db_filename = format!("{}.db", save_id);
         let db_path = self.saves_dir.join(&db_filename);
-        let mut persisted_game = game.clone();
-
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-
         let db = GameDatabase::open(&db_path)?;
-        GamePersistenceWriter::write_game(&db, &persisted_game, &save_id, save_name)?;
+        GamePersistenceWriter::write_game(&db, game, &save_id, save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -247,23 +243,12 @@ impl SaveManager {
         let db_path = self.saves_dir.join(&db_filename);
         let total_timer = Instant::now();
 
-        let clone_timer = Instant::now();
-        let mut persisted_game = game.clone();
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-        let clone_ms = clone_timer.elapsed().as_millis();
-
         let db_open_timer = Instant::now();
         let db = GameDatabase::open(&db_path)?;
         let db_open_ms = db_open_timer.elapsed().as_millis();
 
         let write_timer = Instant::now();
-        GamePersistenceWriter::write_game_and_stats(
-            &db,
-            &persisted_game,
-            stats,
-            &save_id,
-            save_name,
-        )?;
+        GamePersistenceWriter::write_game_and_stats(&db, game, stats, &save_id, save_name)?;
         let write_ms = write_timer.elapsed().as_millis();
         drop(db);
 
@@ -292,9 +277,8 @@ impl SaveManager {
         let index_ms = index_timer.elapsed().as_millis();
 
         info!(
-            "[save_manager] create_save_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            "[save_manager] create_save_with_stats save_id={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
             save_id,
-            clone_ms,
             db_open_ms,
             write_ms,
             checksum_ms,
@@ -316,13 +300,9 @@ impl SaveManager {
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         let save_name = entry.name.clone();
-        let mut persisted_game = game.clone();
-
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-
         snapshot_db_before_write(&db_path)?;
         let db = GameDatabase::open(&db_path)?;
-        GamePersistenceWriter::write_game(&db, &persisted_game, save_id, &save_name)?;
+        GamePersistenceWriter::write_game(&db, game, save_id, &save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -445,11 +425,6 @@ impl SaveManager {
         let db_path = self.saves_dir.join(&entry.db_filename);
         let total_timer = Instant::now();
 
-        let clone_timer = Instant::now();
-        let mut persisted_game = game.clone();
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-        let clone_ms = clone_timer.elapsed().as_millis();
-
         snapshot_db_before_write(&db_path)?;
 
         let db_open_timer = Instant::now();
@@ -459,7 +434,7 @@ impl SaveManager {
         let write_timer = Instant::now();
         GamePersistenceWriter::write_game_stats_and_match(
             &db,
-            &persisted_game,
+            game,
             stats,
             save_id,
             &entry.name,
@@ -489,9 +464,8 @@ impl SaveManager {
         let index_ms = index_timer.elapsed().as_millis();
 
         info!(
-            "[save_manager] save_game_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            "[save_manager] save_game_with_stats save_id={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
             save_id,
-            clone_ms,
             db_open_ms,
             write_ms,
             checksum_ms,
@@ -637,7 +611,12 @@ impl SaveManager {
             needs_resave = true;
         }
 
-        if canonicalize_game_starting_xi_ids(&mut game) {
+        // Only a save from before format 9 can still hold a mirrored pair the old builds would
+        // have repaired on write. From format 9 on the eleven is whatever the manager saved, so an
+        // inverted full-back or winger is never reordered behind their back.
+        if save_format_version < LAST_FORMAT_WITH_XI_SIDE_REPAIR
+            && canonicalize_game_starting_xi_ids(&mut game)
+        {
             needs_resave = true;
         }
 
@@ -856,6 +835,11 @@ impl SaveManager {
     }
 }
 
+/// Saves below this format may carry a mirrored side pair that was never repaired.
+const LAST_FORMAT_WITH_XI_SIDE_REPAIR: u32 = 9;
+
+/// Puts mirrored side pairs (LB/RB, LWB/RWB, LM/RM, LW/RW) the right way round when that raises
+/// fit. A repair for legacy data, never applied to a current save the manager has edited.
 pub(crate) fn canonicalize_game_starting_xi_ids(game: &mut Game) -> bool {
     let players_by_id: HashMap<String, Player> = game
         .players
@@ -1286,6 +1270,27 @@ mod tests {
         player.weak_foot = 1;
         player.team_id = Some("team-001".to_string());
         player
+    }
+
+    /// A 4-3-3 whose left and right wingers each play naturally on their own flank; tests put
+    /// them on the opposite flank on purpose.
+    fn sample_game_with_inverted_wingers() -> Game {
+        let mut game = sample_game_with_side_specific_starting_xi(false);
+        game.teams[0].formation = "4-3-3".to_string();
+        game.players = vec![
+            make_lineup_player("gk", Position::Goalkeeper, Footedness::Right),
+            make_lineup_player("lb", Position::LeftBack, Footedness::Left),
+            make_lineup_player("cb1", Position::CenterBack, Footedness::Right),
+            make_lineup_player("cb2", Position::CenterBack, Footedness::Right),
+            make_lineup_player("rb", Position::RightBack, Footedness::Right),
+            make_lineup_player("cm1", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("cm2", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("cm3", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("lw", Position::LeftWinger, Footedness::Left),
+            make_lineup_player("st1", Position::Striker, Footedness::Right),
+            make_lineup_player("rw", Position::RightWinger, Footedness::Right),
+        ];
+        game
     }
 
     fn sample_game_with_side_specific_starting_xi(mirrored: bool) -> Game {
@@ -3262,91 +3267,186 @@ mod tests {
         assert!(loaded_stats.team_matches.is_empty());
     }
 
+    /// Reads the eleven straight out of the `.db`, so a test sees what was written, not what a
+    /// load repaired.
+    fn stored_starting_xi(saves_dir: &std::path::Path, save_id: &str) -> Vec<String> {
+        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
+        let json: String = db
+            .conn()
+            .query_row(
+                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
+                params!["team-001"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        serde_json::from_str(&json).unwrap()
+    }
+
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|id| id.to_string()).collect()
+    }
+
+    const INVERTED_FULL_BACKS_442: [&str; 11] = [
+        "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
+    ];
+    const NATURAL_SIDES_442: [&str; 11] = [
+        "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2",
+    ];
+
+    /// Given a manager who deliberately plays a left-back on the right and a right-back on the
+    /// left (and the same on the wide midfield), when the career is saved, then the file holds
+    /// that order exactly. The swap is a repair for old saves, not a rule about who may play where.
     #[test]
-    fn test_create_save_canonicalizes_mirrored_starting_xi_order_on_write() {
+    fn test_create_save_keeps_a_deliberately_inverted_full_back_pair() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
-
         let mut sm = SaveManager::init(&saves_dir).unwrap();
         let game = sample_game_with_side_specific_starting_xi(true);
 
-        let save_id = sm.create_save(&game, "Mirrored XI Career").unwrap();
-        let db_path = saves_dir.join(format!("{}.db", save_id));
-        let db = GameDatabase::open(&db_path).unwrap();
-        let starting_xi_json: String = db
-            .conn()
-            .query_row(
-                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
-                params!["team-001"],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+        let save_id = sm.create_save(&game, "Inverted Backs").unwrap();
 
         assert_eq!(
-            starting_xi_ids,
-            vec![
-                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
-            ]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>()
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
         );
     }
 
+    /// Given an inverted pair already in a save, when the career is saved again over the same
+    /// save, then the order is still the manager's.
     #[test]
-    fn test_load_game_repairs_existing_mirrored_starting_xi_order() {
+    fn test_save_game_keeps_a_deliberately_inverted_pair_when_overwriting() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
-
         let mut sm = SaveManager::init(&saves_dir).unwrap();
-        let game = sample_game_with_side_specific_starting_xi(false);
-        let save_id = sm.create_save(&game, "Repair XI Career").unwrap();
-        let db_path = saves_dir.join(format!("{}.db", save_id));
+        let natural = sample_game_with_side_specific_starting_xi(false);
+        let save_id = sm.create_save(&natural, "Overwrite").unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
 
-        {
-            let db = GameDatabase::open(&db_path).unwrap();
-            let mirrored_xi_json = serde_json::to_string(&vec![
-                "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
-            ])
+        sm.save_game(&inverted, &save_id).unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    fn put_stored_starting_xi(saves_dir: &std::path::Path, save_id: &str, xi: &[&str]) {
+        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE teams SET starting_xi_ids = ?1 WHERE id = ?2",
+                params![serde_json::to_string(&xi).unwrap(), "team-001"],
+            )
             .unwrap();
-            db.conn()
-                .execute(
-                    "UPDATE teams SET starting_xi_ids = ?1 WHERE id = ?2",
-                    params![mirrored_xi_json, "team-001"],
-                )
-                .unwrap();
-        }
+    }
 
-        let loaded = sm.load_game(&save_id).unwrap();
-        let team = loaded
+    fn stamp_format_version(saves_dir: &std::path::Path, save_id: &str, version: u32) {
+        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
+        let mut meta = meta_repo::load_meta(db.conn()).unwrap().unwrap();
+        meta.save_format_version = version;
+        meta_repo::upsert_meta(db.conn(), &meta).unwrap();
+    }
+
+    fn loaded_starting_xi(sm: &mut SaveManager, save_id: &str) -> Vec<String> {
+        sm.load_game(save_id)
+            .unwrap()
             .teams
-            .iter()
+            .into_iter()
             .find(|team| team.id == "team-001")
+            .unwrap()
+            .starting_xi_ids
+    }
+
+    /// Given a save from before format 9 whose eleven has its mirrored side pairs the wrong way
+    /// round (the state the repair was written for), when it is loaded, then the pairs are put
+    /// right and the repaired order is written back.
+    #[test]
+    fn test_load_game_repairs_mirrored_starting_xi_order_in_a_pre_format_9_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Old Repair XI Career",
+            )
+            .unwrap();
+        put_stored_starting_xi(&saves_dir, &save_id, &INVERTED_FULL_BACKS_442);
+        stamp_format_version(&saves_dir, &save_id, 8);
+
+        let loaded = loaded_starting_xi(&mut sm, &save_id);
+
+        assert_eq!(loaded, ids(&NATURAL_SIDES_442));
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), loaded);
+    }
+
+    /// Given a current-format save in which the manager chose an inverted full-back pair, when it
+    /// is loaded, then the order is untouched in memory and on disk.
+    #[test]
+    fn test_load_game_keeps_an_inverted_starting_xi_in_a_current_format_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(true),
+                "Inverted On Load",
+            )
+            .unwrap();
+
+        let loaded = loaded_starting_xi(&mut sm, &save_id);
+
+        assert_eq!(loaded, ids(&INVERTED_FULL_BACKS_442));
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), loaded);
+    }
+
+    /// Given a lineup the manager built the ordinary way, when it is saved and loaded, then it
+    /// comes back identical.
+    #[test]
+    fn test_a_naturally_sided_starting_xi_round_trips_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Natural Sides",
+            )
             .unwrap();
 
         assert_eq!(
-            team.starting_xi_ids,
-            vec![
-                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
-            ]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>()
+            loaded_starting_xi(&mut sm, &save_id),
+            ids(&NATURAL_SIDES_442)
         );
+    }
 
-        let db = GameDatabase::open(&db_path).unwrap();
-        let starting_xi_json: String = db
-            .conn()
-            .query_row(
-                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
-                params!["team-001"],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+    /// Given inverted wingers in a 4-3-3 (a left winger on the right flank and the reverse), when
+    /// the career is saved, quit, and loaded by a fresh save manager, then the wingers are where
+    /// the manager put them.
+    #[test]
+    fn test_inverted_wingers_survive_save_quit_and_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let inverted_433 = [
+            "gk", "lb", "cb1", "cb2", "rb", "cm1", "cm2", "cm3", "rw", "st1", "lw",
+        ];
+        let save_id = {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            let mut game = sample_game_with_inverted_wingers();
+            game.teams[0].starting_xi_ids = ids(&inverted_433);
+            let save_id = sm.create_save(&game, "Inverted Wingers").unwrap();
+            // A second write over the same save, as the in-game save button does.
+            sm.save_game(&game, &save_id).unwrap();
+            save_id
+        };
 
-        assert_eq!(starting_xi_ids, team.starting_xi_ids);
+        let mut reopened = SaveManager::init(&saves_dir).unwrap();
+
+        assert_eq!(
+            loaded_starting_xi(&mut reopened, &save_id),
+            ids(&inverted_433)
+        );
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), ids(&inverted_433));
     }
 
     /// Given a save whose every other repair has already been written back,
