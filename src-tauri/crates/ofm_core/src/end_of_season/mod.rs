@@ -376,19 +376,31 @@ struct FinishedDivision {
 /// record with the *user's* season, which mislabels a foreign league running on
 /// another calendar: its 2034 results were recorded as 2035.
 fn division_standings_with_tiers(game: &Game) -> Vec<FinishedDivision> {
-    use std::collections::BTreeMap;
-
+    let finished = |league: &League, tier: u32| FinishedDivision {
+        standings: league.sorted_standings(),
+        tier,
+        season: league.season,
+    };
     if game.competitions.is_empty() {
         return game
             .league
             .iter()
-            .map(|league| FinishedDivision {
-                standings: league.sorted_standings(),
-                tier: 0,
-                season: league.season,
-            })
+            .map(|league| finished(league, 0))
             .collect();
     }
+    ranked_divisions(game)
+        .into_iter()
+        .filter(|(league, _)| is_league_season_ended(league))
+        .map(|(league, tier)| finished(league, tier))
+        .collect()
+}
+
+/// Every league-table division of the world with how far down its own pyramid it sits (0 the top
+/// flight), finished or not: the ranking [`division_standings_with_tiers`] pays out by, and the one
+/// a club's earlier finish is read against ([`division_tiers`]), so there is one answer to "which
+/// tier is this".
+fn ranked_divisions(game: &Game) -> Vec<(&League, u32)> {
+    use std::collections::BTreeMap;
 
     let mut by_country: BTreeMap<&str, Vec<&League>> = BTreeMap::new();
     let mut standalone: Vec<&League> = Vec::new();
@@ -409,32 +421,35 @@ fn division_standings_with_tiers(game: &Game) -> Vec<FinishedDivision> {
         }
     }
 
-    let mut divisions: Vec<FinishedDivision> = Vec::new();
+    let mut divisions: Vec<(&League, u32)> = Vec::new();
     for mut group in by_country.into_values() {
         group.sort_by_key(|league| league.priority);
         collapse_repeated_divisions(&mut group);
-        for (tier, league) in group.into_iter().enumerate() {
-            if !is_league_season_ended(league) {
-                continue; // ranked, but nothing to pay out or record yet
-            }
-            divisions.push(FinishedDivision {
-                standings: league.sorted_standings(),
-                tier: tier as u32,
-                season: league.season,
-            });
-        }
+        divisions.extend(
+            group
+                .into_iter()
+                .enumerate()
+                .map(|(tier, league)| (league, tier as u32)),
+        );
     }
-    for league in standalone {
-        if !is_league_season_ended(league) {
-            continue;
-        }
-        divisions.push(FinishedDivision {
-            standings: league.sorted_standings(),
-            tier: 0,
-            season: league.season,
-        });
-    }
+    divisions.extend(standalone.into_iter().map(|league| (league, 0)));
     divisions
+}
+
+/// The tier of each division of the world by its id (0 the top flight). A division the pyramid does
+/// not rank (a cup, a repeated edition) is absent, and a reader takes that as "no answer".
+pub(crate) fn division_tiers(game: &Game) -> std::collections::HashMap<String, u32> {
+    if game.competitions.is_empty() {
+        return game
+            .league
+            .iter()
+            .map(|league| (league.id.clone(), 0))
+            .collect();
+    }
+    ranked_divisions(game)
+        .into_iter()
+        .map(|(league, tier)| (league.id.clone(), tier))
+        .collect()
 }
 
 /// Roll every competition over to the next season: apply promotion/relegation
@@ -1000,6 +1015,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 team.history.push(TeamSeasonRecord {
                     season,
                     league_position: position,
+                    tier: Some(tier),
                     played: standing.played,
                     won: standing.won,
                     drawn: standing.drawn,

@@ -1006,6 +1006,13 @@ fn process_end_of_season_records_history_and_prizes_for_every_division() {
         .expect("second-division history recorded");
     assert_eq!(team3_record.league_position, 1);
     assert_eq!(team3_record.season, 1);
+    // ... and the tier each was earned in, so a later reader can tell first in the second division
+    // from first in the first.
+    assert_eq!(team3_record.tier, Some(1));
+    assert_eq!(
+        team1.history.last().expect("top-flight history").tier,
+        Some(0)
+    );
 
     // The second-division champion earns half the top-flight champion's prize.
     assert!(prize_money_total(team1) > 0);

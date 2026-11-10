@@ -386,7 +386,14 @@ pub enum PlayStyle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamSeasonRecord {
     pub season: u32,
+    /// Where the club finished in the division it played that season.
     pub league_position: u32,
+    /// How far down its country's pyramid that division was (0 the top flight), so a finishing
+    /// position can be read for what it was: first in the second tier is not first in the first. `None`
+    /// in a record written before this was kept, or one for which no division could be named;
+    /// readers then take the position as earned in the club's current division, as they always did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tier: Option<u32>,
     pub played: u32,
     pub won: u32,
     pub drawn: u32,
@@ -529,5 +536,49 @@ impl Team {
 fn clear_match_role_if_matches(role: &mut Option<String>, player_id: &str) {
     if role.as_deref() == Some(player_id) {
         *role = None;
+    }
+}
+
+#[cfg(test)]
+mod season_record_tests {
+    use super::*;
+
+    /// Given a season record as an older build wrote it, with no tier
+    /// When it is read
+    /// Then it loads with no tier, so an old save keeps loading and keeps its meaning.
+    #[test]
+    fn a_record_written_before_tiers_were_kept_loads_without_one() {
+        let old = r#"{"season":2025,"league_position":3,"played":30,"won":18,"drawn":7,"lost":5,"goals_for":55,"goals_against":30}"#;
+        let record: TeamSeasonRecord = serde_json::from_str(old).expect("an old record loads");
+        assert_eq!(record.tier, None);
+        assert_eq!(record.league_position, 3);
+    }
+
+    /// Given records with and without a tier
+    /// When they are written and read back
+    /// Then a tier survives, and a record without one is written as it always was (no new key), so
+    /// a save made by this build is still readable by an older one for those records.
+    #[test]
+    fn a_tier_round_trips_and_an_absent_one_adds_no_key() {
+        let with = TeamSeasonRecord {
+            season: 2025,
+            league_position: 1,
+            tier: Some(2),
+            played: 30,
+            won: 20,
+            drawn: 5,
+            lost: 5,
+            goals_for: 60,
+            goals_against: 25,
+        };
+        let json = serde_json::to_string(&with).unwrap();
+        assert_eq!(
+            serde_json::from_str::<TeamSeasonRecord>(&json)
+                .unwrap()
+                .tier,
+            Some(2)
+        );
+        let without = TeamSeasonRecord { tier: None, ..with };
+        assert!(!serde_json::to_string(&without).unwrap().contains("tier"));
     }
 }

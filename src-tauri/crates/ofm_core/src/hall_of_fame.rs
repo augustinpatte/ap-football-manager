@@ -138,6 +138,7 @@ mod tests {
             team.history.push(TeamSeasonRecord {
                 season: *season,
                 league_position: 1,
+                tier: None,
                 played: 38,
                 won: 30,
                 drawn: 4,

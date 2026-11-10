@@ -500,6 +500,7 @@ mod tests {
         team.history.push(TeamSeasonRecord {
             season: 2025,
             league_position: 3,
+            tier: Some(1),
             played: 30,
             won: 18,
             drawn: 7,
@@ -507,13 +508,33 @@ mod tests {
             goals_for: 55,
             goals_against: 30,
         });
+        team.history.push(TeamSeasonRecord {
+            season: 2024,
+            league_position: 9,
+            tier: None,
+            played: 30,
+            won: 8,
+            drawn: 7,
+            lost: 15,
+            goals_for: 30,
+            goals_against: 45,
+        });
 
         upsert_team(db.conn(), &team).unwrap();
         let loaded = load_team(db.conn(), "team-001").unwrap().unwrap();
 
-        assert_eq!(loaded.history.len(), 1);
+        assert_eq!(loaded.history.len(), 2);
         assert_eq!(loaded.history[0].season, 2025);
         assert_eq!(loaded.history[0].league_position, 3);
+        assert_eq!(
+            loaded.history[0].tier,
+            Some(1),
+            "the division a finish was earned in is kept"
+        );
+        assert_eq!(
+            loaded.history[1].tier, None,
+            "a record without one stays without one"
+        );
     }
 
     #[test]

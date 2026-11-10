@@ -312,6 +312,7 @@ fn upsert_team_history(game: &mut Game, season: u32, tables: &[Vec<StandingEntry
         let record = TeamSeasonRecord {
             season,
             league_position: *league_position,
+            tier: None,
             played: standing.played,
             won: standing.won,
             drawn: standing.drawn,
@@ -873,6 +874,7 @@ mod tests {
         game.teams[0].history.push(TeamSeasonRecord {
             season: 2031,
             league_position: 2,
+            tier: None,
             played: 38,
             won: 22,
             drawn: 8,

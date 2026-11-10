@@ -248,6 +248,7 @@ pub(crate) fn profiles(
             }
         }
     }
+    let tiers = crate::end_of_season::division_tiers(game);
     let reputation: HashMap<&str, u32> = game
         .teams
         .iter()
@@ -273,10 +274,21 @@ pub(crate) fn profiles(
                     peers.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
                     let rank = peers.iter().position(|(id, _)| *id == team.id).unwrap_or(0);
                     let pct = rank as f64 / peers.len().saturating_sub(1).max(1) as f64;
-                    let finished = team.history.last().map(|record| {
-                        f64::from(record.league_position.saturating_sub(1))
-                            / peers.len().saturating_sub(1).max(1) as f64
-                    });
+                    // A finish says how the club did in the division it was earned in; in another
+                    // one (promoted, relegated) it says nothing about this league. A record with
+                    // no tier, or a division the pyramid does not rank, is read as it always was.
+                    let current_tier = tiers.get(league.id.as_str()).copied();
+                    let finished = team
+                        .history
+                        .last()
+                        .filter(|record| match (record.tier, current_tier) {
+                            (Some(earned), Some(now)) => earned == now,
+                            _ => true,
+                        })
+                        .map(|record| {
+                            f64::from(record.league_position.saturating_sub(1))
+                                / peers.len().saturating_sub(1).max(1) as f64
+                        });
                     (pct, finished.map(|f| f.clamp(0.0, 1.0)))
                 }
                 None => (0.5, None),
@@ -641,25 +653,6 @@ mod tests {
         assert!(club.rank_weight(&proven(0)) > club.rank_weight(&proven(15_000_000)));
     }
 
-    /// Given the same promoted club, which won the division below
-    /// When it classifies
-    /// Then it is still a fighter: finishing first in a lower division says nothing about how it
-    /// will do in this one.
-    ///
-    /// Known gap, not fixed: a season record stores the position but not the division it was
-    /// earned in, so `profiles` reads last season's finish against the club's *current* league and
-    /// lifts a promoted champion to Established. Needs the tier on `TeamSeasonRecord` (a
-    /// `serde(default)` field in a JSON column), see docs/APFM_P4_IMPLEMENTATION_REPORT.md.
-    #[test]
-    #[ignore = "known gap: the division a finish was earned in is not recorded"]
-    fn a_promoted_champion_is_still_a_fighter_in_its_new_division() {
-        let club = club_with(|f| {
-            f.standing_pct = 0.9;
-            f.finished_pct = Some(0.0);
-        });
-        assert_eq!(club.ambition, Ambition::Fighter);
-    }
-
     /// Given a club built around its academy and young squad
     /// When it weighs a prospect against a veteran
     /// Then its youth focus is high, it favours the prospect and marks the veteran down.
@@ -743,5 +736,109 @@ mod tests {
             users_with, users_without,
             "the user's club read a world manager's trust"
         );
+    }
+
+    // --- A finish is read for the division it was earned in ------------------------------------
+
+    /// A world of one club under test and four peers in one league, with a second league above or
+    /// below it so the pyramid has two tiers, and the club's last season on record as given.
+    fn pyramid_with(
+        club_reputation: u32,
+        peers_reputation: u32,
+        league_now: u32,
+        last_season: (u32, Option<u32>),
+    ) -> Game {
+        use domain::league::League;
+        use domain::team::{Team, TeamSeasonRecord};
+
+        let mut game = crate::transfers::tests::acceptance_game("team1", false);
+        let team = |id: &str, reputation: u32| {
+            let mut team = Team::new(
+                id.into(),
+                id.into(),
+                id.into(),
+                "England".into(),
+                "Town".into(),
+                "Ground".into(),
+                10_000,
+            );
+            team.reputation = reputation;
+            team
+        };
+        let mut club = team("club", club_reputation);
+        club.history.push(TeamSeasonRecord {
+            season: 2025,
+            league_position: last_season.0,
+            tier: last_season.1,
+            played: 8,
+            won: 4,
+            drawn: 2,
+            lost: 2,
+            goals_for: 10,
+            goals_against: 8,
+        });
+        let mut teams = vec![club];
+        teams.extend((0..4).map(|index| team(&format!("peer{index}"), peers_reputation)));
+        let ids: Vec<String> = teams.iter().map(|t| t.id.clone()).collect();
+        let league = |id: &str, priority: u32, participants: &[String]| {
+            let mut league = League::new(id.into(), id.into(), 2026, participants);
+            league.country_id = Some("ENG".to_string());
+            league.priority = priority;
+            league
+        };
+        let (here, elsewhere) = if league_now == 0 {
+            ("top", "second")
+        } else {
+            ("second", "top")
+        };
+        let priority = |id: &str| if id == "top" { 0 } else { 1 };
+        game.competitions = vec![
+            league(here, priority(here), &ids),
+            league(elsewhere, priority(elsewhere), &[]),
+        ];
+        game.teams = teams;
+        game
+    }
+
+    fn ambition_of_club(game: &Game) -> Ambition {
+        profiles(game, &HashMap::new())["club"].ambition
+    }
+
+    /// Given a small club that won the division below and now sits last by reputation in its new one
+    /// When its strategy is read
+    /// Then it is a fighter: first in the second tier says nothing about the first.
+    #[test]
+    fn a_promoted_champion_is_still_a_fighter_in_its_new_division() {
+        let game = pyramid_with(300, 800, 0, (1, Some(1)));
+        assert_eq!(ambition_of_club(&game), Ambition::Fighter);
+    }
+
+    /// Given the same club and the same finish, but earned in the division it still plays in
+    /// When its strategy is read
+    /// Then the finish counts: a small club that topped its own league aims a step higher.
+    #[test]
+    fn a_finish_in_the_same_division_still_lifts_a_club() {
+        let game = pyramid_with(300, 800, 0, (1, Some(0)));
+        assert_eq!(ambition_of_club(&game), Ambition::Established);
+    }
+
+    /// Given a club of high reputation that finished last in the top flight and now plays a tier
+    /// below, first by reputation among its new peers
+    /// When its strategy is read
+    /// Then it is still a contender there: its relegation does not mark it down twice.
+    #[test]
+    fn a_relegated_club_is_still_a_contender_in_its_new_division() {
+        let game = pyramid_with(900, 400, 1, (5, Some(0)));
+        assert_eq!(ambition_of_club(&game), Ambition::Contender);
+    }
+
+    /// Given a record written before divisions were recorded
+    /// When the club's strategy is read
+    /// Then the finish is taken as earned in its current division, as it always was: an old save
+    /// keeps the strategy it had.
+    #[test]
+    fn a_record_from_before_tiers_were_kept_reads_as_it_always_did() {
+        let game = pyramid_with(300, 800, 0, (1, None));
+        assert_eq!(ambition_of_club(&game), Ambition::Established);
     }
 }
