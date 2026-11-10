@@ -119,6 +119,14 @@ pub(crate) fn top_up_loan_listings(game: &mut Game, team_id: &str) -> usize {
 /// Most players a club has on the loan list at once.
 const MAX_LOAN_LISTINGS_PER_AI_TEAM: usize = 4;
 
+/// A young player with room to grow: the kind a club lends for his minutes, because a prospect
+/// who is not playing develops less than one who is. The lender lists him for that reason and the
+/// borrower must be able to give it (`market::try_ai_loan` asks whether he would start), so both
+/// read the one rule.
+pub(crate) fn is_a_loan_for_minutes(player: &domain::player::Player, age: i32) -> bool {
+    age <= 22 && i32::from(player.potential) >= i32::from(player.ovr) + 6
+}
+
 /// Loan listings by what a player is to his club, on top of the opening ones: a prospect who is
 /// not playing goes where he will; a spare nobody has bought is offered on loan as the window
 /// closes, because a loan saves part of his wage when a sale cannot; a costly player the club does
@@ -173,9 +181,8 @@ pub(crate) fn list_loans_by_status(game: &mut Game, team_id: &str) -> usize {
             continue;
         }
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
-        let needs_minutes = age <= 22
-            && matches!(status, PlayerStatus::Backup | PlayerStatus::Surplus)
-            && i32::from(player.potential) >= i32::from(player.ovr) + 6;
+        let needs_minutes = is_a_loan_for_minutes(player, age)
+            && matches!(status, PlayerStatus::Backup | PlayerStatus::Surplus);
         let hard_sale = matches!(status, PlayerStatus::Surplus | PlayerStatus::Unwanted)
             && phase >= WindowPhase::LastWeek;
         let costly_unwanted = status == PlayerStatus::Unwanted && phase >= WindowPhase::Mid;

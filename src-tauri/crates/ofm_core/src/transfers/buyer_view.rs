@@ -144,9 +144,13 @@ impl BuyerView {
         self.squad.present_gain(player)
     }
 
-    /// Whether a loan of `player` would make the side better, which is all a club asks of one.
-    pub(super) fn worth_borrowing(&self, player: &Player) -> bool {
+    /// Whether a loan of `player` would make the side better, which is what a club asks of one,
+    /// and, for a young player lent for his minutes, would give them: he would start, since a
+    /// prospect on the bench is the loan his own club listed him to avoid.
+    pub(super) fn worth_borrowing(&self, player: &Player, age: i32) -> bool {
         self.gain_this_season(player) >= MIN_GAIN
+            && (!super::loans::is_a_loan_for_minutes(player, age)
+                || self.squad.starts_today(player))
     }
 }
 

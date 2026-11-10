@@ -939,3 +939,84 @@ fn a_club_at_the_floor_still_signs_a_successor_who_is_worth_the_fee() {
     evaluate_transfer_market(&mut game);
     assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
 }
+
+/// A club whose two first-choice forwards are good and whose bench of forwards is poor, offered a
+/// listed forward of 62 who is better than that bench and worse than both starters: he would cover,
+/// not start. `young` makes him a prospect with room to grow (the kind a club lends for his minutes).
+fn cover_for_a_strong_front_line(young: bool) -> Game {
+    let mut loanee = forward("loanee", "seller", 62, 500_000);
+    loanee.transfer_listed = false;
+    loanee.loan_listed = true;
+    loanee.stage_wage(20_000);
+    loanee.stage_contract_end(Some("2028-06-30".to_string()));
+    if young {
+        loanee.potential = 80;
+        loanee.date_of_birth = "2006-01-01".to_string();
+    } else {
+        loanee.date_of_birth = "1997-01-01".to_string();
+    }
+    let mut game = world(
+        vec![
+            club("borrower", "England", 400, 20_000_000),
+            club("seller", "England", 500, 0),
+        ],
+        vec![loanee],
+    );
+    let mut strikers = 0;
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|p| p.team_id.as_deref() == Some("borrower") && p.position == Position::Forward)
+    {
+        strikers += 1;
+        rate(player, if strikers <= 2 { 75 } else { 45 });
+    }
+    only_buyer_funded(&mut game, "borrower");
+    only_buyer_can_borrow(&mut game, "borrower");
+    set_days_left(&mut game, 20);
+    game
+}
+
+fn borrowed_by(game: &Game, id: &str) -> Option<String> {
+    game.players
+        .iter()
+        .find(|p| p.id == id)
+        .and_then(|p| p.active_loan.as_ref().map(|loan| loan.loan_team_id.clone()))
+}
+
+/// Given a club that would use a listed forward of 62 only as cover for two better starters
+/// When the forward is an experienced player
+/// Then it borrows him: cover is a purpose of a loan.
+#[test]
+fn a_club_borrows_an_experienced_player_to_cover_its_front_line() {
+    let mut game = cover_for_a_strong_front_line(false);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee").as_deref(), Some("borrower"));
+}
+
+/// Given the same club and the same forward of 62, now a prospect lent for his minutes
+/// When the club considers the loan
+/// Then it does not borrow him: it would sit him on the bench, which is not what he was lent for.
+#[test]
+fn a_prospect_lent_for_his_minutes_is_not_borrowed_to_sit_on_the_bench() {
+    let mut game = cover_for_a_strong_front_line(true);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee"), None);
+}
+
+/// Given a prospect who would start for the borrower
+/// When the club considers the loan
+/// Then it borrows him: minutes are what he was lent for.
+#[test]
+fn a_prospect_who_would_start_is_borrowed() {
+    let mut game = cover_for_a_strong_front_line(true);
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|p| p.team_id.as_deref() == Some("borrower") && p.position == Position::Forward)
+    {
+        rate(player, 50);
+    }
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee").as_deref(), Some("borrower"));
+}

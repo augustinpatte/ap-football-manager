@@ -529,7 +529,8 @@ fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
             continue;
         }
         // A loan is for this season: it has to make this season's side better.
-        if !search.view.worth_borrowing(player) {
+        let age = domain::age::age_on_or_unknown(search.current_date, &player.date_of_birth);
+        if !search.view.worth_borrowing(player, age) {
             continue;
         }
         let Some(owner) = game.teams.iter().find(|t| t.id == target.owner_team_id) else {
