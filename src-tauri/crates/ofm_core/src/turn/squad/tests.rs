@@ -975,3 +975,149 @@ fn a_team_built_from_the_clubs_players_is_the_team_built_by_scanning() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The first-choice eleven is the side that is best as a whole, not the one the slot walk reaches
+// ---------------------------------------------------------------------------
+
+mod first_choice_is_the_best_side {
+    use super::*;
+    use crate::player_rating::{formation_slots, positional_fit_for_assignment};
+    use crate::squad_intelligence::test_squads::player as specialist;
+
+    const FORMATION: &str = "4-2-3-1";
+
+    /// One specialist of 70 for every slot of the formation, so that nothing else is in doubt.
+    fn first_eleven() -> Vec<Player> {
+        formation_slots(FORMATION)
+            .into_iter()
+            .enumerate()
+            .map(|(slot, position)| specialist(&format!("starter{slot:02}"), position, 70, 27))
+            .collect()
+    }
+
+    /// A striker of 88 who is also the best attacking midfielder in the squad, an attacking
+    /// midfielder of 66, and a second striker of 62.
+    fn trap() -> Vec<Player> {
+        let mut squad: Vec<Player> = first_eleven()
+            .into_iter()
+            .filter(|player| {
+                player.natural_position != DomainPos::Striker
+                    && player.natural_position != DomainPos::AttackingMidfielder
+            })
+            .collect();
+        squad.push(specialist("star", DomainPos::Striker, 88, 27));
+        squad.push(specialist(
+            "playmaker",
+            DomainPos::AttackingMidfielder,
+            66,
+            27,
+        ));
+        squad.push(specialist("reserve", DomainPos::Striker, 62, 27));
+        squad
+    }
+
+    fn side(squad: &[Player]) -> Vec<(&str, DomainPos)> {
+        let refs: Vec<&Player> = squad.iter().collect();
+        first_choice_eleven(&refs, FORMATION)
+            .into_iter()
+            .zip(formation_slots(FORMATION))
+            .map(|(player, slot)| (player.id.as_str(), slot))
+            .collect()
+    }
+
+    fn total(squad: &[Player], eleven: &[(&str, DomainPos)]) -> f64 {
+        eleven
+            .iter()
+            .map(|(id, slot)| {
+                let player = squad.iter().find(|p| p.id == *id).expect("a squad member");
+                positional_fit_for_assignment(player, slot)
+            })
+            .sum()
+    }
+
+    /// Given a striker who is also better than the squad's attacking midfielder at that slot,
+    /// and a weaker second striker
+    /// When the first-choice eleven is picked for a 4-2-3-1 (the attacking midfield is filled
+    /// before the forward line)
+    /// Then the striker plays up front and the attacking midfielder plays his own slot, because
+    /// that is the side with the greater total.
+    #[test]
+    fn a_striker_is_not_spent_on_the_slot_that_is_filled_before_his_own() {
+        let squad = trap();
+        let eleven = side(&squad);
+        let striker_slot = eleven
+            .iter()
+            .find(|(id, _)| *id == "star")
+            .map(|(_, s)| s.clone());
+        assert_eq!(striker_slot, Some(DomainPos::Striker), "{eleven:?}");
+        assert!(
+            eleven.iter().any(|(id, _)| *id == "playmaker"),
+            "{eleven:?}"
+        );
+        assert!(!eleven.iter().any(|(id, _)| *id == "reserve"), "{eleven:?}");
+    }
+
+    /// Given the same squad
+    /// When it is handed over in any storage order
+    /// Then the same eleven is named in the same slots (ties never depend on the order stored).
+    #[test]
+    fn the_side_does_not_depend_on_the_order_the_squad_is_stored_in() {
+        let squad = trap();
+        let forward = side(&squad);
+        let mut reversed = squad.clone();
+        reversed.reverse();
+        assert_eq!(forward, side(&reversed));
+    }
+
+    /// Given a squad whose outfielders all rate higher in goal than its only keeper
+    /// When the eleven is picked
+    /// Then the natural keeper still plays in goal (a keeper is not an optimisation variable).
+    #[test]
+    fn a_natural_keeper_plays_in_goal_however_the_outfielders_rate_there() {
+        let mut squad = first_eleven();
+        let keeper = squad
+            .iter_mut()
+            .find(|player| player.natural_position == DomainPos::Goalkeeper)
+            .expect("a keeper");
+        keeper.attributes = attrs(40);
+        let keeper_id = keeper.id.clone();
+        let eleven = side(&squad);
+        assert_eq!(eleven[0].0, keeper_id);
+    }
+
+    /// Given the trap squad
+    /// When the side is compared with every exchange of two slots' occupants
+    /// Then none gives a greater total (a local-optimality check; the trap test is what fails on
+    /// the slot walk).
+    #[test]
+    fn no_exchange_of_two_slots_improves_the_side() {
+        let squad = trap();
+        let eleven = side(&squad);
+        let base = total(&squad, &eleven);
+        for first in 0..eleven.len() {
+            for second in first + 1..eleven.len() {
+                let mut swapped = eleven.clone();
+                let (a, b) = (swapped[first].0, swapped[second].0);
+                swapped[first].0 = b;
+                swapped[second].0 = a;
+                assert!(
+                    total(&squad, &swapped) <= base + 1e-9,
+                    "swapping slots {first} and {second} improves the side"
+                );
+            }
+        }
+    }
+
+    /// Given fewer healthy players than the formation has slots
+    /// When the eleven is picked
+    /// Then the players there are, in slot order, are all named: the short side is still a prefix
+    /// the kick-off completes from the treatment room.
+    #[test]
+    fn a_short_squad_is_named_in_slot_order() {
+        let squad: Vec<Player> = first_eleven().into_iter().take(9).collect();
+        let refs: Vec<&Player> = squad.iter().collect();
+        let eleven = first_choice_eleven(&refs, FORMATION);
+        assert_eq!(eleven.len(), 9);
+    }
+}

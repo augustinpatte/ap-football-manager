@@ -574,21 +574,75 @@ fn judgement_noise(seed: u64, player_id: &str) -> f64 {
     unit * 2.0 - 1.0
 }
 
-/// The eleven a club would pick if nobody were tired: for each formation slot in
-/// turn, the best condition-free positional fit not already chosen, returned in
-/// slot order.
+/// What a natural keeper's place in goal is worth beyond any outfield rating, in the assignment's
+/// thousandths of a rating point: a keeper plays in goal before outfield rating matters.
+const KEEPER_IN_GOAL_BONUS: f64 = 1_000.0;
+/// The assignment works in thousandths of a rating point, as the squad model does.
+const FIT_RESOLUTION: f64 = 1_000.0;
+
+/// The eleven a club would pick if nobody were tired: the players who make the side best as a whole
+/// (the greatest total positional fit over the formation's slots, a natural keeper in goal),
+/// returned in slot order.
 ///
-/// Step one of the AI's team selection, and also what AI training reads to judge
-/// how fresh its first eleven is — the two must agree on who that eleven is, or
-/// the controller steers on players who never start (a spare keeper, most
-/// often). Ties break on id so the answer does not depend on the order the
-/// squad happens to be stored in.
+/// Step one of the AI's team selection, and also what AI training reads to judge how fresh its
+/// first eleven is — the two must agree on who that eleven is, or the controller steers on players
+/// who never start (a spare keeper, most often). It is also the side the squad model
+/// (`squad_intelligence`) values a signing by, and both solve the one assignment
+/// ([`crate::squad_intelligence::assignment::Solver`]), so a club cannot buy a player for a start
+/// its own manager would not give him.
+///
+/// This used to walk the slots in order and take the best remaining fit for each, which spends a
+/// player on whichever slot is reached first: a striker rated 88 who also fits left back better
+/// than the left back does played at left back and left the forward line to a reserve. Across the
+/// gate world the walk left about one rating point per slot on the table (P4 audit).
+///
+/// Ties break on id so the answer does not depend on the order the squad happens to be stored in.
+/// A squad too short for the formation is named in slot order, as before: which slots go unfilled
+/// is then the kick-off's business, not an optimisation.
 pub(crate) fn first_choice_eleven<'a>(
     available_players: &[&'a domain::player::Player],
     formation: &str,
 ) -> Vec<&'a domain::player::Player> {
+    let slots = formation_slots(formation);
+    let slots = &slots[..slots.len().min(11)];
+    if available_players.len() < slots.len() {
+        return slot_walk_eleven(available_players, slots);
+    }
+
+    let mut candidates: Vec<&'a domain::player::Player> = available_players.to_vec();
+    candidates.sort_by(|left, right| left.id.cmp(&right.id));
+    let columns = candidates.len();
+    let mut cost = vec![0i64; slots.len() * columns];
+    for (row, slot) in slots.iter().enumerate() {
+        for (column, player) in candidates.iter().enumerate() {
+            let keeper_in_goal = *slot == DomainPosition::Goalkeeper
+                && player.natural_position == DomainPosition::Goalkeeper;
+            let level = positional_fit_for_assignment(player, slot)
+                + if keeper_in_goal {
+                    KEEPER_IN_GOAL_BONUS
+                } else {
+                    0.0
+                };
+            cost[row * columns + column] = -((level * FIT_RESOLUTION).round() as i64);
+        }
+    }
+    let mut solver = crate::squad_intelligence::assignment::Solver::default();
+    solver.solve(&cost, slots.len(), columns);
+    solver
+        .result
+        .iter()
+        .map(|&column| candidates[column])
+        .collect()
+}
+
+/// The slot-order walk: for each slot in turn, the best condition-free fit not already chosen.
+/// What a squad with fewer players than slots is named by.
+pub(crate) fn slot_walk_eleven<'a>(
+    available_players: &[&'a domain::player::Player],
+    slots: &[DomainPosition],
+) -> Vec<&'a domain::player::Player> {
     let mut chosen: Vec<&'a domain::player::Player> = Vec::with_capacity(11);
-    for slot in formation_slots(formation).iter().take(11) {
+    for slot in slots {
         let best = available_players
             .iter()
             .copied()

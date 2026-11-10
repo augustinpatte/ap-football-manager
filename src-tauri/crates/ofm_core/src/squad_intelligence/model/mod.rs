@@ -26,6 +26,7 @@
 use chrono::NaiveDate;
 use domain::player::{Player, Position, SquadRole};
 
+use super::assignment::Solver;
 use super::horizon::{HORIZON, projected_shifts};
 use crate::player_rating::{formation_slots, natural_ovr, positional_fit_for_assignment};
 use crate::squad_outlook::PlannedPlayer;
@@ -181,7 +182,7 @@ impl Member {
     /// than an emergency body away from goal: the game's generator makes keepers fair outfield
     /// players on paper, but no club covers a winger with its second goalkeeper, and a squad must
     /// not look deep because it carries three of them.
-    fn level(&self, slot: usize, year: usize) -> Option<f32> {
+    pub(crate) fn level(&self, slot: usize, year: usize) -> Option<f32> {
         self.shift[year].map(|_| self.levels[year][slot])
     }
 
@@ -681,7 +682,7 @@ impl SquadModel {
 /// Measurement only: the side the game's own greedy picker would field from `squad` in horizon
 /// year `year`. Mirrors `turn::squad::first_choice_eleven`: slots in order, the best remaining
 /// fit for the slot each time, a natural keeper in goal, ties to the smaller id.
-fn greedy_picks_with(squad: &[&Member], year: usize) -> [Option<usize>; SLOTS] {
+pub(crate) fn greedy_picks_with(squad: &[&Member], year: usize) -> [Option<usize>; SLOTS] {
     let mut picks = [None; SLOTS];
     let mut used = vec![false; squad.len()];
     for (slot, pick) in picks.iter_mut().enumerate() {
@@ -904,93 +905,6 @@ fn best_assignment(
             .filter(|&index| cost_at(squad[index], slot, year) < NOT_THERE);
     }
     picks
-}
-
-/// The assignment algorithm and the buffers it works in.
-#[derive(Default)]
-struct Solver {
-    row_potential: Vec<i64>,
-    column_potential: Vec<i64>,
-    matched_row: Vec<usize>,
-    way: Vec<usize>,
-    minimum: Vec<i64>,
-    seen: Vec<bool>,
-    /// The column of each row after [`Solver::solve`].
-    result: Vec<usize>,
-}
-
-impl Solver {
-    /// Finds, for each of `rows` rows (`rows <= columns`), the column that minimises the total of
-    /// `cost[row * columns + column]`, each column used once, and leaves it in `self.result`. The
-    /// classic potentials-and-augmenting-path form: `O(rows^2 * columns)`.
-    fn solve(&mut self, cost: &[i64], rows: usize, columns: usize) {
-        const INF: i64 = i64::MAX / 4;
-        self.row_potential.clear();
-        self.row_potential.resize(rows + 1, 0);
-        self.column_potential.clear();
-        self.column_potential.resize(columns + 1, 0);
-        self.matched_row.clear();
-        self.matched_row.resize(columns + 1, 0);
-        self.way.clear();
-        self.way.resize(columns + 1, 0);
-        for row in 1..=rows {
-            self.matched_row[0] = row;
-            let mut column = 0;
-            self.minimum.clear();
-            self.minimum.resize(columns + 1, INF);
-            self.seen.clear();
-            self.seen.resize(columns + 1, false);
-            loop {
-                self.seen[column] = true;
-                let current = self.matched_row[column];
-                let mut delta = INF;
-                let mut next = 0;
-                for candidate in 1..=columns {
-                    if self.seen[candidate] {
-                        continue;
-                    }
-                    let reduced = cost[(current - 1) * columns + candidate - 1]
-                        - self.row_potential[current]
-                        - self.column_potential[candidate];
-                    if reduced < self.minimum[candidate] {
-                        self.minimum[candidate] = reduced;
-                        self.way[candidate] = column;
-                    }
-                    if self.minimum[candidate] < delta {
-                        delta = self.minimum[candidate];
-                        next = candidate;
-                    }
-                }
-                for candidate in 0..=columns {
-                    if self.seen[candidate] {
-                        self.row_potential[self.matched_row[candidate]] += delta;
-                        self.column_potential[candidate] -= delta;
-                    } else {
-                        self.minimum[candidate] -= delta;
-                    }
-                }
-                column = next;
-                if self.matched_row[column] == 0 {
-                    break;
-                }
-            }
-            loop {
-                let previous = self.way[column];
-                self.matched_row[column] = self.matched_row[previous];
-                column = previous;
-                if column == 0 {
-                    break;
-                }
-            }
-        }
-        self.result.clear();
-        self.result.resize(rows, 0);
-        for column in 1..=columns {
-            if self.matched_row[column] != 0 {
-                self.result[self.matched_row[column] - 1] = column - 1;
-            }
-        }
-    }
 }
 
 /// [`Solver::solve`] with fresh buffers, for the tests.

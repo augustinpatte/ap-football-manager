@@ -22,8 +22,10 @@
 //! modes) live with their callers: this module decides nothing and changes nothing.
 
 pub(crate) mod appetite;
+pub(crate) mod assignment;
 pub(crate) mod horizon;
 pub(crate) mod impact;
+pub(crate) mod lineup_gap;
 pub(crate) mod model;
 pub(crate) mod needs;
 pub(crate) mod perception;
