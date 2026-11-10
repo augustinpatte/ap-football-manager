@@ -1100,7 +1100,8 @@
       "budget": "staff 预算",
       "budgetUsed": "已用 {{bill}} / {{budget}}",
       "headroom": "剩余空间：每周 {{amount}}",
-      "vacant": "空缺"
+      "vacant": "空缺",
+      "loadFailed": "无法加载员工管理。"
     },
     "posts": {
       "AssistantManager": "助理教练",
@@ -1341,7 +1342,8 @@
       "Media": "媒体",
       "System": "系统",
       "JobOffer": "工作邀请"
-    }
+    },
+    "actionFailed": "无法完成该操作。"
   },
   "manager": {
     "managerOf": "{{team}} 主教练",

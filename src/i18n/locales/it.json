@@ -1125,7 +1125,8 @@
       "budget": "Budget dello staff",
       "budgetUsed": "{{bill}} su {{budget}} utilizzati",
       "headroom": "Margine residuo: {{amount}} a settimana",
-      "vacant": "Vacante"
+      "vacant": "Vacante",
+      "loadFailed": "Impossibile caricare la gestione dello staff."
     },
     "posts": {
       "AssistantManager": "Vice allenatore",
@@ -1366,7 +1367,8 @@
       "Media": "Media",
       "System": "Sistema",
       "JobOffer": "Offerte di lavoro"
-    }
+    },
+    "actionFailed": "Non è stato possibile completare quell'azione."
   },
   "manager": {
     "managerOf": "Allenatore di {{team}}",

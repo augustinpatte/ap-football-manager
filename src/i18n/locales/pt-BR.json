@@ -1100,7 +1100,8 @@
       "budget": "Orçamento da comissão",
       "budgetUsed": "{{bill}} de {{budget}} usados",
       "headroom": "Margem restante: {{amount}} por semana",
-      "vacant": "Vago"
+      "vacant": "Vago",
+      "loadFailed": "Não foi possível carregar a gestão da comissão."
     },
     "posts": {
       "AssistantManager": "Auxiliar técnico",
@@ -1341,7 +1342,8 @@
       "Media": "Mídia",
       "System": "Sistema",
       "JobOffer": "Ofertas de emprego"
-    }
+    },
+    "actionFailed": "Não foi possível concluir essa ação."
   },
   "manager": {
     "managerOf": "Treinador do {{team}}",

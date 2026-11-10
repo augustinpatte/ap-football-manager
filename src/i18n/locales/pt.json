@@ -1100,7 +1100,8 @@
       "budget": "Orçamento do staff",
       "budgetUsed": "{{bill}} de {{budget}} usados",
       "headroom": "Margem restante: {{amount}} por semana",
-      "vacant": "Vago"
+      "vacant": "Vago",
+      "loadFailed": "Não foi possível carregar a gestão do staff."
     },
     "posts": {
       "AssistantManager": "Treinador adjunto",
@@ -1341,7 +1342,8 @@
       "Media": "Imprensa",
       "System": "Sistema",
       "JobOffer": "Ofertas de emprego"
-    }
+    },
+    "actionFailed": "Não foi possível concluir essa ação."
   },
   "manager": {
     "managerOf": "Treinador do {{team}}",

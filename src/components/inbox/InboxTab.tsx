@@ -13,7 +13,11 @@ import {
   markMessageRead,
   resolveMessageAction,
 } from "../../services/inboxService";
-import { resolveBackendText, resolveMessage } from "../../utils/backendI18n";
+import {
+  resolveBackendKeyError,
+  resolveBackendText,
+  resolveMessage,
+} from "../../utils/backendI18n";
 import ArchivedMessages from "./ArchivedMessages";
 import InboxDeleteConfirmModal from "./InboxDeleteConfirmModal";
 import InboxMessageDetailPane from "./InboxMessageDetailPane";
@@ -44,7 +48,7 @@ export default function InboxTab({
   initialMessageId,
   onNavigate,
 }: InboxTabProps): JSX.Element {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { sessionState } = useGameStore();
   const [fetchedMessages, setFetchedMessages] = useState<MessageData[] | null>(null);
 
@@ -76,6 +80,8 @@ export default function InboxTab({
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
   const [deleteModalState, setDeleteModalState] = useState<DeleteModalState>(null);
   const [effectFeedback, setEffectFeedback] = useState<string | null>(null);
+  // The backend's refusal of the last thing the manager asked for; cleared when they ask again.
+  const [failure, setFailure] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const inboxSeqRef = useRef(0);
 
@@ -139,8 +145,15 @@ export default function InboxTab({
         if (seq !== inboxSeqRef.current) return;
         setFetchedMessages(updated);
         useGameStore.getState().setMessages(updated);
-      } catch {}
+      } catch (error) {
+        // Reading is not something the manager asked to change, so no notice; the message stays unread.
+        console.error("Failed to mark the message read:", error);
+      }
     }
+  }
+
+  function reportFailure(error: unknown): void {
+    setFailure(resolveBackendKeyError(error, t("inbox.actionFailed")));
   }
 
   async function handleAction(
@@ -150,6 +163,7 @@ export default function InboxTab({
   ): Promise<void> {
     const message = allMessages.find((currentMessage) => currentMessage.id === messageId);
     const action = message?.actions.find((currentAction) => currentAction.id === actionId);
+    setFailure(null);
 
     if (action && isNavigateAction(action.action_type)) {
       const navigationTarget = getNavigationTarget(action.action_type.NavigateTo.route);
@@ -179,28 +193,36 @@ export default function InboxTab({
         );
         setEffectFeedback(resolvedEffect);
       }
-    } catch {}
+    } catch (error) {
+      reportFailure(error);
+    }
   }
 
   async function handleMarkAllRead(): Promise<void> {
     const seq = ++inboxSeqRef.current;
+    setFailure(null);
     try {
       const updated = await markAllMessagesRead();
       if (seq !== inboxSeqRef.current) return;
       setFetchedMessages(updated);
       useGameStore.getState().setMessages(updated);
-    } catch {}
+    } catch (error) {
+      reportFailure(error);
+    }
   }
 
   async function handleClearOld(): Promise<void> {
     const seq = ++inboxSeqRef.current;
+    setFailure(null);
     try {
       const updated = await clearOldMessages();
       if (seq !== inboxSeqRef.current) return;
       setFetchedMessages(updated);
       useGameStore.getState().setMessages(updated);
       setSelectedMessageId(null);
-    } catch {}
+    } catch (error) {
+      reportFailure(error);
+    }
   }
 
   async function handleConfirmDelete(): Promise<void> {
@@ -209,6 +231,7 @@ export default function InboxTab({
     }
 
     setIsDeleting(true);
+    setFailure(null);
     const seq = ++inboxSeqRef.current;
 
     try {
@@ -236,7 +259,9 @@ export default function InboxTab({
       }
 
       setDeleteModalState(null);
-    } catch {
+    } catch (error) {
+      setDeleteModalState(null);
+      reportFailure(error);
     } finally {
       setIsDeleting(false);
     }
@@ -375,6 +400,12 @@ export default function InboxTab({
         onToggleBulkSelectionMode={handleToggleBulkSelectionMode}
         onToggleCategory={handleToggleCategory}
       />
+
+      {failure ? (
+        <p role="alert" className="mb-3 text-body text-danger">
+          {failure}
+        </p>
+      ) : null}
 
       <div className="flex-1 flex gap-0 rounded-xl overflow-hidden border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 min-h-0">
         <InboxMessageListPane

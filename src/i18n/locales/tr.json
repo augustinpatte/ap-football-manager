@@ -1100,7 +1100,8 @@
       "budget": "Kadro bütçesi",
       "budgetUsed": "{{budget}} bütçenin {{bill}} kadarı kullanıldı",
       "headroom": "Kalan pay: haftada {{amount}}",
-      "vacant": "Boş"
+      "vacant": "Boş",
+      "loadFailed": "Personel yönetimi yüklenemedi."
     },
     "posts": {
       "AssistantManager": "Yardımcı teknik direktör",
@@ -1341,7 +1342,8 @@
       "Media": "Medya",
       "System": "Sistem",
       "JobOffer": "İş Teklifleri"
-    }
+    },
+    "actionFailed": "Bu işlem tamamlanamadı."
   },
   "manager": {
     "managerOf": "{{team}} menajeri",

@@ -1100,7 +1100,8 @@
       "budget": "Staff budget",
       "budgetUsed": "{{bill}} of {{budget}} used",
       "headroom": "Room left: {{amount}} a week",
-      "vacant": "Vacant"
+      "vacant": "Vacant",
+      "loadFailed": "Could not load staff management."
     },
     "posts": {
       "AssistantManager": "Assistant manager",
@@ -1341,7 +1342,8 @@
       "Media": "Media",
       "System": "System",
       "JobOffer": "Job Offers"
-    }
+    },
+    "actionFailed": "That action could not be completed."
   },
   "manager": {
     "managerOf": "Manager of {{team}}",

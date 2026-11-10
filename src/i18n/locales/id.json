@@ -1100,7 +1100,8 @@
       "budget": "Anggaran staf",
       "budgetUsed": "terpakai {{bill}} dari {{budget}}",
       "headroom": "Sisa ruang: {{amount}} per minggu",
-      "vacant": "Kosong"
+      "vacant": "Kosong",
+      "loadFailed": "Tidak dapat memuat pengelolaan staf."
     },
     "posts": {
       "AssistantManager": "Asisten manajer",
@@ -1341,7 +1342,8 @@
       "Media": "Media",
       "System": "Sistem",
       "JobOffer": "Tawaran Pekerjaan"
-    }
+    },
+    "actionFailed": "Tindakan itu tidak dapat diselesaikan."
   },
   "manager": {
     "managerOf": "Manajer {{team}}",

@@ -10,7 +10,7 @@ import {
   type StaffOverview,
   type StaffSlice,
 } from "../../services/staffService";
-import { resolveBackendError } from "../../utils/backendI18n";
+import { resolveBackendError, resolveBackendKeyError } from "../../utils/backendI18n";
 import OfferDialog from "./OfferDialog";
 import StaffManagementPanel from "./StaffManagementPanel";
 import { Button, Card, CardBody, Badge, CountryFlag, Dialog, ProgressBar } from "../ui";
@@ -131,6 +131,8 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [overview, setOverview] = useState<StaffOverview | null>(null);
+  // Why the overview is missing, when it is: the Management view shows it instead of a blank panel.
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Record<string, CandidateView>>({});
   const [offer, setOffer] = useState<{ staff: StaffData; mode: "hire" | "renew" } | null>(null);
   const [releasing, setReleasing] = useState<StaffData | null>(null);
@@ -142,7 +144,8 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
     if (!teamId) return;
     void getStaff(teamId)
       .then(setFetchedStaff)
-      .catch(() => {});
+      // The game state the tab was given already carries the staff, so the lists still draw.
+      .catch((error: unknown) => console.error("Failed to read the staff:", error));
   }, [teamId]);
 
   // The seats, budget, contract terms and delegation, and the asking wages of free agents: all of
@@ -150,11 +153,18 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   const refreshManagement = () => {
     if (!teamId) return;
     void getStaffOverview()
-      .then(setOverview)
-      .catch(() => {});
+      .then((fresh) => {
+        setOverview(fresh);
+        setOverviewError(null);
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to read the staff overview:", error);
+        setOverviewError(resolveBackendKeyError(error, t("staff.mgmt.loadFailed")));
+      });
     void searchStaffCandidates(null, 0)
       .then((found) => setCandidates(Object.fromEntries(found.map((c) => [c.staff.id, c]))))
-      .catch(() => {});
+      // Without asking wages the free agents still list; only the "asks" line is missing.
+      .catch((error: unknown) => console.error("Failed to read the staff candidates:", error));
   };
   useEffect(refreshManagement, [teamId]);
 
@@ -302,7 +312,20 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
         </p>
       ) : null}
 
-      {view === "management" ? (
+      {view === "management" && !overview ? (
+        overviewError ? (
+          <div role="alert" className="grid justify-items-start gap-2 py-6">
+            <p className="text-body text-danger">{overviewError}</p>
+            <Button size="sm" variant="outline" onClick={refreshManagement}>
+              {t("common.retry")}
+            </Button>
+          </div>
+        ) : (
+          <p role="status" className="py-6 text-body text-fg-muted">
+            {t("common.loading")}
+          </p>
+        )
+      ) : view === "management" ? (
         <StaffManagementPanel
           overview={overview}
           onGameUpdate={(updated) => {

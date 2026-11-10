@@ -1100,7 +1100,8 @@
       "budget": "Staff-Budget",
       "budgetUsed": "{{bill}} von {{budget}} belegt",
       "headroom": "Spielraum: {{amount}} pro Woche",
-      "vacant": "Unbesetzt"
+      "vacant": "Unbesetzt",
+      "loadFailed": "Die Staff-Verwaltung konnte nicht geladen werden."
     },
     "posts": {
       "AssistantManager": "Co-Trainer",
@@ -1341,7 +1342,8 @@
       "Media": "Medien",
       "System": "System",
       "JobOffer": "Stellenangebote"
-    }
+    },
+    "actionFailed": "Diese Aktion konnte nicht abgeschlossen werden."
   },
   "manager": {
     "managerOf": "Trainer von {{team}}",

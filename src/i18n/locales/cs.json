@@ -1100,7 +1100,8 @@
       "budget": "Rozpočet realizačního týmu",
       "budgetUsed": "využito {{bill}} z {{budget}}",
       "headroom": "Zbývá: {{amount}} týdně",
-      "vacant": "Neobsazeno"
+      "vacant": "Neobsazeno",
+      "loadFailed": "Správu realizačního týmu se nepodařilo načíst."
     },
     "posts": {
       "AssistantManager": "Asistent trenéra",
@@ -1341,7 +1342,8 @@
       "Media": "Média",
       "System": "Systém",
       "JobOffer": "Nabídky práce"
-    }
+    },
+    "actionFailed": "Tuto akci se nepodařilo dokončit."
   },
   "manager": {
     "managerOf": "Manažer týmu {{team}}",

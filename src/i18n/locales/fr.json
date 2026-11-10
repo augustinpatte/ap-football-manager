@@ -1100,7 +1100,8 @@
       "budget": "Budget du staff",
       "budgetUsed": "{{bill}} sur {{budget}} utilisés",
       "headroom": "Marge restante : {{amount}} par semaine",
-      "vacant": "Vacant"
+      "vacant": "Vacant",
+      "loadFailed": "Impossible de charger la gestion du staff."
     },
     "posts": {
       "AssistantManager": "Entraîneur adjoint",
@@ -1341,7 +1342,8 @@
       "Media": "Médias",
       "System": "Système",
       "JobOffer": "Offres d'emploi"
-    }
+    },
+    "actionFailed": "Cette action n'a pas pu être menée à bien."
   },
   "manager": {
     "managerOf": "Entraîneur de {{team}}",
