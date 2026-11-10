@@ -15,7 +15,7 @@ schema; one stage = one commit = tests first.
 | Rust workspace `--no-fail-fast` | 122 targets, 4,698 passed, 0 failed, 75 ignored |
 | `npm test` | 332 files, 2,920 passed, 4 skipped |
 | `npm run build` | pass |
-| Gate-world squad study, 5 seeds × 2 seasons (release) | **pending**: recorded in the report once the queued run finishes (see audit §7) |
+| Gate-world squad study, 5 seeds × 2 seasons (release) | median **10.147 s**/seed (9.470–10.216), 4,184 buyer evaluations/seed, XI fit 67.97–68.41, unused joiners 9.1–18.4 % (audit §7) |
 | GUI playthrough | **none performed** |
 
 ## 2. Stages

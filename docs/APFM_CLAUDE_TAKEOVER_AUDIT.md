@@ -122,10 +122,10 @@ shipped-world succession deals 31/10 → 18/9. These are commit-message figures 
 seasons. They were **not** re-measured here on the shipped 440-club world. The earlier
 30-season shipped run took 3 h 22 m (F5.4.1) and has not been repeated since the fixes.
 
-### F3. Performance: reproduction against HEAD
+### F3. Performance: reproduced against HEAD
 
-See §7. The F5.4.2 gate ("within ~2× F5.3") was failed at 2.2–2.5×; the later fixes cut buyer
-evaluations but no post-fix timing exists in the repository documents.
+See §7. Buyer evaluations fell to 4,184 per seed, but wall time is 10.1 s (about 2.7× the documented
+F5.3 figure) and is unexplained. This is the open performance blocker.
 
 ### F4. Lightweight engine versus M12 (READ + DOC)
 
@@ -165,12 +165,54 @@ for a human; `docs/GUI_VALIDATION.md` states it "cannot drive the UI".
 | G5 | Next-action indicators | Present: `DashboardAlerts`, `check_blocking_actions`, `DashboardBlockerModal`, sidebar badges. Quality unverified without a GUI. |
 | G6 | Commands with no literal frontend caller (14 of 188) | `advance_time` (the UI uses `advance_time_with_mode`), `get_session_state`, `advance_to_next_event`, `check_season_complete`, `run_single_seeded_match`, `get_player_knowledge`, `set_team_kit_pattern`, `assign_jersey_number`, `create_package_project`, `inspect_world_package`, `validate_world_package`, `validate_competition_definitions`, `read_file_as_data_url`, `write_temp_database`. None is a step of the career journey; `set_team_kit_pattern` and `assign_jersey_number` are small missing UI hooks. (Literal-string grep: a dynamically named call would be missed.) |
 
-## 7. Performance blocker status
+## 7. Performance: reproduction against HEAD (RUN)
 
-The release-mode reproduction of the F5.4.2 market regression (gate world, 80 clubs, seeds 1–5,
-two seasons, `f54_squad_study`) was queued to run after the test baseline so the suite could not
-contaminate it. Its result is recorded in the implementation plan's baseline table once complete;
-if that table says "pending" the run had not finished when this file was committed.
+Command (release, quiet machine, nothing else running, pinned M12 from Git):
+`F54_WORLD=gate F54_SEEDS=1,2,3,4,5 F54_SEASONS=2 cargo test --locked --release -p season-harness --test f54_squad_study -- --ignored --nocapture`
+(exit 0; log `…/baseline/08_perf_gate.log`). Gate world: 80 clubs, 656 calendar days per seed.
+
+| Seed | Simulation time | Buyer evaluations | XI fit | Weak-slot clubs | Unused joiners | Fees/club-season |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 10.032 s | 4,162 | 67.97 | 17.1 % | 12.7 % | £0.11m |
+| 2 | 10.171 s | 4,184 | 68.25 | 17.1 % | 11.3 % | £0.12m |
+| 3 | 10.216 s | 4,177 | 68.41 | 15.8 % | 9.4 % | £0.12m |
+| 4 | 10.147 s | 4,188 | 68.22 | 14.6 % | 9.1 % | £0.08m |
+| 5 | 9.470 s | 4,187 | 68.26 | 15.2 % | 18.4 % | £0.17m |
+| **median** | **10.147 s** | **4,184** | | | | |
+
+Reference figures from `APFM_RUN_F5_4_2_PERFORMANCE_AND_QUALITY.md` (DOC, different session, M12 via a
+local override with uncommitted edits, other applications running):
+
+| | F5.3 | F5.4.2 (before F5.4.3–5) | HEAD (this run) |
+|---|---:|---:|---:|
+| Median simulation time | 3.797 s | 8.733 s | **10.147 s** |
+| Buyer evaluations / seed | 3,025 | 9,637 | **4,184** |
+| XI fit (seeds 1–5) | 67.82 / 68.22 / 68.25 / 68.11 / 68.30 | 67.93 / 68.16 / 68.45 / 68.19 / 68.30 | 67.97 / 68.25 / 68.41 / 68.22 / 68.26 |
+| Weak-slot clubs % | 20.3 / 17.7 / 16.5 / 13.9 / 14.6 | 21.5 / 15.8 / 13.9 / 14.6 / 12.0 | 17.1 / 17.1 / 15.8 / 14.6 / 15.2 |
+| Unused joiners % | 16.8 / 17.4 / 15.8 / 14.9 / 18.1 | 21.9 / 13.7 / 15.0 / 16.8 / 20.1 | 12.7 / 11.3 / 9.4 / 9.1 / 18.4 |
+
+What this supports and does not support:
+
+* **Supported:** F5.4.3–F5.4.5 cut market work to ~43 % of F5.4.2 (4,184 vs 9,637 buyer
+  evaluations) and the squad-quality proxies are at or better than the F5.3 figures on four of five
+  seeds, with fewer unused joiners.
+* **Not explained, and a confirmed performance blocker:** wall time did **not** fall with the
+  evaluation count (10.1 s vs F5.4.2's 8.7 s, vs F5.3's 3.8 s, i.e. about 2.7× F5.3). Buyer
+  evaluations are only ~1.4× F5.3, so the remaining cost is per-evaluation or elsewhere (candidate
+  appraisal and Squad Intelligence caches were the F5.4.2 hot spots). The comparison crosses
+  sessions, machines' load and the M12 source, so the ratio is indicative, not a measurement.
+  Attributing it needs F5.3 and HEAD built side by side with the same pinned M12 on a quiet machine.
+* Peak resident set of the test process: 2.28 GB as reported by `/usr/bin/time -l` for the whole
+  cargo invocation (includes the compiler); the process footprint line reads 101.9 MB. Not a
+  game-memory figure.
+* The shipped 440-club world and the 30-season run were **not** repeated.
+
+### Model versus picker, measured on the same run
+
+The harness's succession-pathway lines compare what the squad model expects with what the game's
+greedy picker would do (`Placement`, F1). Across the 9 pathway reports in the five seeds the model saw
+12 starts and the picker 10; **2 were model-only**. On this sample the mismatch is small but not zero;
+the sample is small and covers two seasons.
 
 ## 8. What this audit did not do
 
