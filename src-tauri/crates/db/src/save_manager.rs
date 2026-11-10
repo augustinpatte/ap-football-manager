@@ -614,7 +614,7 @@ impl SaveManager {
         // Only a save from before format 9 can still hold a mirrored pair the old builds would
         // have repaired on write. From format 9 on the eleven is whatever the manager saved, so an
         // inverted full-back or winger is never reordered behind their back.
-        if save_format_version < LAST_FORMAT_WITH_XI_SIDE_REPAIR
+        if save_format_version < FIRST_FORMAT_WITHOUT_XI_SIDE_REPAIR
             && canonicalize_game_starting_xi_ids(&mut game)
         {
             needs_resave = true;
@@ -835,8 +835,9 @@ impl SaveManager {
     }
 }
 
-/// Saves below this format may carry a mirrored side pair that was never repaired.
-const LAST_FORMAT_WITH_XI_SIDE_REPAIR: u32 = 9;
+/// Saves below this format may carry a mirrored side pair that was never repaired. Fixed at 9 on
+/// purpose, not tied to `CURRENT_SAVE_FORMAT_VERSION`: later formats must not gain the repair.
+const FIRST_FORMAT_WITHOUT_XI_SIDE_REPAIR: u32 = 9;
 
 /// Puts mirrored side pairs (LB/RB, LWB/RWB, LM/RM, LW/RW) the right way round when that raises
 /// fit. A repair for legacy data, never applied to a current save the manager has edited.
@@ -3330,6 +3331,71 @@ mod tests {
         );
     }
 
+    /// Given the new-game save path (the one that also stores statistics), when a career with an
+    /// inverted full-back pair is saved, then the file holds the manager's order.
+    #[test]
+    fn test_create_save_with_stats_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_side_specific_starting_xi(true);
+
+        let save_id = sm
+            .create_save_with_stats(&game, &StatsState::default(), "Inverted With Stats")
+            .unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    /// Given the in-game save button's path (`save_game_with_stats`, which `persist_active_game`
+    /// calls), when it overwrites a save with an inverted pair, then the file holds the manager's
+    /// order.
+    #[test]
+    fn test_save_game_with_stats_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(&sample_game_with_side_specific_starting_xi(false), "Button")
+            .unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
+
+        sm.save_game_with_stats(&inverted, &StatsState::default(), &save_id)
+            .unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    /// Given a save written mid-match (`save_game_with_stats_and_match`), when the career has an
+    /// inverted pair, then the file holds the manager's order.
+    #[test]
+    fn test_save_game_with_stats_and_match_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Mid match",
+            )
+            .unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
+
+        sm.save_game_with_stats_and_match(&inverted, &StatsState::default(), &save_id, None)
+            .unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
     fn put_stored_starting_xi(saves_dir: &std::path::Path, save_id: &str, xi: &[&str]) {
         let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
         db.conn()
@@ -3338,13 +3404,6 @@ mod tests {
                 params![serde_json::to_string(&xi).unwrap(), "team-001"],
             )
             .unwrap();
-    }
-
-    fn stamp_format_version(saves_dir: &std::path::Path, save_id: &str, version: u32) {
-        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
-        let mut meta = meta_repo::load_meta(db.conn()).unwrap().unwrap();
-        meta.save_format_version = version;
-        meta_repo::upsert_meta(db.conn(), &meta).unwrap();
     }
 
     fn loaded_starting_xi(sm: &mut SaveManager, save_id: &str) -> Vec<String> {
@@ -3372,7 +3431,7 @@ mod tests {
             )
             .unwrap();
         put_stored_starting_xi(&saves_dir, &save_id, &INVERTED_FULL_BACKS_442);
-        stamp_format_version(&saves_dir, &save_id, 8);
+        stamp_format(&sm, &save_id, 8);
 
         let loaded = loaded_starting_xi(&mut sm, &save_id);
 
