@@ -16,6 +16,7 @@ const FINISHED_FOLDERS = [
   "./components/dashboard/DashboardSidebar.tsx",
   "./components/dashboard/DashboardWorkspaceContent.tsx",
   "./pages/Dashboard.tsx",
+  "./components/staff/",
 ];
 
 /**

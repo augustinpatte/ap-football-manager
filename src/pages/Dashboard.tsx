@@ -672,6 +672,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
           gameState={gameState}
           profileNavigation={profileNavigation}
           dashboardTabContentModel={dashboardTabContentModel}
+          contentLabel={headerTitle}
           onNavigate={handleNavigate}
           onSelectPlayer={selectPlayer}
           onSelectTeam={selectTeam}
