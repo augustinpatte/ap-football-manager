@@ -1051,6 +1051,30 @@ mod tests {
         assert_eq!(team.tactics_phase, blueprint_for(&PlayStyle::Defensive));
     }
 
+    /// Given a club with a chosen starting XI, a defensive shape the manager picked and a training
+    ///       plan
+    /// When a preset that names only a formation and a style is applied
+    /// Then the lineup, the defensive shape and the training are exactly as the manager left them:
+    ///      a preset replaces the formation, the style and the dials, nothing else.
+    #[test]
+    fn applying_a_preset_leaves_the_lineup_the_defensive_shape_and_training_alone() {
+        let state = state_with_custom_dials();
+        state.update_game(|game| {
+            let team = &mut game.teams[0];
+            team.starting_xi_ids = vec!["player-1".to_string()];
+            team.out_of_possession_formation = "5-4-1".to_string();
+            team.training_focus = TrainingFocus::Defending;
+        });
+
+        apply_tactic_preset_internal(&state, "3-4-3", "Attacking").expect("preset applies");
+
+        let team = stored_team(&state);
+        assert_eq!(team.formation, "3-4-3");
+        assert_eq!(team.starting_xi_ids, vec!["player-1".to_string()]);
+        assert_eq!(team.out_of_possession_formation, "5-4-1");
+        assert_eq!(team.training_focus, TrainingFocus::Defending);
+    }
+
     /// Given a preset with its own defensive shape and instruction blueprint,
     /// when it is selected, then all four tactical inputs are saved together.
     #[test]
