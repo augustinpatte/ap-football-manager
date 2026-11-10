@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use domain::league::CompetitionType;
 use ofm_core::game::Game;
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::worlds::WorldSpec;
+use season_harness::env;
 
 fn draw(manager_id: &str, salt: u64) -> f64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325 ^ salt;
@@ -34,9 +34,23 @@ fn draw(manager_id: &str, salt: u64) -> f64 {
     (hash >> 11) as f64 / (1u64 << 53) as f64
 }
 
+/// The values `ofm_core::manager_identity` pins for these ids; this copy must agree, so the study
+/// measures the dispositions the game uses (and still compiles on the tree before they existed).
+const PINNED: [(&str, f64); 2] = [
+    ("manager-0", 0.4219877662423652),
+    ("manager-1", 0.9752668254915675),
+];
+
 const RISK: u64 = 0x6d67_7220_7269_736b;
 const ADAPTABILITY: u64 = 0x6d67_7220_6164_6170;
 const ROTATION: u64 = 0x6d67_7220_726f_7461;
+
+#[test]
+fn the_studys_copy_of_the_derivation_gives_the_games_numbers() {
+    for (id, risk) in PINNED {
+        assert_eq!(draw(id, RISK), risk, "{id}");
+    }
+}
 
 struct Row {
     residual: f64,
@@ -150,17 +164,12 @@ fn band(rows: &[Row], value: &dyn Fn(&Row) -> f64, low: bool) -> String {
 #[test]
 #[ignore = "measurement study"]
 fn p4_results_by_disposition() {
-    let list = |name: &str, default: &str| -> Vec<u64> {
-        std::env::var(name)
-            .unwrap_or_else(|_| default.to_string())
-            .split(',')
-            .filter_map(|s| s.trim().parse().ok())
-            .collect()
-    };
-    let seasons = list("P4_SEASONS", "2")[0] as u32;
+    let seasons = env::first("P4_SEASONS", "2") as u32;
     let mut log = Log::default();
-    for seed in list("P4_SEEDS", "1") {
-        let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+    for seed in env::list("P4_SEEDS", "1") {
+        let mut game = env::world("P4_WORLD", seed)
+            .build()
+            .expect("the world builds");
         run_seasons(&mut game, RunOptions::seasons(seasons), &mut log).expect("seasons play");
     }
     eprintln!(

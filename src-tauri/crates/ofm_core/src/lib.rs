@@ -51,7 +51,7 @@ pub mod job_offers;
 pub mod knockout_dates;
 pub mod ladder_rules;
 pub mod live_match_manager;
-pub mod manager_identity;
+pub(crate) mod manager_identity;
 pub mod manager_retirement;
 mod match_day_eligibility;
 pub mod match_rating;

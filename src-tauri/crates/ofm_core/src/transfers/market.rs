@@ -73,8 +73,9 @@ pub struct DealRecord {
     pub points: i32,
     pub gain: f32,
     pub weekly_wage: u32,
-    /// Measurement only: where the club's model and the game's own greedy picker would place him
-    /// over the horizon, and whom he would displace. Never feeds a decision.
+    /// Measurement only: where the club's model would place him over the horizon, whether the
+    /// lineup picker itself would start him today, and whom he would displace. Never feeds a
+    /// decision.
     pub placement: Option<DealPlacement>,
 }
 
@@ -85,8 +86,9 @@ pub struct DealPlacement {
     pub now_gain: f32,
     /// Slot the model starts him in, year 0/1/2.
     pub model_start: [Option<u8>; 3],
-    /// Slot the game's greedy picker would start him in, year 0/1/2.
-    pub greedy_start: [Option<u8>; 3],
+    /// Whether the lineup picker (`turn::squad::first_choice_eleven`) would field him today, from
+    /// the buyer's healthy seniors and him: the model's prediction checked against the real thing.
+    pub picker_starts_now: bool,
     /// The player he displaces in each year, if the slot was occupied.
     pub blocker_slot: [Option<u8>; 3],
     pub blocker_ovr: [Option<u8>; 3],
@@ -104,6 +106,24 @@ pub fn enable_deal_log() {
 /// The deals recorded since the last call.
 pub fn take_deal_log() -> Vec<DealRecord> {
     std::mem::take(&mut *DEAL_LOG.lock().unwrap_or_else(|e| e.into_inner()))
+}
+
+/// Whether the lineup picker would field `signing` today in `buyer`'s side, from the buyer's healthy
+/// seniors and him. Measurement only: it asks the picker that picks the side, not the model.
+fn picker_would_start(game: &Game, buyer: &Team, signing: &Player) -> bool {
+    let pool: Vec<&Player> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some(buyer.id.as_str())
+                && player.squad_role == domain::player::SquadRole::Senior
+                && player.can_play()
+        })
+        .chain(Some(signing))
+        .collect();
+    crate::turn::squad::first_choice_eleven(&pool, &buyer.formation)
+        .iter()
+        .any(|player| player.id == signing.id)
 }
 
 /// How much further up the reputation ladder a club that has just come up looks for a signing:
@@ -1387,7 +1407,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     placement: placement.map(|placement| DealPlacement {
                         now_gain: placement.now_gain,
                         model_start: placement.model_start,
-                        greedy_start: placement.greedy_start,
+                        picker_starts_now: picker_would_start(game, &buyer_team, player),
                         blocker_slot: std::array::from_fn(|year| {
                             placement.blocker[year].map(|blocker| blocker.slot)
                         }),

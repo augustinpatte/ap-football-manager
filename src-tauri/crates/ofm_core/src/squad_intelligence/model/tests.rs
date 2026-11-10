@@ -956,6 +956,30 @@ fn a_loaned_player_is_in_the_plans_only_while_the_loan_lasts() {
     assert_eq!(there(120), [true, false, false]);
     assert_eq!(there(560), [true, true, false]);
     assert_eq!(there(1_100), [true, true, true]);
+    // The edges: a loan with exactly a season left covers this one only; a day more covers the next.
+    assert_eq!(there(365), [true, false, false]);
+    assert_eq!(there(366), [true, true, false]);
+    assert_eq!(there(730), [true, true, false]);
+    assert_eq!(there(731), [true, true, true]);
+}
+
+/// Given a loan whose end date cannot be read
+/// When the loaned player is projected
+/// Then he is planned for the present only, never for seasons nobody can promise.
+#[test]
+fn a_loan_with_an_unreadable_end_is_planned_for_the_present_only() {
+    let mut loaned = on_loan_until(player("star", Striker, 88, 26), 900);
+    loaned.active_loan.as_mut().expect("a loan").end_date = "not a date".to_string();
+    let club = squad_with(loaned);
+    let shift = club
+        .model
+        .members
+        .iter()
+        .find(|member| member.id == "star")
+        .expect("a member")
+        .shift
+        .map(|shift| shift.is_some());
+    assert_eq!(shift, [true, false, false]);
 }
 
 /// Given a club with a player on loan to it
@@ -965,6 +989,13 @@ fn a_loaned_player_is_in_the_plans_only_while_the_loan_lasts() {
 #[test]
 fn a_club_cannot_sell_a_player_it_has_only_borrowed() {
     let club = squad_with(on_loan_until(player("star", Striker, 88, 26), 400));
+    assert!(
+        club.model
+            .members
+            .iter()
+            .any(|m| m.id == "star" && m.loaned_in),
+        "he is in the squad, so keeping him out of the sales is the guard's doing"
+    );
     assert!(club.sales("club").iter().all(|(id, _)| id != "star"));
     let case = club.sale("star");
     assert!(case.surplus && case.loss == 0.0);

@@ -1346,29 +1346,87 @@ mod tests {
         }
     }
 
-    /// Given the neutral manager
-    /// When he plans in every situation the old rule covered
-    /// Then the plan is exactly the one a club with no manager identity took before.
+    /// Given a run of scoring a little above the blunt line
+    /// When an adaptable manager and a stubborn one plan
+    /// Then the adaptable one reacts in attack and the stubborn one does not.
     #[test]
-    fn the_neutral_manager_plans_exactly_as_the_club_did_before_identities() {
-        for style in EVERY_STYLE {
-            for form in [None, Some(leaking()), Some(toothless())] {
-                for squad in [
-                    a_squad_that_can_run(),
-                    a_squad_with_no_legs(),
-                    a_slow_back_line(),
-                ] {
-                    assert_eq!(
-                        match_plan_by(
-                            &style,
-                            Some(&squad),
-                            form.as_ref(),
-                            &ManagerIdentity::NEUTRAL
-                        ),
-                        match_plan(&style, Some(&squad), form.as_ref())
-                    );
-                }
-            }
-        }
+    fn an_adaptable_manager_reacts_to_a_blunt_run_that_a_stubborn_one_sits_through() {
+        let squad = a_squad_that_can_run();
+        let form = FormReading {
+            conceded_per_game: 1.0,
+            scored_per_game: BLUNT + 0.1,
+        };
+        let blueprint = blueprint_for(&PlayStyle::Defensive);
+        let plan = |adaptability: f64| {
+            match_plan_by(
+                &PlayStyle::Defensive,
+                Some(&squad),
+                Some(&form),
+                &manager(0.5, adaptability),
+            )
+        };
+        assert_ne!(plan(1.0), blueprint);
+        assert_eq!(plan(0.0), blueprint);
+    }
+
+    /// Given the neutral manager and a run one hundredth of a goal short of each trigger, then at it
+    /// When he plans
+    /// Then he sits through the first and reacts at the second: the measured lines themselves,
+    /// pinned to their numbers rather than compared with the wrapper that delegates to him.
+    #[test]
+    fn the_neutral_manager_reacts_at_exactly_the_measured_lines() {
+        let squad = a_squad_that_can_run();
+        let blueprint = blueprint_for(&PlayStyle::Balanced);
+        let plan = |conceded, scored| {
+            match_plan_by(
+                &PlayStyle::Balanced,
+                Some(&squad),
+                Some(&FormReading {
+                    conceded_per_game: conceded,
+                    scored_per_game: scored,
+                }),
+                &ManagerIdentity::NEUTRAL,
+            )
+        };
+        assert_eq!(plan(LEAKY - 0.01, 2.0), blueprint);
+        assert_ne!(plan(LEAKY, 2.0), blueprint);
+        assert_eq!(plan(1.0, BLUNT + 0.01), blueprint);
+        assert_ne!(plan(1.0, BLUNT), blueprint);
+    }
+
+    /// Given the same club and the same run of results under a bold and a cautious manager
+    /// When the weekly review runs
+    /// Then the club's stored tactics follow its own manager: the identity reaches the review.
+    #[test]
+    fn the_weekly_review_reads_the_clubs_own_manager() {
+        let manager_like = |wanted: &dyn Fn(&ManagerIdentity) -> bool| {
+            (0..)
+                .map(|index| format!("manager-{index}"))
+                .find(|id| wanted(&ManagerIdentity::of(id)))
+                .expect("some manager fits")
+        };
+        let bold = manager_like(&|m| m.risk > 0.9);
+        let cautious = manager_like(&|m| m.risk < 0.1);
+        let reviewed = |manager_id: Option<&str>| {
+            let mut game = form_game();
+            let home = game.teams.iter_mut().find(|t| t.id == "home").unwrap();
+            home.play_style = PlayStyle::Balanced;
+            home.manager_id = manager_id.map(str::to_string);
+            apply_ai_tactical_reviews(&mut game, review_weekday("home"));
+            game.teams
+                .iter()
+                .find(|t| t.id == "home")
+                .unwrap()
+                .tactics_phase
+                .clone()
+        };
+        let (bold_plan, cautious_plan, neutral_plan) = (
+            reviewed(Some(&bold)),
+            reviewed(Some(&cautious)),
+            reviewed(None),
+        );
+        assert_ne!(bold_plan, cautious_plan);
+        assert_ne!(bold_plan, neutral_plan);
+        assert_ne!(cautious_plan, neutral_plan);
     }
 }

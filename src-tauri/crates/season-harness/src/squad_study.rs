@@ -263,8 +263,8 @@ pub struct ObservedDeal {
     pub date: String,
     /// Season appearances at the next rollover.
     pub appearances: u32,
-    /// Measurement only: the model's and the real picker's placement of the signing over the
-    /// horizon, and whom he would displace.
+    /// Measurement only: the model's placement of the signing over the horizon, whether the real
+    /// lineup picker would start him on arrival, and whom he would displace.
     pub placement: Option<ObservedPlacement>,
 }
 
@@ -273,7 +273,7 @@ pub struct ObservedDeal {
 pub struct ObservedPlacement {
     pub now_gain: f32,
     pub model_start: [Option<u8>; 3],
-    pub greedy_start: [Option<u8>; 3],
+    pub picker_starts_now: bool,
     pub blocker_slot: [Option<u8>; 3],
     pub blocker_ovr: [Option<u8>; 3],
     pub blocker_age: [Option<i32>; 3],
@@ -405,7 +405,7 @@ impl SquadLog {
                     placement: deal.placement.map(|placement| ObservedPlacement {
                         now_gain: placement.now_gain,
                         model_start: placement.model_start,
-                        greedy_start: placement.greedy_start,
+                        picker_starts_now: placement.picker_starts_now,
                         blocker_slot: placement.blocker_slot,
                         blocker_ovr: placement.blocker_ovr,
                         blocker_age: placement.blocker_age,
@@ -647,8 +647,40 @@ fn gate_report(deals: &[ObservedDeal]) -> String {
 /// How succession signings actually sit in the squad, year by year: does the model's future gain
 /// come from a starting place, and would the game's own picker ever give it to him? Distinguishes a
 /// credible pathway from cover that only the model can see (measurement only).
+/// The model's prediction that a signing starts on arrival, checked against the lineup picker that
+/// picks the side and against what he then played (appearances in the season of arrival). Every
+/// deal, not only successions: a prediction is only as good as the starts it gets right.
+fn prediction_report(deals: &[ObservedDeal]) -> String {
+    let placed: Vec<&ObservedDeal> = deals.iter().filter(|d| d.placement.is_some()).collect();
+    if placed.is_empty() {
+        return String::new();
+    }
+    let model = |d: &&&ObservedDeal| d.placement.is_some_and(|p| p.model_start[0].is_some());
+    let picker = |d: &&&ObservedDeal| d.placement.is_some_and(|p| p.picker_starts_now);
+    let played = |d: &&&ObservedDeal| d.appearances > 2;
+    let count = |f: &dyn Fn(&&&ObservedDeal) -> bool| placed.iter().filter(|d| f(d)).count();
+    let model_starts = count(&|d| model(d));
+    let agree = count(&|d| model(d) && picker(d));
+    let picker_only = count(&|d| !model(d) && picker(d));
+    format!(
+        "start on arrival: {} deals | model says he starts {} | the picker starts him {} | both \
+         {} | model only {} | picker only {} | of those the model says start, played 3+ \
+         matches {} of {} | of those the model says do not, played 3+ matches {} of {}\n",
+        placed.len(),
+        model_starts,
+        count(&|d| picker(d)),
+        agree,
+        model_starts - agree,
+        picker_only,
+        count(&|d| model(d) && played(d)),
+        model_starts,
+        count(&|d| !model(d) && played(d)),
+        placed.len() - model_starts,
+    )
+}
+
 fn pathway_report(deals: &[ObservedDeal]) -> String {
-    let mut out = String::new();
+    let mut out = prediction_report(deals);
     let succession: Vec<&ObservedDeal> = deals
         .iter()
         .filter(|deal| deal.role == "Succession")
@@ -664,9 +696,6 @@ fn pathway_report(deals: &[ObservedDeal]) -> String {
     let starts = |deal: &ObservedDeal, year: usize| {
         placement(deal).is_some_and(|p| p.model_start[year].is_some())
     };
-    let greedy = |deal: &ObservedDeal, year: usize| {
-        placement(deal).is_some_and(|p| p.greedy_start[year].is_some())
-    };
     let never_starts = succession
         .iter()
         .filter(|deal| !(starts(deal, 0) || starts(deal, 1) || starts(deal, 2)))
@@ -674,10 +703,6 @@ fn pathway_report(deals: &[ObservedDeal]) -> String {
     let pathway = succession
         .iter()
         .filter(|deal| starts(deal, 1) || starts(deal, 2))
-        .count();
-    let visible = succession
-        .iter()
-        .filter(|deal| (1..3).any(|year| starts(deal, year) && greedy(deal, year)))
         .count();
     let vacant = succession
         .iter()
@@ -701,24 +726,20 @@ fn pathway_report(deals: &[ObservedDeal]) -> String {
         })
         .collect();
     out.push_str(&format!(
-        "succession pathway: {} deals | model starts y1 {} y2 {} | greedy starts y1 {} y2 {} | \
+        "succession pathway: {} deals | model starts y1 {} y2 {} | \
          model never starts {} | future slot vacant {} | displaced mean age {:.1} | unused {:.0}%\n",
         succession.len(),
         succession.iter().filter(|deal| starts(deal, 1)).count(),
         succession.iter().filter(|deal| starts(deal, 2)).count(),
-        succession.iter().filter(|deal| greedy(deal, 1)).count(),
-        succession.iter().filter(|deal| greedy(deal, 2)).count(),
         never_starts,
         vacant,
         mean(displaced.iter().map(|age| f64::from(*age))),
         unused(&succession),
     ));
     out.push_str(&format!(
-        "succession pathway: model sees a start in {} | the real picker would give him one in {} | \
-         model-only pathway {}\n",
-        pathway,
-        visible,
-        pathway.saturating_sub(visible),
+        "succession pathway: model sees a start in year 1 or 2 for {pathway} deals; whether the \
+         picker will agree cannot be asked of a future squad, so it is judged by appearances \
+         below, not predicted\n",
     ));
     // Measurement copy of `squad_floor::MIN_PLAYERS_PER_GROUP`, by group index.
     const FLOOR: [usize; 4] = [2, 4, 4, 2];

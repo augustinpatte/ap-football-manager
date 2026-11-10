@@ -2,7 +2,8 @@ use crate::game::Game;
 use crate::player_rating::{
     effective_rating_for_assignment, formation_slots, positional_fit_for_assignment,
 };
-use crate::stable_hash::stable_hash;
+use crate::squad_intelligence::assignment;
+use crate::stable_hash::{stable_hash, unit_interval};
 use domain::player::Position as DomainPosition;
 use engine::{
     BreakSpeed, CounterPressDuration, DefensiveLine, DefensiveShape, MarkingStyle, PlayStyle,
@@ -92,10 +93,7 @@ pub(crate) fn build_team_with_bench_from(
             &game.clock.current_date.format("%Y-%m-%d").to_string(),
         );
         let load = fixture_load_among(game, team_id, lookups);
-        let rotation = crate::manager_identity::ManagerIdentity::of_club_manager(
-            team.and_then(|team| team.manager_id.as_deref()),
-        )
-        .rotation;
+        let rotation = crate::manager_identity::ManagerIdentity::for_club(game, team).rotation;
         ai_select_starting_xi_by(
             &available_players,
             &formation,
@@ -580,16 +578,8 @@ fn selection_seed(team_id: &str, date: &str) -> u64 {
 
 /// How wrong this manager is about this player today, as −1.0 ..= 1.0.
 fn judgement_noise(seed: u64, player_id: &str) -> f64 {
-    let hash = stable_hash(player_id.as_bytes(), seed);
-    let unit = (hash >> 11) as f64 / (1u64 << 53) as f64;
-    unit * 2.0 - 1.0
+    unit_interval(stable_hash(player_id.as_bytes(), seed)) * 2.0 - 1.0
 }
-
-/// What a natural keeper's place in goal is worth beyond any outfield rating, in the assignment's
-/// thousandths of a rating point: a keeper plays in goal before outfield rating matters.
-const KEEPER_IN_GOAL_BONUS: f64 = 1_000.0;
-/// The assignment works in thousandths of a rating point, as the squad model does.
-const FIT_RESOLUTION: f64 = 1_000.0;
 
 /// The eleven a club would pick if nobody were tired: the players who make the side best as a whole
 /// (the greatest total positional fit over the formation's slots, a natural keeper in goal),
@@ -597,10 +587,12 @@ const FIT_RESOLUTION: f64 = 1_000.0;
 ///
 /// Step one of the AI's team selection, and also what AI training reads to judge how fresh its
 /// first eleven is — the two must agree on who that eleven is, or the controller steers on players
-/// who never start (a spare keeper, most often). It is also the side the squad model
-/// (`squad_intelligence`) values a signing by, and both solve the one assignment
-/// ([`crate::squad_intelligence::assignment::Solver`]), so a club cannot buy a player for a start
-/// its own manager would not give him.
+/// who never start (a spare keeper, most often). It is also, to within rounding, the side the squad
+/// model (`squad_intelligence`) values a signing by: both solve the one assignment
+/// ([`crate::squad_intelligence::assignment`]) with the same rule for a keeper in goal. They are
+/// not the same function: the model rates a player by his stored `ovr` less the slot's penalty and
+/// plans on injuries, this reads the raw positional fit of the players who are fit today, and
+/// rotation is applied afterwards. `lineup_gap` measures what is left (0.15-0.33 starters a club).
 ///
 /// This used to walk the slots in order and take the best remaining fit for each, which spends a
 /// player on whichever slot is reached first: a striker rated 88 who also fits left back better
@@ -625,19 +617,18 @@ pub(crate) fn first_choice_eleven<'a>(
     let columns = candidates.len();
     let mut cost = vec![0i64; slots.len() * columns];
     for (row, slot) in slots.iter().enumerate() {
+        let in_goal = *slot == DomainPosition::Goalkeeper;
         for (column, player) in candidates.iter().enumerate() {
-            let keeper_in_goal = *slot == DomainPosition::Goalkeeper
-                && player.natural_position == DomainPosition::Goalkeeper;
-            let level = positional_fit_for_assignment(player, slot)
-                + if keeper_in_goal {
-                    KEEPER_IN_GOAL_BONUS
-                } else {
-                    0.0
-                };
-            cost[row * columns + column] = -((level * FIT_RESOLUTION).round() as i64);
+            let natural_keeper = player.natural_position == DomainPosition::Goalkeeper;
+            let fit = positional_fit_for_assignment(player, slot) as f32;
+            cost[row * columns + column] = assignment::slot_cost(
+                assignment::level_in_slot(fit, natural_keeper, in_goal),
+                natural_keeper,
+                in_goal,
+            );
         }
     }
-    let mut solver = crate::squad_intelligence::assignment::Solver::default();
+    let mut solver = assignment::Solver::default();
     solver.solve(&cost, slots.len(), columns);
     solver
         .result
@@ -778,7 +769,7 @@ fn ai_select_starting_xi_by<'a>(
 
     // Step 2: load management.
     let disposition = (rotation - 0.5) * 2.0 * ROTATION_DISPOSITION_RANGE;
-    let (rest_threshold, min_tolerance) = match load {
+    let (unclamped_threshold, min_tolerance) = match load {
         // 50 (poor) .. 75 (elite); tolerance 6 .. 12.
         FixtureLoad::Normal => (50.0 + 25.0 * quality + disposition, MIN_FIT_TOLERANCE),
         // 90 (poor) .. 100 (elite); tolerance 10 .. 12.
@@ -787,6 +778,10 @@ fn ai_select_starting_xi_by<'a>(
             CONGESTED_MIN_FIT_TOLERANCE,
         ),
     };
+    // Temperament moves when a manager notices fatigue, never past the point where a player is not
+    // fit to start: the threshold stays at `EXHAUSTED` or above, as the worst manager's did before
+    // dispositions existed (a quality-0, rarely-rotating one would otherwise sit at 42).
+    let rest_threshold = unclamped_threshold.max(EXHAUSTED);
     let fit_tolerance = min_tolerance + (MAX_FIT_TOLERANCE - min_tolerance) * quality;
     let misjudgement = MAX_MISJUDGEMENT * (1.0 - quality); // 9 (poor) .. 0 (elite)
 

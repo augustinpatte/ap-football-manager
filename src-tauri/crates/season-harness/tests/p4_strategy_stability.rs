@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use ofm_core::game::Game;
 use ofm_core::transfers::strategy_reports;
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::worlds::WorldSpec;
+use season_harness::env;
 
 const SAMPLE_EVERY: u32 = 50;
 
@@ -60,20 +60,14 @@ impl SeasonObserver for Log {
     }
 }
 
-fn env_list(name: &str, default: &str) -> Vec<u64> {
-    std::env::var(name)
-        .unwrap_or_else(|_| default.to_string())
-        .split(',')
-        .filter_map(|s| s.trim().parse().ok())
-        .collect()
-}
-
 #[test]
 #[ignore = "measurement study"]
 fn p4_strategy_stability() {
-    let seasons = env_list("P4_SEASONS", "3")[0] as u32;
-    for seed in env_list("P4_SEEDS", "1") {
-        let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+    let seasons = env::first("P4_SEASONS", "3") as u32;
+    for seed in env::list("P4_SEEDS", "1") {
+        let mut game = env::world("P4_WORLD", seed)
+            .build()
+            .expect("the world builds");
         let mut log = Log::default();
         log.take(&game);
         run_seasons(&mut game, RunOptions::seasons(seasons), &mut log).expect("seasons play");

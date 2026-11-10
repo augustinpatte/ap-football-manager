@@ -26,7 +26,7 @@
 use chrono::NaiveDate;
 use domain::player::{Player, Position, SquadRole};
 
-use super::assignment::Solver;
+use super::assignment::{Solver, UNCOVERED_FIT, level_in_slot, slot_cost};
 use super::horizon::{HORIZON, projected_shifts};
 use crate::player_rating::{formation_slots, natural_ovr, positional_fit_for_assignment};
 use crate::squad_outlook::PlannedPlayer;
@@ -34,10 +34,6 @@ use crate::stable_hash::StableHasher;
 
 /// Players on the pitch.
 pub(crate) const SLOTS: usize = 11;
-
-/// What a slot is worth when nobody is left to cover it: an academy player or a body from another
-/// line. A squad with a thin bench is judged by it, which is what makes depth count.
-pub(crate) const UNCOVERED_FIT: f32 = 25.0;
 
 /// Days left on the contract a signing is planned to sign (three years): he is not one the club
 /// will have to renew inside the horizon.
@@ -202,11 +198,7 @@ impl Member {
                 continue;
             };
             for slot in 0..SLOTS {
-                let fit = if self.natural_keeper && slot != 0 {
-                    self.fit[slot].min(UNCOVERED_FIT)
-                } else {
-                    self.fit[slot]
-                };
+                let fit = level_in_slot(self.fit[slot], self.natural_keeper, slot == 0);
                 self.levels[year][slot] = (fit + shift).clamp(1.0, 99.0);
             }
         }
@@ -650,8 +642,6 @@ pub(crate) struct Placement {
     pub now_gain: f32,
     /// Slot the model starts him in, year by year (`None`: not a starter).
     pub model_start: [Option<u8>; HORIZON],
-    /// Slot the game's greedy picker would start him in, year by year.
-    pub greedy_start: [Option<u8>; HORIZON],
     /// For each year he starts in the model, the player the club would otherwise start in that
     /// slot: `None` means the slot was vacant (a genuine succession hole).
     pub blocker: [Option<Blocker>; HORIZON],
@@ -667,8 +657,9 @@ pub(crate) struct Blocker {
 }
 
 impl SquadModel {
-    /// Measurement only: where `candidate` would sit today and in each horizon year, under the
-    /// model's assignment and under the game's own greedy walk, and whom he would displace.
+    /// Measurement only: where `candidate` would sit today and in each horizon year under the
+    /// model's assignment, and whom he would displace. Whether the lineup picker agrees is asked
+    /// of the picker itself where the deal is recorded (`DealPlacement::picker_starts_now`).
     pub(crate) fn placement_of(&self, candidate: &Member) -> Placement {
         let with = self.evaluate_with(candidate);
         let newcomer = self.members.len();
@@ -676,14 +667,9 @@ impl SquadModel {
             now_gain: with.years[0].expected - self.base.years[0].expected,
             ..Placement::default()
         };
-        let squad: Vec<&Member> = self.members.iter().chain(Some(candidate)).collect();
         for year in 0..HORIZON {
             placement.model_start[year] = (0..SLOTS)
                 .find(|&slot| with.years[year].starter_index[slot] == Some(newcomer))
-                .map(|slot| slot as u8);
-            placement.greedy_start[year] = greedy_picks_with(&squad, year)
-                .iter()
-                .position(|pick| *pick == Some(newcomer))
                 .map(|slot| slot as u8);
             if let Some(slot) = placement.model_start[year] {
                 placement.blocker[year] = self.base.years[year].starter_index[usize::from(slot)]
@@ -700,45 +686,6 @@ impl SquadModel {
         }
         placement
     }
-}
-
-/// Measurement only: the side the game's own greedy picker would field from `squad` in horizon
-/// year `year`. Mirrors `turn::squad::first_choice_eleven`: slots in order, the best remaining
-/// fit for the slot each time, a natural keeper in goal, ties to the smaller id.
-pub(crate) fn greedy_picks_with(squad: &[&Member], year: usize) -> [Option<usize>; SLOTS] {
-    let mut picks = [None; SLOTS];
-    let mut used = vec![false; squad.len()];
-    for (slot, pick) in picks.iter_mut().enumerate() {
-        let mut best: Option<(i64, usize, &str)> = None;
-        for (index, member) in squad.iter().enumerate() {
-            if used[index] {
-                continue;
-            }
-            let Some(level) = member.level(slot, year) else {
-                continue;
-            };
-            let level = if slot == 0 && member.natural_keeper {
-                level + KEEPER_IN_GOAL
-            } else {
-                level
-            };
-            let cost = (level * MILLI).round() as i64;
-            let better = match best {
-                None => true,
-                Some((best_cost, _, best_id)) => {
-                    cost > best_cost || (cost == best_cost && member.id.as_str() < best_id)
-                }
-            };
-            if better {
-                best = Some((cost, index, member.id.as_str()));
-            }
-        }
-        if let Some((_, index, _)) = best {
-            *pick = Some(index);
-            used[index] = true;
-        }
-    }
-    picks
 }
 
 /// The best side of one horizon year as an assignment, with what each starter would cost to play in
@@ -866,28 +813,15 @@ fn improving_chain(
     Chain::Moves(picks)
 }
 
-/// Preference for a natural keeper in goal over any rating difference: the lineup picker's own
-/// rule.
-const KEEPER_IN_GOAL: f32 = 1_000.0;
-
 /// A cost no real pairing can reach: a player who is not there that year.
 const NOT_THERE: i64 = 1_000_000_000;
-
-/// Ratings are compared to a thousandth of a point, as whole numbers, so the assignment never
-/// depends on rounding noise.
-const MILLI: f32 = 1_000.0;
 
 /// What the side loses by playing `member` in `slot` (the negative of what he is worth there).
 fn cost_at(member: &Member, slot: usize, year: usize) -> i64 {
     let Some(level) = member.level(slot, year) else {
         return NOT_THERE;
     };
-    let level = if slot == 0 && member.natural_keeper {
-        level + KEEPER_IN_GOAL
-    } else {
-        level
-    };
-    -((level * MILLI).round() as i64)
+    slot_cost(level, member.natural_keeper, slot == 0)
 }
 
 /// The player for each slot that makes the side strongest: the lineup picker fills the slots in

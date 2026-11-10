@@ -25,22 +25,12 @@
 //! is that an identity does not develop over a career; what develops is what he does with it, because
 //! every decision reads it together with the squad, the results and the club's means.
 
-use crate::stable_hash::stable_hash;
-
-/// MurmurHash3's 64-bit finaliser. `stable_hash` folds its seed into the start of the hash, so two
-/// seeds over the same id give outputs that move together (measured here at r = 0.96); mixing the
-/// output makes each salt's draw independent of the others.
-fn finalise(mut hash: u64) -> u64 {
-    hash ^= hash >> 33;
-    hash = hash.wrapping_mul(0xff51_afd7_ed55_8ccd);
-    hash ^= hash >> 33;
-    hash = hash.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
-    hash ^ (hash >> 33)
-}
+use crate::game::Game;
+use crate::stable_hash::{mixed, stable_hash, unit_interval};
 
 /// Four dispositions, each from 0 to 1, 0.5 being the neutral manager.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ManagerIdentity {
+pub(crate) struct ManagerIdentity {
     pub risk: f64,
     pub adaptability: f64,
     pub rotation: f64,
@@ -64,11 +54,8 @@ impl ManagerIdentity {
     };
 
     /// The identity of the manager with this id: the same on every call, in every save.
-    pub fn of(manager_id: &str) -> Self {
-        let draw = |salt: u64| {
-            let hash = finalise(stable_hash(manager_id.as_bytes(), salt));
-            (hash >> 11) as f64 / (1u64 << 53) as f64
-        };
+    pub(crate) fn of(manager_id: &str) -> Self {
+        let draw = |salt: u64| unit_interval(mixed(stable_hash(manager_id.as_bytes(), salt)));
         Self {
             risk: draw(RISK_SALT),
             adaptability: draw(ADAPTABILITY_SALT),
@@ -78,8 +65,21 @@ impl ManagerIdentity {
     }
 
     /// The identity of a club's manager, neutral for a club with none.
-    pub fn of_club_manager(manager_id: Option<&str>) -> Self {
+    pub(crate) fn of_club_manager(manager_id: Option<&str>) -> Self {
         manager_id.map_or(Self::NEUTRAL, Self::of)
+    }
+
+    /// The identity of the manager running `team`: neutral for a club with none, and for the
+    /// player's own club, whose manager is the player and whose assistant plans with no
+    /// disposition of the world's. The one place that rule is written.
+    pub(crate) fn for_club(game: &Game, team: Option<&domain::team::Team>) -> Self {
+        let Some(team) = team else {
+            return Self::NEUTRAL;
+        };
+        if game.manager.team_id.as_deref() == Some(team.id.as_str()) {
+            return Self::NEUTRAL;
+        }
+        Self::of_club_manager(team.manager_id.as_deref())
     }
 }
 
@@ -169,5 +169,101 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Given three manager ids
+    /// When their identities are read
+    /// Then they are these numbers, today and in every later build, so a save file and the
+    /// `p4_results` study (which re-derives them) agree with the game about who a manager is.
+    #[test]
+    fn identities_are_pinned_to_numbers_a_save_file_and_a_study_can_rely_on() {
+        let pinned = [
+            (
+                "manager-0",
+                [
+                    0.4219877662423652,
+                    0.9440625269231336,
+                    0.8487061674114931,
+                    0.8539804390567154,
+                ],
+            ),
+            (
+                "manager-1",
+                [
+                    0.9752668254915675,
+                    0.9652900574910093,
+                    0.10855637198457335,
+                    0.34607202824435945,
+                ],
+            ),
+            (
+                "mgr-abc",
+                [
+                    0.6944889215665775,
+                    0.16900510330390917,
+                    0.6458020742381742,
+                    0.3221816891249275,
+                ],
+            ),
+        ];
+        for (id, expected) in pinned {
+            let i = ManagerIdentity::of(id);
+            assert_eq!(
+                [i.risk, i.adaptability, i.rotation, i.youth_trust],
+                expected,
+                "{id}"
+            );
+        }
+    }
+
+    /// Given the user's own club, a club with a manager, and a club with none
+    /// When the identity of each club's manager is asked for
+    /// Then only the club with a world manager has one; the user's club and the vacant one are neutral.
+    #[test]
+    fn the_users_club_and_a_vacant_club_run_with_the_neutral_identity() {
+        use chrono::TimeZone;
+        let clock = crate::clock::GameClock::new(
+            chrono::Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap(),
+        );
+        let user = domain::manager::Manager::new(
+            "user".into(),
+            "Test".into(),
+            "Manager".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
+        let mut game = Game::new(clock, user, vec![], vec![], vec![], vec![]);
+        let mut ai = domain::team::Team::new(
+            "ai".into(),
+            "ai".into(),
+            "ai".into(),
+            "England".into(),
+            "Town".into(),
+            "Ground".into(),
+            10_000,
+        );
+        ai.manager_id = Some("manager-0".into());
+        let mut vacant = ai.clone();
+        vacant.id = "vacant".into();
+        vacant.manager_id = None;
+        let mut users = ai.clone();
+        users.id = "users".into();
+        game.manager.team_id = Some("users".into());
+        assert_eq!(
+            ManagerIdentity::for_club(&game, Some(&ai)),
+            ManagerIdentity::of("manager-0")
+        );
+        assert_eq!(
+            ManagerIdentity::for_club(&game, Some(&vacant)),
+            ManagerIdentity::NEUTRAL
+        );
+        assert_eq!(
+            ManagerIdentity::for_club(&game, Some(&users)),
+            ManagerIdentity::NEUTRAL
+        );
+        assert_eq!(
+            ManagerIdentity::for_club(&game, None),
+            ManagerIdentity::NEUTRAL
+        );
     }
 }

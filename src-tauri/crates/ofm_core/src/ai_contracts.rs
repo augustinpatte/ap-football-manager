@@ -1109,6 +1109,37 @@ mod tests {
         wage_policy_verdict(game, team, player, expected_wage(player, team, today()))
     }
 
+    /// Given a club with a player on loan to it who plays for it
+    /// When the review asks what it would cost to lose each of its players
+    /// Then it is told for its own players and told nothing for the borrowed one: a renewal or a
+    /// sale of a player the club does not hold is not its decision to price.
+    #[test]
+    fn a_club_does_not_price_the_loss_of_a_player_it_has_only_borrowed() {
+        let mut game = over_policy_forward(2);
+        let mut borrowed = player("borrowed_star", "ai", Position::Forward, 88, 25, 90);
+        borrowed.active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: "elsewhere".to_string(),
+            loan_team_id: "ai".to_string(),
+            loan_team_name: None,
+            start_date: "2026-07-01".to_string(),
+            end_date: "2027-06-30".to_string(),
+            wage_contribution_pct: 50,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+        });
+        game.players.push(borrowed);
+        let facts = SquadFacts::of(&game, "ai");
+        assert!(
+            facts.sale_case("costly_fwd").is_some(),
+            "his own player is priced"
+        );
+        assert!(facts.sale_case("borrowed_star").is_none());
+        assert!(facts.cost_of_losing("borrowed_star").is_none());
+    }
+
     /// One other forward: without him the club is below the floor, so the board
     /// lets the wage policy go — the same rule the player's own renewals use.
     #[test]

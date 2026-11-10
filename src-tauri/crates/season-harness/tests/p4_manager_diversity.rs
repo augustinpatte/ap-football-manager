@@ -13,7 +13,7 @@ use std::collections::{HashMap, HashSet};
 use ofm_core::ai_tactics::blueprint_for;
 use ofm_core::game::Game;
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::worlds::WorldSpec;
+use season_harness::env;
 
 #[derive(Default)]
 struct Log {
@@ -72,13 +72,11 @@ impl SeasonObserver for Log {
 #[test]
 #[ignore = "measurement study"]
 fn p4_manager_diversity() {
-    let seeds: Vec<u64> = std::env::var("P4_SEEDS")
-        .unwrap_or_else(|_| "1".to_string())
-        .split(',')
-        .filter_map(|s| s.trim().parse().ok())
-        .collect();
+    let seeds = env::list("P4_SEEDS", "1");
     for seed in seeds {
-        let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+        let mut game = env::world("P4_WORLD", seed)
+            .build()
+            .expect("the world builds");
         let mut log = Log::default();
         run_seasons(&mut game, RunOptions::seasons(1), &mut log).expect("a season plays");
         eprintln!("== seed {seed}");

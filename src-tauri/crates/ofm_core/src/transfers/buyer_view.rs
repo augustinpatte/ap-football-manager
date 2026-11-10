@@ -145,8 +145,10 @@ impl BuyerView {
     }
 
     /// Whether a loan of `player` would make the side better, which is what a club asks of one,
-    /// and, for a young player lent for his minutes, would give them: he would start, since a
-    /// prospect on the bench is the loan his own club listed him to avoid.
+    /// and, for a player of the kind clubs lend for his minutes (`is_a_loan_for_minutes`, whatever
+    /// the reason his own club listed him), would give them: he would start in the side the model
+    /// expects to field. A prospect on the bench is the loan his club wanted to avoid, and a
+    /// hard-sale listing of such a player is held to the same test by design.
     pub(super) fn worth_borrowing(&self, player: &Player, age: i32) -> bool {
         self.gain_this_season(player) >= MIN_GAIN
             && (!super::loans::is_a_loan_for_minutes(player, age)

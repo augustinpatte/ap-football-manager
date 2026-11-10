@@ -12,15 +12,7 @@
 use ofm_core::game::Game;
 use ofm_core::{LineupGap, lineup_gaps};
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::worlds::WorldSpec;
-
-fn env_list(name: &str, default: &str) -> Vec<u64> {
-    std::env::var(name)
-        .unwrap_or_else(|_| default.to_string())
-        .split(',')
-        .filter_map(|s| s.trim().parse().ok())
-        .collect()
-}
+use season_harness::env;
 
 struct Sample {
     label: String,
@@ -115,10 +107,9 @@ fn describe(sample: &Sample) -> String {
     format!(
         "{:<18} clubs read {:>3}/{:<3} | picker's side is not the optimal side {:>5.1}% | a model \
          starter is left out {:>5.1}% (mean {:.2}) | moved {:.2}\n{:<18} raw rating per slot, \
-         optimal - picker: mean {:.3} p50 {:.3} p90 {:.3} max {:.3} | optimal - mirror {:.3} | \
+         optimal - picker: mean {:.3} p50 {:.3} p90 {:.3} max {:.3} | \
          modelled optimal - picker {:.3}\n{:<18} loaned-in healthy per club {:.2} | clubs fielding a \
-         loaned-in starter {:>5.1}% | mirror disagrees with the real \
-         picker in {:.2} slots",
+         loaned-in starter {:>5.1}%",
         sample.label,
         sample.gaps.len(),
         sample.clubs,
@@ -131,24 +122,19 @@ fn describe(sample: &Sample) -> String {
         pct(0.5),
         pct(0.9),
         losses.last().copied().unwrap_or(0.0),
-        mean(&|g| f64::from(g.optimal_raw - g.mirror_raw)),
         mean(&|g| f64::from(g.optimal_modelled - g.picker_modelled)),
         "",
         mean(&|g| g.loaned_in as f64),
         share(&|g| g.loaned_in_starters > 0),
-        mean(&|g| f64::from(g.mirror_disagreements)),
     )
 }
 
 #[test]
 #[ignore = "measurement study"]
 fn p4_model_versus_picker() {
-    let seasons = env_list("P4_SEASONS", "2")[0] as u32;
-    for seed in env_list("P4_SEEDS", "1") {
-        let spec = match std::env::var("P4_WORLD").as_deref() {
-            Ok("shipped") => WorldSpec::shipped(seed),
-            _ => WorldSpec::gate(seed),
-        };
+    let seasons = env::first("P4_SEASONS", "2") as u32;
+    for seed in env::list("P4_SEEDS", "1") {
+        let spec = env::world("P4_WORLD", seed);
         let mut game = spec.build().expect("the world builds");
         let mut log = GapLog::default();
         log.take(&game, "opening".to_string());

@@ -1,5 +1,44 @@
 //! The optimal assignment of players to slots, shared by the squad model and the lineup picker so
 //! that the side a signing is valued by is the side the manager fields.
+//!
+//! Shared here is everything that decides who is better in a slot: the solver, the resolution
+//! ratings are compared at, the keeper's place in goal and an outfield keeper's cap. What each
+//! side feeds in as a rating is its own (the model's is anchored to stored `ovr`; the picker's is
+//! the game's raw positional fit), which is the one remaining difference and is measured by
+//! `lineup_gap`.
+
+/// What a slot is worth when nobody is left to cover it, and the most a natural keeper is worth
+/// anywhere but in goal: the game's generator makes keepers fair outfield players on paper, but no
+/// club covers a winger with its second goalkeeper.
+pub(crate) const UNCOVERED_FIT: f32 = 25.0;
+
+/// Preference for a natural keeper in goal over any rating difference.
+const KEEPER_IN_GOAL: f32 = 1_000.0;
+
+/// Ratings are compared to a thousandth of a point, as whole numbers, so the assignment never
+/// depends on rounding noise.
+pub(crate) const MILLI: f32 = 1_000.0;
+
+/// A rating as the assignment sees it in a slot: a natural keeper is an emergency body anywhere
+/// but in goal.
+pub(crate) fn level_in_slot(fit: f32, natural_keeper: bool, in_goal: bool) -> f32 {
+    if natural_keeper && !in_goal {
+        fit.min(UNCOVERED_FIT)
+    } else {
+        fit
+    }
+}
+
+/// What the side loses by playing someone rated `level` in a slot: the negative of what he is
+/// worth there, in thousandths, a natural keeper in goal worth more than any outfielder.
+pub(crate) fn slot_cost(level: f32, natural_keeper: bool, in_goal: bool) -> i64 {
+    let level = if in_goal && natural_keeper {
+        level + KEEPER_IN_GOAL
+    } else {
+        level
+    };
+    -((level * MILLI).round() as i64)
+}
 
 /// The assignment algorithm and the buffers it works in.
 #[derive(Default)]

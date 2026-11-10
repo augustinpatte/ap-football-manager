@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use ofm_core::game::Game;
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::worlds::WorldSpec;
+use season_harness::env;
 
 struct Snap {
     ovr: u8,
@@ -108,17 +108,12 @@ fn line(label: &str, t: &Totals) -> String {
 #[test]
 #[ignore = "measurement study"]
 fn p4_prospect_cohort() {
-    let list = |name: &str, default: &str| -> Vec<u64> {
-        std::env::var(name)
-            .unwrap_or_else(|_| default.to_string())
-            .split(',')
-            .filter_map(|s| s.trim().parse().ok())
-            .collect()
-    };
-    let seasons = list("P4_SEASONS", "3")[0] as u32;
+    let seasons = env::first("P4_SEASONS", "3") as u32;
     let mut total = Log::default();
-    for seed in list("P4_SEEDS", "1") {
-        let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+    for seed in env::list("P4_SEEDS", "1") {
+        let mut game = env::world("P4_WORLD", seed)
+            .build()
+            .expect("the world builds");
         let mut log = Log::default();
         let opening = game.clock.current_date.date_naive();
         log.read(&game, opening);

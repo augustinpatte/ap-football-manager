@@ -41,6 +41,24 @@ impl StableHasher {
     }
 }
 
+/// A hash as a number from 0 up to but not including 1: the top 53 bits, so every value is exact in
+/// an `f64`. The one way the game turns a hash into a draw.
+pub(crate) fn unit_interval(hash: u64) -> f64 {
+    (hash >> 11) as f64 / (1u64 << 53) as f64
+}
+
+/// MurmurHash3's 64-bit finaliser. [`stable_hash`] folds its seed into the start of the hash, so two
+/// seeds over the same input give outputs that move together (measured at r = 0.96 for two salts
+/// over one manager id); mixing the output makes each seed's draw independent of the others'. Use
+/// it whenever one input is drawn from more than once under different seeds.
+pub(crate) fn mixed(mut hash: u64) -> u64 {
+    hash ^= hash >> 33;
+    hash = hash.wrapping_mul(0xff51_afd7_ed55_8ccd);
+    hash ^= hash >> 33;
+    hash = hash.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+    hash ^ (hash >> 33)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,5 +89,24 @@ mod tests {
     #[test]
     fn the_answer_is_pinned_to_a_number_a_save_file_can_rely_on() {
         assert_eq!(stable_hash(b"club-42", 0), 17_696_388_274_473_556_074);
+    }
+
+    /// Given the smallest and largest hashes
+    /// When each is turned into a draw
+    /// Then both lie in [0, 1) and are exact, so a draw can never be 1.
+    #[test]
+    fn a_draw_is_always_below_one() {
+        assert_eq!(unit_interval(0), 0.0);
+        assert!(unit_interval(u64::MAX) < 1.0);
+    }
+
+    /// Given one input hashed under two seeds
+    /// When the two hashes are mixed
+    /// Then the outputs still differ and the mixing is itself deterministic.
+    #[test]
+    fn mixing_keeps_seeds_apart_and_is_deterministic() {
+        let (a, b) = (stable_hash(b"manager", 1), stable_hash(b"manager", 2));
+        assert_ne!(mixed(a), mixed(b));
+        assert_eq!(mixed(a), mixed(a));
     }
 }

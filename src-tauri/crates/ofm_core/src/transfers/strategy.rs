@@ -296,13 +296,7 @@ pub(crate) fn profiles(
                     team.finance,
                     OVERSTRETCHED_WAGE_PCT,
                 ),
-                // The player's own club is read for his assistant, who has no manager of the
-                // world's to colour it.
-                manager_youth_trust: if game.manager.team_id.as_deref() == Some(team.id.as_str()) {
-                    ManagerIdentity::NEUTRAL.youth_trust
-                } else {
-                    ManagerIdentity::of_club_manager(team.manager_id.as_deref()).youth_trust
-                },
+                manager_youth_trust: ManagerIdentity::for_club(game, Some(team)).youth_trust,
             };
             (team.id.clone(), classify(&facts))
         })
@@ -410,9 +404,11 @@ mod tests {
         let (middling, youthful, old) = ((0.15, 2), (0.30, 5), (0.02, 1));
         assert!(club(middling.0, middling.1, 1.0) > club(middling.0, middling.1, 0.5));
         assert!(club(middling.0, middling.1, 0.5) > club(middling.0, middling.1, 0.0));
-        assert_eq!(
-            club(middling.0, middling.1, 0.5),
-            classify(&facts()).youth_focus,
+        // The club's own figure: 0.6 of a squad 0.15/0.35 young and 0.4 of an academy 2 in 5, for
+        // an established club (patience 1). The neutral manager adds nothing to it.
+        let own = 0.6 * (0.15 / 0.35) + 0.4 * (2.0 / 5.0);
+        assert!(
+            (club(middling.0, middling.1, 0.5) - own).abs() < 1e-12,
             "the neutral manager moved the club"
         );
         assert!(
@@ -711,5 +707,41 @@ mod tests {
             (sceptic.ambition, sceptic.means)
         );
         assert!(believer.youth_focus > sceptic.youth_focus);
+    }
+
+    /// A world manager's id whose identity satisfies `wanted`.
+    fn manager_like(wanted: impl Fn(&ManagerIdentity) -> bool) -> String {
+        (0..)
+            .map(|index| format!("manager-{index}"))
+            .find(|id| wanted(&ManagerIdentity::of(id)))
+            .expect("some manager fits")
+    }
+
+    /// Given the same AI club and the same user's club, each under a manager who trusts youth, a
+    /// sceptic, and none
+    /// When the market's profiles are read
+    /// Then the AI club's youth focus follows its manager, and the user's club, whose manager is
+    /// the player, reads no disposition of the world's.
+    #[test]
+    fn profiles_read_the_clubs_own_manager_and_never_the_users() {
+        let believer = manager_like(|m| m.youth_trust > 0.9);
+        let sceptic = manager_like(|m| m.youth_trust < 0.1);
+        let youth_focus = |users: Option<&str>, ai: Option<&str>| {
+            let mut game = crate::transfers::tests::acceptance_game("team1", false);
+            game.teams[0].manager_id = users.map(str::to_string);
+            game.teams[1].manager_id = ai.map(str::to_string);
+            let profiles = profiles(&game, &HashMap::new());
+            (profiles["team1"].youth_focus, profiles["team2"].youth_focus)
+        };
+        let (users_with, ai_with_believer) = youth_focus(Some(&believer), Some(&believer));
+        let (users_without, ai_with_sceptic) = youth_focus(None, Some(&sceptic));
+        assert!(
+            ai_with_believer > ai_with_sceptic,
+            "{ai_with_believer} vs {ai_with_sceptic}"
+        );
+        assert_eq!(
+            users_with, users_without,
+            "the user's club read a world manager's trust"
+        );
     }
 }
