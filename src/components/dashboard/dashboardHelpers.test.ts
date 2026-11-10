@@ -483,6 +483,37 @@ describe("dashboardHelpers", (): void => {
     }
   });
 
+  /**
+   * Given a match today with an unfit XI and proposals waiting
+   * When the dashboard alerts are built
+   * Then the time-critical match alert is listed above the proposals alert.
+   */
+  it("lists the match-day lineup alert before the pending-proposals alert", (): void => {
+    const roster = Array.from({ length: 11 }, (_, index) =>
+      createPlayer({
+        id: `p${index + 1}`,
+        condition: 80,
+        injury: index < 3 ? { name: "Hamstring", days_remaining: 5 } : null,
+      }),
+    );
+    const gameState = createGameState({
+      teams: [createTeam({ starting_xi_ids: roster.map((player) => player.id) })],
+      players: roster,
+      delegation: { proposals: [{ id: "d1" }] },
+    });
+
+    const ids = getDashboardAlerts(
+      gameState,
+      true,
+      translateDashboardAlert,
+      null,
+      createSquadFitness({ exhausted_count: 3, critical_count: 3 }),
+    ).map((alert) => alert.id);
+
+    expect(ids).toContain("matchxi");
+    expect(ids.indexOf("matchxi")).toBeLessThan(ids.indexOf("delegation_proposals"));
+  });
+
   it("does not warn about an incomplete Starting XI when a healthy roster can normalize a partial saved lineup", (): void => {
     const roster = [
       createPlayer({ id: "p1", position: "Goalkeeper", natural_position: "Goalkeeper" }),
