@@ -30,7 +30,9 @@ The repository contains no licensed football data and must not (`NOTICE-APFM.md`
 * **Ratings**: attributes are generated per position around a target overall; `ovr` is then
   computed from them (`player_rating::natural_ovr`). Across all 11,880 players stored `ovr` and the
   attribute-derived value differ by at most 0.5, `potential >= ovr` always, `ovr` runs 23–84
-  (median 64).
+  (median 64). This was measured **before** the career-start identity upgrade; D6 found that the
+  upgrade left `ovr` describing the old coarse position and fixed it, so the claim now holds in
+  both states ([`APFM_D6_WORLD_DATA_AUDIT.md`](APFM_D6_WORLD_DATA_AUDIT.md) §5.1).
 * **Club membership**: every generated player's `team_id` names a generated club; no orphan.
 
 ## 2. The Brussels FC case (reproducible)
@@ -90,7 +92,9 @@ Used by:
   clashes and no repeated-word names; same seed → same world;
 * the FM24 report (`checks.rs`, `integrity.world_audit`) — **advisory** (never blocks): this is what
   will flag a PSG-sized roster or an identity clash on the real import;
-* 9 unit tests that feed it each defect.
+* 14 unit tests that feed it each defect, including the D6 contract checks, plus the separate
+  `audit_competitions` graph check ([`APFM_D6_WORLD_DATA_AUDIT.md`](APFM_D6_WORLD_DATA_AUDIT.md)
+  §3).
 
 ## 5. Known problems not fixed
 
