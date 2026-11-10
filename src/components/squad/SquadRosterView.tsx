@@ -802,9 +802,18 @@ export default function SquadRosterView({
                                 }
                               />
                             )}
-                            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                            {/* The row is clickable for the mouse; this button is the same action for the
+                                keyboard and screen readers, so it stops the click reaching the row. */}
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onSelectPlayer(player.id);
+                              }}
+                              className="truncate rounded text-left font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+                            >
                               {player.match_name}
-                            </span>
+                            </button>
                             <CountryFlag
                               code={player.nationality}
                               className="text-sm leading-none shrink-0"

@@ -538,4 +538,42 @@ describe("SquadTab", () => {
       );
     });
   });
+
+  /**
+   * Given the roster table,
+   * when a keyboard user tabs to a player's name and presses Enter or Space (which a real button
+   * turns into a click),
+   * then that player's profile opens once, not once for the button and again for the row.
+   */
+  it("opens a player's profile from a real button in the name cell, once", async () => {
+    const onSelectPlayer = vi.fn();
+    renderSquadTab(makeGameState(), { onSelectPlayer });
+
+    const name = await screen.findByRole("button", { name: "GK1" });
+    expect(name.tagName).toBe("BUTTON");
+    expect(name).not.toHaveAttribute("tabindex", "-1");
+    expect(name.className).toContain("focus-visible:ring-focus");
+
+    fireEvent.click(name);
+
+    expect(onSelectPlayer).toHaveBeenCalledTimes(1);
+    expect(onSelectPlayer).toHaveBeenCalledWith("gk1");
+  });
+
+  /**
+   * Given the same table,
+   * when the mouse clicks elsewhere on the row,
+   * then the profile still opens, as it always did.
+   */
+  it("still opens a player's profile when the row is clicked", async () => {
+    const onSelectPlayer = vi.fn();
+    renderSquadTab(makeGameState(), { onSelectPlayer });
+
+    const row = (await screen.findByText("GK1")).closest("tr");
+    if (!row) throw new Error("expected the name button to sit in a table row");
+    fireEvent.click(row);
+
+    expect(onSelectPlayer).toHaveBeenCalledTimes(1);
+    expect(onSelectPlayer).toHaveBeenCalledWith("gk1");
+  });
 });
