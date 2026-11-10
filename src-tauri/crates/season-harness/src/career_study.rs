@@ -41,9 +41,14 @@ pub struct SeasonRow {
     pub over_wage_budget_110: usize,
     pub wage_to_budget_median: f64,
     // Managers.
+    /// Clubs with nobody in charge, and clubs an interim stand-in (an assistant) is covering.
     pub without_manager: usize,
+    pub interim_clubs: usize,
+    /// Permanent managers who left a club, and permanent managers appointed, this season. An
+    /// interim stand-in is neither: counting him made every dismissal three events.
     pub dismissals: u32,
     pub appointments: u32,
+    /// Mean days a club went without a permanent manager, for vacancies that ended this season.
     pub mean_vacancy_days: f64,
     // Set-up.
     pub formations: usize,
@@ -59,7 +64,13 @@ pub struct SeasonRow {
     // Loans that ended this season.
     pub loans_ended: usize,
     pub idle_loans: usize,
-    pub idle_loans_long: usize,
+    /// Loans of two months or more, and how many of them were idle, for the players a club lends
+    /// for their minutes (22 or under, six points to grow: the lender's rule, copied here) and for
+    /// everyone else.
+    pub young_long: usize,
+    pub young_idle: usize,
+    pub other_long: usize,
+    pub other_idle: usize,
     // Prospects followed over the season.
     pub prospects: usize,
     pub prospect_growth: f64,
@@ -69,6 +80,7 @@ pub struct SeasonRow {
 
 #[derive(Debug, Clone)]
 struct LoanTrack {
+    young: bool,
     last_minutes: u32,
     minutes: u32,
     days: u32,
@@ -80,6 +92,7 @@ pub struct CareerLog {
     pub rows: Vec<SeasonRow>,
     manager_of: HashMap<String, Option<String>>,
     vacant_since: HashMap<String, u32>,
+    interim_ids: HashSet<String>,
     day: u32,
     dismissals: u32,
     appointments: u32,
@@ -126,8 +139,13 @@ impl CareerLog {
 
     fn remember_set_up(&mut self, game: &Game) {
         for team in Self::ai_clubs(game) {
-            self.manager_of
-                .insert(team.id.clone(), team.manager_id.clone());
+            let permanent = team.manager_id.clone().filter(|id| {
+                !game
+                    .managers
+                    .iter()
+                    .any(|manager| manager.interim && manager.id == *id)
+            });
+            self.manager_of.insert(team.id.clone(), permanent);
             self.formation_of
                 .insert(team.id.clone(), team.formation.clone());
         }
@@ -164,27 +182,30 @@ impl CareerLog {
     }
 
     fn follow_managers_and_set_up(&mut self, game: &Game) {
+        self.interim_ids = game
+            .managers
+            .iter()
+            .filter(|manager| manager.interim)
+            .map(|manager| manager.id.clone())
+            .collect();
         for team in Self::ai_clubs(game) {
+            // The permanent manager in charge, if any: an interim stand-in is not one.
+            let now = team
+                .manager_id
+                .clone()
+                .filter(|id| !self.interim_ids.contains(id));
             let before = self.manager_of.get(&team.id).cloned().flatten();
-            match (&before, &team.manager_id) {
-                (Some(_), None) => {
-                    self.dismissals += 1;
-                    self.vacant_since.insert(team.id.clone(), self.day);
-                }
-                (None, Some(_)) => {
-                    self.appointments += 1;
-                    if let Some(since) = self.vacant_since.remove(&team.id) {
-                        self.vacancies.push(self.day.saturating_sub(since));
-                    }
-                }
-                (Some(a), Some(b)) if a != b => {
-                    self.dismissals += 1;
-                    self.appointments += 1;
-                }
-                _ => {}
+            if before.is_some() && before != now {
+                self.dismissals += 1;
+                self.vacant_since.insert(team.id.clone(), self.day);
             }
-            self.manager_of
-                .insert(team.id.clone(), team.manager_id.clone());
+            if now.is_some() && before != now {
+                self.appointments += 1;
+                if let Some(since) = self.vacant_since.remove(&team.id) {
+                    self.vacancies.push(self.day.saturating_sub(since));
+                }
+            }
+            self.manager_of.insert(team.id.clone(), now);
             if self
                 .formation_of
                 .get(&team.id)
@@ -211,7 +232,13 @@ impl CareerLog {
             }
             seen.insert(player.id.as_str());
             let minutes = player.stats.minutes_played;
+            let age = domain::age::age_on_or_unknown(
+                game.clock.current_date.date_naive(),
+                &player.date_of_birth,
+            );
+            let young = age <= 22 && i32::from(player.potential) >= i32::from(player.ovr) + 6;
             let track = self.loans.entry(player.id.clone()).or_insert(LoanTrack {
+                young,
                 last_minutes: minutes,
                 minutes: 0,
                 days: 0,
@@ -281,8 +308,10 @@ impl CareerLog {
                     row.over_wage_budget_110 += 1;
                 }
             }
-            if team.manager_id.is_none() {
-                row.without_manager += 1;
+            match &team.manager_id {
+                None => row.without_manager += 1,
+                Some(id) if self.interim_ids.contains(id) => row.interim_clubs += 1,
+                Some(_) => {}
             }
             *formations.entry(team.formation.as_str()).or_default() += 1;
             plans.insert(format!("{:?}", team.tactics_phase));
@@ -363,7 +392,16 @@ impl CareerLog {
             .iter()
             .filter(|l| l.days >= IDLE_AFTER_DAYS)
             .collect();
-        row.idle_loans_long = long.iter().filter(|l| l.minutes < IDLE_MINUTES).count();
+        for track in &long {
+            let idle = track.minutes < IDLE_MINUTES;
+            if track.young {
+                row.young_long += 1;
+                row.young_idle += usize::from(idle);
+            } else {
+                row.other_long += 1;
+                row.other_idle += usize::from(idle);
+            }
+        }
         self.loans_ended.clear();
 
         let mut growth = 0.0;
@@ -407,15 +445,15 @@ pub fn report(log: &CareerLog) -> String {
     let mut out = String::new();
     out.push_str(
         "season | clubs | seniors min/mean/max | thin | no GK | one GK | in debt | >110% wages | \
-         wage/budget P50 | no manager | sacked | hired | vacancy d | formations (top share, changes) | \
-         plans | leagues | size chg | up | down | unfinished | loans (idle, idle 60d+) | prospects \
-         (growth, min, <450%)\n",
+         wage/budget P50 | no manager / interim | left | hired | vacancy d | formations (top share, \
+         changes) | plans | leagues | size chg | up | down | unfinished | loans ended (idle) | \
+         2m+ loans, for-minutes idle/n, others idle/n | prospects (growth, min, <450%)\n",
     );
     for r in &log.rows {
         out.push_str(&format!(
             "{:>3} | {:>3} | {:>2}/{:>5.1}/{:>2} | {:>2} | {:>2} | {:>2} | {:>2} | {:>2} | {:.2} | \
-             {:>2} | {:>3} | {:>3} | {:>5.1} | {} ({:.0}%, {}) | {:>3} | {} | {} | {:>2} | {:>2} | {} | \
-             {} ({}, {}) | {} ({:+.2}, {:.0}, {:.0}%)\n",
+             {:>2} / {:>2} | {:>3} | {:>3} | {:>5.1} | {} ({:.0}%, {}) | {:>3} | {} | {} | {:>2} | \
+             {:>2} | {} | {} ({}) | {}/{}, {}/{} | {} ({:+.2}, {:.0}, {:.0}%)\n",
             r.season,
             r.clubs,
             r.seniors_min,
@@ -428,6 +466,7 @@ pub fn report(log: &CareerLog) -> String {
             r.over_wage_budget_110,
             r.wage_to_budget_median,
             r.without_manager,
+            r.interim_clubs,
             r.dismissals,
             r.appointments,
             r.mean_vacancy_days,
@@ -442,7 +481,10 @@ pub fn report(log: &CareerLog) -> String {
             r.unfinished_leagues,
             r.loans_ended,
             r.idle_loans,
-            r.idle_loans_long,
+            r.young_idle,
+            r.young_long,
+            r.other_idle,
+            r.other_long,
             r.prospects,
             r.prospect_growth,
             r.prospect_minutes,

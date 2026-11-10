@@ -3200,6 +3200,31 @@ mod tests {
         assert_eq!(loaded.vacant_team_days.get("team-003"), Some(&2));
     }
 
+    /// Given a game that has gone six days since the player's last job offer
+    /// When it is saved and loaded
+    /// Then the count is six, so a reloaded career sends the next job offer on the day an unsaved
+    /// one would.
+    ///
+    /// Known gap (P4.5, found by playing a ten-season career and its reload side by side): the count
+    /// is not written, so a load restarts it and offers arrive on a different day. Persisting it
+    /// needs a `game_meta` column, a migration and its pinned hash, which is a schema change for the
+    /// owner to approve (docs/APFM_P45_VALIDATION_AND_FIXES.md section 5).
+    #[test]
+    #[ignore = "known gap: Game::days_since_last_job_offer is not persisted; needs a game_meta column"]
+    fn test_save_and_load_roundtrips_days_since_last_job_offer() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game_with_league();
+        game.days_since_last_job_offer = Some(6);
+
+        let save_id = sm.create_save(&game, "Offer Clock").unwrap();
+        let loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(loaded.days_since_last_job_offer, Some(6));
+    }
+
     #[test]
     fn test_save_and_load_stats_state_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
