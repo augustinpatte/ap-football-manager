@@ -88,7 +88,9 @@ export default function TacticsRightPanel({
   }
 
   const [rolesOpen, setRolesOpen] = useState(true);
-  const [blueprintOpen, setBlueprintOpen] = useState(true);
+  // The nine phase dials are the advanced controls: formation, play style and the preset already
+  // cover the basics, so the dials stay folded until the manager asks for them.
+  const [blueprintOpen, setBlueprintOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">

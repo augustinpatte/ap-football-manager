@@ -295,6 +295,30 @@ describe("TacticsTab", () => {
     expect(screen.getByTestId("pitch-bench-player-d5")).toBeInTheDocument();
   });
 
+  /**
+   * Given a manager opening the tactics screen for the first time
+   * When nothing has been expanded
+   * Then the basic controls (formation, play style) are in view, the advanced phase dials are
+   *      folded away, and opening the section reveals them.
+   */
+  it("keeps the advanced phase blueprint folded until the manager opens it", () => {
+    render(
+      <TacticsTab gameState={makeGameState()} onSelectPlayer={vi.fn()} onGameUpdate={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "tactics.formation" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "tactics.playStyle" })).toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", { name: "tactics.phaseBlueprint" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("tactics.phaseSettings.width")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("tactics.phaseSettings.width")).toBeInTheDocument();
+  });
+
   it("shows the compact tactics toolbar across the top of the lineup workspace", () => {
     render(
       <TacticsTab gameState={makeGameState()} onSelectPlayer={vi.fn()} onGameUpdate={vi.fn()} />,
