@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use domain::player::SquadRole;
 
 use crate::game::Game;
+use crate::manager_identity::ManagerIdentity;
 
 /// How high a club aims, from its place in its own league.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +64,9 @@ pub(crate) struct ClubFacts {
     pub training_facility: u8,
     /// Its wage bill is past what it can carry.
     pub overstretched: bool,
+    /// How much its manager builds around young players, 0 to 1 (0.5 is the neutral manager, who
+    /// changes nothing). A manager's tilt on the club's own philosophy, never the philosophy.
+    pub manager_youth_trust: f64,
 }
 
 /// The share of its wage budget a club's wage bill may reach before it counts as overstretched (the
@@ -82,6 +86,10 @@ const CONSTRAINED_CASH_SHARE: f64 = 0.04;
 const FULL_YOUTH_SHARE: f64 = 0.35;
 /// Training facility level at which the academy side of youth focus is full.
 const TOP_FACILITY: f64 = 5.0;
+/// How far a manager's trust in youth moves the club's youth focus either way. The club's own
+/// squad and academy span the whole range; a manager shades them, so a youth-built club with a
+/// sceptical manager is still more youth-minded than an old squad with a believer.
+const MANAGER_YOUTH_TILT: f64 = 0.15;
 
 pub(crate) fn classify(facts: &ClubFacts) -> ClubProfile {
     let mut ambition = if facts.standing_pct <= CONTENDER_PCT {
@@ -119,7 +127,8 @@ pub(crate) fn classify(facts: &ClubFacts) -> ClubProfile {
         Ambition::Established => 1.0,
         Ambition::Fighter => 1.2,
     };
-    let youth_focus = ((0.6 * squad + 0.4 * academy) * patience).clamp(0.0, 1.0);
+    let manager_tilt = (facts.manager_youth_trust - 0.5) * 2.0 * MANAGER_YOUTH_TILT;
+    let youth_focus = ((0.6 * squad + 0.4 * academy) * patience + manager_tilt).clamp(0.0, 1.0);
 
     ClubProfile {
         ambition,
@@ -287,6 +296,13 @@ pub(crate) fn profiles(
                     team.finance,
                     OVERSTRETCHED_WAGE_PCT,
                 ),
+                // The player's own club is read for his assistant, who has no manager of the
+                // world's to colour it.
+                manager_youth_trust: if game.manager.team_id.as_deref() == Some(team.id.as_str()) {
+                    ManagerIdentity::NEUTRAL.youth_trust
+                } else {
+                    ManagerIdentity::of_club_manager(team.manager_id.as_deref()).youth_trust
+                },
             };
             (team.id.clone(), classify(&facts))
         })
@@ -351,6 +367,7 @@ mod tests {
             young_share: 0.15,
             training_facility: 2,
             overstretched: false,
+            manager_youth_trust: 0.5,
         }
     }
 
@@ -372,6 +389,36 @@ mod tests {
             fee,
             value: 2_000_000,
         }
+    }
+
+    /// Given a youth-built club, an old one, and each under a manager who trusts youth, doubts it,
+    /// and the neutral one
+    /// When they are classified
+    /// Then the manager tilts the club's youth focus the way he leans and the neutral manager
+    /// changes nothing, but the club's own squad and academy still outweigh him.
+    #[test]
+    fn a_manager_tilts_a_clubs_youth_focus_without_overriding_its_philosophy() {
+        let club = |young_share, training_facility, manager_youth_trust| {
+            classify(&ClubFacts {
+                young_share,
+                training_facility,
+                manager_youth_trust,
+                ..facts()
+            })
+            .youth_focus
+        };
+        let (middling, youthful, old) = ((0.15, 2), (0.30, 5), (0.02, 1));
+        assert!(club(middling.0, middling.1, 1.0) > club(middling.0, middling.1, 0.5));
+        assert!(club(middling.0, middling.1, 0.5) > club(middling.0, middling.1, 0.0));
+        assert_eq!(
+            club(middling.0, middling.1, 0.5),
+            classify(&facts()).youth_focus,
+            "the neutral manager moved the club"
+        );
+        assert!(
+            club(youthful.0, youthful.1, 0.0) > club(old.0, old.1, 1.0),
+            "a sceptical manager out-voted a youth-built club's academy"
+        );
     }
 
     /// Given the same state twice

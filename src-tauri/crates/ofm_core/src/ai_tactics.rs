@@ -49,6 +49,7 @@
 
 use crate::ai_math::mean_u8;
 use crate::game::Game;
+use crate::manager_identity::ManagerIdentity;
 use crate::stable_hash::stable_hash;
 use domain::league::FixtureStatus;
 use domain::player::{Player, Position};
@@ -474,13 +475,56 @@ fn match_plan(
     squad: Option<&SquadReading>,
     form: Option<&FormReading>,
 ) -> TacticsPhaseSettings {
+    match_plan_by(play_style, squad, form, &ManagerIdentity::NEUTRAL)
+}
+
+/// How far a manager's adaptability moves the two triggers, in goals a game. An adaptable manager
+/// acts on a run this much milder than [`LEAKY`] or [`BLUNT`] says, a stubborn one waits for one
+/// this much worse; the neutral manager acts on the measured line itself. Half a goal on the
+/// conceding side puts the quick reader at about the world's p70 and the stubborn one past p92 of
+/// the five-match windows the triggers were measured on.
+const LEAKY_ADAPTABILITY_RANGE: f64 = 0.5;
+const BLUNT_ADAPTABILITY_RANGE: f64 = 0.25;
+
+/// A manager leans away from his club's blueprint only when his temperament is clearly one way: in
+/// the middle half of the range he plays the badge's style as it is.
+const BOLD_FROM: f64 = 0.75;
+const CAUTIOUS_UNTIL: f64 = 0.25;
+
+/// [`match_plan`] for the manager who is actually in the dugout. The club's style is its
+/// philosophy; the manager tilts it (his risk), and decides how soon a bad run changes it (his
+/// adaptability). Neither can breach the ration of under-priced dials, which `shade` enforces, and
+/// the squad's caps below close over both.
+fn match_plan_by(
+    play_style: &PlayStyle,
+    squad: Option<&SquadReading>,
+    form: Option<&FormReading>,
+    manager: &ManagerIdentity,
+) -> TacticsPhaseSettings {
     let mut settings = blueprint_for(play_style);
 
+    if manager.risk >= BOLD_FROM {
+        shade(
+            &mut settings,
+            &[
+                press_higher,
+                break_faster,
+                stretch_the_pitch,
+                go_more_direct,
+            ],
+        );
+    } else if manager.risk <= CAUTIOUS_UNTIL {
+        shade(&mut settings, &[close_the_gaps, sit_deeper, press_less]);
+    }
+
     if let Some(form) = form {
-        if form.conceded_per_game >= LEAKY {
+        let quickness = (manager.adaptability - 0.5) * 2.0;
+        let leaky = LEAKY - quickness * LEAKY_ADAPTABILITY_RANGE;
+        let blunt = BLUNT + quickness * BLUNT_ADAPTABILITY_RANGE;
+        if form.conceded_per_game >= leaky {
             shade(&mut settings, &[close_the_gaps, sit_deeper, press_less]);
         }
-        if form.scored_per_game <= BLUNT {
+        if form.scored_per_game <= blunt {
             shade(
                 &mut settings,
                 &[
@@ -572,7 +616,13 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
         let reading = read_squad(squad);
 
         let team = &mut game.teams[team_index];
-        team.tactics_phase = match_plan(&team.play_style, reading.as_ref(), form.get(&team_id));
+        let manager = ManagerIdentity::of_club_manager(team.manager_id.as_deref());
+        team.tactics_phase = match_plan_by(
+            &team.play_style,
+            reading.as_ref(),
+            form.get(&team_id),
+            &manager,
+        );
         crate::ai_roles::assign_squad_roles(team, squad.iter().copied());
     }
 }
@@ -1169,5 +1219,156 @@ mod tests {
         apply_ai_tactical_reviews(&mut game, review_weekday("home"));
         let reviewed = game.teams.iter().find(|t| t.id == "home").unwrap();
         assert_eq!(plan, reviewed.tactics_phase);
+    }
+
+    // --- Managers are not interchangeable -----------------------------------
+
+    use crate::manager_identity::ManagerIdentity;
+
+    fn manager(risk: f64, adaptability: f64) -> ManagerIdentity {
+        ManagerIdentity {
+            risk,
+            adaptability,
+            ..ManagerIdentity::NEUTRAL
+        }
+    }
+
+    /// Conceding between the stubborn and the adaptable manager's line: more than a quick reader
+    /// of results would sit through, less than anyone would.
+    fn conceding_a_little_too_much() -> FormReading {
+        FormReading {
+            conceded_per_game: LEAKY - 0.3,
+            scored_per_game: 2.0,
+        }
+    }
+
+    /// Given the same club, the same squad and the same run of results, conceding a little more
+    /// than usual
+    /// When an adaptable manager and a stubborn one plan the next match
+    /// Then the adaptable one changes something and the stubborn one plays the blueprint.
+    #[test]
+    fn an_adaptable_manager_reacts_to_a_run_that_a_stubborn_one_sits_through() {
+        let squad = a_squad_that_can_run();
+        let form = conceding_a_little_too_much();
+        let blueprint = blueprint_for(&PlayStyle::Attacking);
+        let adaptable = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 1.0),
+        );
+        let stubborn = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 0.0),
+        );
+        assert_ne!(
+            adaptable, blueprint,
+            "the adaptable manager changed nothing"
+        );
+        assert_eq!(stubborn, blueprint, "the stubborn manager reacted");
+    }
+
+    /// Given a run of results that is bad enough for anyone
+    /// When the most stubborn manager plans the match
+    /// Then he reacts too: stubbornness delays a change, it does not forbid one.
+    #[test]
+    fn even_the_most_stubborn_manager_reacts_to_a_disastrous_run() {
+        let squad = a_squad_that_can_run();
+        let form = FormReading {
+            conceded_per_game: LEAKY + 1.0,
+            scored_per_game: 2.0,
+        };
+        let plan = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 0.0),
+        );
+        assert_ne!(plan, blueprint_for(&PlayStyle::Attacking));
+    }
+
+    /// Given the same balanced club with nothing wrong
+    /// When a bold, a cautious and a neutral manager plan the match
+    /// Then the neutral one plays the blueprint and the other two play it differently from it and
+    /// from each other: bold presses or breaks harder, cautious sits deeper or presses less.
+    #[test]
+    fn a_bold_and_a_cautious_manager_run_the_same_club_differently() {
+        let squad = a_squad_that_can_run();
+        let plan = |identity: &ManagerIdentity| {
+            match_plan_by(&PlayStyle::Balanced, Some(&squad), None, identity)
+        };
+        let neutral = plan(&ManagerIdentity::NEUTRAL);
+        let bold = plan(&manager(1.0, 0.5));
+        let cautious = plan(&manager(0.0, 0.5));
+        assert_eq!(neutral, blueprint_for(&PlayStyle::Balanced));
+        assert_ne!(bold, neutral);
+        assert_ne!(cautious, neutral);
+        assert_ne!(bold, cautious);
+        // The neutral blueprint presses at medium intensity and plays a normal shape. A bold
+        // manager's first move is to press higher; a cautious one's, to close the gaps.
+        assert_eq!(bold.pressing_intensity, PressingIntensity::Aggressive);
+        assert_eq!(cautious.defensive_shape, DefensiveShape::Compact);
+        assert_ne!(cautious.pressing_intensity, PressingIntensity::Aggressive);
+    }
+
+    /// Given managers with every combination of extremes
+    /// When any of them plans any club's match
+    /// Then the plan never holds more under-priced dials than the engine allows, and a bold
+    /// manager is still held to what his squad can run.
+    #[test]
+    fn identity_never_breaks_the_ration_or_what_the_squad_can_do() {
+        for style in EVERY_STYLE {
+            for risk in [0.0, 0.5, 1.0] {
+                for adaptability in [0.0, 0.5, 1.0] {
+                    for form in [None, Some(leaking()), Some(toothless())] {
+                        let plan = match_plan_by(
+                            &style,
+                            Some(&a_squad_that_can_run()),
+                            form.as_ref(),
+                            &manager(risk, adaptability),
+                        );
+                        assert!(
+                            under_priced_dials(&plan) <= engine::ai::MAX_UNDER_PRICED_DIALS,
+                            "{style:?} risk {risk} adaptability {adaptability}: {plan:?}"
+                        );
+                    }
+                }
+            }
+            let tired = match_plan_by(
+                &style,
+                Some(&a_squad_with_no_legs()),
+                None,
+                &manager(1.0, 0.5),
+            );
+            assert_ne!(tired.pressing_intensity, PressingIntensity::Aggressive);
+        }
+    }
+
+    /// Given the neutral manager
+    /// When he plans in every situation the old rule covered
+    /// Then the plan is exactly the one a club with no manager identity took before.
+    #[test]
+    fn the_neutral_manager_plans_exactly_as_the_club_did_before_identities() {
+        for style in EVERY_STYLE {
+            for form in [None, Some(leaking()), Some(toothless())] {
+                for squad in [
+                    a_squad_that_can_run(),
+                    a_squad_with_no_legs(),
+                    a_slow_back_line(),
+                ] {
+                    assert_eq!(
+                        match_plan_by(
+                            &style,
+                            Some(&squad),
+                            form.as_ref(),
+                            &ManagerIdentity::NEUTRAL
+                        ),
+                        match_plan(&style, Some(&squad), form.as_ref())
+                    );
+                }
+            }
+        }
     }
 }

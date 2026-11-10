@@ -92,7 +92,18 @@ pub(crate) fn build_team_with_bench_from(
             &game.clock.current_date.format("%Y-%m-%d").to_string(),
         );
         let load = fixture_load_among(game, team_id, lookups);
-        ai_select_starting_xi(&available_players, &formation, quality, seed, load)
+        let rotation = crate::manager_identity::ManagerIdentity::of_club_manager(
+            team.and_then(|team| team.manager_id.as_deref()),
+        )
+        .rotation;
+        ai_select_starting_xi_by(
+            &available_players,
+            &formation,
+            quality,
+            seed,
+            load,
+            rotation,
+        )
     };
     // Both select_starting_xi and ai_select_starting_xi return a slot-aligned XI
     // (entry i plays formation slot i), so the list index is the deployed slot.
@@ -693,6 +704,34 @@ fn ai_select_starting_xi<'a>(
     seed: u64,
     load: FixtureLoad,
 ) -> Vec<&'a domain::player::Player> {
+    ai_select_starting_xi_by(
+        available_players,
+        formation,
+        quality,
+        seed,
+        load,
+        crate::manager_identity::ManagerIdentity::NEUTRAL.rotation,
+    )
+}
+
+/// How far a manager's disposition to rotate moves the condition below which he rests a starter,
+/// in condition points either side of the neutral manager's. Wide enough that a manager who
+/// rotates readily rests a player a rarely-rotating one rides, narrow enough that management
+/// quality, which sets the base, still orders managers. Congestion moves every manager's threshold
+/// to the same high band, so there it counts for half as much.
+const ROTATION_DISPOSITION_RANGE: f64 = 8.0;
+
+/// [`ai_select_starting_xi`] for a manager with a disposition to rotate (`rotation`, 0 to 1, 0.5
+/// being the neutral manager). It moves when he notices fatigue; it never moves whether he rests
+/// a player who can barely run, which is the floor the quality gradient stands on.
+fn ai_select_starting_xi_by<'a>(
+    available_players: &[&'a domain::player::Player],
+    formation: &str,
+    quality: f64,
+    seed: u64,
+    load: FixtureLoad,
+    rotation: f64,
+) -> Vec<&'a domain::player::Player> {
     /// A rotation candidate must be at least this fresh to be worth considering.
     const FRESH_FLOOR: f64 = 60.0;
     /// And meaningfully fresher than the starter it would replace.
@@ -738,12 +777,13 @@ fn ai_select_starting_xi<'a>(
         .collect();
 
     // Step 2: load management.
+    let disposition = (rotation - 0.5) * 2.0 * ROTATION_DISPOSITION_RANGE;
     let (rest_threshold, min_tolerance) = match load {
         // 50 (poor) .. 75 (elite); tolerance 6 .. 12.
-        FixtureLoad::Normal => (50.0 + 25.0 * quality, MIN_FIT_TOLERANCE),
+        FixtureLoad::Normal => (50.0 + 25.0 * quality + disposition, MIN_FIT_TOLERANCE),
         // 90 (poor) .. 100 (elite); tolerance 10 .. 12.
         FixtureLoad::Congested => (
-            CONGESTED_REST_THRESHOLD + CONGESTED_REST_BY_QUALITY * quality,
+            CONGESTED_REST_THRESHOLD + CONGESTED_REST_BY_QUALITY * quality + disposition / 2.0,
             CONGESTED_MIN_FIT_TOLERANCE,
         ),
     };

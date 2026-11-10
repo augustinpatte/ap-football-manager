@@ -1121,3 +1121,83 @@ mod first_choice_is_the_best_side {
         assert_eq!(eleven.len(), 9);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Managers rotate differently
+// ---------------------------------------------------------------------------
+
+fn mildly_tired_stars_with_a_fresh_deputy() -> Vec<Player> {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 58));
+    }
+    squad.push(mk("deputy", 72, 100));
+    squad
+}
+
+fn deputies_in(xi: &[&Player]) -> usize {
+    xi.iter().filter(|player| player.id == "deputy").count()
+}
+
+/// Given the same club, the same mildly tired eleven and the same fresh deputy
+/// When a manager who rotates readily and one who rarely does pick the side
+/// Then the first rests a starter and the second rides the tired eleven.
+#[test]
+fn a_manager_who_rotates_readily_rests_a_player_that_one_who_rarely_does_keeps() {
+    let squad = mildly_tired_stars_with_a_fresh_deputy();
+    let refs: Vec<&Player> = squad.iter().collect();
+    let pick = |rotation: f64| {
+        deputies_in(&ai_select_starting_xi_by(
+            &refs,
+            "4-4-2",
+            0.5,
+            1,
+            FixtureLoad::Normal,
+            rotation,
+        ))
+    };
+    assert_eq!(pick(1.0), 1, "the rotating manager rode a tired eleven");
+    assert_eq!(
+        pick(0.0),
+        0,
+        "the manager who rarely rotates rested a player"
+    );
+}
+
+/// Given the neutral manager
+/// When he picks the side
+/// Then it is the side the club picked before managers had an identity.
+#[test]
+fn the_neutral_manager_rotates_exactly_as_the_club_did_before_identities() {
+    let squad = mildly_tired_stars_with_a_fresh_deputy();
+    let refs: Vec<&Player> = squad.iter().collect();
+    for quality in [0.0, 0.3, 0.5, 0.8, 1.0] {
+        for load in [FixtureLoad::Normal, FixtureLoad::Congested] {
+            let before: Vec<&str> = ai_select_starting_xi(&refs, "4-4-2", quality, 1, load)
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect();
+            let neutral: Vec<&str> =
+                ai_select_starting_xi_by(&refs, "4-4-2", quality, 1, load, 0.5)
+                    .iter()
+                    .map(|p| p.id.as_str())
+                    .collect();
+            assert_eq!(before, neutral);
+        }
+    }
+}
+
+/// Given a spent starter (the exhausted case that no manager rides)
+/// When the least rotating manager picks the side
+/// Then he rests him too: temperament shifts when a manager notices, never whether he does.
+#[test]
+fn even_a_manager_who_hates_rotating_rests_an_exhausted_starter() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 22));
+    }
+    squad.push(mk("deputy", 66, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0);
+    assert_eq!(deputies_in(&xi), 1);
+}
