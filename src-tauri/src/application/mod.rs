@@ -5,6 +5,8 @@ pub mod interactive_match;
 mod interactive_season;
 pub mod live_match;
 pub mod live_session;
+#[cfg(test)]
+mod playable_journey;
 pub mod press_conference;
 pub mod saving;
 pub mod team_talk;
