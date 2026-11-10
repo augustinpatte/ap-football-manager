@@ -26,6 +26,7 @@
 
 pub mod ageing;
 pub mod calendar;
+pub mod career_study;
 pub mod distribution;
 pub mod driver;
 pub mod env;
