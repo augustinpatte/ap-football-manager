@@ -1,5 +1,12 @@
 # APFM P4 strategic architecture
 
+> **P4.5 update (`docs/APFM_P45_VALIDATION_AND_FIXES.md`).** Superseded in three places. (1) §2 finding 3 and §5: the model's greedy
+> mirror is **deleted**, and every "greedy starts" / "model-only pathway" / `optimal - mirror` figure in the P4 documents is **invalid**;
+> the model is now checked against the real picker at the moment of each deal. (2) §4: the promoted-champion defect is **fixed**
+> (`TeamSeasonRecord.tier`, commit `397cf72f`), and the ignored test is now a real test at the `profiles()` layer. (3) §6: "AI clubs
+> never change formation" is **confirmed over 30 seasons** on the gate and shipped worlds (one formation, 100% of clubs, no change).
+> The opening-rating observation in §2 now has a named cause (`begin_career` makes positions granular without refreshing `ovr`).
+
 Branch `claude/apfm-playable-career`, starting from `e5282b67` (P3 plus the merged F5.5 performance work).
 This is the Phase A audit: how an AI club decides today, where that is inconsistent, what was measured,
 and the smallest extension of the existing design that fixes it. The results of building it are in

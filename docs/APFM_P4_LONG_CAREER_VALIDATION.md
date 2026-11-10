@@ -1,5 +1,12 @@
 # APFM P4 long-career validation
 
+> **P4.5 update (`docs/APFM_P45_VALIDATION_AND_FIXES.md`).** This document's scope note was right: two to three seasons measured the
+> quietest part of the market (0.04 deals a club in season 1, 1.8 in season 5). P4.5 ran **30 seasons on the gate world (6 seeds) and
+> on the shipped world (1 seed)** and ten-season comparisons against `e5282b67`. What survives: the loan result holds over ten seasons
+> (idle loans 50.6% → 29.8%). What does not: the two-season unused-joiner reduction is not visible at ten seasons. The "succession
+> success could not be measured" gap (§2) is closed by the start-on-arrival check against the real picker. **Invalid and retired:**
+> every figure from the model's greedy mirror.
+
 What was measured, against which baseline, over how many seeds and seasons, and what it does and does
 not support. Companion to `APFM_P4_IMPLEMENTATION_REPORT.md` (what changed) and
 `APFM_P4_STRATEGIC_ARCHITECTURE.md` (why).

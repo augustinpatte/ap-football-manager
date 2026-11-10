@@ -1,5 +1,11 @@
 # APFM P4 implementation report: strategic football intelligence
 
+> **P4.5 update (`docs/APFM_P45_VALIDATION_AND_FIXES.md`).** Since this report: the three reviewers were run (architecture: no
+> blocking; dedup: 2 blocking; test: 4 blocking, all fixed); the promoted/relegated defect (§5, §9.4) is fixed; the invalid
+> model-versus-picker measurement (§9.1) is retired; the club over 110% of wage budget (§9.10) is explained (a loan return, a
+> minimum-wage squad-floor signing, or a budget cut: by design); the stale opening ratings (§9.3) have a named cause. A 30-season run
+> on both worlds is complete. **Where this report and P4.5 differ, P4.5 holds.**
+
 Branch `claude/apfm-playable-career`, from `e5282b67`. Not merged into `apfm/main`, not pushed. M12 and the
 external 2D viewer were not touched, and no frontend file changed.
 
