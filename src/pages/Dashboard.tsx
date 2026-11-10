@@ -33,7 +33,9 @@ import {
 } from "../components/dashboard/dashboardProfileNavigation";
 import { createDashboardTabContentModel } from "../components/dashboard/dashboardTabContentModel";
 import {
+  DEFAULT_SQUAD_LIST_FILTERS,
   DEFAULT_SQUAD_LIST_SORT_STATE,
+  type SquadListFilters,
   type SquadListSortState,
 } from "../components/squad/SquadRosterView.state";
 import {
@@ -139,6 +141,9 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
   const [activeSaveId, setActiveSaveId] = useState<string | null>(null);
   const [squadListSortState, setSquadListSortState] = useState<SquadListSortState>(
     DEFAULT_SQUAD_LIST_SORT_STATE,
+  );
+  const [squadListFilters, setSquadListFilters] = useState<SquadListFilters>(
+    DEFAULT_SQUAD_LIST_FILTERS,
   );
   const squadFitness = useSquadFitness(gameState);
   const [financeVerdict, setFinanceVerdict] = useState<{
@@ -269,6 +274,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
 
   useEffect(() => {
     setSquadListSortState(DEFAULT_SQUAD_LIST_SORT_STATE);
+    setSquadListFilters(DEFAULT_SQUAD_LIST_FILTERS);
   }, [activeSaveId]);
 
   useEffect(() => {
@@ -557,6 +563,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     seasonComplete,
     visitedOnboardingTabs,
     squadListSortState,
+    squadListFilters,
     initialMessageId: profileNavigation.initialMessageId,
     handlers: {
       onSelectPlayer: selectPlayer,
@@ -564,6 +571,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
       onGameUpdate: setGameState,
       onNavigate: handleNavigate,
       onSquadListSortChange: setSquadListSortState,
+      onSquadListFiltersChange: setSquadListFilters,
     },
   });
 

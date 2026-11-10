@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type {
@@ -10,6 +11,7 @@ import type {
 import { createPlayer } from "../../test-utils/factories";
 import { ratingTierClass } from "../../lib/ratingTier";
 import SquadTab from "./SquadTab";
+import { DEFAULT_SQUAD_LIST_FILTERS, type SquadListFilters } from "./SquadRosterView.state";
 import { createSeasonContext } from "../../test-utils/factories";
 
 // What the backend's contract warning stages read as on a badge, by player id; a test says which
@@ -176,6 +178,12 @@ const makeGameState = (): GameStateData => {
 
 describe("SquadTab", () => {
   const mockedInvoke = vi.mocked(invoke);
+
+  /** The filters are the design system's Select, a button and a listbox, not a native select. */
+  function chooseOption(selectName: string, optionName: string) {
+    fireEvent.click(screen.getByRole("combobox", { name: selectName }));
+    fireEvent.click(screen.getByRole("option", { name: optionName }));
+  }
 
   beforeEach(() => {
     riskLevels.current = {};
@@ -575,5 +583,74 @@ describe("SquadTab", () => {
 
     expect(onSelectPlayer).toHaveBeenCalledTimes(1);
     expect(onSelectPlayer).toHaveBeenCalledWith("gk1");
+  });
+
+  /**
+   * Given a manager who typed a search and chose a position and a status,
+   * when they open a player's profile (the squad unmounts) and come back (it mounts again),
+   * then the three filters are as they left them, the way the sort already is.
+   */
+  it("keeps the search, position and status filters across a visit to a profile", async () => {
+    mockedInvoke.mockResolvedValue(makeGameState().players);
+    const gameState = makeGameState();
+
+    function Host() {
+      const [filters, setFilters] = useState<SquadListFilters>(DEFAULT_SQUAD_LIST_FILTERS);
+      const [onProfile, setOnProfile] = useState(false);
+      return onProfile ? (
+        <button type="button" onClick={() => setOnProfile(false)}>
+          back to squad
+        </button>
+      ) : (
+        <>
+          <button type="button" onClick={() => setOnProfile(true)}>
+            open a profile
+          </button>
+          <SquadTab
+            gameState={gameState}
+            managerId="mgr1"
+            onSelectPlayer={vi.fn()}
+            onGameUpdate={vi.fn()}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+        </>
+      );
+    }
+    render(<Host />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "common.search" }), {
+      target: { value: "bench" },
+    });
+    chooseOption("squad.pos", "common.posAbbr.Defender");
+    chooseOption("common.status", "preMatch.substitutes");
+    fireEvent.click(screen.getByRole("button", { name: "open a profile" }));
+    fireEvent.click(screen.getByRole("button", { name: "back to squad" }));
+
+    expect(await screen.findByRole("textbox", { name: "common.search" })).toHaveValue("bench");
+    expect(screen.getByRole("combobox", { name: "squad.pos" })).toHaveTextContent(
+      "common.posAbbr.Defender",
+    );
+    expect(screen.getByRole("combobox", { name: "common.status" })).toHaveTextContent(
+      "preMatch.substitutes",
+    );
+    expect(screen.getByText("Bench DEF")).toBeInTheDocument();
+    expect(screen.queryByText("GK1")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a squad that is not told to keep its filters (a test host, the dev style guide),
+   * when a filter is typed,
+   * then it still filters, by keeping them itself.
+   */
+  it("filters on its own when nobody holds the filters for it", async () => {
+    renderSquadTab(makeGameState());
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "common.search" }), {
+      target: { value: "bench" },
+    });
+
+    expect(await screen.findByText("Bench DEF")).toBeInTheDocument();
+    expect(screen.queryByText("GK1")).not.toBeInTheDocument();
   });
 });
