@@ -159,7 +159,7 @@
       "financeCrisis": "财务告急——余额 {{balance}}，现金续航 {{weeks}} 周",
       "financeRunway": "现金续航仅剩 {{count}} 周",
       "wagePressure": "工资支出已达预算的 {{percent}}%",
-      "delegationProposals": "有 {{count}} 项团队提议等待你的决定"
+      "delegationProposals": "有 {{count}} 项团队提案等待你的决定"
     },
     "unemployedBanner": "您目前没有俱乐部。工作邀请可能会送达您的收件箱。",
     "digestAdvancing": "推进中...",
