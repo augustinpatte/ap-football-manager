@@ -24,7 +24,8 @@ schema; one stage = one commit = tests first.
 * Stage 2: **done**, `9ef59840`. No backend change was needed: `delegation.proposals` already reaches
   the frontend in the serialized `Game`; only the TypeScript type omitted it.
 * Stage 3: **done as a gap-fill**, `c2533ba6` (`src-tauri/src/application/playable_journey.rs`).
-* Stage 4: checklist written, **not performed**. Stages 5-8 not started.
+* Stage 4: checklist written, **not performed**. A launch smoke test only was run in P2.5. Stages 5-8 not started.
+* P2.5 (`docs/APFM_P25_VALIDATION_REPORT.md`): starting-XI persistence fixed (`3ce15a34`), Staff tab lands on proposals (`a64e30a8`), alert ordering, journey tests tightened. Column chooser (stage 5) still not built; its settings field is authorised.
 
 See `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for evidence and limits.
 

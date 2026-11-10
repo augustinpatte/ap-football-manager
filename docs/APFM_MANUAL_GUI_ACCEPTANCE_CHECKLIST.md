@@ -5,6 +5,10 @@ agent that wrote it, in this or any earlier APFM session. Every "Result" cell is
 Until a person has filled them in, the career journey is **not** verified from the window; see
 `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for what the automated tests do and do not cover.
 
+## What an agent did instead
+
+On this branch an agent ran a **launch smoke test** only: `scripts/gui-validation/run-isolated.sh --no-build --smoke 25` against a fresh debug build. The binary started, wrote only into the isolated root, left real saves and `world.db` untouched. No screen was opened or clicked. It replaces none of the rows below.
+
 ## How to run
 
 ```bash
@@ -37,7 +41,7 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 | 2.3 | Open a player profile and go back | Back returns to the same tab and scroll position | |
 | 2.4 | Choose a formation | Pitch redraws with that shape | |
 | 2.5 | Swap a bench player into the eleven | The player takes **the vacated slot**, not the end of the list | |
-| 2.6 | Place a left-back at right-back, save, close to menu, load the save | Compare the eleven before and after. **Known behaviour to record, not assume:** the save path swaps a mirrored side pair (LB/RB, LWB/RWB, LM/RM, LW/RW) when that raises fit (`canonicalize_game_starting_xi_ids`), so a deliberate inverted full-back may come back swapped. Note whether this surprises you | |
+| 2.6 | Place a left-back at right-back, save, close to menu, load the save | The eleven is **identical** before and after: the inverted pair is kept (fixed in `3ce15a34`). Only a save written before format 9 is repaired, once, on its first load. Report any reordering as a defect | |
 
 ## 3. Tactics
 
@@ -87,8 +91,8 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 |---|---|---|---|
 | 7.1 | Staff tab without an assistant, ask for Approval mode | Refused with a readable message; Manual always available | |
 | 7.2 | With an assistant: set Approval, then Full, then back to Manual | Mode shows each time; duty toggles agree | |
-| 7.3 | Advance days until a proposal appears | **Dashboard shows an alert "N staff proposal(s) waiting…"** (added in this branch) even on a single-day advance | |
-| 7.4 | Click that alert | Opens the Staff tab on the proposals | |
+| 7.3 | Advance days until a proposal appears | **Dashboard shows an alert "N staff proposal(s) waiting…"** even on a single-day advance. On a match day with an unfit XI, the lineup alert is listed above it | |
+| 7.4 | Click that alert | Opens the Staff tab **already on the Management view**, with Accept and Decline visible without another click (fixed in `a64e30a8`) | |
 | 7.5 | Accept one proposal and reject another | The action happens or not; alert count drops and disappears at zero | |
 | 7.6 | Protect a player from sale | The assistant does not list or propose selling them | |
 

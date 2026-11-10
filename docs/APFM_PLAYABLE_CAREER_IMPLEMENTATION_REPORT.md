@@ -5,8 +5,9 @@ Branch `claude/apfm-playable-career`, starting at HEAD `5f5a4dfc`. Inputs: `APFM
 
 ## Verdict
 
-**The mission is not complete, and this report does not claim it is.** Two slices landed and a
-backend journey test was added. APFM has **not** been played through its window by anyone: no
+**The mission is not complete, and this report does not claim it is.** Slices 1-2 landed and a
+backend journey test was added; the P2.5 stabilisation (below) then fixed two confirmed defects.
+Full validation figures and the reviewer results are in `APFM_P25_VALIDATION_REPORT.md`. APFM has **not** been played through its window by anyone: no
 graphical session was launched, so "a new player can complete two seasons from the GUI" remains
 unverified. `APFM_MANUAL_GUI_ACCEPTANCE_CHECKLIST.md` is written and every cell in it is blank.
 
@@ -24,6 +25,10 @@ unverified. `APFM_MANUAL_GUI_ACCEPTANCE_CHECKLIST.md` is written and every cell 
 | 0 | Tactics: advanced phase dials folded by default (gap G1) | `5f5a4dfc` (already at HEAD before this session; the audit and plan were written against `92b2c616` and are stale on this point) | UI-test `TacticsTab.test.tsx:304`, in the green full run below | Done. Not re-implemented. |
 | 1 | Dashboard alert for pending delegation proposals (gap G7) | `9ef59840` | UI-test: two new cases in `dashboardHelpers.test.ts` (alert with count and Staff target; none when empty or absent), seen failing first for the predicted reason | Done in code |
 | 2 | Journey test through the application layer (plan stage 3) | `c2533ba6` | BE-test, 9 tests (8 in the default suite, 1 `#[ignore]`d) in `src-tauri/src/application/playable_journey.rs` | Done, with the limits below |
+| 3 | **P2.5** Starting XI kept exactly as saved (finding 1 below) | `3ce15a34`, tests `6c661ee3` | BE-test: 7 db tests, red first, mutation-checked | Done in code; fixed |
+| 4 | **P2.5** Staff tab opens on Management when proposals are pending (found by the end-to-end alert test) | `a64e30a8`, `1c923621` | UI-test: `DelegationAlertFlow.test.tsx`, 6 tests, red first | Done in code; fixed |
+| 5 | **P2.5** Lineup alert above proposals alert; pt/zh-CN wording | `6d2ee5b6`, `19ea02c4` | UI-test, i18n gates | Done |
+| 6 | **P2.5** Journey tests tightened after test review (4-3-3, join date, accept/reject pair) | `38dac225` | BE-test, 10 journey tests (9 default + 1 ignored) | Done |
 
 ### Slice 1 detail
 
@@ -88,7 +93,7 @@ evidence alone. No GUI of any kind was run.
 
 ## Findings made while writing the tests
 
-1. **A reload can reorder the starting eleven.** `canonicalize_game_starting_xi_ids`
+1. **[FIXED in `3ce15a34`, see P2.5 report] A reload can reorder the starting eleven.** `canonicalize_game_starting_xi_ids`
    (`crates/db/src/save_manager.rs`, commit `e152eba6`) swaps a mirrored side pair (LB/RB, LWB/RWB,
    LM/RM, LW/RW) whenever the swap raises positional fit, on every write and every load. The save
    writes a canonicalized *copy*, so the live game keeps the manager's order and the reloaded game
@@ -103,8 +108,8 @@ evidence alone. No GUI of any kind was run.
 3. **A signing completes on its registration date, not on acceptance** (`response.registration_date`,
    scheduled one day out in the test). The screens must say so; checklist 6.4 checks it.
 4. **The `delegate` advance response carries no `fixture_id`**; only the `live_match` action does.
-   Anything on the UI that infers "a match was played" from `fixture_id` would miss a delegated match.
-   Not investigated in the frontend.
+   **Investigated in P2.5: no defect.** The only frontend reader is the `live_match` branch; the
+   delegated path reads `results`. Nothing changed.
 5. **The transfer-budget guard works** (`be.error.transfers.transferBudgetTooLow`); a bid above budget
    changes nothing.
 6. **The takeover plan was stale** on G1 (already done at HEAD). The plan file now says so.
@@ -135,16 +140,15 @@ evidence alone. No GUI of any kind was run.
 
 ## Decisions needed from the owner
 
-1. Finding 1: should the load-time mirrored-pair swap keep running for every load, run only for
-   saves written before the canonicalisation existed, or be removed?
-2. Plan stage 5 (column chooser): may the settings file gain a field?
+1. ~~Finding 1~~ **Decided and done in P2.5**: no write normalises the eleven; load repairs only saves
+   below format 9; legacy migration still repairs.
+2. Column chooser: the settings field is authorised, but the chooser itself is not built; scope it as
+   its own slice.
 3. Audit §9.1 and §9.3 (model/picker, `delegate` using `engine`) are still open.
 
 ## Next exact slice
 
-Stage 4 of the plan: a person runs the checklist with `scripts/gui-validation/run-isolated.sh` and
-files defects. Nothing further should be described as "verified" before that. If a GUI session is
-not available, the next automatable slice is a component test that mounts `Dashboard` with a game
-whose `delegation.proposals` is non-empty, clicks the alert, and expects the Staff tab, then resolves
-the proposal and expects the alert gone; it needs the existing Dashboard test harness, which I did not
-inspect.
+Stage 4 of the plan, unchanged: a person runs the checklist with `scripts/gui-validation/run-isolated.sh`
+and files defects. P2.5 added only a launch smoke test (real binary starts, stays inside its isolated
+root); it opened no screen. Nothing further should be described as "verified" before a person has run
+the window. Suggested first pass: checklist sections 1, 4, 5 and 8.
