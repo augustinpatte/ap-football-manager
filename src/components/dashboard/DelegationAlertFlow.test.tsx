@@ -85,7 +85,11 @@ function overviewFromBackend() {
         created: "2026-08-01",
         action: { kind: "hireStaff" },
         title_key: "delegation.proposal.hire",
-        params: [["post", "Physio"]],
+        params: [
+          ["name", "Sam Reed"],
+          ["post", "Physio"],
+          ["wage", "1,200"],
+        ],
         reason_key: "delegation.reason.vacancy",
       })),
       log: [],
@@ -219,6 +223,8 @@ describe("delegation proposals, from the dashboard alert to the answer", () => {
 
     expect(await screen.findAllByRole("button", { name: "Accepter" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Refuser" })).toHaveLength(2);
-    expect(screen.queryByText(/dashboard\.alerts|staff\.delegation/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/dashboard\.alerts|staff\.delegation|delegation\.(proposal|reason)/),
+    ).not.toBeInTheDocument();
   });
 });
