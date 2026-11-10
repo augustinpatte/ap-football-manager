@@ -55,6 +55,70 @@ fn candidate_cache_distinguishes_decline_from_departure() {
     assert_ne!(declining_squad.fingerprint(), departed_squad.fingerprint());
 }
 
+/// Given a formation that names the same position more than once
+/// When a player's fit is read for its slots
+/// Then every repetition carries the fit of the first one, and every distinct slot is rated on its
+/// own: sharing the work never changes an answer.
+#[test]
+fn repeated_slots_share_their_fit_without_changing_it() {
+    let p = player("fits", CenterBack, 77, 26);
+    let slots = slots_of("4-4-2");
+    let fit = fits(&p, &slots);
+    for slot_index in 0..slots.len() {
+        let first = slots[..slot_index]
+            .iter()
+            .position(|earlier| *earlier == slots[slot_index]);
+        if let Some(first) = first {
+            assert_eq!(
+                fit[slot_index].to_bits(),
+                fit[first].to_bits(),
+                "slot {slot_index} repeats slot {first}"
+            );
+        } else {
+            assert!(
+                (1.0..=99.0).contains(&fit[slot_index]),
+                "slot {slot_index} must be rated"
+            );
+        }
+    }
+}
+
+/// Given a player out on loan, and the same player with no loan
+/// When the club reads him as a possible signing
+/// Then the loan neither keeps him out of the model nor changes how the signing is read: a loan is
+/// a state the club can end, not the player's level.
+#[test]
+fn a_loaned_player_is_read_as_the_signing_he_would_be() {
+    let club = club(&Squad::balanced());
+    let mut loaned = player("loaned", Striker, 80, 25);
+    loaned.active_loan = Some(domain::player::ActiveLoan {
+        parent_team_id: "parent".to_string(),
+        loan_team_id: "club".to_string(),
+        loan_team_name: None,
+        start_date: "2025-07-01".to_string(),
+        end_date: "2026-06-30".to_string(),
+        wage_contribution_pct: 50,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    let mut owned = loaned.clone();
+    owned.active_loan = None;
+    let from_loan = Member::candidate(&loaned, &club.model.slots, today(), 0.0)
+        .expect("a loan can be made permanent");
+    let from_owned = Member::candidate(&owned, &club.model.slots, today(), 0.0).unwrap();
+    assert_eq!(
+        SquadModel::fingerprint_of(&from_loan),
+        SquadModel::fingerprint_of(&from_owned)
+    );
+    assert!(
+        Member::of(&loaned, &club.model.slots, today(), Availability::Today).is_none(),
+        "the squad's own model still leaves a loaned player out"
+    );
+}
+
 /// Given two otherwise identical veterans, one declining and one expected to retire
 /// When their signings are appraised through the shared cache
 /// Then each cached result matches an independently calculated appraisal.
@@ -420,6 +484,134 @@ fn adding_a_player_by_a_chain_is_exactly_a_fresh_solve() {
     println!("improving {improving}, worst cover difference {worst_cover}");
 }
 
+fn assert_same_evaluation(left: Evaluation, right: Evaluation, context: &str) {
+    assert_eq!(
+        left.value.to_bits(),
+        right.value.to_bits(),
+        "{context}: value {} against {}",
+        left.value,
+        right.value
+    );
+    for year in 0..HORIZON {
+        let (a, b) = (left.years[year], right.years[year]);
+        assert_eq!(a.xi.to_bits(), b.xi.to_bits(), "{context} year {year}: xi");
+        assert_eq!(
+            a.expected.to_bits(),
+            b.expected.to_bits(),
+            "{context} year {year}: expected"
+        );
+        assert_eq!(
+            a.starter.map(f32::to_bits),
+            b.starter.map(f32::to_bits),
+            "{context} year {year}: starter"
+        );
+        assert_eq!(
+            a.cover.map(f32::to_bits),
+            b.cover.map(f32::to_bits),
+            "{context} year {year}: cover"
+        );
+        assert_eq!(
+            a.absence.map(f32::to_bits),
+            b.absence.map(f32::to_bits),
+            "{context} year {year}: absence"
+        );
+        assert_eq!(
+            a.starter_index, b.starter_index,
+            "{context} year {year}: starter index"
+        );
+        assert_eq!(
+            a.cover_index, b.cover_index,
+            "{context} year {year}: cover index"
+        );
+    }
+}
+
+/// Given a signing who is worse than every cover the squad already has, in every horizon year
+/// When his appraisal reuses the squad's own view instead of pairing the bench again
+/// Then every year is exactly what the full evaluation answers.
+#[test]
+fn a_signing_below_the_whole_cover_reuses_the_squads_own_view() {
+    let club = club(&Squad::balanced());
+    let weak = player("weak", Striker, 30, 25);
+    let member = Member::candidate(&weak, &club.model.slots, today(), 0.0).unwrap();
+    for year in 0..HORIZON {
+        assert!(
+            club.model.reuses_base_cover(year, &member),
+            "year {year} must allow the reuse the test is about"
+        );
+    }
+    let before = BASE_COVER_REUSES.load(std::sync::atomic::Ordering::Relaxed);
+    let optimized = club.model.evaluate_with(&member);
+    let after = BASE_COVER_REUSES.load(std::sync::atomic::Ordering::Relaxed);
+    assert!(
+        after > before,
+        "the shortcut must take part in the evaluation"
+    );
+    let full = club.model.evaluate_with_full(&member);
+    assert_same_evaluation(optimized, full, "weak signing");
+}
+
+/// Given many random squads and random candidates
+/// When a signing is evaluated with the unchanged-cover shortcut and without it
+/// Then every year, index and rating is bit for bit the same: the shortcut only skips work.
+#[test]
+fn the_unchanged_cover_shortcut_answers_exactly_as_the_full_evaluation() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(5150);
+    let mut reused = 0;
+    for case in 0..80 {
+        let size = rng.random_range(12..=26);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            squad.players.push(player(
+                &format!("s{case}p{i}"),
+                position,
+                rng.random_range(45..=88),
+                rng.random_range(17..=36),
+            ));
+        }
+        let club = club(&squad);
+        for k in 0..5 {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            let candidate = player(
+                &format!("s{case}cand{k}"),
+                position,
+                rng.random_range(20..=90),
+                rng.random_range(17..=36),
+            );
+            let Some(member) = Member::candidate(&candidate, &club.model.slots, today(), 0.0)
+            else {
+                continue;
+            };
+            for year in 0..HORIZON {
+                if club.model.reuses_base_cover(year, &member) {
+                    reused += 1;
+                }
+            }
+            let optimized = club.model.evaluate_with(&member);
+            let full = club.model.evaluate_with_full(&member);
+            assert_same_evaluation(optimized, full, &format!("case {case} candidate {k}"));
+        }
+    }
+    assert!(
+        reused > 30,
+        "the test must exercise the shortcut: {reused} year views reused"
+    );
+}
+
 /// Given a player with a short injury
 /// When he is read for a signing (today) and for planning
 /// Then today's reading raises his chance of missing a match and planning's does not: what he is
@@ -611,6 +803,76 @@ fn sorting_the_pairings_once_assigns_the_cover_exactly_as_picking_the_best_again
             let (cover, index_of) = cover_by_repeated_best_pair(&refs, &used, year);
             assert_eq!(view.cover, cover, "case {case} year {year}");
             assert_eq!(view.cover_index, index_of, "case {case} year {year}");
+        }
+    }
+}
+
+/// Given slot levels that are fractional and often exactly equal
+/// When the cover is assigned by sorting packed pairings once, and by taking the best remaining
+/// pairing again and again
+/// Then the same player covers each slot at the same rating: the packed order keeps the old
+/// tie-break of slot before bench position.
+#[test]
+fn fractional_and_equal_cover_ratings_keep_the_pairing_order() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(5151);
+    for case in 0..60 {
+        let size = rng.random_range(12..=30);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            squad.players.push(player(
+                &format!("f{case}p{i}"),
+                position,
+                rng.random_range(45..=88),
+                rng.random_range(17..=36),
+            ));
+        }
+        let mut club = club(&squad);
+        for (i, member) in club.model.members.iter_mut().enumerate() {
+            for year in 0..HORIZON {
+                for slot in 0..SLOTS {
+                    // Thirds, so exact equality and fractional differences both occur, and some
+                    // levels sit under the emergency body's 25.
+                    let step = (case * 31 + i * 17 + slot * 7 + year * 13) % 97;
+                    member.levels[year][slot] = 18.0 + step as f32 / 3.0;
+                }
+            }
+        }
+        let refs: Vec<&Member> = club.model.members.iter().collect();
+        for year in 0..HORIZON {
+            let view = club.base.years[year];
+            let used: Vec<bool> = (0..refs.len())
+                .map(|index| view.starter_index.contains(&Some(index)))
+                .collect();
+            let (cover, index_of) = cover_by_repeated_best_pair(&refs, &used, year);
+            let mut scratch = Scratch {
+                used,
+                ..Scratch::default()
+            };
+            let mut assigned = EMPTY_YEAR;
+            assign_cover(&refs, year, &mut assigned, &mut scratch);
+            assert_eq!(
+                assigned.cover.map(f32::to_bits),
+                cover.map(f32::to_bits),
+                "case {case} year {year} cover"
+            );
+            assert_eq!(
+                assigned.cover_index, index_of,
+                "case {case} year {year} cover index"
+            );
         }
     }
 }

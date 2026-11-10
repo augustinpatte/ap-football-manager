@@ -29,6 +29,7 @@ use domain::player::{Player, Position, SquadRole};
 use super::horizon::{HORIZON, projected_shifts};
 use crate::player_rating::{formation_slots, natural_ovr, positional_fit_for_assignment};
 use crate::squad_outlook::PlannedPlayer;
+use crate::stable_hash::StableHasher;
 
 /// Players on the pitch.
 pub(crate) const SLOTS: usize = 11;
@@ -139,16 +140,34 @@ impl Member {
         today: NaiveDate,
         perceived_error: f32,
     ) -> Option<Self> {
-        let mut signed = player.clone();
-        signed.active_loan = None;
-        let mut member = Self::of(&signed, slots, today, Availability::Today)?;
-        let mut planned = PlannedPlayer::of(&signed, today);
-        planned.contract_days = Some(NEW_CONTRACT_DAYS);
-        let out_now = member.shift[0].is_none();
-        member.shift = projected_shifts(&planned);
-        if out_now {
-            member.shift[0] = None;
+        // A loan is what the club could end by signing him, so unlike [`Member::of`] this reads a
+        // loaned player as available. Read the player directly instead of cloning him only to
+        // clear `active_loan`: the clone is one of the market's larger costs and changes nothing
+        // else the member is built from.
+        if player.squad_role != SquadRole::Senior || player.retired {
+            return None;
         }
+        let mut planned = PlannedPlayer::of(player, today);
+        planned.contract_days = Some(NEW_CONTRACT_DAYS);
+        let mut shift = projected_shifts(&planned);
+        if player
+            .injury
+            .as_ref()
+            .is_some_and(|injury| injury.days_remaining >= LONG_INJURY_DAYS)
+        {
+            shift[0] = None;
+        }
+        let mut member = Self {
+            id: player.id.clone(),
+            natural_keeper: player.natural_position == Position::Goalkeeper,
+            age: planned.age,
+            ovr: player.ovr,
+            potential: player.potential,
+            fit: fits(player, slots),
+            absence: absence_of(player),
+            shift,
+            levels: [[0.0; SLOTS]; HORIZON],
+        };
         if perceived_error != 0.0 {
             for fit in &mut member.fit {
                 *fit = (*fit + perceived_error).clamp(1.0, 99.0).round();
@@ -198,10 +217,19 @@ pub(crate) fn fits(player: &Player, slots: &[Position]) -> [f32; SLOTS] {
         f64::from(player.ovr) - natural_ovr(player)
     };
     let mut fit = [UNCOVERED_FIT; SLOTS];
-    for (cell, slot) in fit.iter_mut().zip(slots) {
-        *cell = (positional_fit_for_assignment(player, slot) + anchor)
-            .clamp(1.0, 99.0)
-            .round() as f32;
+    for slot_index in 0..fit.len().min(slots.len()) {
+        let slot = &slots[slot_index];
+        // A formation often asks the same position twice (two centre backs, two strikers). The
+        // rating of a slot does not depend on where it sits, so rate it once and copy the answer.
+        fit[slot_index] = slots[..slot_index]
+            .iter()
+            .position(|earlier| earlier == slot)
+            .map(|earlier| fit[earlier])
+            .unwrap_or_else(|| {
+                (positional_fit_for_assignment(player, slot) + anchor)
+                    .clamp(1.0, 99.0)
+                    .round() as f32
+            });
     }
     fit
 }
@@ -338,49 +366,107 @@ impl SquadModel {
     /// formation and the horizon weights. Quantised to what moves a decision, so an unchanged squad
     /// keeps its number from one day to the next and answers can be kept.
     pub(crate) fn fingerprint(&self) -> u64 {
-        let mut bytes: Vec<u8> = Vec::with_capacity(self.members.len() * 48 + 32);
-        bytes.extend_from_slice(self.formation.as_bytes());
+        let mut hasher = StableHasher::new(0x7371_7561_6473);
+        hasher.write(self.formation.as_bytes());
         for weight in self.weights {
-            bytes.extend_from_slice(&((weight * 1_000.0).round() as u16).to_le_bytes());
+            hasher.write(&((weight * 1_000.0).round() as u16).to_le_bytes());
         }
         for member in &self.members {
-            bytes.extend_from_slice(member.id.as_bytes());
-            bytes.push(u8::from(member.natural_keeper));
-            bytes.extend_from_slice(&member.age.to_le_bytes());
-            bytes.push(member.ovr);
-            bytes.push(member.potential);
-            bytes.push((member.absence * ABSENCE_STEPS).round() as u8);
+            hasher.write(member.id.as_bytes());
+            hasher.write(&[u8::from(member.natural_keeper)]);
+            hasher.write(&member.age.to_le_bytes());
+            hasher.write(&[member.ovr, member.potential]);
+            hasher.write(&[(member.absence * ABSENCE_STEPS).round() as u8]);
             for fit in member.fit {
-                bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
+                hasher.write(&(fit.round() as i16).to_le_bytes());
             }
             for shift in member.shift {
-                bytes
-                    .extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
+                hasher.write(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
             }
         }
-        crate::stable_hash::stable_hash(&bytes, 0x7371_7561_6473)
+        hasher.finish()
     }
 
     /// A number that changes when anything an evaluation of `member` added to this squad depends on
     /// changes in him: how good he is in each slot, how likely he is to be absent, where he is
     /// headed. Quantised like [`SquadModel::fingerprint`].
     pub(crate) fn fingerprint_of(member: &Member) -> u64 {
-        let mut bytes: Vec<u8> = Vec::with_capacity(48);
-        bytes.push(u8::from(member.natural_keeper));
-        bytes.push((member.absence * ABSENCE_STEPS).round() as u8);
+        let mut hasher = StableHasher::new(0x6d65_6d62_6572);
+        hasher.write(&[
+            u8::from(member.natural_keeper),
+            (member.absence * ABSENCE_STEPS).round() as u8,
+        ]);
         for fit in member.fit {
-            bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
+            hasher.write(&(fit.round() as i16).to_le_bytes());
         }
         for shift in member.shift {
-            bytes.extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
+            hasher.write(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
         }
-        crate::stable_hash::stable_hash(&bytes, 0x6d65_6d62_6572)
+        hasher.finish()
     }
 
     /// The model after the squad takes on `member`. Each horizon year's best side is the squad's
     /// own with at most one chain of moves added (see [`improving_chain`]); the cover is then read
     /// from that side.
     pub(crate) fn evaluate_with(&self, member: &Member) -> Evaluation {
+        SCRATCH.with(|scratch| {
+            let scratch = &mut *scratch.borrow_mut();
+            let mut years = [EMPTY_YEAR; HORIZON];
+            let mut value = 0.0;
+            // Only a full solve needs the squad with the newcomer appended, so it is built on the
+            // first year that asks for one (most candidates never do).
+            let mut squad: Option<Vec<&Member>> = None;
+            for (year, view) in years.iter_mut().enumerate() {
+                let chain =
+                    improving_chain(&self.solutions[year], member, year, self.members.len());
+                if matches!(chain, Chain::Unchanged) && self.reuses_base_cover(year, member) {
+                    note_base_cover_reuse();
+                    *view = self.base.years[year];
+                    value += self.weights[year] * view.expected;
+                    continue;
+                }
+                let picks = match chain {
+                    Chain::Unchanged => self.solutions[year].picks,
+                    Chain::Moves(picks) => picks,
+                    Chain::Unknown => {
+                        let squad = squad.get_or_insert_with(|| {
+                            self.members.iter().chain(Some(member)).collect()
+                        });
+                        scratch.used.clear();
+                        scratch.used.resize(squad.len(), false);
+                        best_assignment(squad, year, scratch)
+                    }
+                };
+                let squad =
+                    squad.get_or_insert_with(|| self.members.iter().chain(Some(member)).collect());
+                *view = year_view_from(squad, year, &picks, scratch);
+                value += self.weights[year] * view.expected;
+            }
+            Evaluation { years, value }
+        })
+    }
+
+    /// Whether adding `member` cannot change the cover of this year's side: every slot already has
+    /// a bench player covering it, and the newcomer is no better than that cover anywhere. The
+    /// cover is chosen from the bench, best pairing first; a newcomer who loses every pairing is
+    /// never picked, so this year's view is exactly the squad's own.
+    fn reuses_base_cover(&self, year: usize, member: &Member) -> bool {
+        if member.shift[year].is_none() {
+            return true;
+        }
+        let base = &self.base.years[year];
+        base.cover_index.iter().all(Option::is_some)
+            && (0..SLOTS).all(|slot| {
+                member
+                    .level(slot, year)
+                    .is_none_or(|level| level <= base.cover[slot])
+            })
+    }
+
+    /// [`SquadModel::evaluate_with`] without the unchanged-cover shortcut, for the test that checks
+    /// the shortcut changes no year.
+    #[cfg(test)]
+    pub(crate) fn evaluate_with_full(&self, member: &Member) -> Evaluation {
         let squad: Vec<&Member> = self.members.iter().chain(Some(member)).collect();
         SCRATCH.with(|scratch| {
             let scratch = &mut *scratch.borrow_mut();
@@ -450,6 +536,20 @@ impl SquadModel {
     }
 }
 
+/// Test-only count of years answered from the squad's own view without recomputing the cover,
+/// so a test can prove the shortcut takes part in the evaluation rather than sit unused.
+#[cfg(test)]
+pub(crate) static BASE_COVER_REUSES: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(test)]
+fn note_base_cover_reuse() {
+    BASE_COVER_REUSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(not(test))]
+fn note_base_cover_reuse() {}
+
 const EMPTY_YEAR: YearView = YearView {
     xi: 0.0,
     expected: 0.0,
@@ -469,7 +569,7 @@ struct Scratch {
     slot_cost: Vec<i64>,
     bench: Vec<usize>,
     taken: Vec<u8>,
-    pairs: Vec<(f32, u8, u16)>,
+    pairs: Vec<u64>,
     solver: Solver,
 }
 
@@ -659,6 +759,7 @@ fn solution_of(squad: &[&Member], year: usize, picks: &[Option<usize>; SLOTS]) -
 }
 
 /// What adding a player does to a year's best side.
+#[derive(Clone, Copy)]
 enum Chain {
     /// The side stays as it is: no chain of moves makes it better.
     Unchanged,
@@ -924,28 +1025,43 @@ fn assign_cover(squad: &[&Member], year: usize, view: &mut YearView, scratch: &m
     pairs.clear();
     for (position, &index) in bench.iter().enumerate() {
         for slot in 0..SLOTS {
-            pairs.push((squad[index].levels[year][slot], slot as u8, position as u16));
+            pairs.push(pairing_key(squad[index].levels[year][slot], slot, position));
         }
     }
-    pairs.sort_unstable_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+    pairs.sort_unstable();
     taken.clear();
     taken.resize(bench.len(), 0);
     let mut covered = [false; SLOTS];
     let mut left = SLOTS;
-    for &(level, slot, position) in pairs.iter() {
-        let (slot, position) = (usize::from(slot), usize::from(position));
+    for &key in pairs.iter() {
+        let slot = ((key >> 16) & 0xF) as usize;
+        let position = (key & 0xFFFF) as usize;
         if covered[slot] || taken[position] >= SLOTS_PER_COVER {
             continue;
         }
         covered[slot] = true;
         taken[position] += 1;
-        view.cover[slot] = level;
+        view.cover[slot] = squad[bench[position]].levels[year][slot];
         view.cover_index[slot] = Some(bench[position]);
         left -= 1;
         if left == 0 {
             break;
         }
     }
+}
+
+/// Packs a pairing into one number whose ascending order is the pairing's order: level descending,
+/// then slot, then bench position. A level's `f32` bits are turned into the integer order that
+/// `total_cmp` defines first, so fractional and equal levels keep exactly the place they had.
+fn pairing_key(level: f32, slot: usize, position: usize) -> u64 {
+    let bits = level.to_bits();
+    let order = if bits & 0x8000_0000 == 0 {
+        bits | 0x8000_0000
+    } else {
+        !bits
+    };
+    let rank = u64::from(u32::MAX - order);
+    (rank << 20) | ((slot as u64) << 16) | position as u64
 }
 
 #[cfg(test)]

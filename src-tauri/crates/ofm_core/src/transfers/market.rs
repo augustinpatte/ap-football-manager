@@ -422,6 +422,10 @@ pub(crate) fn award_leaderboard_player_ids(game: &Game) -> HashSet<String> {
 }
 /// A loan-listed player an AI club would lend out, with what a borrower needs to judge him.
 pub(crate) struct LoanTarget {
+    /// Where the player sits in `Game::players` when the targets are collected. The sweep appends
+    /// players but never reorders them, so this still names him when a club comes to borrow: the
+    /// search reads him in place instead of scanning the whole list, by id, once per target.
+    player_index: usize,
     player_id: String,
     owner_team_id: String,
     owner_reputation: u32,
@@ -453,6 +457,48 @@ fn invalidate_loan_views(
     sale_view.invalidate(borrower_id);
 }
 
+/// The AI clubs' loan-listed players an AI borrower may ask for, best first. A club at the floor
+/// in his group cannot lend him (`execute_loan` refuses it regardless).
+fn collect_loan_targets(
+    players: &[Player],
+    user_team_id: Option<&str>,
+    position_depths: &std::collections::HashMap<String, [usize; 4]>,
+    team_reputation: &std::collections::HashMap<String, u32>,
+) -> Vec<LoanTarget> {
+    let mut targets: Vec<LoanTarget> = players
+        .iter()
+        .enumerate()
+        .filter(|(_, player)| player.loan_listed && !player_has_pending_registration(player))
+        .filter(|(_, player)| player.squad_role == domain::player::SquadRole::Senior)
+        .filter_map(|(index, player)| {
+            let owner = player.team_id.as_deref()?;
+            if Some(owner) == user_team_id
+                || position_depths.get(owner).is_some_and(|depths| {
+                    !crate::squad_floor::can_spare_one(*depths, &player.position)
+                })
+            {
+                return None;
+            }
+            Some(LoanTarget {
+                player_index: index,
+                player_id: player.id.clone(),
+                owner_team_id: owner.to_string(),
+                owner_reputation: team_reputation.get(owner).copied().unwrap_or(0),
+                position_group_index: position_group_index(&player.position),
+                ovr: player.ovr,
+            })
+        })
+        .collect();
+    // Highest appeal first; a stable sort preserves the original ordering among
+    // equally appealing targets, so selection is unchanged.
+    targets.sort_by(|a, b| {
+        b.ovr
+            .cmp(&a.ovr)
+            .then_with(|| a.player_id.cmp(&b.player_id))
+    });
+    targets
+}
+
 /// An AI club borrows a loan-listed player when he would improve a genuine current need, on the
 /// least share of his wage his club accepts, when it can carry that share. The same loan the
 /// player's own club can ask for (`make_loan_offer`): the owner's terms, the squad floor, the
@@ -460,9 +506,14 @@ fn invalidate_loan_views(
 fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
     let today = search.current_date.format("%Y-%m-%d").to_string();
     for target in search.targets {
-        let Some(player) = game.players.iter().find(|p| p.id == target.player_id) else {
+        let Some(player) = game.players.get(target.player_index) else {
             continue;
         };
+        // The index is only a shortcut: check the id so a list that ever stops standing still can
+        // never land a loan on the wrong footballer.
+        if player.id != target.player_id {
+            continue;
+        }
         if target.owner_team_id == search.borrower.id
             || search.moved_player_ids.contains(&target.player_id)
             || target.owner_reputation as i32 - search.borrower.reputation as i32
@@ -838,36 +889,12 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // equally appealing targets, so selection is unchanged.
     shortlist.sort_by_key(|candidate| std::cmp::Reverse(candidate.score));
 
-    // The AI clubs' loan-listed players an AI borrower may ask for, best first. A club at the floor
-    // in his group cannot lend him (`execute_loan` refuses it regardless).
-    let mut loan_targets: Vec<LoanTarget> = game
-        .players
-        .iter()
-        .filter(|player| player.loan_listed && !player_has_pending_registration(player))
-        .filter(|player| player.squad_role == domain::player::SquadRole::Senior)
-        .filter_map(|player| {
-            let owner = player.team_id.as_deref()?;
-            if Some(owner) == user_team_id.as_deref()
-                || position_depths.get(owner).is_some_and(|depths| {
-                    !crate::squad_floor::can_spare_one(*depths, &player.position)
-                })
-            {
-                return None;
-            }
-            Some(LoanTarget {
-                player_id: player.id.clone(),
-                owner_team_id: owner.to_string(),
-                owner_reputation: team_reputation.get(owner).copied().unwrap_or(0),
-                position_group_index: position_group_index(&player.position),
-                ovr: player.ovr,
-            })
-        })
-        .collect();
-    loan_targets.sort_by(|a, b| {
-        b.ovr
-            .cmp(&a.ovr)
-            .then_with(|| a.player_id.cmp(&b.player_id))
-    });
+    let loan_targets = collect_loan_targets(
+        &game.players,
+        user_team_id.as_deref(),
+        &position_depths,
+        &team_reputation,
+    );
     let max_ai_loans = ((((buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1)) as f64)
         * phase.activity_factor())
     .round() as usize;
@@ -1445,7 +1472,64 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
 
 #[cfg(test)]
 mod tests {
-    use super::target_fills_a_need;
+    use super::{LoanTarget, collect_loan_targets, target_fills_a_need};
+    use crate::test_support::uniform_attributes;
+    use domain::player::{Player, Position};
+    use std::collections::HashMap;
+
+    fn loan_listed(id: &str, owner: &str, position: Position, ovr_attributes: u8) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            id.to_string(),
+            id.to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            position,
+            uniform_attributes(ovr_attributes),
+        );
+        player.team_id = Some(owner.to_string());
+        player.loan_listed = true;
+        player
+    }
+
+    /// Given a squad list where two of three seniors are loan-listed, one of them worse than the
+    /// other, when the market collects the targets a borrower may ask for
+    /// Then each target names the place its player holds in that list as well as his id, so the
+    /// borrower's search reads him straight out of the list instead of scanning every player for
+    /// every target, and the better player is offered first.
+    #[test]
+    fn a_loan_target_names_the_place_and_the_id_of_its_player() {
+        let players = vec![
+            loan_listed("steady", "seller", Position::CentralMidfielder, 60),
+            loan_listed("spare", "seller", Position::Striker, 75),
+            Player::new(
+                "not-listed".to_string(),
+                "not-listed".to_string(),
+                "not-listed".to_string(),
+                "1998-01-01".to_string(),
+                "England".to_string(),
+                Position::Goalkeeper,
+                uniform_attributes(80),
+            ),
+        ];
+        let depths = HashMap::new();
+        let reputation = HashMap::new();
+        let targets = collect_loan_targets(&players, None, &depths, &reputation);
+        let summary: Vec<(&str, usize, &str)> = targets
+            .iter()
+            .map(|target: &LoanTarget| {
+                (
+                    target.player_id.as_str(),
+                    target.player_index,
+                    players[target.player_index].id.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            vec![("spare", 1, "spare"), ("steady", 0, "steady")]
+        );
+    }
 
     /// Given a club carrying the seven defenders it plans for, with four starters and three cover
     /// players, when a defender better than its first cover but worse than its last starter is

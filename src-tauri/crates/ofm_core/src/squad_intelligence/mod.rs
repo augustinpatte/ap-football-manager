@@ -213,10 +213,9 @@ impl ClubSquad {
     /// all 26 of a club's players is 26 evaluations of the side; a club's squad does not change
     /// from one day to the next, so the answer is kept by club until its fingerprint moves.
     pub(crate) fn sales(&self, club_id: &str) -> Arc<Vec<(String, SaleCase)>> {
-        let fingerprint = self.model.fingerprint();
         let mut cache = SALES_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((kept, sales)) = cache.get(club_id)
-            && *kept == fingerprint
+            && *kept == self.fingerprint
         {
             return Arc::clone(sales);
         }
@@ -227,7 +226,7 @@ impl ClubSquad {
                 .map(|member| (member.id.clone(), self.sale(&member.id)))
                 .collect(),
         );
-        cache.insert(club_id.to_string(), (fingerprint, Arc::clone(&sales)));
+        cache.insert(club_id.to_string(), (self.fingerprint, Arc::clone(&sales)));
         sales
     }
 
