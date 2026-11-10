@@ -9,6 +9,7 @@
 
 use crate::player_rating::natural_ovr;
 use chrono::{Datelike, NaiveDate};
+use domain::league::League;
 use domain::player::{Player, PlayerAttributes, SquadRole};
 use domain::team::Team;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -34,6 +35,10 @@ pub enum Severity {
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntegrityFinding {
     DuplicatePlayerId {
+        id: String,
+    },
+    /// Two clubs share an id, so a player's membership no longer identifies one club.
+    DuplicateTeamId {
         id: String,
     },
     /// Two or more players share name, birth date and nationality: indistinguishable people.
@@ -62,6 +67,60 @@ pub enum IntegrityFinding {
         player_id: String,
         stored: u8,
         computed: f64,
+    },
+    /// A contract ends on or before the day it starts: the ledger's own rule
+    /// (`LedgerError::EndNotAfterStart`) says that cannot happen.
+    ContractEndsBeforeStart {
+        player_id: String,
+        start: String,
+        end: String,
+    },
+    ContractDateInvalid {
+        player_id: String,
+        field: &'static str,
+        value: String,
+    },
+    /// A contracted player's deal ended before the day being audited. Not always a bug
+    /// (a save can be taken mid-negotiation), but it is worth surfacing.
+    ContractExpiredAtAuditDate {
+        player_id: String,
+        end: String,
+    },
+    /// A competition that exists but has no participants at all.
+    CompetitionWithoutParticipants {
+        competition_id: String,
+    },
+    /// A competition names a team the world does not contain (club or national team).
+    UnknownCompetitionParticipant {
+        competition_id: String,
+        team_id: String,
+    },
+    FixtureUnknownTeam {
+        competition_id: String,
+        fixture_id: String,
+        team_id: String,
+    },
+    /// A fixture pairs a team with itself.
+    FixtureSelfMatch {
+        competition_id: String,
+        fixture_id: String,
+    },
+    /// The same fixture id appears in more than one place.
+    DuplicateFixtureId {
+        fixture_id: String,
+    },
+    /// A fixture involves a team that is not in its competition's participant list.
+    FixtureTeamNotParticipant {
+        competition_id: String,
+        fixture_id: String,
+        team_id: String,
+    },
+    /// The exact same home/away pairing is scheduled twice in one competition. Normally a
+    /// defect, though a cup replay is the legitimate exception, hence a warning.
+    DuplicateFixturePair {
+        competition_id: String,
+        home_team_id: String,
+        away_team_id: String,
     },
     InvalidBirthDate {
         player_id: String,
@@ -111,13 +170,25 @@ pub enum IntegrityFinding {
 impl IntegrityFinding {
     pub fn severity(&self) -> Severity {
         match self {
-            Self::ImplausibleAge { .. } | Self::SquadTooLarge { .. } => Severity::Warning,
+            Self::ImplausibleAge { .. }
+            | Self::SquadTooLarge { .. }
+            | Self::ContractExpiredAtAuditDate { .. }
+            | Self::CompetitionWithoutParticipants { .. }
+            | Self::DuplicateFixturePair { .. } => Severity::Warning,
             Self::DuplicatePlayerId { .. }
+            | Self::DuplicateTeamId { .. }
             | Self::DuplicateIdentity { .. }
             | Self::RatingOutOfRange { .. }
             | Self::PotentialBelowOverall { .. }
             | Self::AttributeOutOfRange { .. }
             | Self::OvrDisagreesWithAttributes { .. }
+            | Self::ContractEndsBeforeStart { .. }
+            | Self::ContractDateInvalid { .. }
+            | Self::UnknownCompetitionParticipant { .. }
+            | Self::FixtureUnknownTeam { .. }
+            | Self::FixtureSelfMatch { .. }
+            | Self::DuplicateFixtureId { .. }
+            | Self::FixtureTeamNotParticipant { .. }
             | Self::InvalidBirthDate { .. }
             | Self::UnknownClub { .. }
             | Self::UnknownParentClub { .. }
@@ -132,11 +203,22 @@ impl IntegrityFinding {
     pub fn code(&self) -> &'static str {
         match self {
             Self::DuplicatePlayerId { .. } => "duplicate_player_id",
+            Self::DuplicateTeamId { .. } => "duplicate_team_id",
             Self::DuplicateIdentity { .. } => "duplicate_identity",
             Self::RatingOutOfRange { .. } => "rating_out_of_range",
             Self::PotentialBelowOverall { .. } => "potential_below_overall",
             Self::AttributeOutOfRange { .. } => "attribute_out_of_range",
             Self::OvrDisagreesWithAttributes { .. } => "ovr_disagrees_with_attributes",
+            Self::ContractEndsBeforeStart { .. } => "contract_ends_before_start",
+            Self::ContractDateInvalid { .. } => "contract_date_invalid",
+            Self::ContractExpiredAtAuditDate { .. } => "contract_expired_at_audit_date",
+            Self::CompetitionWithoutParticipants { .. } => "competition_without_participants",
+            Self::UnknownCompetitionParticipant { .. } => "unknown_competition_participant",
+            Self::FixtureUnknownTeam { .. } => "fixture_unknown_team",
+            Self::FixtureSelfMatch { .. } => "fixture_self_match",
+            Self::DuplicateFixtureId { .. } => "duplicate_fixture_id",
+            Self::FixtureTeamNotParticipant { .. } => "fixture_team_not_participant",
+            Self::DuplicateFixturePair { .. } => "duplicate_fixture_pair",
             Self::InvalidBirthDate { .. } => "invalid_birth_date",
             Self::ImplausibleAge { .. } => "implausible_age",
             Self::UnknownClub { .. } => "unknown_club",
@@ -154,7 +236,8 @@ impl fmt::Display for IntegrityFinding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
         match self {
-            Self::DuplicatePlayerId { id } => write!(f, "{code}: id {id} is used twice"),
+            Self::DuplicatePlayerId { id } => write!(f, "{code}: player id {id} is used twice"),
+            Self::DuplicateTeamId { id } => write!(f, "{code}: club id {id} is used twice"),
             Self::DuplicateIdentity {
                 full_name,
                 date_of_birth,
@@ -191,6 +274,63 @@ impl fmt::Display for IntegrityFinding {
             } => write!(
                 f,
                 "{code}: {player_id} stores ovr {stored}, his attributes give {computed:.1}"
+            ),
+            Self::ContractEndsBeforeStart {
+                player_id,
+                start,
+                end,
+            } => write!(
+                f,
+                "{code}: {player_id} has a contract {start}..{end}, which does not end after it starts"
+            ),
+            Self::ContractDateInvalid {
+                player_id,
+                field,
+                value,
+            } => write!(f, "{code}: {player_id} has contract {field} {value:?}"),
+            Self::ContractExpiredAtAuditDate { player_id, end } => {
+                write!(f, "{code}: {player_id}'s contract ended {end}")
+            }
+            Self::CompetitionWithoutParticipants { competition_id } => {
+                write!(f, "{code}: {competition_id} has no participants")
+            }
+            Self::UnknownCompetitionParticipant {
+                competition_id,
+                team_id,
+            } => write!(f, "{code}: {competition_id} names unknown team {team_id}"),
+            Self::FixtureUnknownTeam {
+                competition_id,
+                fixture_id,
+                team_id,
+            } => write!(
+                f,
+                "{code}: {competition_id} fixture {fixture_id} names unknown team {team_id}"
+            ),
+            Self::FixtureSelfMatch {
+                competition_id,
+                fixture_id,
+            } => write!(
+                f,
+                "{code}: {competition_id} fixture {fixture_id} pairs a team with itself"
+            ),
+            Self::DuplicateFixtureId { fixture_id } => {
+                write!(f, "{code}: fixture id {fixture_id} is used twice")
+            }
+            Self::FixtureTeamNotParticipant {
+                competition_id,
+                fixture_id,
+                team_id,
+            } => write!(
+                f,
+                "{code}: {competition_id} fixture {fixture_id} uses {team_id}, who is not in the competition"
+            ),
+            Self::DuplicateFixturePair {
+                competition_id,
+                home_team_id,
+                away_team_id,
+            } => write!(
+                f,
+                "{code}: {competition_id} schedules {home_team_id} v {away_team_id} twice"
             ),
             Self::InvalidBirthDate { player_id, value } => {
                 write!(f, "{code}: {player_id} has birth date {value:?}")
@@ -379,6 +519,48 @@ fn audit_age(player: &Player, on: NaiveDate, findings: &mut Vec<IntegrityFinding
     }
 }
 
+fn audit_contracts(player: &Player, on: NaiveDate, findings: &mut Vec<IntegrityFinding>) {
+    let Some(start) = player.contract_start() else {
+        return;
+    };
+    let Some(end) = player.contract_end() else {
+        return;
+    };
+
+    let parsed_start = NaiveDate::parse_from_str(start, "%Y-%m-%d");
+    let parsed_end = NaiveDate::parse_from_str(end, "%Y-%m-%d");
+    if parsed_start.is_err() {
+        findings.push(IntegrityFinding::ContractDateInvalid {
+            player_id: player.id.clone(),
+            field: "start",
+            value: start.to_string(),
+        });
+    }
+    if parsed_end.is_err() {
+        findings.push(IntegrityFinding::ContractDateInvalid {
+            player_id: player.id.clone(),
+            field: "end",
+            value: end.to_string(),
+        });
+    }
+    let (Ok(start_date), Ok(end_date)) = (parsed_start, parsed_end) else {
+        return;
+    };
+
+    if end_date <= start_date {
+        findings.push(IntegrityFinding::ContractEndsBeforeStart {
+            player_id: player.id.clone(),
+            start: start.to_string(),
+            end: end.to_string(),
+        });
+    } else if end_date < on && player.team_id.is_some() {
+        findings.push(IntegrityFinding::ContractExpiredAtAuditDate {
+            player_id: player.id.clone(),
+            end: end.to_string(),
+        });
+    }
+}
+
 fn audit_identities(players: &[Player], findings: &mut Vec<IntegrityFinding>) {
     let mut ids: HashSet<&str> = HashSet::new();
     let mut reported_ids: HashSet<&str> = HashSet::new();
@@ -420,6 +602,15 @@ fn audit_membership(
     limits: &IntegrityLimits,
     findings: &mut Vec<IntegrityFinding>,
 ) {
+    let mut seen_team_ids: HashSet<&str> = HashSet::new();
+    let mut reported_team_ids: HashSet<&str> = HashSet::new();
+    for team in teams {
+        if !seen_team_ids.insert(team.id.as_str()) && reported_team_ids.insert(team.id.as_str()) {
+            findings.push(IntegrityFinding::DuplicateTeamId {
+                id: team.id.clone(),
+            });
+        }
+    }
     let team_ids: HashSet<&str> = teams.iter().map(|team| team.id.as_str()).collect();
     let mut by_club: HashMap<&str, Vec<&Player>> = HashMap::new();
     for player in players {
@@ -512,8 +703,83 @@ pub fn audit_players(
     for player in players {
         audit_ratings(player, &mut findings);
         audit_age(player, limits.on, &mut findings);
+        audit_contracts(player, limits.on, &mut findings);
     }
     audit_membership(teams, players, limits, &mut findings);
+    IntegrityReport { findings }
+}
+
+/// Audits competition membership and fixtures against the teams the world contains.
+///
+/// `known_team_ids` is the union of club ids and national-team ids: a World Cup names
+/// national teams, which are not in `teams`, and rejecting those would be a false
+/// positive. Like [`audit_players`], this never mutates and the finding order is stable.
+pub fn audit_competitions(
+    competitions: &[League],
+    known_team_ids: &HashSet<&str>,
+) -> IntegrityReport {
+    let mut findings = Vec::new();
+    let mut fixture_ids: HashSet<&str> = HashSet::new();
+
+    for competition in competitions {
+        if competition.participant_ids.is_empty() {
+            findings.push(IntegrityFinding::CompetitionWithoutParticipants {
+                competition_id: competition.id.clone(),
+            });
+        }
+        let participants: HashSet<&str> = competition
+            .participant_ids
+            .iter()
+            .map(String::as_str)
+            .collect();
+        for team_id in &competition.participant_ids {
+            if !known_team_ids.contains(team_id.as_str()) {
+                findings.push(IntegrityFinding::UnknownCompetitionParticipant {
+                    competition_id: competition.id.clone(),
+                    team_id: team_id.clone(),
+                });
+            }
+        }
+
+        let mut pairs: HashSet<(&str, &str)> = HashSet::new();
+        for fixture in &competition.fixtures {
+            if !fixture_ids.insert(fixture.id.as_str()) {
+                findings.push(IntegrityFinding::DuplicateFixtureId {
+                    fixture_id: fixture.id.clone(),
+                });
+            }
+            if fixture.home_team_id == fixture.away_team_id {
+                findings.push(IntegrityFinding::FixtureSelfMatch {
+                    competition_id: competition.id.clone(),
+                    fixture_id: fixture.id.clone(),
+                });
+            } else if !pairs.insert((fixture.home_team_id.as_str(), fixture.away_team_id.as_str()))
+            {
+                findings.push(IntegrityFinding::DuplicateFixturePair {
+                    competition_id: competition.id.clone(),
+                    home_team_id: fixture.home_team_id.clone(),
+                    away_team_id: fixture.away_team_id.clone(),
+                });
+            }
+            for team_id in [&fixture.home_team_id, &fixture.away_team_id] {
+                if !known_team_ids.contains(team_id.as_str()) {
+                    findings.push(IntegrityFinding::FixtureUnknownTeam {
+                        competition_id: competition.id.clone(),
+                        fixture_id: fixture.id.clone(),
+                        team_id: team_id.clone(),
+                    });
+                }
+                if !participants.contains(team_id.as_str()) {
+                    findings.push(IntegrityFinding::FixtureTeamNotParticipant {
+                        competition_id: competition.id.clone(),
+                        fixture_id: fixture.id.clone(),
+                        team_id: team_id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
     IntegrityReport { findings }
 }
 
@@ -611,6 +877,22 @@ mod tests {
         let players = [player("p1", Some("a")), player("p2", Some("a"))];
         let report = audit_players(&teams, &players, &limits());
         assert!(report.findings.is_empty(), "{:?}", report.findings);
+    }
+
+    /// Given two clubs sharing an id, when audited, then the id is reported once.
+    #[test]
+    fn a_repeated_team_id_is_reported_once() {
+        let teams = [team("a"), team("a")];
+        let players = [player("p1", Some("a")), player("p2", Some("a"))];
+        let report = audit_players(&teams, &players, &limits());
+        assert_eq!(
+            report
+                .findings
+                .iter()
+                .filter(|f| f.code() == "duplicate_team_id")
+                .count(),
+            1
+        );
     }
 
     /// Given the same id twice, when audited, then the id is reported once and is not also an identity clash.
@@ -761,5 +1043,131 @@ mod tests {
         let report = audit_players(&teams, &[garbled, ancient], &limits());
         assert!(report.errors().any(|f| f.code() == "invalid_birth_date"));
         assert!(report.warnings().any(|f| f.code() == "implausible_age"));
+    }
+
+    /// Given a contract that ends before it starts, one with a bad date and one that has
+    /// expired, when audited, then the first two are errors and expiry is a warning.
+    #[test]
+    fn contract_defects_are_reported() {
+        let teams = [team("a")];
+        let mut reversed = player("p1", Some("a"));
+        reversed.stage_contract(Some("2027-06-30".into()), Some("2026-07-01".into()), 1_000);
+        let mut invalid = player("p2", Some("a"));
+        invalid.stage_contract(Some("not-a-date".into()), Some("2027-06-30".into()), 1_000);
+        let mut expired = player("p3", Some("a"));
+        expired.stage_contract(Some("2025-07-01".into()), Some("2026-01-01".into()), 1_000);
+
+        let report = audit_players(&teams, &[reversed, invalid, expired], &limits());
+
+        let errors: Vec<&'static str> = report.errors().map(IntegrityFinding::code).collect();
+        assert!(errors.contains(&"contract_ends_before_start"), "{errors:?}");
+        assert!(errors.contains(&"contract_date_invalid"), "{errors:?}");
+        assert!(
+            report
+                .warnings()
+                .any(|f| f.code() == "contract_expired_at_audit_date")
+        );
+    }
+
+    /// Given a player on a valid contract, a free agent with no contract, and a player with no
+    /// dates at all, when audited, then none is reported: a missing contract is the legitimate
+    /// pre-career and free-agent state, not corruption.
+    #[test]
+    fn legitimate_contract_states_are_not_reported() {
+        let teams = [team("a")];
+        let mut contracted = player("p1", Some("a"));
+        contracted.stage_contract(Some("2026-07-01".into()), Some("2027-06-30".into()), 1_000);
+        let free_agent = player("p2", None);
+        // The generated world before a career opens: a staged end but no start yet.
+        let mut pre_career = player("p3", Some("a"));
+        pre_career.stage_contract(None, Some("2027-06-30".into()), 1_000);
+
+        let report = audit_players(&teams, &[contracted, free_agent, pre_career], &limits());
+
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|f| f.code().starts_with("contract_")),
+            "{:?}",
+            report.findings
+        );
+    }
+
+    fn competition(
+        id: &str,
+        participants: &[&str],
+        fixtures: Vec<domain::league::Fixture>,
+    ) -> League {
+        League {
+            id: id.into(),
+            participant_ids: participants.iter().map(|id| (*id).to_string()).collect(),
+            fixtures,
+            ..League::default()
+        }
+    }
+
+    fn fixture(id: &str, home: &str, away: &str) -> domain::league::Fixture {
+        domain::league::Fixture {
+            id: id.into(),
+            competition_id: "cup".into(),
+            matchday: 1,
+            date: "2026-08-01".into(),
+            home_team_id: home.into(),
+            away_team_id: away.into(),
+            competition: domain::league::FixtureCompetition::Cup,
+            status: domain::league::FixtureStatus::Scheduled,
+            result: None,
+            postponement: None,
+        }
+    }
+
+    /// Given a consistent competition, when audited, then nothing is reported.
+    #[test]
+    fn a_consistent_competition_has_no_findings() {
+        let known: HashSet<&str> = ["a", "b"].into_iter().collect();
+        let clean = competition("cup", &["a", "b"], vec![fixture("f1", "a", "b")]);
+        let report = audit_competitions(&[clean], &known);
+        assert!(report.findings.is_empty(), "{:?}", report.findings);
+    }
+
+    /// Given a competition naming a stranger, fixtures with an unknown team, a self-match,
+    /// a repeated id and a repeated pairing, when audited, then each defect is named and the
+    /// repeated pairing is only a warning.
+    #[test]
+    fn competition_and_fixture_defects_are_reported() {
+        let known: HashSet<&str> = ["a", "b"].into_iter().collect();
+        let broken = competition(
+            "broken",
+            &["a", "ghost"],
+            vec![
+                fixture("dup", "a", "b"),
+                fixture("dup", "b", "a"),
+                fixture("self", "a", "a"),
+                fixture("stranger", "a", "nowhere"),
+                fixture("pair", "a", "b"),
+            ],
+        );
+        let empty = competition("empty", &[], vec![]);
+
+        let report = audit_competitions(&[broken, empty], &known);
+        let found = codes(&report);
+        for expected in [
+            "unknown_competition_participant",
+            "fixture_unknown_team",
+            "fixture_self_match",
+            "duplicate_fixture_id",
+            "fixture_team_not_participant",
+            "competition_without_participants",
+        ] {
+            assert!(found.contains(&expected), "{expected} in {found:?}");
+        }
+        assert!(found.contains(&"duplicate_fixture_pair"), "{found:?}");
+        assert!(
+            report
+                .warnings()
+                .any(|f| f.code() == "duplicate_fixture_pair"),
+            "a replay is a warning, not an error"
+        );
     }
 }
