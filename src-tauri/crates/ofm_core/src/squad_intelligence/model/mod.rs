@@ -408,6 +408,63 @@ impl SquadModel {
     /// own with at most one chain of moves added (see [`improving_chain`]); the cover is then read
     /// from that side.
     pub(crate) fn evaluate_with(&self, member: &Member) -> Evaluation {
+        SCRATCH.with(|scratch| {
+            let scratch = &mut *scratch.borrow_mut();
+            let mut years = [EMPTY_YEAR; HORIZON];
+            let mut value = 0.0;
+            // Only a full solve needs the squad with the newcomer appended, so it is built on the
+            // first year that asks for one (most candidates never do).
+            let mut squad: Option<Vec<&Member>> = None;
+            for (year, view) in years.iter_mut().enumerate() {
+                let chain = improving_chain(&self.solutions[year], member, year, self.members.len());
+                if matches!(chain, Chain::Unchanged) && self.reuses_base_cover(year, member) {
+                    note_base_cover_reuse();
+                    *view = self.base.years[year];
+                    value += self.weights[year] * view.expected;
+                    continue;
+                }
+                let picks = match chain {
+                    Chain::Unchanged => self.solutions[year].picks,
+                    Chain::Moves(picks) => picks,
+                    Chain::Unknown => {
+                        let squad = squad
+                            .get_or_insert_with(|| self.members.iter().chain(Some(member)).collect());
+                        scratch.used.clear();
+                        scratch.used.resize(squad.len(), false);
+                        best_assignment(squad, year, scratch)
+                    }
+                };
+                let squad = squad.get_or_insert_with(|| {
+                    self.members.iter().chain(Some(member)).collect()
+                });
+                *view = year_view_from(squad, year, &picks, scratch);
+                value += self.weights[year] * view.expected;
+            }
+            Evaluation { years, value }
+        })
+    }
+
+    /// Whether adding `member` cannot change the cover of this year's side: every slot already has
+    /// a bench player covering it, and the newcomer is no better than that cover anywhere. The
+    /// cover is chosen from the bench, best pairing first; a newcomer who loses every pairing is
+    /// never picked, so this year's view is exactly the squad's own.
+    fn reuses_base_cover(&self, year: usize, member: &Member) -> bool {
+        if member.shift[year].is_none() {
+            return true;
+        }
+        let base = &self.base.years[year];
+        base.cover_index.iter().all(Option::is_some)
+            && (0..SLOTS).all(|slot| {
+                member
+                    .level(slot, year)
+                    .is_none_or(|level| level <= base.cover[slot])
+            })
+    }
+
+    /// [`SquadModel::evaluate_with`] without the unchanged-cover shortcut, for the test that checks
+    /// the shortcut changes no year.
+    #[cfg(test)]
+    pub(crate) fn evaluate_with_full(&self, member: &Member) -> Evaluation {
         let squad: Vec<&Member> = self.members.iter().chain(Some(member)).collect();
         SCRATCH.with(|scratch| {
             let scratch = &mut *scratch.borrow_mut();
@@ -476,6 +533,20 @@ impl SquadModel {
         })
     }
 }
+
+/// Test-only count of years answered from the squad's own view without recomputing the cover,
+/// so a test can prove the shortcut takes part in the evaluation rather than sit unused.
+#[cfg(test)]
+pub(crate) static BASE_COVER_REUSES: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(test)]
+fn note_base_cover_reuse() {
+    BASE_COVER_REUSES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(not(test))]
+fn note_base_cover_reuse() {}
 
 const EMPTY_YEAR: YearView = YearView {
     xi: 0.0,
@@ -686,6 +757,7 @@ fn solution_of(squad: &[&Member], year: usize, picks: &[Option<usize>; SLOTS]) -
 }
 
 /// What adding a player does to a year's best side.
+#[derive(Clone, Copy)]
 enum Chain {
     /// The side stays as it is: no chain of moves makes it better.
     Unchanged,

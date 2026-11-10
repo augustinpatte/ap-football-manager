@@ -484,6 +484,134 @@ fn adding_a_player_by_a_chain_is_exactly_a_fresh_solve() {
     println!("improving {improving}, worst cover difference {worst_cover}");
 }
 
+fn assert_same_evaluation(left: Evaluation, right: Evaluation, context: &str) {
+    assert_eq!(
+        left.value.to_bits(),
+        right.value.to_bits(),
+        "{context}: value {} against {}",
+        left.value,
+        right.value
+    );
+    for year in 0..HORIZON {
+        let (a, b) = (left.years[year], right.years[year]);
+        assert_eq!(a.xi.to_bits(), b.xi.to_bits(), "{context} year {year}: xi");
+        assert_eq!(
+            a.expected.to_bits(),
+            b.expected.to_bits(),
+            "{context} year {year}: expected"
+        );
+        assert_eq!(
+            a.starter.map(f32::to_bits),
+            b.starter.map(f32::to_bits),
+            "{context} year {year}: starter"
+        );
+        assert_eq!(
+            a.cover.map(f32::to_bits),
+            b.cover.map(f32::to_bits),
+            "{context} year {year}: cover"
+        );
+        assert_eq!(
+            a.absence.map(f32::to_bits),
+            b.absence.map(f32::to_bits),
+            "{context} year {year}: absence"
+        );
+        assert_eq!(
+            a.starter_index, b.starter_index,
+            "{context} year {year}: starter index"
+        );
+        assert_eq!(
+            a.cover_index, b.cover_index,
+            "{context} year {year}: cover index"
+        );
+    }
+}
+
+/// Given a signing who is worse than every cover the squad already has, in every horizon year
+/// When his appraisal reuses the squad's own view instead of pairing the bench again
+/// Then every year is exactly what the full evaluation answers.
+#[test]
+fn a_signing_below_the_whole_cover_reuses_the_squads_own_view() {
+    let club = club(&Squad::balanced());
+    let weak = player("weak", Striker, 30, 25);
+    let member = Member::candidate(&weak, &club.model.slots, today(), 0.0).unwrap();
+    for year in 0..HORIZON {
+        assert!(
+            club.model.reuses_base_cover(year, &member),
+            "year {year} must allow the reuse the test is about"
+        );
+    }
+    let before = BASE_COVER_REUSES.load(std::sync::atomic::Ordering::Relaxed);
+    let optimized = club.model.evaluate_with(&member);
+    let after = BASE_COVER_REUSES.load(std::sync::atomic::Ordering::Relaxed);
+    assert!(
+        after > before,
+        "the shortcut must take part in the evaluation"
+    );
+    let full = club.model.evaluate_with_full(&member);
+    assert_same_evaluation(optimized, full, "weak signing");
+}
+
+/// Given many random squads and random candidates
+/// When a signing is evaluated with the unchanged-cover shortcut and without it
+/// Then every year, index and rating is bit for bit the same: the shortcut only skips work.
+#[test]
+fn the_unchanged_cover_shortcut_answers_exactly_as_the_full_evaluation() {
+    use domain::player::Position;
+    let positions = [
+        Goalkeeper,
+        LeftBack,
+        RightBack,
+        CenterBack,
+        LeftMidfielder,
+        RightMidfielder,
+        CentralMidfielder,
+        AttackingMidfielder,
+        RightWinger,
+        Striker,
+    ];
+    let mut rng = rand::rngs::StdRng::seed_from_u64(5150);
+    let mut reused = 0;
+    for case in 0..80 {
+        let size = rng.random_range(12..=26);
+        let mut squad = Squad::new();
+        for i in 0..size {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            squad.players.push(player(
+                &format!("s{case}p{i}"),
+                position,
+                rng.random_range(45..=88),
+                rng.random_range(17..=36),
+            ));
+        }
+        let club = club(&squad);
+        for k in 0..5 {
+            let position: Position = positions[rng.random_range(0..positions.len())].clone();
+            let candidate = player(
+                &format!("s{case}cand{k}"),
+                position,
+                rng.random_range(20..=90),
+                rng.random_range(17..=36),
+            );
+            let Some(member) = Member::candidate(&candidate, &club.model.slots, today(), 0.0)
+            else {
+                continue;
+            };
+            for year in 0..HORIZON {
+                if club.model.reuses_base_cover(year, &member) {
+                    reused += 1;
+                }
+            }
+            let optimized = club.model.evaluate_with(&member);
+            let full = club.model.evaluate_with_full(&member);
+            assert_same_evaluation(optimized, full, &format!("case {case} candidate {k}"));
+        }
+    }
+    assert!(
+        reused > 30,
+        "the test must exercise the shortcut: {reused} year views reused"
+    );
+}
+
 /// Given a player with a short injury
 /// When he is read for a signing (today) and for planning
 /// Then today's reading raises his chance of missing a match and planning's does not: what he is
