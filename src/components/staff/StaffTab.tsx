@@ -111,7 +111,11 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   const { t, i18n } = useTranslation();
   const { sessionState } = useGameStore();
   const [fetchedStaff, setFetchedStaff] = useState<StaffSlice | null>(null);
-  const [view, setView] = useState<"mystaff" | "available" | "management">("mystaff");
+  // The dashboard alert for waiting proposals sends the manager here; the answers live on the
+  // management view, so that is where the tab opens while any are pending.
+  const [view, setView] = useState<"mystaff" | "available" | "management">(() =>
+    (gameState?.delegation?.proposals?.length ?? 0) > 0 ? "management" : "mystaff",
+  );
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
