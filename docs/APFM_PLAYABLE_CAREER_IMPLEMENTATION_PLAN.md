@@ -18,6 +18,16 @@ schema; one stage = one commit = tests first.
 | Gate-world squad study, 5 seeds × 2 seasons (release) | median **10.147 s**/seed (9.470–10.216), 4,184 buyer evaluations/seed, XI fit 67.97–68.41, unused joiners 9.1–18.4 % (audit §7) |
 | GUI playthrough | **none performed** |
 
+## Status update (later in the same day)
+
+* Stage 1: **already done** at HEAD `5f5a4dfc`, committed after this plan was written.
+* Stage 2: **done**, `9ef59840`. No backend change was needed: `delegation.proposals` already reaches
+  the frontend in the serialized `Game`; only the TypeScript type omitted it.
+* Stage 3: **done as a gap-fill**, `c2533ba6` (`src-tauri/src/application/playable_journey.rs`).
+* Stage 4: checklist written, **not performed**. Stages 5-8 not started.
+
+See `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for evidence and limits.
+
 ## 2. Stages
 
 Risk scale: **L**ow / **M**edium / **H**igh = chance the stage needs rework or exposes a deeper defect.
