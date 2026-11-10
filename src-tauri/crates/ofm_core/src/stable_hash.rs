@@ -12,12 +12,33 @@
 /// `seed` is folded into the offset basis, so nesting calls — hashing a player
 /// id under a club-and-date seed, say — keeps the streams independent.
 pub(crate) fn stable_hash(bytes: &[u8], seed: u64) -> u64 {
-    let mut hash = 0xcbf2_9ce4_8422_2325 ^ seed;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    let mut hasher = StableHasher::new(seed);
+    hasher.write(bytes);
+    hasher.finish()
+}
+
+/// [`stable_hash`] fed in pieces, so a caller with fields to hash needs no buffer to join them in.
+pub(crate) struct StableHasher {
+    hash: u64,
+}
+
+impl StableHasher {
+    pub(crate) fn new(seed: u64) -> Self {
+        Self {
+            hash: 0xcbf2_9ce4_8422_2325 ^ seed,
+        }
     }
-    hash
+
+    pub(crate) fn write(&mut self, bytes: &[u8]) {
+        for byte in bytes {
+            self.hash ^= u64::from(*byte);
+            self.hash = self.hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+
+    pub(crate) fn finish(self) -> u64 {
+        self.hash
+    }
 }
 
 #[cfg(test)]
@@ -27,6 +48,16 @@ mod tests {
     #[test]
     fn the_same_bytes_hash_the_same_way_every_time() {
         assert_eq!(stable_hash(b"club-42", 0), stable_hash(b"club-42", 0));
+    }
+
+    #[test]
+    fn writing_bytes_in_pieces_hashes_them_as_one_slice() {
+        let bytes = b"club-42-members-17";
+        let mut hasher = StableHasher::new(9);
+        hasher.write(&bytes[..4]);
+        hasher.write(&bytes[4..9]);
+        hasher.write(&bytes[9..]);
+        assert_eq!(hasher.finish(), stable_hash(bytes, 9));
     }
 
     #[test]

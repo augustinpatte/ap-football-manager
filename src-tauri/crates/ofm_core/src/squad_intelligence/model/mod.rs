@@ -29,6 +29,7 @@ use domain::player::{Player, Position, SquadRole};
 use super::horizon::{HORIZON, projected_shifts};
 use crate::player_rating::{formation_slots, natural_ovr, positional_fit_for_assignment};
 use crate::squad_outlook::PlannedPlayer;
+use crate::stable_hash::StableHasher;
 
 /// Players on the pitch.
 pub(crate) const SLOTS: usize = 11;
@@ -365,43 +366,43 @@ impl SquadModel {
     /// formation and the horizon weights. Quantised to what moves a decision, so an unchanged squad
     /// keeps its number from one day to the next and answers can be kept.
     pub(crate) fn fingerprint(&self) -> u64 {
-        let mut bytes: Vec<u8> = Vec::with_capacity(self.members.len() * 48 + 32);
-        bytes.extend_from_slice(self.formation.as_bytes());
+        let mut hasher = StableHasher::new(0x7371_7561_6473);
+        hasher.write(self.formation.as_bytes());
         for weight in self.weights {
-            bytes.extend_from_slice(&((weight * 1_000.0).round() as u16).to_le_bytes());
+            hasher.write(&((weight * 1_000.0).round() as u16).to_le_bytes());
         }
         for member in &self.members {
-            bytes.extend_from_slice(member.id.as_bytes());
-            bytes.push(u8::from(member.natural_keeper));
-            bytes.extend_from_slice(&member.age.to_le_bytes());
-            bytes.push(member.ovr);
-            bytes.push(member.potential);
-            bytes.push((member.absence * ABSENCE_STEPS).round() as u8);
+            hasher.write(member.id.as_bytes());
+            hasher.write(&[u8::from(member.natural_keeper)]);
+            hasher.write(&member.age.to_le_bytes());
+            hasher.write(&[member.ovr, member.potential]);
+            hasher.write(&[(member.absence * ABSENCE_STEPS).round() as u8]);
             for fit in member.fit {
-                bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
+                hasher.write(&(fit.round() as i16).to_le_bytes());
             }
             for shift in member.shift {
-                bytes
-                    .extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
+                hasher.write(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
             }
         }
-        crate::stable_hash::stable_hash(&bytes, 0x7371_7561_6473)
+        hasher.finish()
     }
 
     /// A number that changes when anything an evaluation of `member` added to this squad depends on
     /// changes in him: how good he is in each slot, how likely he is to be absent, where he is
     /// headed. Quantised like [`SquadModel::fingerprint`].
     pub(crate) fn fingerprint_of(member: &Member) -> u64 {
-        let mut bytes: Vec<u8> = Vec::with_capacity(48);
-        bytes.push(u8::from(member.natural_keeper));
-        bytes.push((member.absence * ABSENCE_STEPS).round() as u8);
+        let mut hasher = StableHasher::new(0x6d65_6d62_6572);
+        hasher.write(&[
+            u8::from(member.natural_keeper),
+            (member.absence * ABSENCE_STEPS).round() as u8,
+        ]);
         for fit in member.fit {
-            bytes.extend_from_slice(&(fit.round() as i16).to_le_bytes());
+            hasher.write(&(fit.round() as i16).to_le_bytes());
         }
         for shift in member.shift {
-            bytes.extend_from_slice(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
+            hasher.write(&shift.map_or(i16::MIN, |s| s.round() as i16).to_le_bytes());
         }
-        crate::stable_hash::stable_hash(&bytes, 0x6d65_6d62_6572)
+        hasher.finish()
     }
 
     /// The model after the squad takes on `member`. Each horizon year's best side is the squad's
@@ -416,7 +417,8 @@ impl SquadModel {
             // first year that asks for one (most candidates never do).
             let mut squad: Option<Vec<&Member>> = None;
             for (year, view) in years.iter_mut().enumerate() {
-                let chain = improving_chain(&self.solutions[year], member, year, self.members.len());
+                let chain =
+                    improving_chain(&self.solutions[year], member, year, self.members.len());
                 if matches!(chain, Chain::Unchanged) && self.reuses_base_cover(year, member) {
                     note_base_cover_reuse();
                     *view = self.base.years[year];
@@ -427,16 +429,16 @@ impl SquadModel {
                     Chain::Unchanged => self.solutions[year].picks,
                     Chain::Moves(picks) => picks,
                     Chain::Unknown => {
-                        let squad = squad
-                            .get_or_insert_with(|| self.members.iter().chain(Some(member)).collect());
+                        let squad = squad.get_or_insert_with(|| {
+                            self.members.iter().chain(Some(member)).collect()
+                        });
                         scratch.used.clear();
                         scratch.used.resize(squad.len(), false);
                         best_assignment(squad, year, scratch)
                     }
                 };
-                let squad = squad.get_or_insert_with(|| {
-                    self.members.iter().chain(Some(member)).collect()
-                });
+                let squad =
+                    squad.get_or_insert_with(|| self.members.iter().chain(Some(member)).collect());
                 *view = year_view_from(squad, year, &picks, scratch);
                 value += self.weights[year] * view.expected;
             }
@@ -1023,11 +1025,7 @@ fn assign_cover(squad: &[&Member], year: usize, view: &mut YearView, scratch: &m
     pairs.clear();
     for (position, &index) in bench.iter().enumerate() {
         for slot in 0..SLOTS {
-            pairs.push(pairing_key(
-                squad[index].levels[year][slot],
-                slot,
-                position,
-            ));
+            pairs.push(pairing_key(squad[index].levels[year][slot], slot, position));
         }
     }
     pairs.sort_unstable();
