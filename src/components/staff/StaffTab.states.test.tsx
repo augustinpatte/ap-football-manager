@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import i18n, { i18nReady } from "../../i18n";
@@ -35,8 +35,10 @@ const overviewFixture = {
 
 /** How the next get_staff_overview calls answer; a test sets it and the fake reads it each time. */
 const backend = {
-  overview: "ok" as "ok" | "pending" | "fail",
+  overview: "ok" as "ok" | "pending" | "fail" | "deferred",
   overviewCalls: 0,
+  /** Answers the overview a "deferred" call is waiting on. */
+  release: () => {},
 };
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -52,6 +54,11 @@ vi.mock("@tauri-apps/api/core", () => ({
       case "get_staff_overview":
         backend.overviewCalls += 1;
         if (backend.overview === "pending") return new Promise(() => {});
+        if (backend.overview === "deferred") {
+          return new Promise((resolve) => {
+            backend.release = () => resolve(overviewFixture);
+          });
+        }
         if (backend.overview === "fail") return Promise.reject("be.error.noActiveGameSession");
         return Promise.resolve(overviewFixture);
       case "search_staff_candidates":
@@ -152,5 +159,44 @@ describe("the Staff Management view while the backend answers, fails and is aske
     expect(await screen.findByText("Delegation")).toBeInTheDocument();
     expect(backend.overviewCalls).toBeGreaterThan(callsBeforeRecovery);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a failed load and a Retry that is still waiting on the backend,
+   * when the manager has pressed it,
+   * then the button is disabled and busy so a second press does nothing, the reason stays outside
+   *      the button, and the Loading line is shown.
+   */
+  it("shows Retry as busy while it waits, with the reason apart from the button", async () => {
+    backend.overview = "fail";
+    await openManagement();
+    const alert = await screen.findByRole("alert");
+    expect(alert).not.toContainElement(screen.getByRole("button", { name: "Retry" }));
+    backend.overview = "deferred";
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(retry).toBeDisabled();
+    expect(retry).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading...");
+  });
+
+  /**
+   * Given a Retry that then succeeds,
+   * when the panel replaces the error,
+   * then keyboard focus moves to the Management region instead of falling to the page body.
+   */
+  it("moves focus to the Management region when Retry succeeds", async () => {
+    backend.overview = "fail";
+    await openManagement();
+    await screen.findByRole("alert");
+    backend.overview = "deferred";
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("button", { name: "Retry" });
+
+    await act(async () => backend.release());
+
+    expect(await screen.findByRole("region", { name: "Management" })).toHaveFocus();
   });
 });

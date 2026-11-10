@@ -249,6 +249,7 @@ describe("delegation proposals, from the dashboard alert to the answer", () => {
     fireEvent.click(screen.getByRole("button", { name: FR_ALERT }));
 
     expect(await screen.findAllByRole("button", { name: "Accepter" })).toHaveLength(2);
+    expect(screen.getAllByText(/1 août 2026/)).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Refuser" })).toHaveLength(2);
     expect(
       screen.queryByText(/dashboard\.alerts|staff\.delegation|delegation\.(proposal|reason)/),

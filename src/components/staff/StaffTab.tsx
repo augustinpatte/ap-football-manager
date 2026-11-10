@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type GameStateData, type StaffData, useGameStore } from "../../store/gameStore";
 import {
   getStaff,
@@ -133,6 +133,10 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   const [overview, setOverview] = useState<StaffOverview | null>(null);
   // Why the overview is missing, when it is: the Management view shows it instead of a blank panel.
   const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [overviewPending, setOverviewPending] = useState(false);
+  // Set when the manager pressed Retry, so a success hands focus to the panel that replaces it.
+  const [retried, setRetried] = useState(false);
+  const managementRegion = useRef<HTMLElement>(null);
   const [candidates, setCandidates] = useState<Record<string, CandidateView>>({});
   const [offer, setOffer] = useState<{ staff: StaffData; mode: "hire" | "renew" } | null>(null);
   const [releasing, setReleasing] = useState<StaffData | null>(null);
@@ -152,6 +156,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
   // it comes from the backend, so it is read again after every change to the game.
   const refreshManagement = () => {
     if (!teamId) return;
+    setOverviewPending(true);
     void getStaffOverview()
       .then((fresh) => {
         setOverview(fresh);
@@ -160,13 +165,20 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
       .catch((error: unknown) => {
         console.error("Failed to read the staff overview:", error);
         setOverviewError(resolveBackendKeyError(error, t("staff.mgmt.loadFailed")));
-      });
+      })
+      .finally(() => setOverviewPending(false));
     void searchStaffCandidates(null, 0)
       .then((found) => setCandidates(Object.fromEntries(found.map((c) => [c.staff.id, c]))))
       // Without asking wages the free agents still list; only the "asks" line is missing.
       .catch((error: unknown) => console.error("Failed to read the staff candidates:", error));
   };
   useEffect(refreshManagement, [teamId]);
+  useEffect(() => {
+    if (retried && overview) {
+      managementRegion.current?.focus();
+      setRetried(false);
+    }
+  }, [retried, overview]);
 
   const openScoutingWorkflowLabel = t("staff.openScoutingWorkflow");
 
@@ -312,35 +324,57 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
         </p>
       ) : null}
 
+      {/* Always on the page, so what arrives in it is announced: Loading, or an empty list. */}
+      <div role="status" aria-live="polite">
+        {view === "management" && !overview && (overviewPending || !overviewError) ? (
+          <p className="py-6 text-body text-fg-muted">{t("common.loading")}</p>
+        ) : null}
+        {view !== "management" && filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <UserCog aria-hidden="true" className="w-12 h-12 text-fg-subtle mx-auto mb-3" />
+            <p className="text-body text-fg-muted">
+              {view === "mystaff" ? t("staff.noStaffMatch") : t("staff.noAvailableStaff")}
+            </p>
+          </div>
+        ) : null}
+      </div>
+
       {view === "management" && !overview ? (
         overviewError ? (
-          <div role="alert" className="grid justify-items-start gap-2 py-6">
-            <p className="text-body text-danger">{overviewError}</p>
-            <Button size="sm" variant="outline" onClick={refreshManagement}>
+          <div className="grid justify-items-start gap-2 py-6">
+            <p role="alert" className="text-body text-danger">
+              {overviewError}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={overviewPending}
+              aria-busy={overviewPending}
+              onClick={() => {
+                setRetried(true);
+                refreshManagement();
+              }}
+            >
               {t("common.retry")}
             </Button>
           </div>
-        ) : (
-          <p role="status" className="py-6 text-body text-fg-muted">
-            {t("common.loading")}
-          </p>
-        )
+        ) : null
       ) : view === "management" ? (
-        <StaffManagementPanel
-          overview={overview}
-          onGameUpdate={(updated) => {
-            onGameUpdate?.(updated);
-            refreshManagement();
-          }}
-        />
-      ) : filtered.length === 0 ? (
-        <div className="py-12 text-center">
-          <UserCog aria-hidden="true" className="w-12 h-12 text-fg-subtle mx-auto mb-3" />
-          <p role="status" className="text-body text-fg-muted">
-            {view === "mystaff" ? t("staff.noStaffMatch") : t("staff.noAvailableStaff")}
-          </p>
-        </div>
-      ) : (
+        <section
+          ref={managementRegion}
+          aria-label={t("staff.mgmt.tab")}
+          tabIndex={-1}
+          className={`rounded-lg ${FOCUS_RING}`}
+        >
+          <StaffManagementPanel
+            overview={overview}
+            onGameUpdate={(updated) => {
+              onGameUpdate?.(updated);
+              refreshManagement();
+            }}
+          />
+        </section>
+      ) : filtered.length === 0 ? null : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((staff) => {
             const roleIcon = ROLE_ICONS[staff.role] || ROLE_ICONS.Coach;

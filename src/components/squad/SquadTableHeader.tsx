@@ -27,13 +27,13 @@ export function SquadTableHeader({ hidden, sortKey, sortDir, onSort }: SquadTabl
     );
 
   return (
-    <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
+    <tr className="border-b border-line bg-sunken text-caption">
       {sortable("jersey", t("squad.jerseyNumber"), t("squad.jerseyNumberFull"))}
       {sortable("name", t("common.name"))}
       {sortable("pos", t("squad.pos"))}
       {sortable("fit", t("squad.formationFit"))}
       {hidden.has("traits") ? null : (
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-fg-muted">
           {t("squad.traits")}
         </th>
       )}
@@ -42,7 +42,7 @@ export function SquadTableHeader({ hidden, sortKey, sortDir, onSort }: SquadTabl
       {sortable("morale", t("common.morale"))}
       {sortable("ovr", t("common.ovr"))}
       {sortable("contract", t("common.contract"))}
-      <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-right">
+      <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-fg-muted text-right">
         <span className="sr-only">{t("common.actions")}</span>
       </th>
     </tr>

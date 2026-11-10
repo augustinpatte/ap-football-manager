@@ -779,7 +779,7 @@ export default function SquadRosterView({
                                 event.stopPropagation();
                                 onSelectPlayer(player.id);
                               }}
-                              className="truncate rounded text-left font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+                              className="truncate rounded text-left font-semibold text-body text-fg group-hover:text-positive transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
                             >
                               {player.match_name}
                             </button>

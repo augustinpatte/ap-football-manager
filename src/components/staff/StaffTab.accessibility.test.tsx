@@ -244,19 +244,24 @@ describe("the Staff screen's keyboard and screen-reader contract", () => {
   });
 
   /**
-   * Given a fetched staff list that is empty for the search,
-   * when the manager has typed a search,
-   * then the empty message reaches a screen reader as a status, not only as visible text.
+   * Given a status region that is on the page before anything is said,
+   * when a search matches nobody,
+   * then the empty message arrives inside that same region, which is what a screen reader
+   *      announces, and it is gone again when the search is cleared.
    */
-  it("announces an empty result", async () => {
+  it("announces an empty result through a status region that was already there", async () => {
     await renderStaffTab();
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    const search = screen.getByRole("searchbox", { name: "Search staff..." });
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search staff..." }), {
-      target: { value: "zzz" },
-    });
+    fireEvent.change(search, { target: { value: "zzz" } });
 
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/no staff members match/i),
-    );
+    expect(screen.getByRole("status")).toBe(region);
+    await waitFor(() => expect(region).toHaveTextContent(/no staff members match/i));
+
+    fireEvent.change(search, { target: { value: "" } });
+
+    expect(region).toBeEmptyDOMElement();
   });
 });

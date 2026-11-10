@@ -21,12 +21,15 @@ export function SquadColumnChooser({ hidden, onToggle, onShowAll }: SquadColumnC
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const toggle = useRef<HTMLButtonElement>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
 
-  // Escape closes the panel wherever focus is inside it, and hands focus back to the button.
+  // Escape closes the panel when focus is inside it (or on its button), and hands focus back to the
+  // button. Escape pressed in a menu or dialog elsewhere is that widget's, not this panel's.
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (!wrapper.current?.contains(document.activeElement)) return;
       setOpen(false);
       toggle.current?.focus();
     };
@@ -35,7 +38,7 @@ export function SquadColumnChooser({ hidden, onToggle, onShowAll }: SquadColumnC
   }, [open]);
 
   return (
-    <div className="relative">
+    <div ref={wrapper} className="relative">
       <button
         ref={toggle}
         type="button"
@@ -64,7 +67,7 @@ export function SquadColumnChooser({ hidden, onToggle, onShowAll }: SquadColumnC
               <label htmlFor={`${panelId}-${id}`}>{t(labelKey)}</label>
             </div>
           ))}
-          <Button size="sm" variant="ghost" disabled={hidden.size === 0} onClick={onShowAll}>
+          <Button size="sm" variant="ghost" onClick={onShowAll}>
             {t("squad.columnsShowAll")}
           </Button>
         </fieldset>

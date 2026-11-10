@@ -16,7 +16,7 @@ import {
 } from "../../services/staffService";
 import { getActiveGame } from "../../services/sessionService";
 import { resolveBackendError } from "../../utils/backendI18n";
-import { formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
+import { formatDate, formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
 import DelegationModeCard from "./DelegationModeCard";
 
@@ -67,8 +67,14 @@ export default function StaffManagementPanel({
   overview,
   onGameUpdate,
 }: StaffManagementPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const named = useParams();
+  const shortDate = (iso: string) =>
+    formatDate(iso.slice(0, 10), i18n.language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   const [recs, setRecs] = useState<AssistantRecommendation[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -241,8 +247,7 @@ export default function StaffManagementPanel({
                     {t(proposal.reason_key, named(proposal.params))}
                   </p>
                   <p className="text-caption text-fg-subtle">
-                    {t(`staff.delegation.duties.${proposal.duty}`)} ·{" "}
-                    {proposal.created.slice(0, 10)}
+                    {t(`staff.delegation.duties.${proposal.duty}`)} · {shortDate(proposal.created)}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -281,7 +286,7 @@ export default function StaffManagementPanel({
                 .slice(0, 8)
                 .map((entry, index) => (
                   <li key={`${entry.date}-${index}`}>
-                    {entry.date.slice(0, 10)} · {logTitle(entry)}
+                    {shortDate(entry.date)} · {logTitle(entry)}
                     {entry.outcome === "executed" ? null : (
                       <>
                         {" · "}

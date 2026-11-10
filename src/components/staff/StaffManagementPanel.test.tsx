@@ -291,7 +291,8 @@ describe("StaffManagementPanel", () => {
   /**
    * Given a proposal from the recruitment duty, made on 1 August,
    * when it is listed,
-   * then it says which duty it belongs to and when it was made: the manager sees who is asking.
+   * then it says which duty it belongs to and when it was made, in the language's own date
+   *      format, not as a raw ISO string: the manager sees who is asking.
    */
   it("names the duty and the date a proposal comes from", () => {
     render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
@@ -299,7 +300,7 @@ describe("StaffManagementPanel", () => {
     const proposal = screen.getByTestId("proposal-prop-1");
 
     expect(proposal).toHaveTextContent("staff.delegation.duties.StaffRecruitment");
-    expect(proposal).toHaveTextContent("2026-08-01");
+    expect(proposal).toHaveTextContent("Aug 1, 2026");
   });
 
   /**

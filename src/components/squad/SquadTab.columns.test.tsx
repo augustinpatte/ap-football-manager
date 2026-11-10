@@ -308,4 +308,40 @@ describe("the squad table's column chooser", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/^squad\./)).not.toBeInTheDocument();
   });
+
+  /**
+   * Given the chooser open and focus in the search box,
+   * when Escape is pressed there,
+   * then the panel is left open: Escape closes the thing focus is in, not every open panel.
+   */
+  it("ignores Escape pressed outside the panel", async () => {
+    renderSquad();
+    fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
+    const search = screen.getByRole("textbox");
+    search.focus();
+
+    fireEvent.keyDown(search, { key: "Escape" });
+
+    expect(screen.getByRole("group", { name: "Columns" })).toBeInTheDocument();
+  });
+
+  /**
+   * Given hidden columns and keyboard focus on Show all columns,
+   * when it is pressed,
+   * then the button is still enabled and focused: it does not disable itself under the keyboard.
+   */
+  it("keeps Show all columns enabled and focused after it is used", async () => {
+    useSettingsStore.setState((state) => ({
+      settings: { ...state.settings, squad_hidden_columns: ["age"] },
+    }));
+    renderSquad();
+    fireEvent.click(await screen.findByRole("button", { name: "Columns" }));
+    const showAll = screen.getByRole("button", { name: "Show all columns" });
+    showAll.focus();
+
+    fireEvent.click(showAll);
+
+    expect(showAll).toBeEnabled();
+    expect(showAll).toHaveFocus();
+  });
 });
