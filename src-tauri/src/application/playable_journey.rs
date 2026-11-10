@@ -198,9 +198,9 @@ fn play_season_delegated(state: &StateManager) {
 #[test]
 fn squad_and_tactic_choices_are_kept_and_survive_a_reload() {
     let mut session = Session::begin();
-    apply_tactic_preset_internal(&session.state, "4-4-2", "HighPress").expect("a preset applies");
+    apply_tactic_preset_internal(&session.state, "4-3-3", "HighPress").expect("a preset applies");
     let game = session.game();
-    let mut eleven = eleven_for(&game, "4-4-2");
+    let mut eleven = eleven_for(&game, "4-3-3");
     set_starting_xi_internal(&session.state, eleven.clone()).expect("an eleven is set");
     let squad = user_squad(&game);
     let (slot, bench_player) = eleven
@@ -223,7 +223,7 @@ fn squad_and_tactic_choices_are_kept_and_survive_a_reload() {
         .iter()
         .find(|t| t.id == user_team_id(&stored))
         .unwrap();
-    assert_eq!(team.formation, "4-4-2");
+    assert_eq!(team.formation, "4-3-3");
     assert_eq!(team.play_style, domain::team::PlayStyle::HighPress);
     assert_eq!(team.starting_xi_ids, eleven, "the swap holds its slot");
 }
@@ -372,15 +372,15 @@ fn a_transfer_is_scheduled_on_acceptance_and_completes_on_its_registration_date(
     let (target, fee, date) = signed.expect("no bid was accepted");
 
     let at_club = |g: &Game| user_squad(g).iter().any(|p| p.id == target);
+    let today = |g: &Game| g.clock.current_date.format("%Y-%m-%d").to_string();
+    let on_acceptance = session.game();
     assert!(
-        !at_club(&session.game())
-            || date
-                <= session
-                    .game()
-                    .clock
-                    .current_date
-                    .format("%Y-%m-%d")
-                    .to_string()
+        date > today(&on_acceptance),
+        "the deal is registered on a later day ({date})"
+    );
+    assert!(
+        !at_club(&on_acceptance),
+        "the player joined before his registration date"
     );
     for _ in 0..30 {
         if at_club(&session.game()) {
@@ -392,6 +392,11 @@ fn a_transfer_is_scheduled_on_acceptance_and_completes_on_its_registration_date(
     assert!(
         at_club(&after),
         "the player never arrived (registration date {date})"
+    );
+    assert!(
+        today(&after) >= date,
+        "the player arrived on {} before his registration date {date}",
+        today(&after)
     );
     assert_eq!(
         user_squad(&after).len(),
@@ -439,15 +444,17 @@ fn a_bid_above_the_transfer_budget_is_refused_and_changes_nothing() {
     assert_eq!(user_squad(&after).len(), user_squad(&before).len());
 }
 
-/// Given the assistant has left a proposal waiting,
-/// When the manager rejects it,
-/// Then no proposal is pending (what the dashboard alert counts) and the player the proposal
-///      concerned is still at the club.
-#[test]
-fn a_pending_proposal_is_counted_until_the_manager_answers_it() {
-    let session = Session::begin();
+/// Queues one "list this player for sale" proposal, as the assistant would, and returns the player
+/// it concerns and the proposal's id.
+fn queue_listing_proposal(session: &Session) -> (String, String) {
     let game = session.game();
-    let player_id = user_squad(&game)[0].id.clone();
+    // An unlisted outfielder: the squad floor refuses to list the club's only spare keeper.
+    let player_id = user_squad(&game)
+        .iter()
+        .find(|p| p.natural_position != domain::player::Position::Goalkeeper && !p.transfer_listed)
+        .expect("the squad has an outfielder")
+        .id
+        .clone();
     mutate_active_game(&session.state, |game| {
         let queued = game.delegation.propose(
             domain::delegation::Duty::Offers,
@@ -465,15 +472,64 @@ fn a_pending_proposal_is_counted_until_the_manager_answers_it() {
     .expect("a proposal is queued");
     let pending = session.game().delegation.proposals.clone();
     assert_eq!(pending.len(), 1);
+    assert!(
+        !session
+            .game()
+            .players
+            .iter()
+            .find(|p| p.id == player_id)
+            .unwrap()
+            .transfer_listed,
+        "the player starts unlisted"
+    );
+    (player_id, pending[0].id.clone())
+}
 
+fn answer_proposal(session: &Session, proposal_id: &str, accept: bool) {
     mutate_active_game(&session.state, |game| {
-        ofm_core::staff_system::delegation::resolve_proposal(game, &pending[0].id, false)
+        ofm_core::staff_system::delegation::resolve_proposal(game, proposal_id, accept)
     })
     .expect("the proposal is answered");
+}
+
+fn is_listed(game: &Game, player_id: &str) -> bool {
+    game.players
+        .iter()
+        .find(|p| p.id == player_id)
+        .unwrap()
+        .transfer_listed
+}
+
+/// Given the assistant has left a proposal to list a player,
+/// When the manager rejects it,
+/// Then no proposal is pending (what the dashboard alert counts), the player is not listed, and
+///      he is still at the club.
+#[test]
+fn a_rejected_proposal_leaves_the_player_unlisted_and_clears_the_alert_count() {
+    let session = Session::begin();
+    let (player_id, proposal_id) = queue_listing_proposal(&session);
+
+    answer_proposal(&session, &proposal_id, false);
 
     let game = session.game();
     assert!(game.delegation.proposals.is_empty());
+    assert!(!is_listed(&game, &player_id));
     assert!(user_squad(&game).iter().any(|p| p.id == player_id));
+}
+
+/// Given the same proposal,
+/// When the manager accepts it,
+/// Then no proposal is pending and the player is listed for sale.
+#[test]
+fn an_accepted_proposal_acts_and_clears_the_alert_count() {
+    let session = Session::begin();
+    let (player_id, proposal_id) = queue_listing_proposal(&session);
+
+    answer_proposal(&session, &proposal_id, true);
+
+    let game = session.game();
+    assert!(game.delegation.proposals.is_empty());
+    assert!(is_listed(&game, &player_id));
 }
 
 /// Given a club with no assistant manager,
