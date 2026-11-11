@@ -33,7 +33,7 @@ pub fn upgrade_game_player_identities(game: &mut Game) -> bool {
 /// it is preserved (and only raised when the refreshed `ovr` would exceed it)
 /// rather than shifted with the rating. Moving it would alter thousands of
 /// intended ceilings to hide a tiny change in growth room.
-pub fn upgrade_player_identity(
+pub(crate) fn upgrade_player_identity(
     player: &mut Player,
     assigned_slot: Option<&Position>,
     on: NaiveDate,

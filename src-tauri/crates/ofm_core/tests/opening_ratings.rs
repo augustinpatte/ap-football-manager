@@ -179,3 +179,58 @@ fn the_identity_upgrade_is_idempotent_once_a_career_has_begun() {
         .collect();
     assert_eq!(snapshot, after);
 }
+
+/// Measurement, not a gate: how far the generated market value and wage sit from what the
+/// corrected rating would price, by position. Value and wage are sized at generation from the
+/// rating of the coarse group the player was generated as (`500 * ovr^2 * age factor`; wage =
+/// value / 200), and D6 corrects `ovr` afterwards without re-pricing, so a winger is now rated
+/// above the rating his price was set from. Printed for `docs/APFM_P46_INTEGRATION_AND_PERSISTENCE.md`.
+///
+/// `cargo test -p ofm_core --test opening_ratings economy -- --ignored --nocapture`
+#[test]
+#[ignore = "measurement"]
+fn economy_priced_before_the_rating_correction() {
+    use std::collections::BTreeMap;
+    let (mut game, club) = generated();
+    let before: std::collections::HashMap<String, u8> =
+        game.players.iter().map(|p| (p.id.clone(), p.ovr)).collect();
+    begin_career(&mut game, &club, CareerScope::default(), Default::default())
+        .expect("the career begins");
+    let on = game.clock.current_date.date_naive();
+    // position -> (n, sum ovr before, sum ovr after, sum value, sum value at corrected rating, sum wage)
+    let mut rows: BTreeMap<String, (u32, f64, f64, f64, f64, f64)> = BTreeMap::new();
+    for player in game.players.iter().filter(|p| p.team_id.is_some()) {
+        let Some(&old) = before.get(&player.id) else {
+            continue;
+        };
+        let factor = match domain::age::playing_age(on, &player.date_of_birth) {
+            0..=23 => 1.5,
+            24..=28 => 1.2,
+            29..=32 => 0.8,
+            _ => 0.4,
+        };
+        let value_now = 500.0 * f64::from(player.ovr).powi(2) * factor;
+        let row = rows
+            .entry(format!("{:?}", player.natural_position))
+            .or_default();
+        row.0 += 1;
+        row.1 += f64::from(old);
+        row.2 += f64::from(player.ovr);
+        row.3 += player.market_value as f64;
+        row.4 += value_now;
+        row.5 += f64::from(player.wage());
+    }
+    eprintln!(
+        "position | n | ovr before | ovr after | value / value at corrected rating | wage / (value at corrected rating / 200)"
+    );
+    for (position, (n, old, new, value, value_now, wage)) in &rows {
+        let n = f64::from(*n);
+        eprintln!(
+            "{position} | {n} | {:.1} | {:.1} | {:.3} | {:.3}",
+            old / n,
+            new / n,
+            value / value_now,
+            wage / (value_now / 200.0)
+        );
+    }
+}

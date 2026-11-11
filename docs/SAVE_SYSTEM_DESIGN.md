@@ -282,12 +282,15 @@ measured on generated careers, are in `docs/APFM_RUN_F5_1_INTELLIGENT_WORLD.md` 
   load restarted the clock and a reloaded career received offers on different days. NULL is "no
   clock running", which is what every older save held in memory after loading, so an old save behaves
   as it always did. A stored value outside `u32` is damage and reads as NULL rather than refusing the
-  load. No save-format version bump: the field is `serde(default)` on `GameMeta`.
+  load. No save-format version bump (the field is `serde(default)` on `GameMeta`), but it is a schema
+  migration: a save opened by this build is at `user_version` 69, which a build with 68 migrations
+  refuses, as for every migration.
 - **Stale-rating repair on load** (`player_rating::repair_stale_ratings`). A save written by a build
   before D6 can hold a granular position beside the rating of the coarse group the player was
   generated as. On every load a player whose `ovr` drifts from his own attributes by more than
   `world_integrity::MAX_OVR_ATTRIBUTE_DRIFT` has his derived fields re-derived (`ovr`, attribute
-  traits, and a ceiling the new rating overtakes) and the save is written back. Identity, attributes,
+  traits, and a ceiling the new rating overtakes) and the save is written back. It needs no
+  save-format bump of its own. Identity, attributes,
   contract, wage and market value are not touched; a repaired save finds nothing to repair, and a
   player with no rating is left to the backfill.
 

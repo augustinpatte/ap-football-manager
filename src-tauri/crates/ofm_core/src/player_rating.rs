@@ -4,6 +4,13 @@ use domain::player::{
 };
 use rand::RngExt;
 
+/// The most the stored `ovr` may drift from the rating its own attributes produce. Generation
+/// and import both derive `ovr` from the attributes, so a larger gap means one of the two was
+/// edited without the other. Owned here, beside `natural_ovr`, so the world audit (which reports
+/// the drift) and the load-time repair (which fixes it) read one number and neither module has to
+/// depend on the other.
+pub const MAX_OVR_ATTRIBUTE_DRIFT: f64 = 2.0;
+
 const WONDERKID_MAX_AGE: u32 = 20;
 const WONDERKID_MIN_GROWTH_ROOM: u8 = 14;
 
@@ -67,7 +74,7 @@ pub fn refresh_player_derived(player: &mut Player, on: chrono::NaiveDate) {
 }
 
 /// Re-derive the rating of every player whose stored `ovr` has drifted from his own attributes by
-/// more than [`crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT`], the audit's definition of a
+/// more than [`MAX_OVR_ATTRIBUTE_DRIFT`], the audit's definition of a
 /// corrupt rating. Returns how many were repaired.
 ///
 /// Why this exists: careers saved by a build before D6 made each position granular without
@@ -81,12 +88,12 @@ pub fn refresh_player_derived(player: &mut Player, on: chrono::NaiveDate) {
 /// (`ovr` 0) is the load path's backfill, which also draws his ceiling, so he is skipped.
 pub fn repair_stale_ratings(players: &mut [Player], on: chrono::NaiveDate) -> usize {
     let mut repaired = 0;
-    for player in players.iter_mut().filter(|player| player.ovr > 0) {
-        let drift = (f64::from(player.ovr) - natural_ovr(player)).abs();
-        if drift > crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT {
-            refresh_player_derived(player, on);
-            repaired += 1;
-        }
+    for player in players
+        .iter_mut()
+        .filter(|player| player.ovr > 0 && ovr_drifts_from_attributes(player))
+    {
+        refresh_player_derived(player, on);
+        repaired += 1;
     }
     repaired
 }
@@ -256,6 +263,13 @@ fn formation_slot_rows(formation: &str) -> Vec<Vec<Position>> {
 pub fn natural_ovr(player: &Player) -> f64 {
     let natural_position = primary_position(player);
     ovr_for_position(player, &natural_position)
+}
+
+/// Whether a player's stored `ovr` has drifted from his own attributes by more than
+/// [`MAX_OVR_ATTRIBUTE_DRIFT`]. The one definition of the drift: the world audit reports it and the
+/// load-time repair fixes it.
+pub fn ovr_drifts_from_attributes(player: &Player) -> bool {
+    (f64::from(player.ovr) - natural_ovr(player)).abs() > MAX_OVR_ATTRIBUTE_DRIFT
 }
 
 pub fn ovr_for_position(player: &Player, position: &Position) -> f64 {
@@ -882,6 +896,9 @@ mod tests {
     fn a_stale_rating_is_rederived_and_nothing_else_about_the_player_changes() {
         let mut player = winger_off_by(-9);
         player.potential = 80;
+        player.market_value = 4_200_000;
+        player.team_id = Some("club".to_string());
+        player.stage_wage(21_000);
         let before = player.clone();
         let mut players = [player];
 
@@ -895,20 +912,16 @@ mod tests {
         assert_eq!(after.ovr, natural_ovr(after).round() as u8);
         assert_ne!(after.ovr, before.ovr, "the fixture must actually be stale");
         assert_eq!(after.potential, before.potential.max(after.ovr));
-        assert_eq!(
-            (
-                &after.id,
-                &after.attributes,
-                &after.natural_position,
-                &after.date_of_birth
-            ),
-            (
-                &before.id,
-                &before.attributes,
-                &before.natural_position,
-                &before.date_of_birth
-            )
-        );
+        // Everything but the three derived fields is byte-identical: wage, value, contract, club,
+        // identity and attributes included.
+        let without_derived = |player: &Player| {
+            let mut value = serde_json::to_value(player).unwrap();
+            for key in ["ovr", "potential", "traits"] {
+                value.as_object_mut().unwrap().remove(key);
+            }
+            value
+        };
+        assert_eq!(without_derived(after), without_derived(&before));
     }
 
     /// Given a player whose ceiling the corrected rating overtakes, when repaired, then the ceiling
@@ -937,20 +950,15 @@ mod tests {
         let on = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let reference = winger_off_by(0);
         let exact = natural_ovr(&reference);
-        let at_tolerance = (exact + crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT).floor() as u8;
+        let at_tolerance = (exact + MAX_OVR_ATTRIBUTE_DRIFT).floor() as u8;
         let mut within = reference.clone();
         within.ovr = at_tolerance;
         within.potential = 99;
         let mut beyond = reference.clone();
         beyond.ovr = at_tolerance + 1;
         beyond.potential = 99;
-        assert!(
-            (f64::from(within.ovr) - exact).abs()
-                <= crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT
-        );
-        assert!(
-            (f64::from(beyond.ovr) - exact).abs() > crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT
-        );
+        assert!((f64::from(within.ovr) - exact).abs() <= MAX_OVR_ATTRIBUTE_DRIFT);
+        assert!((f64::from(beyond.ovr) - exact).abs() > MAX_OVR_ATTRIBUTE_DRIFT);
         let mut players = [reference.clone(), within.clone(), beyond];
 
         let repaired = repair_stale_ratings(&mut players, on);

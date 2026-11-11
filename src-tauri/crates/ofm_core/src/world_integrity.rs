@@ -7,18 +7,13 @@
 //!
 //! Pure and read-only: nothing here edits a player, so it is safe to run over a user's database.
 
-use crate::player_rating::natural_ovr;
+use crate::player_rating::{natural_ovr, ovr_drifts_from_attributes};
 use chrono::{Datelike, NaiveDate};
 use domain::league::League;
 use domain::player::{Player, PlayerAttributes, SquadRole};
 use domain::team::Team;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
-
-/// The most the stored `ovr` may drift from the rating its own attributes produce. Generation
-/// and import both derive `ovr` from the attributes, so a larger gap means one of the two was
-/// edited without the other.
-pub const MAX_OVR_ATTRIBUTE_DRIFT: f64 = 2.0;
 
 /// A senior's plausible age band on the audit date; outside it the birth date is more likely
 /// wrong than the player unusual.
@@ -489,12 +484,11 @@ fn audit_ratings(player: &Player, findings: &mut Vec<IntegrityFinding>) {
             });
         }
     }
-    let computed = natural_ovr(player);
-    if (computed - f64::from(player.ovr)).abs() > MAX_OVR_ATTRIBUTE_DRIFT {
+    if ovr_drifts_from_attributes(player) {
         findings.push(IntegrityFinding::OvrDisagreesWithAttributes {
             player_id: player.id.clone(),
             stored: player.ovr,
-            computed,
+            computed: natural_ovr(player),
         });
     }
 }

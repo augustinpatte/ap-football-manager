@@ -624,16 +624,7 @@ impl SaveManager {
             needs_resave = true;
         }
 
-        // A save written before D6 can hold a granular position beside the rating of the coarse
-        // group the player was generated as. Unconditional and idempotent, like the fixture repair
-        // below: it touches only a rating the audit calls corrupt, and a repaired save has none.
-        let stale_ratings =
-            repair_stale_ratings(&mut game.players, game.clock.current_date.date_naive());
-        if stale_ratings > 0 {
-            info!(
-                "[save_manager] re-derived the stale rating of {} players in save {}",
-                stale_ratings, save_id
-            );
+        if repair_stale_player_ratings(&mut game, save_id) {
             needs_resave = true;
         }
 
@@ -802,6 +793,9 @@ impl SaveManager {
         game.scouted_players.clear();
         game.board_objectives.clear();
 
+        // The job-offer clock is the old career's session: a load used to restart it, but it is
+        // saved now (v069), so a new career must not receive its first offer on the old schedule.
+        game.days_since_last_job_offer = None;
         // A new career is a new game: its World Cups are drawn from its own seed, whatever the
         // save it began from did.
         game.legacy_world_cup_draw = false;
@@ -956,6 +950,19 @@ fn is_mirrored_side_pair(left_position: &Position, right_position: &Position) ->
             | (Position::LeftMidfielder, Position::RightMidfielder)
             | (Position::LeftWinger, Position::RightWinger)
     )
+}
+
+/// A save written before D6 can hold a granular position beside the rating of the coarse group the
+/// player was generated as. Unconditional and idempotent, like the stranded-fixture repair: it
+/// touches only a rating the audit calls corrupt, and a repaired save has none. `true` when
+/// anything changed, so the caller writes the repair back.
+fn repair_stale_player_ratings(game: &mut Game, save_id: &str) -> bool {
+    let on = game.clock.current_date.date_naive();
+    let repaired = repair_stale_ratings(&mut game.players, on);
+    if repaired > 0 {
+        info!("[save_manager] re-derived the stale rating of {repaired} players in save {save_id}");
+    }
+    repaired > 0
 }
 
 #[cfg(test)]
@@ -1427,17 +1434,10 @@ mod tests {
         Game::new(clock, manager, vec![team], players, vec![], vec![])
     }
 
-    /// Given a career saved by a build before D6: a winger already holding his granular position
-    /// but the rating of the coarse group he was generated as, beside a player whose rating is
-    /// sound,
-    /// When the save is loaded, and then loaded again after being resaved,
-    /// Then the winger's rating is what his attributes give (ceiling kept, identity untouched), the
-    /// sound player is untouched, and the second load repairs nothing further (the first load wrote it back to the file).
-    #[test]
-    fn loading_a_save_with_a_stale_granular_rating_repairs_it_once() {
-        let dir = tempfile::tempdir().unwrap();
-        let saves = dir.path().join("saves");
-        let mut sm = SaveManager::init(&saves).unwrap();
+    /// A game with a winger whose rating is sound and a second whose stored `ovr` is nine points
+    /// below what his attributes give (the state a build before D6 wrote), both already holding
+    /// their granular position. Returns the game and the rating the stale winger should have.
+    fn game_with_a_stale_winger() -> (Game, u8) {
         let mut game = sample_game();
         let mut sound = game.players[0].clone();
         sound.id = "sound".to_string();
@@ -1456,40 +1456,78 @@ mod tests {
         stale.potential = 99;
         game.players.push(sound);
         game.players.push(stale);
-        let save_id = sm.create_save(&game, "Career").unwrap();
+        (game, derived)
+    }
 
-        let first = SaveManager::init(&saves)
+    /// Given a career saved by a build before D6: a winger already holding his granular position
+    /// but the rating of the coarse group he was generated as, beside a player whose rating is
+    /// sound,
+    /// When the save is loaded,
+    /// Then the winger's rating is what his attributes give (ceiling kept, position untouched) and
+    /// the sound player is untouched.
+    #[test]
+    fn loading_a_save_with_a_stale_granular_rating_repairs_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let (game, derived) = game_with_a_stale_winger();
+        let save_id = SaveManager::init(&saves)
+            .unwrap()
+            .create_save(&game, "Career")
+            .unwrap();
+
+        let loaded = SaveManager::init(&saves)
             .unwrap()
             .load_game(&save_id)
             .unwrap();
-        let find =
-            |game: &Game, id: &str| game.players.iter().find(|p| p.id == id).cloned().unwrap();
-        let repaired = find(&first, "stale");
+
+        let find = |id: &str| loaded.players.iter().find(|p| p.id == id).cloned().unwrap();
+        let repaired = find("stale");
         assert_eq!(
             repaired.ovr, derived,
             "the stale rating was not re-derived on load"
         );
         assert_eq!(repaired.potential, 99, "the ceiling must be kept");
         assert_eq!(repaired.natural_position, Position::RightWinger);
-        assert_eq!(find(&first, "sound").ovr, derived);
+        assert_eq!(find("sound").ovr, derived);
+    }
 
-        // The load wrote the repair back: a second connection finds the corrected rating in the
-        // file itself, with nothing having saved the game since.
-        let reader = rusqlite::Connection::open(sm.save_db_path(&save_id).unwrap()).unwrap();
-        let stored: i64 = reader
-            .query_row("SELECT ovr FROM players WHERE id = 'stale'", [], |row| {
+    /// Given a career whose file has settled (loaded once, so every other backfill is already
+    /// written) and whose stored rating is then made stale in the file itself,
+    /// When it is loaded and nothing saves it afterwards,
+    /// Then a second connection finds the corrected rating in the file: the repair is what makes
+    /// the load write itself back.
+    #[test]
+    fn loading_a_save_with_a_stale_rating_writes_the_repair_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let (game, derived) = game_with_a_stale_winger();
+        let mut sm = SaveManager::init(&saves).unwrap();
+        let save_id = sm.create_save(&game, "Career").unwrap();
+        sm.load_game(&save_id).unwrap();
+        let file = fresh_reader(&sm, &save_id);
+        file.execute(
+            "UPDATE players SET ovr = ?1 WHERE id = 'stale'",
+            [i64::from(derived) - 9],
+        )
+        .unwrap();
+        let stored = |file: &rusqlite::Connection| -> i64 {
+            file.query_row("SELECT ovr FROM players WHERE id = 'stale'", [], |row| {
                 row.get(0)
             })
-            .unwrap();
-        assert_eq!(stored, i64::from(derived));
+            .unwrap()
+        };
+        assert_eq!(
+            stored(&file),
+            i64::from(derived) - 9,
+            "the file must start stale"
+        );
 
-        // And a further load has nothing left to repair.
-        let second = SaveManager::init(&saves)
+        SaveManager::init(&saves)
             .unwrap()
             .load_game(&save_id)
             .unwrap();
-        assert_eq!(find(&second, "stale").ovr, derived);
-        assert_eq!(find(&second, "stale").potential, 99);
+
+        assert_eq!(stored(&fresh_reader(&sm, &save_id)), i64::from(derived));
     }
 
     /// Given a saved career whose young prospect has an S-tier ceiling but no wonderkid tag, and
@@ -4022,6 +4060,28 @@ mod tests {
         let fresh = sm.new_game_from_save(&save_id).unwrap();
 
         assert!(fresh.scouted_players.is_empty());
+    }
+
+    /// Given a source career whose job-offer clock stands at seven days
+    /// When a new career is started from that save
+    /// Then its clock is not running: the new game's first offer follows a fresh game's schedule,
+    /// not the old career's.
+    #[test]
+    fn a_new_career_from_a_save_does_not_inherit_the_job_offer_clock() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sm = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        game.days_since_last_job_offer = Some(7);
+        let save_id = sm.create_save(&game, "Source Save").unwrap();
+        assert_eq!(
+            sm.load_game(&save_id).unwrap().days_since_last_job_offer,
+            Some(7),
+            "the fixture must reach the new-career path with a clock running"
+        );
+
+        let new_game = sm.new_game_from_save(&save_id).unwrap();
+
+        assert_eq!(new_game.days_since_last_job_offer, None);
     }
 
     #[test]

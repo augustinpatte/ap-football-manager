@@ -442,6 +442,51 @@ fn a_released_v061_career_loads_and_gains_both_structures() {
     assert_eq!(again.transfer_obligations, booked);
 }
 
+/// Given a real career file left by the released build (schema 61, so no job-offer clock column),
+///       written while the career's clock stood at five days,
+/// When a fresh `SaveManager` loads it,
+/// Then it opens with no clock running (the older build never stored one), the column is added,
+///      and the clock is kept from then on.
+#[test]
+fn a_released_v061_career_opens_with_no_job_offer_clock_and_then_keeps_one() {
+    let mut game = career_with_tactics();
+    game.days_since_last_job_offer = Some(5);
+    let dir = tempfile::tempdir().unwrap();
+    let saves = dir.path().join("saves");
+    let id = SaveManager::init(&saves)
+        .unwrap()
+        .create_save(&game, "Released v061")
+        .unwrap();
+    let path = rewrite_file_as(&saves, &id, WrittenBy::V061);
+    let has_clock_column = |path: &std::path::Path| {
+        rusqlite::Connection::open(path)
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('game_meta') WHERE name = 'days_since_last_job_offer'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+            == 1
+    };
+    assert!(
+        !has_clock_column(&path),
+        "a released file has no clock column"
+    );
+
+    let mut loaded = SaveManager::init(&saves).unwrap().load_game(&id).unwrap();
+
+    assert!(has_clock_column(&path));
+    assert_eq!(loaded.days_since_last_job_offer, None);
+    loaded.days_since_last_job_offer = Some(3);
+    SaveManager::init(&saves)
+        .unwrap()
+        .save_game(&loaded, &id)
+        .unwrap();
+    let again = SaveManager::init(&saves).unwrap().load_game(&id).unwrap();
+    assert_eq!(again.days_since_last_job_offer, Some(3));
+}
+
 /// Given a career file whose schema contradicts its version (claims 63, lacks the obligations
 ///       table),
 /// When a fresh manager tries to load it,

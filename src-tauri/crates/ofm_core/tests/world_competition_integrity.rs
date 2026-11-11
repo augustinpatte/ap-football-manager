@@ -65,6 +65,10 @@ fn a_generated_career_competition_graph_is_referentially_sound() {
     let mut known: HashSet<&str> = game.teams.iter().map(|team| team.id.as_str()).collect();
     known.extend(game.national_teams.iter().map(|team| team.id.as_str()));
 
+    assert!(
+        !game.competitions.is_empty(),
+        "an empty competition list would pass the audit vacuously"
+    );
     let report = audit_competitions(&game.competitions, &known);
     assert!(
         report.findings.is_empty(),
