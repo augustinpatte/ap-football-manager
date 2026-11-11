@@ -391,6 +391,10 @@ fn adapt_team(
         }
     }
     let shirts = shirt_numbers(&selection.starters, &selection.bench, defaults);
+    // The eleven is slot-aligned to the five-zone engine's list of seats for the formation, which
+    // is not the order M12's geometry lists them in: seat each starter on the slot of his own seat.
+    let seats = crate::player_rating::formation_slots(&team.formation);
+    let layout = seat_in_geometry(&seats, layout);
     let mut lineup = Vec::with_capacity(11);
     for ((player, slot), shirt) in selection.starters.iter().zip(layout).zip(shirts.iter()) {
         let role = map_position(&slot.position)?;
@@ -409,6 +413,7 @@ fn adapt_team(
     let out_of_possession_lineup = match defensive_layout {
         Some(defensive_layout) => {
             let mut defensive_lineup = Vec::with_capacity(defensive_layout.len());
+            let defensive_layout = seat_in_geometry(&seats, defensive_layout);
             for (player, slot) in selection.starters.iter().zip(defensive_layout) {
                 defensive_lineup.push(LineupSlot {
                     player: player.id.clone(),
@@ -682,6 +687,73 @@ fn shirt_numbers(
         result.push(next);
     }
     result
+}
+
+/// How far across the pitch a seat sits, on the team frame's width (right touchline at 0): the
+/// flank a player of that position keeps to, or the middle for any other.
+fn seat_flank_y(seat: &OfmPosition) -> f32 {
+    match seat {
+        OfmPosition::RightBack
+        | OfmPosition::RightWingBack
+        | OfmPosition::RightMidfielder
+        | OfmPosition::RightWinger => 10.0,
+        OfmPosition::LeftBack
+        | OfmPosition::LeftWingBack
+        | OfmPosition::LeftMidfielder
+        | OfmPosition::LeftWinger => 58.0,
+        _ => 34.0,
+    }
+}
+
+/// `layout` reordered so that slot `i` is the one of the player picked for `seats[i]`.
+///
+/// A seat takes the slot of its own name; when the formation has none (a five-zone left midfielder
+/// where M12 lays out a left wing back) a flank seat takes the nearest slot on its own flank and a
+/// central one the nearest of its group to the middle.
+/// Exact matches go first, in layout order, so that a seat without a slot of its name can never
+/// take one that belongs to another. Deterministic for a given formation.
+fn seat_in_geometry(seats: &[OfmPosition], layout: Vec<GeometrySlot>) -> Vec<GeometrySlot> {
+    if seats.len() != layout.len() {
+        return layout;
+    }
+    let mut free: Vec<Option<GeometrySlot>> = layout.into_iter().map(Some).collect();
+    let mut seated: Vec<Option<GeometrySlot>> = vec![None; seats.len()];
+    for (index, seat) in seats.iter().enumerate() {
+        if let Some(slot) = free
+            .iter()
+            .position(|slot| slot.as_ref().is_some_and(|slot| slot.position == *seat))
+        {
+            seated[index] = free[slot].take();
+        }
+    }
+    let unseated: Vec<usize> = (0..seats.len()).filter(|i| seated[*i].is_none()).collect();
+    for index in unseated {
+        let seat = &seats[index];
+        let wanted_y = seat_flank_y(seat);
+        // A flank seat looks along its touchline, whatever line the formation draws it on.
+        let is_flank = (wanted_y - 34.0).abs() > f32::EPSILON;
+        let nearest = |same_group: bool| {
+            free.iter()
+                .enumerate()
+                .filter_map(|(at, slot)| slot.as_ref().map(|slot| (at, slot)))
+                .filter(|(_, slot)| {
+                    slot.position != OfmPosition::Goalkeeper
+                        && (!same_group
+                            || is_flank
+                            || slot.position.to_group_position() == seat.to_group_position())
+                })
+                .min_by(|(_, a), (_, b)| {
+                    (a.base.y - wanted_y)
+                        .abs()
+                        .total_cmp(&(b.base.y - wanted_y).abs())
+                })
+                .map(|(at, _)| at)
+        };
+        if let Some(at) = nearest(true).or_else(|| nearest(false)) {
+            seated[index] = free[at].take();
+        }
+    }
+    seated.into_iter().flatten().collect()
 }
 
 fn map_position(position: &OfmPosition) -> Result<SpatialPosition, AdaptationError> {
@@ -1679,5 +1751,82 @@ mod tests {
         assert!(result.metadata.defaults.iter().any(|default| {
             default.field == "shirt_number" && default.subject_id.as_deref() == Some("p6")
         }));
+    }
+
+    /// A home eleven seated by the five-zone engine's own list of slots for `formation` (entry `i`
+    /// is the player picked for slot `i`, with that slot's natural position), adapted for M12.
+    fn adapted_in(formation: &str) -> AdaptedMatch {
+        let (fixture, mut home, away, _, away_players) = selection();
+        home.formation = formation.to_string();
+        let seats = crate::player_rating::formation_slots(formation);
+        let mut home_players: Vec<Player> = seats
+            .iter()
+            .enumerate()
+            .map(|(i, seat)| player(&format!("p{i}"), seat.clone(), 60))
+            .collect();
+        home_players.push(player("p11", Position::Forward, 61));
+        adapted(&fixture, &home, &away, &home_players, &away_players).unwrap()
+    }
+
+    /// Given every formation the game offers, with a player picked for each slot of the list the
+    ///   five-zone engine and the squad model read
+    /// When the eleven is adapted for M12, whose geometry lists the same slots in its own order
+    /// Then each player stands on the slot of his own seat: a left back is not put on the right
+    ///      because M12 lays the right flank out first. The slots were once paired by index.
+    #[test]
+    fn every_starter_stands_on_the_geometry_slot_of_his_own_seat() {
+        for formation in crate::player_rating::FORMATIONS {
+            let geometry = formation_geometry(formation).unwrap();
+            let seats = crate::player_rating::formation_slots(formation);
+            let result = adapted_in(formation);
+            for (i, seat) in seats.iter().enumerate() {
+                let same_seat: Vec<&GeometrySlot> = geometry
+                    .iter()
+                    .filter(|slot| slot.position == *seat)
+                    .collect();
+                let lineup = &result.input.home.lineup[i];
+                assert_eq!(
+                    lineup.player,
+                    format!("p{i}"),
+                    "{formation} keeps the order named"
+                );
+                if let [only] = same_seat.as_slice() {
+                    assert_eq!(
+                        lineup.base, only.base,
+                        "{formation}: the player picked for {seat:?} is not on the {seat:?} slot"
+                    );
+                    assert_eq!(
+                        lineup.role,
+                        map_position(seat).unwrap(),
+                        "{formation} {seat:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Given a 3-5-2, whose five-zone seats name a left and a right midfielder where M12 lays out
+    ///   a left and a right wing back
+    /// When the eleven is adapted
+    /// Then the left midfielder takes the left wing back's slot and the right midfielder the
+    ///      right's: with no slot of his own name, a player takes the nearest of his group on his
+    ///      own flank.
+    #[test]
+    fn a_seat_with_no_slot_of_its_name_takes_the_nearest_on_its_own_flank() {
+        let geometry = formation_geometry("3-5-2").unwrap();
+        let slot_of = |position: Position| {
+            geometry
+                .iter()
+                .find(|slot| slot.position == position)
+                .unwrap()
+        };
+        let seats = crate::player_rating::formation_slots("3-5-2");
+        let result = adapted_in("3-5-2");
+        let seat_of = |wanted: Position| seats.iter().position(|seat| *seat == wanted).unwrap();
+
+        let left = &result.input.home.lineup[seat_of(Position::LeftMidfielder)];
+        let right = &result.input.home.lineup[seat_of(Position::RightMidfielder)];
+        assert_eq!(left.base, slot_of(Position::LeftWingBack).base);
+        assert_eq!(right.base, slot_of(Position::RightWingBack).base);
     }
 }
