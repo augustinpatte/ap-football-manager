@@ -66,8 +66,7 @@ fn youth_trust_wanted(youth_focus: f64) -> f64 {
     0.3 + 0.7 * youth_focus.clamp(0.0, 1.0)
 }
 
-fn club_wants(game: &Game, team: &domain::team::Team) -> ClubWants {
-    let profile = crate::transfers::profile_of(game, &team.id);
+fn club_wants(team: &domain::team::Team, profile: crate::transfers::ClubProfile) -> ClubWants {
     ClubWants {
         boldness: crate::ai_formation::style_boldness(&team.play_style),
         youth_trust: youth_trust_wanted(profile.youth_focus),
@@ -87,31 +86,43 @@ fn mismatch(wants: &ClubWants, identity: &ManagerIdentity) -> f64 {
 pub fn appointment_mismatch(game: &Game, team_id: &str, manager_id: &str) -> Option<f64> {
     let team = game.teams.iter().find(|team| team.id == team_id)?;
     Some(mismatch(
-        &club_wants(game, team),
+        &club_wants(team, crate::transfers::profile_of(game, team_id)),
         &ManagerIdentity::of(manager_id),
     ))
 }
 
+/// The unemployed managers a club of `club_reputation` may appoint after `days` of cover: inside
+/// the reputation gap, or anyone once the club settles.
+fn candidates<'a>(
+    game: &'a Game,
+    club_reputation: u32,
+    days: i64,
+    user_id: &'a str,
+) -> impl Iterator<Item = &'a Manager> {
+    game.managers
+        .iter()
+        .filter(move |m| m.team_id.is_none() && !m.interim && m.id != user_id)
+        .filter(move |m| {
+            days >= SETTLE_AFTER_DAYS
+                || m.reputation.abs_diff(club_reputation) <= MAX_REPUTATION_GAP
+        })
+}
+
 /// The unemployed manager a club of `club_reputation` that wants `wants` would appoint after
-/// `days` of cover: the best of the managers inside the reputation gap by stature first (the gap
-/// as a share of [`MAX_REPUTATION_GAP`]) and fit second ([`FIT_WEIGHT`]), the earlier id winning
-/// a tie, and nobody outside the gap until the club settles.
+/// `days` of cover: the best of the [`candidates`] by stature first (the reputation gap as a share
+/// of [`MAX_REPUTATION_GAP`]) and fit second ([`FIT_WEIGHT`]), the earlier id winning a tie.
 fn best_candidate<'a>(
     game: &'a Game,
     club_reputation: u32,
     wants: &ClubWants,
     days: i64,
-    user_id: &str,
+    user_id: &'a str,
 ) -> Option<&'a Manager> {
-    let gap = |manager: &Manager| manager.reputation.abs_diff(club_reputation);
     let cost = |manager: &Manager| {
-        f64::from(gap(manager)) / f64::from(MAX_REPUTATION_GAP)
+        f64::from(manager.reputation.abs_diff(club_reputation)) / f64::from(MAX_REPUTATION_GAP)
             + FIT_WEIGHT * mismatch(wants, &ManagerIdentity::of(&manager.id))
     };
-    game.managers
-        .iter()
-        .filter(|m| m.team_id.is_none() && !m.interim && m.id != user_id)
-        .filter(|m| days >= SETTLE_AFTER_DAYS || gap(m) <= MAX_REPUTATION_GAP)
+    candidates(game, club_reputation, days, user_id)
         .min_by(|a, b| cost(a).total_cmp(&cost(b)).then_with(|| a.id.cmp(&b.id)))
 }
 
@@ -139,12 +150,23 @@ pub fn appoint_permanent_managers(game: &mut Game) -> usize {
         .collect();
     clubs.sort();
 
+    let vacant: Vec<String> = clubs.iter().map(|(team_id, ..)| team_id.clone()).collect();
+    // The strategy of the clubs looking, read once and only when a club has someone to choose
+    // from: on most days a vacant club has nobody inside its reputation window yet.
+    let mut strategies = None;
     let mut appointed = 0;
     for (team_id, reputation, stand_in_id, days) in clubs {
+        if candidates(game, reputation, days, &user_id)
+            .next()
+            .is_none()
+        {
+            continue;
+        }
+        let profile = crate::transfers::profile_in(game, &mut strategies, &vacant, &team_id);
         let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
             continue;
         };
-        let wants = club_wants(game, team);
+        let wants = club_wants(team, profile);
         let Some(chosen) =
             best_candidate(game, reputation, &wants, days, &user_id).map(|m| m.id.clone())
         else {
