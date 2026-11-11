@@ -1006,23 +1006,23 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
     );
 }
 
-/// The same offer the test below has refused, but player-1 is the club's only
-/// forward: without him it would be below the squad floor, so the board lets
-/// the wage policy go — and the manager is told that is why.
+/// Player-1 is the club's only forward and the club is on its wage budget: without him it would
+/// be below the squad floor, so the board lets the wage policy go for a raise on the club's own
+/// pay scale — and tells the manager that is why.
 #[test]
 fn renewal_over_the_wage_policy_goes_through_when_the_squad_would_fall_below_the_floor() {
     let mut game = make_game();
-    game.teams[0].wage_budget = 200_000;
+    game.teams[0].wage_budget = 12_000;
 
     let outcome = propose_renewal(
         &mut game,
         "player-1",
         RenewalOffer {
-            weekly_wage: 250_000,
+            weekly_wage: 17_000,
             contract_years: 3,
         },
     )
-    .expect("the floor overrules the wage policy");
+    .expect("the floor overrules the wage policy for a raise on the club's scale");
 
     assert_eq!(outcome.decision, RenewalDecision::Accepted);
     assert_eq!(
@@ -1032,7 +1032,29 @@ fn renewal_over_the_wage_policy_goes_through_when_the_squad_would_fall_below_the
             .and_then(|feedback| feedback.detail_key.as_deref()),
         Some("playerProfile.renewalFeedbackAcceptedToKeepSquadFloorDetail")
     );
-    assert_eq!(game.players[0].wage(), 250_000);
+    assert_eq!(game.players[0].wage(), 17_000);
+}
+
+/// The same club and the same only forward, asking a wage twenty times the club's pay scale
+/// (12 000 a week is what a senior of the club is paid): the squad floor does not buy him at
+/// any price. The renewal is refused and his wage is what it was; the floor is filled by
+/// signing a forward when he goes, not by paying this one a whole budget.
+#[test]
+fn the_squad_floor_does_not_waive_the_wage_policy_for_a_wage_far_beyond_the_clubs_scale() {
+    let mut game = make_game();
+    game.teams[0].wage_budget = 200_000;
+
+    let refused = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 250_000,
+            contract_years: 3,
+        },
+    );
+
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(game.players[0].wage(), 12_000);
 }
 
 /// A renewal inside the policy is not described as a waiver.

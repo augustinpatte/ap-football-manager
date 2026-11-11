@@ -142,12 +142,16 @@ pub fn wage_policy_verdict(
     // not read them, so no deal is counted against itself.
     let committed_bill =
         calc_wages(game, &team.id) + crate::transfers::pending_wage_commitments(game, &team.id);
-    wage_policy_verdict_at_bill(game, team, player, offered_wage, committed_bill)
+    verdict_at_bill(game, team, player, offered_wage, committed_bill, true)
 }
 
 /// [`wage_policy_verdict`] when the caller already knows the club's `current_bill`
 /// ([`calc_wages`]): a sweep that judges many candidates for one club works it out once
 /// instead of scanning every player in the world for each of them. The verdict is the same.
+///
+/// This is the AI's: an AI club's signings and raises are held to its cash by the AI's own
+/// books (`ai_finance_guard`), and its youth intake and academy have never been, so the cash
+/// rule of [`wage_policy_verdict`] is not asked here.
 pub(crate) fn wage_policy_verdict_at_bill(
     game: &Game,
     team: &Team,
@@ -155,12 +159,24 @@ pub(crate) fn wage_policy_verdict_at_bill(
     offered_wage: u32,
     current_bill: i64,
 ) -> WagePolicyVerdict {
+    verdict_at_bill(game, team, player, offered_wage, current_bill, false)
+}
+
+fn verdict_at_bill(
+    game: &Game,
+    team: &Team,
+    player: &domain::player::Player,
+    offered_wage: u32,
+    current_bill: i64,
+    cash_must_carry_it: bool,
+) -> WagePolicyVerdict {
     let projected_bill = current_bill - player_weekly_wage_for_team(player, &team.id)
         + weekly_commitment_at_wage(player, &team.id, i64::from(offered_wage));
     verdict_for_bills(
         team,
         current_bill,
         projected_bill,
+        cash_must_carry_it,
         || floor_waiver_ceiling(game, &team.id),
         || crate::squad_floor::club_needs_him_for_the_floor(game, &team.id, player),
     )
@@ -205,6 +221,7 @@ pub(crate) fn joining_wage_policy_verdict(
         team,
         current_bill,
         projected_bill,
+        false,
         || floor_waiver_ceiling(game, &team.id),
         || crate::squad_floor::club_needs_him_for_the_floor(game, &team.id, player),
     )
@@ -233,6 +250,9 @@ pub(crate) struct BuyerWageFacts {
     /// The most a floor waiver may add to the bill ([`floor_waiver_ceiling`]); no limit for a
     /// sweep that signs the cheapest player who will do and so cannot overpay for the floor.
     floor_waiver_ceiling: i64,
+    /// Whether the club's cash must carry the wage (a purchase being agreed now, by a manager or
+    /// through the registry), not only its budget: not for the AI's sweeps or a registration.
+    cash_must_carry_it: bool,
 }
 
 impl BuyerWageFacts {
@@ -251,6 +271,7 @@ impl BuyerWageFacts {
     pub(crate) fn of_committed(game: &Game, team_id: &str) -> Self {
         Self {
             floor_waiver_ceiling: floor_waiver_ceiling(game, team_id),
+            cash_must_carry_it: true,
             ..Self::new(
                 calc_wages(game, team_id)
                     + crate::transfers::pending_wage_commitments(game, team_id),
@@ -271,6 +292,7 @@ impl BuyerWageFacts {
             current_bill,
             seniors,
             floor_waiver_ceiling: i64::MAX,
+            cash_must_carry_it: false,
         }
     }
 
@@ -286,6 +308,7 @@ impl BuyerWageFacts {
             team,
             self.current_bill,
             projected_bill,
+            self.cash_must_carry_it,
             || self.floor_waiver_ceiling,
             || crate::squad_floor::club_needs_him_given(self.seniors, &team.id, player),
         )
@@ -303,12 +326,14 @@ fn verdict_for_bills(
     team: &Team,
     current_bill: i64,
     projected_bill: i64,
+    cash_must_carry_it: bool,
     floor_waiver_ceiling: impl FnOnce() -> i64,
     club_needs_him_for_the_floor: impl FnOnce() -> bool,
 ) -> WagePolicyVerdict {
     let added = projected_bill - current_bill;
-    let carried = crate::ai_finance_guard::SigningBooks::estimated(team, current_bill)
-        .cash_carries_wage(added);
+    let carried = !cash_must_carry_it
+        || crate::ai_finance_guard::SigningBooks::estimated(team, current_bill)
+            .cash_carries_wage(added);
     if carried && wage_policy_allows_projection(team, current_bill, projected_bill) {
         WagePolicyVerdict::WithinPolicy
     } else if added <= floor_waiver_ceiling() && club_needs_him_for_the_floor() {

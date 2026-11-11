@@ -1350,10 +1350,14 @@ mod tests {
         )));
     }
 
-    /// One other forward: without him the club is below the floor, so the board
-    /// lets the wage policy go — the same rule the player's own renewals use.
+    /// One other forward: without him the club is below the floor, so the board lets the wage
+    /// policy go for what he asks on the club's own pay scale — the rule the player's own renewals
+    /// use — but not for the raise to his value's wage that a rich club would also give him: the
+    /// club's only wage is his own, so that raise is far beyond its scale, and the waiver does not
+    /// cover it. He is left to go, and the floor is filled with a forward who costs what the club
+    /// pays, rather than a budget's worth of one star.
     #[test]
-    fn a_club_goes_over_its_wage_policy_to_keep_a_player_it_needs_for_the_floor() {
+    fn a_club_does_not_pay_a_floor_player_beyond_its_pay_scale() {
         use crate::contract_wage_policy::WagePolicyVerdict;
         let mut game = over_policy_forward(1);
         assert_eq!(
@@ -1364,7 +1368,10 @@ mod tests {
 
         apply_ai_contract_decisions(&mut game, review_day());
 
-        assert!(contract_end(&game, "costly_fwd") > before);
+        assert!(
+            contract_end(&game, "costly_fwd") <= before,
+            "renewed at a wage beyond the club's scale"
+        );
     }
 
     /// Two other forwards: the club wants him for depth, but letting him go
