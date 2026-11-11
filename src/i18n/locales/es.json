@@ -3285,7 +3285,10 @@
         "worldDbMissing": "No se encontró ningún archivo world.db. Elige el archivo generado por el importador de FM24.",
         "importFailed": "No se pudo construir el mundo FM24 a partir de este archivo. Comprueba que sea un world.db válido.",
         "checksFailed": "Los datos de FM24 no superaron los controles de integridad, así que el mundo no se instaló. El mundo anterior, si existe, no ha cambiado.",
-        "writeFailed": "No se pudo escribir el mundo FM24 en la carpeta de datos del juego. Comprueba el espacio en disco y los permisos."
+        "writeFailed": "No se pudo escribir el mundo FM24 en la carpeta de datos del juego. Comprueba el espacio en disco y los permisos.",
+        "registryMissing": "El registro externo de jugadores no está instalado. Reconstruye el mundo FM24 para buscar fuera de tus ligas.",
+        "registryBuildFailed": "No se pudo crear el registro externo de jugadores a partir de world.db.",
+        "registryQueryFailed": "No se pudo leer el registro externo de jugadores."
       },
       "staff": {
         "badContractLength": "Duración de contrato no válida.",
@@ -3340,6 +3343,12 @@
         "nothingToChange": "Esa orden no cambia nada.",
         "engineFailed": "El motor del partido no pudo continuar. No se ha cambiado nada.",
         "savedMatchDiscarded": "No se pudo restaurar el partido guardado en curso, así que empezará de nuevo desde el saque inicial."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Este jugador ya está en tu mundo.",
+        "playerNotAvailable": "Este jugador no está disponible.",
+        "playerIncomplete": "La ficha de este jugador está incompleta, así que no se puede fichar.",
+        "offerRejected": "El club vendedor rechazó esta oferta por considerarla demasiado baja."
       }
     },
     "sender": {

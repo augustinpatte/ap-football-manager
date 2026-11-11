@@ -318,6 +318,8 @@ mod tests {
             height_cm: None,
             club_id: contract,
             club_name: "Owner FC".into(),
+            club_nation: None,
+            club_reputation: 0,
             team_slot: Some(0),
             team_is_youth: false,
             registered_club_id: registered.map(|r| r.0),

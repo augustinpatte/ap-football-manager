@@ -3285,7 +3285,10 @@
         "worldDbMissing": "world.db dosyası bulunamadı. FM24 içe aktarıcısının ürettiği dosyayı seç.",
         "importFailed": "FM24 dünyası bu dosyadan oluşturulamadı. Geçerli bir world.db olduğundan emin ol.",
         "checksFailed": "FM24 verileri bütünlük denetimlerinden geçemedi, bu yüzden dünya yüklenmedi. Varsa önceki dünya değişmedi.",
-        "writeFailed": "FM24 dünyası oyunun veri klasörüne yazılamadı. Disk alanını ve izinleri kontrol et."
+        "writeFailed": "FM24 dünyası oyunun veri klasörüne yazılamadı. Disk alanını ve izinleri kontrol et.",
+        "registryMissing": "Harici oyuncu kaydı yüklü değil. Liglerinizin dışında arama yapmak için FM24 dünyasını yeniden oluşturun.",
+        "registryBuildFailed": "Harici oyuncu kaydı world.db'den oluşturulamadı.",
+        "registryQueryFailed": "Harici oyuncu kaydı okunamadı."
       },
       "staff": {
         "badContractLength": "Geçersiz sözleşme süresi.",
@@ -3340,6 +3343,12 @@
         "nothingToChange": "Bu talimat hiçbir şeyi değiştirmiyor.",
         "engineFailed": "Maç motoru devam edemedi. Hiçbir şey değiştirilmedi.",
         "savedMatchDiscarded": "Oyunun ortasında kaydedilen maç geri yüklenemedi; bu yüzden başlama vuruşundan yeniden başlayacak."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Bu oyuncu zaten dünyanızda.",
+        "playerNotAvailable": "Bu oyuncu müsait değil.",
+        "playerIncomplete": "Bu oyuncunun kaydı eksik, bu yüzden sözleşme imzalanamaz.",
+        "offerRejected": "Satıcı kulüp bu teklifi çok düşük olduğu için reddetti."
       }
     },
     "sender": {

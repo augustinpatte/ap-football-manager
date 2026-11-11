@@ -3285,7 +3285,10 @@
         "worldDbMissing": "No world.db file was found. Choose the file produced by the FM24 importer.",
         "importFailed": "The FM24 world could not be built from this file. Check that it is a valid world.db.",
         "checksFailed": "The FM24 data failed its integrity checks, so the world was not installed. The previous world, if any, is unchanged.",
-        "writeFailed": "The FM24 world could not be written to the game's data folder. Check the free disk space and permissions."
+        "writeFailed": "The FM24 world could not be written to the game's data folder. Check the free disk space and permissions.",
+        "registryMissing": "The external player registry is not installed. Rebuild the FM24 world to search outside your leagues.",
+        "registryBuildFailed": "The external player registry could not be built from world.db.",
+        "registryQueryFailed": "The external player registry could not be read."
       },
       "staff": {
         "badContractLength": "Invalid contract length.",
@@ -3340,6 +3343,12 @@
         "nothingToChange": "That order changes nothing.",
         "engineFailed": "The match engine could not continue. Nothing was changed.",
         "savedMatchDiscarded": "The match you saved in progress could not be restored, so it will start again from kick-off."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "This player is already in your world.",
+        "playerNotAvailable": "This player is not available.",
+        "playerIncomplete": "This player's record is incomplete, so he cannot be signed.",
+        "offerRejected": "The selling club rejected this offer as too low."
       }
     },
     "sender": {

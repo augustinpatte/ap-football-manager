@@ -3285,7 +3285,10 @@
         "worldDbMissing": "Aucun fichier world.db n'a été trouvé. Choisissez le fichier produit par l'importeur FM24.",
         "importFailed": "Le monde FM24 n'a pas pu être construit à partir de ce fichier. Vérifiez qu'il s'agit bien d'un world.db valide.",
         "checksFailed": "Les données FM24 n'ont pas passé les contrôles d'intégrité : le monde n'a pas été installé. Le monde précédent, s'il existe, est inchangé.",
-        "writeFailed": "Le monde FM24 n'a pas pu être écrit dans le dossier de données du jeu. Vérifiez l'espace disque et les droits d'accès."
+        "writeFailed": "Le monde FM24 n'a pas pu être écrit dans le dossier de données du jeu. Vérifiez l'espace disque et les droits d'accès.",
+        "registryMissing": "Le registre externe des joueurs n'est pas installé. Reconstruisez le monde FM24 pour chercher hors de vos championnats.",
+        "registryBuildFailed": "Le registre externe des joueurs n'a pas pu être construit à partir de world.db.",
+        "registryQueryFailed": "Le registre externe des joueurs n'a pas pu être lu."
       },
       "staff": {
         "badContractLength": "Durée de contrat invalide.",
@@ -3340,6 +3343,12 @@
         "nothingToChange": "Cet ordre ne change rien.",
         "engineFailed": "Le moteur de match n'a pas pu continuer. Rien n'a été modifié.",
         "savedMatchDiscarded": "Le match enregistré en cours de jeu n'a pas pu être restauré ; il repartira du coup d'envoi."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Ce joueur fait déjà partie de votre monde.",
+        "playerNotAvailable": "Ce joueur n'est pas disponible.",
+        "playerIncomplete": "La fiche de ce joueur est incomplète, il ne peut donc pas être recruté.",
+        "offerRejected": "Le club vendeur a refusé cette offre, jugée trop basse."
       }
     },
     "sender": {

@@ -471,6 +471,7 @@ impl GamePersistenceReader {
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use domain::player::Position;
     use domain::world_history::{
         HistoricalManagerAwardWinner, HistoricalPlayerAwardWinner, HistoricalSeasonAwardsRecord,
         WorldHistoryArchive,
@@ -988,6 +989,91 @@ mod tests {
         let result = parse_youth_objective("SuperProspect");
 
         assert_eq!(result.unwrap_err(), "be.error.gamePersistence.loadFailed");
+    }
+
+    /// Given an external free agent promoted into the career,
+    /// When the game is saved and read back,
+    /// Then he is still exactly one player under his source identity, with his club, contract and
+    /// movement entry, and promoting the same source record again is refused.
+    #[test]
+    fn a_promoted_external_player_survives_a_save_and_load() {
+        use domain::player::{Footedness, PlayerAttributes};
+        use ofm_core::external_registry::{ExternalPlayer, recruit_external_player};
+
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut game = sample_game_with_clock(2026, 1);
+        game.manager.hire("team-1".to_string());
+        game.teams[0].finance = 5_000_000;
+        game.teams[0].wage_budget = 500_000;
+        game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
+        let external = ExternalPlayer {
+            id: "fm-p-77".to_string(),
+            match_name: "E. Free".to_string(),
+            full_name: "External Free".to_string(),
+            date_of_birth: "2000-01-01".to_string(),
+            nationality: "GB".to_string(),
+            position: Position::Striker,
+            natural_position: Position::Striker,
+            alternate_positions: vec![Position::RightWinger],
+            footedness: Footedness::Right,
+            weak_foot: 3,
+            attributes: PlayerAttributes {
+                pace: 70,
+                stamina: 70,
+                strength: 70,
+                agility: 70,
+                passing: 70,
+                shooting: 70,
+                tackling: 60,
+                dribbling: 70,
+                defending: 55,
+                positioning: 68,
+                vision: 70,
+                decisions: 70,
+                composure: 68,
+                aggression: 55,
+                teamwork: 70,
+                leadership: 60,
+                handling: 20,
+                reflexes: 20,
+                aerial: 55,
+            },
+            ovr: 70,
+            potential: 80,
+            market_value: 2_000_000,
+            club: None,
+        };
+
+        let outcome = recruit_external_player(&mut game, &external).expect("promoted");
+        assert_eq!(outcome.fee, 0);
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+        let mut loaded = GamePersistenceReader::read_game(&db).unwrap();
+
+        let stored: Vec<_> = loaded
+            .players
+            .iter()
+            .filter(|player| player.id == "fm-p-77")
+            .collect();
+        assert_eq!(stored.len(), 1, "one source identity, one player");
+        let player = stored[0];
+        assert_eq!(player.full_name, "External Free");
+        assert_eq!(player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(player.natural_position, Position::Striker);
+        assert_eq!(player.alternate_positions, vec![Position::RightWinger]);
+        assert_eq!(
+            player.contract_club_id(),
+            Some("team-1"),
+            "contract survives the round trip"
+        );
+        assert!(player.movement_history.iter().any(|entry| {
+            entry.kind == domain::player::PlayerMovementKind::FreeAgentSigning
+                && entry.to_team_id.as_deref() == Some("team-1")
+        }));
+
+        assert_eq!(
+            recruit_external_player(&mut loaded, &external).unwrap_err(),
+            "be.error.registry.playerAlreadyInWorld"
+        );
     }
 }
 
