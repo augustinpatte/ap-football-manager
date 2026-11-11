@@ -3021,7 +3021,10 @@
         "worldDbMissing": "未找到 world.db 文件。请选择 FM24 导入工具生成的文件。",
         "importFailed": "无法用此文件构建 FM24 世界。请确认它是有效的 world.db。",
         "checksFailed": "FM24 数据未通过完整性检查，因此未安装该世界。原有世界（如有）保持不变。",
-        "writeFailed": "无法将 FM24 世界写入游戏数据文件夹。请检查磁盘空间和权限。"
+        "writeFailed": "无法将 FM24 世界写入游戏数据文件夹。请检查磁盘空间和权限。",
+        "registryMissing": "外部球员注册表尚未安装。请重新构建 FM24 世界，以便在你的联赛之外搜索。",
+        "registryBuildFailed": "无法从 world.db 构建外部球员注册表。",
+        "registryQueryFailed": "无法读取外部球员注册表。"
       },
       "staff": {
         "badContractLength": "合同期限无效。",
@@ -3037,6 +3040,11 @@
       "delegation": {
         "noAssistant": "委派事务需要一名助理教练。",
         "proposalNotFound": "该提案已不存在。"
+      },
+      "registry": {
+        "playerAlreadyInWorld": "该球员已在你的世界中。",
+        "playerNotAvailable": "该球员不可用。",
+        "playerIncomplete": "该球员的记录不完整，无法签约。"
       }
     },
     "sender": {

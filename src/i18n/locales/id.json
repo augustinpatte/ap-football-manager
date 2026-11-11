@@ -3021,7 +3021,10 @@
         "worldDbMissing": "File world.db tidak ditemukan. Pilih file yang dihasilkan oleh pengimpor FM24.",
         "importFailed": "Dunia FM24 tidak dapat dibangun dari file ini. Pastikan itu world.db yang valid.",
         "checksFailed": "Data FM24 gagal dalam pemeriksaan integritas, sehingga dunia tidak dipasang. Dunia sebelumnya, jika ada, tidak berubah.",
-        "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses."
+        "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses.",
+        "registryMissing": "Registri pemain eksternal belum terpasang. Bangun ulang dunia FM24 untuk mencari di luar liga Anda.",
+        "registryBuildFailed": "Registri pemain eksternal tidak dapat dibuat dari world.db.",
+        "registryQueryFailed": "Registri pemain eksternal tidak dapat dibaca."
       },
       "staff": {
         "badContractLength": "Durasi kontrak tidak valid.",
@@ -3037,6 +3040,11 @@
       "delegation": {
         "noAssistant": "Anda perlu asisten manajer untuk mendelegasikan.",
         "proposalNotFound": "Usulan itu sudah tidak ada."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Pemain ini sudah ada di dunia Anda.",
+        "playerNotAvailable": "Pemain ini tidak tersedia.",
+        "playerIncomplete": "Catatan pemain ini tidak lengkap, sehingga tidak dapat direkrut."
       }
     },
     "sender": {

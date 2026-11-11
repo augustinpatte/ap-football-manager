@@ -4,14 +4,26 @@
 //! `fm24-adapter` crate; this file only finds the source, picks the directories and runs the work
 //! off the UI thread. Neither `world.db` nor the world built from it is ever part of the build.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use log::info;
+use log::{info, warn};
 use serde::Serialize;
 use tauri::Manager;
 
 /// Environment variable naming a `world.db`, for a source that lives outside the usual places.
 const WORLD_DB_ENV: &str = "APFM_WORLD_DB";
+
+/// Directory the importer writes its sidecars into. The registry lives beside them, not in
+/// `databases/`, which the world listing reads as a directory of playable worlds.
+const WORK_DIR: &str = "fm24-import";
+
+/// Where the external player registry is written and read. Produced locally from the player's own
+/// `world.db`; never shipped, never committed.
+pub fn registry_path(app_data_dir: &Path) -> PathBuf {
+    app_data_dir
+        .join(WORK_DIR)
+        .join(fm24_adapter::registry::REGISTRY_FILE_NAME)
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +58,14 @@ pub struct Fm24WorldInstalled {
     pub sha256: String,
     pub bytes: u64,
     pub checks_total: usize,
+    /// Coverage of the external registry built beside the world.
+    pub registry_players: usize,
+    pub registry_eligible: usize,
+    pub registry_free_agents: usize,
+    pub registry_bytes: u64,
+    /// The translation key describing why the registry could not be built, when the world itself
+    /// installed. Search is then unavailable; the career is still playable.
+    pub registry_error: Option<String>,
 }
 
 /// Where a `world.db` is looked for, best first: the explicit variable, the game's own data
@@ -96,22 +116,55 @@ pub async fn install_fm24_world(
         .path()
         .app_data_dir()
         .map_err(|_| "be.error.fm24.writeFailed".to_string())?;
-    let installed = tauri::async_runtime::spawn_blocking(move || {
-        fm24_adapter::install::install_world(
-            &source,
-            &app_data.join("fm24-import"),
-            &app_data.join("databases"),
-        )
+    let work_dir = app_data.join(WORK_DIR);
+    let databases_dir = app_data.join("databases");
+    let registry_destination = registry_path(&app_data);
+    let registry_source = source.clone();
+    // The world is installed first so a registry failure cannot lose a playable world; the failure
+    // is reported beside the success and the status command keeps reporting search as unavailable.
+    let (installed, registry) = tauri::async_runtime::spawn_blocking(move || {
+        let installed = fm24_adapter::install::install_world(&source, &work_dir, &databases_dir)?;
+        let registry =
+            fm24_adapter::registry::build_registry(&registry_source, &registry_destination);
+        Ok::<_, String>((installed, registry))
     })
     .await
     .map_err(|_| "be.error.fm24.importFailed".to_string())??;
-    Ok(Fm24WorldInstalled {
+    Ok(installed_response(installed, registry))
+}
+
+/// The install response: the world's own fields, and either the registry's coverage or zero
+/// coverage plus the translation key that says why search is unavailable.
+fn installed_response(
+    installed: fm24_adapter::install::Installed,
+    registry: Result<fm24_adapter::registry::RegistryBuildReport, String>,
+) -> Fm24WorldInstalled {
+    let (registry_players, registry_eligible, registry_free_agents, registry_bytes, registry_error) =
+        match registry {
+            Ok(report) => (
+                report.players_seen,
+                report.eligible,
+                report.free_agents,
+                report.bytes,
+                None,
+            ),
+            Err(error) => {
+                warn!("[cmd] install_fm24_world: registry not built: {error}");
+                (0, 0, 0, 0, Some(error))
+            }
+        };
+    Fm24WorldInstalled {
         world_id: installed.world_id,
         path: installed.world_path.to_string_lossy().into_owned(),
         sha256: installed.sha256,
         bytes: installed.bytes,
         checks_total: installed.checks_total,
-    })
+        registry_players,
+        registry_eligible,
+        registry_free_agents,
+        registry_bytes,
+        registry_error,
+    }
 }
 
 #[cfg(test)]
@@ -128,5 +181,33 @@ mod tests {
         let own = candidates.iter().position(|p| p.starts_with("/data"));
         let checkout = candidates.iter().position(|p| p.starts_with("/home/u"));
         assert!(own < checkout);
+    }
+
+    /// Given a world that installed and a registry that failed to build,
+    /// When the install response is assembled,
+    /// Then the world is still reported as installed, its coverage is zero and the failure key is
+    /// carried so the screen can explain why search is unavailable.
+    #[test]
+    fn a_world_installs_even_when_the_registry_fails() {
+        let installed = fm24_adapter::install::Installed {
+            world_path: PathBuf::from("/data/databases/fm24.db"),
+            world_id: "fm24".to_string(),
+            sha256: "abc".to_string(),
+            bytes: 1_024,
+            checks_total: 23,
+        };
+        let response = installed_response(
+            installed,
+            Err("be.error.fm24.registryBuildFailed".to_string()),
+        );
+
+        assert_eq!(response.world_id, "fm24");
+        assert_eq!(response.bytes, 1_024);
+        assert_eq!(response.checks_total, 23);
+        assert_eq!(response.registry_players, 0);
+        assert_eq!(
+            response.registry_error.as_deref(),
+            Some("be.error.fm24.registryBuildFailed")
+        );
     }
 }

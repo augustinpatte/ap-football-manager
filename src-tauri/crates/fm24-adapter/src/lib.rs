@@ -22,6 +22,7 @@ pub mod pipeline;
 pub mod placement;
 pub mod positions;
 pub mod refs;
+pub mod registry;
 pub mod report;
 pub mod rules;
 pub mod source;

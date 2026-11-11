@@ -3021,7 +3021,10 @@
         "worldDbMissing": "Soubor world.db nebyl nalezen. Vyberte soubor vytvořený importérem FM24.",
         "importFailed": "Svět FM24 se z tohoto souboru nepodařilo vytvořit. Zkontrolujte, zda jde o platný world.db.",
         "checksFailed": "Data z FM24 neprošla kontrolou integrity, proto se svět nenainstaloval. Případný předchozí svět zůstal beze změny.",
-        "writeFailed": "Svět FM24 se nepodařilo zapsat do datové složky hry. Zkontrolujte volné místo na disku a oprávnění."
+        "writeFailed": "Svět FM24 se nepodařilo zapsat do datové složky hry. Zkontrolujte volné místo na disku a oprávnění.",
+        "registryMissing": "Externí registr hráčů není nainstalován. Znovu sestavte svět FM24, abyste mohli hledat mimo své ligy.",
+        "registryBuildFailed": "Externí registr hráčů se nepodařilo sestavit z world.db.",
+        "registryQueryFailed": "Externí registr hráčů se nepodařilo načíst."
       },
       "staff": {
         "badContractLength": "Neplatná délka smlouvy.",
@@ -3037,6 +3040,11 @@
       "delegation": {
         "noAssistant": "K delegování potřebujete asistenta trenéra.",
         "proposalNotFound": "Tento návrh už neexistuje."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Tento hráč už je ve vašem světě.",
+        "playerNotAvailable": "Tento hráč není k dispozici.",
+        "playerIncomplete": "Záznam tohoto hráče je neúplný, takže ho nelze podepsat."
       }
     },
     "sender": {

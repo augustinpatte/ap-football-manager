@@ -314,6 +314,8 @@ mod tests {
             height_cm: None,
             club_id: 0,
             club_name: String::new(),
+            club_nation: None,
+            club_reputation: 0,
             team_slot: None,
             team_is_youth: false,
             registered_club_id: None,

@@ -502,7 +502,7 @@ pub(super) fn competition_contains_team(
 /// Files a completed move in exactly one competition's transfer log, which is what the save and
 /// the transfer screens read. `game.league` is a mirror rebuilt from `game.competitions`, so it is
 /// the last resort and only serves a legacy save that has no competitions yet.
-pub(super) fn log_completed_transfer(game: &mut Game, transfer: CompletedTransfer) {
+pub(crate) fn log_completed_transfer(game: &mut Game, transfer: CompletedTransfer) {
     // A deal the user's club is part of goes in the user's own competition, because that is the one
     // `sync_legacy_league` copies into `game.league` — the only transfer log the news roundup and
     // the world transfer tab read. Picking by club order instead lets the two disagree: a sale to

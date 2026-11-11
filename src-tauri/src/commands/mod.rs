@@ -11,6 +11,7 @@ pub mod package_csv;
 pub mod package_editor;
 pub mod portraits;
 pub mod profiles;
+pub mod registry;
 pub mod report;
 pub mod retirees;
 pub mod round_summary;
@@ -43,6 +44,7 @@ pub use package_editor::{
 };
 pub use portraits::*;
 pub use profiles::*;
+pub use registry::*;
 pub use retirees::*;
 pub use season::*;
 pub use settings::*;

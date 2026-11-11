@@ -44,7 +44,7 @@ use notifications::*;
 use realism::*;
 use registration::*;
 pub(crate) use registration::{
-    has_pending_transfer_registration, player_has_active_or_pending_loan,
+    has_pending_transfer_registration, player_has_active_or_pending_loan, transfer_window_is_open,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -3021,7 +3021,10 @@
         "worldDbMissing": "Não foi encontrado nenhum ficheiro world.db. Escolha o ficheiro produzido pelo importador do FM24.",
         "importFailed": "Não foi possível criar o mundo FM24 a partir deste ficheiro. Verifique se é um world.db válido.",
         "checksFailed": "Os dados do FM24 não passaram nas verificações de integridade, por isso o mundo não foi instalado. O mundo anterior, se existir, não foi alterado.",
-        "writeFailed": "Não foi possível escrever o mundo FM24 na pasta de dados do jogo. Verifique o espaço em disco e as permissões."
+        "writeFailed": "Não foi possível escrever o mundo FM24 na pasta de dados do jogo. Verifique o espaço em disco e as permissões.",
+        "registryMissing": "O registo externo de jogadores não está instalado. Recria o mundo FM24 para procurar fora das tuas ligas.",
+        "registryBuildFailed": "Não foi possível criar o registo externo de jogadores a partir do world.db.",
+        "registryQueryFailed": "Não foi possível ler o registo externo de jogadores."
       },
       "staff": {
         "badContractLength": "Duração de contrato inválida.",
@@ -3037,6 +3040,11 @@
       "delegation": {
         "noAssistant": "Precisas de um treinador adjunto para delegar.",
         "proposalNotFound": "Essa proposta já não existe."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Este jogador já está no teu mundo.",
+        "playerNotAvailable": "Este jogador não está disponível.",
+        "playerIncomplete": "O registo deste jogador está incompleto, por isso não pode ser contratado."
       }
     },
     "sender": {

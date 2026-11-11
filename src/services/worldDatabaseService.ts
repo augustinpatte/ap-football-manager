@@ -26,6 +26,13 @@ export interface Fm24WorldInstalled {
   sha256: string;
   bytes: number;
   checksTotal: number;
+  /** The external registry built beside the world: how many source players it holds. */
+  registryPlayers: number;
+  registryEligible: number;
+  registryFreeAgents: number;
+  registryBytes: number;
+  /** A translation key when the world installed but its registry did not. */
+  registryError: string | null;
 }
 
 export async function listWorldDatabases(): Promise<WorldDatabaseInfo[]> {
