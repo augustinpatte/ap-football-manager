@@ -36,6 +36,29 @@ fn recurring_income_weekly_eur(team: &Team, finance: &crate::source::Finance, cf
     ((net_annual - gate_annual) / 52).max(0)
 }
 
+/// The weekly recurring income that lets `team` carry `weekly_commitments_eur` within
+/// `max_share_pct` of everything it can count on, its own gate included; nothing where the cap is
+/// off (0). Every club of the generated world sits at or under 94 % and none goes into debt; in the
+/// imported world 17 of 68 English clubs and 3 of 40 Italian ones paid up to 196 % of what they
+/// could count on, from squads of 45 to 101 players, and went into debt with no signing at all.
+/// The source's wage bills are real; its owner's funding is not in world.db.
+fn solvent_recurring_income_weekly_eur(
+    team: &Team,
+    weekly_commitments_eur: i64,
+    max_share_pct: i64,
+) -> i64 {
+    if max_share_pct <= 0 {
+        return 0;
+    }
+    let gate_weekly = ofm_core::finances::calc_matchday(
+        team.stadium_capacity,
+        HOME_MATCHES_PER_SEASON,
+        0.76,
+        20.0 * ofm_core::club_economy::ticket_price_factor(team.reputation),
+    ) / 52;
+    (weekly_commitments_eur * 100 / max_share_pct - gate_weekly).max(0)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Provenance {
     Imported,
@@ -184,7 +207,22 @@ pub fn restore(
     }
 
     if cfg.finance.restore_recurring_income {
-        let weekly = recurring_income_weekly_eur(team, finance, cfg);
+        let source_weekly = recurring_income_weekly_eur(team, finance, cfg);
+        let share = cfg.finance.max_commitment_share_of_income_pct;
+        let weekly = source_weekly.max(solvent_recurring_income_weekly_eur(
+            team,
+            weekly_commitments_eur,
+            share,
+        ));
+        if weekly > source_weekly {
+            journal.warn(
+                "finance.income_raised_to_commitments",
+                &team.id,
+                format!(
+                    "recurring income {source_weekly} a week cannot carry the {weekly_commitments_eur} the club pays from day one; raised to {weekly}"
+                ),
+            );
+        }
         team.sponsorship = Some(Sponsorship {
             sponsor_name: RECURRING_INCOME_NAME.to_string(),
             base_value: weekly,
@@ -195,9 +233,23 @@ pub fn restore(
             club_id: club.id,
             field: "recurring_income_weekly",
             value: weekly,
-            provenance: Provenance::Imported,
-            origin: finance.source.clone(),
-            note: "TV + other revenue - other costs, less OFM's estimated gate".into(),
+            provenance: if weekly > source_weekly {
+                Provenance::OfmGenerated
+            } else {
+                Provenance::Imported
+            },
+            origin: if weekly > source_weekly {
+                "adapter".into()
+            } else {
+                finance.source.clone()
+            },
+            note: if weekly > source_weekly {
+                format!(
+                    "raised from {source_weekly}: day-one commitments ({weekly_commitments_eur} a week) would take more than {share} % of the club's income"
+                )
+            } else {
+                "TV + other revenue - other costs, less OFM's estimated gate".into()
+            },
         });
     }
 
@@ -335,7 +387,83 @@ mod tests {
             &cfg,
             &mut Journal::default(),
         );
-        assert_eq!(t.sponsorship.expect("present, at zero").base_value, 0);
+        // Its costs exceed its revenue, so the source gives it nothing to count on; but it pays
+        // 90 000 a week, and a club that cannot pay its wages is not one the game can start.
+        let income = t.sponsorship.expect("present").base_value;
+        let gate = ofm_core::finances::calc_matchday(
+            t.stadium_capacity,
+            19,
+            0.76,
+            20.0 * ofm_core::club_economy::ticket_price_factor(t.reputation),
+        ) / 52;
+        assert!(
+            (income + gate) * 110 >= 90_000 * 100,
+            "income {income} and gate {gate} must carry 90 000 within 110 %"
+        );
+    }
+
+    /// Given a club whose source income carries its commitments comfortably
+    /// When its finances are restored
+    /// Then nothing is added to what the source gives it: only a club that cannot pay its own
+    ///      wages is helped, and the help is the smallest that makes it able to.
+    #[test]
+    fn a_club_that_can_carry_its_wages_gets_no_more_than_the_source_gives() {
+        let cfg = Config::default_config();
+        let mut rich = finance(100_000);
+        rich.tv_gbp = 50_000_000;
+        rich.other_revenue_gbp = 200_000_000;
+        rich.other_costs_gbp = 100_000_000;
+        let mut t = team();
+        let mut journal = Journal::default();
+        let records = restore(
+            &mut t,
+            &club(Some(rich)),
+            90_000,
+            90_000,
+            &cfg,
+            &mut journal,
+        );
+
+        assert_eq!(journal.count("finance.income_raised_to_commitments"), 0);
+        let income = records
+            .iter()
+            .find(|r| r.field == "recurring_income_weekly")
+            .unwrap();
+        assert_eq!(income.provenance, Provenance::Imported);
+    }
+
+    /// Given a club whose source gives it no income and which pays 1 000 000 a week (more than its gate can carry)
+    /// When its finances are restored
+    /// Then its recurring income is raised, journalled and recorded as OFM's, and is the least
+    ///      that lets its commitments take 110 % of what it can count on (gate included).
+    #[test]
+    fn a_club_that_cannot_carry_its_wages_is_given_the_least_income_that_can() {
+        let cfg = Config::default_config();
+        let mut t = team();
+        let mut journal = Journal::default();
+        let records = restore(
+            &mut t,
+            &club(Some(finance(100_000))),
+            900_000,
+            1_000_000,
+            &cfg,
+            &mut journal,
+        );
+
+        assert_eq!(journal.count("finance.income_raised_to_commitments"), 1);
+        let record = records
+            .iter()
+            .find(|r| r.field == "recurring_income_weekly")
+            .unwrap();
+        assert_eq!(record.provenance, Provenance::OfmGenerated);
+        let gate = ofm_core::finances::calc_matchday(
+            t.stadium_capacity,
+            19,
+            0.76,
+            20.0 * ofm_core::club_economy::ticket_price_factor(t.reputation),
+        ) / 52;
+        let income = t.sponsorship.expect("present").base_value;
+        assert_eq!(income, 1_000_000 * 100 / 110 - gate);
     }
 
     #[test]

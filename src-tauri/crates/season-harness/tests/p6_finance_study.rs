@@ -75,6 +75,25 @@ fn p6_who_goes_into_debt() {
             "\n== {world} world, seed {seed}: {} clubs ==",
             game.teams.len()
         );
+        let mut dump = std::env::var("P6_DUMP").ok().map(|path| {
+            let mut out = String::from(
+                "kind\tseed\tseason\tclub\tcountry\treputation\tincome_weekly_est\twage_budget\tcommitment_weekly\tcash\ttransfer_budget\top_result\tfees_out\tseniors\n",
+            );
+            for team in &game.teams {
+                let income = expected_annual_income(team) / 52.0;
+                out.push_str(&format!(
+                    "open\t{seed}\t0\t{}\t{}\t{}\t{income:.0}\t{}\t{}\t{}\t{}\t\t\t\n",
+                    team.id,
+                    team.country,
+                    team.reputation,
+                    team.wage_budget,
+                    ofm_core::finances::calc_wages(&game, &team.id),
+                    team.finance,
+                    team.transfer_budget,
+                ));
+            }
+            (path, out)
+        });
         let mut log = FinanceLog::starting_from(&game);
         let started = std::time::Instant::now();
         run_seasons(&mut game, RunOptions::seasons(seasons), &mut log).expect("seasons play");
@@ -118,6 +137,36 @@ fn p6_who_goes_into_debt() {
                     .flatten();
                 eprintln!("{}", debt_line(s, year, opening));
             }
+        }
+        if let Some((path, mut out)) = dump.take() {
+            let end_budget: std::collections::HashMap<&str, i64> = game
+                .teams
+                .iter()
+                .map(|t| (t.id.as_str(), t.transfer_budget))
+                .collect();
+            for (s, year) in log.years.iter().enumerate().skip(1) {
+                for c in year {
+                    out.push_str(&format!(
+                        "year\t{seed}\t{s}\t{}\t{}\t{}\t{:.0}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                        c.club_id,
+                        c.country,
+                        c.reputation,
+                        weekly_income(c),
+                        c.wage_budget,
+                        c.weekly_commitment,
+                        c.closing_cash,
+                        if s == log.years.len() - 1 {
+                            end_budget.get(c.club_id.as_str()).copied().unwrap_or(0)
+                        } else {
+                            0
+                        },
+                        c.operating_result(),
+                        -c.flows.get("TransferFeeOut").copied().unwrap_or(0),
+                        c.squad_size,
+                    ));
+                }
+            }
+            std::fs::write(path, out).expect("the dump is written");
         }
         if std::env::var("P6_FULL").is_ok() {
             let all: Vec<usize> = (0..log.years.len()).collect();

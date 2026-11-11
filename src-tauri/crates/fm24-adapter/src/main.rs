@@ -33,6 +33,15 @@ fn execute(
     legacy_rules: bool,
 ) -> Result<(), String> {
     let mut cfg = Config::default_config();
+    // `--max-commitment-share=N`: the income cap of the finance step (0 switches it off).
+    if let Some(share) = std::env::args().find_map(|arg| {
+        arg.strip_prefix("--max-commitment-share=")
+            .map(str::to_owned)
+    }) {
+        cfg.finance.max_commitment_share_of_income_pct = share
+            .parse()
+            .map_err(|_| format!("--max-commitment-share wants a number, not {share}"))?;
+    }
     if legacy_rules {
         cfg.competitions.authored_rules = false;
     }

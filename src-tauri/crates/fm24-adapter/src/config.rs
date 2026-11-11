@@ -106,6 +106,19 @@ pub struct FinanceCfg {
     pub restore_transfer_budget: bool,
     pub restore_wage_budget: bool,
     pub restore_recurring_income: bool,
+    /// The most of a club's income (per cent) its day-one commitments may take before its recurring
+    /// income is raised to carry them; 0 leaves the source's income as it is.
+    #[serde(default = "default_commitment_share")]
+    pub max_commitment_share_of_income_pct: i64,
+}
+
+/// The board's own soft cap on a wage bill (110 % of the budget, `contract_wage_policy`): a club
+/// is let carry commitments up to that share of its income, and no further. 90 % was measured
+/// first and rejected: it gave 31 of 240 clubs invented income (twelve of them never in debt),
+/// and the 19 that needed it spent five times what they did without it. At 110 % the same 19 go
+/// from 26 club-seasons in debt to 2 and spend what they did before.
+fn default_commitment_share() -> i64 {
+    110
 }
 
 /// Which of the save's unattached players enter the world as free agents, and what they ask.
