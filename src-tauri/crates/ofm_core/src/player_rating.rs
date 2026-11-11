@@ -66,6 +66,31 @@ pub fn refresh_player_derived(player: &mut Player, on: chrono::NaiveDate) {
     player.traits = traits;
 }
 
+/// Re-derive the rating of every player whose stored `ovr` has drifted from his own attributes by
+/// more than [`crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT`], the audit's definition of a
+/// corrupt rating. Returns how many were repaired.
+///
+/// Why this exists: careers saved by a build before D6 made each position granular without
+/// refreshing `ovr`, so the save holds a granular position and the rating of the old coarse one.
+/// Loading it can no longer tell that from a deliberate value by looking at the position, but it
+/// can by looking at the attributes, which every other writer keeps in step with `ovr`.
+///
+/// Deliberately narrow: only `ovr`, the attribute traits and a ceiling the new rating overtakes
+/// change (all through [`refresh_player_derived`]); identity, attributes, contract, wage and value
+/// are untouched. Idempotent, because a repaired player no longer drifts. A player with no rating
+/// (`ovr` 0) is the load path's backfill, which also draws his ceiling, so he is skipped.
+pub fn repair_stale_ratings(players: &mut [Player], on: chrono::NaiveDate) -> usize {
+    let mut repaired = 0;
+    for player in players.iter_mut().filter(|player| player.ovr > 0) {
+        let drift = (f64::from(player.ovr) - natural_ovr(player)).abs();
+        if drift > crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT {
+            refresh_player_derived(player, on);
+            repaired += 1;
+        }
+    }
+    repaired
+}
+
 /// Apply the wonderkid rule to a player's stored traits without touching anything else: add the tag
 /// when he qualifies and lacks it, take it off when he has it and no longer qualifies. `true` when a
 /// trait changed. Used on load, so a save written under an older rule is judged by the current one.
@@ -836,6 +861,135 @@ mod tests {
         );
         // 1 forward
         assert_eq!(slots[10], Position::Striker);
+    }
+
+    /// A winger whose stored `ovr` is `offset` points from what his attributes give.
+    fn winger_off_by(offset: i16) -> Player {
+        let mut player = make_player(Position::RightWinger);
+        player.attributes.pace = 92;
+        player.attributes.defending = 30;
+        player.natural_position = Position::RightWinger;
+        let derived = natural_ovr(&player).round() as i16;
+        player.ovr = (derived + offset) as u8;
+        player.potential = player.ovr.max(70);
+        player
+    }
+
+    /// Given a player written by a build that refined his position without refreshing his rating,
+    /// when stale ratings are repaired, then `ovr` is what his attributes give, his ceiling is kept
+    /// unless the corrected rating overtakes it, and nothing about who he is changes.
+    #[test]
+    fn a_stale_rating_is_rederived_and_nothing_else_about_the_player_changes() {
+        let mut player = winger_off_by(-9);
+        player.potential = 80;
+        let before = player.clone();
+        let mut players = [player];
+
+        let repaired = repair_stale_ratings(
+            &mut players,
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+        );
+
+        assert_eq!(repaired, 1);
+        let after = &players[0];
+        assert_eq!(after.ovr, natural_ovr(after).round() as u8);
+        assert_ne!(after.ovr, before.ovr, "the fixture must actually be stale");
+        assert_eq!(after.potential, before.potential.max(after.ovr));
+        assert_eq!(
+            (
+                &after.id,
+                &after.attributes,
+                &after.natural_position,
+                &after.date_of_birth
+            ),
+            (
+                &before.id,
+                &before.attributes,
+                &before.natural_position,
+                &before.date_of_birth
+            )
+        );
+    }
+
+    /// Given a player whose ceiling the corrected rating overtakes, when repaired, then the ceiling
+    /// rises to the rating and no further.
+    #[test]
+    fn a_ceiling_below_the_corrected_rating_is_lifted_to_it() {
+        let mut player = winger_off_by(-9);
+        player.potential = player.ovr;
+        let stale = player.ovr;
+        let mut players = [player];
+
+        repair_stale_ratings(
+            &mut players,
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+        );
+
+        assert!(players[0].ovr > stale, "the fixture must raise the rating");
+        assert_eq!(players[0].potential, players[0].ovr);
+    }
+
+    /// Given ratings that are rounding-close, or exactly at the audit tolerance, when repaired,
+    /// then they are left alone; one point past the tolerance is repaired. (The repair repairs
+    /// what the audit calls corrupt, and nothing it calls healthy.)
+    #[test]
+    fn only_drift_beyond_the_audit_tolerance_is_repaired() {
+        let on = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let reference = winger_off_by(0);
+        let exact = natural_ovr(&reference);
+        let at_tolerance = (exact + crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT).floor() as u8;
+        let mut within = reference.clone();
+        within.ovr = at_tolerance;
+        within.potential = 99;
+        let mut beyond = reference.clone();
+        beyond.ovr = at_tolerance + 1;
+        beyond.potential = 99;
+        assert!(
+            (f64::from(within.ovr) - exact).abs()
+                <= crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT
+        );
+        assert!(
+            (f64::from(beyond.ovr) - exact).abs() > crate::world_integrity::MAX_OVR_ATTRIBUTE_DRIFT
+        );
+        let mut players = [reference.clone(), within.clone(), beyond];
+
+        let repaired = repair_stale_ratings(&mut players, on);
+
+        assert_eq!(repaired, 1);
+        assert_eq!(players[0].ovr, reference.ovr);
+        assert_eq!(players[1].ovr, within.ovr);
+        assert_eq!(players[2].ovr, exact.round() as u8);
+    }
+
+    /// Given a repaired roster, when the repair runs again, then it finds nothing: it is idempotent,
+    /// so every load of a repaired save is a no-op and does not force a resave.
+    #[test]
+    fn repairing_twice_changes_nothing_the_second_time() {
+        let on = chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let mut players = [winger_off_by(-9), winger_off_by(7)];
+        assert_eq!(repair_stale_ratings(&mut players, on), 2);
+        let once = serde_json::to_string(&players).unwrap();
+
+        assert_eq!(repair_stale_ratings(&mut players, on), 0);
+        assert_eq!(serde_json::to_string(&players).unwrap(), once);
+    }
+
+    /// Given a player with no rating yet (`ovr` 0), when stale ratings are repaired, then he is left
+    /// to the load path's own backfill, which also draws his ceiling.
+    #[test]
+    fn an_unrated_player_is_left_to_the_backfill() {
+        let mut player = winger_off_by(0);
+        player.ovr = 0;
+        player.potential = 0;
+        let mut players = [player];
+
+        let repaired = repair_stale_ratings(
+            &mut players,
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+        );
+
+        assert_eq!(repaired, 0);
+        assert_eq!((players[0].ovr, players[0].potential), (0, 0));
     }
 
     /// Given a high-potential player born in December of the year he turns 21, when his derived

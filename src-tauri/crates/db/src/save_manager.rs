@@ -12,7 +12,7 @@ use ofm_core::generator;
 use ofm_core::player_identity;
 use ofm_core::player_rating::{
     effective_rating_for_assignment, formation_slots, reconcile_wonderkid_trait,
-    refresh_player_derived,
+    refresh_player_derived, repair_stale_ratings,
 };
 
 use crate::game_database::GameDatabase;
@@ -621,6 +621,19 @@ impl SaveManager {
         }
 
         if player_identity::upgrade_game_player_identities(&mut game) {
+            needs_resave = true;
+        }
+
+        // A save written before D6 can hold a granular position beside the rating of the coarse
+        // group the player was generated as. Unconditional and idempotent, like the fixture repair
+        // below: it touches only a rating the audit calls corrupt, and a repaired save has none.
+        let stale_ratings =
+            repair_stale_ratings(&mut game.players, game.clock.current_date.date_naive());
+        if stale_ratings > 0 {
+            info!(
+                "[save_manager] re-derived the stale rating of {} players in save {}",
+                stale_ratings, save_id
+            );
             needs_resave = true;
         }
 
@@ -1412,6 +1425,71 @@ mod tests {
         ];
 
         Game::new(clock, manager, vec![team], players, vec![], vec![])
+    }
+
+    /// Given a career saved by a build before D6: a winger already holding his granular position
+    /// but the rating of the coarse group he was generated as, beside a player whose rating is
+    /// sound,
+    /// When the save is loaded, and then loaded again after being resaved,
+    /// Then the winger's rating is what his attributes give (ceiling kept, identity untouched), the
+    /// sound player is untouched, and the second load repairs nothing further (the first load wrote it back to the file).
+    #[test]
+    fn loading_a_save_with_a_stale_granular_rating_repairs_it_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves).unwrap();
+        let mut game = sample_game();
+        let mut sound = game.players[0].clone();
+        sound.id = "sound".to_string();
+        let mut stale = game.players[0].clone();
+        stale.id = "stale".to_string();
+        for player in [&mut sound, &mut stale] {
+            player.natural_position = Position::RightWinger;
+            player.alternate_positions = vec![];
+            player.attributes.pace = 92;
+            player.attributes.defending = 30;
+        }
+        let derived = ofm_core::player_rating::natural_ovr(&stale).round() as u8;
+        sound.ovr = derived;
+        sound.potential = 99;
+        stale.ovr = derived - 9;
+        stale.potential = 99;
+        game.players.push(sound);
+        game.players.push(stale);
+        let save_id = sm.create_save(&game, "Career").unwrap();
+
+        let first = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+        let find =
+            |game: &Game, id: &str| game.players.iter().find(|p| p.id == id).cloned().unwrap();
+        let repaired = find(&first, "stale");
+        assert_eq!(
+            repaired.ovr, derived,
+            "the stale rating was not re-derived on load"
+        );
+        assert_eq!(repaired.potential, 99, "the ceiling must be kept");
+        assert_eq!(repaired.natural_position, Position::RightWinger);
+        assert_eq!(find(&first, "sound").ovr, derived);
+
+        // The load wrote the repair back: a second connection finds the corrected rating in the
+        // file itself, with nothing having saved the game since.
+        let reader = rusqlite::Connection::open(sm.save_db_path(&save_id).unwrap()).unwrap();
+        let stored: i64 = reader
+            .query_row("SELECT ovr FROM players WHERE id = 'stale'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(stored, i64::from(derived));
+
+        // And a further load has nothing left to repair.
+        let second = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+        assert_eq!(find(&second, "stale").ovr, derived);
+        assert_eq!(find(&second, "stale").potential, 99);
     }
 
     /// Given a saved career whose young prospect has an S-tier ceiling but no wonderkid tag, and

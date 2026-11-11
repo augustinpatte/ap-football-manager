@@ -2,13 +2,14 @@
 //!
 //! `Player::ovr` is a stored number (screens, wages, market values and the squad model read it);
 //! `natural_ovr` recomputes it from the attributes at the player's natural position (the match
-//! engine reads the attributes). They should agree to rounding. P4.5 found they do not at the
-//! opening of a generated career, for the players whose position is not centre back, central
-//! midfielder, striker or keeper, and that they agree again within the first weeks.
+//! engine reads the attributes). They agree to rounding. P4.5 found they did not at the opening of
+//! a generated career: `begin_career` made positions granular without refreshing `ovr`. D6 fixed
+//! that in `upgrade_player_identity`; the tests here keep it fixed, and pin what the fix must
+//! leave alone (identity, ceilings).
 
 use chrono::NaiveDate;
 use domain::manager::Manager;
-use domain::player::{Player, Position};
+use domain::player::Player;
 use ofm_core::career::{CareerScope, begin_career};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -74,49 +75,14 @@ fn a_generated_world_rates_every_player_as_his_attributes_do() {
     );
 }
 
-/// Given the same world once a career has begun in it
-/// When the same comparison is made
-/// Then the players who disagree are exactly those whose coarse position (Defender, Midfielder,
-/// Forward) became a granular one that is not centre back, central midfielder or striker; the
-/// others (keepers, centre backs, central midfielders, strikers) still agree.
-///
-/// This characterises the cause: `begin_career` ends by making positions granular
-/// (`upgrade_game_player_identities`) after `ovr` was computed for the coarse bucket, and does not
-/// refresh `ovr`.
-#[test]
-fn only_players_who_became_wingers_midfielders_or_full_backs_disagree_after_the_career_begins() {
-    let (mut game, club) = generated();
-    begin_career(&mut game, &club, CareerScope::default(), Default::default())
-        .expect("the career begins");
-    let off = disagreeing(&game.players);
-    assert!(
-        !off.is_empty(),
-        "the mismatch this test characterises is gone: retire the spec below"
-    );
-    let unaffected = [
-        Position::Goalkeeper,
-        Position::CenterBack,
-        Position::CentralMidfielder,
-        Position::Striker,
-    ];
-    assert!(
-        off.iter()
-            .all(|player| !unaffected.contains(&player.natural_position)),
-        "a keeper, centre back, central midfielder or striker disagrees: the cause is not what \
-         this test says"
-    );
-}
-
 /// Given a career that has just begun
 /// When every rostered player's stored rating is set against his attributes
 /// Then they agree to rounding, so a player's rating, wage and market value on day one are the
 /// ones his attributes earn.
 ///
-/// Known gap, not fixed (P4.5): refreshing `ovr` here would move the rating of about two fifths of
-/// outfield players, by up to ten points for wingers, and so rebalance the opening world, which
-/// needs an owner's decision (see docs/APFM_P45_VALIDATION_AND_FIXES.md §6).
+/// Was the P4.5 specification of a known gap; D6 (`player_identity::upgrade_player_identity`
+/// re-derives `ovr` when it refines a position) closed it.
 #[test]
-#[ignore = "known gap: begin_career makes positions granular without refreshing ovr; the fix rebalances the opening world"]
 fn a_new_career_opens_with_every_rating_agreeing_with_the_attributes() {
     let (mut game, club) = generated();
     begin_career(&mut game, &club, CareerScope::default(), Default::default())
@@ -127,4 +93,89 @@ fn a_new_career_opens_with_every_rating_agreeing_with_the_attributes() {
         "{} players disagree at the opening",
         off.len()
     );
+}
+
+/// Given a generated world with every player's id and ceiling recorded
+/// When a career begins in it
+/// Then no player was renamed or re-identified, every ceiling is at least the rating, and a
+/// ceiling moved only where the corrected rating overtook it (it was kept, not shifted).
+#[test]
+fn beginning_a_career_keeps_identities_and_only_lifts_a_ceiling_the_rating_overtakes() {
+    let (mut game, club) = generated();
+    let before: std::collections::HashMap<String, (String, String, String, u8)> = game
+        .players
+        .iter()
+        .map(|p| {
+            (
+                p.id.clone(),
+                (
+                    p.full_name.clone(),
+                    p.date_of_birth.clone(),
+                    p.nationality.clone(),
+                    p.potential,
+                ),
+            )
+        })
+        .collect();
+    begin_career(&mut game, &club, CareerScope::default(), Default::default())
+        .expect("the career begins");
+    let mut lifted = 0;
+    for player in &game.players {
+        let Some((name, born, nation, ceiling)) = before.get(&player.id) else {
+            continue; // a player the career added (youth repair): nothing to compare
+        };
+        assert_eq!(&player.full_name, name, "{} was renamed", player.id);
+        assert_eq!(
+            &player.date_of_birth, born,
+            "{} changed birth date",
+            player.id
+        );
+        assert_eq!(
+            &player.nationality, nation,
+            "{} changed nationality",
+            player.id
+        );
+        assert!(
+            player.potential >= player.ovr,
+            "{} ceiling below rating",
+            player.id
+        );
+        assert_eq!(
+            player.potential,
+            (*ceiling).max(player.ovr),
+            "{}: a ceiling may rise only to meet the corrected rating",
+            player.id
+        );
+        if player.potential > *ceiling {
+            lifted += 1;
+        }
+    }
+    assert!(
+        lifted > 0,
+        "the fixture must exercise a lifted ceiling, or the assertion above proves nothing"
+    );
+}
+
+/// Given a career that has begun
+/// When the identity upgrade runs again (as it does on every load)
+/// Then nothing changes: the repair is idempotent.
+#[test]
+fn the_identity_upgrade_is_idempotent_once_a_career_has_begun() {
+    let (mut game, club) = generated();
+    begin_career(&mut game, &club, CareerScope::default(), Default::default())
+        .expect("the career begins");
+    let snapshot: Vec<(String, u8, u8)> = game
+        .players
+        .iter()
+        .map(|p| (p.id.clone(), p.ovr, p.potential))
+        .collect();
+    assert!(!ofm_core::player_identity::upgrade_game_player_identities(
+        &mut game
+    ));
+    let after: Vec<(String, u8, u8)> = game
+        .players
+        .iter()
+        .map(|p| (p.id.clone(), p.ovr, p.potential))
+        .collect();
+    assert_eq!(snapshot, after);
 }
