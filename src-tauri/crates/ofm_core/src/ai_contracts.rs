@@ -69,7 +69,7 @@ pub(crate) fn apply_ai_contract_decisions(game: &mut Game, weekday_num: u32) {
 /// Runs after the day's departures so it sees the squad the club actually has.
 pub(crate) fn apply_ai_squad_planning(game: &mut Game, weekday_num: u32) {
     let clubs = crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num);
-    plan_squads(game, &clubs);
+    plan_squads(game, &clubs, AcademyLook::Monthly);
 }
 
 /// Every AI club plans its squad at once, whatever its review day: what clubs
@@ -77,10 +77,20 @@ pub(crate) fn apply_ai_squad_planning(game: &mut Game, weekday_num: u32) {
 /// club overnight and a week is too long to wait.
 pub(crate) fn plan_every_ai_squad(game: &mut Game) {
     let clubs = crate::ai_tactics::ai_clubs(game);
-    plan_squads(game, &clubs);
+    plan_squads(game, &clubs, AcademyLook::Always);
 }
 
-fn plan_squads(game: &mut Game, clubs: &[String]) {
+/// Whether a squad planning pass looks at the club's academy for players ready for the senior
+/// squad: every club every time (a season's end, when the whole world plans at once), or each club
+/// about once a month (the weekly review, where a promotion can wait a few weeks and the look
+/// costs a model of the squad).
+#[derive(Clone, Copy)]
+enum AcademyLook {
+    Monthly,
+    Always,
+}
+
+fn plan_squads(game: &mut Game, clubs: &[String], academy_look: AcademyLook) {
     let current_date = game.clock.current_date.date_naive();
     // Where each club's players are, found once. A signing changes one club's list and is
     // recounted where it happens; nothing else here moves a player between clubs.
@@ -94,6 +104,11 @@ fn plan_squads(game: &mut Game, clubs: &[String]) {
         let club = positions.entry(team_id.clone()).or_default();
         crate::match_day_eligibility::debug_assert_group_is_current(&game.players, team_id, club);
         graduate_overage_academy_players(game, club, current_date);
+        if matches!(academy_look, AcademyLook::Always)
+            || crate::youth_pathway::is_academy_week(&team.id, current_date)
+        {
+            crate::youth_pathway::promote_ready_academy_players(game, &team, club);
+        }
         plan_squad_depth(game, &team, club, &mut context);
     }
 }

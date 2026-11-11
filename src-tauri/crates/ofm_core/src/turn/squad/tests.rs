@@ -1168,6 +1168,7 @@ fn a_manager_who_rotates_readily_rests_a_player_that_one_who_rarely_does_keeps()
             1,
             FixtureLoad::Normal,
             rotation,
+            0.5,
         ))
     };
     assert_eq!(pick(1.0), 1, "the rotating manager rode a tired eleven");
@@ -1199,7 +1200,7 @@ fn the_neutral_manager_rests_a_player_at_exactly_the_old_line() {
             let xi = if neutral {
                 ai_select_starting_xi(&refs, "4-4-2", 0.5, 1, FixtureLoad::Normal)
             } else {
-                ai_select_starting_xi_by(&refs, "4-4-2", 0.5, 1, FixtureLoad::Normal, 0.5)
+                ai_select_starting_xi_by(&refs, "4-4-2", 0.5, 1, FixtureLoad::Normal, 0.5, 0.5)
             };
             deputies_in(&xi) == 1
         };
@@ -1235,11 +1236,50 @@ fn on_a_congested_run_a_disposition_moves_the_line_by_half_as_much() {
             1,
             FixtureLoad::Congested,
             rotation,
+            0.5,
         ))
     };
     assert_eq!(pick(87, 0.0), 0);
     assert_eq!(pick(87, 0.5), 1);
     assert_eq!(pick(85, 0.0), 1);
+}
+
+/// Given one tired starter and two adequate fresh deputies, a veteran a little better and a
+/// prospect a little worse with room to grow
+/// When a manager who trusts youth, a sceptic and the neutral manager rest the starter
+/// Then the believer gives the shirt to the prospect and the other two to the veteran, so trust
+/// chooses among adequate deputies and never fields one who is not.
+#[test]
+fn a_manager_who_trusts_youth_gives_the_rested_starters_shirt_to_the_prospect() {
+    let mut squad = Vec::new();
+    for i in 0..10 {
+        squad.push(mk(&format!("star{i}"), 80, 100));
+    }
+    squad.push(mk("tired-star", 80, 58));
+    let mut veteran = mk("veteran", 74, 100);
+    veteran.ovr = 74;
+    veteran.potential = 74;
+    let mut prospect = mk("prospect", 71, 100);
+    prospect.ovr = 71;
+    prospect.potential = 86;
+    squad.push(veteran);
+    squad.push(prospect);
+    let refs: Vec<&Player> = squad.iter().collect();
+    let deputy = |trust: f64| {
+        // Elite quality and a manager who rotates readily: the choice is the only variable.
+        let xi = ai_select_starting_xi_by(&refs, "4-4-2", 1.0, 1, FixtureLoad::Normal, 1.0, trust);
+        xi.iter()
+            .find(|player| player.id == "veteran" || player.id == "prospect")
+            .map(|player| player.id.clone())
+            .expect("the tired starter was rested")
+    };
+    assert_eq!(deputy(1.0), "prospect", "the believer chose the veteran");
+    assert_eq!(
+        deputy(0.5),
+        "veteran",
+        "the neutral manager chose the prospect"
+    );
+    assert_eq!(deputy(0.0), "veteran", "the sceptic chose the prospect");
 }
 
 mod wired_to_the_clubs_own_manager {
@@ -1320,6 +1360,60 @@ mod wired_to_the_clubs_own_manager {
             .count()
     }
 
+    /// The tired club with one tired striker and two adequate fresh strikers to replace him: a
+    /// veteran, and a prospect with room to grow.
+    fn club_with_a_prospect(manager_id: Option<&str>) -> Game {
+        let mut game = tired_club(manager_id);
+        // A club of the highest standing, so its manager reads his players as they are and the
+        // only difference between two clubs is the manager's trust.
+        game.teams[0].reputation = 900;
+        game.players.retain(|player| !player.id.starts_with("dep-"));
+        for player in &mut game.players {
+            player.condition = if player.id == "star10" { 56 } else { 100 };
+            player.ovr = 80;
+            player.potential = 80;
+        }
+        let mut veteran = mk_pos("dep-veteran", DomainPos::Striker, 76, 100);
+        veteran.ovr = 76;
+        veteran.potential = 76;
+        let mut prospect = mk_pos("dep-prospect", DomainPos::Striker, 72, 100);
+        prospect.ovr = 72;
+        prospect.potential = 88;
+        for mut player in [veteran, prospect] {
+            player.team_id = Some("club".to_string());
+            game.players.push(player);
+        }
+        for (id, position) in [
+            ("dep-keeper", DomainPos::Goalkeeper),
+            ("dep-defender", DomainPos::CenterBack),
+            ("dep-midfielder", DomainPos::CentralMidfielder),
+        ] {
+            let mut spare = mk_pos(id, position, 40, 100);
+            spare.ovr = 40;
+            spare.potential = 40;
+            spare.team_id = Some("club".to_string());
+            game.players.push(spare);
+        }
+        game
+    }
+
+    /// Given the same club and the same two fresh strikers behind a tired one, run by a manager
+    /// who trusts youth, one who does not, and none
+    /// When the AI picks its side
+    /// Then only the believer fields the prospect: trust reaches the real selection path.
+    #[test]
+    fn the_ai_selection_reads_its_own_managers_trust_in_youth() {
+        let believer = manager_like(|m| m.youth_trust > 0.9 && m.rotation > 0.5);
+        let sceptic = manager_like(|m| m.youth_trust < 0.1 && m.rotation > 0.5);
+        let fields_the_prospect = |game: &Game| {
+            let (team_data, _) = build_team_with_bench(game, "club");
+            team_data.players.iter().any(|p| p.id == "dep-prospect")
+        };
+        assert!(fields_the_prospect(&club_with_a_prospect(Some(&believer))));
+        assert!(!fields_the_prospect(&club_with_a_prospect(Some(&sceptic))));
+        assert!(!fields_the_prospect(&club_with_a_prospect(None)));
+    }
+
     /// Given the same tired club run by a manager who rotates readily, one who rarely does, and
     /// none at all
     /// When the AI picks its side for a match
@@ -1348,7 +1442,7 @@ fn even_a_manager_who_hates_rotating_rests_an_exhausted_starter() {
     }
     squad.push(mk("deputy", 66, 95));
     let refs: Vec<&Player> = squad.iter().collect();
-    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0);
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0, 0.5);
     assert_eq!(deputies_in(&xi), 1);
 }
 
@@ -1364,7 +1458,7 @@ fn a_manager_who_hates_rotating_still_rests_a_player_just_under_the_exhausted_li
     }
     squad.push(mk("deputy", 72, 100));
     let refs: Vec<&Player> = squad.iter().collect();
-    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0);
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0, 0.5);
     assert_eq!(deputies_in(&xi), 1);
 }
 

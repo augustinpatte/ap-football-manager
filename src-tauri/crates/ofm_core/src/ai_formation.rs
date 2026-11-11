@@ -657,7 +657,7 @@ mod tests {
         // its own three or four.
         let settled = weeks(400);
         assert!((4..=5).contains(&settled), "{settled}");
-        assert!(weeks(0) >= settled + 1, "{} vs {settled}", weeks(0));
+        assert!(weeks(0) > settled, "{} vs {settled}", weeks(0));
         assert!(is_review_week("club", start, Some(0)));
         assert!(is_review_week("club", start, Some(30)));
     }

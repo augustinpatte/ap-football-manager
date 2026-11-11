@@ -93,14 +93,15 @@ pub(crate) fn build_team_with_bench_from(
             &game.clock.current_date.format("%Y-%m-%d").to_string(),
         );
         let load = fixture_load_among(game, team_id, lookups);
-        let rotation = crate::manager_identity::ManagerIdentity::for_club(game, team).rotation;
+        let identity = crate::manager_identity::ManagerIdentity::for_club(game, team);
         ai_select_starting_xi_by(
             &available_players,
             &formation,
             quality,
             seed,
             load,
-            rotation,
+            identity.rotation,
+            identity.youth_trust,
         )
     };
     // Both select_starting_xi and ai_select_starting_xi return a slot-aligned XI
@@ -702,6 +703,7 @@ fn ai_select_starting_xi<'a>(
         seed,
         load,
         crate::manager_identity::ManagerIdentity::NEUTRAL.rotation,
+        crate::manager_identity::ManagerIdentity::NEUTRAL.youth_trust,
     )
 }
 
@@ -712,9 +714,22 @@ fn ai_select_starting_xi<'a>(
 /// to the same high band, so there it counts for half as much.
 const ROTATION_DISPOSITION_RANGE: f64 = 8.0;
 
+/// The most, in rating points, a manager's trust in youth moves his choice of deputy when he rests
+/// a starter: a trusting manager gives the shirt to the adequate youngster a sceptic would not.
+/// Smaller than the tolerance for a drop in quality (6 to 12 points), so trust only chooses among
+/// deputies who are already adequate; it never fields one who is not.
+const YOUTH_DEPUTY_LEAN: f64 = 5.0;
+
+/// How much of a prospect a player is, from 0 to 1: ten points of room to grow is all of one.
+fn prospect_share(player: &domain::player::Player) -> f64 {
+    (f64::from(player.potential.saturating_sub(player.ovr)) / 10.0).clamp(0.0, 1.0)
+}
+
 /// [`ai_select_starting_xi`] for a manager with a disposition to rotate (`rotation`, 0 to 1, 0.5
-/// being the neutral manager). It moves when he notices fatigue; it never moves whether he rests
-/// a player who can barely run, which is the floor the quality gradient stands on.
+/// being the neutral manager) and a trust in youth (`youth_trust`, the same scale). Rotation
+/// moves when he notices fatigue; it never moves whether he rests a player who can barely run,
+/// which is the floor the quality gradient stands on. Trust moves who he gives the shirt to
+/// among the deputies who are adequate, and nothing else: the first eleven is the best side.
 fn ai_select_starting_xi_by<'a>(
     available_players: &[&'a domain::player::Player],
     formation: &str,
@@ -722,6 +737,7 @@ fn ai_select_starting_xi_by<'a>(
     seed: u64,
     load: FixtureLoad,
     rotation: f64,
+    youth_trust: f64,
 ) -> Vec<&'a domain::player::Player> {
     /// A rotation candidate must be at least this fresh to be worth considering.
     const FRESH_FLOOR: f64 = 60.0;
@@ -840,10 +856,15 @@ fn ai_select_starting_xi_by<'a>(
             // manager may misjudge which of two capable players is better; none of
             // them mistakes a reserve-team player for a first-choice one.
             .filter(|player| positional_fit_for_assignment(player, slot) >= starter_fit - tolerance)
-            // The choice between adequate options, though, is the manager's read.
+            // The choice between adequate options, though, is the manager's read, and a manager
+            // who trusts youth reads a prospect a little higher.
             .max_by(|left, right| {
-                perceived_fit(left, slot)
-                    .partial_cmp(&perceived_fit(right, slot))
+                let read = |player: &domain::player::Player| {
+                    perceived_fit(player, slot)
+                        + (youth_trust - 0.5) * 2.0 * YOUTH_DEPUTY_LEAN * prospect_share(player)
+                };
+                read(left)
+                    .partial_cmp(&read(right))
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
 
