@@ -160,3 +160,36 @@ pub fn mean_se(values: &[f64]) -> (f64, f64) {
     let variance = values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1.0);
     (mean, (variance / n).sqrt())
 }
+
+/// The five-zone engine's own ratings of the side a club would field against `opponent` today, as
+/// the contests read them: group averages of the attributes each contest uses.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct EngineRatings {
+    pub attack: f64,
+    pub midfield: f64,
+    pub defence: f64,
+    pub goalkeeper: f64,
+}
+
+/// Prepares `club` v `opponent` (club at home) exactly as a kick-off does and reads the club's
+/// ratings from the engine's own team, without playing the match.
+pub fn engine_ratings(
+    game: &mut Game,
+    club: &str,
+    opponent: &str,
+) -> Result<EngineRatings, String> {
+    install_fixture(game, club, opponent);
+    let session = ofm_core::live_match_manager::kick_off_live_match(
+        game,
+        0,
+        ofm_core::live_match_manager::MatchMode::Instant,
+        false,
+    )?;
+    let team = session.match_state.snapshot().home_team;
+    Ok(EngineRatings {
+        attack: team.attack_rating(),
+        midfield: team.midfield_rating(),
+        defence: team.defense_rating(),
+        goalkeeper: team.goalkeeper_rating(),
+    })
+}

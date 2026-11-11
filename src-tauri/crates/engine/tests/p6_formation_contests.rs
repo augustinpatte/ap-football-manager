@@ -605,3 +605,72 @@ fn p6_fit_numbers_to_m12() {
         }
     }
 }
+
+/// What the engine charges for seating players badly, so far as it can be seen at all: the same
+/// eleven, once with strikers up front and defenders at the back and once with each group's
+/// players in the other's place. The attributes the contests read are the whole price.
+#[test]
+#[ignore = "measurement study"]
+fn p6_misfit_cost() {
+    let specialist = |id: String, position: Position, strong: bool| {
+        let mut p = player(id, position, 60);
+        let (hi, lo) = (75, 45);
+        let (attack, defence) = if strong { (hi, lo) } else { (lo, hi) };
+        for field in [&mut p.shooting, &mut p.dribbling, &mut p.composure] {
+            *field = attack;
+        }
+        for field in [&mut p.defending, &mut p.tackling, &mut p.aerial] {
+            *field = defence;
+        }
+        p
+    };
+    let build = |id: &str, seat_correctly: bool| {
+        let mut team = side(
+            id,
+            "4-4-2",
+            (4, 4, 2),
+            60,
+            PlayStyle::Balanced,
+            TacticsConfig::default(),
+        );
+        // The two forwards and the four defenders are specialists; mis-seating swaps which of
+        // the two groups each specialist stands in (four defenders take two forwards' places
+        // and two forwards the defenders').
+        for (n, p) in team.players.iter_mut().enumerate() {
+            let is_forward_slot = p.position == Position::Forward;
+            let is_defender_slot = p.position == Position::Defender;
+            if is_forward_slot || is_defender_slot {
+                let forward_type = is_forward_slot == seat_correctly;
+                *p = specialist(format!("{id}_{n}"), p.position, forward_type);
+            }
+        }
+        team
+    };
+    let config = MatchConfig::default();
+    let matches = 6_000u64;
+    let mut total = [0.0f64; 2];
+    for seed in 0..matches {
+        for (index, seated_right) in [(0usize, true), (1, false)] {
+            let subject = build("s", seated_right);
+            let opponent = side(
+                "o",
+                "4-4-2",
+                (4, 4, 2),
+                60,
+                PlayStyle::Balanced,
+                TacticsConfig::default(),
+            );
+            total[index] += if seed % 2 == 0 {
+                play(subject, opponent, &config, seed, &|_| {}).0.points
+            } else {
+                play(opponent, subject, &config, seed, &|_| {}).1.points
+            };
+        }
+    }
+    let n = matches as f64;
+    eprintln!(
+        "\n== misfit: seated by attributes {:.3} points, seated against them {:.3} (a 30-point swing in the attributes read by the contests) ==",
+        total[0] / n,
+        total[1] / n
+    );
+}
