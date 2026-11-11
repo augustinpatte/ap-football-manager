@@ -41,6 +41,8 @@ pub(crate) struct AiObservation<'a> {
     pub(crate) team: &'a TeamData,
     pub(crate) bench: &'a [PlayerData],
     sent_off: &'a HashSet<String>,
+    /// Everyone hurt in this match, whether still on the pitch or already taken off.
+    injured: &'a HashSet<String>,
     /// Every substitution the match has seen, both sides. Read only to find out
     /// who has already been taken off — see [`AiObservation::available`].
     substitutions: &'a [SubstitutionRecord],
@@ -76,6 +78,11 @@ impl AiObservation<'_> {
                 .substitutions
                 .iter()
                 .any(|sub| sub.player_off_id == player.id)
+    }
+
+    /// Was this player hurt in this match?
+    pub(crate) fn is_injured(&self, player: &PlayerData) -> bool {
+        self.injured.contains(&player.id)
     }
 
     /// This player's condition as the manager sees it right now.
@@ -152,6 +159,7 @@ impl LiveMatchState {
             team,
             bench: self.bench(side),
             sent_off: &self.sent_off,
+            injured: &self.injured,
             substitutions: &self.substitutions,
             keeper_on_pitch: self.keeper_on_the_pitch(side).is_some(),
             pressure_ticks: self
@@ -265,6 +273,7 @@ mod tests {
             reputation: 500,
             experience: 50,
             personality: AiPersonality::Pragmatist,
+            ..AiProfile::default()
         }
     }
 
@@ -414,6 +423,7 @@ mod tests {
             reputation: 500,
             experience: 50,
             personality: AiPersonality::Visionary,
+            ..AiProfile::default()
         };
 
         assert!(

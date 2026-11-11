@@ -812,6 +812,7 @@ fn ai_decide_returns_no_commands_early() {
         reputation: 500,
         experience: 50,
         personality: AiPersonality::Pragmatist,
+        ..AiProfile::default()
     };
     let cmds = ai_decide(&state, Side::Home, &profile, &mut rng);
     // At minute 0, AI shouldn't make decisions
@@ -826,6 +827,7 @@ fn ai_decide_does_not_crash() {
         reputation: 800,
         experience: 80,
         personality: AiPersonality::Visionary,
+        ..AiProfile::default()
     };
 
     // Run the entire match with AI decisions
@@ -854,6 +856,7 @@ fn ai_makes_substitutions_eventually() {
         reputation: 900,
         experience: 90,
         personality: AiPersonality::Reactive,
+        ..AiProfile::default()
     };
     let mut any_subs = false;
 

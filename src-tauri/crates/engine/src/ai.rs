@@ -64,6 +64,11 @@ pub struct AiProfile {
     pub experience: u8,
     /// Personality archetype derived from manager stats.
     pub personality: AiPersonality,
+    /// Appetite for risk, from 0 (cautious) to 1 (bold); 0.5 is the manager every threshold
+    /// below was written for. It moves *when* he gives up on a lead or goes for a deficit, never
+    /// how well he reads the game: a bold manager starts chasing one goal ten minutes before an
+    /// average one and keeps attacking a lead ten minutes after him.
+    pub risk: f64,
 }
 
 impl Default for AiProfile {
@@ -72,7 +77,29 @@ impl Default for AiProfile {
             reputation: 500,
             experience: 50,
             personality: AiPersonality::Pragmatist,
+            risk: 0.5,
         }
+    }
+}
+
+/// How far, in minutes, the extremes of risk move a threshold either side of the average manager.
+const RISK_SHIFT_MINUTES: f64 = 10.0;
+
+impl AiProfile {
+    fn risk_shift_minutes(&self) -> f64 {
+        (self.risk.clamp(0.0, 1.0) - 0.5) * 2.0 * RISK_SHIFT_MINUTES
+    }
+
+    /// The minute from which one goal behind is worth changing something for: earlier for the
+    /// bold manager, later for the cautious one.
+    fn chase_one_goal_from(&self) -> u8 {
+        (f64::from(CHASE_ONE_GOAL_FROM) - self.risk_shift_minutes()).round() as u8
+    }
+
+    /// The minute from which a lead is worth protecting: earlier for the cautious manager, later
+    /// for the bold one.
+    fn see_out_a_lead_from(&self) -> u8 {
+        (f64::from(SEE_OUT_A_LEAD_FROM) + self.risk_shift_minutes()).round() as u8
     }
 }
 
@@ -217,6 +244,12 @@ fn consider_substitution<R: Rng>(
         return Some(cmd);
     }
 
+    // A player hurt in this match is not a judgement call either: while there is a bench he
+    // comes off at the next look, not at the next checkpoint.
+    if let Some(cmd) = replace_the_injured(obs) {
+        return Some(cmd);
+    }
+
     // Exhaustion is not a judgement call, and this branch has never been behind
     // a dice roll. Holding it back to a checkpoint would make the AI react to a
     // spent player *later* than it does today, and the condition economy was
@@ -229,10 +262,10 @@ fn consider_substitution<R: Rng>(
         return None;
     }
 
-    if chasing(obs) {
+    if chasing(obs, profile) {
         return chase_the_game(obs, profile, rng);
     }
-    if obs.goal_diff > 0 && obs.minute >= SEE_OUT_A_LEAD_FROM {
+    if obs.goal_diff > 0 && obs.minute >= profile.see_out_a_lead_from() {
         return protect_the_lead(obs, profile, rng);
     }
 
@@ -240,8 +273,30 @@ fn consider_substitution<R: Rng>(
 }
 
 /// Is this side behind in a way that calls for something to be done?
-fn chasing(obs: &AiObservation<'_>) -> bool {
-    obs.goal_diff <= -2 || (obs.goal_diff == -1 && obs.minute >= CHASE_ONE_GOAL_FROM)
+fn chasing(obs: &AiObservation<'_>, profile: &AiProfile) -> bool {
+    obs.goal_diff <= -2 || (obs.goal_diff == -1 && obs.minute >= profile.chase_one_goal_from())
+}
+
+/// A player hurt in this match comes off for the best of the bench in his position.
+///
+/// The engine records the injury and lets the player run on, so without this a hurt starter
+/// played the match out. A goalkeeper is replaced only by another goalkeeper: an outfielder in
+/// goal is the emergency `put_someone_in_goal` handles, not a tidy substitution.
+fn replace_the_injured(obs: &AiObservation<'_>) -> Option<MatchCommand> {
+    let hurt = obs
+        .team
+        .players
+        .iter()
+        .find(|player| obs.is_injured(player) && obs.available(player))?;
+    let replacement = find_best_bench_replacement(obs.bench, hurt.position, obs, None)?;
+    if hurt.position == Position::Goalkeeper && replacement.position != Position::Goalkeeper {
+        return None;
+    }
+    Some(MatchCommand::Substitute {
+        side: obs.side,
+        player_off_id: hurt.id.clone(),
+        player_on_id: replacement.id.clone(),
+    })
 }
 
 /// The goalkeeper has been sent off. Somebody has to go in.
@@ -507,7 +562,7 @@ fn consider_tactic_change(obs: &AiObservation<'_>, profile: &AiProfile) -> Optio
     // he changes the instructions like everyone else.
     if profile.personality == AiPersonality::Visionary
         && obs.goal_diff < 0
-        && obs.minute >= CHASE_ONE_GOAL_FROM
+        && obs.minute >= profile.chase_one_goal_from()
         && let Some(formation) = bolder_formation(&obs.team.formation)
     {
         return Some(MatchCommand::ChangeFormation {
@@ -516,7 +571,7 @@ fn consider_tactic_change(obs: &AiObservation<'_>, profile: &AiProfile) -> Optio
         });
     }
 
-    if let Some(target) = target_play_style(obs)
+    if let Some(target) = target_play_style(obs, profile)
         && target != obs.team.play_style
     {
         return Some(MatchCommand::ChangePlayStyle {
@@ -526,7 +581,7 @@ fn consider_tactic_change(obs: &AiObservation<'_>, profile: &AiProfile) -> Optio
     }
 
     // Already wearing the right shirt. There are still nine dials underneath it.
-    turn_a_dial(obs)
+    turn_a_dial(obs, profile)
 }
 
 /// The most of the four under-priced dials (see [`under_priced_dials`]) any one
@@ -564,8 +619,8 @@ pub fn under_priced_dials(tactics: &TacticsConfig) -> usize {
 ///
 /// The moves are in the order a manager would reach for them, and the first one
 /// that changes anything and stays inside the ration is the one he gives.
-fn turn_a_dial(obs: &AiObservation<'_>) -> Option<MatchCommand> {
-    let reach_for: &[TacticalDial] = if chasing(obs) {
+fn turn_a_dial(obs: &AiObservation<'_>, profile: &AiProfile) -> Option<MatchCommand> {
+    let reach_for: &[TacticalDial] = if chasing(obs, profile) {
         // Squeeze the pitch from the other end: a higher line, quicker breaks,
         // and press them when the ball is lost. None of these is a dial the
         // engine gives away, so the ration never bites on this side of it.
@@ -574,7 +629,7 @@ fn turn_a_dial(obs: &AiObservation<'_>) -> Option<MatchCommand> {
             TacticalDial::BreakSpeed(BreakSpeed::Fast),
             TacticalDial::PressingIntensity(PressingIntensity::Aggressive),
         ]
-    } else if obs.goal_diff > 0 && obs.minute >= SEE_OUT_A_LEAD_FROM {
+    } else if obs.goal_diff > 0 && obs.minute >= profile.see_out_a_lead_from() {
         // Drop, narrow the gaps, and stop chasing. The first two are rationed
         // dials, so a side already holding two of them gets the third move.
         &[
@@ -606,7 +661,7 @@ fn turn_a_dial(obs: &AiObservation<'_>) -> Option<MatchCommand> {
 /// branch returning "back to normal", which is what stops a side changing its
 /// mind every time it looks up — see the note on hysteresis at the top of the
 /// file.
-fn target_play_style(obs: &AiObservation<'_>) -> Option<PlayStyle> {
+fn target_play_style(obs: &AiObservation<'_>, profile: &AiProfile) -> Option<PlayStyle> {
     // Two down is two down. At the interval or at eighty, the answer is the same.
     if obs.goal_diff <= -2 {
         return Some(PlayStyle::Attacking);
@@ -614,11 +669,11 @@ fn target_play_style(obs: &AiObservation<'_>) -> Option<PlayStyle> {
 
     // One down, with the hour gone. A side already pressing high is committed as
     // far up the pitch as this would take it.
-    if obs.goal_diff == -1 && obs.minute >= CHASE_ONE_GOAL_FROM {
+    if obs.goal_diff == -1 && obs.minute >= profile.chase_one_goal_from() {
         return (obs.team.play_style != PlayStyle::HighPress).then_some(PlayStyle::Attacking);
     }
 
-    if obs.goal_diff >= 1 && obs.minute >= SEE_OUT_A_LEAD_FROM {
+    if obs.goal_diff >= 1 && obs.minute >= profile.see_out_a_lead_from() {
         return Some(PlayStyle::Defensive);
     }
 

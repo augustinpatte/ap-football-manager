@@ -207,6 +207,7 @@ fn run_live<R: Rng>(
         reputation: 500,
         experience: 50,
         personality: AiPersonality::Pragmatist,
+        ..AiProfile::default()
     };
 
     // Bounded so a phase-machine bug in the engine cannot hang the bench.

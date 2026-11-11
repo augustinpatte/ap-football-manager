@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::game::Game;
+use crate::manager_identity::ManagerIdentity;
 use crate::spatial_adapter::{self, MatchSelection, TeamSelection};
 
 use domain::league::{FixtureStatus, StandingEntry};
@@ -499,30 +500,14 @@ fn create_live_match_with(
         }
     });
 
-    // Build AI profiles from team reputation
-    let home_rep = game
-        .teams
-        .iter()
-        .find(|t| t.id == home_team_id)
-        .map(|t| t.reputation)
-        .unwrap_or(500);
-    let away_rep = game
-        .teams
-        .iter()
-        .find(|t| t.id == away_team_id)
-        .map(|t| t.reputation)
-        .unwrap_or(500);
-
-    let ai_home = AiProfile {
-        reputation: home_rep,
-        experience: (home_rep / 10).min(100) as u8,
-        personality: derive_personality(home_rep, manager_for_team(game, &home_team_id)),
+    let team_reputation = |team_id: &str| {
+        game.teams
+            .iter()
+            .find(|t| t.id == team_id)
+            .map_or(500, |t| t.reputation)
     };
-    let ai_away = AiProfile {
-        reputation: away_rep,
-        experience: (away_rep / 10).min(100) as u8,
-        personality: derive_personality(away_rep, manager_for_team(game, &away_team_id)),
-    };
+    let ai_home = ai_profile_for(game, &home_team_id, team_reputation(&home_team_id));
+    let ai_away = ai_profile_for(game, &away_team_id, team_reputation(&away_team_id));
 
     Ok(LiveMatchSession {
         match_state,
@@ -617,11 +602,51 @@ fn manager_for_team<'a>(game: &'a Game, team_id: &str) -> Option<&'a Manager> {
         .or_else(|| (game.manager.id == manager_id).then_some(&game.manager))
 }
 
-/// Derive an AI personality from reputation and career statistics.
-/// - Visionary: high reputation (700+) with substantial matches managed (50+)
-/// - Reactive: moderate reputation with a winning record (win rate ≥ 55 %)
-/// - Pragmatist: default
-fn derive_personality(rep: u32, manager: Option<&Manager>) -> AiPersonality {
+/// A manager this far towards an extreme of a disposition acts on it whatever his club's
+/// reputation or record: the top and bottom quarter of the range.
+const DISPOSITION_EXTREME: f64 = 0.25;
+
+/// The manager on `team_id`'s touchline as the match engine sees him: how experienced (from the
+/// club's standing), which personality, and his appetite for risk. The last two come from his
+/// [`ManagerIdentity`], the same disposition the line-up and formation reviews read, so one
+/// manager is one character from the team sheet to the final whistle. The player's own club and a
+/// club with no manager get the neutral identity, and so the reputation-and-record rule.
+fn ai_profile_for(game: &Game, team_id: &str, reputation: u32) -> AiProfile {
+    let team = game.teams.iter().find(|team| team.id == team_id);
+    let identity = ManagerIdentity::for_club(game, team);
+    AiProfile {
+        reputation,
+        experience: (reputation / 10).min(100) as u8,
+        personality: derive_personality(reputation, manager_for_team(game, team_id), &identity),
+        risk: identity.risk,
+    }
+}
+
+/// An AI personality from the manager's identity, then from reputation and career statistics.
+/// - Visionary: a manager who leans towards boldness; otherwise high reputation (700+) with
+///   substantial matches managed (50+), or a very high one (800+)
+/// - Reactive: a manager who adapts readily; otherwise a moderate reputation with a winning
+///   record (win rate ≥ 55 %)
+/// - Pragmatist: a cautious manager, whatever his club; otherwise the default
+///
+/// When a manager is both bold and adaptable the stronger disposition decides.
+fn derive_personality(
+    rep: u32,
+    manager: Option<&Manager>,
+    identity: &ManagerIdentity,
+) -> AiPersonality {
+    let bold = identity.risk >= 1.0 - DISPOSITION_EXTREME;
+    let adaptable = identity.adaptability >= 1.0 - DISPOSITION_EXTREME;
+    if bold && (!adaptable || identity.risk >= identity.adaptability) {
+        return AiPersonality::Visionary;
+    }
+    if adaptable {
+        return AiPersonality::Reactive;
+    }
+    if identity.risk <= DISPOSITION_EXTREME {
+        return AiPersonality::Pragmatist;
+    }
+
     if let Some(manager) = manager {
         let stats = &manager.career_stats;
         let total = stats.matches_managed;
@@ -645,12 +670,126 @@ fn derive_personality(rep: u32, manager: Option<&Manager>) -> AiPersonality {
 
 #[cfg(test)]
 mod tests {
-    use super::{MatchMode, create_live_match};
+    use super::{MatchMode, ai_profile_for, create_live_match, derive_personality};
     use crate::clock::GameClock;
     use crate::game::Game;
+    use crate::manager_identity::ManagerIdentity;
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureStatus, League};
     use domain::manager::Manager;
+    use engine::ai::AiPersonality;
+
+    /// A manager id whose identity satisfies `wanted`: identities are derived from the id, so a
+    /// test that needs a bold or a cautious manager has to find one.
+    fn manager_id_where(wanted: impl Fn(&ManagerIdentity) -> bool) -> String {
+        (0..500)
+            .map(|index| format!("manager-{index}"))
+            .find(|id| wanted(&ManagerIdentity::of(id)))
+            .expect("five hundred managers include every kind")
+    }
+
+    fn identity(risk: f64, adaptability: f64) -> ManagerIdentity {
+        ManagerIdentity {
+            risk,
+            adaptability,
+            ..ManagerIdentity::NEUTRAL
+        }
+    }
+
+    /// Given a manager who leans hard towards boldness, whatever his club's reputation
+    /// When his touchline personality is derived
+    /// Then he is a Visionary, who reaches for a bolder shape when behind.
+    #[test]
+    fn a_bold_manager_is_a_visionary_at_a_small_club() {
+        assert_eq!(
+            derive_personality(300, None, &identity(0.9, 0.5)),
+            AiPersonality::Visionary
+        );
+    }
+
+    /// Given a cautious manager at the grandest club in the world
+    /// When his touchline personality is derived
+    /// Then he is a Pragmatist: reputation no longer makes him gamble.
+    #[test]
+    fn a_cautious_manager_is_never_a_visionary_however_grand_his_club() {
+        assert_eq!(
+            derive_personality(950, None, &identity(0.1, 0.5)),
+            AiPersonality::Pragmatist
+        );
+    }
+
+    /// Given a manager who changes plan readily and whose appetite for risk is average
+    /// When his touchline personality is derived
+    /// Then he is Reactive, and takes stock whenever the score changes.
+    #[test]
+    fn a_manager_who_adapts_readily_is_reactive() {
+        assert_eq!(
+            derive_personality(500, None, &identity(0.5, 0.9)),
+            AiPersonality::Reactive
+        );
+    }
+
+    /// Given the neutral manager, which is what a club with none and the player's own club get
+    /// When his personality is derived
+    /// Then the reputation rule decides, as it always did.
+    #[test]
+    fn the_neutral_manager_keeps_the_reputation_rule() {
+        assert_eq!(
+            derive_personality(850, None, &ManagerIdentity::NEUTRAL),
+            AiPersonality::Visionary
+        );
+        assert_eq!(
+            derive_personality(500, None, &ManagerIdentity::NEUTRAL),
+            AiPersonality::Pragmatist
+        );
+    }
+
+    /// Given two clubs of the same reputation whose managers differ in risk and adaptability
+    /// When the profile of each touchline is built from the game
+    /// Then each carries its own manager's appetite for risk, and the clubs differ.
+    #[test]
+    fn the_touchline_profile_is_built_from_the_clubs_own_manager() {
+        use domain::team::Team;
+        let bold = manager_id_where(|m| m.risk > 0.8);
+        let cautious = manager_id_where(|m| m.risk < 0.2);
+        let team = |id: &str, manager: &str| {
+            let mut team = Team::new(
+                id.to_string(),
+                id.to_string(),
+                id.to_string(),
+                "England".to_string(),
+                "London".to_string(),
+                "Ground".to_string(),
+                20_000,
+            );
+            team.manager_id = Some(manager.to_string());
+            team
+        };
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap());
+        let user = Manager::new(
+            "user".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let game = Game::new(
+            clock,
+            user,
+            vec![team("bold-fc", &bold), team("careful-fc", &cautious)],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let bold_profile = ai_profile_for(&game, "bold-fc", 500);
+        let careful_profile = ai_profile_for(&game, "careful-fc", 500);
+
+        assert!(bold_profile.risk > 0.8, "{}", bold_profile.risk);
+        assert!(careful_profile.risk < 0.2, "{}", careful_profile.risk);
+        assert_eq!(bold_profile.personality, AiPersonality::Visionary);
+        assert_eq!(careful_profile.personality, AiPersonality::Pragmatist);
+    }
 
     #[test]
     fn create_live_match_refuses_completed_fixture_directly() {

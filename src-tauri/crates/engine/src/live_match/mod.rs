@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 pub(crate) use observation::AiObservation;
 
-use crate::event::MatchEvent;
+use crate::event::{EventType, MatchEvent};
 use crate::report::MatchReport;
 use crate::types::{
     MatchConfig, PlayStyle, PlayerData, PlayerRole, Side, TacticalDial, TeamData, Zone,
@@ -225,6 +225,9 @@ pub struct LiveMatchState {
     // Discipline
     yellows: HashMap<String, u8>,
     sent_off: HashSet<String>,
+    // Players hurt in this match. The engine does not take a hurt player off the pitch itself:
+    // the manager reads this and decides, exactly as he does for a tired one.
+    injured: HashSet<String>,
 
     // Substitutions
     home_subs_made: u8,
@@ -295,6 +298,7 @@ impl LiveMatchState {
             away_possession_ticks: 0,
             yellows: HashMap::new(),
             sent_off: HashSet::new(),
+            injured: HashSet::new(),
             home_subs_made: 0,
             away_subs_made: 0,
             max_subs: 5,
@@ -457,6 +461,29 @@ impl LiveMatchState {
             Side::Home => &self.home_bench,
             Side::Away => &self.away_bench,
         }
+    }
+
+    /// Records that `player_id` was hurt in this match, in `zone`, and returns the event.
+    pub(super) fn record_injury(
+        &mut self,
+        minute: u8,
+        side: Side,
+        zone: Zone,
+        player_id: &str,
+    ) -> MatchEvent {
+        self.injured.insert(player_id.to_string());
+        let event = MatchEvent::new(minute, EventType::Injury, side, zone).with_player(player_id);
+        self.events.push(event.clone());
+        event
+    }
+
+    /// Hurt a player of `side` in the match so far, as a foul would. For tests about what a
+    /// manager does when somebody is hurt; reaching that by simulation would make the test about
+    /// the seed.
+    #[doc(hidden)]
+    pub fn test_injure(&mut self, player_id: &str, side: Side) {
+        let minute = self.current_minute;
+        self.record_injury(minute, side, Zone::Midfield, player_id);
     }
 
     /// Simulate a red card for a player (adds to sent_off set).
