@@ -22,6 +22,18 @@ use crate::squad_intelligence::ClubSquad;
 use crate::squad_intelligence::appetite::Appetite;
 use crate::squad_intelligence::impact::{MIN_GAIN, Marginal, Price, SigningCase};
 
+/// What a loan has to add to the side this season, in the squad model's rating points: twice the
+/// floor under any transfer. A loan is a playing role, and the model's reading of one is exact
+/// while a manager's selection is not: he misjudges a deputy by up to nine points, rests a tired
+/// player, changes his mind. Taken at the transfer floor, a loan is a marginal starter who is on
+/// the bench by the second month; the P4.7 long-career study found that the share of 60-day loans
+/// that went idle (under 180 minutes) rose from 21 % to 41 % over ten seasons, almost all of them
+/// arriving behind the borrower's starters, and that the model's own gain predicted it: loans
+/// valued under 0.2 were idle 36 to 41 % of the time, loans over 0.4 from 0 to 19 %. At twice the
+/// floor the same ten seasons play the same minutes on loan (a tenth fewer at three times) in a
+/// quarter fewer loans, idle 9 to 25 %.
+const LOAN_MIN_GAIN: f32 = 2.0 * MIN_GAIN;
+
 /// Where each club's players stand in `game.players`. The sweep never adds or removes a player, and
 /// updates the two clubs of a completed deal itself.
 pub(super) fn squad_indices_by_club(game: &Game) -> HashMap<String, Vec<usize>> {
@@ -140,19 +152,30 @@ impl BuyerView {
     }
 
     /// What a loan of `player` would add this season: a loan is for the present only.
+    ///
+    /// Read from the marginal the sweep keeps for every target (the same one a purchase is priced
+    /// on), so a borrower that finds nobody worth borrowing asks the model once per player, not
+    /// once per player per day.
     pub(super) fn gain_this_season(&self, player: &Player) -> f32 {
-        self.squad.present_gain(player)
+        self.marginal(player)
+            .map_or(0.0, |marginal| marginal.now_gain)
     }
 
-    /// Whether a loan of `player` would make the side better, which is what a club asks of one,
+    /// Whether `player` would start in the side the model expects this club to field.
+    fn would_start(&self, player: &Player) -> bool {
+        self.marginal(player)
+            .is_some_and(|marginal| marginal.starts_at.is_some())
+    }
+
+    /// Whether a loan of `player` would make the side better by [`LOAN_MIN_GAIN`], which is what a
+    /// club asks of one,
     /// and, for a player of the kind clubs lend for his minutes (`is_a_loan_for_minutes`, whatever
     /// the reason his own club listed him), would give them: he would start in the side the model
     /// expects to field. A prospect on the bench is the loan his club wanted to avoid, and a
     /// hard-sale listing of such a player is held to the same test by design.
     pub(super) fn worth_borrowing(&self, player: &Player, age: i32) -> bool {
-        self.gain_this_season(player) >= MIN_GAIN
-            && (!super::loans::is_a_loan_for_minutes(player, age)
-                || self.squad.starts_today(player))
+        self.gain_this_season(player) >= LOAN_MIN_GAIN
+            && (!super::loans::is_a_loan_for_minutes(player, age) || self.would_start(player))
     }
 }
 
@@ -188,5 +211,82 @@ mod tests {
                 .iter()
                 .all(|member| member.id != player_id)
         );
+    }
+
+    use crate::squad_intelligence::test_squads::{
+        Squad, player as squad_player, team as squad_team, today,
+    };
+    use domain::player::SquadRole;
+
+    /// The borrower's balanced squad (strikers of 75, 73 and 67 for a 4-4-2) in a game, and a
+    /// prospect striker of `ovr`, aged 20 with room to grow, on the loan list of another club.
+    fn borrower_and_prospect(ovr: u8) -> (Game, Team, Vec<usize>, Player) {
+        use chrono::TimeZone;
+        let mut prospect = squad_player("prospect", Position::Striker, ovr, 20);
+        prospect.potential = ovr + 14;
+        prospect.team_id = Some("parent".into());
+        prospect.squad_role = SquadRole::Senior;
+        let borrower = squad_team("4-4-2", 5_000_000, 600_000);
+        let mut user = domain::manager::Manager::new(
+            "user".into(),
+            "Test".into(),
+            "Manager".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
+        user.hire("elsewhere".into());
+        let clock = crate::clock::GameClock::new(
+            chrono::Utc.from_utc_datetime(&today().and_hms_opt(12, 0, 0).unwrap()),
+        );
+        let mut game = Game::new(
+            clock,
+            user,
+            vec![borrower.clone()],
+            Squad::balanced().players,
+            vec![],
+            vec![],
+        );
+        game.players.push(prospect.clone());
+        let squad: Vec<usize> = game
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.team_id.as_deref() == Some("club"))
+            .map(|(i, _)| i)
+            .collect();
+        (game, borrower, squad, prospect)
+    }
+
+    /// Given a prospect who would start for the borrower, but by a margin of a point or two over
+    /// the striker he displaces, and another who would start by a clear one
+    /// When the club decides whether a loan is worth it
+    /// Then it declines the first and takes the second: a loan is a playing role, and a manager's
+    /// misjudgement of a deputy, a rest day or a change of mind takes it from a marginal starter.
+    /// (The P4.7 study: loans the model valued under 0.2 points of the side were idle 36 to 41 %
+    /// of the time, those over 0.4 from 0 to 19 %.)
+    #[test]
+    fn a_loan_for_minutes_needs_a_clear_margin_to_be_a_realistic_playing_role() {
+        let verdict = |ovr: u8| {
+            let (game, team, squad, prospect) = borrower_and_prospect(ovr);
+            let view = BuyerView::new(&game, &squad, &team, ClubProfile::NEUTRAL, today());
+            (
+                view.gain_this_season(&prospect),
+                view.worth_borrowing(&prospect, 20),
+            )
+        };
+        let marginal = (60..=90)
+            .map(|ovr| (ovr, verdict(ovr)))
+            .find(|(_, (gain, _))| *gain >= MIN_GAIN && *gain < LOAN_MIN_GAIN)
+            .expect("some rating adds a little");
+        assert!(
+            !marginal.1.1,
+            "a marginal starter at {} was taken",
+            marginal.0
+        );
+        let clear = (60..=95)
+            .map(|ovr| (ovr, verdict(ovr)))
+            .find(|(_, (gain, _))| *gain >= LOAN_MIN_GAIN)
+            .expect("some rating adds a lot");
+        assert!(clear.1.1, "a clear starter at {} was refused", clear.0);
     }
 }

@@ -197,22 +197,6 @@ impl ClubSquad {
         Some(self.model.placement_of(&candidate))
     }
 
-    /// What `player` would add to this season's side alone: the gain of a loan, which is over before
-    /// the future matters.
-    pub(crate) fn present_gain(&self, player: &Player) -> f32 {
-        let Some(candidate) = Member::candidate(player, &self.model.slots, self.today, 0.0) else {
-            return 0.0;
-        };
-        self.signing_of(&candidate).now_gain
-    }
-
-    /// Whether `player` would start for this club today, in the side the model (and so the lineup
-    /// picker) fields: a loan for his minutes is only as good as the games he is given.
-    pub(crate) fn starts_today(&self, player: &Player) -> bool {
-        Member::candidate(player, &self.model.slots, self.today, 0.0)
-            .is_some_and(|candidate| self.signing_of(&candidate).starts_at.is_some())
-    }
-
     /// Set a marginal value against a price, for this club.
     pub(crate) fn price(&self, marginal: &Marginal, price: impact::Price) -> impact::SigningCase {
         marginal.priced(price, self.budget, &self.appetite)
