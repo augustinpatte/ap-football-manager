@@ -482,7 +482,7 @@ fn compare_goalkeeper_fit(
     is_keeper(left).cmp(&is_keeper(right))
 }
 
-fn auto_select_starting_xi<'a>(
+pub(crate) fn auto_select_starting_xi<'a>(
     available_players: &[&'a domain::player::Player],
     formation: &str,
 ) -> Vec<&'a domain::player::Player> {

@@ -780,3 +780,118 @@ fn p5_league_quality() {
         }
     }
 }
+
+/// Does a manager who changes shape for the players he has beat one who does not? The same club,
+/// the same panel, with its two best defenders (then midfielders, then forwards) out: in its own
+/// shape, in the shape the match-day rule picks, and in each of the eight (the best of which is
+/// the most any rule could have found, selected on the very matches it is measured on, so an
+/// upper bound that flatters it).
+#[test]
+#[ignore = "measurement study"]
+fn p5_absence_formation() {
+    use domain::player::{Injury, Position};
+    use ofm_core::matchday_formation::shape_for_the_day;
+
+    let reps = env::first("P5_REPS", "8");
+    let mut rows: Vec<(String, f64, f64, f64, bool)> = Vec::new();
+    for seed in env::list("P5_SEEDS", "1") {
+        let mut game = env::world("P5_WORLD", seed).build().expect("world builds");
+        {
+            use season_harness::driver::{RunOptions, SeasonObserver, play_day};
+            struct Quiet;
+            impl SeasonObserver for Quiet {}
+            for day in 1..=env::first("P5_WARMUP", "60") as u32 {
+                play_day(&mut game, RunOptions::seasons(1), 1, day, &mut Quiet).expect("day");
+            }
+        }
+        let _frozen = freeze_reviews_for_study();
+        let (subjects, pool) = choose_clubs(&game, env::first("P5_CLUBS", "8") as usize, 6);
+        for club in &subjects {
+            let panel: Vec<String> = pool
+                .iter()
+                .filter(|id| *id != club)
+                .take(6)
+                .cloned()
+                .collect();
+            for (label, group) in [
+                ("defenders out", Position::Defender),
+                ("midfielders out", Position::Midfielder),
+                ("forwards out", Position::Forward),
+            ] {
+                // The two best of the group are out, for as long as the scenario lasts.
+                let mut squad: Vec<(u8, String)> = game
+                    .players
+                    .iter()
+                    .filter(|p| p.team_id.as_deref() == Some(club.as_str()) && p.position == group)
+                    .map(|p| (p.ovr, p.id.clone()))
+                    .collect();
+                squad.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+                let out: Vec<String> = squad.iter().take(2).map(|p| p.1.clone()).collect();
+                let before: Vec<(String, Option<Injury>)> = game
+                    .players
+                    .iter()
+                    .filter(|p| out.contains(&p.id))
+                    .map(|p| (p.id.clone(), p.injury.clone()))
+                    .collect();
+                for player in game.players.iter_mut().filter(|p| out.contains(&p.id)) {
+                    player.injury = Some(Injury {
+                        name: "Study".to_string(),
+                        days_remaining: 30,
+                    });
+                }
+                let own = game
+                    .teams
+                    .iter()
+                    .find(|t| &t.id == club)
+                    .map(|t| t.formation.clone())
+                    .expect("club exists");
+                let chosen = shape_for_the_day(&game, club);
+                let ppg_in = |game: &mut Game, formation: &str| -> f64 {
+                    set_formation(game, club, formation);
+                    mean(&season_of_matches(game, club, &panel, reps, seed)).points
+                };
+                let own_ppg = ppg_in(&mut game, &own);
+                let rule_ppg = if chosen == own {
+                    own_ppg
+                } else {
+                    ppg_in(&mut game, &chosen)
+                };
+                let best = FORMATIONS
+                    .iter()
+                    .map(|f| ppg_in(&mut game, f))
+                    .fold(f64::MIN, f64::max);
+                set_formation(&mut game, club, &own);
+                for (id, injury) in before {
+                    if let Some(player) = game.players.iter_mut().find(|p| p.id == id) {
+                        player.injury = injury;
+                    }
+                }
+                rows.push((label.to_string(), own_ppg, rule_ppg, best, chosen != own));
+            }
+        }
+    }
+    eprintln!("\n== Players missing: the shape for the day against the club's own ==");
+    eprintln!("scenario | share changed | rule - own ppg (se over clubs) | best of eight - own");
+    for label in ["defenders out", "midfielders out", "forwards out"] {
+        let of: Vec<&(String, f64, f64, f64, bool)> =
+            rows.iter().filter(|r| r.0 == label).collect();
+        let gain: Vec<f64> = of.iter().map(|r| r.2 - r.1).collect();
+        let (g, se) = mean_se(&gain);
+        let changed = of.iter().filter(|r| r.4).count() as f64 / of.len() as f64;
+        let upper = of.iter().map(|r| r.3 - r.1).sum::<f64>() / of.len() as f64;
+        eprintln!(
+            "{label:<16} | {:.0} % | {g:+.3} (±{se:.3}) | {upper:+.3}   ({} club-scenarios)",
+            changed * 100.0,
+            of.len()
+        );
+        let changed_only: Vec<f64> = of.iter().filter(|r| r.4).map(|r| r.2 - r.1).collect();
+        if changed_only.len() > 1 {
+            let (g, se) = mean_se(&changed_only);
+            eprintln!(
+                "{:<16} |   where it changed: {g:+.3} (±{se:.3}), {} cases",
+                "",
+                changed_only.len()
+            );
+        }
+    }
+}
