@@ -35,6 +35,7 @@ pub mod fingerprint;
 pub mod fm24;
 pub mod invariants;
 pub mod lifecycle;
+pub mod match_study;
 pub mod reputation;
 pub mod squad_study;
 pub mod world_health;
