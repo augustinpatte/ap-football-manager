@@ -179,6 +179,9 @@ fn p6_equal_players_both_engines() {
     }
 }
 
+/// One pairing's gap between the clubs, and each engine's two sides.
+type GoalRow = (f64, [SideResult; 2], [SideResult; 2]);
+
 /// The goal-rate gap between the match a person watches and the one a career is played with, on
 /// real squads: the same fixtures of a warmed-up world, through both engines. Reports goals, shots,
 /// draws and possession, and how each engine's goals follow the strength gap between the sides.
@@ -191,7 +194,7 @@ fn p6_goal_rate_both_engines() {
 
     let pairings = env::first("P6_PAIRINGS", "150") as usize;
     let warmup = env::first("P6_WARMUP", "60") as u32;
-    let mut rows: Vec<(f64, [SideResult; 2], [SideResult; 2])> = Vec::new();
+    let mut rows: Vec<GoalRow> = Vec::new();
     for seed in env::list("P6_SEEDS", "1") {
         let mut game = env::world("P6_WORLD", seed).build().expect("world builds");
         for day in 1..=warmup {
@@ -239,9 +242,7 @@ fn p6_goal_rate_both_engines() {
             rows.push((gap, [five.0, five.1], [m12.0, m12.1]));
         }
     }
-    let report = |name: &str,
-                  pick: &dyn Fn(&(f64, [SideResult; 2], [SideResult; 2])) -> [SideResult; 2],
-                  rows: &[&(f64, [SideResult; 2], [SideResult; 2])]| {
+    let report = |name: &str, pick: &dyn Fn(&GoalRow) -> [SideResult; 2], rows: &[&GoalRow]| {
         let n = rows.len() as f64;
         let goals: Vec<f64> = rows
             .iter()
@@ -429,7 +430,8 @@ fn p6_what_predicts_a_formation() {
         "\n== within-club slope of points a match on each number, over {} clubs x 8 shapes ==",
         by_club.len()
     );
-    let columns: [(&str, Box<dyn Fn(&[f64; 5]) -> f64>); 5] = [
+    type Column = Box<dyn Fn(&[f64; 5]) -> f64>;
+    let columns: [(&str, Column); 5] = [
         ("squad-model score", Box::new(|r| r[0])),
         ("engine attack", Box::new(|r| r[1])),
         ("engine midfield", Box::new(|r| r[2])),
@@ -445,7 +447,7 @@ fn p6_what_predicts_a_formation() {
         let sd: Vec<f64> = by_club
             .iter()
             .map(|rows| {
-                let values: Vec<f64> = rows.iter().map(|r| column(r)).collect();
+                let values: Vec<f64> = rows.iter().map(column.as_ref()).collect();
                 let (_, se) = mean_se(&values);
                 se * (values.len() as f64).sqrt()
             })
