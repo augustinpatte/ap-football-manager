@@ -545,6 +545,61 @@ mod tests {
         }
     }
 
+    /// Given a club with a good midfielder a tenth of its transfer budget is worth, whom selling
+    ///   would cost the side a little (not so much that he is critical) and would pay to mend its
+    ///   weakest places three or four times over
+    /// When the rule that decides whether the sale funds a replacement is asked for each of the
+    ///   three ambitions, on the squad model's own numbers
+    /// Then the small developing club and the established club take the sale and the contender,
+    ///   whose bar is half as high again, does not.
+    #[test]
+    fn the_reinvestment_rule_asks_a_contender_for_more_on_the_squad_models_numbers() {
+        use crate::transfers::Ambition::{Contender, Established, Fighter};
+        let mut game = world([3, 7, 7, 5]);
+        for player in &mut game.players {
+            if player.id == "Forward0" || player.id == "Forward1" {
+                player.ovr = 30;
+                player.potential = 30;
+                player.attributes = attrs(30);
+            }
+            if player.id == "Midfielder0" {
+                player.ovr = 64;
+                player.potential = 64;
+                player.attributes = attrs(64);
+                player.market_value = 6_000_000;
+            }
+        }
+        game.teams[0].transfer_budget = 20_000_000;
+        game.teams[0].finance = 100_000_000;
+        let team = game.teams[0].clone();
+        let facts = SquadFacts::of_club(&game, &team.id, crate::transfers::ClubProfile::NEUTRAL);
+        let squad = facts.squad().expect("the squad model reads the club");
+        let case = facts
+            .sale_case("Midfielder0")
+            .expect("the sale can be costed");
+        let player = game
+            .players
+            .iter()
+            .find(|player| player.id == "Midfielder0")
+            .expect("he is in the squad");
+        let ratio = reinvestment_gain(squad, "Midfielder0") / case.net_loss;
+        assert!(
+            !case.critical,
+            "the fixture's sale is not one the side cannot do without"
+        );
+        assert!(
+            ratio > REINVESTMENT_RATIO * reinvestment_demand(Fighter)
+                && ratio < REINVESTMENT_RATIO * reinvestment_demand(Contender),
+            "the fixture has to sit between the two bars: ratio {ratio}"
+        );
+
+        let takes = |ambition| funds_a_bigger_need(squad, &team, player, &case, ambition);
+
+        assert!(takes(Fighter), "a small developing club takes it");
+        assert!(takes(Established), "an established club takes it");
+        assert!(!takes(Contender), "a contender asks for more");
+    }
+
     /// Given the three ambitions
     /// When each asks what the money has to be worth before a sale funds another player
     /// Then a contender asks more than an established club and a fighter least, and the neutral

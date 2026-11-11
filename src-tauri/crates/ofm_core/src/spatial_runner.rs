@@ -594,6 +594,117 @@ pub(crate) mod tests {
         );
     }
 
+    /// What the five-zone engine would field for the fixture: (starters, bench, formation) of each
+    /// side, and the substitutions it allows.
+    type SideSheet = (Vec<String>, Vec<String>, String);
+
+    fn five_zone_sheet(game: &Game) -> (SideSheet, SideSheet, u8) {
+        let session = crate::live_match_manager::create_live_match(
+            game,
+            0,
+            crate::live_match_manager::MatchMode::Instant,
+            false,
+        )
+        .expect("the five-zone engine can play the fixture");
+        let snapshot = session.snapshot();
+        let ids = |players: &[engine::PlayerData]| -> Vec<String> {
+            players.iter().map(|player| player.id.clone()).collect()
+        };
+        (
+            (
+                ids(&snapshot.home_team.players),
+                ids(&snapshot.home_bench),
+                snapshot.home_team.formation.clone(),
+            ),
+            (
+                ids(&snapshot.away_team.players),
+                ids(&snapshot.away_bench),
+                snapshot.away_team.formation.clone(),
+            ),
+            snapshot.max_subs,
+        )
+    }
+
+    fn m12_sheet(adapted: &AdaptedMatch) -> (SideSheet, SideSheet, u8) {
+        let side = |side: &crate::spatial_adapter::SpatialTeam| -> SideSheet {
+            (
+                side.lineup.iter().map(|slot| slot.player.clone()).collect(),
+                side.bench.clone(),
+                side.formation.clone(),
+            )
+        };
+        (
+            side(&adapted.input.home),
+            side(&adapted.input.away),
+            adapted.input.config.max_substitutions,
+        )
+    }
+
+    /// Given a prepared match (the user's hand-picked eleven against an AI club's, each with
+    ///   substitutes), in different formations
+    /// When it is read as the five-zone engine would play it and as M12 would
+    /// Then both name the same eleven in the same slots, the same bench, the same formation for
+    ///   each side and the same number of substitutions: the engines differ in how they play,
+    ///   never in who plays.
+    #[test]
+    fn both_engines_are_handed_the_same_match() {
+        let mut game = game_with_substitutes(7);
+        game.teams[0].formation = "4-3-3".to_string();
+        game.teams[1].formation = "3-5-2".to_string();
+
+        let five = five_zone_sheet(&game);
+        let m12 = m12_sheet(
+            &crate::live_match_manager::adapt_spatial_fixture(&game, 0).expect("M12 can adapt it"),
+        );
+
+        assert_eq!(five.0, m12.0, "the home side");
+        assert_eq!(five.1, m12.1, "the away side");
+        assert_eq!(five.2, m12.2, "the substitutions allowed");
+        assert_eq!(five.0.2, "4-3-3");
+        assert_eq!(five.1.2, "3-5-2");
+    }
+
+    /// Given a starter injured in the user's saved eleven and a starter suspended at the AI club
+    /// When the match is read as each engine would play it
+    /// Then neither fields either player, in the eleven or on the bench.
+    #[test]
+    fn neither_engine_fields_an_injured_or_a_suspended_player() {
+        let mut game = game_with_substitutes(7);
+        game.teams[0].formation = "4-4-2".to_string();
+        game.teams[1].formation = "4-4-2".to_string();
+        let injured = "home-p3";
+        let suspended = "away-p4";
+        game.players
+            .iter_mut()
+            .find(|p| p.id == injured)
+            .expect("he is in the squad")
+            .injury = Some(domain::player::Injury {
+            name: "Knock".to_string(),
+            days_remaining: 12,
+        });
+        game.players
+            .iter_mut()
+            .find(|p| p.id == suspended)
+            .expect("he is in the squad")
+            .suspended_matches = 2;
+
+        let five = five_zone_sheet(&game);
+        let m12 = m12_sheet(
+            &crate::live_match_manager::adapt_spatial_fixture(&game, 0).expect("M12 can adapt it"),
+        );
+
+        for (engine, sheet) in [("five-zone", &five), ("M12", &m12)] {
+            for (named, side) in [(injured, &sheet.0), (suspended, &sheet.1)] {
+                assert!(
+                    !side.0.iter().chain(&side.1).any(|id| id == named),
+                    "{engine} fielded {named}"
+                );
+            }
+        }
+        assert_eq!(five.0, m12.0);
+        assert_eq!(five.1, m12.1);
+    }
+
     /// The replay document the engine writes for `adapted` under an explicit football.
     fn replay_under(adapted: &AdaptedMatch, mut football: FootballConfig) -> String {
         let json = serde_json::to_string(&adapted.input).expect("serialise the input");
