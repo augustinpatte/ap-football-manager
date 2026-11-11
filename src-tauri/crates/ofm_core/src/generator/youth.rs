@@ -89,6 +89,10 @@ fn youth_recruit(
     player.loan_listed = false;
     // A specific position (LB, CM, ...) from the day he arrives: the upgrade used to run only on
     // a new game's squads and on load, so a signed prospect showed the generic group until a reload.
-    crate::player_identity::upgrade_player_identity(&mut player, None);
+    crate::player_identity::upgrade_player_identity(
+        &mut player,
+        None,
+        domain::age::season_midpoint(current_year as i32),
+    );
     player
 }

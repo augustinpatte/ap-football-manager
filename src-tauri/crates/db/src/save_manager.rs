@@ -1435,12 +1435,17 @@ mod tests {
         for (n, player) in game.players.iter_mut().take(2).enumerate() {
             player.date_of_birth = born.clone();
             player.traits.retain(|t| *t != PlayerTrait::Wonderkid);
+            // A save whose `ovr` disagrees with its attributes is repaired by the identity
+            // upgrade on load, so the fixture must be consistent for the wonderkid rule to be
+            // tested against the rating it will actually have.
+            let derived = ofm_core::player_rating::natural_ovr(player).round() as u8;
+            player.ovr = derived;
             if n == 0 {
-                player.ovr = 65;
-                player.potential = 85;
+                // S tier with more than the 14 points of headroom the rule requires.
+                player.potential = derived.saturating_add(17).min(99);
             } else {
-                player.ovr = 60;
-                player.potential = 75;
+                // A tier, below the S gate, but still a valid ceiling above his ovr.
+                player.potential = derived.saturating_add(2).min(99);
                 player.traits.push(PlayerTrait::Wonderkid);
             }
         }

@@ -1,5 +1,9 @@
 //! Deadline day: the summary the interface shows and the sweep that ends unanswered talks.
 
+#[expect(
+    dead_code,
+    reason = "a shared fixture: this file uses only part of it; owner=#589"
+)]
 mod market_fixtures;
 
 use domain::player::{LoanOfferStatus, TransferOfferStatus};

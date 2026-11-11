@@ -2,8 +2,12 @@
 //! Fictional is not the same as inconsistent: two youngsters who are the same "person", or a
 //! player called "Simon Simon", are generator defects, not flavour.
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, TimeZone, Utc};
+use domain::manager::Manager;
+use ofm_core::clock::GameClock;
+use ofm_core::game::Game;
 use ofm_core::generator::{self, definitions::DefinitionSources};
+use ofm_core::player_identity::upgrade_game_player_identities;
 use ofm_core::world_integrity::{IntegrityLimits, audit_players};
 
 /// Several seeds: the defects below are collisions, so one seed can miss them.
@@ -64,6 +68,43 @@ fn a_generated_world_passes_the_integrity_audit() {
         let errors: Vec<String> = report.errors().map(ToString::to_string).collect();
         assert!(errors.is_empty(), "seed {seed}: {errors:?}");
     }
+}
+
+/// Given the shipped generated world, when a career opens and the coarse positions become
+/// granular, then every stored ovr still matches the rating its own attributes produce:
+/// refining a player's position must refresh the rating derived from it.
+#[test]
+fn identifying_generated_players_keeps_their_ratings_consistent() {
+    let (teams, players, staff) =
+        generator::generate_world_seeded(20260820, &DefinitionSources::embedded_only());
+    let start = Utc
+        .with_ymd_and_hms(2026, 7, 1, 0, 0, 0)
+        .single()
+        .expect("valid start");
+    let manager = Manager::new(
+        "integrity-auditor".into(),
+        "Audit".into(),
+        "Auditor".into(),
+        "1980-01-01".into(),
+        "England".into(),
+    );
+    let mut game = Game::new(
+        GameClock::new(start),
+        manager,
+        teams,
+        players,
+        staff,
+        vec![],
+    );
+
+    assert!(
+        upgrade_game_player_identities(&mut game),
+        "the shipped world still holds coarse positions the upgrade must refine"
+    );
+
+    let report = audit_players(&game.teams, &game.players, &limits());
+    let errors: Vec<String> = report.errors().map(ToString::to_string).collect();
+    assert!(errors.is_empty(), "{errors:?}");
 }
 
 /// Given the same seed twice, when the world is generated, then it is identical, so the

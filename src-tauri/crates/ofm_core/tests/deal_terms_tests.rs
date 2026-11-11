@@ -3,6 +3,10 @@
 
 #[path = "support/free_agent_talks.rs"]
 mod free_agent_support;
+#[expect(
+    dead_code,
+    reason = "a shared fixture: this file uses only part of it; owner=#589"
+)]
 mod market_fixtures;
 
 use domain::finance::CashKind;

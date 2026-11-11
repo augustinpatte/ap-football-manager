@@ -1,5 +1,9 @@
 //! Answering a transfer offer from its inbox message: same rules as the Transfers tab, once.
 
+#[expect(
+    dead_code,
+    reason = "a shared fixture: this file uses only part of it; owner=#589"
+)]
 mod market_fixtures;
 
 use domain::player::TransferOfferStatus;
