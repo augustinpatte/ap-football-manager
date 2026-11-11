@@ -1282,6 +1282,32 @@ fn a_manager_who_trusts_youth_gives_the_rested_starters_shirt_to_the_prospect() 
     assert_eq!(deputy(0.0), "veteran", "the sceptic chose the prospect");
 }
 
+/// Given one tired starter and a prospect with enormous potential who is far below the standard,
+/// with a veteran who is adequate
+/// When a manager who trusts youth completely rests the starter
+/// Then he still gives the shirt to the veteran: trust chooses among adequate deputies and never
+/// fields one who is not.
+#[test]
+fn trust_in_youth_never_fields_a_deputy_who_is_not_adequate() {
+    let mut squad = Vec::new();
+    for i in 0..10 {
+        squad.push(mk(&format!("star{i}"), 80, 100));
+    }
+    squad.push(mk("tired-star", 80, 58));
+    let mut veteran = mk("veteran", 74, 100);
+    veteran.ovr = 74;
+    veteran.potential = 74;
+    let mut raw = mk("raw-prospect", 40, 100);
+    raw.ovr = 40;
+    raw.potential = 99;
+    squad.push(veteran);
+    squad.push(raw);
+    let refs: Vec<&Player> = squad.iter().collect();
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 1.0, 1, FixtureLoad::Normal, 1.0, 1.0);
+    assert!(xi.iter().any(|player| player.id == "veteran"));
+    assert!(!xi.iter().any(|player| player.id == "raw-prospect"));
+}
+
 mod wired_to_the_clubs_own_manager {
     use super::*;
     use crate::clock::GameClock;

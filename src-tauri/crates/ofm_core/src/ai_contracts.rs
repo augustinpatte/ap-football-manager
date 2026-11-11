@@ -1298,6 +1298,58 @@ mod tests {
         assert!(keeps_given(&contender, &veteran, today()));
     }
 
+    /// The day's strategy reading with this one profile for the club `ai`.
+    fn reading_of(
+        ambition: Ambition,
+        means: Means,
+        youth_focus: f64,
+    ) -> Option<std::collections::HashMap<String, ClubProfile>> {
+        Some(std::collections::HashMap::from([(
+            "ai".to_string(),
+            ClubProfile {
+                ambition,
+                means,
+                youth_focus,
+            },
+        )]))
+    }
+
+    /// Given the same deep club and a player at the squad's standard whom the side would not miss,
+    /// whose contract is running down
+    /// When the club's review is run for a day on which it is read as comfortable and on which it
+    /// is read as financially constrained
+    /// Then it renews him in the first and lets him go in the second: the day's strategy reading
+    /// reaches the renewal decision, not only the rule it feeds.
+    #[test]
+    fn the_days_strategy_reading_reaches_the_clubs_renewals() {
+        let renewed = |strategies: Option<std::collections::HashMap<String, ClubProfile>>| {
+            let mut game = world();
+            game.players
+                .iter_mut()
+                .find(|p| p.id == "ai_Forward0")
+                .unwrap()
+                .stage_contract_end(Some(
+                    (today() + Duration::days(90))
+                        .format("%Y-%m-%d")
+                        .to_string(),
+                ));
+            let before = contract_end(&game, "ai_Forward0");
+            let mut strategies = strategies;
+            apply_ai_contract_decisions_with(&mut game, review_day(), &mut strategies);
+            contract_end(&game, "ai_Forward0") > before
+        };
+        assert!(renewed(reading_of(
+            Ambition::Established,
+            Means::Comfortable,
+            0.0
+        )));
+        assert!(!renewed(reading_of(
+            Ambition::Established,
+            Means::Constrained,
+            0.0
+        )));
+    }
+
     /// One other forward: without him the club is below the floor, so the board
     /// lets the wage policy go — the same rule the player's own renewals use.
     #[test]

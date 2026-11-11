@@ -305,7 +305,7 @@ mod tests {
         assert!(promote_ready_academy_players(&mut game, &team, &club).is_empty());
     }
 
-    /// Given three equally ready academy players
+    /// Given four equally ready academy players
     /// When the club reviews its academy
     /// Then at most two are promoted in one review, and a later review takes the rest.
     #[test]
@@ -390,6 +390,38 @@ mod tests {
             .find(|p| p.id == "academy-star")
             .unwrap();
         assert_eq!(star.squad_role, SquadRole::Senior);
+    }
+
+    /// Given a club's weekly squad planning on a week it looks at its academy and on one it does
+    /// not, and a ready academy player
+    /// When the planning runs
+    /// Then he is promoted on the look week and left alone on the other: the monthly cadence is
+    /// the one the game's weekly review runs.
+    #[test]
+    fn the_weekly_planning_looks_at_the_academy_on_its_week_only() {
+        use chrono::TimeZone;
+        let weekday = crate::ai_tactics::review_weekday("club");
+        let date_where = |look: bool| {
+            (0..28)
+                .map(|offset| today() + chrono::Duration::days(offset * 7))
+                .find(|date| is_academy_week("club", *date) == look)
+                .expect("a club has look weeks and off weeks")
+        };
+        let promoted_on = |date: NaiveDate| {
+            let star = player("academy-star", Position::Striker, 85, 19);
+            let mut game = game_with(&Squad::balanced(), vec![star], None);
+            game.clock.current_date =
+                chrono::Utc.from_utc_datetime(&date.and_hms_opt(12, 0, 0).unwrap());
+            crate::ai_contracts::apply_ai_squad_planning(&mut game, weekday);
+            game.players
+                .iter()
+                .find(|p| p.id == "academy-star")
+                .unwrap()
+                .squad_role
+                == SquadRole::Senior
+        };
+        assert!(promoted_on(date_where(true)), "not promoted on a look week");
+        assert!(!promoted_on(date_where(false)), "promoted on an off week");
     }
 
     /// Given an injured academy player who would otherwise start

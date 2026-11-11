@@ -735,29 +735,34 @@ mod tests {
     /// A two-club world: the player's club and an AI club "club" with `squad`, on a review day.
     fn world_with(squad: &Squad, formation: &str) -> crate::game::Game {
         use chrono::TimeZone;
-        let manager = {
-            let mut manager = domain::manager::Manager::new(
-                "user-manager".into(),
-                "Test".into(),
-                "Manager".into(),
-                "1980-01-01".into(),
-                "England".into(),
-            );
-            manager.hire("user".into());
-            manager
-        };
         let mut ai = team(formation, 1_000_000, 600_000);
         ai.manager_id = None;
         ai.play_style = PlayStyle::Balanced;
-        let mut user = team(formation, 1_000_000, 600_000);
-        user.id = "user".into();
-        user.name = "user".into();
-        let day = today();
         // Walk forward to a day this club's formation review falls on.
         let review_day = (0..84)
-            .map(|offset| day + chrono::Duration::days(offset))
+            .map(|offset| today() + chrono::Duration::days(offset))
             .find(|d| is_review_week("club", *d, None))
             .expect("a settled club reviews within twelve weeks");
+        // The player's club is due on the same weekday and in the same week as the AI club, so
+        // that "never the user's" is the rule at work and not an accident of the day each reviews.
+        let user_id = (0..)
+            .map(|index| format!("user-{index}"))
+            .find(|id| {
+                crate::ai_tactics::review_weekday(id) == crate::ai_tactics::review_weekday("club")
+                    && is_review_week(id, review_day, None)
+            })
+            .expect("some id shares the day");
+        let mut user = team(formation, 1_000_000, 600_000);
+        user.id = user_id.clone();
+        user.name = user_id.clone();
+        let mut manager = domain::manager::Manager::new(
+            "user-manager".into(),
+            "Test".into(),
+            "Manager".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
+        manager.hire(user_id);
         let clock = crate::clock::GameClock::new(
             chrono::Utc.from_utc_datetime(&review_day.and_hms_opt(12, 0, 0).unwrap()),
         );
@@ -783,13 +788,13 @@ mod tests {
         for player in squad.players.clone() {
             let mut copy = player;
             copy.id = format!("user-{}", copy.id);
-            copy.team_id = Some("user".into());
+            copy.team_id = Some(game.teams[1].id.clone());
             game.players.push(copy);
         }
         let weekday = crate::ai_tactics::review_weekday("club");
         crate::ai_tactics::apply_ai_tactical_reviews(&mut game, weekday);
         let ai = game.teams.iter().find(|t| t.id == "club").unwrap();
-        let user = game.teams.iter().find(|t| t.id == "user").unwrap();
+        let user = &game.teams[1];
         assert_ne!(ai.formation, "4-4-2", "the AI club kept its shape");
         assert_eq!(user.formation, "4-4-2", "the user's club was changed");
         assert_eq!(ai.starting_xi_ids.len(), 11);

@@ -653,18 +653,30 @@ fn reviewed_formation(
     form: Option<&FormReading>,
 ) -> Option<&'static str> {
     let team = &game.teams[team_index];
-    let today = game.clock.current_date.date_naive();
-    let tenure_days = crate::ai_formation::tenure_days(game, team);
-    if !crate::ai_formation::is_review_week(&team.id, today, tenure_days) {
+    let circumstances = formation_circumstances(game, team, form);
+    if !crate::ai_formation::is_review_week(
+        &team.id,
+        circumstances.today,
+        circumstances.tenure_days,
+    ) {
         return None;
     }
-    let circumstances = crate::ai_formation::Circumstances {
-        today,
-        manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
-        tenure_days,
-        points_per_game: form.and_then(|reading| reading.points_per_game),
-    };
     crate::ai_formation::formation_to_move_to(team, squad, &circumstances)
+}
+
+/// What the formation review reads about a club besides its squad: today, who manages it, how long
+/// he has been in post and how the last eight results went.
+fn formation_circumstances(
+    game: &Game,
+    team: &domain::team::Team,
+    form: Option<&FormReading>,
+) -> crate::ai_formation::Circumstances {
+    crate::ai_formation::Circumstances {
+        today: game.clock.current_date.date_naive(),
+        manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
+        tenure_days: crate::ai_formation::tenure_days(game, team),
+        points_per_game: form.and_then(|reading| reading.points_per_game),
+    }
 }
 
 #[cfg(test)]
@@ -732,6 +744,93 @@ mod tests {
         let mut game = Game::new(clock, manager, teams, vec![], vec![], vec![]);
         game.competitions = vec![league];
         game
+    }
+
+    /// Given a club that has won two, drawn two and lost four of its last eight matches, and
+    /// older results besides
+    /// When its form is read for the formation review
+    /// Then points a game are 1.0 over the last eight: three for a win, one for a draw, none for
+    /// a defeat, and nothing before the eighth match counts.
+    #[test]
+    fn the_formation_review_reads_points_a_game_over_the_last_eight_results() {
+        let mut game = form_game();
+        let results = [
+            // (goals for the club, against), oldest first; the first four are before the window.
+            (5, 0),
+            (4, 0),
+            (3, 0),
+            (2, 0),
+            (1, 0),
+            (2, 1),
+            (1, 1),
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (1, 3),
+            (0, 4),
+        ];
+        let league = &mut game.competitions[0];
+        league.fixtures.clear();
+        for (index, (for_goals, against)) in results.into_iter().enumerate() {
+            league.fixtures.push(Fixture {
+                postponement: None,
+                id: format!("older-{index}"),
+                competition_id: "league".into(),
+                matchday: index as u32 + 1,
+                date: format!("2026-08-{:02}", index + 1),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: for_goals,
+                    away_goals: against,
+                    ..Default::default()
+                }),
+            });
+        }
+        let form = read_form_of(&game, Some("home"));
+        let reading = form.get("home").expect("twelve results are enough");
+        assert_eq!(reading.points_per_game, Some(1.0));
+    }
+
+    /// Given a club whose manager took the job three days ago and whose last eight results are
+    /// all defeats
+    /// When the formation review's circumstances are assembled
+    /// Then they carry his three days in post and nothing points a game: the tenure and the
+    /// results reach the decision.
+    #[test]
+    fn the_formation_review_is_given_the_managers_tenure_and_the_clubs_results() {
+        let mut game = form_game();
+        let mut manager = Manager::new(
+            "boss".into(),
+            "New".into(),
+            "Boss".into(),
+            "1970-01-01".into(),
+            "England".into(),
+        );
+        manager.hire("home".into());
+        manager
+            .career_history
+            .push(domain::manager::ManagerCareerEntry::open(
+                "home".into(),
+                "home".into(),
+                "2026-07-29".into(),
+            ));
+        game.teams[0].manager_id = Some("boss".into());
+        game.managers.push(manager);
+        let form = FormReading {
+            points_per_game: Some(0.0),
+            conceded_per_game: 3.0,
+            scored_per_game: 0.0,
+        };
+        let circumstances = formation_circumstances(&game, &game.teams[0], Some(&form));
+        assert_eq!(circumstances.tenure_days, Some(3));
+        assert_eq!(circumstances.points_per_game, Some(0.0));
+        assert_eq!(
+            formation_circumstances(&game, &game.teams[1], None).points_per_game,
+            None
+        );
     }
 
     const EVERY_STYLE: [PlayStyle; 6] = [

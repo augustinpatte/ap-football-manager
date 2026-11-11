@@ -1245,6 +1245,19 @@ mod tests {
         );
     }
 
+    /// Given an agreed purchase whose terms name no wage (the buyer's standard terms)
+    /// When the room is read
+    /// Then the standard wage is reserved: a deal with no wage named is not a free one.
+    #[test]
+    fn a_deal_on_the_buyers_standard_terms_reserves_the_standard_wage() {
+        let mut g = club_with_room();
+        agree_purchase(&mut g, "o0", 0);
+        assert!(
+            wage_room(&g) < ROOM,
+            "nothing was reserved for a deal on standard terms"
+        );
+    }
+
     /// Given an agreed deal that is then withdrawn, voided at registration, or rejected
     /// When the room is read
     /// Then it is back: a reservation lives only as long as the agreement.
