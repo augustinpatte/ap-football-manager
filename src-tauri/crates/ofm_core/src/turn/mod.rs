@@ -181,9 +181,13 @@ fn process_day_common(game: &mut Game, today: &str) {
     // AI clubs decide on their running-down contracts first, so a renewal made
     // on the day a contract ends lands before the expiry that would release him.
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
-    // Every club's strategy, read once for the day and only if a review needs it: the renewals
-    // and the listings of the same day read the one answer.
-    let mut strategies = None;
+    // The strategy of the day's reviewing clubs, read once at the start of the day, before any
+    // review has moved a contract or a player: the renewals and the listings of the same day read
+    // the one answer, which is a function of the day's opening state and of nothing a review did.
+    let mut strategies = Some(crate::transfers::strategies_of(
+        game,
+        &crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num),
+    ));
     crate::ai_contracts::apply_ai_contract_decisions_with(game, weekday_num, &mut strategies);
     crate::contracts::process_contract_expiries(game);
     // Free agents answer the offers whose time has come, now that expiries have put the day's

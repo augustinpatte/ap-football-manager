@@ -47,13 +47,26 @@ use crate::squad_intelligence::appetite::Appetite;
 use crate::squad_intelligence::model::{Availability, SquadModel};
 use crate::stable_hash::{mixed, stable_hash, unit_interval};
 
-/// Set by a study that assigns formations itself and must not have the clubs undo it. Nothing in
-/// the game sets it.
+/// Set by a study that assigns formations itself and must not have the clubs undo it (see
+/// [`freeze_reviews_for_study`]). Nothing in the game sets it.
 static REVIEWS_FROZEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Stops (or resumes) AI clubs reviewing their formation, for a controlled experiment.
-pub fn freeze_reviews_for_study(frozen: bool) {
-    REVIEWS_FROZEN.store(frozen, std::sync::atomic::Ordering::Relaxed);
+/// AI clubs do not review their formation while this is alive: a controlled experiment's hold on
+/// them. Dropping it (including by a panic that unwinds past it) lets them review again, so a
+/// study that fails cannot leave every later game in the process with frozen formations.
+#[must_use = "reviews resume as soon as the guard is dropped"]
+pub struct ReviewsFrozen(());
+
+impl Drop for ReviewsFrozen {
+    fn drop(&mut self) {
+        REVIEWS_FROZEN.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Stops AI clubs reviewing their formation until the returned guard is dropped.
+pub fn freeze_reviews_for_study() -> ReviewsFrozen {
+    REVIEWS_FROZEN.store(true, std::sync::atomic::Ordering::Relaxed);
+    ReviewsFrozen(())
 }
 
 /// How many weekly reviews apart a settled club looks at its formation: about once a quarter. A
@@ -287,7 +300,12 @@ pub(crate) fn tenure_days(game: &crate::game::Game, team: &Team) -> Option<i64> 
 pub(crate) fn adopt(team: &mut Team, formation: &str, squad: &[&Player]) {
     team.formation = formation.to_string();
     team.out_of_possession_formation = String::new();
-    let available: Vec<&Player> = squad.iter().copied().filter(|p| p.can_play()).collect();
+    // The pool a match is picked from (healthy seniors, youth only to cover a shortage), so an
+    // academy player is never saved into a first eleven that match day would not field.
+    let available: Vec<&Player> = crate::match_day_eligibility::eligible_among(squad)
+        .into_iter()
+        .filter(|p| p.can_play())
+        .collect();
     team.starting_xi_ids = crate::turn::squad::first_choice_eleven(&available, formation)
         .into_iter()
         .map(|player| player.id.clone())
@@ -619,6 +637,47 @@ mod tests {
         assert!((values.iter().cloned().fold(f64::MIN, f64::max) - 1.0).abs() < 1e-9);
         assert!((values.iter().cloned().fold(f64::MAX, f64::min) + 1.0).abs() < 1e-9);
         assert!(boldness("5-3-2") < boldness("3-4-3"));
+    }
+
+    /// Given the formations the game offers a club
+    /// When each is laid out for the match
+    /// Then every one has geometry the match can be played on, and is one the formation review
+    /// considers: a formation added to the geometry but not here would never be adopted.
+    #[test]
+    fn every_formation_a_club_may_adopt_can_be_played() {
+        for formation in FORMATIONS {
+            assert!(
+                crate::spatial_adapter::formation_geometry(formation).is_ok(),
+                "{formation} has no geometry"
+            );
+            assert_eq!(formation_slots(formation).len(), 11, "{formation}");
+        }
+    }
+
+    /// Given an AI club with an academy goalkeeper better than any senior and enough fit seniors
+    /// When it adopts a new formation
+    /// Then its saved eleven names no academy player: it is the eleven match day would field.
+    #[test]
+    fn a_formation_change_never_saves_an_academy_player_into_the_eleven() {
+        let squad = Squad::balanced();
+        let mut players = squad.players.clone();
+        let mut prodigy = crate::squad_intelligence::test_squads::player(
+            "academy-striker",
+            Position::Striker,
+            95,
+            18,
+        );
+        prodigy.squad_role = domain::player::SquadRole::Youth;
+        players.push(prodigy);
+        let refs: Vec<&Player> = players.iter().collect();
+        let mut team = neutral_team("4-4-2");
+        adopt(&mut team, "4-3-3", &refs);
+        assert_eq!(team.starting_xi_ids.len(), 11);
+        assert!(
+            !team
+                .starting_xi_ids
+                .contains(&"academy-striker".to_string())
+        );
     }
 
     /// Given a short squad

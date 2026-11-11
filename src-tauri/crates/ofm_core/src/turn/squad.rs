@@ -720,6 +720,46 @@ const ROTATION_DISPOSITION_RANGE: f64 = 8.0;
 /// deputies who are already adequate; it never fields one who is not.
 const YOUTH_DEPUTY_LEAN: f64 = 5.0;
 
+/// And meaningfully fresher than the starter it would replace, in condition points.
+const MIN_FRESHNESS_GAIN: i16 = 10;
+
+/// The fresh player a manager gives a tired `starter`'s `slot` to, if any: from the players not
+/// already in the side, of the starter's own position group (so load management never skews the
+/// formation's distribution, e.g. a fifth midfielder in place of a defender, which would leave the
+/// eleven a man short), at least `floor` fit and meaningfully fresher than the starter, and
+/// adequate. `bar` is (the condition a deputy must have, the drop in quality accepted).
+///
+/// Adequacy is measured against what the deputy can actually do: a manager may misjudge which of
+/// two capable players is better, none of them mistakes a reserve for a first choice. The choice
+/// between the adequate options is the manager's `read` of them.
+fn fresh_deputy<'a>(
+    available_players: &[&'a domain::player::Player],
+    used_ids: &HashSet<String>,
+    starter: &domain::player::Player,
+    slot: &DomainPosition,
+    bar: (f64, f64),
+    read: &dyn Fn(&domain::player::Player) -> f64,
+) -> Option<&'a domain::player::Player> {
+    let (floor, tolerance) = bar;
+    let starter_fit = positional_fit_for_assignment(starter, slot);
+    let starter_group = starter.position.to_group_position();
+    available_players
+        .iter()
+        .copied()
+        .filter(|player| !used_ids.contains(&player.id))
+        .filter(|player| player.position.to_group_position() == starter_group)
+        .filter(|player| f64::from(player.condition) >= floor)
+        .filter(|player| {
+            i16::from(player.condition) - i16::from(starter.condition) >= MIN_FRESHNESS_GAIN
+        })
+        .filter(|player| positional_fit_for_assignment(player, slot) >= starter_fit - tolerance)
+        .max_by(|left, right| {
+            read(left)
+                .partial_cmp(&read(right))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+}
+
 /// How much of a prospect a player is, from 0 to 1: ten points of room to grow is all of one.
 fn prospect_share(player: &domain::player::Player) -> f64 {
     (f64::from(player.potential.saturating_sub(player.ovr)) / 10.0).clamp(0.0, 1.0)
@@ -741,8 +781,6 @@ fn ai_select_starting_xi_by<'a>(
 ) -> Vec<&'a domain::player::Player> {
     /// A rotation candidate must be at least this fresh to be worth considering.
     const FRESH_FLOOR: f64 = 60.0;
-    /// And meaningfully fresher than the starter it would replace.
-    const MIN_FRESHNESS_GAIN: i16 = 10;
     /// Below this a player is not fit to start, whatever their manager makes of
     /// the alternatives. This is the floor the quality gradient stands on.
     const EXHAUSTED: f64 = 45.0;
@@ -838,35 +876,19 @@ fn ai_select_starting_xi_by<'a>(
                 .min(EXHAUSTED_FIT_TOLERANCE)
         };
 
-        let starter_fit = positional_fit_for_assignment(starter, slot);
-        let starter_group = starter.position.to_group_position();
-        let fresh_alternative = available_players
-            .iter()
-            .copied()
-            .filter(|player| !used_ids.contains(&player.id))
-            // Only rotate within the same position group, so load management never
-            // skews the formation's distribution (e.g. fielding a 5th midfielder
-            // in place of a defender, which would leave the XI a man short).
-            .filter(|player| player.position.to_group_position() == starter_group)
-            .filter(|player| f64::from(player.condition) >= deputy_floor)
-            .filter(|player| {
-                i16::from(player.condition) - i16::from(starter.condition) >= MIN_FRESHNESS_GAIN
-            })
-            // Adequacy is measured against what the deputy can actually do. A
-            // manager may misjudge which of two capable players is better; none of
-            // them mistakes a reserve-team player for a first-choice one.
-            .filter(|player| positional_fit_for_assignment(player, slot) >= starter_fit - tolerance)
-            // The choice between adequate options, though, is the manager's read, and a manager
-            // who trusts youth reads a prospect a little higher.
-            .max_by(|left, right| {
-                let read = |player: &domain::player::Player| {
-                    perceived_fit(player, slot)
-                        + (youth_trust - 0.5) * 2.0 * YOUTH_DEPUTY_LEAN * prospect_share(player)
-                };
-                read(left)
-                    .partial_cmp(&read(right))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+        // A manager who trusts youth reads a prospect a little higher than the sceptic does.
+        let read = |player: &domain::player::Player| {
+            perceived_fit(player, slot)
+                + (youth_trust - 0.5) * 2.0 * YOUTH_DEPUTY_LEAN * prospect_share(player)
+        };
+        let fresh_alternative = fresh_deputy(
+            available_players,
+            &used_ids,
+            starter,
+            slot,
+            (deputy_floor, tolerance),
+            &read,
+        );
 
         if let Some(fresh) = fresh_alternative {
             used_ids.remove(&starter.id);

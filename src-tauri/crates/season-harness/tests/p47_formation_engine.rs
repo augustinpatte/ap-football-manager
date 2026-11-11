@@ -127,7 +127,7 @@ fn p47_formation_engine() {
     let mut log = Log::default();
     for seed in env::list("P47_SEEDS", "1") {
         let mut game = env::world("P47_WORLD", seed).build().expect("world builds");
-        freeze_reviews_for_study(true);
+        let frozen = freeze_reviews_for_study();
         let user = game.manager.team_id.clone();
         let ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
         for (index, id) in ids.iter().enumerate() {
@@ -141,7 +141,7 @@ fn p47_formation_engine() {
             }
         }
         run_seasons(&mut game, RunOptions::seasons(seasons), &mut log).expect("seasons play");
-        freeze_reviews_for_study(false);
+        drop(frozen);
     }
     let leagues = &log.league_of_row;
     let ppg = within(&log.rows.iter().map(|r| r.ppg).collect::<Vec<_>>(), leagues);

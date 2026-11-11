@@ -336,10 +336,20 @@ pub(crate) fn profile_of(game: &Game, team_id: &str) -> ClubProfile {
         .unwrap_or(ClubProfile::NEUTRAL)
 }
 
-/// A club's profile from a reading shared by the clubs of one pass: the profiles of the day's
-/// `reviewing` clubs are read the first time one is asked for and kept in `shared`, so a pass over
-/// them costs one read of those clubs and not one per club. The same clubs review their contracts,
-/// their listings and their formation on the same day, so one reading serves all three.
+/// The profiles of `clubs`, read together: one read of those clubs and not one per club, and the
+/// same answer for each however many reviews ask. The reviewing clubs of a day are read once at
+/// the start of it and shared by the contract and the listing reviews.
+pub(crate) fn strategies_of(game: &Game, clubs: &[String]) -> HashMap<String, ClubProfile> {
+    let clubs: std::collections::HashSet<String> = clubs.iter().cloned().collect();
+    profiles_among(
+        game,
+        &crate::finances::wage_bills_by_club(game),
+        Some(&clubs),
+    )
+}
+
+/// One club's profile out of a reading taken with [`strategies_of`], read now if none was taken
+/// (`shared` empty), and neutral for a club the reading did not cover.
 pub(crate) fn profile_in(
     game: &Game,
     shared: &mut Option<HashMap<String, ClubProfile>>,
@@ -347,14 +357,7 @@ pub(crate) fn profile_in(
     team_id: &str,
 ) -> ClubProfile {
     shared
-        .get_or_insert_with(|| {
-            let clubs: std::collections::HashSet<String> = reviewing.iter().cloned().collect();
-            profiles_among(
-                game,
-                &crate::finances::wage_bills_by_club(game),
-                Some(&clubs),
-            )
-        })
+        .get_or_insert_with(|| strategies_of(game, reviewing))
         .get(team_id)
         .copied()
         .unwrap_or(ClubProfile::NEUTRAL)
