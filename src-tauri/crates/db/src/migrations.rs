@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 68;
+const EXPECTED_MIGRATION_COUNT: usize = 69;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -190,6 +190,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("v067_compressed_archive_and_replays.sql", include_str!("sql/v067_compressed_archive_and_replays.sql")),
     // V68: retired players and managers are stored deflated
     ("v068_compressed_retiree_archives.sql", include_str!("sql/v068_compressed_retiree_archives.sql")),
+    // V69: the job-offer clock, so a reloaded career gets its next offer on the same day
+    ("v069_job_offer_clock.sql", include_str!("sql/v069_job_offer_clock.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -736,6 +738,53 @@ mod tests {
         }
     }
 
+    /// Given a real v068 save (written before the job-offer clock was kept), with its game date
+    /// When it is migrated, twice
+    /// Then the row keeps its contents and gains the clock column empty, which a load reads as "no
+    ///      clock running": exactly how that save has always behaved.
+    #[test]
+    fn job_offer_clock_v069_upgrades_a_v068_save_without_changing_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(
+            MIGRATIONS
+                .iter()
+                .take(68)
+                .map(|(_, sql)| M::up(sql))
+                .collect(),
+        )
+        .to_latest(&mut conn)
+        .unwrap();
+        conn.execute(
+            "INSERT INTO game_meta (save_id, save_name, manager_id, start_date, game_date) VALUES ('save', 'Old career', 'manager', '2033-02-01', '2033-06-30')",
+            [],
+        )
+        .unwrap();
+        assert!(
+            conn.prepare("SELECT days_since_last_job_offer FROM game_meta")
+                .is_err(),
+            "a v068 save must not have the column yet"
+        );
+
+        for _ in 0..2 {
+            all_migrations().to_latest(&mut conn).unwrap();
+            let row: (String, String, Option<i64>) = conn
+                .query_row(
+                    "SELECT save_name, game_date, days_since_last_job_offer FROM game_meta",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .expect("v069 must add the column to a real v068 save");
+            assert_eq!(
+                row,
+                ("Old career".to_string(), "2033-06-30".to_string(), None)
+            );
+        }
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, MIGRATION_COUNT as i64);
+    }
+
     /// Given a real v048 save, when migrated twice, then the archive table exists and is empty.
     #[test]
     fn edition_archive_v049_upgrades_a_v048_save_without_touching_competitions() {
@@ -1046,6 +1095,7 @@ mod tests {
     ("v066_compact_match_history.sql", 0x615221a4621a6474),
     ("v067_compressed_archive_and_replays.sql", 0x3e6ec1017c142503),
     ("v068_compressed_retiree_archives.sql", 0xbd67d52ff2973a0e),
+    ("v069_job_offer_clock.sql", 0x4b824d0d58b44e84),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

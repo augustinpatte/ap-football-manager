@@ -269,7 +269,7 @@ fn rewrite_file_as(saves: &std::path::Path, id: &str, build: WrittenBy) -> std::
     let drop_table = "DROP TABLE transfer_obligations;";
     // Added after every build this helper imitates (v064 the checkpoint table, v065 the suspension
     // column, v066 the compact match history in place of v015's tables, v067 the archive's deflated
-    // column, v068 the retiree archives' deflated column): such a file does not have them, and has the v015 tables instead.
+    // column, v068 the retiree archives' deflated column, v069 the job-offer clock): such a file does not have them, and has the v015 tables instead.
     let drop_checkpoint = format!(
         "DROP TABLE interactive_match_checkpoint;\
          ALTER TABLE players DROP COLUMN suspended_matches;\
@@ -279,7 +279,8 @@ fn rewrite_file_as(saves: &std::path::Path, id: &str, build: WrittenBy) -> std::
          ALTER TABLE competition_edition_archive DROP COLUMN record_z;\
          ALTER TABLE match_replays DROP COLUMN replay_z;\
          ALTER TABLE retired_players DROP COLUMN record_z;\
-         ALTER TABLE retired_managers DROP COLUMN record_z;{}",
+         ALTER TABLE retired_managers DROP COLUMN record_z;\
+         ALTER TABLE game_meta DROP COLUMN days_since_last_job_offer;{}",
         include_str!("../src/sql/v015_match_stats_history.sql")
     );
     let (sql, version) = match build {

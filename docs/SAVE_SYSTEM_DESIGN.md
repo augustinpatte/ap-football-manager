@@ -275,6 +275,22 @@ measured on generated careers, are in `docs/APFM_RUN_F5_1_INTELLIGENT_WORLD.md` 
   before the fold is compacted the first time it rolls over.
 - **Compact match history** (v066) and its retention window are described in the F5.0 report.
 
+### Job-offer clock and rating repair (P4.6)
+
+- **Job-offer clock** (v069). `game_meta.days_since_last_job_offer` (nullable integer) stores
+  `Game::days_since_last_job_offer`, which decides the day the next job offer arrives; before it, a
+  load restarted the clock and a reloaded career received offers on different days. NULL is "no
+  clock running", which is what every older save held in memory after loading, so an old save behaves
+  as it always did. A stored value outside `u32` is damage and reads as NULL rather than refusing the
+  load. No save-format version bump: the field is `serde(default)` on `GameMeta`.
+- **Stale-rating repair on load** (`player_rating::repair_stale_ratings`). A save written by a build
+  before D6 can hold a granular position beside the rating of the coarse group the player was
+  generated as. On every load a player whose `ovr` drifts from his own attributes by more than
+  `world_integrity::MAX_OVR_ATTRIBUTE_DRIFT` has his derived fields re-derived (`ovr`, attribute
+  traits, and a ceiling the new rating overtakes) and the save is written back. Identity, attributes,
+  contract, wage and market value are not touched; a repaired save finds nothing to repair, and a
+  player with no rating is left to the backfill.
+
 ### Football Identity Notes
 
 - Legacy saves may still store `nationality` / `country` values such as `"GB"`, `"British"`, or demonyms like `"English"`.

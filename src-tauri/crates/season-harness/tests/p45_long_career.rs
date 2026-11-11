@@ -169,13 +169,13 @@ fn p45_reload_twin_after_a_long_career() {
             .expect("a fresh manager")
             .load_game(&id)
             .expect("the load");
-        // Known gap, specified by an ignored test in `db`: the job-offer timer
-        // (`Game::days_since_last_job_offer`) is not saved, so a reloaded career sends the player's
-        // job offers on a different day. It is carried across by hand here so that the sixty days
-        // can show whether anything else a reload changes reaches play.
-        let timer_lost_by_the_save =
-            twin.days_since_last_job_offer != original.days_since_last_job_offer;
-        twin.days_since_last_job_offer = original.days_since_last_job_offer;
+        // Not copied across by hand: the job-offer clock is saved (`game_meta`), so a reload must
+        // already hold the day count the original does. Said first so a regression names itself
+        // rather than showing up as an unexplained fingerprint difference.
+        assert_eq!(
+            twin.days_since_last_job_offer, original.days_since_last_job_offer,
+            "seed {seed}: the save lost the job-offer clock"
+        );
         let after = replayable(&twin);
         assert!(
             before == after,
@@ -201,8 +201,9 @@ fn p45_reload_twin_after_a_long_career() {
         );
         eprintln!(
             "seed {seed}: reload after {seasons} seasons identical and identical 60 days on; \
-             national-team list order kept: {same_national_order}; job-offer timer lost by the \
-             save: {timer_lost_by_the_save}; invariants {}",
+             national-team list order kept: {same_national_order}; job-offer clock {:?}; \
+             invariants {}",
+            twin.days_since_last_job_offer,
             if rules.is_clean() {
                 "clean"
             } else {
