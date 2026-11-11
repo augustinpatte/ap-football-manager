@@ -5,8 +5,12 @@
 //! they all derive from [`fee_block`] now.
 
 use domain::team::Team;
+use domain::transfer_terms::TransferTerms;
 
 use super::consts::{ERR_INSUFFICIENT_FUNDS, ERR_TRANSFER_BUDGET_TOO_LOW};
+use super::registration::pending_fee_commitments;
+use super::terms::fund_block_after;
+use crate::game::Game;
 
 /// Which limit stops a fee. Cash is checked first, so a club short of both reports the cash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +43,19 @@ pub(crate) fn fee_block(team: &Team, fee: u64) -> Result<(), FeeBlock> {
         return Err(FeeBlock::TransferBudgetTooLow);
     }
     Ok(())
+}
+
+/// [`fee_block`] for a plain fee paid today by a club that has deals agreed and waiting to
+/// register: the same two tests against what is left once those are paid. A purchase that completes
+/// the moment it is agreed (a signing from the external registry) must read this, not
+/// [`fee_block`], or it could spend the cash and budget a deferred bid has already promised.
+pub(crate) fn fee_block_after_pending(game: &Game, team: &Team, fee: u64) -> Result<(), FeeBlock> {
+    fund_block_after(
+        team,
+        &pending_fee_commitments(game, &team.id),
+        fee,
+        &TransferTerms::default(),
+    )
 }
 
 /// Whether `team` can pay `fee` out of cash and transfer budget: [`fee_block`] finds nothing in the way.

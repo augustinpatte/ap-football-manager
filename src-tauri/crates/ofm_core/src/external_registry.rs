@@ -17,17 +17,15 @@
 //! * The source attributes, positions, foot and value are copied unchanged. Only the contract is
 //!   new, and it is written through the same ledger a free signing or a transfer uses.
 
-use crate::contract_wage_policy::{
-    purchase_wage_policy_verdict, renewal_wage_policy_error_message,
-};
+use crate::contract_wage_policy::{BuyerWageFacts, renewal_wage_policy_error_message};
 use crate::contracts::{
     contract_entry, contract_record, expected_contract_years, expected_wage,
-    free_agent_signed_message, sign_free_agent, standard_contract_terms,
+    free_agent_signed_message, sign_free_agent, squad_capacity, standard_contract_terms,
 };
 use crate::external_world::{ExternalOfferContext, ExternalOfferDecision};
 use crate::game::Game;
 use crate::transfers::{
-    can_afford_fee, fee_block, log_completed_transfer, transfer_window_is_open,
+    FeeBlock, fee_block_after_pending, log_completed_transfer, transfer_window_is_open,
 };
 use chrono::{Datelike, NaiveDate};
 use domain::contract_ledger::{ContractRecord, ContractSource};
@@ -400,9 +398,13 @@ pub fn preview_external_recruitment_with_offer(
     );
 
     let already_in_world = duplicate_in_world(game, &external.id);
-    let affordable = can_afford_fee(team, terms.fee);
-    let wage_policy_allows =
-        purchase_wage_policy_verdict(game, team, &player, weekly_wage).permits();
+    // Both limits are read against what the club has already promised: a deal agreed and waiting
+    // to register holds its fee and its wage, and this signing completes at once, so it is the one
+    // that could spend them a second time. See `transfers::pending_fee_commitments`.
+    let fee_check = fee_block_after_pending(game, team, terms.fee);
+    let wage_policy_allows = BuyerWageFacts::of_committed(game, &team.id)
+        .purchase_verdict(team, &player, weekly_wage)
+        .permits();
     let window_open = free_agent || transfer_window_is_open(game);
 
     let blocker = if already_in_world {
@@ -410,7 +412,8 @@ pub fn preview_external_recruitment_with_offer(
     } else {
         identity_blocker(external, age, window_open)
             .or_else(|| terms.rejected.then(|| ERR_OFFER_REJECTED.to_string()))
-            .or_else(|| finance_blocker(team, terms.fee, affordable, wage_policy_allows))
+            .or_else(|| squad_blocker(game, team, free_agent))
+            .or_else(|| finance_blocker(team, fee_check, wage_policy_allows))
     };
 
     Ok(ExternalRecruitPreview {
@@ -423,7 +426,7 @@ pub fn preview_external_recruitment_with_offer(
         weekly_wage,
         contract_years,
         contract_end: contract_end.format("%Y-%m-%d").to_string(),
-        can_afford_fee: affordable,
+        can_afford_fee: fee_check.is_ok(),
         wage_policy_allows,
         window_open,
         blocker,
@@ -447,20 +450,21 @@ fn identity_blocker(external: &ExternalPlayer, age: i32, window_open: bool) -> O
     }
 }
 
+/// The senior registration limit, which every free agent signing meets (`contracts::squad_capacity`).
+/// A purchase from another club is judged by the transfer rules, which have no such limit.
+fn squad_blocker(game: &Game, team: &Team, free_agent: bool) -> Option<String> {
+    let capacity = squad_capacity(game, &team.id);
+    (free_agent && capacity.blocks_signing).then(|| capacity.full_error())
+}
+
 /// Cash, transfer budget and wage policy. Runs only after the identity refusals.
 fn finance_blocker(
     team: &Team,
-    fee: u64,
-    affordable: bool,
+    fee_check: Result<(), FeeBlock>,
     wage_policy_allows: bool,
 ) -> Option<String> {
-    if !affordable {
-        Some(
-            fee_block(team, fee)
-                .err()
-                .map(|block| block.error_key().to_string())
-                .unwrap_or_else(|| "be.error.transfers.insufficientFunds".to_string()),
-        )
+    if let Err(block) = fee_check {
+        Some(block.error_key().to_string())
     } else if !wage_policy_allows {
         Some(renewal_wage_policy_error_message(team))
     } else {

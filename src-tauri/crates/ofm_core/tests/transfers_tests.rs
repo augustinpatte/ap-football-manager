@@ -1,5 +1,7 @@
 #[path = "transfers_tests/bid_money.rs"]
 mod bid_money;
+#[path = "transfers_tests/external.rs"]
+mod external;
 #[path = "transfers_tests/loans.rs"]
 mod loans;
 #[path = "transfers_tests/realism.rs"]
