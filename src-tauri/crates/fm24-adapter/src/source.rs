@@ -150,6 +150,8 @@ pub(crate) fn sample_row(
         height_cm: None,
         club_id: 1,
         club_name: String::new(),
+        club_nation: None,
+        club_reputation: 0,
         team_slot: Some(0),
         team_is_youth: false,
         registered_club_id: None,
