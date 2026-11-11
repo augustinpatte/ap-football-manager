@@ -139,7 +139,7 @@ fn boldness(formation: &str) -> f64 {
 }
 
 /// How bold a club's philosophy wants its shape, from -1 to +1.
-fn style_boldness(style: &PlayStyle) -> f64 {
+pub(crate) fn style_boldness(style: &PlayStyle) -> f64 {
     match style {
         PlayStyle::Attacking => 0.7,
         PlayStyle::HighPress => 0.4,
@@ -151,7 +151,7 @@ fn style_boldness(style: &PlayStyle) -> f64 {
 }
 
 /// How bold a manager wants his shape: his risk, from -1 (cautious) to +1 (bold).
-fn risk_boldness(manager: &ManagerIdentity) -> f64 {
+pub(crate) fn risk_boldness(manager: &ManagerIdentity) -> f64 {
     2.0 * manager.risk - 1.0
 }
 
