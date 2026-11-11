@@ -14,6 +14,13 @@ pub const MAX_OVR_ATTRIBUTE_DRIFT: f64 = 2.0;
 const WONDERKID_MAX_AGE: u32 = 20;
 const WONDERKID_MIN_GROWTH_ROOM: u8 = 14;
 
+/// The formations the game offers a manager, the same eight the tactics screen lists. A formation
+/// outside the list can still be laid out (`parse_formation` accepts any shape of ten outfield
+/// players) but is not one an AI club is ever given.
+pub const FORMATIONS: [&str; 8] = [
+    "4-4-2", "4-3-3", "3-5-2", "4-5-1", "4-2-3-1", "3-4-3", "5-3-2", "4-1-4-1",
+];
+
 pub fn formation_slots(formation: &str) -> Vec<Position> {
     formation_slot_rows(formation)
         .into_iter()

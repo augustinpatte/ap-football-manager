@@ -3,6 +3,7 @@ pub mod aging;
 pub mod ai_budget_review;
 pub mod ai_contracts;
 mod ai_finance_guard;
+pub mod ai_formation;
 pub mod ai_hiring;
 pub mod ai_manager_appointments;
 mod ai_math;

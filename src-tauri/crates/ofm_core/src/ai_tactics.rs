@@ -311,6 +311,9 @@ const BLUNT: f64 = 1.6;
 struct FormReading {
     conceded_per_game: f64,
     scored_per_game: f64,
+    /// Points a game over a longer run than the other two, for the formation review: whether the
+    /// shape is working is a question about weeks, not about a single bad Saturday.
+    points_per_game: Option<f64>,
 }
 
 /// Every club's recent results, most recent first, across every competition it
@@ -365,9 +368,18 @@ fn read_form_of(game: &Game, only: Option<&str>) -> std::collections::HashMap<St
             played.sort_by(|a, b| b.0.cmp(a.0));
             let window = &played[..FORM_WINDOW.min(played.len())];
             let games = window.len() as f64;
+            let points: Vec<u32> = played
+                .iter()
+                .map(|(_, scored, conceded)| match scored.cmp(conceded) {
+                    std::cmp::Ordering::Greater => 3,
+                    std::cmp::Ordering::Equal => 1,
+                    std::cmp::Ordering::Less => 0,
+                })
+                .collect();
             Some((
                 team_id.to_string(),
                 FormReading {
+                    points_per_game: crate::ai_formation::points_per_game(&points),
                     scored_per_game: window.iter().map(|(_, s, _)| f64::from(*s)).sum::<f64>()
                         / games,
                     conceded_per_game: window.iter().map(|(_, _, c)| f64::from(*c)).sum::<f64>()
@@ -604,6 +616,8 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
 
     // Every club's squad in one pass rather than one scan of the world per club reviewing.
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
+    // Every club's strategy, read at most once a day, for the clubs that look at their formation.
+    let mut club_profiles = None;
 
     for team_id in due {
         let Some(team_index) = game.teams.iter().position(|team| team.id == team_id) else {
@@ -615,6 +629,14 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
         let squad = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
         let reading = read_squad(squad);
 
+        let new_formation = reviewed_formation(
+            game,
+            team_index,
+            squad,
+            form.get(&team_id),
+            &mut club_profiles,
+        );
+
         let team = &mut game.teams[team_index];
         let manager = ManagerIdentity::of_club_manager(team.manager_id.as_deref());
         team.tactics_phase = match_plan_by(
@@ -623,8 +645,44 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
             form.get(&team_id),
             &manager,
         );
+        if let Some(formation) = new_formation {
+            crate::ai_formation::adopt(team, formation, squad);
+        }
         crate::ai_roles::assign_squad_roles(team, squad.iter().copied());
     }
+}
+
+/// The formation the club at `team_index` moves to this week, if it looks at its shape this week
+/// and the squad, the manager's taste and the results say to move. `profiles` holds every club's
+/// strategy, read once for the day and only if some club is looking.
+fn reviewed_formation(
+    game: &Game,
+    team_index: usize,
+    squad: &[&Player],
+    form: Option<&FormReading>,
+    profiles: &mut Option<std::collections::HashMap<String, crate::transfers::ClubProfile>>,
+) -> Option<&'static str> {
+    let team = &game.teams[team_index];
+    let today = game.clock.current_date.date_naive();
+    let tenure_days = crate::ai_formation::tenure_days(game, team);
+    if !crate::ai_formation::is_review_week(&team.id, today, tenure_days) {
+        return None;
+    }
+    let profiles = profiles.get_or_insert_with(|| {
+        crate::transfers::profiles(game, &crate::finances::wage_bills_by_club(game))
+    });
+    let profile = profiles
+        .get(&team.id)
+        .copied()
+        .unwrap_or(crate::transfers::ClubProfile::NEUTRAL);
+    let circumstances = crate::ai_formation::Circumstances {
+        today,
+        appetite: crate::squad_intelligence::appetite::Appetite::of(&profile),
+        manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
+        tenure_days,
+        points_per_game: form.and_then(|reading| reading.points_per_game),
+    };
+    crate::ai_formation::formation_to_move_to(team, squad, &circumstances)
 }
 
 #[cfg(test)]
@@ -835,6 +893,7 @@ mod tests {
     /// scoring well enough that the other trigger stays quiet.
     fn leaking() -> FormReading {
         FormReading {
+            points_per_game: None,
             conceded_per_game: LEAKY,
             scored_per_game: 2.0,
         }
@@ -843,6 +902,7 @@ mod tests {
     /// Scoring at exactly the blunt rate, and keeping them out at the other end.
     fn toothless() -> FormReading {
         FormReading {
+            points_per_game: None,
             conceded_per_game: 1.0,
             scored_per_game: BLUNT,
         }
@@ -1113,6 +1173,7 @@ mod tests {
             Some(leaking()),
             Some(toothless()),
             Some(FormReading {
+                points_per_game: None,
                 conceded_per_game: 4.0,
                 scored_per_game: 0.0,
             }),
@@ -1237,6 +1298,7 @@ mod tests {
     /// of results would sit through, less than anyone would.
     fn conceding_a_little_too_much() -> FormReading {
         FormReading {
+            points_per_game: None,
             conceded_per_game: LEAKY - 0.3,
             scored_per_game: 2.0,
         }
@@ -1277,6 +1339,7 @@ mod tests {
     fn even_the_most_stubborn_manager_reacts_to_a_disastrous_run() {
         let squad = a_squad_that_can_run();
         let form = FormReading {
+            points_per_game: None,
             conceded_per_game: LEAKY + 1.0,
             scored_per_game: 2.0,
         };
@@ -1353,6 +1416,7 @@ mod tests {
     fn an_adaptable_manager_reacts_to_a_blunt_run_that_a_stubborn_one_sits_through() {
         let squad = a_squad_that_can_run();
         let form = FormReading {
+            points_per_game: None,
             conceded_per_game: 1.0,
             scored_per_game: BLUNT + 0.1,
         };
@@ -1382,6 +1446,7 @@ mod tests {
                 &PlayStyle::Balanced,
                 Some(&squad),
                 Some(&FormReading {
+                    points_per_game: None,
                     conceded_per_game: conceded,
                     scored_per_game: scored,
                 }),
