@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerData } from "../../store/gameStore";
-import { resolveStartingXiIds } from "./TacticsTab.helpers";
+import { TACTICS_PRESETS, resolveStartingXiIds } from "./TacticsTab.helpers";
 
 const makePlayer = (
   id: string,
@@ -135,5 +135,25 @@ describe("resolveStartingXiIds", () => {
     });
 
     expect(ids[1]).toBe("lb");
+  });
+});
+
+describe("TACTICS_PRESETS", () => {
+  it("offers eighteen distinct tactical blueprints", () => {
+    expect(TACTICS_PRESETS).toHaveLength(18);
+
+    const configurations = TACTICS_PRESETS.map((preset) =>
+      JSON.stringify({
+        formation: preset.formation,
+        outOfPossessionFormation: preset.outOfPossessionFormation,
+        playStyle: preset.playStyle,
+        tacticsPhase: preset.tacticsPhase,
+      }),
+    );
+
+    expect(new Set(configurations)).toHaveLength(TACTICS_PRESETS.length);
+    expect(TACTICS_PRESETS.every((preset) => preset.descriptionKey.startsWith("tactics."))).toBe(
+      true,
+    );
   });
 });

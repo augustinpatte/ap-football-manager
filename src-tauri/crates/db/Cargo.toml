@@ -15,6 +15,7 @@ save-snapshots = []
 
 [dependencies]
 chrono = { version = "0.4.44", features = ["serde"] }
+flate2 = "1.1"
 domain = { version = "0.3.0", path = "../domain" }
 log = "0.4"
 ofm_core = { version = "0.3.0", path = "../ofm_core" }

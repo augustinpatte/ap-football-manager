@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
@@ -20,6 +21,14 @@ vi.mock("../components/match/matchCommands", async (importOriginal) => {
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
+}));
+
+// The real resolver needs the full i18n instance; its own behaviour is tested in backendI18n.test.ts.
+vi.mock("../utils/backendI18n", () => ({
+  resolveBackendKeyError: (error: unknown, fallback: string) => {
+    const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+    return message.startsWith("be.error.") ? `resolved:${message}` : fallback;
+  },
 }));
 
 vi.mock("react-router-dom", () => ({
@@ -48,15 +57,18 @@ vi.mock("../components/match/PreMatchSetup", () => ({
   default: ({
     snapshot,
     onStart,
+    viewModeSlot,
   }: {
     snapshot: { home_team: { name: string } };
     onStart?: () => void;
+    viewModeSlot?: ReactNode;
   }) => (
     <div data-testid="prematch">
       {snapshot.home_team.name}
       <button type="button" data-testid="prematch-start" onClick={onStart}>
         Start
       </button>
+      {viewModeSlot}
     </div>
   ),
 }));
@@ -109,12 +121,19 @@ vi.mock("../components/match/PostMatchScreen", () => ({
     onContinue,
     onFinish,
     spatialResult,
+    onWatchReplay,
   }: {
     onContinue?: () => void;
     onFinish?: () => void;
     spatialResult?: { homeGoals: number; awayGoals: number; events: unknown[] } | null;
+    onWatchReplay?: () => void;
   }) => (
     <div>
+      {onWatchReplay && (
+        <button type="button" data-testid="postmatch-watch-replay" onClick={onWatchReplay}>
+          Watch replay
+        </button>
+      )}
       {spatialResult && (
         <div data-testid="spatial-postmatch-result">
           {spatialResult.homeGoals}-{spatialResult.awayGoals}:{spatialResult.events.length}
@@ -134,11 +153,13 @@ vi.mock("../components/match/M12ReplayViewer", () => ({
   default: ({
     onFinish,
     onBack,
+    readOnly,
   }: {
     onFinish: () => void | Promise<void>;
     onBack?: () => void;
+    readOnly?: boolean;
   }) => (
-    <div data-testid="m12-viewer">
+    <div data-testid="m12-viewer" data-read-only={String(Boolean(readOnly))}>
       <button type="button" data-testid="m12-go-result" onClick={() => void onFinish()}>
         Go to result
       </button>
@@ -527,6 +548,56 @@ describe("MatchSimulation", (): void => {
   });
 
   /**
+   * Given the backend refuses to prepare the 2D match for a stated reason
+   * When the manager asks to watch it in 2D
+   * Then the reason is shown, not "unavailable or corrupted", and the pre-match screen stays usable.
+   */
+  it("says why the 2D match could not be prepared instead of calling the replay corrupted", async (): Promise<void> => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce("be.error.spatialReplay.inputRejected?code=WrongStarterCount");
+      render(<MatchSimulation />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "resolved:be.error.spatialReplay.inputRejected?code=WrongStarterCount",
+        );
+      });
+      expect(screen.getByRole("alert")).not.toHaveTextContent("match.replayUnavailable");
+      expect(screen.getByTestId("prematch")).toBeInTheDocument();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  /**
+   * Given an unexpected preparation failure with no translation key
+   * When the manager asks to watch in 2D
+   * Then the generic preparation failure is shown, not the corrupted-replay message.
+   */
+  it("uses the preparation wording, not the corrupted-replay one, for an unknown failure", async (): Promise<void> => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce(new Error("engine exploded"));
+      render(<MatchSimulation />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent("match.replayPreparationFailed");
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  /**
    * Given a prepared M12 replay
    * When the manager opens 2D then goes to the result twice
    * Then the exact prepared replay is finalised once and the M12 result reaches post-match.
@@ -616,7 +687,12 @@ describe("MatchSimulation", (): void => {
     }
   });
 
-  it("moves spectators straight into the live match stage", async (): Promise<void> => {
+  /**
+   * Given a spectator (no line-up to set)
+   * When the match screen opens
+   * Then the three ways to play are offered, and only "Start Match" enters the classic live stage.
+   */
+  it("offers a spectator the three viewing modes before the live stage", async (): Promise<void> => {
     locationState = {
       mode: "spectator",
       snapshot: makeSnapshot(),
@@ -626,9 +702,36 @@ describe("MatchSimulation", (): void => {
 
     render(<MatchSimulation />);
 
-    await waitFor((): void => {
-      expect(screen.getByTestId("match-live-container")).toHaveTextContent("Home FC");
-    });
+    expect(await screen.findByRole("button", { name: "match.watchWithM12" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "match.simulateWithM12" })).toBeInTheDocument();
+    expect(screen.queryByTestId("match-live-container")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "match.startMatch" }));
+
+    expect(await screen.findByTestId("match-live-container")).toHaveTextContent("Home FC");
+  });
+
+  /**
+   * Given a spectator on the choice screen
+   * When they pick Watch in 2D and leave the viewer without confirming
+   * Then only the preparation command ran: nothing was finalised, and the choice is still there.
+   */
+  it("lets a spectator watch in 2D and leave without finalising the match", async (): Promise<void> => {
+    locationState = { mode: "spectator", snapshot: makeSnapshot() };
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockResolvedValueOnce({ replay_json: '{"schema_version":1}' });
+
+    render(<MatchSimulation />);
+    fireEvent.click(await screen.findByRole("button", { name: "match.watchWithM12" }));
+    expect(await screen.findByTestId("m12-viewer")).toHaveAttribute("data-read-only", "false");
+
+    fireEvent.click(screen.getByTestId("m12-back"));
+
+    expect(await screen.findByRole("button", { name: "match.watchWithM12" })).toBeInTheDocument();
+    const commands = mockedInvoke.mock.calls.map(([command]) => command);
+    expect(commands).toEqual(["get_match_snapshot", "prepare_spatial_replay"]);
+    expect(setGameStateMock).not.toHaveBeenCalled();
   });
 
   it("navigates away from postmatch after the finalized game has been stored", async (): Promise<void> => {
@@ -653,6 +756,7 @@ describe("MatchSimulation", (): void => {
 
     render(<MatchSimulation />);
 
+    fireEvent.click(await screen.findByRole("button", { name: "match.startMatch" }));
     await waitFor((): void => {
       expect(screen.getByTestId("match-live-container")).toHaveTextContent("Home FC");
     });
@@ -835,5 +939,95 @@ describe("MatchSimulation", (): void => {
         "fast",
       );
     });
+  });
+  /**
+   * Given the match-preparation screen of a player's own match
+   * When it opens
+   * Then watching in 2D and the quick simulation are listed next to Start Match, each explained,
+   *      and leaving the 2D viewer before confirming never finalises the match.
+   */
+  it("lists the viewing modes on the preparation screen and closes 2D without finalising", async (): Promise<void> => {
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockResolvedValueOnce({ replay_json: '{"schema_version":1}' });
+
+    render(<MatchSimulation />);
+
+    expect(await screen.findByText("match.viewMode.watchDesc")).toBeInTheDocument();
+    expect(screen.getByText("match.viewMode.quickDesc")).toBeInTheDocument();
+    expect(screen.getByText("match.viewMode.liveDesc")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "match.watchWithM12" }));
+    fireEvent.click(await screen.findByTestId("m12-back"));
+
+    expect(await screen.findByTestId("prematch")).toBeInTheDocument();
+    expect(mockedInvoke.mock.calls.map(([command]) => command)).toEqual([
+      "get_match_snapshot",
+      "prepare_spatial_replay",
+    ]);
+  });
+
+  /**
+   * Given a quick simulation that stored its replay
+   * When the manager opens the replay from the post-match screen and closes it
+   * Then the stored document is only read (no simulation, no second finalisation) and the
+   *      post-match screen comes back.
+   */
+  it("replays a finished quick simulation read-only from the post-match screen", async (): Promise<void> => {
+    locationState = {
+      fixtureIndex: 0,
+      competitionId: "league-1",
+      fixtureId: "fixture-1",
+      mode: "live",
+      snapshot: makeSnapshot(),
+    };
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockResolvedValueOnce({ game: makeGameState(), home_goals: 2, away_goals: 1, events: [] })
+      .mockResolvedValueOnce({ replay_json: '{"schema_version":1}' });
+
+    render(<MatchSimulation />);
+    fireEvent.click(await screen.findByRole("button", { name: "match.simulateWithM12" }));
+    fireEvent.click(await screen.findByTestId("postmatch-watch-replay"));
+
+    expect(await screen.findByTestId("m12-viewer")).toHaveAttribute("data-read-only", "true");
+    expect(mockedInvoke).toHaveBeenLastCalledWith("load_spatial_replay", {
+      competitionId: "league-1",
+      fixtureId: "fixture-1",
+    });
+
+    fireEvent.click(screen.getByTestId("m12-go-result"));
+
+    expect(await screen.findByTestId("postmatch-finish")).toBeInTheDocument();
+    const commands = mockedInvoke.mock.calls.map(([command]) => command);
+    expect(commands.filter((command) => command === "simulate_spatial_match")).toHaveLength(1);
+    expect(commands).not.toContain("finish_spatial_replay");
+    expect(commands).not.toContain("finish_live_match");
+  });
+
+  /**
+   * Given a finished match whose stored replay cannot be found
+   * When the manager asks to watch it
+   * Then an explicit "no replay was recorded" explanation is shown instead of an empty viewer.
+   */
+  it("explains that no replay was recorded when the store has none", async (): Promise<void> => {
+    locationState = {
+      fixtureIndex: 0,
+      competitionId: "league-1",
+      fixtureId: "fixture-1",
+      mode: "live",
+      snapshot: makeSnapshot(),
+    };
+    mockedInvoke
+      .mockResolvedValueOnce(makeSnapshot())
+      .mockResolvedValueOnce({ game: makeGameState(), home_goals: 0, away_goals: 0, events: [] })
+      .mockResolvedValueOnce(null);
+
+    render(<MatchSimulation />);
+    fireEvent.click(await screen.findByRole("button", { name: "match.simulateWithM12" }));
+    fireEvent.click(await screen.findByTestId("postmatch-watch-replay"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("match.replayNotRecorded");
+    expect(screen.queryByTestId("m12-viewer")).not.toBeInTheDocument();
   });
 });

@@ -124,10 +124,16 @@ pub fn respond_to_loan_offer(
     let offer = pending_offer(player, offer_id)?;
     if accept {
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
+        ensure_player_agrees_to_loan(game, player_id, &offer.from_team_id)?;
     }
     let current_date = game.clock.current_date.date_naive();
     let registration_date = if accept {
-        loan_registration_date(game)?
+        loan_deal_registration_date(
+            game,
+            player,
+            &offer.from_team_id,
+            offer.buy_option_fee.is_some(),
+        )?
     } else {
         current_date
     };
@@ -321,6 +327,16 @@ pub fn counter_loan_offer(
     }
     validate_loan_end_before_contract(player, parsed_end_date)?;
     let offer = pending_offer(player, offer_id)?;
+    // The window is open, so the loan starts after the same administration a permanent move gets.
+    let registration_date =
+        loan_deal_registration_date(game, player, &offer.from_team_id, buy_option_fee.is_some())?;
+    let parsed_end_date = parse_valid_loan_end_date(registration_date, end_date)?;
+    validate_loan_end_before_contract(player, parsed_end_date)?;
+    let terms = LoanTerms {
+        start_date: registration_date.format("%Y-%m-%d").to_string(),
+        end_date: parsed_end_date.format("%Y-%m-%d").to_string(),
+        ..terms
+    };
     validate_counter_improves(offer, &user_team_id, &terms)?;
     let borrower = game
         .teams
@@ -336,6 +352,7 @@ pub fn counter_loan_offer(
     };
     if evaluation.decision == LoanOfferDecision::Accepted {
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
+        ensure_player_agrees_to_loan(game, player_id, &agreement.borrower_team_id)?;
         if agreement.register_immediately {
             validate_loan_borrower_affordability(
                 game,

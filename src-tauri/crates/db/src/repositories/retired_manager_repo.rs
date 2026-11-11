@@ -1,3 +1,4 @@
+use crate::compression::{deflate, inflate};
 use domain::manager::Manager;
 use rusqlite::{Connection, params};
 
@@ -8,16 +9,20 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 /// two halves commit together or not at all. Insert-only by id: a record already archived is
 /// never rewritten, whatever the payload now says.
 pub fn archive_retired_managers(conn: &Connection, retired: &[Manager]) -> Result<(), String> {
+    // Stored deflated (v068); a manager archived before that keeps his JSON column and is still read.
     let records = retired
         .iter()
         .map(|manager| {
-            serde_json::to_string(manager).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
+            let json = serde_json::to_string(manager)
+                .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+            deflate(&json).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
-    for (manager, record_json) in retired.iter().zip(records) {
+    for (manager, record_z) in retired.iter().zip(records) {
         conn.execute(
-            "INSERT OR IGNORE INTO retired_managers (manager_id, record_json) VALUES (?1, ?2)",
-            params![manager.id, record_json],
+            "INSERT OR IGNORE INTO retired_managers (manager_id, record_json, record_z)
+             VALUES (?1, '', ?2)",
+            params![manager.id, record_z],
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
         conn.execute("DELETE FROM managers WHERE id = ?1", params![manager.id])
@@ -30,24 +35,90 @@ pub fn archive_retired_managers(conn: &Connection, retired: &[Manager]) -> Resul
 /// could be known by a short name was stored without one, and serde would hand back `""`.
 pub fn load_retired_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
     let mut stmt = conn
-        .prepare("SELECT record_json FROM retired_managers ORDER BY manager_id")
+        .prepare("SELECT record_json, record_z FROM retired_managers ORDER BY manager_id")
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-    stmt.query_map([], |row| row.get::<_, String>(0))
-        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?
-        .map(|row| {
-            let json = row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-            let mut manager: Manager =
-                serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-            manager.refresh_display_name();
-            Ok(manager)
-        })
-        .collect()
+    stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Option<Vec<u8>>>(1)?))
+    })
+    .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?
+    .map(|row| {
+        let (json, compressed) = row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+        let json = match compressed {
+            Some(bytes) => inflate(&bytes).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?,
+            None => json,
+        };
+        let mut manager: Manager =
+            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+        manager.refresh_display_name();
+        Ok(manager)
+    })
+    .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
+
+    /// Given a manager archived by this build,
+    /// When the archive is read,
+    /// Then they come back whole from a deflated row with no JSON beside it, and a manager stored
+    /// as JSON before v068 loads next to them.
+    #[test]
+    fn a_new_retired_manager_is_stored_deflated_and_a_json_one_still_loads() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let make = |id: &str| {
+            Manager::new(
+                id.into(),
+                "Ada".into(),
+                "Lovelace".into(),
+                "1950-01-01".into(),
+                "England".into(),
+            )
+        };
+        let legacy = make("mgr-a-legacy");
+        db.conn()
+            .execute(
+                "INSERT INTO retired_managers (manager_id, record_json) VALUES (?1, ?2)",
+                params!["mgr-a-legacy", serde_json::to_string(&legacy).unwrap()],
+            )
+            .unwrap();
+        let fresh = make("mgr-b-new");
+        archive_retired_managers(db.conn(), std::slice::from_ref(&fresh)).unwrap();
+
+        let (json, z): (String, Option<Vec<u8>>) = db
+            .conn()
+            .query_row(
+                "SELECT record_json, record_z FROM retired_managers WHERE manager_id = 'mgr-b-new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert!(json.is_empty() && z.is_some());
+        let loaded = load_retired_managers(db.conn()).unwrap();
+        assert_eq!(
+            loaded.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            vec!["mgr-a-legacy", "mgr-b-new"]
+        );
+    }
+
+    /// Given a deflated manager record that has been damaged,
+    /// When the archive is read,
+    /// Then the load fails with its translated error.
+    #[test]
+    fn a_damaged_deflated_manager_fails_the_load() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO retired_managers (manager_id, record_json, record_z) VALUES ('m', '', ?1)",
+                params![vec![9u8, 9, 9]],
+            )
+            .unwrap();
+        assert_eq!(
+            load_retired_managers(db.conn()).unwrap_err(),
+            "be.error.gamePersistence.loadFailed"
+        );
+    }
 
     /// Given a manager archived before v057, whose record has no `display_name`
     /// When the archive is loaded

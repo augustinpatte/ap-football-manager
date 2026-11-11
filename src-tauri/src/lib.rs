@@ -7,6 +7,7 @@ mod main_window;
 mod platform;
 mod report;
 mod save_location;
+mod test_isolation;
 use commands::*;
 
 #[cfg(feature = "mcp")]
@@ -30,6 +31,18 @@ pub fn run() {
         return;
     }
 
+    // Before anything reads the home directory: an opt-in GUI-test mode that moves every persistent
+    // location (saves, databases, preferences, logs, webview storage) into a throw-away folder.
+    // A no-op unless `APFM_TEST_DATA_ROOT` is set, and a refusal to start if it names real data.
+    // See `test_isolation` and `scripts/gui-validation/`.
+    let isolated_root = match test_isolation::activate() {
+        Ok(root) => root,
+        Err(error) => {
+            eprintln!("[isolation] {error}");
+            std::process::exit(2);
+        }
+    };
+
     // First of all, so that everything below is covered — including plugin registration and the
     // graphics configuration, where a panic would otherwise leave nothing at all behind. The hook
     // has no file to write to yet; `setup` gives it one as soon as the app data directory
@@ -42,6 +55,14 @@ pub fn run() {
     platform::configure_graphics(main_window::headless_requested());
 
     let state_manager = Arc::new(StateManager::new());
+
+    let mut context = tauri::generate_context!();
+    if isolated_root.is_some() {
+        // A test session keeps no cookies, local storage or cache between launches.
+        for window in context.config_mut().app.windows.iter_mut() {
+            window.incognito = true;
+        }
+    }
 
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -75,6 +96,12 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
+            if let Some(root) = isolated_root.as_deref() {
+                // Before the first write: a redirect the platform ignored must not reach real data.
+                test_isolation::verify_app_data_inside(root, &app_data_dir)
+                    .map_err(|error| std::io::Error::other(error.to_string()))?;
+                log::info!("[isolation] app data dir: {}", app_data_dir.display());
+            }
             std::fs::create_dir_all(&app_data_dir)
                 .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
 
@@ -252,6 +279,8 @@ pub fn run() {
             select_team,
             get_saves,
             load_game,
+            take_match_restore_notice,
+            get_resumable_match,
             get_active_game,
             get_career_stage,
             get_players_page,
@@ -279,6 +308,8 @@ pub fn run() {
             delegate_renewals,
             preview_renewal_financial_impact,
             offer_free_agent_contract,
+            accept_free_agent_counter,
+            withdraw_free_agent_offer,
             preview_free_agent_contract_impact,
             set_contract_exit_intent,
             clear_contract_exit_intent,
@@ -286,6 +317,7 @@ pub fn run() {
             get_contract_warning_stages,
             terminate_contract_now,
             set_formation,
+            set_out_of_possession_formation,
             list_custom_tactics,
             save_custom_tactic,
             delete_custom_tactic,
@@ -294,6 +326,7 @@ pub fn run() {
             set_starting_xi,
             set_play_style,
             apply_tactic_preset,
+            apply_custom_tactic,
             get_tactics_blueprint_status,
             set_team_match_roles,
             set_training,
@@ -314,6 +347,9 @@ pub fn run() {
             renew_staff_contract,
             release_staff,
             set_duty_delegation,
+            set_delegation_mode,
+            set_delegation_limits,
+            set_player_protected,
             resolve_delegation_proposal,
             get_assistant_recommendations,
             apply_assistant_recommendation,
@@ -332,6 +368,7 @@ pub fn run() {
             exercise_loan_buy_option,
             preview_transfer_bid_financial_impact,
             get_bid_negotiation_status,
+            get_transfer_deadline_summary,
             respond_to_offer,
             respond_to_loan_offer,
             counter_loan_offer,
@@ -355,6 +392,13 @@ pub fn run() {
             apply_match_command,
             get_match_snapshot,
             finish_live_match,
+            start_interactive_match,
+            get_interactive_match_state,
+            advance_interactive_match,
+            submit_match_command,
+            set_interactive_pause,
+            set_interactive_assistant,
+            finish_interactive_match,
             simulate_spatial_match,
             prepare_spatial_replay,
             finish_spatial_replay,
@@ -365,6 +409,9 @@ pub fn run() {
             skip_to_match_day,
             advance_to_next_event,
             advance_one_day,
+            acknowledge_contract_warnings,
+            commands::fast_forward::fast_forward_to_date,
+            commands::fast_forward::cancel_fast_forward,
             check_blocking_actions,
             apply_team_talk,
             submit_press_conference,
@@ -402,7 +449,7 @@ pub fn run() {
             commands::report::crash_notice,
             commands::report::dismiss_crash_notice
         ])
-        .run(tauri::generate_context!());
+        .run(context);
 
     if let Err(error) = result {
         // `panic_any(error)` used to be the whole of this. It carried a `tauri::Error`, which no

@@ -1,6 +1,6 @@
-//! Signing free agents: the affordability projection, the signing flow that puts
-//! a contract-less player on the manager's books, and the announcement message.
-//! Byte-faithful extraction from the original contracts.rs.
+//! Signing free agents: the affordability projection, the one function that puts a
+//! contract-less player on a club's books, and the announcement message. The negotiation that
+//! leads to a signing lives in [`super::free_agent_talks`].
 
 use super::*;
 
@@ -37,192 +37,6 @@ pub fn project_free_agent_contract_impact(
     ))
 }
 
-pub fn offer_free_agent_contract(
-    game: &mut Game,
-    player_id: &str,
-    offer: RenewalOffer,
-) -> Result<RenewalOutcome, String> {
-    let manager_team_id = game
-        .manager
-        .team_id
-        .clone()
-        .ok_or(ERR_NO_TEAM_ASSIGNED.to_string())?;
-
-    let team = game
-        .teams
-        .iter()
-        .find(|candidate| candidate.id == manager_team_id)
-        .ok_or(ERR_MANAGED_TEAM_NOT_FOUND.to_string())?
-        .clone();
-
-    let player_index = game
-        .players
-        .iter()
-        .position(|candidate| candidate.id == player_id)
-        .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
-
-    if game.players[player_index].retired || game.players[player_index].team_id.is_some() {
-        return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
-    }
-
-    let current_date = game.clock.current_date.date_naive();
-    let cooled_off = cool_stale_renewal_session(&mut game.players[player_index], current_date);
-    let today = current_date.format("%Y-%m-%d").to_string();
-    let round = next_renewal_round(&game.players[player_index], Some(today.as_str()));
-    let expected_wage = expected_wage(&game.players[player_index], &team, current_date);
-    let expected_years = expected_contract_years(&game.players[player_index], current_date);
-    let reference_wage = reference_player_wage(&game.players[player_index]);
-    let minimum_wage = minimum_acceptable_wage(reference_wage);
-
-    if offer.contract_years == 0 || offer.contract_years > MAX_CONTRACT_YEARS {
-        return Ok(renewal_outcome(
-            RenewalDecision::Rejected,
-            None,
-            None,
-            RenewalSessionStatus::Stalled,
-            false,
-            cooled_off,
-            Some(build_renewal_feedback(
-                &game.players[player_index],
-                current_date,
-                RenewalDecision::Rejected,
-                RenewalSessionStatus::Stalled,
-                round,
-                expected_wage,
-                false,
-            )),
-        ));
-    }
-
-    if is_insulting_wage_offer(reference_wage, expected_wage, offer.weekly_wage) {
-        let blocked_until = renewal_blocked_until(current_date);
-        let player = &mut game.players[player_index];
-        let state = player
-            .morale_core
-            .renewal_state
-            .get_or_insert_with(ContractRenewalState::default);
-        state.last_attempt_date = Some(today.clone());
-        state.conversation_round = round;
-        state.status = RenewalSessionStatus::Blocked;
-        state.manager_blocked_until = blocked_until;
-        state.last_outcome = Some(RenewalSessionOutcome::BlockedByManager);
-
-        return Ok(renewal_outcome(
-            RenewalDecision::Rejected,
-            None,
-            None,
-            RenewalSessionStatus::Blocked,
-            true,
-            cooled_off,
-            Some(build_renewal_feedback(
-                player,
-                current_date,
-                RenewalDecision::Rejected,
-                RenewalSessionStatus::Blocked,
-                round,
-                expected_wage,
-                false,
-            )),
-        ));
-    }
-
-    if offer.weekly_wage < minimum_wage {
-        return Ok(renewal_outcome(
-            RenewalDecision::Rejected,
-            None,
-            None,
-            RenewalSessionStatus::Stalled,
-            false,
-            cooled_off,
-            Some(build_renewal_feedback(
-                &game.players[player_index],
-                current_date,
-                RenewalDecision::Rejected,
-                RenewalSessionStatus::Stalled,
-                round,
-                expected_wage,
-                false,
-            )),
-        ));
-    }
-
-    if offer.weekly_wage >= expected_wage && offer.contract_years >= expected_years {
-        let player = game.players[player_index].clone();
-        let verdict = wage_policy_verdict(game, &team, &player, offer.weekly_wage);
-        if !verdict.permits() {
-            return Err(renewal_wage_policy_error_message(&team));
-        }
-
-        sign_free_agent(
-            game,
-            player_index,
-            &team,
-            offer.weekly_wage,
-            offer.contract_years,
-            current_date,
-        )?;
-        let player = &game.players[player_index];
-
-        game.messages.push(free_agent_signed_message(
-            &player.id,
-            &player.full_name,
-            &team.name,
-            offer.contract_years,
-            &today,
-        ));
-
-        return Ok(renewal_outcome(
-            RenewalDecision::Accepted,
-            None,
-            None,
-            RenewalSessionStatus::Agreed,
-            true,
-            cooled_off,
-            Some(with_wage_policy_waiver(
-                build_renewal_feedback(
-                    player,
-                    current_date,
-                    RenewalDecision::Accepted,
-                    RenewalSessionStatus::Agreed,
-                    round,
-                    expected_wage,
-                    false,
-                ),
-                verdict,
-            )),
-        ));
-    }
-
-    let player = &mut game.players[player_index];
-    let state = player
-        .morale_core
-        .renewal_state
-        .get_or_insert_with(ContractRenewalState::default);
-    state.last_attempt_date = Some(today);
-    state.conversation_round = round;
-    state.status = RenewalSessionStatus::Open;
-    state.manager_blocked_until = None;
-    state.last_outcome = Some(RenewalSessionOutcome::Stalled);
-
-    Ok(renewal_outcome(
-        RenewalDecision::CounterOffer,
-        Some(expected_wage),
-        Some(expected_years),
-        RenewalSessionStatus::Open,
-        false,
-        cooled_off,
-        Some(build_renewal_feedback(
-            player,
-            current_date,
-            RenewalDecision::CounterOffer,
-            RenewalSessionStatus::Open,
-            round,
-            expected_wage,
-            false,
-        )),
-    ))
-}
-
 pub(crate) fn free_agent_signed_message(
     player_id: &str,
     player_name: &str,
@@ -255,10 +69,11 @@ pub(crate) fn free_agent_signed_message(
 
 /// Sign a free agent to `team` on the given terms: the club, the contract, a
 /// shirt number, the movement record and the morale of a player who has found
-/// a club. The one way a free agent joins a club — the player's own offer and
-/// the squad-floor top-up both come through here, so a signing means the same
+/// a club. The one way a free agent joins a club — a negotiated offer, a rival's bid and
+/// the squad-floor top-up all come through here, so a signing means the same
 /// thing whoever makes it. Whether the deal should happen at all (the wage
-/// policy, the player's demands) is the caller's question, not this one's.
+/// policy, the player's demands) is the caller's question, not this one's; but a player who
+/// already has a club cannot be signed twice, and every other club's open talk with him ends.
 pub(crate) fn sign_free_agent(
     game: &mut Game,
     player_index: usize,
@@ -267,6 +82,9 @@ pub(crate) fn sign_free_agent(
     contract_years: u32,
     current_date: NaiveDate,
 ) -> Result<(), String> {
+    if game.players[player_index].team_id.is_some() || game.players[player_index].retired {
+        return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
+    }
     let new_contract_end = current_date
         .checked_add_months(Months::new(contract_years * 12))
         .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE.to_string())?;
@@ -306,5 +124,119 @@ pub(crate) fn sign_free_agent(
     player.morale_core.renewal_state = None;
     player.morale = (i16::from(player.morale) + 6).clamp(0, 100) as u8;
     player.morale_core.manager_trust = player.morale_core.manager_trust.max(55);
+    settle_talks_on_signing(game, player_index, team, current_date);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clock::GameClock;
+    use crate::test_support::uniform_attributes;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::player::Position;
+
+    fn game_with_player(team_id: Option<&str>) -> Game {
+        let mut team = Team::new(
+            "club".to_string(),
+            "Club".to_string(),
+            "CLB".to_string(),
+            "England".to_string(),
+            "Town".to_string(),
+            "Ground".to_string(),
+            10_000,
+        );
+        team.manager_id = Some("m".to_string());
+        let mut manager = Manager::new(
+            "m".to_string(),
+            "A".to_string(),
+            "B".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("club".to_string());
+        let mut player = Player::new(
+            "p".to_string(),
+            "P".to_string(),
+            "P".to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            uniform_attributes(50),
+        );
+        player.team_id = team_id.map(str::to_string);
+        Game::new(
+            GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap()),
+            manager,
+            vec![team],
+            vec![player],
+            vec![],
+            vec![],
+        )
+    }
+
+    /// Given a player who already belongs to a club
+    /// When any caller tries to sign him as a free agent
+    /// Then the signing is refused and nothing about him changes.
+    #[test]
+    fn a_player_with_a_club_cannot_be_signed_again() {
+        let mut game = game_with_player(Some("other"));
+        let team = game.teams[0].clone();
+        let today = game.clock.current_date.date_naive();
+
+        let refused = sign_free_agent(&mut game, 0, &team, 1_000, 2, today);
+
+        assert_eq!(refused, Err(ERR_PLAYER_NOT_FREE_AGENT.to_string()));
+        assert_eq!(game.players[0].team_id.as_deref(), Some("other"));
+        assert!(game.players[0].movement_history.is_empty());
+    }
+
+    /// Given a free agent with the manager's offer open and a rival club's offer open
+    /// When the squad-floor path signs him for the rival directly, without a talk
+    /// Then the rival's talk is closed as signed, the manager's as lost, and he is told who got him.
+    #[test]
+    fn a_signing_through_any_path_closes_every_open_talk() {
+        use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkStatus};
+        let mut game = game_with_player(None);
+        let mine = FreeAgentTalk {
+            id: "mine".to_string(),
+            club_id: "club".to_string(),
+            made_by_manager: true,
+            ..FreeAgentTalk::default()
+        };
+        let theirs = FreeAgentTalk {
+            id: "theirs".to_string(),
+            club_id: "rival".to_string(),
+            ..FreeAgentTalk::default()
+        };
+        game.players[0].morale_core.free_agent_talks = vec![mine, theirs];
+        let rival = Team::new(
+            "rival".to_string(),
+            "Rival FC".to_string(),
+            "RIV".to_string(),
+            "England".to_string(),
+            "City".to_string(),
+            "Ground".to_string(),
+            10_000,
+        );
+        let today = game.clock.current_date.date_naive();
+
+        sign_free_agent(&mut game, 0, &rival, 1_000, 2, today).expect("he is free");
+
+        let talks = &game.players[0].morale_core.free_agent_talks;
+        assert_eq!(talks[0].status, FreeAgentTalkStatus::LostToRival);
+        assert_eq!(talks[1].status, FreeAgentTalkStatus::Signed);
+        let told = game
+            .messages
+            .iter()
+            .find(|message| {
+                message.subject_key.as_deref() == Some("be.msg.freeAgentTalk.lost.subject")
+            })
+            .expect("the manager is told");
+        assert_eq!(
+            told.i18n_params.get("team").map(String::as_str),
+            Some("Rival FC")
+        );
+    }
 }

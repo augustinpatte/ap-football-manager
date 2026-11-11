@@ -42,15 +42,11 @@ pub fn app_paths() -> Vec<String> {
     paths
 }
 
-/// Names the sources of the app, so a binary can be told apart from the tree it is run against.
+/// Lists the working-tree files linked into the app, in stable byte order.
 ///
-/// It is a digest of the working-tree *content* of the files in [`app_paths`] that git lists
-/// (tracked, or untracked and not ignored), so it follows what would be compiled and nothing else:
-/// committing, staging or switching branches over identical files leaves it alone, and so does a
-/// change to docs, tests, the frontend or the test crate. `None` when git cannot list the files
-/// (no git, a source tarball), in which case the build has no revision.
-pub fn source_revision(src_tauri: &std::path::Path) -> Option<String> {
-    use std::collections::BTreeSet;
+/// The list includes tracked and non-ignored untracked files below [`app_paths`]. `None` means git
+/// cannot identify this checkout, so the caller cannot calculate a source revision.
+pub fn source_files(src_tauri: &std::path::Path) -> Option<std::collections::BTreeSet<Vec<u8>>> {
     use std::process::Command;
 
     let mut args: Vec<String> = [
@@ -89,11 +85,25 @@ pub fn source_revision(src_tauri: &std::path::Path) -> Option<String> {
     if !output.status.success() {
         return None;
     }
-    let files: BTreeSet<&[u8]> = output
-        .stdout
-        .split(|byte| *byte == 0)
-        .filter(|name| !name.is_empty())
-        .collect();
+    Some(
+        output
+            .stdout
+            .split(|byte| *byte == 0)
+            .filter(|name| !name.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+    )
+}
+
+/// Names the sources of the app, so a binary can be told apart from the tree it is run against.
+///
+/// It is a digest of the working-tree *content* of the files in [`app_paths`] that git lists
+/// (tracked, or untracked and not ignored), so it follows what would be compiled and nothing else:
+/// committing, staging or switching branches over identical files leaves it alone, and so does a
+/// change to docs, tests, the frontend or the test crate. `None` when git cannot list the files
+/// (no git, a source tarball), in which case the build has no revision.
+pub fn source_revision(src_tauri: &std::path::Path) -> Option<String> {
+    let files = source_files(src_tauri)?;
 
     // FNV-1a over each path and its bytes: stable across toolchains, and no hashing crate.
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -105,11 +115,11 @@ pub fn source_revision(src_tauri: &std::path::Path) -> Option<String> {
     };
     for name in files {
         // A tracked file that was deleted is listed but gone; its absence is part of the content.
-        let Ok(content) = std::fs::read(src_tauri.join(String::from_utf8_lossy(name).as_ref()))
+        let Ok(content) = std::fs::read(src_tauri.join(String::from_utf8_lossy(&name).as_ref()))
         else {
             continue;
         };
-        feed(name);
+        feed(&name);
         feed(&[0]);
         feed(&(content.len() as u64).to_le_bytes());
         feed(&content);

@@ -77,6 +77,43 @@ fn only_buyer_funded(game: &mut Game, buyer: &str) {
     }
 }
 
+/// Leaves the named borrower as the only club with the wage room a loan needs. A loan does not
+/// check a transfer budget, so `only_buyer_funded` alone leaves an incidental club in the market;
+/// this keeps a scenario that asks what one borrower does from being won by another.
+fn only_buyer_can_borrow(game: &mut Game, buyer: &str) {
+    for team in &mut game.teams {
+        if team.id != buyer && team.id != "team-1" {
+            team.wage_budget = 0;
+        }
+    }
+}
+
+fn rate(player: &mut Player, rating: u8) {
+    player.ovr = rating;
+    player.potential = rating;
+    player.attributes = PlayerAttributes {
+        pace: rating,
+        stamina: rating,
+        strength: rating,
+        agility: rating,
+        passing: rating,
+        shooting: rating,
+        tackling: rating,
+        dribbling: rating,
+        defending: rating,
+        positioning: rating,
+        vision: rating,
+        decisions: rating,
+        composure: rating,
+        aggression: rating,
+        teamwork: rating,
+        leadership: rating,
+        handling: rating,
+        reflexes: rating,
+        aerial: rating,
+    };
+}
+
 /// A. A big English club goes abroad for a clearly better player than anyone it could find at home.
 #[test]
 fn a_big_english_club_signs_a_clear_upgrade_in_france() {
@@ -272,6 +309,264 @@ fn a_club_with_a_vacant_position_signs_for_it() {
     set_days_left(&mut game, 0);
     evaluate_transfer_market(&mut game);
     assert_eq!(owner(&game, "keeper").as_deref(), Some("needy"));
+}
+
+/// Given a club with planned depth in every broad group, two elite goalkeepers and a weak attack
+/// When the live AI market sweeps during the early window
+/// Then Squad Intelligence's attacking need activates the club and it signs the available striker.
+#[test]
+fn a_weak_attack_enters_the_market_even_when_legacy_depth_is_complete() {
+    let mut game = world(
+        vec![
+            // On 2026-08-01 this id is outside the early-window discretionary-shopping draw.
+            // The club must therefore enter because of its shared squad need, not by chance.
+            club("buyer", "England", 600, 50_000_000),
+            club("seller", "England", 600, 0),
+        ],
+        vec![forward("needed-striker", "seller", 82, 2_000_000)],
+    );
+    for player in &mut game.players {
+        if player.team_id.as_deref() == Some("buyer") {
+            match player.position.to_group_position() {
+                Position::Goalkeeper => {
+                    rate(player, if player.id.ends_with("-0") { 85 } else { 83 })
+                }
+                Position::Forward => rate(player, 45),
+                _ => rate(player, 72),
+            }
+        } else if player.id == "needed-striker" {
+            rate(player, 82);
+        }
+    }
+    only_buyer_funded(&mut game, "buyer");
+    set_days_left(&mut game, 60);
+
+    let evaluated_before = market_buyer_evaluations();
+    evaluate_transfer_market(&mut game);
+    assert!(
+        market_buyer_evaluations() > evaluated_before,
+        "the critical attacking need activates the buyer in the early window"
+    );
+
+    // The next ordinary market day completes the same live pipeline: target discovery, ranking,
+    // consent, financial checks and execution.
+    set_days_left(&mut game, 40);
+    evaluate_transfer_market(&mut game);
+
+    assert_eq!(owner(&game, "needed-striker").as_deref(), Some("buyer"));
+}
+
+/// Given a club with weak centre-backs and eight defenders including a long-term injury
+/// When an affordable centre-back is available through the production market
+/// Then the club signs the player who improves its starting defence.
+#[test]
+fn an_injured_defender_does_not_block_a_needed_centre_back() {
+    let mut target = forward("needed-centre-back", "seller", 80, 2_000_000);
+    target.position = Position::CenterBack;
+    target.natural_position = Position::CenterBack;
+    rate(&mut target, 80);
+    let mut game = world(
+        vec![
+            club("buyer", "England", 600, 50_000_000),
+            club("seller", "England", 600, 0),
+        ],
+        vec![target],
+    );
+    let team = game
+        .teams
+        .iter_mut()
+        .find(|team| team.id == "buyer")
+        .unwrap();
+    team.formation = "4-4-2".to_string();
+    let positions = [
+        (Position::LeftBack, 72),
+        (Position::LeftBack, 66),
+        (Position::RightBack, 72),
+        (Position::RightBack, 66),
+        (Position::CenterBack, 58),
+    ];
+    for (player, (position, rating)) in game
+        .players
+        .iter_mut()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("buyer") && player.position == Position::Defender
+        })
+        .zip(positions)
+    {
+        player.position = position.clone();
+        player.natural_position = position;
+        rate(player, rating);
+    }
+    for (id, rating, injured) in [
+        ("centre-cover", 55, false),
+        ("centre-reserve", 52, false),
+        ("injured-defender", 70, true),
+    ] {
+        let mut player = forward(id, "buyer", rating, 0);
+        player.transfer_listed = false;
+        player.position = Position::CenterBack;
+        player.natural_position = Position::CenterBack;
+        rate(&mut player, rating);
+        if injured {
+            player.injury = Some(domain::player::Injury {
+                name: "long injury".to_string(),
+                days_remaining: 300,
+            });
+        }
+        game.players.push(player);
+    }
+    only_buyer_funded(&mut game, "buyer");
+    set_days_left(&mut game, 0);
+    let mut without_injured_defender = game.clone();
+    without_injured_defender
+        .players
+        .retain(|player| player.id != "injured-defender");
+    evaluate_transfer_market(&mut without_injured_defender);
+    assert_eq!(
+        owner(&without_injured_defender, "needed-centre-back").as_deref(),
+        Some("buyer"),
+        "the same squad without the injured player must be able to buy the target"
+    );
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "needed-centre-back").as_deref(), Some("buyer"));
+}
+
+fn full_back_market_world() -> Game {
+    let mut target = forward("needed-left-back", "seller", 78, 2_000_000);
+    target.position = Position::LeftBack;
+    target.natural_position = Position::LeftBack;
+    rate(&mut target, 78);
+    let mut game = world(
+        vec![
+            club("buyer", "England", 600, 50_000_000),
+            club("seller", "England", 600, 0),
+        ],
+        vec![target],
+    );
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == "buyer")
+        .unwrap()
+        .formation = "4-4-2".to_string();
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|player| player.team_id.as_deref() == Some("buyer"))
+    {
+        if player.position == Position::Defender {
+            player.position = Position::CenterBack;
+            player.natural_position = Position::CenterBack;
+        }
+        rate(player, 80);
+    }
+    only_buyer_funded(&mut game, "buyer");
+    set_days_left(&mut game, 0);
+    game
+}
+
+/// Given five capable centre-backs but no natural full-back in a 4-4-2
+/// When an affordable left-back is available in the production market
+/// Then the buyer addresses the tactical gap despite its broad defensive depth.
+#[test]
+fn a_full_back_fills_a_tactical_gap_despite_centre_back_depth() {
+    let mut game = full_back_market_world();
+
+    evaluate_transfer_market(&mut game);
+
+    assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
+}
+
+/// Given eight centre-backs and a weak left-back slot
+/// When a specialist is offered in the production market
+/// Then broad defensive surplus does not veto the tactical improvement.
+#[test]
+fn a_full_back_can_improve_a_team_with_eight_centre_backs() {
+    let mut game = full_back_market_world();
+    for id in ["centre-six", "centre-seven", "centre-eight"] {
+        let mut player = forward(id, "buyer", 80, 0);
+        player.transfer_listed = false;
+        player.position = Position::CenterBack;
+        player.natural_position = Position::CenterBack;
+        rate(&mut player, 80);
+        game.players.push(player);
+    }
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
+}
+
+/// Given a weak left-back slot and a suitable player trained to play there
+/// When the player is offered in the production market
+/// Then his alternate position can address the tactical need.
+#[test]
+fn an_alternate_position_can_address_a_starting_gap() {
+    let mut game = full_back_market_world();
+    let player = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "needed-left-back")
+        .unwrap();
+    player.natural_position = Position::RightBack;
+    player.alternate_positions.push(Position::LeftBack);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
+}
+
+/// Given a weak left-back slot, a covered right-back slot and a target whose only full-back
+/// natural position is right-back
+/// When the production market weighs him for his alternate left-back position
+/// Then the alternate position alone can connect him to the starting need.
+#[test]
+fn an_alternate_position_addresses_a_starter_need_when_the_natural_slot_is_covered() {
+    let mut game = full_back_market_world();
+    // The right-back slot is covered, so his natural position is not a need. Only the alternate
+    // left-back position can address the weak slot the side fields.
+    let mut right_back = forward("strong-right-back", "buyer", 85, 0);
+    right_back.transfer_listed = false;
+    right_back.position = Position::RightBack;
+    right_back.natural_position = Position::RightBack;
+    rate(&mut right_back, 85);
+    game.players.push(right_back);
+    let player = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "needed-left-back")
+        .unwrap();
+    player.natural_position = Position::RightBack;
+    player.alternate_positions.push(Position::LeftBack);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "needed-left-back").as_deref(), Some("buyer"));
+}
+
+/// Given a weak left-back slot and a suitable player listed for loan
+/// When the production market considers the loan
+/// Then broad centre-back depth does not veto the tactical improvement.
+#[test]
+fn a_loan_can_address_a_starting_gap_despite_broad_depth() {
+    let mut game = full_back_market_world();
+    let player = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "needed-left-back")
+        .unwrap();
+    player.transfer_listed = false;
+    player.loan_listed = true;
+    player.date_of_birth = "2006-01-01".to_string();
+    player.potential = 80;
+    player.stage_contract_end(Some("2028-06-30".to_string()));
+    only_buyer_can_borrow(&mut game, "buyer");
+    evaluate_transfer_market(&mut game);
+    let player = game
+        .players
+        .iter()
+        .find(|p| p.id == "needed-left-back")
+        .unwrap();
+    assert_eq!(
+        player
+            .active_loan
+            .as_ref()
+            .map(|loan| loan.loan_team_id.as_str()),
+        Some("buyer")
+    );
 }
 
 /// H. A club already over its wage budget buys nobody, however good the player.
@@ -476,4 +771,334 @@ fn a_small_club_does_not_go_abroad_for_a_cheap_marginal_filler() {
         owner(&build("France"), "filler").as_deref(),
         Some("fra-small")
     );
+}
+
+/// A goalkeeper of `ovr` for sale at `club`, rated on the same attributes as the depth players the
+/// world gives every squad.
+fn keeper(id: &str, club: &str, ovr: u8, value: u64) -> Player {
+    let mut player = Player::new(
+        id.to_string(),
+        format!("{id}. Test"),
+        format!("{id} Test"),
+        "1999-01-01".to_string(),
+        "England".to_string(),
+        Position::Goalkeeper,
+        default_attrs(),
+    );
+    player.team_id = Some(club.to_string());
+    player.ovr = ovr;
+    player.potential = ovr;
+    player.market_value = value;
+    player.transfer_listed = true;
+    player.stage_wage(10_000);
+    player
+}
+
+/// A funded buyer with `kept` senior keepers (85, then 82) and a keeper for sale elsewhere. The
+/// buyer's keepers and the target are the same age, so the only difference between them is rating.
+fn keeper_world(kept: usize, target_ovr: u8) -> Game {
+    let mut game = world(
+        vec![
+            club("eng-buyer", "England", 900, 90_000_000),
+            club("eng-seller", "England", 700, 0),
+        ],
+        vec![keeper("keeper-target", "eng-seller", target_ovr, 2_000_000)],
+    );
+    only_buyer_funded(&mut game, "eng-buyer");
+    let mut buyer_keepers: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("eng-buyer")
+                && player.natural_position == Position::Goalkeeper
+        })
+        .map(|player| player.id.clone())
+        .collect();
+    buyer_keepers.sort();
+    let ratings = [85_u8, 82, 79];
+    for (rank, id) in buyer_keepers.iter().enumerate() {
+        if rank >= kept {
+            continue;
+        }
+        if let Some(player) = game.players.iter_mut().find(|player| &player.id == id) {
+            player.ovr = ratings[rank];
+            player.potential = ratings[rank];
+            player.date_of_birth = "1999-01-01".to_string();
+        }
+    }
+    let surplus: Vec<String> = buyer_keepers.into_iter().skip(kept).collect();
+    game.players.retain(|player| !surplus.contains(&player.id));
+    set_days_left(&mut game, 20);
+    game
+}
+
+/// Given a club carrying two senior goalkeepers, when a third keeper who would displace neither is
+/// offered, then it does not pay for him: a third keeper who never plays is not a signing, it is a
+/// fee for a spectator.
+#[test]
+fn a_club_with_two_goalkeepers_does_not_pay_for_a_third_who_would_not_play() {
+    let mut game = keeper_world(2, 60);
+    evaluate_transfer_market(&mut game);
+    assert_ne!(
+        owner(&game, "keeper-target").as_deref(),
+        Some("eng-buyer"),
+        "a keeper rated below both seniors must not be bought as a third"
+    );
+}
+
+/// Given the same club, when the keeper for sale is better than its number one, then it signs him:
+/// a genuine first-team upgrade is still a signing.
+#[test]
+fn a_club_with_two_goalkeepers_still_buys_a_better_number_one() {
+    let mut game = keeper_world(2, 88);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}
+
+/// Given a club with a single senior keeper, when a modest keeper is offered, then it signs him: a
+/// club genuinely short of bodies still fills the hole.
+#[test]
+fn a_club_with_one_goalkeeper_still_signs_a_second() {
+    let mut game = keeper_world(1, 60);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}
+
+/// A young keeper at `club`: `ovr` today, `potential` ahead, for sale at `value`.
+fn young_keeper(id: &str, club: &str, ovr: u8, potential: u8, value: u64) -> Player {
+    let mut player = keeper(id, club, ovr, value);
+    player.potential = potential;
+    player.date_of_birth = "2006-01-01".to_string();
+    player
+}
+
+/// A funded buyer whose number one is 36 and will retire, with two young keepers behind him, and a
+/// young keeper for sale elsewhere who would be the number one a season from now. `cash` is all the
+/// buyer has. The seller also has a better prospect, so the target is cover to them, not their
+/// future.
+fn successor_world(cash: i64, value: u64) -> Game {
+    let mut game = world(
+        vec![
+            club("eng-buyer", "England", 900, cash),
+            club("eng-seller", "England", 700, 0),
+        ],
+        vec![young_keeper("keeper-target", "eng-seller", 60, 88, value)],
+    );
+    let mut rival = young_keeper("keeper-rival", "eng-seller", 62, 94, 50_000_000);
+    rival.transfer_listed = false;
+    game.players.push(rival);
+    only_buyer_funded(&mut game, "eng-buyer");
+    let mut buyer_keepers: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("eng-buyer")
+                && player.natural_position == Position::Goalkeeper
+        })
+        .map(|player| player.id.clone())
+        .collect();
+    buyer_keepers.sort();
+    let profiles = [
+        // The number one: 36 now, so the club plans without him in a season.
+        (85_u8, "1990-01-01"),
+        // Two young keepers who stay: the club is at the floor a season on, not below it.
+        (60_u8, "2001-01-01"),
+        (55_u8, "2002-01-01"),
+    ];
+    for (id, (ovr, dob)) in buyer_keepers.iter().zip(profiles) {
+        if let Some(player) = game.players.iter_mut().find(|player| &player.id == id) {
+            player.ovr = ovr;
+            player.potential = ovr;
+            player.date_of_birth = dob.to_string();
+        }
+    }
+    // Deadline day: the seller will do business, so the only question left is the buyer's.
+    set_days_left(&mut game, 0);
+    game
+}
+
+/// Given a club at the floor a season on with little cash, when the young keeper who would be its
+/// number one next season is offered for more than half of that cash, then it does not buy him: a
+/// club that can already field a side must still find a future-only signing worth its fee.
+#[test]
+fn a_constrained_club_at_the_floor_does_not_pay_for_a_successor_who_cannot_play_yet() {
+    let mut game = successor_world(2_200_000, 1_050_000);
+    evaluate_transfer_market(&mut game);
+    assert_ne!(
+        owner(&game, "keeper-target").as_deref(),
+        Some("eng-buyer"),
+        "a bench keeper who only covers in a later season must be worth his fee"
+    );
+}
+
+/// Given the same club with money to spare, when the same young keeper is offered on the same terms,
+/// then it signs him: a genuine successor who is worth the money is still a succession signing.
+#[test]
+fn a_club_at_the_floor_still_signs_a_successor_who_is_worth_the_fee() {
+    let mut game = successor_world(20_000_000, 1_050_000);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(owner(&game, "keeper-target").as_deref(), Some("eng-buyer"));
+}
+
+/// A club whose two first-choice forwards are good and whose bench of forwards is poor, offered a
+/// listed forward of 62 who is better than that bench and worse than both starters: he would cover,
+/// not start. `young` makes him a prospect with room to grow (the kind a club lends for his minutes).
+fn cover_for_a_strong_front_line(young: bool) -> Game {
+    let mut loanee = forward("loanee", "seller", 62, 500_000);
+    loanee.transfer_listed = false;
+    loanee.loan_listed = true;
+    loanee.stage_wage(20_000);
+    loanee.stage_contract_end(Some("2028-06-30".to_string()));
+    if young {
+        loanee.potential = 80;
+        loanee.date_of_birth = "2006-01-01".to_string();
+    } else {
+        loanee.date_of_birth = "1997-01-01".to_string();
+    }
+    let mut game = world(
+        vec![
+            club("borrower", "England", 400, 20_000_000),
+            club("seller", "England", 500, 0),
+        ],
+        vec![loanee],
+    );
+    let mut strikers = 0;
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|p| p.team_id.as_deref() == Some("borrower") && p.position == Position::Forward)
+    {
+        strikers += 1;
+        rate(player, if strikers <= 2 { 75 } else { 45 });
+    }
+    only_buyer_funded(&mut game, "borrower");
+    only_buyer_can_borrow(&mut game, "borrower");
+    set_days_left(&mut game, 20);
+    game
+}
+
+fn borrowed_by(game: &Game, id: &str) -> Option<String> {
+    game.players
+        .iter()
+        .find(|p| p.id == id)
+        .and_then(|p| p.active_loan.as_ref().map(|loan| loan.loan_team_id.clone()))
+}
+
+/// Given a club that would use a listed forward of 62 only as cover for two better starters
+/// When the forward is an experienced player
+/// Then it borrows him: cover is a purpose of a loan.
+#[test]
+fn a_club_borrows_an_experienced_player_to_cover_its_front_line() {
+    let mut game = cover_for_a_strong_front_line(false);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee").as_deref(), Some("borrower"));
+}
+
+/// Given the same club and the same forward of 62, now a prospect lent for his minutes
+/// When the club considers the loan
+/// Then it does not borrow him: it would sit him on the bench, which is not what he was lent for.
+#[test]
+fn a_prospect_lent_for_his_minutes_is_not_borrowed_to_sit_on_the_bench() {
+    let mut game = cover_for_a_strong_front_line(true);
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee"), None);
+}
+
+/// Given a prospect who would start for the borrower
+/// When the club considers the loan
+/// Then it borrows him: minutes are what he was lent for.
+#[test]
+fn a_prospect_who_would_start_is_borrowed() {
+    let mut game = cover_for_a_strong_front_line(true);
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|p| p.team_id.as_deref() == Some("borrower") && p.position == Position::Forward)
+    {
+        rate(player, 50);
+    }
+    evaluate_transfer_market(&mut game);
+    assert_eq!(borrowed_by(&game, "loanee").as_deref(), Some("borrower"));
+}
+
+/// A permanent sale of a starter must not shorten the selling club's saved eleven or move the
+/// starters behind him up a slot: the eleven is slot-aligned, and a reserve takes his place.
+#[test]
+fn selling_a_starter_keeps_the_saved_eleven_whole_and_in_its_slots() {
+    let mut player = make_user_player("player-departing-starter");
+    player.transfer_listed = true;
+    player.market_value = 900_000;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-starter", 1_000_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 9_000_000;
+    game.teams[1].transfer_budget = 6_000_000;
+
+    let seller = game.teams[0].id.clone();
+    let mut saved: Vec<String> = (0..10).map(|i| format!("mate-{i:02}")).collect();
+    saved.insert(3, "player-departing-starter".to_string());
+    let template = game
+        .players
+        .iter()
+        .find(|p| p.id == "player-departing-starter")
+        .cloned()
+        .unwrap();
+    for id in saved
+        .iter()
+        .filter(|id| id.as_str() != "player-departing-starter")
+        .chain(std::iter::once(&"reserve".to_string()))
+    {
+        let mut mate = template.clone();
+        mate.id = id.clone();
+        if id == "reserve" {
+            // The best fit outside the eleven, so the choice of replacement is not a tie.
+            mate.attributes = PlayerAttributes {
+                pace: 95,
+                stamina: 95,
+                strength: 95,
+                agility: 95,
+                passing: 95,
+                shooting: 95,
+                tackling: 95,
+                dribbling: 95,
+                defending: 95,
+                positioning: 95,
+                vision: 95,
+                decisions: 95,
+                composure: 95,
+                aggression: 95,
+                teamwork: 95,
+                leadership: 95,
+                handling: 30,
+                reflexes: 30,
+                aerial: 95,
+            };
+        }
+        mate.team_id = Some(seller.clone());
+        mate.transfer_listed = false;
+        mate.transfer_offers.clear();
+        game.players.push(mate);
+    }
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids = saved.clone();
+
+    respond_to_offer(&mut game, "player-departing-starter", "offer-starter", true)
+        .expect("accepting the offer should complete the sale");
+
+    let xi = &game
+        .teams
+        .iter()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids;
+    assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+    for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+        assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+    }
+    assert_eq!(xi[3], "reserve");
 }

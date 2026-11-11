@@ -5,11 +5,19 @@
 //! market was never drawn from. Here a club that has had a stand-in for a month appoints the
 //! unemployed manager whose reputation best matches its own, and the stand-in goes back to
 //! being only an assistant (their manager record moves to the archive).
+//!
+//! The choice is first of all one of stature: the manager whose reputation is closest to the
+//! club's. Among managers of a similar stature the club prefers the one whose identity suits it:
+//! his appetite for risk against the shape its play style wants, and his trust in young players
+//! against how much it builds on them. The fit is a bounded second term, never a requirement: a
+//! club may deliberately appoint a manager of a different school, and a much better reputation
+//! outweighs a poor fit.
 
 use chrono::NaiveDate;
 use domain::manager::{Manager, ManagerCareerEntry};
 
 use crate::game::Game;
+use crate::manager_identity::ManagerIdentity;
 
 /// How long a stand-in covers before the club looks outside. A month is long enough for the
 /// assistant to be judged on real results and short enough that a stop-gap does not become the
@@ -37,21 +45,85 @@ fn days_covered(stand_in: &Manager, today: NaiveDate) -> Option<i64> {
     Some((today - started).num_days())
 }
 
-/// The unemployed manager a club of `club_reputation` would appoint after `days` of cover:
-/// the closest match in reputation, the earlier id winning a tie, and nobody outside the gap
-/// until the club settles.
-fn best_candidate<'a>(
+/// How much a manager's worst possible fit with a club costs, in reputation gaps: half of
+/// [`MAX_REPUTATION_GAP`], that is 75 reputation points. A manager of the right school beats one
+/// of the wrong school who is up to 75 points closer in stature, and a manager 75 points closer
+/// in stature beats a perfect fit: stature stays the first consideration.
+const FIT_WEIGHT: f64 = 0.5;
+
+/// What a club wants of a manager: the boldness its play style asks of the shape and the play
+/// (-1 cautious to +1 bold), and the trust in young players it builds on (0 to 1).
+#[derive(Debug, Clone, Copy)]
+struct ClubWants {
+    boldness: f64,
+    youth_trust: f64,
+}
+
+/// How much trust in youth a club with this focus on its young players looks for in a manager:
+/// a club with no lean on youth is content with a sceptic, one built around its academy wants a
+/// believer.
+fn youth_trust_wanted(youth_focus: f64) -> f64 {
+    0.3 + 0.7 * youth_focus.clamp(0.0, 1.0)
+}
+
+fn club_wants(team: &domain::team::Team, profile: crate::transfers::ClubProfile) -> ClubWants {
+    ClubWants {
+        boldness: crate::ai_formation::style_boldness(&team.play_style),
+        youth_trust: youth_trust_wanted(profile.youth_focus),
+    }
+}
+
+/// How badly a manager's identity suits what a club wants, from 0 (a perfect fit) to 1 (the
+/// opposite on both counts): his appetite for risk against the boldness of the club's style, and
+/// his trust in youth against the trust it looks for.
+fn mismatch(wants: &ClubWants, identity: &ManagerIdentity) -> f64 {
+    let style = (wants.boldness - crate::ai_formation::risk_boldness(identity)).abs() / 2.0;
+    let youth = (wants.youth_trust - identity.youth_trust).abs();
+    0.5 * style + 0.5 * youth
+}
+
+/// How badly `manager_id` suits the club `team_id`, for the studies. Read-only.
+pub fn appointment_mismatch(game: &Game, team_id: &str, manager_id: &str) -> Option<f64> {
+    let team = game.teams.iter().find(|team| team.id == team_id)?;
+    Some(mismatch(
+        &club_wants(team, crate::transfers::profile_of(game, team_id)),
+        &ManagerIdentity::of(manager_id),
+    ))
+}
+
+/// The unemployed managers a club of `club_reputation` may appoint after `days` of cover: inside
+/// the reputation gap, or anyone once the club settles.
+fn candidates<'a>(
     game: &'a Game,
     club_reputation: u32,
     days: i64,
-    user_id: &str,
-) -> Option<&'a Manager> {
-    let gap = |manager: &Manager| manager.reputation.abs_diff(club_reputation);
+    user_id: &'a str,
+) -> impl Iterator<Item = &'a Manager> {
     game.managers
         .iter()
-        .filter(|m| m.team_id.is_none() && !m.interim && m.id != user_id)
-        .filter(|m| days >= SETTLE_AFTER_DAYS || gap(m) <= MAX_REPUTATION_GAP)
-        .min_by(|a, b| gap(a).cmp(&gap(b)).then_with(|| a.id.cmp(&b.id)))
+        .filter(move |m| m.team_id.is_none() && !m.interim && m.id != user_id)
+        .filter(move |m| {
+            days >= SETTLE_AFTER_DAYS
+                || m.reputation.abs_diff(club_reputation) <= MAX_REPUTATION_GAP
+        })
+}
+
+/// The unemployed manager a club of `club_reputation` that wants `wants` would appoint after
+/// `days` of cover: the best of the [`candidates`] by stature first (the reputation gap as a share
+/// of [`MAX_REPUTATION_GAP`]) and fit second ([`FIT_WEIGHT`]), the earlier id winning a tie.
+fn best_candidate<'a>(
+    game: &'a Game,
+    club_reputation: u32,
+    wants: &ClubWants,
+    days: i64,
+    user_id: &'a str,
+) -> Option<&'a Manager> {
+    let cost = |manager: &Manager| {
+        f64::from(manager.reputation.abs_diff(club_reputation)) / f64::from(MAX_REPUTATION_GAP)
+            + FIT_WEIGHT * mismatch(wants, &ManagerIdentity::of(&manager.id))
+    };
+    candidates(game, club_reputation, days, user_id)
+        .min_by(|a, b| cost(a).total_cmp(&cost(b)).then_with(|| a.id.cmp(&b.id)))
 }
 
 /// Replaces each AI club's long-serving stand-in with a permanent manager from the unemployed
@@ -78,9 +150,25 @@ pub fn appoint_permanent_managers(game: &mut Game) -> usize {
         .collect();
     clubs.sort();
 
+    let vacant: Vec<String> = clubs.iter().map(|(team_id, ..)| team_id.clone()).collect();
+    // The strategy of the clubs looking, read once and only when a club has someone to choose
+    // from: on most days a vacant club has nobody inside its reputation window yet.
+    let mut strategies = None;
     let mut appointed = 0;
     for (team_id, reputation, stand_in_id, days) in clubs {
-        let Some(chosen) = best_candidate(game, reputation, days, &user_id).map(|m| m.id.clone())
+        if candidates(game, reputation, days, &user_id)
+            .next()
+            .is_none()
+        {
+            continue;
+        }
+        let profile = crate::transfers::profile_in(game, &mut strategies, &vacant, &team_id);
+        let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
+            continue;
+        };
+        let wants = club_wants(team, profile);
+        let Some(chosen) =
+            best_candidate(game, reputation, &wants, days, &user_id).map(|m| m.id.clone())
         else {
             continue;
         };
@@ -238,6 +326,67 @@ mod tests {
             archived.career_history[0].end_date.as_deref(),
             Some("2031-08-01")
         );
+    }
+
+    /// A manager id whose identity satisfies `wanted`, for choosing between candidates.
+    fn manager_id_like(wanted: impl Fn(&ManagerIdentity) -> bool) -> String {
+        (0..)
+            .map(|index| format!("free-{index}"))
+            .find(|id| wanted(&ManagerIdentity::of(id)))
+            .expect("some manager fits")
+    }
+
+    fn appointed_at(style: domain::team::PlayStyle, candidates: &[(&str, u32)]) -> String {
+        let mut game = game_on("2031-08-01");
+        add_club_covered_since(&mut game, "c1", 600, "2031-07-01");
+        game.teams[0].play_style = style;
+        for (id, reputation) in candidates {
+            add_unemployed(&mut game, id, *reputation);
+        }
+        appoint_permanent_managers(&mut game);
+        manager_of(&game, "c1").to_string()
+    }
+
+    /// Given two unemployed managers of the same stature, one bold and one cautious
+    /// When an attacking club and a defensive one each appoint
+    /// Then each takes the manager whose appetite for risk matches its style.
+    #[test]
+    fn among_managers_of_the_same_stature_a_club_takes_the_one_that_suits_its_style() {
+        use domain::team::PlayStyle::{Attacking, Defensive};
+        let bold = manager_id_like(|m| m.risk > 0.9 && m.youth_trust > 0.4 && m.youth_trust < 0.6);
+        let cautious =
+            manager_id_like(|m| m.risk < 0.1 && m.youth_trust > 0.4 && m.youth_trust < 0.6);
+        let both = [(bold.as_str(), 600), (cautious.as_str(), 600)];
+        assert_eq!(appointed_at(Attacking, &both), bold);
+        assert_eq!(appointed_at(Defensive, &both), cautious);
+    }
+
+    /// Given a manager whose identity is the worst fit for the club but whose stature is a
+    /// little closer, and a perfect fit whose stature is much further
+    /// When the club appoints
+    /// Then stature wins: fit is a bounded second consideration, and a club may deliberately
+    /// appoint a manager of another school.
+    #[test]
+    fn a_much_closer_stature_outweighs_a_poor_fit() {
+        use domain::team::PlayStyle::Attacking;
+        let wrong_school = manager_id_like(|m| m.risk < 0.05 && m.youth_trust < 0.1);
+        let right_school = manager_id_like(|m| m.risk > 0.95 && m.youth_trust > 0.5);
+        let chosen = appointed_at(
+            Attacking,
+            &[(wrong_school.as_str(), 610), (right_school.as_str(), 470)],
+        );
+        assert_eq!(chosen, wrong_school);
+    }
+
+    /// Given the same two candidates, both of the stature the club wants
+    /// When the club appoints, whichever order they are stored in
+    /// Then the answer is the same: ties on fit break on id, never on storage order.
+    #[test]
+    fn an_appointment_does_not_depend_on_the_order_candidates_are_stored_in() {
+        use domain::team::PlayStyle::Balanced;
+        let first = appointed_at(Balanced, &[("free-a", 600), ("free-b", 600)]);
+        let second = appointed_at(Balanced, &[("free-b", 600), ("free-a", 600)]);
+        assert_eq!(first, second);
     }
 
     /// Given a club whose stand-in has covered for a month and a fitting unemployed manager

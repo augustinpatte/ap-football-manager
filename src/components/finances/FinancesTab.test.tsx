@@ -6,6 +6,7 @@ import type { GameStateData, MessageData, PlayerData, TeamData } from "../../sto
 import { resolveBackendError } from "../../utils/backendI18n";
 import FinancesTab from "./FinancesTab";
 import { createSeasonContext } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 // What the backend's contract warning stages read as on a badge, by player id; a test says which
 // players are at risk. The hook that asks for them has its own test.
@@ -1347,7 +1348,7 @@ describe("FinancesTab backend snapshot", () => {
     const before = createGameState();
     const after = createGameState();
     after.league = {
-      ...after.league!,
+      ...defined(after.league, "league"),
       fixtures: [
         {
           id: "fx-1",

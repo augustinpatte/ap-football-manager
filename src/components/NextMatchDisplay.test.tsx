@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { GameStateData } from "../store/gameStore";
 import NextMatchDisplay from "./NextMatchDisplay";
 import { createSeasonContext } from "../test-utils/factories";
+import { defined } from "../test-utils/defined";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -139,7 +140,7 @@ const seasonContext: NonNullable<GameStateData["season_context"]> = {
 /** Both clubs have played both league fixtures: the case where counting fixtures says "complete". */
 function completedTwoClubLeague(): GameStateData {
   const state = createGameState();
-  const base = state.league!;
+  const base = defined(state.league, "league");
   state.league = {
     ...base,
     standings: [
@@ -243,7 +244,7 @@ describe("NextMatchDisplay", () => {
    */
   it("calls the season complete when the backend says so", () => {
     const state = completedTwoClubLeague();
-    state.league!.fixtures = [];
+    defined(state.league, "league").fixtures = [];
     state.season_context = { ...seasonContext, season_complete: true };
 
     render(<NextMatchDisplay gameState={state} />);

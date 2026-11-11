@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameStateData, LeagueData } from "../store/gameStore";
 import { createPlayer, createTeam } from "../test-utils/factories";
 import { useTeamSelection } from "./useTeamSelection";
+import { defined } from "../test-utils/defined";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("../services/portraitService", () => ({
@@ -147,7 +148,11 @@ describe("useTeamSelection scope toggles", () => {
 
   it("auto-enables missing regions when enabling a competition", () => {
     const { result } = renderController();
-    const asiaCup = () => result.current.availableCompetitions.find((c) => c.id === "asia_cup")!;
+    const asiaCup = () =>
+      defined(
+        result.current.availableCompetitions.find((c) => c.id === "asia_cup"),
+        "asia_cup",
+      );
 
     act(() => result.current.handleCompetitionToggle(asiaCup())); // turn asia_cup off
     act(() => result.current.handleCompetitionToggle(asiaCup())); // turn back on -> needs asia
@@ -159,7 +164,10 @@ describe("useTeamSelection scope toggles", () => {
 
   it("locks mandatory competitions against being disabled", () => {
     const { result } = renderController();
-    const epl = result.current.availableCompetitions.find((c) => c.id === "epl")!;
+    const epl = defined(
+      result.current.availableCompetitions.find((c) => c.id === "epl"),
+      "epl",
+    );
 
     act(() => result.current.handleCompetitionToggle(epl));
 
@@ -169,7 +177,10 @@ describe("useTeamSelection scope toggles", () => {
 
   it("disables an enabled non-locked competition and clears the message", () => {
     const { result } = renderController();
-    const asiaCup = result.current.availableCompetitions.find((c) => c.id === "asia_cup")!;
+    const asiaCup = defined(
+      result.current.availableCompetitions.find((c) => c.id === "asia_cup"),
+      "asia_cup",
+    );
 
     act(() => result.current.handleCompetitionToggle(asiaCup));
 

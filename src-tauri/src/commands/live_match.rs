@@ -1811,9 +1811,12 @@ mod live_session_tests {
         skipping_during_a_live_match_is_refused,
         time::skip_to_match_day_internal
     );
+    refused_advance!(one_day_advancing_during_a_live_match_is_refused, |s| {
+        time::advance_one_day_internal(s, false)
+    });
     refused_advance!(
-        one_day_advancing_during_a_live_match_is_refused,
-        time::advance_one_day_internal
+        one_day_advancing_past_blockers_during_a_live_match_is_refused,
+        |s| time::advance_one_day_internal(s, true)
     );
     refused_advance!(
         event_advancing_during_a_live_match_is_refused,
@@ -1949,6 +1952,7 @@ mod live_session_tests {
                 yellow_cards: 1,
                 red_cards: 0,
             }],
+            ..domain::stats::StatsState::default()
         };
         let mut other_stats = old_stats.clone();
         other_stats.team_matches[0].fixture_id = "previous-b".to_string();

@@ -553,6 +553,28 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         ),
     ));
 
+    // --- generic roster audit, shared with the generated-world tests -------------------------------
+    // Not blocking: it also applies a heuristic ceiling (a bloated roster) and a few cross-checks the
+    // blocking checks above do not cover (identity clashes, loan records, lineups). It tells the
+    // reader what to look at; it never decides that the world is unusable.
+    let audit_failures = match chrono::NaiveDate::parse_from_str(&run.cfg.start.date, "%Y-%m-%d") {
+        Ok(on) => {
+            let report = ofm_core::world_integrity::audit_players(
+                &world.teams,
+                &world.players,
+                &ofm_core::world_integrity::IntegrityLimits::new(on),
+            );
+            report.findings.iter().map(ToString::to_string).collect()
+        }
+        Err(error) => vec![format!("start date {:?}: {error}", run.cfg.start.date)],
+    };
+    checks.push(check(
+        "integrity.world_audit",
+        false,
+        audit_failures,
+        "no duplicate identity, impossible rating, unknown club, bad loan record or oversized roster",
+    ));
+
     // --- free agents ---------------------------------------------------------------------------
     let mut fa_failures = Vec::new();
     let club_person_keys: BTreeSet<i64> = run.players.iter().map(|p| p.person_id).collect();

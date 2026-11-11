@@ -158,14 +158,6 @@ pub fn ovr(attributes: &PlayerAttributes, position: &Position) -> u8 {
     ofm_core::player_rating::ovr_from_attributes(attributes, position).round() as u8
 }
 
-/// Potential on OFM's scale: the OFM rating plus FM's remaining headroom (PA - CA, FM 1-200)
-/// converted at `points_per_ca` OFM points per FM CA point. Never below the rating, never above 99.
-/// An additive headroom (not a ratio) keeps a low-CA prospect from being inflated by a small CA.
-pub fn potential(ovr: u8, ca: i64, pa: i64, points_per_ca: f64) -> u8 {
-    let headroom = ((pa - ca).max(0) as f64 * points_per_ca).round() as i64;
-    (i64::from(ovr) + headroom).clamp(i64::from(ovr).max(1), 99) as u8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,22 +416,5 @@ mod tests {
                 "{position:?}: elite {elite_ovr} vs lower division {lower_ovr}"
             );
         }
-    }
-
-    #[test]
-    fn potential_adds_the_converted_headroom_and_is_bounded() {
-        assert_eq!(
-            potential(70, 150, 150, 0.45),
-            70,
-            "no headroom -> at the ceiling"
-        );
-        assert_eq!(potential(55, 100, 140, 0.45), 73);
-        assert_eq!(potential(90, 150, 200, 0.45), 99, "capped at 99");
-        assert_eq!(
-            potential(70, 160, 140, 0.45),
-            70,
-            "PA below CA never lowers the rating"
-        );
-        assert!(potential(1, 1, 1, 0.45) >= 1);
     }
 }

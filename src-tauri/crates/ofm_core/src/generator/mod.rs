@@ -1,12 +1,26 @@
 mod authored_player;
+mod club_shape;
 pub mod clubs;
 pub mod competition_def;
 pub mod definitions;
 pub mod file_format;
 mod generation;
+
+/// Attributes shaped the way the generator shapes them, rated `overall` in `position`, drawn from
+/// `seed`: for tests elsewhere in the crate that need players who behave like generated ones (an
+/// outfielder of 80 is a fair outfielder anywhere, a keeper is a keeper and little else).
+#[cfg(test)]
+pub(crate) fn attributes_rated(
+    overall: u8,
+    position: &domain::player::Position,
+    seed: u64,
+) -> domain::player::PlayerAttributes {
+    generation::attributes_matching_overall(overall, position, &mut crate::seed::rng_from_u64(seed))
+}
 pub mod package;
 mod package_warnings;
 pub mod scaffold;
+mod unique_identity;
 pub mod world_io;
 mod youth;
 
@@ -73,6 +87,29 @@ const OPENING_FREE_AGENTS_PER_CLUB: [(Position, usize); 4] = [
     (Position::Midfielder, 1),
     (Position::Forward, 1),
 ];
+
+/// An opening free agent is never better than this percentile of the players the world's clubs
+/// hold. Before, they were drawn from the same unconditional distribution as the club squads, so
+/// the unemployed were *better* than the employed on average (median 66 against 63) and a few
+/// dozen were 79+ and worth millions: players no club had thought worth a contract, in a world
+/// where every club has a hole to fill. Three quarters of the squads are at or under this line.
+const OPENING_FREE_AGENT_CEILING_PERCENTILE: usize = 75;
+/// Draws spent on one free agent to find one under the ceiling; the weakest is kept after that.
+const OPENING_FREE_AGENT_DRAWS: usize = 12;
+
+/// The rating `percentile` percent of `players` do not exceed.
+fn ovr_percentile(players: &[Player], percentile: usize) -> u8 {
+    let mut ovrs: Vec<u8> = players
+        .iter()
+        .filter(|player| player.team_id.is_some())
+        .map(|player| player.ovr)
+        .collect();
+    if ovrs.is_empty() {
+        return u8::MAX;
+    }
+    ovrs.sort_unstable();
+    ovrs[(ovrs.len() - 1) * percentile / 100]
+}
 
 fn target_wage_usage_percent(reputation: u32) -> i64 {
     if reputation >= 750 {
@@ -286,8 +323,15 @@ pub fn generate_national_team_player(
         rng,
     );
     let mut agent = as_free_agent(player);
+    // Not a free agent of the market: he exists so a national squad has a full bench. The prefix
+    // is what keeps him out of every club's reach (`Player::is_on_free_market`).
+    agent.id = format!("{}{}", domain::player::NATIONAL_POOL_ID_PREFIX, agent.id);
     // Specific from the start, like every other player made after the world is built.
-    crate::player_identity::upgrade_player_identity(&mut agent, None);
+    crate::player_identity::upgrade_player_identity(
+        &mut agent,
+        None,
+        domain::age::season_midpoint(opening_year as i32),
+    );
     agent
 }
 
@@ -659,6 +703,15 @@ pub fn replenish_manager_and_scout_market(game: &mut crate::game::Game) {
 // World generation
 // ---------------------------------------------------------------------------
 
+/// Clubs in the standard generated world (`WorldGenConfig::standard`).
+pub const STANDARD_WORLD_TEAM_COUNT: usize = 440;
+
+/// People registered in the standard generated world: every club's squad and academy, plus the
+/// opening free agents. The world list quotes this number to the player; it used to be a
+/// hand-kept 9,680 (440 x 22) that fell behind the generator, which builds 23 per club and adds
+/// 1,760 free agents. `the_standard_world_matches_its_advertised_size` keeps the two in step.
+pub const STANDARD_WORLD_PLAYER_COUNT: usize = 11_880;
+
 /// Generate a random world (raw tuple — used by `generate_world_data`).
 /// Generates the full standard world — every generation nation with a real
 /// league pyramid — from the definition files `sources` resolves. Entropy-seeded,
@@ -703,6 +756,9 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
         .unwrap_or(DEFAULT_TEAM_REPUTATION_RANGE);
     let fin_range = tdef.finance_range.unwrap_or([500_000, 10_000_000]);
 
+    // Drawn exactly as before so every later draw of the world's stream is unchanged; it now only
+    // spreads clubs of one standing over a range of ground sizes (see `club_economy`).
+    let capacity_draw = rng.random_range(10000..80000);
     let mut team = domain::team::Team::new(
         team_id,
         tdef.name.clone(),
@@ -710,7 +766,7 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
         tdef.country.clone(),
         tdef.city.clone(),
         stadium,
-        rng.random_range(10000..80000),
+        capacity_draw,
     );
     // Inclusive *and* ordered, because `rand` panics on any empty range and that
     // panic is uniquely expensive here: `build_team` runs inside `start_new_game`,
@@ -733,6 +789,10 @@ fn build_team(tdef: &TeamDef, rng: &mut impl rand::Rng) -> domain::team::Team {
     );
     team.finance = rng.random_range(fin_lo..=fin_hi);
     team.reputation = rng.random_range(rep_lo..=rep_hi);
+    team.stadium_capacity = crate::club_economy::stadium_capacity(
+        team.reputation,
+        f64::from(capacity_draw - 10000) / 70000.0,
+    );
     team.wage_budget = (team.finance as f64 * 0.06) as i64;
     team.transfer_budget = (team.finance as f64 * 0.15) as i64;
     team.founded_year = tdef.founded_year.unwrap_or(rng.random_range(1880..1960));
@@ -831,6 +891,11 @@ fn build_club(
     team_players.push(academy_keeper);
 
     // A generated club has no authored players; `build_package_club` names them.
+    club_shape::shape_generated_club(
+        &team,
+        &mut team_players,
+        domain::age::season_midpoint(opening_year as i32),
+    );
     normalize_generated_team(
         &mut team,
         &mut team_players,
@@ -848,21 +913,39 @@ fn generate_opening_free_agents(
     country_codes: &[String],
     opening_year: u32,
     names_def: &NamesDefinition,
+    ovr_ceiling: u8,
     rng: &mut impl rand::Rng,
 ) -> Vec<Player> {
     let mut free_agents = Vec::new();
     for (group, per_club) in OPENING_FREE_AGENTS_PER_CLUB {
         for _ in 0..club_count * per_club {
             let nationality = &country_codes[rng.random_range(0..country_codes.len())];
-            let player = generate_random_player_from_def(
-                "",
-                senior_slot_for(&group),
-                nationality,
-                opening_year,
-                None,
-                names_def,
-                rng,
-            );
+            let mut draws = (0..OPENING_FREE_AGENT_DRAWS).map(|_| {
+                generate_random_player_from_def(
+                    "",
+                    senior_slot_for(&group),
+                    nationality,
+                    opening_year,
+                    None,
+                    names_def,
+                    rng,
+                )
+            });
+            // The first draw under the ceiling; if the dice never allow one, the weakest drawn.
+            let mut weakest: Option<Player> = None;
+            let mut chosen = None;
+            for candidate in draws.by_ref() {
+                if candidate.ovr <= ovr_ceiling {
+                    chosen = Some(candidate);
+                    break;
+                }
+                if weakest.as_ref().is_none_or(|best| candidate.ovr < best.ovr) {
+                    weakest = Some(candidate);
+                }
+            }
+            let Some(player) = chosen.or(weakest) else {
+                continue;
+            };
             let mut agent = as_free_agent(player);
             agent.jersey_number = None;
             free_agents.push(agent);
@@ -1476,11 +1559,13 @@ fn generate_world_with_rng(
         teams_out.push(team);
     }
 
+    let ovr_ceiling = ovr_percentile(&players, OPENING_FREE_AGENT_CEILING_PERCENTILE);
     players.extend(generate_opening_free_agents(
         team_defs.len(),
         country_codes,
         opening_year,
         &names_def,
+        ovr_ceiling,
         &mut rng,
     ));
 
@@ -1495,6 +1580,11 @@ fn generate_world_with_rng(
             &mut rng,
         );
         staff.push(s);
+    }
+
+    let moved = unique_identity::ensure_distinct_identities(&mut players);
+    if moved > 0 {
+        info!("[generator] moved {moved} birth date(s) so no two players share an identity");
     }
 
     info!(
@@ -1516,6 +1606,16 @@ mod tests {
 
     /// Opening year for tests that need *an* era, not a specific one.
     const TEST_OPENING_YEAR: u32 = 2026;
+
+    /// Given the standard generation config, when a world is generated, then the club and player
+    /// counts the world list advertises are the counts it really has.
+    #[test]
+    fn the_standard_world_matches_its_advertised_size() {
+        let (teams, players, _staff) =
+            generate_world_seeded(11, &definitions::DefinitionSources::embedded_only());
+        assert_eq!(teams.len(), STANDARD_WORLD_TEAM_COUNT);
+        assert_eq!(players.len(), STANDARD_WORLD_PLAYER_COUNT);
+    }
 
     /// The season the motivating historical world models.
     const HISTORICAL_OPENING_YEAR: u32 = 1962;

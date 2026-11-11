@@ -800,6 +800,7 @@ describe("PlayerProfile contract surfaces", () => {
       if (command === "get_player_stats_overview") {
         return {
           percentileEligible: true,
+          detailRecorded: true,
           metrics: {
             shots: { total: 33, per90: 6.6, percentile: 88 },
             shotsOnTarget: { total: 14, per90: 2.8, percentile: 81 },
@@ -1873,6 +1874,8 @@ describe("PlayerProfile free agent signing", () => {
         playerId: "player-1",
         weeklyWage: 3000,
         contractYears: 3,
+        promiseSteppingStone: false,
+        signingBonus: 0,
       });
       expect(onGameUpdate).toHaveBeenCalled();
     });

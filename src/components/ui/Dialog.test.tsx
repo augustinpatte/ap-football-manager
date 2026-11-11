@@ -197,8 +197,10 @@ describe("Dialog", () => {
     const onClose = vi.fn();
     render(<Harness onClose={onClose} dismissOnBackdrop />);
 
+    // Browsers report that click on the common ancestor of the two targets: the layer around
+    // the panel and the backdrop, not the backdrop itself.
     fireEvent.mouseDown(screen.getByRole("heading", { name: "Title" }));
-    fireEvent.click(screen.getByTestId("dialog-backdrop"));
+    fireEvent.click(screen.getByTestId("dialog-layer"));
 
     expect(onClose).not.toHaveBeenCalled();
   });

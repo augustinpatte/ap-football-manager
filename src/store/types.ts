@@ -148,6 +148,8 @@ export interface TeamData {
   season_expenses: number;
   financial_ledger?: FinancialTransactionData[];
   formation: string;
+  /** Empty in legacy saves: the in-possession formation is reused when defending. */
+  out_of_possession_formation?: string;
   play_style: string;
   training_focus: string;
   training_intensity: string;
@@ -182,6 +184,8 @@ export interface PlayerSeasonStats {
   avg_rating: number;
   rated_appearances?: number;
   minutes_played: number;
+  /** Minutes whose shots, passes and tackles were recorded; absent in a payload that predates it. */
+  detail_minutes_played?: number;
   shots?: number;
   shots_on_target?: number;
   passes_completed?: number;
@@ -212,6 +216,8 @@ export interface CareerEntry {
   appearances: number;
   goals: number;
   assists: number;
+  /** Generated with the world, not a played or authored record. Absent in older saves. */
+  synthetic?: boolean;
 }
 
 export type PlayerMovementKind =
@@ -273,6 +279,63 @@ export interface ContractRenewalStateData {
   exit_intent?: ContractExitIntentData | null;
 }
 
+export interface SteppingStonePromiseData {
+  club_id: string;
+  made_on: string;
+  protected_from: string;
+  expires_on: string;
+  min_buyer_reputation: number;
+  min_fee_pct_of_value: number;
+  status: "active" | "fulfilled" | "lapsed" | "breached";
+  resolved_on?: string | null;
+}
+
+export type FreeAgentTalkStatus =
+  | "awaiting_response"
+  | "counter_offered"
+  | "signed"
+  | "rejected"
+  | "withdrawn"
+  | "lost_to_rival"
+  | "lapsed";
+
+/** The biggest factor in a player's answer; the translation key is `freeAgents.reason.<value>`. */
+export type FreeAgentTalkReason =
+  | "wage_too_low"
+  | "club_below_his_level"
+  | "no_place_in_side_for_him"
+  | "contract_too_short"
+  | "offer_insulting"
+  | "talks_broken_off"
+  | "better_offer_elsewhere"
+  | "club_cannot_afford"
+  | "manager_withdrew"
+  | "counter_expired";
+
+/** One club's offer to a player without a club, and where the talk stands. */
+export interface FreeAgentTalkData {
+  id: string;
+  club_id: string;
+  status: FreeAgentTalkStatus;
+  weekly_wage: number;
+  contract_years: number;
+  signing_bonus: number;
+  promise_stepping_stone: boolean;
+  round: number;
+  opened_on: string;
+  updated_on: string;
+  /** While awaiting a response: the day he answers. */
+  respond_on: string | null;
+  /** While a counter is on the table: what he asks for, and the last day it stands. */
+  counter_wage: number | null;
+  counter_years: number | null;
+  counter_expires_on: string | null;
+  closed_on: string | null;
+  reason: FreeAgentTalkReason | null;
+  /** True for the manager's club's talks; false for those the game makes for rival clubs. */
+  made_by_manager: boolean;
+}
+
 export interface PlayerMoraleCoreData {
   manager_trust: number;
   renewal_state?: ContractRenewalStateData | null;
@@ -280,6 +343,10 @@ export interface PlayerMoraleCoreData {
   pending_promise?: { kind: "PlayingTime"; matches_remaining: number } | null;
   /** The date until which the player won't take another talk. */
   talk_cooldown_until?: string | null;
+  /** The club's promise not to obstruct a suitable future move; see `SteppingStonePromiseData`. */
+  stepping_stone_promise?: SteppingStonePromiseData | null;
+  /** Contract talks with clubs while the player has none: the manager's and rival clubs'. */
+  free_agent_talks?: FreeAgentTalkData[];
   /** Sent by the backend; the frontend doesn't read them from the game state. */
   unresolved_issue?: unknown;
   recent_treatment?: unknown;
@@ -335,6 +402,8 @@ export interface PlayerData {
   condition: number;
   morale: number;
   injury: null | { name: string; days_remaining: number };
+  /** Matches of his club he must still miss after a sending-off; absent or 0 = available. */
+  suspended_matches?: number;
   team_id: string | null;
   retired: boolean;
   squad_role?: PlayerSquadRole;
@@ -641,6 +710,8 @@ export interface CompactMatchEventData {
   side: "Home" | "Away";
   player_id: string | null;
   secondary_player_id: string | null;
+  /** For an own goal: the player who scored it into his own net (`player_id` is null). */
+  own_goal_by?: string | null;
 }
 
 export interface CompactTeamMatchStatsData {
@@ -976,6 +1047,12 @@ export interface GameStateData {
   /** Sent by the backend; the frontend reads these through their own commands. */
   custom_tactics?: unknown[];
   scouted_players?: unknown[];
+  /**
+   * What the manager has handed to the staff. `proposals` are the steps the assistant is holding for
+   * the manager's answer (the dashboard only counts them); the staff screen reads the rest through
+   * its own command.
+   */
+  delegation?: { protected_players?: string[]; proposals?: { id: string }[] };
   clock: {
     current_date: string;
     start_date: string;

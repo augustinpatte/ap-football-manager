@@ -212,28 +212,47 @@ export function EntityRow({
     setConfirming(false);
   }
 
+  const entityTitle = (
+    <>
+      <span className="block font-heading font-bold text-sm uppercase tracking-wide text-gray-800 dark:text-gray-200 truncate">
+        {title}
+      </span>
+      {subtitle && (
+        <span className="block text-[10px] text-gray-400 dark:text-gray-500">{subtitle}</span>
+      )}
+    </>
+  );
+
   return (
     <div
-      className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+      className={`relative flex items-center gap-3 p-3 rounded-xl border transition-colors ${
         isSelected
           ? "border-primary-400 dark:border-primary-500 bg-primary-50 dark:bg-primary-500/10"
           : "border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 hover:border-gray-300 dark:hover:border-navy-500"
       } ${onClick ? "cursor-pointer" : ""}`}
-      onClick={confirming ? undefined : onClick}
     >
       {badge}
       <div className="flex-1 min-w-0">
-        <p className="font-heading font-bold text-sm uppercase tracking-wide text-gray-800 dark:text-gray-200 truncate">
-          {title}
-        </p>
-        {subtitle && <p className="text-[10px] text-gray-400 dark:text-gray-500">{subtitle}</p>}
+        {onClick && !confirming ? (
+          // The button's ::after covers the whole row, so the row is one click target while the
+          // edit/delete buttons (above it, z-10) stay separate controls.
+          <button
+            type="button"
+            onClick={onClick}
+            className="block w-full text-left after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-focus"
+          >
+            {entityTitle}
+          </button>
+        ) : (
+          entityTitle
+        )}
       </div>
       {confirming ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             type="button"
             onClick={handleConfirmDelete}
-            className="p-1 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors"
+            className="relative z-10 p-1 rounded-md bg-red-500 text-white hover:bg-red-600 transition-colors"
             title={t("common.confirmDelete")}
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -241,7 +260,7 @@ export function EntityRow({
           <button
             type="button"
             onClick={handleCancelDelete}
-            className="p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+            className="relative z-10 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
             title={t("common.cancel")}
           >
             <X className="w-3.5 h-3.5" />
@@ -255,7 +274,7 @@ export function EntityRow({
               e.stopPropagation();
               onEdit();
             }}
-            className="text-gray-400 hover:text-primary-500 transition-colors flex-shrink-0"
+            className="relative z-10 text-gray-400 hover:text-primary-500 transition-colors flex-shrink-0"
             title={editLabel}
           >
             <Edit2 className="w-4 h-4" />
@@ -267,7 +286,7 @@ export function EntityRow({
                 e.stopPropagation();
                 onDuplicate();
               }}
-              className="text-gray-400 hover:text-primary-500 transition-colors flex-shrink-0"
+              className="relative z-10 text-gray-400 hover:text-primary-500 transition-colors flex-shrink-0"
               title={duplicateLabel}
               aria-label={duplicateLabel}
             >
@@ -277,7 +296,7 @@ export function EntityRow({
           <button
             type="button"
             onClick={handleDeleteClick}
-            className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+            className="relative z-10 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
             title={deleteLabel}
           >
             <Trash2 className="w-4 h-4" />

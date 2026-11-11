@@ -556,6 +556,7 @@ mod tests {
             log.on_stats_captured(&StatsState {
                 player_matches: records.clone(),
                 team_matches: vec![],
+                ..StatsState::default()
             });
         }
         log.fingerprint()
@@ -612,6 +613,7 @@ mod tests {
         log.on_stats_captured(&StatsState {
             player_matches: vec![],
             team_matches: teams,
+            ..StatsState::default()
         });
         log.fingerprint()
     }

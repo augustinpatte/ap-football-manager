@@ -411,6 +411,7 @@ fn decode_event_kind<'a>(
                     "saved" => SpatialShotOutcome::Saved,
                     "blocked" => SpatialShotOutcome::Blocked,
                     "off_target" => SpatialShotOutcome::OffTarget,
+                    "hit_woodwork" => SpatialShotOutcome::HitWoodwork,
                     "goal" => SpatialShotOutcome::Goal,
                     other => return Err(OutputDecodeError::InvalidEvent(other.into())),
                 },
@@ -677,6 +678,85 @@ mod tests {
         serde_json::json!({ "t_ms": time, "period": "first_half", "side": side, "type": "goal", "scorer": scorer, "assist": null, "own_goal": false })
     }
 
+    /// Given a shot that hit the woodwork and did not score (M12 names the outcome `hit_woodwork`),
+    /// When the match is decoded and projected,
+    /// Then it is accepted and counted as a shot off target: before Run F4.1 the unknown outcome
+    /// rejected the whole match, so a match could not be finished whenever a shot hit the frame.
+    #[test]
+    fn a_shot_that_hits_the_woodwork_is_a_shot_off_target() {
+        let shot = serde_json::json!({ "t_ms": 90_000, "period": "first_half", "side": "home", "type": "shot", "player": "h1", "outcome": "hit_woodwork" });
+        let json = output(
+            Value::Array(vec![shot]),
+            serde_json::json!({ "home": 0, "away": 0 }),
+            "regulation_complete",
+        );
+        let decoded = decode_json(&json).expect("a woodwork outcome is a valid shot outcome");
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .unwrap();
+        assert!(
+            projected
+                .report
+                .events
+                .iter()
+                .any(|e| e.event_type == engine::EventType::ShotOffTarget),
+            "{:?}",
+            projected.report.events
+        );
+    }
+
+    /// Given an own goal (the scorer plays for the side that conceded; the goal is credited to the other),
+    /// When the match is decoded and projected,
+    /// Then it is accepted: the score counts for the beneficiary, no player is credited with a goal.
+    /// Before Run F4.1 such a match could never be finished (about 3 % of matches).
+    #[test]
+    fn an_own_goal_counts_for_the_beneficiary_and_credits_nobody() {
+        let og = serde_json::json!({ "t_ms": 60_000, "period": "first_half", "side": "away", "type": "goal", "scorer": "h1", "assist": null, "own_goal": true });
+        let json = output(
+            Value::Array(vec![og]),
+            serde_json::json!({ "home": 0, "away": 1 }),
+            "regulation_complete",
+        );
+        let decoded = decode_json(&json).unwrap();
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .expect("an own goal is projectable");
+        assert_eq!(
+            (projected.report.home_goals, projected.report.away_goals),
+            (0, 1)
+        );
+        assert!(projected.report.goals.is_empty(), "no scorer is credited");
+        let goal = projected
+            .report
+            .events
+            .iter()
+            .find(|e| e.event_type == engine::EventType::Goal)
+            .expect("the goal is in the timeline");
+        assert_eq!(goal.player_id, None);
+        // the timeline still says whose it was: the player who put it in his own net
+        assert_eq!(
+            goal.detail,
+            Some(engine::EventDetail::OwnGoal { by: "h1".into() }),
+            "an own goal names the player in the timeline"
+        );
+    }
+
     /// Given a recorded M12-shaped normal match, when decoded and projected, then its score and identities survive.
     #[test]
     fn normal_output_decodes_and_projects() {
@@ -737,6 +817,66 @@ mod tests {
             decoded.result.events[2].kind,
             SpatialEventKind::Substitution { .. }
         ));
+    }
+    /// Given a match with cautions, a second yellow, a straight red and fouls,
+    /// When it is decoded and projected,
+    /// Then each player's record carries his own cautions, dismissal and fouls: a straight red is a
+    /// dismissal, a second yellow is a second caution *and* a dismissal, and nobody else is touched.
+    /// (The record used to be written with zeros, so a sending-off reached the timeline and the team
+    /// totals but never the player's season, his morale or his ban.)
+    #[test]
+    fn a_players_cards_and_fouls_reach_his_own_record() {
+        let e = |side: &str, kind: &str, player: &str, extra: &str| {
+            serde_json::from_str::<Value>(&format!(
+                "{{\"t_ms\":1000,\"period\":\"first_half\",\"side\":\"{side}\",\"type\":\"{kind}\",\"player\":\"{player}\"{extra}}}"
+            ))
+            .unwrap()
+        };
+        let foul = |offender: &str, t_ms: u32| serde_json::json!({ "t_ms": t_ms, "period": "first_half", "side": "home", "type": "foul", "offender": offender, "victim": "a2" });
+        let events = Value::Array(vec![
+            foul("h1", 500),
+            foul("h1", 700),
+            e("home", "card", "h1", ",\"colour\":\"yellow\""),
+            e("away", "card", "a1", ",\"colour\":\"yellow\""),
+            e("away", "card", "a1", ",\"colour\":\"second_yellow\""),
+            e("home", "card", "h2", ",\"colour\":\"red\""),
+        ]);
+        let mut json: Value = serde_json::from_str(&output(
+            events,
+            serde_json::json!({ "home": 0, "away": 0 }),
+            "regulation_complete",
+        ))
+        .unwrap();
+        json["player_stats"] = Value::Array(
+            ["h1", "h2", "a1", "a2"]
+                .iter()
+                .map(|id| serde_json::json!({ "id": id, "minutes_played": 60, "goals": 0, "assists": 0, "shots": 0, "passes_attempted": 10, "passes_completed": 8, "tackles_won": 1, "interceptions": 1, "distance_m": 5000.0, "sprints": 3, "rating": 6.5 }))
+                .collect(),
+        );
+        let decoded = decode_json(&json.to_string()).unwrap();
+        let projected = project(
+            &ProjectionContext {
+                match_id: "match-1".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_player_ids: vec!["h1".into(), "h2".into()],
+                away_player_ids: vec!["a1".into(), "a2".into()],
+            },
+            &decoded.result,
+        )
+        .unwrap();
+        let stat = |id: &str| &projected.report.player_stats[id];
+        assert_eq!(
+            (
+                stat("h1").yellow_cards,
+                stat("h1").red_cards,
+                stat("h1").fouls_committed
+            ),
+            (1, 0, 2)
+        );
+        assert_eq!((stat("a1").yellow_cards, stat("a1").red_cards), (2, 1));
+        assert_eq!((stat("h2").yellow_cards, stat("h2").red_cards), (0, 1));
+        assert_eq!((stat("a2").yellow_cards, stat("a2").red_cards), (0, 0));
     }
     /// Given malformed, truncated, wrong-version or missing-field JSON, when decoded, then a typed error is returned.
     #[test]

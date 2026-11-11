@@ -21,6 +21,7 @@ use std::collections::HashMap;
 mod consts;
 mod expiry;
 mod free_agent;
+mod free_agent_talks;
 mod helpers;
 mod ledger;
 mod opening;
@@ -33,6 +34,7 @@ pub(crate) use self::ledger::*;
 // `pub` so the public entry points stay resolvable as `ofm_core::contracts::*`.
 pub use self::expiry::*;
 pub use self::free_agent::*;
+pub use self::free_agent_talks::*;
 pub use self::opening::*;
 pub use self::renewals::*;
 pub use self::termination::*;

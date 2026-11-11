@@ -200,6 +200,20 @@ impl BuyerWageFacts {
         )
     }
 
+    /// [`Self::of`] for a purchase being agreed now: the bill also holds the wages of the club's
+    /// deals that are agreed and wait to register. Not for a registration, which is one of them.
+    pub(crate) fn of_committed(game: &Game, team_id: &str) -> Self {
+        Self::new(
+            calc_wages(game, team_id) + crate::transfers::pending_wage_commitments(game, team_id),
+            crate::squad_floor::senior_counts(game, team_id),
+        )
+    }
+
+    /// The weekly wage bill the verdicts are judged against.
+    pub(crate) fn current_bill(&self) -> i64 {
+        self.current_bill
+    }
+
     /// For a caller that already holds the senior counts (the market sweep's depth map).
     pub(crate) fn new(current_bill: i64, seniors: [usize; 4]) -> Self {
         Self {

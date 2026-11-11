@@ -677,8 +677,12 @@ fn adapter_report(
     let (slope, intercept) = ovr_on_ca_fit(run);
     let _ = writeln!(
         r,
-        "\nPente de la note OFM sur le CA FM : {slope:.3} point OFM par point de CA (ordonnée {intercept:.1}) ; coefficient de potentiel configuré : {}.",
-        run.cfg.potential.ovr_points_per_ca
+        "\nPente de la note OFM sur le CA FM : {slope:.3} point OFM par point de CA (ordonnée {intercept:.1}) ; courbe CA -> note ancrée : {}.",
+        if run.cfg.ratings.anchor_to_ca {
+            "oui"
+        } else {
+            "non"
+        }
     );
     r
 }

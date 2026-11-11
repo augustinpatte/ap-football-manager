@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useRetiredPlayer } from "../playerProfile/useRetiredPlayer";
 import PlayerProfile from "../playerProfile/PlayerProfile";
@@ -15,6 +16,8 @@ interface DashboardWorkspaceContentProps {
   gameState: GameStateData;
   profileNavigation: DashboardProfileNavigationState;
   dashboardTabContentModel: DashboardTabContentModel;
+  /** The open screen's name, which labels the region that takes focus after an alert. */
+  contentLabel?: string;
   onNavigate: (tab: string) => void;
   onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
   onSelectTeam: (id: string) => void;
@@ -27,6 +30,7 @@ export default function DashboardWorkspaceContent({
   gameState,
   profileNavigation,
   dashboardTabContentModel,
+  contentLabel,
   onNavigate,
   onSelectPlayer,
   onSelectTeam,
@@ -34,6 +38,17 @@ export default function DashboardWorkspaceContent({
   isUnemployed,
 }: DashboardWorkspaceContentProps) {
   const { t } = useTranslation();
+  const screenRegion = useRef<HTMLDivElement>(null);
+  const [focusRequests, setFocusRequests] = useState(0);
+  // An alert replaces the screen under the manager's focus; without this, focus stays on the alert
+  // and a keyboard or screen-reader user has to tab back through everything to reach what opened.
+  useEffect(() => {
+    if (focusRequests > 0) screenRegion.current?.focus();
+  }, [focusRequests]);
+  const openFromAlert = (tab: string) => {
+    onNavigate(tab);
+    setFocusRequests((count) => count + 1);
+  };
   const rosterPlayer = profileNavigation.selectedPlayerId
     ? (gameState.players.find((player) => player.id === profileNavigation.selectedPlayerId) ?? null)
     : null;
@@ -57,7 +72,7 @@ export default function DashboardWorkspaceContent({
       )}
 
       {!selectedPlayer && !selectedTeam ? (
-        <DashboardAlerts alerts={dashboardAlerts} onNavigate={onNavigate} />
+        <DashboardAlerts alerts={dashboardAlerts} onNavigate={openFromAlert} />
       ) : null}
 
       {selectedPlayer && !selectedTeam ? (
@@ -84,7 +99,14 @@ export default function DashboardWorkspaceContent({
       ) : null}
 
       {!selectedPlayer && !selectedTeam ? (
-        <DashboardTabContent viewModel={dashboardTabContentModel} />
+        <section
+          ref={screenRegion}
+          aria-label={contentLabel}
+          tabIndex={-1}
+          className="rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+        >
+          <DashboardTabContent viewModel={dashboardTabContentModel} />
+        </section>
       ) : null}
     </div>
   );

@@ -197,6 +197,8 @@ function HookHarness({
     bidResult,
     bidSubmitDisabled,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     openBidNegotiation,
     handleMakeBid,
     activeBidOffer,
@@ -216,6 +218,18 @@ function HookHarness({
         value={bidAmount}
         onChange={(event) => setBidAmount(event.target.value)}
       />
+      <label htmlFor="terms-instalments">Instalments</label>
+      <input
+        id="terms-instalments"
+        value={bidTerms.instalments}
+        onChange={(event) => setBidTerms({ ...bidTerms, instalments: event.target.value })}
+      />
+      <label htmlFor="terms-bonus">Bonus</label>
+      <input
+        id="terms-bonus"
+        value={bidTerms.signingBonusMillions}
+        onChange={(event) => setBidTerms({ ...bidTerms, signingBonusMillions: event.target.value })}
+      />
       <button type="button" onClick={() => void handleMakeBid()}>
         Submit
       </button>
@@ -225,6 +239,7 @@ function HookHarness({
       <output aria-label="resume-on">{talksResumeOn ?? "none"}</output>
       <output aria-label="submit-disabled">{String(bidSubmitDisabled)}</output>
       <output aria-label="bid-result">{bidResult ?? "idle"}</output>
+      <output aria-label="player-contract">{`${bidTerms.playerWage}x${bidTerms.playerYears}`}</output>
     </div>
   );
 }
@@ -469,6 +484,122 @@ describe("useTransferBidFlow", (): void => {
     await waitFor(() => expect(mockedNegotiationStatus).toHaveBeenCalledTimes(2));
   });
 
+  /**
+   * Given a bid with a three-payment plan and a signing bonus
+   * When it is previewed and submitted
+   * Then the backend is asked about, and sent, exactly those terms, with the bonus in euros.
+   */
+  it("sends the deal terms with the preview and the bid", async (): Promise<void> => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedMakeTransferBid.mockResolvedValue({
+      decision: "accepted",
+      suggested_fee: null,
+      is_terminal: true,
+      feedback: { mood: "positive", headline_key: "h", tension: 0, patience: 0, round: 1 },
+      game: gameState,
+    });
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.change(screen.getByLabelText("Instalments"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Bonus"), { target: { value: "0.25" } });
+    const terms = {
+      instalments: 3,
+      sell_on_pct: 0,
+      signing_bonus: 250000,
+      promise_stepping_stone: false,
+    };
+
+    await waitFor((): void => {
+      expect(mockedPreviewTransferBidFinancialImpact).toHaveBeenCalledWith(
+        target.id,
+        1500000,
+        terms,
+      );
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor((): void => {
+      expect(mockedMakeTransferBid).toHaveBeenCalledWith(target.id, 1500000, terms);
+    });
+  });
+
+  /**
+   * Given the clubs agree and the backend answers that the player's step comes next, with the
+   * contract he would sign
+   * When the manager submits
+   * Then the contract is put into the form (nothing was completed, the bid is not "accepted"),
+   * and the next submit sends exactly that contract to the player.
+   */
+  it("carries the player's contract into the next bid when the clubs have agreed", async (): Promise<void> => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedMakeTransferBid
+      .mockResolvedValueOnce({
+        decision: "player_talks",
+        suggested_fee: null,
+        is_terminal: false,
+        feedback: { mood: "positive", headline_key: "h", tension: 0, patience: 0, round: 1 },
+        player_demand: { weekly_wage: 13000, contract_years: 3 },
+        game: gameState,
+      })
+      .mockResolvedValueOnce({
+        decision: "accepted",
+        suggested_fee: null,
+        is_terminal: true,
+        feedback: { mood: "positive", headline_key: "h", tension: 0, patience: 0, round: 1 },
+        game: gameState,
+      });
+    render(<HookHarness gameState={gameState} target={target} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await waitFor((): void => {
+      expect(mockedPreviewTransferBidFinancialImpact).toHaveBeenCalled();
+    });
+    await act(async () => {});
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor((): void => {
+      expect(screen.getByLabelText("bid-result")).toHaveTextContent("player_talks");
+    });
+    expect(screen.getByLabelText("player-contract")).toHaveTextContent("13000x3");
+    expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor((): void => {
+      expect(mockedMakeTransferBid).toHaveBeenLastCalledWith(
+        target.id,
+        expect.any(Number),
+        expect.objectContaining({ player_weekly_wage: 13000, player_contract_years: 3 }),
+      );
+    });
+    await waitFor((): void => {
+      expect(screen.getByLabelText("bid-result")).toHaveTextContent("accepted");
+    });
+  });
+
+  /**
+   * Given terms the backend would refuse outright (six instalments)
+   * When the manager tries to submit
+   * Then submitting is disabled and no bid is sent.
+   */
+  it("blocks a bid whose terms are out of range", async (): Promise<void> => {
+    const target = createPlayer();
+    render(<HookHarness gameState={createGameState([target])} target={target} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await waitFor((): void => {
+      expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("false");
+    });
+
+    fireEvent.change(screen.getByLabelText("Instalments"), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor((): void => {
+      expect(screen.getByLabelText("submit-disabled")).toHaveTextContent("true");
+    });
+    expect(mockedMakeTransferBid).not.toHaveBeenCalled();
+  });
+
   it("does not submit a bid when the computed fee is invalid", async (): Promise<void> => {
     const target = createPlayer();
     const gameState = createGameState([target]);
@@ -478,7 +609,11 @@ describe("useTransferBidFlow", (): void => {
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
 
     await waitFor((): void => {
-      expect(mockedPreviewTransferBidFinancialImpact).toHaveBeenCalledWith(target.id, 1500000);
+      expect(mockedPreviewTransferBidFinancialImpact).toHaveBeenCalledWith(
+        target.id,
+        1500000,
+        undefined,
+      );
     });
 
     fireEvent.change(screen.getByLabelText("Bid amount"), {

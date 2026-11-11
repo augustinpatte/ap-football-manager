@@ -22,9 +22,10 @@ use ofm_core::game::Game;
 use ofm_core::transfers::{
     LoanOfferDecision, TransferNegotiationDecision, counter_loan_offer, counter_offer,
     evaluate_transfer_market, exercise_loan_buy_option, generate_incoming_transfer_offers,
-    make_loan_offer, make_transfer_bid, process_loan_development_reports, process_loan_returns,
-    process_pending_loan_registrations, process_pending_transfer_registrations,
-    respond_to_loan_offer, respond_to_offer, seed_opening_ai_loan_market,
+    make_loan_offer, make_transfer_bid, market_buyer_evaluations, process_loan_development_reports,
+    process_loan_returns, process_pending_loan_registrations,
+    process_pending_transfer_registrations, respond_to_loan_offer, respond_to_offer,
+    seed_opening_ai_loan_market,
 };
 
 fn default_attrs() -> PlayerAttributes {
@@ -88,6 +89,7 @@ fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     }
 }
 
@@ -932,6 +934,7 @@ fn stale_outgoing_transfer_negotiation_is_withdrawn_before_new_bid() {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1190,6 +1193,7 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
         registration_date: None,
         closed_on: None,
         registration_failure_reason: None,
+        terms: Default::default(),
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);

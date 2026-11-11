@@ -30,9 +30,9 @@ export function PlayerContractFields({ editing, updateField }: PlayerContractFie
       <p className={labelClass}>{t("worldEditor.playerContractSection")}</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label id={startLabelId} className={labelClass}>
+          <span id={startLabelId} className={labelClass}>
             {t("worldEditor.playerContractStart")}
-          </label>
+          </span>
           <DatePicker
             labelledBy={startLabelId}
             value={editing.contractStart ?? ""}
@@ -40,9 +40,9 @@ export function PlayerContractFields({ editing, updateField }: PlayerContractFie
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label id={endLabelId} className={labelClass}>
+          <span id={endLabelId} className={labelClass}>
             {t("worldEditor.playerContractEnd")}
-          </label>
+          </span>
           <DatePicker
             labelledBy={endLabelId}
             value={editing.contractEnd ?? ""}

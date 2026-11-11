@@ -10,6 +10,7 @@ import { condColor } from "../../lib/playerConditionDisplay";
 import PreMatchLineup from "./PreMatchLineup";
 import { ratingTierClass } from "../../lib/ratingTier";
 import type { EnginePlayerData, EngineTeamData } from "./types";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("../../hooks/useRatingTiers", async () => {
   const { cannedRatingTiersModule } = await import("../../test-utils/ratingTiers");
@@ -382,7 +383,7 @@ describe("PreMatchLineup component", () => {
     render(<PreMatchLineup {...defaultProps} onAutoSelect={onAutoSelect} />);
     const autoBtn = screen.getByText("match.autoSelectXI");
     expect(autoBtn).toBeInTheDocument();
-    fireEvent.click(autoBtn.closest("button")!);
+    fireEvent.click(defined(autoBtn.closest("button"), "auto-pick button"));
     expect(onAutoSelect).toHaveBeenCalledOnce();
   });
 

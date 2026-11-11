@@ -63,6 +63,17 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
         }
     }
 
+    // How many youngsters each due club has in its academy, in the same pass over the players.
+    let mut academy_sizes: HashMap<&str, usize> = HashMap::new();
+    for player in &game.players {
+        if player.squad_role == domain::player::SquadRole::Youth
+            && let Some(team) = player.team_id.as_deref()
+            && due_set.contains(team)
+        {
+            *academy_sizes.entry(team).or_default() += 1;
+        }
+    }
+
     // Decisions are made against the state at the start of the pass, then applied.
     #[derive(Debug)]
     enum Step {
@@ -70,6 +81,8 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
         Let(String),
         Release(String, String),
         Fill(String, StaffPost),
+        /// A post nobody requires: filled only if it leaves a margin of the staff budget free.
+        FillOptional(String, StaffPost),
     }
     let mut steps: Vec<Step> = Vec::new();
     for team_id in &due {
@@ -116,6 +129,15 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
                 steps.push(Step::Fill(team_id.clone(), status.post));
             }
         }
+        // The academy's own staff, which no post requires: a club that runs one and can pay for it.
+        if let Some(post) = youth_post_to_fill(
+            game,
+            team_id,
+            &members,
+            academy_sizes.get(team_id.as_str()).copied().unwrap_or(0),
+        ) {
+            steps.push(Step::FillOptional(team_id.clone(), post));
+        }
     }
     drop(by_team);
 
@@ -140,9 +162,51 @@ pub fn apply_ai_staff_management(game: &mut Game, weekday_num: u32) {
             Step::Release(team_id, staff_id) => {
                 let _ = market::release(game, &team_id, &staff_id);
             }
-            Step::Fill(team_id, post) => fill_post(game, &team_id, post),
+            Step::Fill(team_id, post) => fill_post(game, &team_id, post, 0),
+            Step::FillOptional(team_id, post) => {
+                let reserve = market::staff_budget(game, &team_id) * YOUTH_STAFF_HEADROOM_PCT / 100;
+                fill_post(game, &team_id, post, reserve);
+            }
         }
     }
+}
+
+/// An academy this size is one worth a coach.
+const ACADEMY_WORTH_A_COACH: usize = 3;
+
+/// The share of the staff budget that has to be free before a club hires someone nobody requires.
+const YOUTH_STAFF_HEADROOM_PCT: i64 = 20;
+
+/// A club of at least this standing (`club_economy::stature`, 0 to 1) also has a head of youth.
+const HEAD_OF_YOUTH_STATURE: f64 = 0.7;
+
+/// The youth post a club should fill, if any: a youth coach for a club that runs an academy of
+/// some size, then a head of youth for a club of standing. Only a club with a fifth of its staff
+/// budget still free after the posts it must have: an optional post never takes the money of a
+/// required one, and a poor club makes do. (A club in debt cannot pay the signing fee: the hire's
+/// own cash check refuses it.) Reputation decides who can afford the
+/// head, not a club's name; what the staff do for the intake is bounded in `youth_intake`.
+fn youth_post_to_fill(
+    game: &Game,
+    team_id: &str,
+    members: &[&Staff],
+    academy: usize,
+) -> Option<StaffPost> {
+    if academy < ACADEMY_WORTH_A_COACH {
+        return None;
+    }
+    let team = game.teams.iter().find(|t| t.id == team_id)?;
+    let budget = market::staff_budget(game, team_id);
+    if market::staff_headroom(game, team_id) * 100 < budget * YOUTH_STAFF_HEADROOM_PCT {
+        return None;
+    }
+    let has = |post: StaffPost| members.iter().any(|m| m.post() == post);
+    if !has(StaffPost::YouthCoach) {
+        return Some(StaffPost::YouthCoach);
+    }
+    (!has(StaffPost::HeadOfYouth)
+        && crate::club_economy::stature(team.reputation) >= HEAD_OF_YOUTH_STATURE)
+        .then_some(StaffPost::HeadOfYouth)
 }
 
 fn club_rep(game: &Game, team_id: &str) -> u32 {
@@ -152,8 +216,9 @@ fn club_rep(game: &Game, team_id: &str) -> u32 {
         .map_or(0, |t| t.reputation)
 }
 
-/// Signs the best free agent for `post` that the club can afford.
-fn fill_post(game: &mut Game, team_id: &str, post: StaffPost) {
+/// Signs the best free agent for `post` that the club can afford, leaving `reserve` of its staff
+/// budget free after him (0 for a post the club must fill).
+fn fill_post(game: &mut Game, team_id: &str, post: StaffPost, reserve: i64) {
     let free = game.staff.iter().filter(|s| s.team_id.is_none()).count();
     if free <= RESERVED_FREE_AGENTS {
         return;
@@ -164,7 +229,9 @@ fn fill_post(game: &mut Game, team_id: &str, post: StaffPost) {
         .iter()
         .filter(|s| s.team_id.is_none() && s.post() == post)
         .filter(|s| {
-            market::hire_blocker(game, team_id, &s.id, market::asking_wage(s, reputation)).is_none()
+            let wage = market::asking_wage(s, reputation);
+            market::hire_blocker(game, team_id, &s.id, wage).is_none()
+                && i64::from(wage) + reserve <= market::staff_headroom(game, team_id)
         })
         .collect();
     candidates.sort_by(|a, b| better(b, a));
@@ -408,6 +475,191 @@ mod tests {
                 .team_id
                 .is_none()
         );
+    }
+
+    fn academy_player(id: &str, team: &str) -> domain::player::Player {
+        let mut player = domain::player::Player::new(
+            id.into(),
+            id.into(),
+            id.into(),
+            "2009-01-01".into(),
+            "England".into(),
+            domain::player::Position::Midfielder,
+            domain::player::PlayerAttributes {
+                pace: 50,
+                stamina: 50,
+                strength: 50,
+                agility: 50,
+                passing: 50,
+                shooting: 50,
+                tackling: 50,
+                dribbling: 50,
+                defending: 50,
+                positioning: 50,
+                vision: 50,
+                decisions: 50,
+                composure: 50,
+                aggression: 50,
+                teamwork: 50,
+                leadership: 50,
+                handling: 50,
+                reflexes: 50,
+                aerial: 50,
+            },
+        );
+        player.team_id = Some(team.into());
+        player.squad_role = domain::player::SquadRole::Youth;
+        player
+    }
+
+    /// An AI club with every required post filled, `academy` youngsters, a youth coach on the market
+    /// and padding so the reserve of free agents is not what stops a hire.
+    fn club_with_an_academy(academy: usize) -> (Game, u32) {
+        let mut staff = all_posts_but(StaffPost::Physio);
+        staff.push(member("physio", StaffPost::Physio, 60, 1000, Some("ai")));
+        staff.push(member("coach", StaffPost::YouthCoach, 70, 1500, None));
+        for i in 0..8 {
+            staff.push(member(&format!("pad{i}"), StaffPost::Scout, 40, 500, None));
+        }
+        let (mut game, day) = world(staff);
+        for i in 0..academy {
+            game.players.push(academy_player(&format!("kid{i}"), "ai"));
+        }
+        (game, day)
+    }
+
+    fn youth_staff_of_ai(game: &Game) -> usize {
+        game.staff
+            .iter()
+            .filter(|s| s.team_id.as_deref() == Some("ai"))
+            .filter(|s| matches!(s.post(), StaffPost::YouthCoach | StaffPost::HeadOfYouth))
+            .count()
+    }
+
+    /// Given an AI club with an academy of five, room in its staff budget and a youth coach on the
+    /// market
+    /// When its staff review runs
+    /// Then it hires him: the club that runs an academy staffs it, and its intake benefits.
+    #[test]
+    fn an_ai_club_with_an_academy_and_room_hires_a_youth_coach() {
+        let (mut game, day) = club_with_an_academy(5);
+        apply_ai_staff_management(&mut game, day);
+        assert_eq!(youth_staff_of_ai(&game), 1);
+    }
+
+    /// Given the same club with no academy players
+    /// When its staff review runs
+    /// Then it hires nobody for youth: there is nothing to develop.
+    #[test]
+    fn an_ai_club_without_an_academy_hires_no_youth_coach() {
+        let (mut game, day) = club_with_an_academy(0);
+        apply_ai_staff_management(&mut game, day);
+        assert_eq!(youth_staff_of_ai(&game), 0);
+    }
+
+    /// Given the same club with the academy and a cheap coach, and a staff budget that could pay him
+    /// but would be left with less than a fifth free (the six required posts cost 6 000; the budget is
+    /// 7 005, 1 005 of it free)
+    /// When its staff review runs
+    /// Then it hires nobody for youth: an optional post never eats the margin of a required one. The
+    /// control below, with a budget that leaves the margin, hires him: the room is what decided.
+    #[test]
+    fn an_ai_club_that_would_spend_its_staff_margin_hires_no_youth_coach() {
+        let narrow = |wage_budget: i64| {
+            let (mut game, day) = club_with_an_academy(5);
+            game.staff
+                .iter_mut()
+                .find(|s| s.id == "coach")
+                .unwrap()
+                .wage = 500;
+            game.teams
+                .iter_mut()
+                .find(|t| t.id == "ai")
+                .unwrap()
+                .wage_budget = wage_budget;
+            apply_ai_staff_management(&mut game, day);
+            youth_staff_of_ai(&game)
+        };
+        assert_eq!(narrow(46_700), 0);
+        assert_eq!(narrow(60_000), 1);
+    }
+
+    /// Given the same club in debt
+    /// When its staff review runs
+    /// Then it hires nobody for youth.
+    #[test]
+    fn an_ai_club_in_debt_hires_no_youth_coach() {
+        let (mut game, day) = club_with_an_academy(5);
+        game.teams
+            .iter_mut()
+            .find(|t| t.id == "ai")
+            .unwrap()
+            .finance = -1_000;
+        apply_ai_staff_management(&mut game, day);
+        assert_eq!(youth_staff_of_ai(&game), 0);
+    }
+
+    /// Given an academy of two and one of three, otherwise the same club
+    /// When its staff review runs
+    /// Then only the club with three hires a coach: three is the size of an academy worth one.
+    #[test]
+    fn an_academy_of_three_is_worth_a_coach_and_one_of_two_is_not() {
+        let hires = |academy: usize| {
+            let (mut game, day) = club_with_an_academy(academy);
+            apply_ai_staff_management(&mut game, day);
+            youth_staff_of_ai(&game)
+        };
+        assert_eq!(hires(2), 0);
+        assert_eq!(hires(3), 1);
+    }
+
+    /// Given a staff budget of 10 005 with 4 005 of it free, and a coach who asks 3 000 or 1 500
+    /// When the staff review runs
+    /// Then the 1 500 coach is hired (it leaves 2 505, over a fifth) and the 3 000 one is not
+    /// (it would leave 1 005, under it): the margin is kept after the hire, not only before it.
+    #[test]
+    fn a_youth_coach_is_not_hired_if_he_would_eat_the_staff_margin() {
+        let hired = |wage: u32| {
+            let (mut game, day) = club_with_an_academy(5);
+            game.staff
+                .iter_mut()
+                .find(|s| s.id == "coach")
+                .unwrap()
+                .wage = wage;
+            game.teams
+                .iter_mut()
+                .find(|t| t.id == "ai")
+                .unwrap()
+                .wage_budget = 66_700;
+            apply_ai_staff_management(&mut game, day);
+            youth_staff_of_ai(&game)
+        };
+        assert_eq!(hired(1_500), 1);
+        assert_eq!(hired(3_000), 0);
+    }
+
+    /// Given a club with an academy and the budget, a top club by reputation and a small one
+    /// When both review their staff
+    /// Then the top club also hires a head of youth; the small one stops at the coach.
+    #[test]
+    fn only_a_club_of_standing_hires_a_head_of_youth_as_well() {
+        let build = |reputation: u32| {
+            let (mut game, day) = club_with_an_academy(5);
+            game.staff
+                .push(member("head", StaffPost::HeadOfYouth, 75, 2000, None));
+            let ai = game.teams.iter_mut().find(|t| t.id == "ai").unwrap();
+            ai.reputation = reputation;
+            ai.wage_budget = 2_000_000;
+            // One optional post a pass: the coach, then the head.
+            for _ in 0..2 {
+                apply_ai_staff_management(&mut game, day);
+            }
+            game
+        };
+        let top = build(900);
+        let small = build(150);
+        assert_eq!(youth_staff_of_ai(&top), 2);
+        assert_eq!(youth_staff_of_ai(&small), 1);
     }
 
     #[test]

@@ -21,6 +21,7 @@ pub mod journal;
 pub mod pipeline;
 pub mod placement;
 pub mod positions;
+pub mod ratings;
 pub mod refs;
 pub mod report;
 pub mod rules;

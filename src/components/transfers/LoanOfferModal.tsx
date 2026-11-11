@@ -7,6 +7,8 @@ import { formatDate } from "../../lib/dateFormatting";
 import { Badge, Dialog } from "../ui";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
+import DealRestrictionNotice from "./DealRestrictionNotice";
+import { dealRestrictionOf } from "./dealRestriction";
 import type { LoanPeriodOption, LoanPeriodOptionId } from "./TransfersTab.helpers";
 
 export interface LoanOfferFormProps {
@@ -104,6 +106,8 @@ export function LoanOfferForm({
           </div>
         </div>
       ) : null}
+
+      <DealRestrictionNotice player={loanTarget} teams={teams} />
 
       {noticeTitle ? (
         <div
@@ -296,7 +300,7 @@ export function LoanOfferForm({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={submitDisabled}
+          disabled={submitDisabled || dealRestrictionOf(loanTarget) !== null}
           className="flex-1 py-2 bg-primary-700 hover:bg-primary-800 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
         >
           {loading ? t("transfers.submitting") : t(submitLabelKey)}

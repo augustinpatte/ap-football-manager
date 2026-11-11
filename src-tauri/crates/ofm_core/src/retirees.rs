@@ -66,6 +66,7 @@ fn release_loan_references(game: &mut Game, player: &Player) {
     let Some(loan) = &player.active_loan else {
         return;
     };
+    crate::turn::squad::refill_saved_eleven_slot_of(game, &player.id);
     for team_id in [&loan.parent_team_id, &loan.loan_team_id] {
         if let Some(team) = game.teams.iter_mut().find(|team| &team.id == team_id) {
             team.remove_player_references(&player.id);
@@ -312,6 +313,7 @@ mod tests {
                 appearances: 10,
                 goals: 1,
                 assists: 1,
+                synthetic: false,
             });
         }
         let mut game = game_with_teams(vec![old], vec![]);

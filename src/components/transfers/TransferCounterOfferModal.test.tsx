@@ -279,3 +279,66 @@ describe("TransferCounterOfferModal", () => {
     expect(screen.getByText("common.posAbbr.LeftBack")).toBeInTheDocument();
   });
 });
+
+describe("TransferCounterOfferModal as a dialog", () => {
+  function renderModal(onClose: () => void) {
+    render(
+      <TransferCounterOfferModal
+        counterTarget={createCounterTarget()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Buyer FC" })]}
+        counterAmount="1400000"
+        onCounterAmountChange={vi.fn()}
+        counterFeedback={null}
+        activeCounterOffer={null}
+        counterResult={null}
+        counterError={null}
+        counterLoading={false}
+        onSubmit={vi.fn()}
+        onClose={onClose}
+      />,
+    );
+  }
+
+  /**
+   * Given the open counter-offer modal
+   * When a screen reader or keyboard user reaches it
+   * Then it is a modal dialog named by its heading.
+   */
+  it("is a named modal dialog", () => {
+    renderModal(vi.fn());
+
+    const dialog = screen.getByRole("dialog", { name: "Counter Offer" });
+
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+  });
+
+  /**
+   * Given the open counter-offer modal
+   * When Escape is pressed
+   * Then it asks to close: a keyboard user is never trapped in it.
+   */
+  it("closes on Escape", () => {
+    const onClose = vi.fn();
+    renderModal(onClose);
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Given the open counter-offer modal
+   * When the backdrop is clicked, and when the panel is clicked
+   * Then only the backdrop click closes it.
+   */
+  it("closes on a backdrop click but not on a click inside", () => {
+    const onClose = vi.fn();
+    renderModal(onClose);
+
+    fireEvent.click(screen.getByLabelText("Counter Amount"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("dialog-backdrop"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

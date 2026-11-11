@@ -34,6 +34,74 @@ pub fn contract_warning_stage(
     None
 }
 
+/// The key of the warning a player's contract is at: the contract's end and the stage, so the
+/// next stage and the next contract are different warnings.
+fn warning_key(player: &Player, stage: ContractWarningStage) -> Option<String> {
+    Some(format!(
+        "{}|{}",
+        player.contract_end()?,
+        stage.message_suffix()
+    ))
+}
+
+/// Whether the player's expiring contract is something to stop the manager for today: inside the
+/// last six months (a year out is the player's concern, not an alert, and sends no message),
+/// not already given up on (let-expire), and not already dealt with at this stage.
+///
+/// The same warning used to be raised every day until the contract was renewed or released:
+/// answering the player's message, opening renewal talks, or choosing to carry on changed
+/// nothing, so each day of a fast-forward stopped on it again.
+pub fn contract_needs_attention(player: &Player, current_date: NaiveDate) -> bool {
+    let Some(stage) = contract_warning_stage(player.contract_end(), current_date) else {
+        return false;
+    };
+    if stage == ContractWarningStage::TwelveMonths || has_let_expire_intent(player) {
+        return false;
+    }
+    let handled = player
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .and_then(|state| state.warning_handled.as_deref());
+    handled != warning_key(player, stage).as_deref()
+}
+
+/// Records that the manager dealt with the warning the player's contract is at today.
+pub(crate) fn mark_contract_warning_handled(player: &mut Player, current_date: NaiveDate) {
+    let Some(stage) = contract_warning_stage(player.contract_end(), current_date) else {
+        return;
+    };
+    let Some(key) = warning_key(player, stage) else {
+        return;
+    };
+    player
+        .morale_core
+        .renewal_state
+        .get_or_insert_with(ContractRenewalState::default)
+        .warning_handled = Some(key);
+}
+
+/// The manager chose to carry on past the contract warnings showing now: they are dealt with
+/// until the next stage. Returns how many players' warnings that was.
+pub fn acknowledge_user_team_contract_warnings(game: &mut Game) -> usize {
+    let Some(team_id) = game.manager.team_id.clone() else {
+        return 0;
+    };
+    let today = game.clock.current_date.date_naive();
+    let mut acknowledged = 0;
+    for player in game
+        .players
+        .iter_mut()
+        .filter(|player| player.team_id.as_deref() == Some(team_id.as_str()))
+    {
+        if contract_needs_attention(player, today) {
+            mark_contract_warning_handled(player, today);
+            acknowledged += 1;
+        }
+    }
+    acknowledged
+}
+
 /// The warning stage of each requested player's contract on the game's date: the one the daily
 /// warnings, the morale pressure and the renewal urgency use, so a screen shows the same stage.
 /// A player with no stage (beyond a year, or already over) maps to `None`; an unknown id is left out.
@@ -111,6 +179,7 @@ pub(crate) fn release_player_contract(
             || game.players[player_index].team_id.as_deref() == Some(user_team_id)
     });
 
+    crate::turn::squad::refill_saved_eleven_slot_of(game, &player_id);
     for team in &mut game.teams {
         remove_player_from_team_references(team, &player_id);
     }

@@ -59,12 +59,11 @@ export function PlayerCareerFields({
     <div className="flex flex-col gap-3">
       <p className={labelClass}>{t("worldEditor.playerCareerSection")}</p>
       {entries.map((entry, index) => (
-        <div
+        <fieldset
           // Rows have no id of their own; an index key is safe because every field is controlled.
           key={index}
-          role="group"
           aria-label={t("worldEditor.careerEntryRow")}
-          className="flex flex-col gap-2 rounded-lg border border-gray-200 dark:border-navy-600 p-3"
+          className="flex min-w-0 flex-col gap-2 rounded-lg border border-gray-200 dark:border-navy-600 p-3"
         >
           <div className="grid grid-cols-2 gap-3">
             <LabeledInput
@@ -117,7 +116,7 @@ export function PlayerCareerFields({
           >
             <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
-        </div>
+        </fieldset>
       ))}
       <button
         type="button"

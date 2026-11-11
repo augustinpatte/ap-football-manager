@@ -50,6 +50,10 @@ pub struct GameMeta {
     /// `Game::legacy_tactics_imported`.
     #[serde(default)]
     pub legacy_tactics_imported: bool,
+    /// `Game::days_since_last_job_offer`. `None` is "no clock running", which is also what a save
+    /// from before the column holds.
+    #[serde(default)]
+    pub days_since_last_job_offer: Option<u32>,
 }
 
 fn default_vacant_team_days_json() -> String {
@@ -107,8 +111,8 @@ fn default_package_lockfile_json() -> String {
 /// Insert or replace the singleton game_meta row.
 pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
     conn.execute(
-        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported)
-         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer)
+         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
         params![
             meta.save_id,
             meta.save_name,
@@ -133,6 +137,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
             meta.seed,
             meta.legacy_world_cup_draw,
             meta.legacy_tactics_imported,
+            meta.days_since_last_job_offer,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -143,7 +148,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
 pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported
+            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer
              FROM game_meta WHERE id = 'singleton'",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -184,6 +189,11 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
                 seed: row.get(20)?,
                 legacy_world_cup_draw: row.get(21)?,
                 legacy_tactics_imported: row.get(22)?,
+                // A clock is a few days, so a stored value outside `u32` is damage, and refusing
+                // to open a career over a timer would cost more than restarting it.
+                days_since_last_job_offer: row
+                    .get::<_, Option<i64>>(23)?
+                    .and_then(|days| u32::try_from(days).ok()),
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -231,6 +241,7 @@ mod tests {
             seed: 0,
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
+            days_since_last_job_offer: None,
         };
 
         upsert_meta(db.conn(), &meta).unwrap();
@@ -245,6 +256,111 @@ mod tests {
             loaded.available_staff_market_last_activity_date.as_deref(),
             Some("2026-07-01")
         );
+    }
+
+    /// A meta row with every field at a value a default would not produce, for the tests below.
+    fn meta_with_clock(clock: Option<u32>) -> GameMeta {
+        GameMeta {
+            save_id: "save-clock".to_string(),
+            save_name: "Clock".to_string(),
+            manager_id: "mgr_user".to_string(),
+            start_date: "2026-07-01T00:00:00Z".to_string(),
+            game_date: "2026-07-15T00:00:00Z".to_string(),
+            created_at: "2026-03-05T18:00:00Z".to_string(),
+            last_played_at: "2026-03-05T19:00:00Z".to_string(),
+            vacant_team_days_json: "{}".to_string(),
+            world_history_json: "{}".to_string(),
+            available_staff_market_last_activity_date: None,
+            save_format_version: CURRENT_SAVE_FORMAT_VERSION,
+            world_format_version: 2,
+            app_version: String::new(),
+            source_world_id: String::new(),
+            source_world_kind: String::new(),
+            active_region_ids_json: "[]".to_string(),
+            active_competition_ids_json: "[]".to_string(),
+            extra_translations_json: "{}".to_string(),
+            package_lockfile_json: "[]".to_string(),
+            emitted_events_json: "[]".to_string(),
+            seed: 1,
+            legacy_world_cup_draw: false,
+            legacy_tactics_imported: false,
+            days_since_last_job_offer: clock,
+        }
+    }
+
+    /// Given a meta row with the job-offer clock at seven days
+    /// When it is written and read through a second connection to the same file
+    /// Then the clock is seven, and replacing the row with "no clock" reads back as none.
+    #[test]
+    fn the_job_offer_clock_is_stored_in_the_row_and_none_is_stored_as_null() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("clock.db");
+        let writer = GameDatabase::open(&path).unwrap();
+        upsert_meta(writer.conn(), &meta_with_clock(Some(7))).unwrap();
+
+        let reader = GameDatabase::open(&path).unwrap();
+        assert_eq!(
+            load_meta(reader.conn())
+                .unwrap()
+                .unwrap()
+                .days_since_last_job_offer,
+            Some(7)
+        );
+
+        upsert_meta(writer.conn(), &meta_with_clock(None)).unwrap();
+        let stored: Option<i64> = reader
+            .conn()
+            .query_row(
+                "SELECT days_since_last_job_offer FROM game_meta",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, None, "no clock must be NULL, not a number");
+        assert_eq!(
+            load_meta(reader.conn())
+                .unwrap()
+                .unwrap()
+                .days_since_last_job_offer,
+            None
+        );
+    }
+
+    /// Given a stored clock outside `u32` (a damaged value)
+    /// When the row is loaded
+    /// Then the career still opens, with the clock restarted rather than the load refused.
+    #[test]
+    fn a_damaged_job_offer_clock_restarts_instead_of_refusing_the_load() {
+        let db = test_db();
+        upsert_meta(db.conn(), &meta_with_clock(Some(3))).unwrap();
+        for damaged in [-1_i64, i64::from(u32::MAX) + 1] {
+            db.conn()
+                .execute(
+                    "UPDATE game_meta SET days_since_last_job_offer = ?1",
+                    [damaged],
+                )
+                .unwrap();
+
+            let loaded = load_meta(db.conn()).unwrap().unwrap();
+
+            assert_eq!(loaded.days_since_last_job_offer, None, "stored {damaged}");
+        }
+    }
+
+    /// Given meta JSON written before the field existed
+    /// When it is deserialised
+    /// Then the clock is absent, as every old save read it.
+    #[test]
+    fn meta_json_without_a_job_offer_clock_deserialises_to_none() {
+        let mut value = serde_json::to_value(meta_with_clock(Some(5))).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("days_since_last_job_offer");
+
+        let meta: GameMeta = serde_json::from_value(value).unwrap();
+
+        assert_eq!(meta.days_since_last_job_offer, None);
     }
 
     #[test]
@@ -281,6 +397,7 @@ mod tests {
             seed: 0,
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
+            days_since_last_job_offer: None,
         };
         upsert_meta(db.conn(), &meta1).unwrap();
 
@@ -308,6 +425,7 @@ mod tests {
             seed: 0,
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
+            days_since_last_job_offer: None,
         };
         upsert_meta(db.conn(), &meta2).unwrap();
 
@@ -348,6 +466,7 @@ mod tests {
             seed: 0,
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
+            days_since_last_job_offer: None,
         };
 
         let result = upsert_meta(&conn, &meta);

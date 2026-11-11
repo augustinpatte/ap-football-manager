@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import RoundDigestScreen from "./RoundDigestScreen";
 import type { GameStateData } from "../../store/gameStore";
 import type { MatchSnapshot, RoundSummary } from "./types";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
@@ -430,7 +431,7 @@ describe("RoundDigestScreen", () => {
     return {
       ...makeGameState(),
       league: {
-        ...makeGameState().league!,
+        ...defined(makeGameState().league, "league"),
         fixtures: [
           {
             id: "fix2",

@@ -96,13 +96,19 @@ const ContextMenu = forwardRef<ContextMenuHandle, ContextMenuProps>(function Con
   useEffect(() => {
     if (!visible) return;
     const close = () => setOpen(false);
+    // A click inside the menu is the menu's own (an item closes it itself; a label or divider
+    // leaves it open); only a click elsewhere dismisses it.
+    const closeOnOutsideClick = (e: MouseEvent) => {
+      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      close();
+    };
     const closeOnEscape = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       // Claimed in the capture phase so a dialog around the menu sees it as handled and stays open.
       e.preventDefault();
       closeAndRestoreFocus();
     };
-    window.addEventListener("click", close);
+    window.addEventListener("click", closeOnOutsideClick);
     window.addEventListener("scroll", close, true);
     window.addEventListener("keydown", closeOnEscape, true);
     // Move keyboard focus into the menu so arrow-key navigation / Enter
@@ -112,7 +118,7 @@ const ContextMenu = forwardRef<ContextMenuHandle, ContextMenuProps>(function Con
     );
     firstItem?.focus();
     return () => {
-      window.removeEventListener("click", close);
+      window.removeEventListener("click", closeOnOutsideClick);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("keydown", closeOnEscape, true);
     };
@@ -123,6 +129,7 @@ const ContextMenu = forwardRef<ContextMenuHandle, ContextMenuProps>(function Con
       onContextMenu: handleContextMenu,
     } as React.HTMLAttributes<HTMLElement>)
   ) : (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the right-click is a pointer shortcut on a layout-less wrapper; the same menu opens from the keyboard through the imperative `open` handle and the row's actions button.
     <div onContextMenu={handleContextMenu} className="contents">
       {children}
     </div>
@@ -138,7 +145,6 @@ const ContextMenu = forwardRef<ContextMenuHandle, ContextMenuProps>(function Con
             role="menu"
             className="fixed z-50 min-w-[180px] bg-white dark:bg-navy-800 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 py-1 animate-in fade-in duration-100"
             style={{ left: pos.x, top: pos.y }}
-            onClick={(e) => e.stopPropagation()}
           >
             {items.map((item, i) =>
               item.divider ? (

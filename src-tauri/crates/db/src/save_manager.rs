@@ -12,7 +12,7 @@ use ofm_core::generator;
 use ofm_core::player_identity;
 use ofm_core::player_rating::{
     effective_rating_for_assignment, formation_slots, reconcile_wonderkid_trait,
-    refresh_player_derived,
+    refresh_player_derived, repair_stale_ratings,
 };
 
 use crate::game_database::GameDatabase;
@@ -203,12 +203,8 @@ impl SaveManager {
         let save_id = uuid::Uuid::new_v4().to_string();
         let db_filename = format!("{}.db", save_id);
         let db_path = self.saves_dir.join(&db_filename);
-        let mut persisted_game = game.clone();
-
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-
         let db = GameDatabase::open(&db_path)?;
-        GamePersistenceWriter::write_game(&db, &persisted_game, &save_id, save_name)?;
+        GamePersistenceWriter::write_game(&db, game, &save_id, save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -247,23 +243,12 @@ impl SaveManager {
         let db_path = self.saves_dir.join(&db_filename);
         let total_timer = Instant::now();
 
-        let clone_timer = Instant::now();
-        let mut persisted_game = game.clone();
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-        let clone_ms = clone_timer.elapsed().as_millis();
-
         let db_open_timer = Instant::now();
         let db = GameDatabase::open(&db_path)?;
         let db_open_ms = db_open_timer.elapsed().as_millis();
 
         let write_timer = Instant::now();
-        GamePersistenceWriter::write_game_and_stats(
-            &db,
-            &persisted_game,
-            stats,
-            &save_id,
-            save_name,
-        )?;
+        GamePersistenceWriter::write_game_and_stats(&db, game, stats, &save_id, save_name)?;
         let write_ms = write_timer.elapsed().as_millis();
         drop(db);
 
@@ -292,9 +277,8 @@ impl SaveManager {
         let index_ms = index_timer.elapsed().as_millis();
 
         info!(
-            "[save_manager] create_save_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            "[save_manager] create_save_with_stats save_id={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
             save_id,
-            clone_ms,
             db_open_ms,
             write_ms,
             checksum_ms,
@@ -316,13 +300,9 @@ impl SaveManager {
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         let save_name = entry.name.clone();
-        let mut persisted_game = game.clone();
-
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-
         snapshot_db_before_write(&db_path)?;
         let db = GameDatabase::open(&db_path)?;
-        GamePersistenceWriter::write_game(&db, &persisted_game, save_id, &save_name)?;
+        GamePersistenceWriter::write_game(&db, game, save_id, &save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -422,6 +402,18 @@ impl SaveManager {
         stats: &StatsState,
         save_id: &str,
     ) -> Result<(), String> {
+        self.save_game_with_stats_and_match(game, stats, save_id, None)
+    }
+
+    /// Saves the career and, in the same transaction, the interactive match in progress. `None`
+    /// means no match is in progress and clears any checkpoint a previous save left behind.
+    pub fn save_game_with_stats_and_match(
+        &mut self,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        interactive_match: Option<&crate::interactive_match_repo::StoredMatch>,
+    ) -> Result<(), String> {
         self.ensure_save_index_ready()?;
 
         let entry = self
@@ -433,11 +425,6 @@ impl SaveManager {
         let db_path = self.saves_dir.join(&entry.db_filename);
         let total_timer = Instant::now();
 
-        let clone_timer = Instant::now();
-        let mut persisted_game = game.clone();
-        canonicalize_game_starting_xi_ids(&mut persisted_game);
-        let clone_ms = clone_timer.elapsed().as_millis();
-
         snapshot_db_before_write(&db_path)?;
 
         let db_open_timer = Instant::now();
@@ -445,12 +432,13 @@ impl SaveManager {
         let db_open_ms = db_open_timer.elapsed().as_millis();
 
         let write_timer = Instant::now();
-        GamePersistenceWriter::write_game_and_stats(
+        GamePersistenceWriter::write_game_stats_and_match(
             &db,
-            &persisted_game,
+            game,
             stats,
             save_id,
             &entry.name,
+            interactive_match,
         )?;
         let write_ms = write_timer.elapsed().as_millis();
         drop(db);
@@ -476,9 +464,8 @@ impl SaveManager {
         let index_ms = index_timer.elapsed().as_millis();
 
         info!(
-            "[save_manager] save_game_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            "[save_manager] save_game_with_stats save_id={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
             save_id,
-            clone_ms,
             db_open_ms,
             write_ms,
             checksum_ms,
@@ -504,6 +491,32 @@ impl SaveManager {
     }
 
     /// Load a Game from a save database.
+    /// The interactive match this career was saved in the middle of, if any. A stored match that
+    /// cannot be trusted (written by another schema, or altered on disk) comes back as
+    /// `Some(Err(_))`: the career itself still loads and the caller decides what to tell the player.
+    pub fn load_interactive_match(
+        &mut self,
+        save_id: &str,
+    ) -> Result<
+        Option<
+            Result<
+                crate::interactive_match_repo::StoredMatch,
+                crate::interactive_match_repo::Unreadable,
+            >,
+        >,
+        String,
+    > {
+        self.ensure_save_index_ready()?;
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?
+            .clone();
+        let db = GameDatabase::open_save(&self.saves_dir.join(&entry.db_filename))
+            .map_err(|error| error.i18n_key())?;
+        crate::interactive_match_repo::load(db.conn())
+    }
+
     pub fn load_game(&mut self, save_id: &str) -> Result<Game, String> {
         self.ensure_save_index_ready()?;
 
@@ -598,11 +611,20 @@ impl SaveManager {
             needs_resave = true;
         }
 
-        if canonicalize_game_starting_xi_ids(&mut game) {
+        // Only a save from before format 9 can still hold a mirrored pair the old builds would
+        // have repaired on write. From format 9 on the eleven is whatever the manager saved, so an
+        // inverted full-back or winger is never reordered behind their back.
+        if save_format_version < FIRST_FORMAT_WITHOUT_XI_SIDE_REPAIR
+            && canonicalize_game_starting_xi_ids(&mut game)
+        {
             needs_resave = true;
         }
 
         if player_identity::upgrade_game_player_identities(&mut game) {
+            needs_resave = true;
+        }
+
+        if repair_stale_player_ratings(&mut game, save_id) {
             needs_resave = true;
         }
 
@@ -686,17 +708,12 @@ impl SaveManager {
             needs_resave = true;
         }
 
-        // After the stranded fixtures are resolved, so that what remains unplayed is the calendar
-        // from here on. Matches inside the rest window, or on an international window, move to the
-        // earliest legal day; each is recorded as postponed and the user is told once. Idempotent.
-        let repaired_calendar = ofm_core::calendar_repair::repair_loaded_calendar(&mut game);
-        if repaired_calendar > 0 {
-            info!(
-                "[save_manager] moved {} clashing fixture(s) for save {}",
-                repaired_calendar, save_id
-            );
-            needs_resave = true;
-        }
+        // The calendar rules (rest between matches, international windows) are checked against a
+        // loaded save on the first day played from it, not here: moving a match is progress
+        // through time, and a load must hand back, and leave on disk, the state that was saved.
+        // After the stranded fixtures are resolved above, so what remains unplayed is the
+        // calendar from here on. See `Game::calendar_repair_pending`.
+        game.calendar_repair_pending = true;
 
         if league_repo::needs_cleanup(
             db.conn(),
@@ -776,6 +793,9 @@ impl SaveManager {
         game.scouted_players.clear();
         game.board_objectives.clear();
 
+        // The job-offer clock is the old career's session: a load used to restart it, but it is
+        // saved now (v069), so a new career must not receive its first offer on the old schedule.
+        game.days_since_last_job_offer = None;
         // A new career is a new game: its World Cups are drawn from its own seed, whatever the
         // save it began from did.
         game.legacy_world_cup_draw = false;
@@ -822,6 +842,12 @@ impl SaveManager {
     }
 }
 
+/// Saves below this format may carry a mirrored side pair that was never repaired. Fixed at 9 on
+/// purpose, not tied to `CURRENT_SAVE_FORMAT_VERSION`: later formats must not gain the repair.
+const FIRST_FORMAT_WITHOUT_XI_SIDE_REPAIR: u32 = 9;
+
+/// Puts mirrored side pairs (LB/RB, LWB/RWB, LM/RM, LW/RW) the right way round when that raises
+/// fit. A repair for legacy data, never applied to a current save the manager has edited.
 pub(crate) fn canonicalize_game_starting_xi_ids(game: &mut Game) -> bool {
     let players_by_id: HashMap<String, Player> = game
         .players
@@ -924,6 +950,19 @@ fn is_mirrored_side_pair(left_position: &Position, right_position: &Position) ->
             | (Position::LeftMidfielder, Position::RightMidfielder)
             | (Position::LeftWinger, Position::RightWinger)
     )
+}
+
+/// A save written before D6 can hold a granular position beside the rating of the coarse group the
+/// player was generated as. Unconditional and idempotent, like the stranded-fixture repair: it
+/// touches only a rating the audit calls corrupt, and a repaired save has none. `true` when
+/// anything changed, so the caller writes the repair back.
+fn repair_stale_player_ratings(game: &mut Game, save_id: &str) -> bool {
+    let on = game.clock.current_date.date_naive();
+    let repaired = repair_stale_ratings(&mut game.players, on);
+    if repaired > 0 {
+        info!("[save_manager] re-derived the stale rating of {repaired} players in save {save_id}");
+    }
+    repaired > 0
 }
 
 #[cfg(test)]
@@ -1213,6 +1252,7 @@ mod tests {
                 yellow_cards: 2,
                 red_cards: 0,
             }],
+            ..StatsState::default()
         }
     }
 
@@ -1251,6 +1291,27 @@ mod tests {
         player.weak_foot = 1;
         player.team_id = Some("team-001".to_string());
         player
+    }
+
+    /// A 4-3-3 whose left and right wingers each play naturally on their own flank; tests put
+    /// them on the opposite flank on purpose.
+    fn sample_game_with_inverted_wingers() -> Game {
+        let mut game = sample_game_with_side_specific_starting_xi(false);
+        game.teams[0].formation = "4-3-3".to_string();
+        game.players = vec![
+            make_lineup_player("gk", Position::Goalkeeper, Footedness::Right),
+            make_lineup_player("lb", Position::LeftBack, Footedness::Left),
+            make_lineup_player("cb1", Position::CenterBack, Footedness::Right),
+            make_lineup_player("cb2", Position::CenterBack, Footedness::Right),
+            make_lineup_player("rb", Position::RightBack, Footedness::Right),
+            make_lineup_player("cm1", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("cm2", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("cm3", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("lw", Position::LeftWinger, Footedness::Left),
+            make_lineup_player("st1", Position::Striker, Footedness::Right),
+            make_lineup_player("rw", Position::RightWinger, Footedness::Right),
+        ];
+        game
     }
 
     fn sample_game_with_side_specific_starting_xi(mirrored: bool) -> Game {
@@ -1373,6 +1434,102 @@ mod tests {
         Game::new(clock, manager, vec![team], players, vec![], vec![])
     }
 
+    /// A game with a winger whose rating is sound and a second whose stored `ovr` is nine points
+    /// below what his attributes give (the state a build before D6 wrote), both already holding
+    /// their granular position. Returns the game and the rating the stale winger should have.
+    fn game_with_a_stale_winger() -> (Game, u8) {
+        let mut game = sample_game();
+        let mut sound = game.players[0].clone();
+        sound.id = "sound".to_string();
+        let mut stale = game.players[0].clone();
+        stale.id = "stale".to_string();
+        for player in [&mut sound, &mut stale] {
+            player.natural_position = Position::RightWinger;
+            player.alternate_positions = vec![];
+            player.attributes.pace = 92;
+            player.attributes.defending = 30;
+        }
+        let derived = ofm_core::player_rating::natural_ovr(&stale).round() as u8;
+        sound.ovr = derived;
+        sound.potential = 99;
+        stale.ovr = derived - 9;
+        stale.potential = 99;
+        game.players.push(sound);
+        game.players.push(stale);
+        (game, derived)
+    }
+
+    /// Given a career saved by a build before D6: a winger already holding his granular position
+    /// but the rating of the coarse group he was generated as, beside a player whose rating is
+    /// sound,
+    /// When the save is loaded,
+    /// Then the winger's rating is what his attributes give (ceiling kept, position untouched) and
+    /// the sound player is untouched.
+    #[test]
+    fn loading_a_save_with_a_stale_granular_rating_repairs_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let (game, derived) = game_with_a_stale_winger();
+        let save_id = SaveManager::init(&saves)
+            .unwrap()
+            .create_save(&game, "Career")
+            .unwrap();
+
+        let loaded = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+
+        let find = |id: &str| loaded.players.iter().find(|p| p.id == id).cloned().unwrap();
+        let repaired = find("stale");
+        assert_eq!(
+            repaired.ovr, derived,
+            "the stale rating was not re-derived on load"
+        );
+        assert_eq!(repaired.potential, 99, "the ceiling must be kept");
+        assert_eq!(repaired.natural_position, Position::RightWinger);
+        assert_eq!(find("sound").ovr, derived);
+    }
+
+    /// Given a career whose file has settled (loaded once, so every other backfill is already
+    /// written) and whose stored rating is then made stale in the file itself,
+    /// When it is loaded and nothing saves it afterwards,
+    /// Then a second connection finds the corrected rating in the file: the repair is what makes
+    /// the load write itself back.
+    #[test]
+    fn loading_a_save_with_a_stale_rating_writes_the_repair_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let (game, derived) = game_with_a_stale_winger();
+        let mut sm = SaveManager::init(&saves).unwrap();
+        let save_id = sm.create_save(&game, "Career").unwrap();
+        sm.load_game(&save_id).unwrap();
+        let file = fresh_reader(&sm, &save_id);
+        file.execute(
+            "UPDATE players SET ovr = ?1 WHERE id = 'stale'",
+            [i64::from(derived) - 9],
+        )
+        .unwrap();
+        let stored = |file: &rusqlite::Connection| -> i64 {
+            file.query_row("SELECT ovr FROM players WHERE id = 'stale'", [], |row| {
+                row.get(0)
+            })
+            .unwrap()
+        };
+        assert_eq!(
+            stored(&file),
+            i64::from(derived) - 9,
+            "the file must start stale"
+        );
+
+        SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+
+        assert_eq!(stored(&fresh_reader(&sm, &save_id)), i64::from(derived));
+    }
+
     /// Given a saved career whose young prospect has an S-tier ceiling but no wonderkid tag, and
     /// whose other young player carries the tag with a ceiling below the S tier,
     /// When the save is loaded,
@@ -1394,12 +1551,17 @@ mod tests {
         for (n, player) in game.players.iter_mut().take(2).enumerate() {
             player.date_of_birth = born.clone();
             player.traits.retain(|t| *t != PlayerTrait::Wonderkid);
+            // A save whose `ovr` disagrees with its attributes is repaired by the identity
+            // upgrade on load, so the fixture must be consistent for the wonderkid rule to be
+            // tested against the rating it will actually have.
+            let derived = ofm_core::player_rating::natural_ovr(player).round() as u8;
+            player.ovr = derived;
             if n == 0 {
-                player.ovr = 65;
-                player.potential = 85;
+                // S tier with more than the 14 points of headroom the rule requires.
+                player.potential = derived.saturating_add(17).min(99);
             } else {
-                player.ovr = 60;
-                player.potential = 75;
+                // A tier, below the S gate, but still a valid ceiling above his ovr.
+                player.potential = derived.saturating_add(2).min(99);
                 player.traits.push(PlayerTrait::Wonderkid);
             }
         }
@@ -1752,10 +1914,13 @@ mod tests {
     }
 
     /// Given a save whose unplayed matches clash (one club, two matches on consecutive days),
-    /// When it is loaded, Then the clash is repaired, the move is recorded as a postponement, and
-    /// the repair is on disk: it is not recomputed, or lost, on the next load.
+    /// When it is loaded, Then nothing moves (loading restores the saved state);
+    /// When the first day is then started, Then the clash is repaired and the move is recorded as a
+    /// postponement; and
+    /// When the career is saved, Then the repair is on disk: it is not recomputed, or lost, on
+    /// the next load.
     #[test]
-    fn loading_a_save_repairs_clashing_matches_and_persists_them() {
+    fn a_saves_clashing_matches_are_repaired_on_the_first_day_and_persisted_by_the_next_save() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
         let mut sm = SaveManager::init(&saves_dir).unwrap();
@@ -1770,7 +1935,10 @@ mod tests {
         };
         let (first_day, second_day) = (day(30), day(31));
         let competition = game.competitions.first_mut().expect("a league");
-        for (id, date) in [("clash-1", first_day), ("clash-2", second_day)] {
+        for (id, date) in [
+            ("clash-1", first_day.clone()),
+            ("clash-2", second_day.clone()),
+        ] {
             competition.fixtures.push(Fixture {
                 postponement: None,
                 id: id.to_string(),
@@ -1786,7 +1954,7 @@ mod tests {
         }
         let save_id = sm.create_save(&game, "Clashing Career").unwrap();
 
-        let loaded = sm.load_game(&save_id).unwrap();
+        let mut loaded = sm.load_game(&save_id).unwrap();
 
         let dates = |game: &Game| -> Vec<(String, String, bool)> {
             game.competitions
@@ -1802,6 +1970,17 @@ mod tests {
                 })
                 .collect()
         };
+        assert_eq!(
+            dates(&loaded),
+            [
+                ("clash-1".to_string(), first_day, false),
+                ("clash-2".to_string(), second_day, false)
+            ],
+            "the load itself moves nothing"
+        );
+
+        ofm_core::turn::begin_day(&mut loaded);
+
         let in_memory = dates(&loaded);
         let gap = |rows: &[(String, String, bool)]| {
             let parse = |date: &str| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").unwrap();
@@ -1814,7 +1993,8 @@ mod tests {
             "exactly one of the two moved, and is marked: {in_memory:?}"
         );
 
-        // From the file itself, not a second load (which would repair again and prove nothing).
+        sm.save_game(&loaded, &save_id).unwrap();
+        // From the file itself, not a second load.
         let db = GameDatabase::open_save(&saves_dir.join(format!("{save_id}.db"))).unwrap();
         let from_disk = GamePersistenceReader::read_game(&db).unwrap();
         assert_eq!(dates(&from_disk), in_memory);
@@ -2075,10 +2255,16 @@ mod tests {
         );
     }
 
+    /// Given a saved calendar holding two matches that sit inside each other's rest window,
+    /// When the save is loaded,
+    /// Then the load changes nothing: the loaded calendar is the saved one and the file is not
+    ///      rewritten. Loading restores a state; moving a match is progress through time.
+    ///
+    /// When the first day is then started,
+    /// Then the clash is settled — a match is moved later and recorded as postponed — which is the
+    ///      legitimate repair of a save that carries a clash, run when time moves and not before.
     #[test]
-    fn only_the_calendar_repairs_own_resave_flag_writes_a_late_clash_back() {
-        // As above, for the calendar: let the save settle, inject a clash straight into the
-        // database, and let the repair's own flag be the only thing that can persist the move.
+    fn loading_a_save_does_not_move_a_clashing_match_but_the_first_day_does() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
         let mut sm = SaveManager::init(&saves_dir).unwrap();
@@ -2095,11 +2281,15 @@ mod tests {
                 .format("%Y-%m-%d")
                 .to_string()
         };
+        let (first_clash, second_clash) = (day(40), day(41));
         {
             let db = GameDatabase::open_save(&db_path).unwrap();
             let mut competitions = competition_repo::load_competitions(db.conn()).unwrap();
             let competition = competitions.first_mut().expect("a settled competition");
-            for (id, date) in [("late-clash-1", day(40)), ("late-clash-2", day(41))] {
+            for (id, date) in [
+                ("late-clash-1", first_clash.clone()),
+                ("late-clash-2", second_clash.clone()),
+            ] {
                 competition.fixtures.push(Fixture {
                     postponement: None,
                     id: id.to_string(),
@@ -2115,22 +2305,53 @@ mod tests {
             }
             competition_repo::replace_competitions(db.conn(), &competitions).unwrap();
         }
-
-        sm.load_game(&save_id).unwrap();
-
-        let db = GameDatabase::open_save(&db_path).unwrap();
-        let from_disk = competition_repo::load_competitions(db.conn()).unwrap();
-        let persisted: Vec<_> = from_disk
-            .iter()
-            .flat_map(|competition| competition.fixtures.iter())
-            .filter(|fixture| fixture.id.starts_with("late-clash-"))
-            .collect();
-        assert_eq!(persisted.len(), 2);
-        assert!(
-            persisted
+        let dates_of = |game: &Game| -> Vec<(String, String, bool)> {
+            game.competitions
                 .iter()
-                .any(|fixture| fixture.postponement.is_some()),
-            "the repair's own resave flag is what writes the move back"
+                .flat_map(|competition| competition.fixtures.iter())
+                .filter(|fixture| fixture.id.starts_with("late-clash-"))
+                .map(|fixture| {
+                    (
+                        fixture.id.clone(),
+                        fixture.date.clone(),
+                        fixture.postponement.is_some(),
+                    )
+                })
+                .collect()
+        };
+
+        let mut loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(
+            dates_of(&loaded),
+            [
+                ("late-clash-1".to_string(), first_clash.clone(), false),
+                ("late-clash-2".to_string(), second_clash.clone(), false),
+            ],
+            "the load must hand back the saved calendar, clash and all"
+        );
+        let on_disk = GameDatabase::open_save(&db_path).unwrap();
+        let from_disk = competition_repo::load_competitions(on_disk.conn()).unwrap();
+        assert!(
+            from_disk
+                .iter()
+                .flat_map(|competition| competition.fixtures.iter())
+                .filter(|fixture| fixture.id.starts_with("late-clash-"))
+                .all(|fixture| fixture.postponement.is_none()),
+            "and the file is not rewritten by a load"
+        );
+        drop(on_disk);
+
+        ofm_core::turn::begin_day(&mut loaded);
+
+        let settled = dates_of(&loaded);
+        assert!(
+            settled.iter().any(|(_, _, postponed)| *postponed),
+            "the first day settles the clash and records the postponement: {settled:?}"
+        );
+        assert!(
+            settled.iter().all(|(_, date, _)| date >= &first_clash),
+            "a match is only ever moved later"
         );
     }
 
@@ -3100,6 +3321,77 @@ mod tests {
         assert_eq!(loaded.vacant_team_days.get("team-003"), Some(&2));
     }
 
+    /// Given a career whose job-offer clock stands at six days
+    /// When it is saved and loaded through a fresh reader
+    /// Then the clock still reads six, so the next offer arrives on the day it would have.
+    ///
+    /// Found by P4.5, which played a ten-season career and its reload side by side: before
+    /// `game_meta.days_since_last_job_offer` a load restarted the clock and the offers moved.
+    #[test]
+    fn test_save_and_load_roundtrips_days_since_last_job_offer() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game_with_league();
+        game.days_since_last_job_offer = Some(6);
+
+        let save_id = sm.create_save(&game, "Offer Clock").unwrap();
+        let loaded = SaveManager::init(&saves_dir)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+
+        assert_eq!(loaded.days_since_last_job_offer, Some(6));
+    }
+
+    /// Given a job-offer clock that has not started, that is at its first day, and at values past
+    /// any a game reaches (the u32 limits)
+    /// When each is saved and loaded
+    /// Then each reads back exactly, and "not started" stays distinct from "zero days".
+    #[test]
+    fn the_job_offer_clock_round_trips_absent_zero_and_extreme_values() {
+        for clock in [None, Some(0), Some(1), Some(10), Some(11), Some(u32::MAX)] {
+            let dir = tempfile::tempdir().unwrap();
+            let saves_dir = dir.path().join("saves");
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            let mut game = sample_game_with_league();
+            game.days_since_last_job_offer = clock;
+            let save_id = sm.create_save(&game, "Offer Clock").unwrap();
+
+            let loaded = SaveManager::init(&saves_dir)
+                .unwrap()
+                .load_game(&save_id)
+                .unwrap();
+
+            assert_eq!(loaded.days_since_last_job_offer, clock, "clock {clock:?}");
+        }
+    }
+
+    /// Given a career with the clock at four days
+    /// When it is saved, loaded, advanced a day and saved again, five times over
+    /// Then each load returns the clock the previous save held: nothing resets or drifts across
+    /// repeated cycles.
+    #[test]
+    fn the_job_offer_clock_survives_repeated_save_and_load_cycles() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game_with_league();
+        game.days_since_last_job_offer = Some(4);
+        let save_id = sm.create_save(&game, "Offer Clock").unwrap();
+
+        for expected in 4..9 {
+            let mut loaded = SaveManager::init(&saves_dir)
+                .unwrap()
+                .load_game(&save_id)
+                .unwrap();
+            assert_eq!(loaded.days_since_last_job_offer, Some(expected));
+            loaded.days_since_last_job_offer = Some(expected + 1);
+            sm.save_game(&loaded, &save_id).unwrap();
+        }
+    }
+
     #[test]
     fn test_save_and_load_stats_state_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
@@ -3168,91 +3460,244 @@ mod tests {
         assert!(loaded_stats.team_matches.is_empty());
     }
 
+    /// Reads the eleven straight out of the `.db`, so a test sees what was written, not what a
+    /// load repaired.
+    fn stored_starting_xi(saves_dir: &std::path::Path, save_id: &str) -> Vec<String> {
+        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
+        let json: String = db
+            .conn()
+            .query_row(
+                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
+                params!["team-001"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        serde_json::from_str(&json).unwrap()
+    }
+
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|id| id.to_string()).collect()
+    }
+
+    const INVERTED_FULL_BACKS_442: [&str; 11] = [
+        "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
+    ];
+    const NATURAL_SIDES_442: [&str; 11] = [
+        "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2",
+    ];
+
+    /// Given a manager who deliberately plays a left-back on the right and a right-back on the
+    /// left (and the same on the wide midfield), when the career is saved, then the file holds
+    /// that order exactly. The swap is a repair for old saves, not a rule about who may play where.
     #[test]
-    fn test_create_save_canonicalizes_mirrored_starting_xi_order_on_write() {
+    fn test_create_save_keeps_a_deliberately_inverted_full_back_pair() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
-
         let mut sm = SaveManager::init(&saves_dir).unwrap();
         let game = sample_game_with_side_specific_starting_xi(true);
 
-        let save_id = sm.create_save(&game, "Mirrored XI Career").unwrap();
-        let db_path = saves_dir.join(format!("{}.db", save_id));
-        let db = GameDatabase::open(&db_path).unwrap();
-        let starting_xi_json: String = db
-            .conn()
-            .query_row(
-                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
-                params!["team-001"],
-                |row| row.get(0),
-            )
-            .unwrap();
-        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+        let save_id = sm.create_save(&game, "Inverted Backs").unwrap();
 
         assert_eq!(
-            starting_xi_ids,
-            vec![
-                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
-            ]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>()
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
         );
     }
 
+    /// Given an inverted pair already in a save, when the career is saved again over the same
+    /// save, then the order is still the manager's.
     #[test]
-    fn test_load_game_repairs_existing_mirrored_starting_xi_order() {
+    fn test_save_game_keeps_a_deliberately_inverted_pair_when_overwriting() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
-
         let mut sm = SaveManager::init(&saves_dir).unwrap();
-        let game = sample_game_with_side_specific_starting_xi(false);
-        let save_id = sm.create_save(&game, "Repair XI Career").unwrap();
-        let db_path = saves_dir.join(format!("{}.db", save_id));
+        let natural = sample_game_with_side_specific_starting_xi(false);
+        let save_id = sm.create_save(&natural, "Overwrite").unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
 
-        {
-            let db = GameDatabase::open(&db_path).unwrap();
-            let mirrored_xi_json = serde_json::to_string(&vec![
-                "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
-            ])
-            .unwrap();
-            db.conn()
-                .execute(
-                    "UPDATE teams SET starting_xi_ids = ?1 WHERE id = ?2",
-                    params![mirrored_xi_json, "team-001"],
-                )
-                .unwrap();
-        }
+        sm.save_game(&inverted, &save_id).unwrap();
 
-        let loaded = sm.load_game(&save_id).unwrap();
-        let team = loaded
-            .teams
-            .iter()
-            .find(|team| team.id == "team-001")
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    /// Given the new-game save path (the one that also stores statistics), when a career with an
+    /// inverted full-back pair is saved, then the file holds the manager's order.
+    #[test]
+    fn test_create_save_with_stats_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_side_specific_starting_xi(true);
+
+        let save_id = sm
+            .create_save_with_stats(&game, &StatsState::default(), "Inverted With Stats")
             .unwrap();
 
         assert_eq!(
-            team.starting_xi_ids,
-            vec![
-                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
-            ]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>()
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
         );
+    }
 
-        let db = GameDatabase::open(&db_path).unwrap();
-        let starting_xi_json: String = db
-            .conn()
-            .query_row(
-                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
-                params!["team-001"],
-                |row| row.get(0),
+    /// Given the in-game save button's path (`save_game_with_stats`, which `persist_active_game`
+    /// calls), when it overwrites a save with an inverted pair, then the file holds the manager's
+    /// order.
+    #[test]
+    fn test_save_game_with_stats_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(&sample_game_with_side_specific_starting_xi(false), "Button")
+            .unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
+
+        sm.save_game_with_stats(&inverted, &StatsState::default(), &save_id)
+            .unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    /// Given a save written mid-match (`save_game_with_stats_and_match`), when the career has an
+    /// inverted pair, then the file holds the manager's order.
+    #[test]
+    fn test_save_game_with_stats_and_match_keeps_a_deliberately_inverted_pair() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Mid match",
             )
             .unwrap();
-        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+        let inverted = sample_game_with_side_specific_starting_xi(true);
 
-        assert_eq!(starting_xi_ids, team.starting_xi_ids);
+        sm.save_game_with_stats_and_match(&inverted, &StatsState::default(), &save_id, None)
+            .unwrap();
+
+        assert_eq!(
+            stored_starting_xi(&saves_dir, &save_id),
+            ids(&INVERTED_FULL_BACKS_442)
+        );
+    }
+
+    fn put_stored_starting_xi(saves_dir: &std::path::Path, save_id: &str, xi: &[&str]) {
+        let db = GameDatabase::open(&saves_dir.join(format!("{save_id}.db"))).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE teams SET starting_xi_ids = ?1 WHERE id = ?2",
+                params![serde_json::to_string(&xi).unwrap(), "team-001"],
+            )
+            .unwrap();
+    }
+
+    fn loaded_starting_xi(sm: &mut SaveManager, save_id: &str) -> Vec<String> {
+        sm.load_game(save_id)
+            .unwrap()
+            .teams
+            .into_iter()
+            .find(|team| team.id == "team-001")
+            .unwrap()
+            .starting_xi_ids
+    }
+
+    /// Given a save from before format 9 whose eleven has its mirrored side pairs the wrong way
+    /// round (the state the repair was written for), when it is loaded, then the pairs are put
+    /// right and the repaired order is written back.
+    #[test]
+    fn test_load_game_repairs_mirrored_starting_xi_order_in_a_pre_format_9_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Old Repair XI Career",
+            )
+            .unwrap();
+        put_stored_starting_xi(&saves_dir, &save_id, &INVERTED_FULL_BACKS_442);
+        stamp_format(&sm, &save_id, 8);
+
+        let loaded = loaded_starting_xi(&mut sm, &save_id);
+
+        assert_eq!(loaded, ids(&NATURAL_SIDES_442));
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), loaded);
+    }
+
+    /// Given a current-format save in which the manager chose an inverted full-back pair, when it
+    /// is loaded, then the order is untouched in memory and on disk.
+    #[test]
+    fn test_load_game_keeps_an_inverted_starting_xi_in_a_current_format_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(true),
+                "Inverted On Load",
+            )
+            .unwrap();
+
+        let loaded = loaded_starting_xi(&mut sm, &save_id);
+
+        assert_eq!(loaded, ids(&INVERTED_FULL_BACKS_442));
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), loaded);
+    }
+
+    /// Given a lineup the manager built the ordinary way, when it is saved and loaded, then it
+    /// comes back identical.
+    #[test]
+    fn test_a_naturally_sided_starting_xi_round_trips_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm
+            .create_save(
+                &sample_game_with_side_specific_starting_xi(false),
+                "Natural Sides",
+            )
+            .unwrap();
+
+        assert_eq!(
+            loaded_starting_xi(&mut sm, &save_id),
+            ids(&NATURAL_SIDES_442)
+        );
+    }
+
+    /// Given inverted wingers in a 4-3-3 (a left winger on the right flank and the reverse), when
+    /// the career is saved, quit, and loaded by a fresh save manager, then the wingers are where
+    /// the manager put them.
+    #[test]
+    fn test_inverted_wingers_survive_save_quit_and_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let inverted_433 = [
+            "gk", "lb", "cb1", "cb2", "rb", "cm1", "cm2", "cm3", "rw", "st1", "lw",
+        ];
+        let save_id = {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            let mut game = sample_game_with_inverted_wingers();
+            game.teams[0].starting_xi_ids = ids(&inverted_433);
+            let save_id = sm.create_save(&game, "Inverted Wingers").unwrap();
+            // A second write over the same save, as the in-game save button does.
+            sm.save_game(&game, &save_id).unwrap();
+            save_id
+        };
+
+        let mut reopened = SaveManager::init(&saves_dir).unwrap();
+
+        assert_eq!(
+            loaded_starting_xi(&mut reopened, &save_id),
+            ids(&inverted_433)
+        );
+        assert_eq!(stored_starting_xi(&saves_dir, &save_id), ids(&inverted_433));
     }
 
     /// Given a save whose every other repair has already been written back,
@@ -3615,6 +4060,28 @@ mod tests {
         let fresh = sm.new_game_from_save(&save_id).unwrap();
 
         assert!(fresh.scouted_players.is_empty());
+    }
+
+    /// Given a source career whose job-offer clock stands at seven days
+    /// When a new career is started from that save
+    /// Then its clock is not running: the new game's first offer follows a fresh game's schedule,
+    /// not the old career's.
+    #[test]
+    fn a_new_career_from_a_save_does_not_inherit_the_job_offer_clock() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut sm = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        game.days_since_last_job_offer = Some(7);
+        let save_id = sm.create_save(&game, "Source Save").unwrap();
+        assert_eq!(
+            sm.load_game(&save_id).unwrap().days_since_last_job_offer,
+            Some(7),
+            "the fixture must reach the new-career path with a clock running"
+        );
+
+        let new_game = sm.new_game_from_save(&save_id).unwrap();
+
+        assert_eq!(new_game.days_since_last_job_offer, None);
     }
 
     #[test]
@@ -4020,6 +4487,83 @@ mod tests {
         );
     }
 
+    /// Given a career owing an unpaid instalment, a paid one and a live sell-on clause, and an
+    /// offer carrying non-default terms,
+    /// When it is saved, loaded, and saved and loaded again,
+    /// Then every obligation and the offer's terms survive both trips unchanged.
+    #[test]
+    fn transfer_obligations_and_offer_terms_survive_save_and_load() {
+        use domain::transfer_terms::{TransferObligation, TransferTerms};
+        let dir = tempfile::tempdir().unwrap();
+        let mut manager = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        game.transfer_obligations = vec![
+            TransferObligation::Instalment {
+                id: "i-1".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2027-08-01".to_string(),
+                number: 2,
+                of: 3,
+                paid_on: None,
+            },
+            TransferObligation::Instalment {
+                id: "i-0".to_string(),
+                player_id: "p1".to_string(),
+                payer_team_id: "team-a".to_string(),
+                payee_team_id: "team-b".to_string(),
+                amount: 1_000_000,
+                due: "2026-08-01".to_string(),
+                number: 1,
+                of: 3,
+                paid_on: Some("2026-08-01".to_string()),
+            },
+            TransferObligation::SellOn {
+                id: "s-1".to_string(),
+                player_id: "p1".to_string(),
+                holder_team_id: "team-a".to_string(),
+                beneficiary_team_id: "team-b".to_string(),
+                pct: 20,
+                settled_on: None,
+            },
+        ];
+        let mut offer = domain::player::TransferOffer {
+            id: "o-1".to_string(),
+            from_team_id: "team-a".to_string(),
+            fee: 3_000_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: domain::player::TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-07-01".to_string()),
+            registration_failure_reason: None,
+            closed_on: None,
+            terms: TransferTerms::default(),
+        };
+        offer.terms = TransferTerms {
+            instalments: 3,
+            sell_on_pct: 20,
+            signing_bonus: 250_000,
+            promise_stepping_stone: true,
+            player_weekly_wage: 45_000,
+            player_contract_years: 4,
+        };
+        game.players[0].transfer_offers.push(offer.clone());
+        let id = manager.create_save(&game, "Terms").unwrap();
+
+        let loaded = manager.load_game(&id).unwrap();
+        assert_eq!(loaded.transfer_obligations, game.transfer_obligations);
+        assert_eq!(loaded.players[0].transfer_offers[0].terms, offer.terms);
+
+        manager.save_game(&loaded, &id).unwrap();
+        let reloaded = manager.load_game(&id).unwrap();
+        assert_eq!(reloaded.transfer_obligations, game.transfer_obligations);
+    }
+
     /// Given a saved archive, when the career is loaded, then every field of every record survives.
     #[test]
     fn the_retired_archive_survives_save_and_load() {
@@ -4309,6 +4853,11 @@ mod tests {
             description: "d".to_string(),
             formation: "4-4-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-4-1".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings {
+                width: domain::team::PitchWidth::Wide,
+                ..domain::team::TacticsPhaseSettings::default()
+            }),
             source_preset_name: Some("Counter".to_string()),
         };
         game.custom_tactics = vec![
@@ -4345,6 +4894,8 @@ mod tests {
             description: String::new(),
             formation: "3-5-2".to_string(),
             play_style: "Counter".to_string(),
+            out_of_possession_formation: "5-3-2".to_string(),
+            tactics_phase: Some(domain::team::TacticsPhaseSettings::default()),
             source_preset_name: None,
         }];
         let id = manager.create_save(&game, "Source").unwrap();

@@ -41,12 +41,12 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
         "INSERT OR REPLACE INTO teams
          (id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
           finance, manager_id, reputation, wage_budget, transfer_budget,
-         season_income, season_expenses, formation, play_style,
+         season_income, season_expenses, formation, out_of_possession_formation, play_style,
          training_focus, training_intensity, training_schedule,
          founded_year, colors_primary, colors_secondary,
          starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities, media_json, kit_pattern,
          player_roles_json, tactics_phase_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36)",
         params![
             t.id,
             t.name,
@@ -64,6 +64,7 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
             t.season_income,
             t.season_expenses,
             t.formation,
+            t.out_of_possession_formation,
             play_style_str,
             training_focus_str,
             training_intensity_str,
@@ -136,22 +137,22 @@ fn parse_training_schedule(s: &str) -> TrainingSchedule {
 }
 
 fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
-    let starting_xi_json: String = row.get(23)?;
-    let match_roles_json: String = row.get(24)?;
-    let form_json: String = row.get(25)?;
-    let history_json: String = row.get(26)?;
-    let training_groups_json: String = row.get(27)?;
-    let financial_ledger_json: String = row.get(28)?;
-    let sponsorship_json: String = row.get(29)?;
-    let facilities_json: String = row.get(30)?;
-    let play_style_str: String = row.get(16)?;
-    let training_focus_str: String = row.get(17)?;
-    let training_intensity_str: String = row.get(18)?;
-    let training_schedule_str: String = row.get(19)?;
-    let media_json: String = row.get(31).unwrap_or_else(|_| "{}".to_string());
-    let kit_pattern_str: String = row.get::<_, String>(32)?;
-    let player_roles_json: String = row.get(33).unwrap_or_else(|_| "{}".to_string());
-    let tactics_phase_json: String = row.get(34).unwrap_or_else(|_| "{}".to_string());
+    let starting_xi_json: String = row.get(24)?;
+    let match_roles_json: String = row.get(25)?;
+    let form_json: String = row.get(26)?;
+    let history_json: String = row.get(27)?;
+    let training_groups_json: String = row.get(28)?;
+    let financial_ledger_json: String = row.get(29)?;
+    let sponsorship_json: String = row.get(30)?;
+    let facilities_json: String = row.get(31)?;
+    let play_style_str: String = row.get(17)?;
+    let training_focus_str: String = row.get(18)?;
+    let training_intensity_str: String = row.get(19)?;
+    let training_schedule_str: String = row.get(20)?;
+    let media_json: String = row.get(32).unwrap_or_else(|_| "{}".to_string());
+    let kit_pattern_str: String = row.get::<_, String>(33)?;
+    let player_roles_json: String = row.get(34).unwrap_or_else(|_| "{}".to_string());
+    let tactics_phase_json: String = row.get(35).unwrap_or_else(|_| "{}".to_string());
 
     Ok(Team {
         id: row.get(0)?,
@@ -175,19 +176,20 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
             .unwrap_or_default(),
         facilities: serde_json::from_str::<Facilities>(&facilities_json).unwrap_or_default(),
         formation: row.get(15)?,
+        out_of_possession_formation: row.get(16).unwrap_or_default(),
         play_style: parse_play_style(&play_style_str),
         training_focus: parse_training_focus(&training_focus_str),
         training_intensity: parse_training_intensity(&training_intensity_str),
         training_schedule: parse_training_schedule(&training_schedule_str),
         training_groups: serde_json::from_str(&training_groups_json).unwrap_or_default(),
-        founded_year: row.get(20)?,
+        founded_year: row.get(21)?,
         colors: TeamColors {
-            primary: row.get(21)?,
-            secondary: row.get(22)?,
+            primary: row.get(22)?,
+            secondary: row.get(23)?,
         },
         kit_pattern: kit_pattern_str.parse().map_err(|_| {
             rusqlite::Error::FromSqlConversionFailure(
-                32,
+                33,
                 rusqlite::types::Type::Text,
                 Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -256,7 +258,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
         .prepare(
             "SELECT id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
                     finance, manager_id, reputation, wage_budget, transfer_budget,
-                    season_income, season_expenses, formation, play_style,
+                    season_income, season_expenses, formation, COALESCE(out_of_possession_formation, ''), play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
                     starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities,
@@ -283,7 +285,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
         .prepare(
             "SELECT id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
                     finance, manager_id, reputation, wage_budget, transfer_budget,
-                    season_income, season_expenses, formation, play_style,
+                    season_income, season_expenses, formation, COALESCE(out_of_possession_formation, ''), play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
                     starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities,
@@ -498,6 +500,7 @@ mod tests {
         team.history.push(TeamSeasonRecord {
             season: 2025,
             league_position: 3,
+            tier: Some(1),
             played: 30,
             won: 18,
             drawn: 7,
@@ -505,13 +508,33 @@ mod tests {
             goals_for: 55,
             goals_against: 30,
         });
+        team.history.push(TeamSeasonRecord {
+            season: 2024,
+            league_position: 9,
+            tier: None,
+            played: 30,
+            won: 8,
+            drawn: 7,
+            lost: 15,
+            goals_for: 30,
+            goals_against: 45,
+        });
 
         upsert_team(db.conn(), &team).unwrap();
         let loaded = load_team(db.conn(), "team-001").unwrap().unwrap();
 
-        assert_eq!(loaded.history.len(), 1);
+        assert_eq!(loaded.history.len(), 2);
         assert_eq!(loaded.history[0].season, 2025);
         assert_eq!(loaded.history[0].league_position, 3);
+        assert_eq!(
+            loaded.history[0].tier,
+            Some(1),
+            "the division a finish was earned in is kept"
+        );
+        assert_eq!(
+            loaded.history[1].tier, None,
+            "a record without one stays without one"
+        );
     }
 
     #[test]
@@ -674,6 +697,23 @@ mod tests {
             loaded.tactics_phase.pressing_intensity,
             PressingIntensity::Aggressive
         );
+    }
+
+    /// Given a separately configured defensive shape
+    /// When the club is written and read through a fresh repository query
+    /// Then the non-default shape survives alongside the in-possession formation.
+    #[test]
+    fn out_of_possession_formation_survives_roundtrip() {
+        let db = test_db();
+        let mut team = sample_team("team-001", "Shape FC");
+        team.formation = "4-3-3".into();
+        team.out_of_possession_formation = "5-4-1".into();
+
+        upsert_team(db.conn(), &team).unwrap();
+        let loaded = load_team(db.conn(), "team-001").unwrap().unwrap();
+
+        assert_eq!(loaded.formation, "4-3-3");
+        assert_eq!(loaded.out_of_possession_formation, "5-4-1");
     }
 
     #[test]

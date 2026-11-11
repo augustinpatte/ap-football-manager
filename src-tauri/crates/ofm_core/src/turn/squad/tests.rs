@@ -200,6 +200,147 @@ fn an_exhausted_starter_is_not_replaced_by_a_hopeless_deputy() {
     );
 }
 
+/// Given a middling manager and a first eleven at 48 % condition (tired, but not yet "exhausted"),
+/// when a deputy 13 points worse and fully fresh is available, then the deputy starts: the more
+/// tired a starter is, the bigger the drop the manager accepts to rest him. A flat tolerance of
+/// nine points let a star at 48 % kick off whenever the nearest fresh player was ten worse, which
+/// is how 1-4 % of AI starters began a match under half fit (F5.0 §8).
+#[test]
+fn a_deeply_tired_star_is_rested_for_a_decent_deputy() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 48));
+    }
+    squad.push(mk("deputy", 67, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().any(|p| p.id == "deputy"),
+        "a star at 48 % should make way for a deputy 13 points worse: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// Given a first eleven at 30 % condition (a risk of injury, not merely of a poor game) and the only
+/// deputy 25 points worse and 55 % fit, which is under the usual floor for a deputy
+/// When the AI picks its side
+/// Then the deputy starts: a starter this spent is too likely to be hurt, and a manager accepts a
+/// bigger drop and a less fresh deputy to avoid it.
+#[test]
+fn a_starter_at_risk_of_injury_is_rested_for_a_deputy_who_is_not_fresh_either() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 30));
+    }
+    squad.push(mk("deputy", 55, 55));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().any(|p| p.id == "deputy"),
+        "a star at 30 % should make way for a 55 % deputy: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// The boundary pair for the test above, one point either side of the band's edge (40 %): the same
+/// deputy (55 %, under the usual floor of 60) is fielded for a star at 39 % and not for one at 41 %.
+/// The star at 41 is tired but not at risk: it is the condition of the starter that opens the band,
+/// not a manager who rotates everyone.
+#[test]
+fn the_injury_risk_band_opens_exactly_below_forty_percent() {
+    let deputy_starts = |star_condition: u8| {
+        let mut squad = Vec::new();
+        for i in 0..11 {
+            squad.push(mk(&format!("star{i}"), 80, star_condition));
+        }
+        squad.push(mk("deputy", 55, 55));
+        let refs: Vec<&Player> = squad.iter().collect();
+        let xi = ai_select_starting_xi(
+            &refs,
+            "4-4-2",
+            management_quality(600),
+            1,
+            FixtureLoad::Normal,
+        );
+        xi.iter().any(|p| p.id == "deputy")
+    };
+    assert!(deputy_starts(39), "a star at 39 % is at risk of injury");
+    assert!(!deputy_starts(41), "a star at 41 % is tired, not at risk");
+}
+
+/// The control for the test above: the same deputy and the same manager, but the stars are only a
+/// little tired (58 %, just under the 62.5 this manager rests at). The graded part of the tolerance
+/// is then nearly nothing and the stars play on. Without this the previous test would pass for a
+/// manager who rotates everyone.
+#[test]
+fn a_slightly_tired_star_still_plays_against_the_same_deputy() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 58));
+    }
+    squad.push(mk("deputy", 67, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(600),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().all(|p| p.id.starts_with("star")),
+        "a star at 58 % is not worth a 13-point drop: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
+/// However tired, a star is not replaced by someone more than twenty points worse: the graded
+/// tolerance is capped. The elite manager is the one the cap binds on (his uncapped tolerance at
+/// 46 % is 12 + 0.4 x 29 = 23.6), so a deputy 22 points worse is the discriminating case: an
+/// uncapped tolerance would field him, the cap leaves the star in. Without the cap a manager's
+/// concern for the match would be traded away for a rest.
+#[test]
+fn the_graded_tolerance_is_capped() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 46));
+    }
+    squad.push(mk("scrub", 58, 100)); // 22 points worse
+    let refs: Vec<&Player> = squad.iter().collect();
+
+    let xi = ai_select_starting_xi(
+        &refs,
+        "4-4-2",
+        management_quality(900),
+        1,
+        FixtureLoad::Normal,
+    );
+
+    assert!(
+        xi.iter().all(|p| p.id != "scrub"),
+        "a deputy 22 points worse must not start: {:?}",
+        xi.iter().map(|p| &p.id).collect::<Vec<_>>()
+    );
+}
+
 /// Quality is judgement, not willingness. Given two deputies of nearly equal
 /// standard, an elite manager always identifies the better one; a poor manager
 /// gets it wrong some of the time. Fixed seeds, so this is deterministic.
@@ -833,4 +974,551 @@ fn a_team_built_from_the_clubs_players_is_the_team_built_by_scanning() {
             auto_select_set_pieces(&game, &starters)
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// The first-choice eleven is the side that is best as a whole, not the one the slot walk reaches
+// ---------------------------------------------------------------------------
+
+mod first_choice_is_the_best_side {
+    use super::*;
+    use crate::player_rating::{formation_slots, positional_fit_for_assignment};
+    use crate::squad_intelligence::test_squads::player as specialist;
+
+    const FORMATION: &str = "4-2-3-1";
+
+    /// One specialist of 70 for every slot of the formation, so that nothing else is in doubt.
+    fn first_eleven() -> Vec<Player> {
+        formation_slots(FORMATION)
+            .into_iter()
+            .enumerate()
+            .map(|(slot, position)| specialist(&format!("starter{slot:02}"), position, 70, 27))
+            .collect()
+    }
+
+    /// A striker of 88 who is also the best attacking midfielder in the squad, an attacking
+    /// midfielder of 66, and a second striker of 62.
+    fn trap() -> Vec<Player> {
+        let mut squad: Vec<Player> = first_eleven()
+            .into_iter()
+            .filter(|player| {
+                player.natural_position != DomainPos::Striker
+                    && player.natural_position != DomainPos::AttackingMidfielder
+            })
+            .collect();
+        squad.push(specialist("star", DomainPos::Striker, 88, 27));
+        squad.push(specialist(
+            "playmaker",
+            DomainPos::AttackingMidfielder,
+            66,
+            27,
+        ));
+        squad.push(specialist("reserve", DomainPos::Striker, 62, 27));
+        squad
+    }
+
+    fn side(squad: &[Player]) -> Vec<(&str, DomainPos)> {
+        let refs: Vec<&Player> = squad.iter().collect();
+        first_choice_eleven(&refs, FORMATION)
+            .into_iter()
+            .zip(formation_slots(FORMATION))
+            .map(|(player, slot)| (player.id.as_str(), slot))
+            .collect()
+    }
+
+    fn total(squad: &[Player], eleven: &[(&str, DomainPos)]) -> f64 {
+        eleven
+            .iter()
+            .map(|(id, slot)| {
+                let player = squad.iter().find(|p| p.id == *id).expect("a squad member");
+                positional_fit_for_assignment(player, slot)
+            })
+            .sum()
+    }
+
+    /// Given a striker of 88 who is also the squad's best player at several earlier slots, and a
+    /// weaker second striker
+    /// When the first-choice eleven is picked for a 4-2-3-1 (the slot walk reaches left back long
+    /// before the forward line, and spends him there)
+    /// Then the striker plays up front and the attacking midfielder plays his own slot, because
+    /// that is the side with the greater total.
+    #[test]
+    fn a_striker_is_not_spent_on_the_slot_that_is_filled_before_his_own() {
+        let squad = trap();
+        let eleven = side(&squad);
+        let striker_slot = eleven
+            .iter()
+            .find(|(id, _)| *id == "star")
+            .map(|(_, s)| s.clone());
+        assert_eq!(striker_slot, Some(DomainPos::Striker), "{eleven:?}");
+        assert!(
+            eleven.iter().any(|(id, _)| *id == "playmaker"),
+            "{eleven:?}"
+        );
+        assert!(!eleven.iter().any(|(id, _)| *id == "reserve"), "{eleven:?}");
+    }
+
+    /// Given the same squad
+    /// When it is handed over in any storage order
+    /// Then the same eleven is named in the same slots (ties never depend on the order stored).
+    #[test]
+    fn the_side_does_not_depend_on_the_order_the_squad_is_stored_in() {
+        let mut squad = trap();
+        // Two players rated identically in every slot, so the only thing left to decide between
+        // them is their ids.
+        let mut twin = squad
+            .iter()
+            .find(|player| player.id == "starter07")
+            .expect("a starter")
+            .clone();
+        twin.id = "starter07b".to_string();
+        squad.push(twin);
+        let forward = side(&squad);
+        let mut reversed = squad.clone();
+        reversed.reverse();
+        assert_eq!(forward, side(&reversed));
+    }
+
+    /// Given a keeper who rates far below every outfielder in goal, and a spare outfielder
+    /// When the eleven is picked
+    /// Then the natural keeper still plays in goal: a keeper is not an optimisation variable.
+    #[test]
+    fn a_natural_keeper_plays_in_goal_however_the_outfielders_rate_there() {
+        let mut squad = first_eleven();
+        let keeper = squad
+            .iter_mut()
+            .find(|player| player.natural_position == DomainPos::Goalkeeper)
+            .expect("a keeper");
+        keeper.attributes = attrs(5);
+        let keeper_id = keeper.id.clone();
+        squad.push(specialist("spare", DomainPos::DefensiveMidfielder, 70, 27));
+        let eleven = side(&squad);
+        assert_eq!(eleven[0].0, keeper_id);
+    }
+
+    /// Given the trap squad
+    /// When the side is compared with every exchange of two slots' occupants
+    /// Then none gives a greater total (a local-optimality check; the trap test is what fails on
+    /// the slot walk).
+    #[test]
+    fn no_exchange_of_two_slots_improves_the_side() {
+        let squad = trap();
+        let eleven = side(&squad);
+        let base = total(&squad, &eleven);
+        for first in 0..eleven.len() {
+            for second in first + 1..eleven.len() {
+                let mut swapped = eleven.clone();
+                let (a, b) = (swapped[first].0, swapped[second].0);
+                swapped[first].0 = b;
+                swapped[second].0 = a;
+                assert!(
+                    total(&squad, &swapped) <= base + 1e-9,
+                    "swapping slots {first} and {second} improves the side"
+                );
+            }
+        }
+    }
+
+    /// Given fewer healthy players than the formation has slots
+    /// When the eleven is picked
+    /// Then the players there are, in slot order, are all named: the short side is still a prefix
+    /// the kick-off completes from the treatment room.
+    #[test]
+    fn a_short_squad_is_named_in_slot_order() {
+        let squad: Vec<Player> = first_eleven().into_iter().take(9).collect();
+        let refs: Vec<&Player> = squad.iter().collect();
+        let eleven = first_choice_eleven(&refs, FORMATION);
+        assert_eq!(eleven.len(), 9);
+        // The slot walk names the best remaining player for slot 0, then slot 1, and so on: the
+        // keeper first, then the left back.
+        assert_eq!(eleven[0].id, "starter00");
+        assert_eq!(eleven[1].id, "starter01");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Managers rotate differently
+// ---------------------------------------------------------------------------
+
+fn mildly_tired_stars_with_a_fresh_deputy() -> Vec<Player> {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 58));
+    }
+    squad.push(mk("deputy", 72, 100));
+    squad
+}
+
+fn deputies_in(xi: &[&Player]) -> usize {
+    xi.iter().filter(|player| player.id == "deputy").count()
+}
+
+/// Given the same club, the same mildly tired eleven and the same fresh deputy
+/// When a manager who rotates readily and one who rarely does pick the side
+/// Then the first rests a starter and the second rides the tired eleven.
+#[test]
+fn a_manager_who_rotates_readily_rests_a_player_that_one_who_rarely_does_keeps() {
+    let squad = mildly_tired_stars_with_a_fresh_deputy();
+    let refs: Vec<&Player> = squad.iter().collect();
+    let pick = |rotation: f64| {
+        deputies_in(&ai_select_starting_xi_by(
+            &refs,
+            "4-4-2",
+            0.5,
+            1,
+            FixtureLoad::Normal,
+            rotation,
+            0.5,
+        ))
+    };
+    assert_eq!(pick(1.0), 1, "the rotating manager rode a tired eleven");
+    assert_eq!(
+        pick(0.0),
+        0,
+        "the manager who rarely rotates rested a player"
+    );
+}
+
+/// Given a mildly tired eleven either side of the neutral manager's rest line, 50 + 25 x quality
+/// When the neutral manager picks the side at quality one half (a line of 62.5)
+/// Then he rests a starter at 62 and rides one at 63: the line the club had before managers had an
+/// identity, pinned to its number rather than compared with a function that delegates to it.
+#[test]
+fn the_neutral_manager_rests_a_player_at_exactly_the_old_line() {
+    let at = |condition: u8| {
+        let mut squad = Vec::new();
+        for i in 0..11 {
+            squad.push(mk(&format!("star{i}"), 80, condition));
+        }
+        squad.push(mk("deputy", 72, 100));
+        squad
+    };
+    for neutral in [true, false] {
+        let rested = |condition: u8| {
+            let squad = at(condition);
+            let refs: Vec<&Player> = squad.iter().collect();
+            let xi = if neutral {
+                ai_select_starting_xi(&refs, "4-4-2", 0.5, 1, FixtureLoad::Normal)
+            } else {
+                ai_select_starting_xi_by(&refs, "4-4-2", 0.5, 1, FixtureLoad::Normal, 0.5, 0.5)
+            };
+            deputies_in(&xi) == 1
+        };
+        assert!(
+            rested(62),
+            "a starter at 62 should be rested (neutral {neutral})"
+        );
+        assert!(
+            !rested(63),
+            "a starter at 63 should be ridden (neutral {neutral})"
+        );
+    }
+}
+
+/// Given a congested run, quality zero, and starters at 87 or 85 against a deputy at 100
+/// When a manager who rarely rotates and the neutral manager pick the side
+/// Then at 87 the first rides his starters (his line is 86, half the 8-point range under 90) and the
+/// neutral manager rests them (90), and at 85 the first rests too: congestion halves the
+/// disposition, it neither doubles it nor drops it.
+#[test]
+fn on_a_congested_run_a_disposition_moves_the_line_by_half_as_much() {
+    let pick = |condition: u8, rotation: f64| {
+        let mut squad = Vec::new();
+        for i in 0..11 {
+            squad.push(mk(&format!("star{i}"), 80, condition));
+        }
+        squad.push(mk("deputy", 72, 100));
+        let refs: Vec<&Player> = squad.iter().collect();
+        deputies_in(&ai_select_starting_xi_by(
+            &refs,
+            "4-4-2",
+            0.0,
+            1,
+            FixtureLoad::Congested,
+            rotation,
+            0.5,
+        ))
+    };
+    assert_eq!(pick(87, 0.0), 0);
+    assert_eq!(pick(87, 0.5), 1);
+    assert_eq!(pick(85, 0.0), 1);
+}
+
+/// Given one tired starter and two adequate fresh deputies, a veteran a little better and a
+/// prospect a little worse with room to grow
+/// When a manager who trusts youth, a sceptic and the neutral manager rest the starter
+/// Then the believer gives the shirt to the prospect and the other two to the veteran, so trust
+/// chooses among adequate deputies and never fields one who is not.
+#[test]
+fn a_manager_who_trusts_youth_gives_the_rested_starters_shirt_to_the_prospect() {
+    let mut squad = Vec::new();
+    for i in 0..10 {
+        squad.push(mk(&format!("star{i}"), 80, 100));
+    }
+    squad.push(mk("tired-star", 80, 58));
+    let mut veteran = mk("veteran", 74, 100);
+    veteran.ovr = 74;
+    veteran.potential = 74;
+    let mut prospect = mk("prospect", 71, 100);
+    prospect.ovr = 71;
+    prospect.potential = 86;
+    squad.push(veteran);
+    squad.push(prospect);
+    let refs: Vec<&Player> = squad.iter().collect();
+    let deputy = |trust: f64| {
+        // Elite quality and a manager who rotates readily: the choice is the only variable.
+        let xi = ai_select_starting_xi_by(&refs, "4-4-2", 1.0, 1, FixtureLoad::Normal, 1.0, trust);
+        xi.iter()
+            .find(|player| player.id == "veteran" || player.id == "prospect")
+            .map(|player| player.id.clone())
+            .expect("the tired starter was rested")
+    };
+    assert_eq!(deputy(1.0), "prospect", "the believer chose the veteran");
+    assert_eq!(
+        deputy(0.5),
+        "veteran",
+        "the neutral manager chose the prospect"
+    );
+    assert_eq!(deputy(0.0), "veteran", "the sceptic chose the prospect");
+}
+
+/// Given one tired starter and a prospect with enormous potential who is far below the standard,
+/// with a veteran who is adequate
+/// When a manager who trusts youth completely rests the starter
+/// Then he still gives the shirt to the veteran: trust chooses among adequate deputies and never
+/// fields one who is not.
+#[test]
+fn trust_in_youth_never_fields_a_deputy_who_is_not_adequate() {
+    let mut squad = Vec::new();
+    for i in 0..10 {
+        squad.push(mk(&format!("star{i}"), 80, 100));
+    }
+    squad.push(mk("tired-star", 80, 58));
+    let mut veteran = mk("veteran", 74, 100);
+    veteran.ovr = 74;
+    veteran.potential = 74;
+    let mut raw = mk("raw-prospect", 40, 100);
+    raw.ovr = 40;
+    raw.potential = 99;
+    squad.push(veteran);
+    squad.push(raw);
+    let refs: Vec<&Player> = squad.iter().collect();
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 1.0, 1, FixtureLoad::Normal, 1.0, 1.0);
+    assert!(xi.iter().any(|player| player.id == "veteran"));
+    assert!(!xi.iter().any(|player| player.id == "raw-prospect"));
+}
+
+mod wired_to_the_clubs_own_manager {
+    use super::*;
+    use crate::clock::GameClock;
+    use crate::manager_identity::ManagerIdentity;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::team::Team;
+
+    fn manager_like(wanted: impl Fn(&ManagerIdentity) -> bool) -> String {
+        (0..)
+            .map(|index| format!("manager-{index}"))
+            .find(|id| wanted(&ManagerIdentity::of(id)))
+            .expect("some manager fits")
+    }
+
+    /// An AI club of tired starters and fresh deputies, run by `manager_id`.
+    fn tired_club(manager_id: Option<&str>) -> Game {
+        let positions = [
+            DomainPos::Goalkeeper,
+            DomainPos::LeftBack,
+            DomainPos::CenterBack,
+            DomainPos::CenterBack,
+            DomainPos::RightBack,
+            DomainPos::LeftMidfielder,
+            DomainPos::CentralMidfielder,
+            DomainPos::CentralMidfielder,
+            DomainPos::RightMidfielder,
+            DomainPos::Striker,
+            DomainPos::Striker,
+        ];
+        let mut players: Vec<Player> = positions
+            .into_iter()
+            .enumerate()
+            .map(|(i, position)| mk_pos(&format!("star{i}"), position, 80, 56))
+            .collect();
+        for (id, position) in [
+            ("dep-keeper", DomainPos::Goalkeeper),
+            ("dep-defender", DomainPos::CenterBack),
+            ("dep-midfielder", DomainPos::CentralMidfielder),
+            ("dep-striker", DomainPos::Striker),
+        ] {
+            players.push(mk_pos(id, position, 72, 100));
+        }
+        for player in &mut players {
+            player.team_id = Some("club".to_string());
+        }
+        let mut team = Team::new(
+            "club".into(),
+            "Club".into(),
+            "CLB".into(),
+            "England".into(),
+            "London".into(),
+            "Ground".into(),
+            25_000,
+        );
+        team.formation = "4-4-2".to_string();
+        team.manager_id = manager_id.map(str::to_string);
+        let mut user = Manager::new(
+            "user".into(),
+            "Test".into(),
+            "Manager".into(),
+            "1980-01-01".into(),
+            "England".into(),
+        );
+        user.hire("elsewhere".to_string());
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
+        Game::new(clock, user, vec![team], players, vec![], vec![])
+    }
+
+    fn deputies_fielded(game: &Game) -> usize {
+        let (team_data, _) = build_team_with_bench(game, "club");
+        team_data
+            .players
+            .iter()
+            .filter(|player| player.id.starts_with("dep-"))
+            .count()
+    }
+
+    /// The tired club with one tired striker and two adequate fresh strikers to replace him: a
+    /// veteran, and a prospect with room to grow.
+    fn club_with_a_prospect(manager_id: Option<&str>) -> Game {
+        let mut game = tired_club(manager_id);
+        // A club of the highest standing, so its manager reads his players as they are and the
+        // only difference between two clubs is the manager's trust.
+        game.teams[0].reputation = 900;
+        game.players.retain(|player| !player.id.starts_with("dep-"));
+        for player in &mut game.players {
+            player.condition = if player.id == "star10" { 56 } else { 100 };
+            player.ovr = 80;
+            player.potential = 80;
+        }
+        let mut veteran = mk_pos("dep-veteran", DomainPos::Striker, 76, 100);
+        veteran.ovr = 76;
+        veteran.potential = 76;
+        let mut prospect = mk_pos("dep-prospect", DomainPos::Striker, 72, 100);
+        prospect.ovr = 72;
+        prospect.potential = 88;
+        for mut player in [veteran, prospect] {
+            player.team_id = Some("club".to_string());
+            game.players.push(player);
+        }
+        for (id, position) in [
+            ("dep-keeper", DomainPos::Goalkeeper),
+            ("dep-defender", DomainPos::CenterBack),
+            ("dep-midfielder", DomainPos::CentralMidfielder),
+        ] {
+            let mut spare = mk_pos(id, position, 40, 100);
+            spare.ovr = 40;
+            spare.potential = 40;
+            spare.team_id = Some("club".to_string());
+            game.players.push(spare);
+        }
+        game
+    }
+
+    /// Given the same club and the same two fresh strikers behind a tired one, run by a manager
+    /// who trusts youth, one who does not, and none
+    /// When the AI picks its side
+    /// Then only the believer fields the prospect: trust reaches the real selection path.
+    #[test]
+    fn the_ai_selection_reads_its_own_managers_trust_in_youth() {
+        let believer = manager_like(|m| m.youth_trust > 0.9 && m.rotation > 0.5);
+        let sceptic = manager_like(|m| m.youth_trust < 0.1 && m.rotation > 0.5);
+        let fields_the_prospect = |game: &Game| {
+            let (team_data, _) = build_team_with_bench(game, "club");
+            team_data.players.iter().any(|p| p.id == "dep-prospect")
+        };
+        assert!(fields_the_prospect(&club_with_a_prospect(Some(&believer))));
+        assert!(!fields_the_prospect(&club_with_a_prospect(Some(&sceptic))));
+        assert!(!fields_the_prospect(&club_with_a_prospect(None)));
+    }
+
+    /// Given the same tired club run by a manager who rotates readily, one who rarely does, and
+    /// none at all
+    /// When the AI picks its side for a match
+    /// Then the first rests players the second rides, and the club with no manager does what the
+    /// neutral manager does: the disposition reaches the real selection path.
+    #[test]
+    fn the_ai_selection_reads_its_own_managers_rotation() {
+        let eager = manager_like(|m| m.rotation > 0.9);
+        let reluctant = manager_like(|m| m.rotation < 0.1);
+        assert!(deputies_fielded(&tired_club(Some(&eager))) > 0);
+        assert_eq!(deputies_fielded(&tired_club(Some(&reluctant))), 0);
+        assert!(
+            deputies_fielded(&tired_club(None)) > 0,
+            "neutral rests a starter at 56"
+        );
+    }
+}
+/// Given a spent starter (the exhausted case that no manager rides)
+/// When the least rotating manager picks the side
+/// Then he rests him too: temperament shifts when a manager notices, never whether he does.
+#[test]
+fn even_a_manager_who_hates_rotating_rests_an_exhausted_starter() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 22));
+    }
+    squad.push(mk("deputy", 66, 95));
+    let refs: Vec<&Player> = squad.iter().collect();
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0, 0.5);
+    assert_eq!(deputies_in(&xi), 1);
+}
+
+/// Given starters at 43 condition, below the exhausted line (45), and a fresh deputy
+/// When the lowest-quality, least-rotating manager picks the side
+/// Then he rests them: dispositions move when a manager notices fatigue, never past the point at
+/// which a player is not fit to start (his threshold would otherwise be 42).
+#[test]
+fn a_manager_who_hates_rotating_still_rests_a_player_just_under_the_exhausted_line() {
+    let mut squad = Vec::new();
+    for i in 0..11 {
+        squad.push(mk(&format!("star{i}"), 80, 43));
+    }
+    squad.push(mk("deputy", 72, 100));
+    let refs: Vec<&Player> = squad.iter().collect();
+    let xi = ai_select_starting_xi_by(&refs, "4-4-2", 0.0, 1, FixtureLoad::Normal, 0.0, 0.5);
+    assert_eq!(deputies_in(&xi), 1);
+}
+
+/// Given a second goalkeeper rated above every outfielder in the squad
+/// When the first-choice eleven is picked
+/// Then he sits on the bench: away from goal a natural keeper is an emergency body, as the squad
+/// model rates him, so the club is valued for the side it fields.
+#[test]
+fn a_spare_goalkeeper_is_not_fielded_outfield_over_an_outfielder() {
+    let mut squad = Vec::new();
+    squad.push(mk_pos("first-keeper", DomainPos::Goalkeeper, 91, 100));
+    squad.push(mk_pos("spare-keeper", DomainPos::Goalkeeper, 90, 100));
+    for (i, position) in [
+        DomainPos::LeftBack,
+        DomainPos::CenterBack,
+        DomainPos::CenterBack,
+        DomainPos::RightBack,
+        DomainPos::LeftMidfielder,
+        DomainPos::CentralMidfielder,
+        DomainPos::CentralMidfielder,
+        DomainPos::RightMidfielder,
+        DomainPos::Striker,
+        DomainPos::Striker,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        squad.push(mk_pos(&format!("outfield{i}"), position, 40, 100));
+    }
+    let refs: Vec<&Player> = squad.iter().collect();
+    let eleven = first_choice_eleven(&refs, "4-4-2");
+    assert_eq!(eleven[0].id, "first-keeper");
+    assert!(
+        !eleven.iter().any(|p| p.id == "spare-keeper"),
+        "the spare keeper was fielded outfield"
+    );
 }

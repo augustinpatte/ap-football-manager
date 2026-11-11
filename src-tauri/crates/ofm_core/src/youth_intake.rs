@@ -125,6 +125,27 @@ pub fn take_youth_intake(game: &mut Game, team_id: &str, date: NaiveDate, season
 /// Most points of potential the academy's staff add to or take from an intake's promise.
 pub const YOUTH_POTENTIAL_SWING: u8 = 3;
 
+/// How far a club's standing moves the promise of its intake, either way, in points of potential.
+/// An edge for the big academies (and a handicap for the small), well inside the bell's spread of
+/// about 5, so a small club still turns up an exceptional youngster now and then.
+const ACADEMY_STANDING_SWING: f64 = 1.0;
+
+/// Points of potential the academy adds to or takes from an intake's promise.
+///
+/// The youth department adds up to [`YOUTH_POTENTIAL_SWING`] over an empty one and never costs
+/// anything: an empty department is the baseline the world's bell was calibrated on. It used to be
+/// centred on a rating of 50, which made an empty department cost two points, and since no AI
+/// club ever staffed an academy the whole world's intakes were two points below the opening
+/// world's, which halved the number of players over 80 within a decade (F5.1 world study).
+/// A club's standing adds a symmetric edge of up to [`ACADEMY_STANDING_SWING`].
+pub(crate) fn academy_potential_shift(youth_rating: f64, reputation: u32) -> f64 {
+    let vacant = crate::staff_system::profile::VACANT_RATING;
+    let staff = ((youth_rating - vacant) / (100.0 - vacant)).clamp(0.0, 1.0)
+        * f64::from(YOUTH_POTENTIAL_SWING);
+    let standing = (crate::club_economy::stature(reputation) - 0.5) * 2.0 * ACADEMY_STANDING_SWING;
+    staff + standing
+}
+
 const YOUTH_MINIMUM_WAGE: u32 = crate::contracts::MINIMUM_DEFAULT_WAGE as u32;
 
 /// The most a recruit may ask a week at this club: a quarter above what the club's academy
@@ -165,12 +186,31 @@ fn recruit_wage_ceiling(game: &Game, team_id: &str) -> u32 {
 /// judged as a newcomer to the bill. No academy player holds up the squad floor,
 /// so the floor's waiver never applies.
 fn agreed_wage(game: &Game, team: &Team, recruit: &Player, asking: u32) -> Option<u32> {
-    [asking, YOUTH_MINIMUM_WAGE.min(asking)]
-        .into_iter()
-        .find(|&wage| {
-            crate::contract_wage_policy::joining_wage_policy_verdict(game, team, recruit, wage)
+    // An AI club's recruit also has to fit its own books when he asks more than the youth minimum:
+    // the board's policy tolerates a little more at every decision for a club already over budget
+    // (see `ai_finance_guard`), which let every recruit of an over-budget academy through at
+    // whatever he asked. The minimum is not held to it: a club at its budget still takes its
+    // intake, at the least any player is paid, or the academies of every club that spends what it
+    // has would empty and the world's supply of youngsters with them (F5.3 measured 14 000 players
+    // falling to 10 300 in ten seasons). The player's club is left to its board.
+    let books = (game.manager.team_id.as_deref() != Some(team.id.as_str())).then(|| {
+        crate::ai_finance_guard::SigningBooks {
+            cash: team.finance,
+            weekly_bill: crate::finances::calc_wages(game, &team.id),
+            weekly_income: 0,
+            wage_budget: team.wage_budget,
+        }
+    });
+    let minimum = YOUTH_MINIMUM_WAGE.min(asking);
+    [asking, minimum].into_iter().find(|&wage| {
+        let fits_books = wage <= minimum
+            || books
+                .as_ref()
+                .is_none_or(|books| books.can_add_wage(i64::from(wage)));
+        fits_books
+            && crate::contract_wage_policy::joining_wage_policy_verdict(game, team, recruit, wage)
                 .permits()
-        })
+    })
 }
 
 /// What came of a club's intake: who joined, in plan order, and how many of the
@@ -217,8 +257,7 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
     // `YOUTH_POTENTIAL_SWING` points of potential either way, around the generator's own
     // calibration. A club with no youth staff loses a couple of points, never gains any.
     let youth_rating = crate::staff_system::profile::StaffProfile::of(game, &team.id).youth;
-    let potential_shift =
-        ((youth_rating - 50.0) / 50.0 * f64::from(YOUTH_POTENTIAL_SWING)).round() as i32;
+    let potential_shift = academy_potential_shift(youth_rating, team.reputation);
     plan.groups
         .iter()
         .filter_map(|group| {
@@ -230,8 +269,9 @@ fn draw_recruits(game: &Game, team_index: usize, plan: &IntakePlan, date: NaiveD
                 date.year() as u32,
                 &mut rng,
             );
-            recruit.potential = (i32::from(recruit.potential) + potential_shift)
-                .clamp(i32::from(recruit.ovr), 99) as u8;
+            recruit.potential = (f64::from(recruit.potential) + potential_shift)
+                .round()
+                .clamp(f64::from(recruit.ovr), 99.0) as u8;
             let own_terms = recruit
                 .contract_end()
                 .and_then(crate::contracts::parse_contract_date)
@@ -325,6 +365,55 @@ fn tell_the_player(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Given a club of middling standing with nobody in its youth department, when its intake's
+    /// promise is shifted, then nothing is lost: an empty department is the world's baseline, so
+    /// every AI club (none of which staffs one) draws the same bell as the opening world did.
+    #[test]
+    fn an_unstaffed_academy_of_middling_standing_draws_the_worlds_own_bell() {
+        let vacant = crate::staff_system::profile::VACANT_RATING;
+        assert_eq!(academy_potential_shift(vacant, 590), 0.0);
+    }
+
+    /// Given the same club with the best possible youth staff, when shifted, then it gains the
+    /// whole staff swing and no more.
+    #[test]
+    fn the_best_youth_staff_add_the_whole_swing() {
+        let shift = academy_potential_shift(100.0, 590);
+        assert!(
+            (shift - f64::from(YOUTH_POTENTIAL_SWING)).abs() < 1e-9,
+            "{shift}"
+        );
+    }
+
+    /// Given an unstaffed top club and an unstaffed bottom club, when shifted, then the big
+    /// club's academy is better on average and the small club's worse, by the same amount and
+    /// by less than a quarter of the bell's spread: an edge, not a monopoly.
+    #[test]
+    fn a_bigger_club_has_a_better_academy_without_a_monopoly() {
+        let vacant = crate::staff_system::profile::VACANT_RATING;
+        let (top, bottom) = (
+            academy_potential_shift(vacant, 780),
+            academy_potential_shift(vacant, 400),
+        );
+        assert!(top > 0.0 && bottom < 0.0);
+        assert!(
+            (top + bottom).abs() < 1e-9,
+            "symmetric around the world's bell"
+        );
+        assert!(
+            top <= 1.25,
+            "{top} is more than a quarter of a 5-point spread"
+        );
+    }
+
+    /// Given a youth rating below the vacant baseline (not reachable today, but a future staff
+    /// rule could), when shifted, then the staff term never goes negative.
+    #[test]
+    fn staff_never_cost_potential() {
+        assert_eq!(academy_potential_shift(0.0, 590), 0.0);
+    }
+
     use crate::clock::GameClock;
     use crate::squad_floor::MIN_PLAYERS_PER_GROUP;
     use crate::test_support::uniform_attributes;
@@ -701,6 +790,37 @@ mod tests {
                 recruit.wage()
             );
         }
+    }
+
+    /// Given an AI club exactly at its wage budget, and the same club as the player's
+    /// When a recruit asking 3 000 is judged
+    /// Then the AI club takes him at the youth minimum, not at his ask (its books have no room for
+    ///      more), while the player's club is left to its board and pays the ask. Both take him: an
+    ///      academy is not emptied because the first team spends what it has.
+    #[test]
+    fn an_ai_clubs_recruit_has_to_fit_its_books_unless_he_comes_at_the_minimum() {
+        let mut game = world_on_a_budget(100_000, 100_000);
+        let recruit = a_recruit_of("rival");
+        assert_eq!(
+            agreed_wage(&game, rival(&game), &recruit, 3_000),
+            Some(YOUTH_MINIMUM_WAGE)
+        );
+        // The board's policy alone (the 25 000 grace for a club over budget) would have paid him
+        // what he asked, which is the licence this closes.
+        assert!(
+            crate::contract_wage_policy::joining_wage_policy_verdict(
+                &game,
+                rival(&game),
+                &recruit,
+                3_000,
+            )
+            .permits()
+        );
+        game.manager.hire("rival".to_string());
+        assert_eq!(
+            agreed_wage(&game, rival(&game), &recruit, 3_000),
+            Some(3_000)
+        );
     }
 
     /// Given a club the board lets spend, a recruit joins on the wage he asks.

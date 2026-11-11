@@ -87,6 +87,8 @@ export default function ScoutingTab({
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidResult,
     bidLoading,
     bidFeedback,
@@ -110,12 +112,11 @@ export default function ScoutingTab({
     setContractWage,
     contractLength,
     setContractLength,
-    contractFeedback,
+    talkPanel,
     contractProjection,
     contractSubmitting,
     contractSubmitDisabled,
-    contractStatusMessage,
-    contractStatusClassName,
+    contractError,
     openFreeAgentContract,
     closeFreeAgentContract,
     submitFreeAgentContract,
@@ -332,6 +333,8 @@ export default function ScoutingTab({
           teams={gameState.teams}
           bidAmount={bidAmount}
           onBidAmountChange={setBidAmount}
+          bidTerms={bidTerms}
+          onBidTermsChange={setBidTerms}
           myTeam={myTeam}
           bidFee={bidFee}
           bidProjection={bidProjection}
@@ -355,9 +358,8 @@ export default function ScoutingTab({
           contractLength={contractLength}
           onContractLengthChange={setContractLength}
           projection={contractProjection}
-          feedback={contractFeedback}
-          statusMessage={contractStatusMessage(t)}
-          statusClassName={contractStatusClassName}
+          talkPanel={talkPanel}
+          errorMessage={contractError}
           submitting={contractSubmitting}
           submitDisabled={contractSubmitDisabled}
           onSubmit={submitFreeAgentContract}

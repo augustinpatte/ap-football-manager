@@ -31,6 +31,9 @@ pub const TWO_TIER_PACKAGE: &str = concat!(
 /// Argentina's split season, all berthing into one continental cup.
 pub const GATE_NATIONS: &[&str] = &["ENG", "PT", "AR"];
 
+/// Nations whose clubs are the poorest of the shipped world (see [`WorldSpec::lower_nations`]).
+pub const LOWER_NATIONS: &[&str] = &["WAL", "NIR", "IE", "SE"];
+
 /// Which competitions the game plays in full. The game's default follows the player's own
 /// competitions and settles the rest of the world by scoreline (the dormant tier).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -83,6 +86,18 @@ impl WorldSpec {
     pub fn shipped(seed: u64) -> Self {
         Self {
             nations: &[],
+            ..Self::gate(seed)
+        }
+    }
+
+    /// Four of the shipped world's poorest nations (Wales, Northern Ireland, Ireland, Sweden: 80
+    /// clubs). A fast diagnostic for the economy, never an acceptance world: F5.2's 80-club gate
+    /// world (England, Portugal, Argentina) hid the shipped world's debt, which sits in clubs like
+    /// these.
+    pub fn lower_nations(seed: u64) -> Self {
+        Self {
+            nations: LOWER_NATIONS,
+            user_nation: "WAL",
             ..Self::gate(seed)
         }
     }

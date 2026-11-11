@@ -54,10 +54,9 @@ export default function PlayerProfileHeroCard({
   t,
 }: PlayerProfileHeroCardProps) {
   const tierOf = useRatingTiers();
+  const teamId = player.team_id;
   const teamContextItems =
-    player.team_id && onSelectTeam
-      ? [buildViewTeamMenuItem(t, () => onSelectTeam(player.team_id!))]
-      : [];
+    teamId && onSelectTeam ? [buildViewTeamMenuItem(t, () => onSelectTeam(teamId))] : [];
 
   return (
     <Card accent="primary" className="mb-5">
@@ -119,12 +118,12 @@ export default function PlayerProfileHeroCard({
             </div>
             <p className="text-gray-400 text-sm mt-2 flex items-center gap-1.5">
               <Shield className="w-4 h-4" />
-              {player.team_id && onSelectTeam ? (
+              {teamId && onSelectTeam ? (
                 <ContextMenu items={teamContextItems}>
                   <button
                     type="button"
                     data-testid="player-profile-team-link"
-                    onClick={() => onSelectTeam(player.team_id!)}
+                    onClick={() => onSelectTeam(teamId)}
                     className="hover:text-primary-400 transition-colors underline underline-offset-2"
                   >
                     {teamName}

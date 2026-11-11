@@ -105,6 +105,44 @@ impl PlayerSnap {
 }
 
 // ---------------------------------------------------------------------------
+// Shot accuracy
+// ---------------------------------------------------------------------------
+
+/// The chance a shot from the box is on target: the base rate, moved by how much better the
+/// shooter is than the side defending the shot.
+///
+/// Both ratings are on the scale players are rated on, so the difference is the same whether the
+/// world's players are rated 50 or 80: a shot is as likely to be on target in a world where
+/// everybody is twenty points better. It was measured from a fixed 50 instead, which made the
+/// football calibrated on one generation of ratings score 40 % more on the next.
+pub(crate) fn shot_accuracy(base: f64, shoot_rating: f64, defence_rating: f64) -> f64 {
+    (base + (shoot_rating - defence_rating) / 200.0).clamp(0.15, 0.85)
+}
+
+/// How well a side defends a shot: the mean of its defenders' defending and positioning, each as
+/// good as his condition lets him be, on the scale a shooter is rated on. Falls back to the whole
+/// outfield and then to the midpoint of the scale, so a side with no defender left on the pitch
+/// is defended by whoever is there.
+pub(crate) fn defensive_quality<'a>(
+    outfield: impl Iterator<Item = (&'a PlayerData, f64)> + Clone,
+) -> f64 {
+    const MIDPOINT: f64 = 50.0;
+    let mean_of = |pick: &dyn Fn(&PlayerData) -> bool| {
+        let (sum, count) = outfield.clone().filter(|(player, _)| pick(player)).fold(
+            (0.0, 0u32),
+            |(sum, count), (player, condition_factor)| {
+                let skill = (f64::from(player.defending) + f64::from(player.positioning)) / 2.0;
+                (sum + skill * condition_factor, count + 1)
+            },
+        );
+        (count > 0).then(|| sum / f64::from(count))
+    };
+    mean_of(&|player| player.position == Position::Defender)
+        .or_else(|| mean_of(&|player| player.position != Position::Goalkeeper))
+        .unwrap_or(MIDPOINT)
+}
+
+// ---------------------------------------------------------------------------
 // TraitContext — which game action context we're computing a bonus for
 // ---------------------------------------------------------------------------
 
@@ -793,5 +831,101 @@ mod phase_modifier_tests {
         );
         let fast = tactics_break_speed_counter(&cfg(|c| c.break_speed = BreakSpeed::Fast));
         assert!(0.0 < fast && fast < 1.0);
+    }
+}
+
+#[cfg(test)]
+mod shot_accuracy_tests {
+    use super::*;
+    use crate::types::PlayerRole;
+
+    fn defender(id: &str, position: Position, defending: u8, positioning: u8) -> PlayerData {
+        PlayerData {
+            id: id.to_string(),
+            name: id.to_string(),
+            position,
+            ovr: 60,
+            condition: 100,
+            fitness: 80,
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending,
+            positioning,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+            traits: vec![],
+            role: PlayerRole::Standard,
+        }
+    }
+
+    /// Given a shooter and a defence, and the same two rated twenty points higher each
+    /// When the chance a shot is on target is asked
+    /// Then it is the same: the scale is a unit.
+    #[test]
+    fn shot_accuracy_does_not_change_when_everybody_is_rated_higher() {
+        let modest = shot_accuracy(0.29, 60.0, 55.0);
+        let strong = shot_accuracy(0.29, 80.0, 75.0);
+
+        assert!((modest - strong).abs() < 1e-12, "{modest} against {strong}");
+    }
+
+    /// Given a shooter and a defence
+    /// When the shooter is better, equal or worse than the defence
+    /// Then accuracy is above, at and below the base, and always inside the clamp.
+    #[test]
+    fn shot_accuracy_follows_the_shooter_against_the_defence_inside_its_clamp() {
+        assert!(shot_accuracy(0.29, 70.0, 60.0) > 0.29);
+        assert!((shot_accuracy(0.29, 60.0, 60.0) - 0.29).abs() < 1e-12);
+        assert!(shot_accuracy(0.29, 50.0, 60.0) < 0.29);
+        assert_eq!(shot_accuracy(0.29, 100.0, 0.0), 0.79);
+        assert_eq!(shot_accuracy(0.29, 0.0, 100.0), 0.15);
+    }
+
+    /// Given a side of two defenders, a midfielder and a goalkeeper
+    /// When the quality of its defence is read
+    /// Then it is the mean of the defenders' defending and positioning, each as good as his
+    ///   condition lets him be, and the midfielder and the goalkeeper do not count.
+    #[test]
+    fn defensive_quality_is_the_defenders_defending_and_positioning_in_condition() {
+        let players = [
+            defender("cb-1", Position::Defender, 80, 70),
+            defender("cb-2", Position::Defender, 60, 50),
+            defender("cm", Position::Midfielder, 10, 10),
+            defender("gk", Position::Goalkeeper, 99, 99),
+        ];
+
+        let rested = defensive_quality(players.iter().map(|p| (p, 1.0)));
+        let tired = defensive_quality(players.iter().map(|p| (p, 0.8)));
+
+        assert!((rested - 65.0).abs() < 1e-12, "{rested}");
+        assert!((tired - 52.0).abs() < 1e-12, "{tired}");
+    }
+
+    /// Given a side with no defender on the pitch, then one with nobody outfield
+    /// When the quality of its defence is read
+    /// Then the outfield defends, and with nobody at all it is the midpoint of the scale.
+    #[test]
+    fn a_side_with_no_defender_is_defended_by_whoever_is_there() {
+        let no_defenders = [
+            defender("cm", Position::Midfielder, 40, 40),
+            defender("gk", Position::Goalkeeper, 99, 99),
+        ];
+        let only_a_keeper = [defender("gk", Position::Goalkeeper, 99, 99)];
+
+        assert!((defensive_quality(no_defenders.iter().map(|p| (p, 1.0))) - 40.0).abs() < 1e-12);
+        assert!((defensive_quality(only_a_keeper.iter().map(|p| (p, 1.0))) - 50.0).abs() < 1e-12);
     }
 }

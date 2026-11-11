@@ -605,6 +605,11 @@ pub fn apply_player_response(
         }
 
         if message_id.starts_with("contract_concern_") {
+            // Answering the player is dealing with the warning that message was about.
+            crate::contracts::mark_contract_warning_handled(
+                player,
+                game.clock.current_date.date_naive(),
+            );
             let renewal_state = player
                 .morale_core
                 .renewal_state

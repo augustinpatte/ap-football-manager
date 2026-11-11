@@ -140,6 +140,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 [[package]]
 name = "apfm-match-lab"
 version = "0.1.0"
+source = "git+https://github.com/augustinpatte/apfm-match-lab?rev=28f34b10d4fe7cadacc0030acaaa0cd1aa9fdf5f#28f34b10d4fe7cadacc0030acaaa0cd1aa9fdf5f"
 dependencies = [
  "serde",
  "serde_json",
@@ -1091,6 +1092,7 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "domain",
+ "flate2",
  "log",
  "ofm_core",
  "rusqlite",
@@ -3207,6 +3209,7 @@ dependencies = [
  "ofm_core",
  "rand",
  "rmcp",
+ "season-harness",
  "semver",
  "serde",
  "serde_json",
@@ -4046,7 +4049,9 @@ dependencies = [
  "chrono",
  "db",
  "domain",
+ "flate2",
  "ofm_core",
+ "rusqlite",
  "serde_json",
  "tempfile",
 ]

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Search, Trophy, Users } from "lucide-react";
 
+import { ACTIVATABLE_FOCUS_CLASS, activatable } from "../../lib/activatable";
 import { formatVal } from "../../lib/helpers";
 import { buildRegionLabel } from "../../lib/teamRegions";
 import { competitionDisplayName } from "../../lib/competitionName";
@@ -235,7 +236,10 @@ function TeamCardView({
     <Card
       className={`cursor-pointer hover:shadow-lg transition-all ${isUser ? "ring-2 ring-primary-500/30" : ""}`}
     >
-      <div onClick={() => onSelect(team.id)} className="overflow-hidden rounded-xl">
+      <div
+        {...activatable(() => onSelect(team.id))}
+        className={`overflow-hidden rounded-xl ${ACTIVATABLE_FOCUS_CLASS}`}
+      >
         <div
           className="p-5 flex items-center gap-4"
           style={{

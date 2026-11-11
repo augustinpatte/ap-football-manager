@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentPropsWithoutRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -123,5 +123,54 @@ describe("PackageBuildStep close control", () => {
     expect(screen.getByRole("button", { name: "common.close" })).toHaveClass(
       "focus-visible:ring-focus",
     );
+  });
+});
+
+describe("PackageBuildStep card controls", () => {
+  /**
+   * Given an installed package card
+   * When Remove is clicked
+   * Then only that package is uninstalled, and the card's active state is not toggled.
+   */
+  it("removes a package with its own button without toggling the card", () => {
+    const onTogglePackage = vi.fn();
+    const onUninstallPackage = vi.fn();
+    render(
+      <PackageBuildStep
+        {...baseProps}
+        installedPackages={[namePack]}
+        onTogglePackage={onTogglePackage}
+        onUninstallPackage={onUninstallPackage}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "worldSelect.removePackage" }));
+
+    expect(onUninstallPackage).toHaveBeenCalledTimes(1);
+    expect(onUninstallPackage).toHaveBeenCalledWith(namePack.id);
+    expect(onTogglePackage).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given an installed package card
+   * When the card itself is clicked
+   * Then the package is toggled and nothing is uninstalled.
+   */
+  it("toggles a package from the card without uninstalling it", () => {
+    const onTogglePackage = vi.fn();
+    const onUninstallPackage = vi.fn();
+    render(
+      <PackageBuildStep
+        {...baseProps}
+        installedPackages={[namePack]}
+        onTogglePackage={onTogglePackage}
+        onUninstallPackage={onUninstallPackage}
+      />,
+    );
+
+    fireEvent.click(cardFor(namePack));
+
+    expect(onTogglePackage).toHaveBeenCalledTimes(1);
+    expect(onUninstallPackage).not.toHaveBeenCalled();
   });
 });

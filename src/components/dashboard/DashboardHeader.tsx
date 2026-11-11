@@ -53,6 +53,8 @@ interface DashboardHeaderProps {
   onSelectSearchPlayer: (playerId: string) => void;
   onSelectSearchTeam: (teamId: string) => void;
   onSkipToMatchDay: () => void;
+  /** Opens the "advance until date" dialog; the menu offers it only when given. */
+  onFastForward?: () => void;
   onToggleContinueMenu: () => void;
   saveFlash: boolean;
   searchOpen: boolean;
@@ -197,10 +199,9 @@ function renderSearchResults(props: {
               buildViewProfileMenuItem(t, () => onSelectSearchPlayer(player.id)),
             ];
 
-            if (player.team_id) {
-              contextItems.push(
-                buildViewTeamMenuItem(t, () => onSelectSearchTeam(player.team_id!)),
-              );
+            const teamId = player.team_id;
+            if (teamId) {
+              contextItems.push(buildViewTeamMenuItem(t, () => onSelectSearchTeam(teamId)));
             }
 
             return (
@@ -261,6 +262,7 @@ export default function DashboardHeader({
   onSelectSearchPlayer,
   onSelectSearchTeam,
   onSkipToMatchDay,
+  onFastForward,
   onToggleContinueMenu,
   saveFlash,
   searchOpen,
@@ -344,7 +346,7 @@ export default function DashboardHeader({
 
       {/* The search folds when the focus leaves the field and its results, not when it moves from
           the field into a result: a keyboard player tabs into the results to pick one. */}
-      <div
+      <search
         data-search-field
         className={`relative min-w-0 flex-1 ${searchExpanded ? "" : "hidden @3xl/header:block"}`}
         onBlur={(event) => {
@@ -376,7 +378,7 @@ export default function DashboardHeader({
             })}
           </div>
         )}
-      </div>
+      </search>
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
         {searchExpanded ? null : (
@@ -481,6 +483,18 @@ export default function DashboardHeader({
                     {t("continueMenu.skipToMatchDayDesc")}
                   </p>
                 </button>
+                {onFastForward ? (
+                  <button
+                    type="button"
+                    onClick={onFastForward}
+                    className={`w-full px-4 py-2.5 text-left transition-colors hover:bg-hover ${MENU_FOCUS}`}
+                  >
+                    <span className="font-heading text-body font-bold uppercase tracking-label text-fg">
+                      {t("fastForward.menuTitle")}
+                    </span>
+                    <p className="mt-0.5 text-caption text-fg-muted">{t("fastForward.menuDesc")}</p>
+                  </button>
+                ) : null}
               </div>
             )}
           </div>

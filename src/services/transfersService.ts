@@ -13,12 +13,31 @@ export interface TransferNegotiationFeedbackData {
 }
 
 export interface TransferNegotiationResponseData {
-  decision: "accepted" | "rejected" | "counter_offer";
+  decision: "accepted" | "rejected" | "counter_offer" | "player_talks";
   suggested_fee: number | null;
   is_terminal: boolean;
   registration_date?: string | null;
   feedback: TransferNegotiationFeedbackData;
+  /** The wage and length the player asks for, when he is the one holding the deal up. */
+  player_demand?: PlayerDemandData | null;
   game: GameStateData;
+}
+
+/** The contract a player asks for in place of the one offered. */
+export interface PlayerDemandData {
+  weekly_wage: number;
+  contract_years: number;
+}
+
+/** How the player takes a move on the terms offered; mirrors `transfers::PlayerOutlook`. */
+export interface PlayerOutlookData {
+  interest: "keen" | "hesitant" | "unlikely";
+  /** The standard terms he starts from. */
+  expected_wage: number;
+  expected_years: number;
+  /** What he would ask for if the offer fell short, when he would ask at all. */
+  asks_wage?: number | null;
+  asks_years?: number | null;
 }
 
 export interface TransferBidProjectionData {
@@ -41,7 +60,29 @@ export interface TransferBidProjectionData {
     blocked_by_wage_policy: boolean;
     /** Debit fires on this date (window closed → PendingRegistration). Absent when the deal would execute immediately. */
     pending_registration_date?: string | null;
+    /** Cash that leaves on completion: the first instalment and any signing bonus. */
+    cash_due_on_completion?: number;
+    signing_bonus?: number;
+    /** Payments still to come after completion, a year apart. */
+    later_instalments?: number;
+    later_instalment_amount?: number;
+    /** The player would value a stepping-stone promise; the backend refuses it for anyone else. */
+    stepping_stone_available?: boolean;
+    /** The player's own view of the move on these terms. */
+    player_outlook?: PlayerOutlookData | null;
   };
+}
+
+/** What a buyer attaches to a fee; mirrors `domain::transfer_terms::TransferTerms`. */
+export interface TransferTermsData {
+  instalments: number;
+  sell_on_pct: number;
+  signing_bonus: number;
+  promise_stepping_stone: boolean;
+  /** The weekly wage offered to the player; omitted or 0 means the buyer's standard terms. */
+  player_weekly_wage?: number;
+  /** The contract length offered to the player, in years; omitted or 0 means the standard. */
+  player_contract_years?: number;
 }
 
 export interface LoanOfferResponseData {
@@ -57,10 +98,12 @@ export interface LoanOfferResponseData {
 export async function makeTransferBid(
   playerId: string,
   fee: number,
+  terms?: TransferTermsData,
 ): Promise<TransferNegotiationResponseData> {
   return invoke<TransferNegotiationResponseData>("make_transfer_bid", {
     playerId,
     fee,
+    terms,
   });
 }
 
@@ -152,10 +195,12 @@ export async function getBidNegotiationStatus(playerId: string): Promise<BidNego
 export async function previewTransferBidFinancialImpact(
   playerId: string,
   fee: number,
+  terms?: TransferTermsData,
 ): Promise<TransferBidProjectionData> {
   return invoke<TransferBidProjectionData>("preview_transfer_bid_financial_impact", {
     playerId,
     fee,
+    terms,
   });
 }
 
@@ -169,4 +214,50 @@ export async function toggleLoanList(playerId: string): Promise<GameStateData> {
   return invoke<GameStateData>("toggle_loan_list", {
     playerId,
   });
+}
+
+export type DeadlineItemState =
+  | "incoming_offer"
+  | "counter_received"
+  | "awaiting_club"
+  | "scheduled_registration";
+
+export interface DeadlineItemData {
+  kind: "transfer" | "loan";
+  state: DeadlineItemState;
+  player_id: string;
+  player_name: string;
+  counterparty_team_id: string;
+  counterparty_team_name: string;
+  offer_id: string;
+  /** Absent for a loan, which has no fee. */
+  fee: number | null;
+  /** The user must act, or the negotiation lapses with the window. */
+  needs_response: boolean;
+  registration_date?: string;
+}
+
+export interface DeadlineDealData {
+  player_id: string;
+  player_name: string;
+  from_team_name: string;
+  to_team_name: string;
+  fee: number;
+  date: string;
+}
+
+/** The user's side of the market as the window closes, as the backend reads it. */
+export interface TransferDeadlineSummaryData {
+  window_open: boolean;
+  phase: "early" | "mid" | "last_week" | "last_72h" | "deadline_day";
+  days_remaining: number | null;
+  closes_on: string | null;
+  urgent: boolean;
+  items: DeadlineItemData[];
+  urgent_response_count: number;
+  recent_deals: DeadlineDealData[];
+}
+
+export async function getTransferDeadlineSummary(): Promise<TransferDeadlineSummaryData> {
+  return invoke<TransferDeadlineSummaryData>("get_transfer_deadline_summary");
 }

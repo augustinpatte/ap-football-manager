@@ -1,5 +1,7 @@
+pub(crate) mod compression;
 pub mod game_database;
 pub mod game_persistence;
+pub mod interactive_match_repo;
 pub mod legacy_migration;
 pub mod manager_profile;
 pub mod migrations;

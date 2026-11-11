@@ -46,6 +46,47 @@ describe("LoanOfferModal", () => {
   });
 
   /**
+   * Given a target who is already out on loan
+   * When the loan form opens
+   * Then it says where and until when, and the offer cannot be submitted.
+   */
+  it("explains a player already on loan and does not let the offer be sent", () => {
+    render(
+      <LoanOfferModal
+        loanTarget={createPlayer({
+          active_loan: {
+            parent_team_id: "owner",
+            loan_team_id: "team-1",
+            start_date: "2026-07-01",
+            end_date: "2027-01-15",
+            wage_contribution_pct: 50,
+          },
+        })}
+        teams={[createTeam()]}
+        periodId=""
+        periodOptions={[]}
+        selectedEndDate="2027-01-01"
+        onPeriodChange={vi.fn()}
+        wageContributionPct={50}
+        onWageContributionChange={vi.fn()}
+        buyOptionEnabled={false}
+        buyOptionFee=""
+        onBuyOptionEnabledChange={vi.fn()}
+        onBuyOptionFeeChange={vi.fn()}
+        result={null}
+        error={null}
+        loading={false}
+        submitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("transfers.restriction.onLoanDetail");
+    expect(screen.getByRole("button", { name: "transfers.submitLoanOffer" })).toBeDisabled();
+  });
+
+  /**
    * Given the dialog is open over a button that had focus
    * When it opens, Tab is pressed on its last control, and then Escape
    * Then focus starts inside it, Tab wraps instead of leaving it, and Escape asks to close.

@@ -6,7 +6,7 @@
 
 use super::*;
 
-pub(super) fn round_transfer_fee(value: u64) -> u64 {
+pub(crate) fn round_transfer_fee(value: u64) -> u64 {
     if value == 0 {
         return 0;
     }
@@ -80,6 +80,7 @@ pub(super) fn execute_loan(
         .find(|team| team.id == loan_team_id)
         .and_then(|team| crate::roster::resolve_jersey_for(game, &player_snapshot, team));
 
+    crate::turn::squad::refill_saved_eleven_slot_of(game, player_id);
     for team in &mut game.teams {
         team.remove_player_references(player_id);
     }
@@ -201,11 +202,16 @@ pub(super) fn reserve_player_for_pending_transfer(
     Ok(())
 }
 
-pub(super) fn transfer_buyer_can_register(game: &Game, buyer_team_id: &str, fee: u64) -> bool {
+pub(super) fn transfer_buyer_can_register(
+    game: &Game,
+    buyer_team_id: &str,
+    fee: u64,
+    terms: &domain::transfer_terms::TransferTerms,
+) -> bool {
     game.teams
         .iter()
         .find(|team| team.id == buyer_team_id)
-        .is_some_and(|team| can_afford_fee(team, fee))
+        .is_some_and(|team| terms::fund_block(team, fee, terms).is_ok())
 }
 
 pub(super) fn ensure_transfer_cash_postable(
@@ -235,14 +241,16 @@ pub(super) fn ensure_transfer_cash_postable(
     )
 }
 
-/// The contract a club would give a player it buys: the buying club, his wage and the
-/// day it ends. Its standard terms, the ones a renewal is judged by. The board has not
-/// been asked: [`buyers_contract_terms`] asks it, and a preview that only wants to show
-/// the figures uses this.
-pub(super) fn buyers_standard_terms(
+/// The contract a club would give a player it buys: the buying club, his wage and the day it ends.
+/// The wage and length the deal's terms name, or the buyer's standard ones (the ones a renewal is
+/// judged by) where they name none. The player agreed to these (see `consent`); the board has not
+/// been asked: [`buyers_contract_terms`] asks it, and a preview that only wants to show the figures
+/// uses this.
+pub(super) fn buyers_agreed_terms(
     game: &Game,
     player: &Player,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(Team, u32, NaiveDate), String> {
     let buyer = game
         .teams
@@ -250,11 +258,19 @@ pub(super) fn buyers_standard_terms(
         .find(|team| team.id == buyer_team_id)
         .cloned()
         .ok_or("be.error.teamNotFound")?;
-    // No bid carries a wage yet (every `wage_offered` is 0), so none is passed; when one
-    // does, it is passed here.
-    let (wage, end) =
-        standard_contract_terms(player, &buyer, game.clock.current_date.date_naive(), 0)
+    let today = game.clock.current_date.date_naive();
+    let (wage, standard_end) =
+        standard_contract_terms(player, &buyer, today, deal_terms.player_weekly_wage)
             .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE)?;
+    let end = if deal_terms.player_contract_years > 0 {
+        today
+            .checked_add_months(chrono::Months::new(
+                12 * u32::from(deal_terms.player_contract_years),
+            ))
+            .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE)?
+    } else {
+        standard_end
+    };
     Ok((buyer, wage, end))
 }
 
@@ -266,8 +282,9 @@ pub(super) fn buyer_can_pay_standard_wage(
     buyer: &Team,
     facts: &BuyerWageFacts,
     today: NaiveDate,
+    deal_terms: &TransferTerms,
 ) -> bool {
-    standard_contract_terms(player, buyer, today, 0)
+    standard_contract_terms(player, buyer, today, deal_terms.player_weekly_wage)
         .is_some_and(|(wage, _)| facts.purchase_verdict(buyer, player, wage).permits())
 }
 
@@ -277,8 +294,9 @@ pub(super) fn buyers_contract_terms(
     game: &Game,
     player: &Player,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(Team, u32, NaiveDate), String> {
-    let (buyer, wage, end) = buyers_standard_terms(game, player, buyer_team_id)?;
+    let (buyer, wage, end) = buyers_agreed_terms(game, player, buyer_team_id, deal_terms)?;
     if !purchase_wage_policy_verdict(game, &buyer, player, wage).permits() {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
@@ -292,22 +310,33 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
     game: &Game,
     player_id: &str,
     buyer_team_id: &str,
+    deal_terms: &TransferTerms,
 ) -> Result<(), String> {
     let player = game
         .players
         .iter()
         .find(|player| player.id == player_id)
         .ok_or("be.error.playerNotFound")?;
-    buyers_contract_terms(game, player, buyer_team_id).map(|_| ())
+    let (buyer, wage, _) = buyers_agreed_terms(game, player, buyer_team_id, deal_terms)?;
+    if !BuyerWageFacts::of_committed(game, buyer_team_id)
+        .purchase_verdict(&buyer, player, wage)
+        .permits()
+    {
+        return Err(renewal_wage_policy_error_message(&buyer));
+    }
+    Ok(())
 }
 
-/// Transfer a player between teams, adjusting finances.
-pub(super) fn execute_transfer(
+/// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a
+/// signing bonus, a promise to the player. The cash goes in one atomic posting, so a refusal
+/// anywhere before it leaves nothing half done.
+pub(super) fn execute_transfer_with_terms(
     game: &mut Game,
     player_id: &str,
     to_team_id: &str,
     from_team_id: &str,
     fee: u64,
+    terms: &domain::transfer_terms::TransferTerms,
 ) -> Result<(), String> {
     // First, before anything moves: an agreement struck while the club had
     // players to spare can fall due after it has lost some.
@@ -349,27 +378,19 @@ pub(super) fn execute_transfer(
     // The buyer's terms, and the board's say on them, settled before any money moves so
     // that a refusal here cannot leave a half-done transfer.
     let (buying_team, new_wage, new_contract_end) =
-        buyers_contract_terms(game, &player_snapshot, to_team_id)?;
+        buyers_contract_terms(game, &player_snapshot, to_team_id, terms)?;
 
-    let fee_i64 = i64::try_from(fee).map_err(|_| "be.error.finance.amountOverflow".to_string())?;
+    terms::validate_terms(terms)?;
     let date = game.clock.current_date.date_naive();
-    crate::finances::post_all(
-        game,
-        &[
-            crate::finances::PostRequest::new(
-                to_team_id,
-                -fee_i64,
-                crate::finances::CashKind::TransferFeeOut,
-                date,
-            ),
-            crate::finances::PostRequest::new(
-                from_team_id,
-                fee_i64,
-                crate::finances::CashKind::TransferFeeIn,
-                date,
-            ),
-        ],
-    )?;
+    let deal = terms::Deal {
+        player_id,
+        to_team_id,
+        from_team_id,
+        fee,
+        terms,
+        date,
+    };
+    let settlement = terms::settle_cash(game, &deal)?;
 
     // Move player
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
@@ -408,15 +429,15 @@ pub(super) fn execute_transfer(
 
     // Envelope (transfer_budget) still mutates here. Cash is posted above.
     // Transfer fees do not change season income/expenses (same as develop).
-    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id) {
-        t.transfer_budget -= fee_i64;
-        if let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id) {
-            t.starting_xi_ids.remove(pos);
-        }
+    terms::apply_budgets(game, &deal, &settlement);
+    if let Some(t) = game.teams.iter_mut().find(|t| t.id == to_team_id)
+        && let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id)
+    {
+        t.starting_xi_ids.remove(pos);
     }
 
+    crate::turn::squad::refill_saved_eleven_slot(game, from_team_id, player_id);
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == from_team_id) {
-        t.transfer_budget += fee_i64;
         // A departing player gives up every role, not just his place in the XI. Trimming the XI by
         // hand here used to leave him as the old club's captain and penalty taker.
         t.remove_player_references(player_id);
@@ -456,6 +477,8 @@ pub(super) fn execute_transfer(
             fee,
         },
     );
+    terms::record_obligations(game, &deal, &settlement);
+    on_player_sold(game, player_id, from_team_id, to_team_id, fee);
 
     Ok(())
 }
@@ -551,7 +574,13 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
     let current_date = game.clock.current_date.date_naive();
     let today = current_date.format("%Y-%m-%d").to_string();
     let user_team_id = game.manager.team_id.clone();
-    type DueTransferRegistration = (String, String, String, u64);
+    type DueTransferRegistration = (
+        String,
+        String,
+        String,
+        u64,
+        domain::transfer_terms::TransferTerms,
+    );
 
     let due_registrations: Vec<DueTransferRegistration> = game
         .players
@@ -574,12 +603,13 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
                     offer.id.clone(),
                     offer.from_team_id.clone(),
                     offer.fee,
+                    offer.terms.clone(),
                 ))
             })
         })
         .collect();
 
-    for (player_id, offer_id, buyer_team_id, fee) in due_registrations {
+    for (player_id, offer_id, buyer_team_id, fee, terms) in due_registrations {
         let player_snapshot = game
             .players
             .iter()
@@ -599,11 +629,21 @@ pub fn process_pending_transfer_registrations(game: &mut Game) {
                 return Err(Failure::LoanConflict);
             }
             let from_team_id = from_team_id.as_deref().ok_or(Failure::PlayerUnavailable)?;
-            if !transfer_buyer_can_register(game, &buyer_team_id, fee) {
+            if !transfer_buyer_can_register(game, &buyer_team_id, fee, &terms) {
                 return Err(Failure::InsufficientFunds);
             }
-            execute_transfer(game, &player_id, &buyer_team_id, from_team_id, fee)
-                .map_err(|_| Failure::RegistrationBlocked)?;
+            if !still_agrees(game, &player_id, &buyer_team_id, &terms) {
+                return Err(Failure::RegistrationBlocked);
+            }
+            execute_transfer_with_terms(
+                game,
+                &player_id,
+                &buyer_team_id,
+                from_team_id,
+                fee,
+                &terms,
+            )
+            .map_err(|_| Failure::RegistrationBlocked)?;
             finalize_successful_transfer_offer(game, &player_id, &offer_id)
                 .map_err(|_| Failure::RegistrationBlocked)
         })();

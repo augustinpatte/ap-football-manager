@@ -330,8 +330,25 @@ pub async fn load_game(
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
-    crate::application::career::install_career(&state, game, stats_state, Some(save_id));
+    crate::application::career::install_career(&state, game, stats_state, Some(save_id.clone()));
+    crate::application::interactive_match::restore_saved_match(&state, &mut sm, &save_id);
     Ok(mgr_name)
+}
+
+/// The one-time notice that a match saved in progress could not be resumed (a translation key).
+#[tauri::command]
+pub async fn take_match_restore_notice(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<Option<String>, String> {
+    Ok(state.take_restore_notice())
+}
+
+/// The fixture of the match restored from the save, if the career was saved in the middle of one.
+#[tauri::command]
+pub async fn get_resumable_match(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<Option<ofm_core::interactive_match::FixtureIdentity>, String> {
+    Ok(state.with_interactive_match(|m| m.identity().clone()))
 }
 
 /// Whether the active career still has to pick its first club, so the frontend only routes on the

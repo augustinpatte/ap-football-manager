@@ -204,6 +204,28 @@ describe("PlayerProfile.helpers", (): void => {
   });
 
   /**
+   * Given a player whose 2,700 minutes were all played in the background (no detailed minutes)
+   * When the placeholder advanced stats are built
+   * Then they say nothing was recorded and offer no per-90 rate: minutes without counters are
+   * not a player who never shot.
+   */
+  it("does not turn background minutes into per-90 zeros", (): void => {
+    const player = createPlayer({
+      stats: {
+        ...createPlayer().stats,
+        minutes_played: 2700,
+        detail_minutes_played: 0,
+      },
+    });
+
+    const summary = buildPlayerAdvancedStats(player);
+
+    expect(summary.detailRecorded).toBe(false);
+    expect(summary.metrics.shots.per90).toBeNull();
+    expect(summary.metrics.tacklesWon.per90).toBeNull();
+  });
+
+  /**
    * Given a player's own season stats and nothing from the backend yet
    * When the placeholder advanced stats are built
    * Then totals and per-90 rates are there, and no percentile or peer group is invented

@@ -9,6 +9,28 @@ export type SquadListSortKey =
   | "ovr"
   | "contract";
 
+export type SquadStatusFilter =
+  | "all"
+  | "xi"
+  | "bench"
+  | "naturalFit"
+  | "needsCover"
+  | "outOfPosition"
+  | "injured";
+
+/** What narrows the roster: a name search, a position ("All" or one), and a status scope. */
+export interface SquadListFilters {
+  search: string;
+  position: string;
+  status: SquadStatusFilter;
+}
+
+export const DEFAULT_SQUAD_LIST_FILTERS: SquadListFilters = {
+  search: "",
+  position: "All",
+  status: "all",
+};
+
 export interface SquadListSortState {
   sortKey: SquadListSortKey;
   sortDir: "asc" | "desc";

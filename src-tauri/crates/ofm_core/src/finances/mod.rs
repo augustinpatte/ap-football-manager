@@ -258,6 +258,16 @@ pub fn wage_bills_by_club(game: &Game) -> HashMap<String, i64> {
 /// This club's share of `player.wage` this week (loan split, otherwise the
 /// employing club).
 pub fn player_weekly_wage_for_team(player: &domain::player::Player, team_id: &str) -> i64 {
+    // The wage is read from the contract ledger, which is the dear part, and `calc_wages` asks it
+    // of every player in the world for every club it prices. Only his club, or the two sides of a
+    // loan, can be paying him (`weekly_share` answers 0 for anyone else): decide that first.
+    let could_be_paying = match &player.active_loan {
+        Some(loan) => loan.loan_team_id == team_id || loan.parent_team_id == team_id,
+        None => player.team_id.as_deref() == Some(team_id),
+    };
+    if !could_be_paying {
+        return 0;
+    }
     weekly_share(player, team_id, i64::from(player.wage()), false)
 }
 
@@ -396,7 +406,12 @@ fn estimated_weekly_matchday_income(game: &Game, team: &Team) -> i64 {
         return 0;
     }
 
-    calc_matchday(team.stadium_capacity, recent_home_match_count, 0.76, 20.0)
+    calc_matchday(
+        team.stadium_capacity,
+        recent_home_match_count,
+        0.76,
+        20.0 * crate::club_economy::ticket_price_factor(team.reputation),
+    )
 }
 
 pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSnapshot> {
@@ -756,7 +771,10 @@ fn sponsor_pitch_message_id(game: &Game) -> String {
     )
 }
 
-fn sponsor_pitch_partner(team_id: &str, current_date: chrono::DateTime<chrono::Utc>) -> String {
+pub(crate) fn sponsor_pitch_partner(
+    team_id: &str,
+    current_date: chrono::DateTime<chrono::Utc>,
+) -> String {
     const SPONSORS: [&[&str]; 8] = [
         &["Northstar", "Logistics"],
         &["Harbor", "Bank"],
@@ -1284,7 +1302,7 @@ pub fn process_weekly_finances(game: &mut Game) {
                     team.stadium_capacity,
                     home_matches.get(team.id.as_str()).copied().unwrap_or(0),
                     0.76,
-                    20.0,
+                    20.0 * crate::club_economy::ticket_price_factor(team.reputation),
                 ),
         );
         if player_wages != 0 {
@@ -1354,19 +1372,25 @@ pub fn process_weekly_finances(game: &mut Game) {
         }
     }
 
-    let gate_clubs: Vec<(String, u32, i64)> = game
+    let gate_clubs: Vec<(String, u32, i64, u32)> = game
         .teams
         .iter()
         .filter_map(|team| {
             let home_count = home_matches.get(team.id.as_str()).copied()?;
-            Some((team.id.clone(), team.stadium_capacity, home_count))
+            Some((
+                team.id.clone(),
+                team.stadium_capacity,
+                home_count,
+                team.reputation,
+            ))
         })
         .collect();
-    for (team_id, stadium_capacity, home_count) in gate_clubs {
+    for (team_id, stadium_capacity, home_count, reputation) in gate_clubs {
         // One gate per club per week, drawn from that club's own stream.
         let mut rng = game.rng_today(&format!("finances/matchday/{team_id}"));
         let attendance_pct = rng.random_range(60..=92) as f64 / 100.0;
-        let avg_ticket = rng.random_range(15..=25) as f64;
+        let avg_ticket =
+            rng.random_range(15..=25) as f64 * crate::club_economy::ticket_price_factor(reputation);
         let total_revenue = calc_matchday(stadium_capacity, home_count, attendance_pct, avg_ticket);
         let req = PostRequest::new(&team_id, total_revenue, CashKind::Matchday, post_date);
         let _ = commit_weekly_posts(game, std::slice::from_ref(&req));

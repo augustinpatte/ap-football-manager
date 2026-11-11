@@ -331,8 +331,11 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * def_cond;
 
-    let accuracy =
-        (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+    let accuracy = crate::shared::shot_accuracy(
+        ctx.config.shot_accuracy_base,
+        shoot_rating,
+        defending_quality(ctx, def_side, def_cond),
+    );
 
     if rng.random_range(0.0..1.0f64) > accuracy {
         if rng.random_range(0.0..1.0f64) < 0.4 {
@@ -389,6 +392,22 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
 // ---------------------------------------------------------------------------
 // Rating helpers
 // ---------------------------------------------------------------------------
+
+/// How well `def_side` defends a shot: see [`crate::shared::defensive_quality`].
+fn defending_quality(ctx: &MatchContext, def_side: Side, condition_factor: f64) -> f64 {
+    let defending_team = if def_side == Side::Home {
+        &ctx.home
+    } else {
+        &ctx.away
+    };
+    crate::shared::defensive_quality(
+        defending_team
+            .players
+            .iter()
+            .filter(|player| !ctx.sent_off.contains(&player.id))
+            .map(|player| (player, condition_factor)),
+    )
+}
 
 pub(super) fn effective_midfield(ctx: &MatchContext, side: Side) -> f64 {
     let base = ctx.team(side).midfield_rating();

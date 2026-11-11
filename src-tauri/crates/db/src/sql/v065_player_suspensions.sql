@@ -1,0 +1,1 @@
+ALTER TABLE players ADD COLUMN suspended_matches INTEGER NOT NULL DEFAULT 0;

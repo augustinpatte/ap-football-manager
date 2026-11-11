@@ -4,12 +4,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
 
+use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkReason};
 use domain::negotiation::NegotiationFeedback;
 use domain::player::RenewalSessionStatus;
 use ofm_core::contracts::{
     ContractTerminationPreview, ContractTerminationResult, ContractWarningStage,
-    DelegatedRenewalOptions, DelegatedRenewalReport, RenewalDecision, RenewalFinancialProjection,
-    RenewalOffer,
+    DelegatedRenewalOptions, DelegatedRenewalReport, FreeAgentInterest, FreeAgentOfferDecision,
+    FreeAgentOfferOutcome, OfferTerms, RenewalDecision, RenewalFinancialProjection, RenewalOffer,
 };
 use ofm_core::game::Game;
 use ofm_core::squad_safety::SquadSafetyReport;
@@ -40,21 +41,46 @@ pub struct RenewalFinancialProjectionCommandResponse {
     pub projection: RenewalFinancialProjection,
 }
 
+/// What a free-agent offer, an answer to his counter, or a withdrawal came to. An offer is never
+/// signed on the spot: `Pending` means the player has it and answers on `respond_on`.
 #[derive(Debug, Clone, Serialize)]
 pub struct FreeAgentContractCommandResponse {
-    pub outcome: RenewalDecision,
+    pub outcome: FreeAgentOfferDecision,
     pub game: Game,
+    pub talk: Option<FreeAgentTalk>,
+    pub respond_on: Option<String>,
+    pub reason: Option<FreeAgentTalkReason>,
     pub suggested_wage: Option<u32>,
     pub suggested_years: Option<u32>,
-    pub session_status: String,
-    pub is_terminal: bool,
-    pub cooled_off: bool,
-    pub feedback: Option<NegotiationFeedback>,
+}
+
+impl FreeAgentContractCommandResponse {
+    fn of(outcome: FreeAgentOfferOutcome, game: &Game) -> Self {
+        Self {
+            outcome: outcome.decision,
+            game: game.ui_clone(),
+            talk: outcome.talk,
+            respond_on: outcome.respond_on,
+            reason: outcome.reason,
+            suggested_wage: outcome.suggested_wage,
+            suggested_years: outcome.suggested_years,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FreeAgentContractProjectionCommandResponse {
     pub projection: RenewalFinancialProjection,
+    /// Whether this player would value a stepping-stone promise, so the UI offers the option only
+    /// where the backend would accept it.
+    pub stepping_stone_available: bool,
+    /// Why a signing bonus of the size asked about cannot be paid (a translation key), if it cannot.
+    pub signing_bonus_error: Option<String>,
+    /// How the player would take these terms now, and who else is bidding for him.
+    pub interest: FreeAgentInterest,
+    /// The senior squad list and its limit: a full list is the club's registration limit, not the
+    /// player's answer, and the screen says how many places to free.
+    pub squad_capacity: Option<ofm_core::contracts::SquadCapacity>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -125,8 +151,17 @@ pub async fn offer_free_agent_contract(
     player_id: String,
     weekly_wage: u32,
     contract_years: u32,
+    promise_stepping_stone: Option<bool>,
+    signing_bonus: Option<u64>,
 ) -> Result<FreeAgentContractCommandResponse, String> {
-    offer_free_agent_contract_internal(&state, &player_id, weekly_wage, contract_years)
+    offer_free_agent_contract_internal(
+        &state,
+        &player_id,
+        weekly_wage,
+        contract_years,
+        promise_stepping_stone.unwrap_or(false),
+        signing_bonus.unwrap_or(0),
+    )
 }
 
 #[tauri::command]
@@ -134,8 +169,38 @@ pub async fn preview_free_agent_contract_impact(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
     weekly_wage: u32,
+    signing_bonus: Option<u64>,
+    contract_years: Option<u32>,
+    promise_stepping_stone: Option<bool>,
 ) -> Result<FreeAgentContractProjectionCommandResponse, String> {
-    preview_free_agent_contract_impact_internal(&state, &player_id, weekly_wage)
+    preview_free_agent_contract_impact_internal(
+        &state,
+        &player_id,
+        OfferTerms {
+            weekly_wage,
+            contract_years: contract_years.unwrap_or(0),
+            signing_bonus: signing_bonus.unwrap_or(0),
+            promise_stepping_stone: promise_stepping_stone.unwrap_or(false),
+        },
+    )
+}
+
+/// The manager takes the terms a free agent asked for in his counter-offer.
+#[tauri::command]
+pub async fn accept_free_agent_counter(
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+) -> Result<FreeAgentContractCommandResponse, String> {
+    accept_free_agent_counter_internal(&state, &player_id)
+}
+
+/// The manager takes an offer back, or lets a counter go.
+#[tauri::command]
+pub async fn withdraw_free_agent_offer(
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+) -> Result<FreeAgentContractCommandResponse, String> {
+    withdraw_free_agent_offer_internal(&state, &player_id)
 }
 
 #[tauri::command]
@@ -262,33 +327,56 @@ pub fn offer_free_agent_contract_internal(
     player_id: &str,
     weekly_wage: u32,
     contract_years: u32,
+    promise_stepping_stone: bool,
+    signing_bonus: u64,
 ) -> Result<FreeAgentContractCommandResponse, String> {
     info!(
-        "[cmd] offer_free_agent_contract: player_id={}, weekly_wage={}, contract_years={}",
-        player_id, weekly_wage, contract_years
+        "[cmd] offer_free_agent_contract: player_id={}, weekly_wage={}, contract_years={}, promise={}, bonus={}",
+        player_id, weekly_wage, contract_years, promise_stepping_stone, signing_bonus
     );
 
-    // offer_free_agent_contract validates (team/player/free-agent) before mutating.
+    // submit_free_agent_offer validates (team/player/money/duplicates) before it records anything.
     state
         .update_game(|game| {
-            let outcome = ofm_core::contracts::offer_free_agent_contract(
+            let outcome = ofm_core::contracts::submit_free_agent_offer(
                 game,
                 player_id,
-                RenewalOffer {
+                OfferTerms {
                     weekly_wage,
                     contract_years,
+                    signing_bonus,
+                    promise_stepping_stone,
                 },
             )?;
-            Ok(FreeAgentContractCommandResponse {
-                outcome: outcome.decision,
-                game: game.ui_clone(),
-                suggested_wage: outcome.suggested_wage,
-                suggested_years: outcome.suggested_years,
-                session_status: serialize_session_status(outcome.session_status),
-                is_terminal: outcome.is_terminal,
-                cooled_off: outcome.cooled_off,
-                feedback: outcome.feedback,
-            })
+            Ok(FreeAgentContractCommandResponse::of(outcome, game))
+        })
+        .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
+}
+
+pub fn accept_free_agent_counter_internal(
+    state: &StateManager,
+    player_id: &str,
+) -> Result<FreeAgentContractCommandResponse, String> {
+    info!("[cmd] accept_free_agent_counter: player_id={}", player_id);
+
+    state
+        .update_game(|game| {
+            let outcome = ofm_core::contracts::accept_free_agent_counter(game, player_id)?;
+            Ok(FreeAgentContractCommandResponse::of(outcome, game))
+        })
+        .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
+}
+
+pub fn withdraw_free_agent_offer_internal(
+    state: &StateManager,
+    player_id: &str,
+) -> Result<FreeAgentContractCommandResponse, String> {
+    info!("[cmd] withdraw_free_agent_offer: player_id={}", player_id);
+
+    state
+        .update_game(|game| {
+            let outcome = ofm_core::contracts::withdraw_free_agent_offer(game, player_id)?;
+            Ok(FreeAgentContractCommandResponse::of(outcome, game))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
 }
@@ -296,20 +384,52 @@ pub fn offer_free_agent_contract_internal(
 pub fn preview_free_agent_contract_impact_internal(
     state: &StateManager,
     player_id: &str,
-    weekly_wage: u32,
+    terms: OfferTerms,
 ) -> Result<FreeAgentContractProjectionCommandResponse, String> {
     info!(
-        "[cmd] preview_free_agent_contract_impact: player_id={}, weekly_wage={}",
-        player_id, weekly_wage
+        "[cmd] preview_free_agent_contract_impact: player_id={}, terms={:?}",
+        player_id, terms
     );
 
-    let projection = state
+    state
         .get_game(|game| {
-            ofm_core::contracts::project_free_agent_contract_impact(game, player_id, weekly_wage)
+            let projection = ofm_core::contracts::project_free_agent_contract_impact(
+                game,
+                player_id,
+                terms.weekly_wage,
+            )?;
+            let interest = ofm_core::contracts::assess_free_agent_interest(game, player_id, terms)?;
+            let today = game.clock.current_date.date_naive();
+            let stepping_stone_available = game
+                .players
+                .iter()
+                .find(|player| player.id == player_id)
+                .is_some_and(|player| ofm_core::transfers::wants_stepping_stone(player, today));
+            let signing_bonus_error = (terms.signing_bonus > 0)
+                .then(|| {
+                    game.manager
+                        .team_id
+                        .as_deref()
+                        .and_then(|id| game.teams.iter().find(|team| team.id == id))
+                        .and_then(|team| {
+                            ofm_core::transfers::ensure_bonus_affordable(team, terms.signing_bonus)
+                                .err()
+                        })
+                })
+                .flatten();
+            Ok::<_, String>(FreeAgentContractProjectionCommandResponse {
+                projection,
+                stepping_stone_available,
+                signing_bonus_error,
+                interest,
+                squad_capacity: game
+                    .manager
+                    .team_id
+                    .as_deref()
+                    .map(|club_id| ofm_core::contracts::squad_capacity(game, club_id)),
+            })
         })
-        .ok_or_else(|| "be.error.noActiveGameSession".to_string())??;
-
-    Ok(FreeAgentContractProjectionCommandResponse { projection })
+        .ok_or_else(|| "be.error.noActiveGameSession".to_string())?
 }
 
 pub fn set_contract_exit_intent_internal(
@@ -397,11 +517,12 @@ pub fn terminate_contract_now_internal(
 #[cfg(test)]
 mod tests {
     use super::{
-        clear_contract_exit_intent_internal, delegate_renewals_internal,
-        get_contract_warning_stages_internal, offer_free_agent_contract_internal,
-        preview_contract_termination_internal, preview_free_agent_contract_impact_internal,
-        preview_renewal_financial_impact_internal, propose_renewal_internal,
-        set_contract_exit_intent_internal, terminate_contract_now_internal,
+        accept_free_agent_counter_internal, clear_contract_exit_intent_internal,
+        delegate_renewals_internal, get_contract_warning_stages_internal,
+        offer_free_agent_contract_internal, preview_contract_termination_internal,
+        preview_free_agent_contract_impact_internal, preview_renewal_financial_impact_internal,
+        propose_renewal_internal, set_contract_exit_intent_internal,
+        terminate_contract_now_internal, withdraw_free_agent_offer_internal,
     };
     use chrono::{TimeZone, Utc};
     use db::save_manager::SaveManager;
@@ -413,7 +534,7 @@ mod tests {
     use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
-    use ofm_core::contracts::RenewalDecision;
+    use ofm_core::contracts::{FreeAgentOfferDecision, OfferTerms, RenewalDecision};
     use ofm_core::game::Game;
     use ofm_core::state::StateManager;
     use std::fs;
@@ -807,32 +928,113 @@ mod tests {
         assert_eq!(stages.len(), 1);
     }
 
+    fn terms(weekly_wage: u32, contract_years: u32, promise: bool) -> OfferTerms {
+        OfferTerms {
+            weekly_wage,
+            contract_years,
+            signing_bonus: 0,
+            promise_stepping_stone: promise,
+        }
+    }
+
+    /// Plays `days` days of the free-agent market on the stored game, as the clock would.
+    fn advance_days(state: &StateManager, days: i64) {
+        state
+            .update_game(|game| {
+                for _ in 0..days {
+                    game.clock.current_date += chrono::Duration::days(1);
+                    ofm_core::contracts::process_free_agent_talks(game);
+                }
+            })
+            .expect("an active game");
+    }
+
+    /// Given a free agent and an offer that meets his ask
+    /// When the offer command runs
+    /// Then it answers "pending" with the day he will reply and changes nothing on the roster;
+    ///      after the days pass the stored game has him signed, once, with the movement recorded.
     #[test]
-    fn offer_free_agent_contract_internal_returns_response_and_updates_state() {
+    fn offer_free_agent_contract_internal_is_pending_until_the_player_answers() {
         let state = StateManager::new();
         state.set_game(make_free_agent_game());
 
-        let response =
-            offer_free_agent_contract_internal(&state, "player-1", 4_000, 3).expect("response");
+        let response = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false, 0)
+            .expect("response");
 
-        assert!(matches!(response.outcome, RenewalDecision::Accepted));
-        assert_eq!(response.session_status, "agreed");
-        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
-        assert_eq!(response.game.players[0].contract_end(), Some("2029-08-01"));
-        assert!(response.game.players[0]
-            .movement_history
-            .iter()
-            .any(|entry| {
-                entry.kind == PlayerMovementKind::FreeAgentSigning
-                    && entry.to_team_id.as_deref() == Some("team-1")
-            }));
+        assert_eq!(response.outcome, FreeAgentOfferDecision::Pending);
+        assert!(response.respond_on.is_some());
+        assert_eq!(response.game.players[0].team_id, None);
+        assert_eq!(response.talk.as_ref().map(|t| t.weekly_wage), Some(4_000));
 
+        advance_days(&state, 3);
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(stored_game.players[0].team_id.as_deref(), Some("team-1"));
-        assert!(stored_game.players[0].movement_history.iter().any(|entry| {
-            entry.kind == PlayerMovementKind::FreeAgentSigning
-                && entry.to_team_name.as_deref() == Some("Alpha FC")
-        }));
+        assert_eq!(stored_game.players[0].wage(), 4_000);
+        assert_eq!(
+            stored_game.players[0]
+                .movement_history
+                .iter()
+                .filter(|entry| entry.kind == PlayerMovementKind::FreeAgentSigning
+                    && entry.to_team_name.as_deref() == Some("Alpha FC"))
+                .count(),
+            1
+        );
+    }
+
+    /// Given an offer already with the player
+    /// When the same command runs again (a double click)
+    /// Then it fails with the "already open" key and leaves exactly one talk.
+    #[test]
+    fn offer_free_agent_contract_internal_refuses_a_second_click() {
+        let state = StateManager::new();
+        state.set_game(make_free_agent_game());
+        offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false, 0).expect("first");
+
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false, 0)
+            .expect_err("second click");
+
+        assert_eq!(error, "be.error.freeAgents.talkAlreadyOpen");
+        let talks = state
+            .get_game(|game| game.players[0].morale_core.free_agent_talks.len())
+            .unwrap();
+        assert_eq!(talks, 1);
+    }
+
+    /// Given an offer the player answered with a counter
+    /// When the manager accepts it through the command
+    /// Then he is signed on his terms; withdrawing afterwards finds no talk.
+    #[test]
+    fn a_counter_is_accepted_through_the_command() {
+        let state = StateManager::new();
+        state.set_game(make_free_agent_game());
+        offer_free_agent_contract_internal(&state, "player-1", 2_300, 3, false, 0).expect("offer");
+        advance_days(&state, 3);
+
+        let response = accept_free_agent_counter_internal(&state, "player-1").expect("accepted");
+
+        assert_eq!(response.outcome, FreeAgentOfferDecision::Accepted);
+        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
+        assert_eq!(
+            withdraw_free_agent_offer_internal(&state, "player-1").unwrap_err(),
+            "be.error.contracts.playerNotFreeAgent"
+        );
+    }
+
+    /// Given an open offer
+    /// When the manager withdraws it
+    /// Then the talk is closed and the player never signs.
+    #[test]
+    fn a_withdrawn_offer_never_signs() {
+        let state = StateManager::new();
+        state.set_game(make_free_agent_game());
+        offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false, 0).expect("offer");
+
+        let response = withdraw_free_agent_offer_internal(&state, "player-1").expect("withdrawn");
+        advance_days(&state, 5);
+
+        assert_eq!(response.outcome, FreeAgentOfferDecision::Rejected);
+        let stored = state.get_game(|game| game.clone()).unwrap();
+        assert_eq!(stored.players[0].team_id, None);
     }
 
     #[test]
@@ -840,12 +1042,15 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_free_agent_game());
 
-        let response = preview_free_agent_contract_impact_internal(&state, "player-1", 4_000)
-            .expect("response");
+        let response =
+            preview_free_agent_contract_impact_internal(&state, "player-1", terms(4_000, 3, false))
+                .expect("response");
 
         assert_eq!(response.projection.current_annual_wage_bill, 0);
         assert_eq!(response.projection.projected_annual_wage_bill, 4_000);
         assert!(response.projection.policy_allows);
+        assert!(response.interest.rival_clubs.is_empty());
+        assert_eq!(response.interest.max_response_days, 3);
     }
 
     #[test]
@@ -853,8 +1058,9 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_retired_free_agent_game());
 
-        let error = preview_free_agent_contract_impact_internal(&state, "player-1", 4_000)
-            .expect_err("retired players should be rejected");
+        let error =
+            preview_free_agent_contract_impact_internal(&state, "player-1", terms(4_000, 3, false))
+                .expect_err("retired players should be rejected");
 
         assert_eq!(error, "be.error.contracts.playerNotFreeAgent");
     }
@@ -864,10 +1070,60 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_retired_free_agent_game());
 
-        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3)
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, false, 0)
             .expect_err("retired players should be rejected");
 
         assert_eq!(error, "be.error.contracts.playerNotFreeAgent");
+    }
+
+    /// Given a free agent young enough to want a way up,
+    /// When the signing preview is read and then an offer carries the promise,
+    /// Then the preview advertises the option and the promise is stored on the player once he signs.
+    #[test]
+    fn free_agent_promise_is_advertised_by_the_preview_and_recorded_when_he_signs() {
+        let state = StateManager::new();
+        let mut game = make_free_agent_game();
+        game.players[0].ovr = 60;
+        game.players[0].potential = 75;
+        state.set_game(game);
+
+        let preview =
+            preview_free_agent_contract_impact_internal(&state, "player-1", terms(4_000, 3, true))
+                .expect("preview");
+        assert!(preview.stepping_stone_available);
+
+        offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, true, 0).expect("offer");
+        advance_days(&state, 3);
+        let signed = state.get_game(|game| game.clone()).unwrap();
+        assert!(signed.players[0]
+            .morale_core
+            .stepping_stone_promise
+            .is_some());
+    }
+
+    /// Given a free agent with no room to grow,
+    /// When the club still offers the promise,
+    /// Then the command fails with a translation key and the player stays unsigned.
+    #[test]
+    fn free_agent_promise_is_refused_for_a_player_who_does_not_want_it() {
+        let state = StateManager::new();
+        let mut game = make_free_agent_game();
+        game.players[0].ovr = 70;
+        game.players[0].potential = 70;
+        state.set_game(game);
+
+        let preview =
+            preview_free_agent_contract_impact_internal(&state, "player-1", terms(4_000, 3, false))
+                .expect("preview");
+        assert!(!preview.stepping_stone_available);
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3, true, 0)
+            .expect_err("promise refused");
+
+        assert_eq!(error, "be.error.contracts.promiseNotWanted");
+        let unsigned = state
+            .get_game(|game| game.players[0].team_id.clone())
+            .unwrap();
+        assert_eq!(unsigned, None);
     }
 
     #[test]

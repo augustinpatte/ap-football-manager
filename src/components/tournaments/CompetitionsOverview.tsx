@@ -55,9 +55,10 @@ export default function CompetitionsOverview({ competitions, userTeamId, onSelec
     if (bucket) bucket.push(c);
     else grouped.set(scope, [c]);
   }
-  const byScope = SCOPE_ORDER.filter((s) => grouped.has(s)).map(
-    (s) => [s, grouped.get(s)!] as const,
-  );
+  const byScope = SCOPE_ORDER.flatMap((s) => {
+    const bucket = grouped.get(s);
+    return bucket ? [[s, bucket] as const] : [];
+  });
 
   return (
     <Card>

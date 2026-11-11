@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = {
   sidebar_width: "standard",
   sidebar_behaviour: "normal",
   sidebar_collapsed: false,
+  squad_hidden_columns: [] as string[],
 } as const;
 
 const SUPPORTED_CURRENCIES = [
@@ -92,6 +93,51 @@ describe("useSettingsStore", () => {
       sidebar_width: "compact",
       sidebar_behaviour: "click",
       sidebar_collapsed: true,
+    });
+  });
+
+  /**
+   * Given a settings file from before the squad column chooser (no list at all)
+   * When it is loaded
+   * Then no column is hidden, and the other settings are as the file has them.
+   */
+  it("hides no squad column when the saved settings predate the chooser", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      settings: { language: "fr" },
+      currency: SUPPORTED_CURRENCIES[0],
+      supported_currencies: SUPPORTED_CURRENCIES,
+    });
+
+    await useSettingsStore.getState().loadSettings();
+
+    expect(useSettingsStore.getState().settings.squad_hidden_columns).toEqual([]);
+    expect(useSettingsStore.getState().settings.language).toBe("fr");
+  });
+
+  /**
+   * Given a player who hid two squad columns
+   * When settings are loaded, and then one more column is hidden
+   * Then the loaded two are kept, and the whole list is what save_settings receives, next to
+   *      every other setting.
+   */
+  it("keeps the hidden squad columns the backend loads and saves the whole list", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      settings: { squad_hidden_columns: ["age", "morale"] },
+      currency: SUPPORTED_CURRENCIES[0],
+      supported_currencies: SUPPORTED_CURRENCIES,
+    });
+    await useSettingsStore.getState().loadSettings();
+    expect(useSettingsStore.getState().settings.squad_hidden_columns).toEqual(["age", "morale"]);
+
+    await useSettingsStore.getState().updateSettings({
+      squad_hidden_columns: ["age", "morale", "traits"],
+    });
+
+    expect(invoke).toHaveBeenLastCalledWith("save_settings", {
+      settings: expect.objectContaining({
+        squad_hidden_columns: ["age", "morale", "traits"],
+        language: "en",
+      }),
     });
   });
 

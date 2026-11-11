@@ -556,7 +556,11 @@ export function Select({
                     // Keyed by position, not by label: two `optgroup`s may carry the
                     // same label without being adjacent, and keying on the label
                     // would give them the same key.
-                    <div key={`group-${sectionIndex}`} role="group" aria-label={section.label}>
+                    <fieldset
+                      key={`group-${sectionIndex}`}
+                      className="min-w-0"
+                      aria-label={section.label}
+                    >
                       <div
                         aria-hidden="true"
                         className="px-3 pb-1 pt-2 text-caption font-semibold text-fg-subtle"
@@ -564,7 +568,7 @@ export function Select({
                         {section.label}
                       </div>
                       {rendered}
-                    </div>
+                    </fieldset>
                   );
                 })}
               </div>

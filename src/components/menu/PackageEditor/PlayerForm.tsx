@@ -58,6 +58,7 @@ export function PlayerForm({
 }: PlayerFormProps) {
   const { t } = useTranslation();
   const dobLabelId = useId();
+  const fieldIdPrefix = useId();
   const [useAttributes, setUseAttributes] = useState(editing.attributes !== null);
   const [idAutoMode, setIdAutoMode] = useState(editingIndex === null && !editing.id);
   const {
@@ -149,7 +150,7 @@ export function PlayerForm({
           {/* Photo */}
           {projectDir && (
             <div className="flex flex-col gap-1">
-              <label className={labelClass}>{t("worldEditor.playerPhoto")}</label>
+              <span className={labelClass}>{t("worldEditor.playerPhoto")}</span>
               <div className="flex items-center gap-3">
                 {photoDataUrl ? (
                   <img
@@ -200,8 +201,11 @@ export function PlayerForm({
             />
           ) : (
             <div className="flex flex-col gap-1">
-              <label className={labelClass}>{t("worldEditor.playerClub")}</label>
+              <label htmlFor={`${fieldIdPrefix}-club`} className={labelClass}>
+                {t("worldEditor.playerClub")}
+              </label>
               <input
+                id={`${fieldIdPrefix}-club`}
                 type="text"
                 value={editing.club}
                 onChange={(e) => updateField("club", e.target.value)}
@@ -238,9 +242,9 @@ export function PlayerForm({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label id={dobLabelId} className={labelClass}>
+            <span id={dobLabelId} className={labelClass}>
               {t("worldEditor.playerDateOfBirth")}
-            </label>
+            </span>
             <DatePicker
               labelledBy={dobLabelId}
               value={editing.dateOfBirth ?? ""}
@@ -299,11 +303,15 @@ export function PlayerForm({
                   <div className="grid grid-cols-2 gap-2">
                     {keys.map((key) => (
                       <div key={key} className="flex flex-col gap-0.5">
-                        <label className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                        <label
+                          htmlFor={`${fieldIdPrefix}-attr-${key}`}
+                          className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500"
+                        >
                           {t(`common.attributes.${key}`)}
                         </label>
                         <div className="flex items-center gap-1.5">
                           <input
+                            id={`${fieldIdPrefix}-attr-${key}`}
                             type="range"
                             min={1}
                             max={99}

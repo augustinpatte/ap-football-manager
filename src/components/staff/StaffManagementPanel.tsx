@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { GameStateData } from "../../store/gameStore";
@@ -10,11 +10,15 @@ import {
   applyAssistantRecommendation,
   getAssistantRecommendations,
   resolveDelegationProposal,
+  setDelegationLimits,
+  setDelegationMode,
   setDutyDelegation,
 } from "../../services/staffService";
+import { getActiveGame } from "../../services/sessionService";
 import { resolveBackendError } from "../../utils/backendI18n";
-import { formatWeeklyWage } from "../../lib/helpers";
+import { formatDate, formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
+import DelegationModeCard from "./DelegationModeCard";
 
 interface StaffManagementPanelProps {
   overview: StaffOverview | null;
@@ -28,6 +32,11 @@ const DUTIES: Duty[] = [
   "Youth",
   "StaffRecruitment",
   "StaffRenewals",
+  "Lineup",
+  "PlayerRenewals",
+  "PlayerRecruitment",
+  "Tactics",
+  "Offers",
 ];
 
 /** Backend params carry raw enum names; the ones that name a post or a position are translated. */
@@ -41,7 +50,15 @@ function useParams() {
           ? t(`staff.posts.${value}`, { defaultValue: value })
           : key === "position"
             ? t(`common.positions.${value}`, { defaultValue: value })
-            : value,
+            : key === "focus"
+              ? t(`training.focuses.${value}.label`, { defaultValue: value })
+              : key === "intensity"
+                ? t(`training.intensities.${value}.label`, { defaultValue: value })
+                : key === "style"
+                  ? t(`common.playStyles.${value}`, { defaultValue: value })
+                  : key === "fee" && Number.isFinite(Number(value))
+                    ? formatExactMoney(Number(value))
+                    : value,
       ]),
     );
 }
@@ -50,11 +67,19 @@ export default function StaffManagementPanel({
   overview,
   onGameUpdate,
 }: StaffManagementPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const named = useParams();
+  const shortDate = (iso: string) =>
+    formatDate(iso.slice(0, 10), i18n.language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   const [recs, setRecs] = useState<AssistantRecommendation[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  // Several buttons read alike (Accept, Decline, Delegate); each is described by what it acts on.
+  const describeId = useId();
 
   const proposalsCount = overview?.delegation.proposals.length ?? 0;
   const refreshRecs = useCallback(() => {
@@ -75,6 +100,13 @@ export default function StaffManagementPanel({
       refreshRecs();
     } catch (err) {
       setError(resolveBackendError(err));
+      // A refused answer may still have changed the game: the backend drops a proposal it cannot
+      // carry out. Read the game again so the list and the dashboard do not keep showing it.
+      try {
+        onGameUpdate(await getActiveGame());
+      } catch (resyncError) {
+        console.error("Failed to read the game after a refused answer:", resyncError);
+      }
     } finally {
       setBusy(null);
     }
@@ -130,6 +162,15 @@ export default function StaffManagementPanel({
         </CardBody>
       </Card>
 
+      <DelegationModeCard
+        mode={overview.delegation_mode}
+        limits={delegation.limits}
+        hasAssistant={overview.has_assistant}
+        busy={busy !== null}
+        onModeChange={(mode) => void run("mode", () => setDelegationMode(mode))}
+        onLimitsSave={(limits) => void run("limits", () => setDelegationLimits(limits))}
+      />
+
       <Card>
         <CardBody>
           <h3 className="font-heading text-lead uppercase">{t("staff.delegation.title")}</h3>
@@ -149,7 +190,9 @@ export default function StaffManagementPanel({
                   data-testid={`duty-${duty}`}
                   className="flex flex-wrap items-center justify-between gap-2"
                 >
-                  <span className="text-body">{t(`staff.delegation.duties.${duty}`)}</span>
+                  <span id={`${describeId}-duty-${duty}`} className="text-body">
+                    {t(`staff.delegation.duties.${duty}`)}
+                  </span>
                   <span className="flex items-center gap-3">
                     {delegated ? (
                       <span className="flex items-center gap-2 text-caption text-fg-muted">
@@ -168,6 +211,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant={delegated ? "outline" : "primary"}
+                      aria-describedby={`${describeId}-duty-${duty}`}
                       disabled={busy !== null || (!delegated && !overview.has_assistant)}
                       onClick={() =>
                         void run(`duty-${duty}`, () => setDutyDelegation(duty, !delegated, confirm))
@@ -196,15 +240,19 @@ export default function StaffManagementPanel({
                   data-testid={`proposal-${proposal.id}`}
                   className="grid gap-1"
                 >
-                  <p className="text-body font-medium">
+                  <p id={`${describeId}-${proposal.id}`} className="text-body font-medium">
                     {t(proposal.title_key, named(proposal.params))}
                   </p>
                   <p className="text-caption text-fg-muted">
                     {t(proposal.reason_key, named(proposal.params))}
                   </p>
+                  <p className="text-caption text-fg-subtle">
+                    {t(`staff.delegation.duties.${proposal.duty}`)} · {shortDate(proposal.created)}
+                  </p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
+                      aria-describedby={`${describeId}-${proposal.id}`}
                       disabled={busy !== null}
                       onClick={() =>
                         void run(proposal.id, () => resolveDelegationProposal(proposal.id, true))
@@ -215,6 +263,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-describedby={`${describeId}-${proposal.id}`}
                       disabled={busy !== null}
                       onClick={() =>
                         void run(proposal.id, () => resolveDelegationProposal(proposal.id, false))
@@ -237,7 +286,13 @@ export default function StaffManagementPanel({
                 .slice(0, 8)
                 .map((entry, index) => (
                   <li key={`${entry.date}-${index}`}>
-                    {entry.date.slice(0, 10)} · {logTitle(entry)}
+                    {shortDate(entry.date)} · {logTitle(entry)}
+                    {entry.outcome === "executed" ? null : (
+                      <>
+                        {" · "}
+                        <span>{t(`staff.delegation.outcome.${entry.outcome}`)}</span>
+                      </>
+                    )}
                   </li>
                 ))}
             </ul>
@@ -254,7 +309,10 @@ export default function StaffManagementPanel({
             <ul className="mt-2 grid gap-3">
               {recs.map((rec) => (
                 <li key={rec.id} data-testid={`rec-${rec.id}`} className="grid gap-1">
-                  <p className="flex items-center gap-2 text-body font-medium">
+                  <p
+                    id={`${describeId}-${rec.id}`}
+                    className="flex items-center gap-2 text-body font-medium"
+                  >
                     <Badge
                       variant={
                         rec.severity >= 3 ? "danger" : rec.severity === 2 ? "primary" : "neutral"
@@ -272,6 +330,7 @@ export default function StaffManagementPanel({
                     <Button
                       size="sm"
                       variant="outline"
+                      aria-describedby={`${describeId}-${rec.id}`}
                       disabled={busy !== null}
                       onClick={() => void run(rec.id, () => applyAssistantRecommendation(rec.id))}
                     >

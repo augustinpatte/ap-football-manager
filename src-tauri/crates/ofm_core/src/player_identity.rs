@@ -1,14 +1,16 @@
 use crate::game::Game;
-use crate::player_rating::formation_slots;
+use crate::player_rating::{formation_slots, refresh_player_derived};
+use chrono::NaiveDate;
 use domain::player::{Footedness, Player, Position};
 use std::collections::HashMap;
 
 pub fn upgrade_game_player_identities(game: &mut Game) -> bool {
     let slot_map = build_assigned_slot_map(game);
+    let on = game.clock.current_date.date_naive();
     let mut changed = false;
 
     for player in &mut game.players {
-        if upgrade_player_identity(player, slot_map.get(&player.id)) {
+        if upgrade_player_identity(player, slot_map.get(&player.id), on) {
             changed = true;
         }
     }
@@ -16,7 +18,26 @@ pub fn upgrade_game_player_identities(game: &mut Game) -> bool {
     changed
 }
 
-pub fn upgrade_player_identity(player: &mut Player, assigned_slot: Option<&Position>) -> bool {
+/// Infer a player's granular identity and refresh the fields derived from it.
+///
+/// `natural_position` is an input to the rating, not just a label: `ovr` and the
+/// position-dependent traits are computed from it (see
+/// `player_rating::refresh_player_derived`). Generated players are rated while
+/// they still hold a coarse group (Defender, Midfielder, Forward), then this
+/// upgrade replaces that group with a granular role. Without a refresh the
+/// stored `ovr` keeps describing the old role — measured at 39% of the shipped
+/// world drifting from its own attributes, 3,786 players by more than the
+/// audit's 2.0 tolerance. Re-derive on `on` so the two never disagree.
+///
+/// `potential` stays as generated: it is a ceiling on the same rating scale, so
+/// it is preserved (and only raised when the refreshed `ovr` would exceed it)
+/// rather than shifted with the rating. Moving it would alter thousands of
+/// intended ceilings to hide a tiny change in growth room.
+pub(crate) fn upgrade_player_identity(
+    player: &mut Player,
+    assigned_slot: Option<&Position>,
+    on: NaiveDate,
+) -> bool {
     if !needs_identity_upgrade(player) {
         return false;
     }
@@ -35,6 +56,10 @@ pub fn upgrade_player_identity(player: &mut Player, assigned_slot: Option<&Posit
     player.alternate_positions = alternate_positions;
     player.footedness = footedness;
     player.weak_foot = weak_foot;
+
+    if changed {
+        refresh_player_derived(player, on);
+    }
 
     changed
 }
@@ -456,6 +481,7 @@ fn stable_hash(value: &str) -> u64 {
 mod tests {
     use super::*;
     use crate::clock::GameClock;
+    use crate::player_rating::natural_ovr;
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::PlayerAttributes;
@@ -495,6 +521,10 @@ mod tests {
         )
     }
 
+    fn on() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 7, 1).expect("valid date")
+    }
+
     #[test]
     fn upgrade_player_identity_infers_granular_defender_profile() {
         let attrs = PlayerAttributes {
@@ -520,12 +550,65 @@ mod tests {
         };
         let mut player = make_player("legacy-rb", Position::Defender, attrs);
 
-        let changed = upgrade_player_identity(&mut player, Some(&Position::RightBack));
+        let changed = upgrade_player_identity(&mut player, Some(&Position::RightBack), on());
 
         assert!(changed);
         assert_eq!(player.natural_position, Position::RightBack);
         assert_eq!(player.footedness, Footedness::Right);
         assert!(player.weak_foot >= 2);
+    }
+
+    /// Given a generated-style player rated while he still held the coarse Defender group, when
+    /// the identity upgrade gives him RightBack, then his stored ovr is re-derived from the new
+    /// natural position instead of keeping the old center-back score.
+    #[test]
+    fn upgrading_a_legacy_bucket_refreshes_the_derived_rating() {
+        let attrs = PlayerAttributes {
+            pace: 86,
+            stamina: 84,
+            strength: 66,
+            agility: 74,
+            passing: 62,
+            shooting: 40,
+            tackling: 78,
+            dribbling: 63,
+            defending: 73,
+            positioning: 68,
+            vision: 55,
+            decisions: 64,
+            composure: 61,
+            aggression: 66,
+            teamwork: 72,
+            leadership: 50,
+            handling: 20,
+            reflexes: 20,
+            aerial: 48,
+        };
+        let mut player = make_player("legacy-rb-rated", Position::Defender, attrs);
+        // The generator rates a bucket player through the canonical CenterBack weighting.
+        player.ovr = natural_ovr(&player).round() as u8;
+        player.potential = player.ovr.saturating_add(5).min(99);
+        let before = natural_ovr(&player);
+        let ceiling = player.potential;
+
+        upgrade_player_identity(&mut player, Some(&Position::RightBack), on());
+
+        assert_eq!(player.natural_position, Position::RightBack);
+        let after = natural_ovr(&player);
+        assert!(
+            (after - before).abs() > 0.5,
+            "the fixture must actually move the rating: {before} -> {after}"
+        );
+        assert_eq!(
+            player.ovr,
+            after.round() as u8,
+            "a position change must re-derive ovr from the new natural position"
+        );
+        assert_eq!(
+            player.potential,
+            ceiling.max(player.ovr),
+            "the stored ceiling is kept, and only raised when the corrected rating overtakes it"
+        );
     }
 
     #[test]
@@ -553,7 +636,7 @@ mod tests {
         };
         let mut player = make_player("legacy-cb", Position::Defender, attrs);
 
-        upgrade_player_identity(&mut player, Some(&Position::CenterBack));
+        upgrade_player_identity(&mut player, Some(&Position::CenterBack), on());
 
         assert_eq!(player.natural_position, Position::CenterBack);
         assert!(player.alternate_positions.len() <= 1);
@@ -599,7 +682,7 @@ mod tests {
         // Even with an assigned XI slot that would score to a *different*
         // natural (Striker) under fresh inference, the upgrade must be a
         // no-op because natural_position is already granular.
-        let changed = upgrade_player_identity(&mut player, Some(&Position::Striker));
+        let changed = upgrade_player_identity(&mut player, Some(&Position::Striker), on());
 
         assert!(
             !changed,
@@ -643,7 +726,7 @@ mod tests {
         // Legacy bucket sneaking in — must trigger re-inference.
         player.alternate_positions = vec![Position::Midfielder];
 
-        let changed = upgrade_player_identity(&mut player, Some(&Position::RightBack));
+        let changed = upgrade_player_identity(&mut player, Some(&Position::RightBack), on());
 
         assert!(changed);
         assert!(

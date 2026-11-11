@@ -119,7 +119,13 @@ fn profile(experience: u8, personality: AiPersonality) -> AiProfile {
         reputation: 500,
         experience,
         personality,
+        ..AiProfile::default()
     }
+}
+
+/// The same manager with a different appetite for risk (0 cautious, 1 bold).
+fn with_risk(profile: AiProfile, risk: f64) -> AiProfile {
+    AiProfile { risk, ..profile }
 }
 
 /// Every manager the game can produce: the three archetypes at the bottom, the
@@ -686,4 +692,254 @@ fn the_player_taken_off_is_the_one_with_least_left_to_give() {
     }
 
     panic!("two goals down for a whole match and not one substitution was made");
+}
+
+// ---------------------------------------------------------------------------
+// The manager's appetite for risk moves when he acts, not how well
+// ---------------------------------------------------------------------------
+
+/// What the home manager did, as (minute, command), while his side was held at
+/// `home_goals`-`away_goals`, from `from_minute` to `until_minute` inclusive.
+///
+/// Nobody tires and nobody is hurt in this match (`fatigue_per_minute` and `injury_probability`
+/// are zero), so nothing in it is forced: every command is a decision about the score.
+fn commands_while_stuck_at(
+    home_goals: u8,
+    away_goals: u8,
+    from_minute: u8,
+    until_minute: u8,
+    profile: &AiProfile,
+) -> Vec<(u8, MatchCommand)> {
+    let mut state = LiveMatchState::new(
+        team("home", eleven("home", 60, 100)),
+        team("away", eleven("away", 60, 100)),
+        MatchConfig {
+            fatigue_per_minute: 0.0,
+            injury_probability: 0.0,
+            ..MatchConfig::default()
+        },
+        bench("home", 55),
+        bench("away", 55),
+        false,
+    );
+    let mut rng = StdRng::seed_from_u64(11);
+    let mut minutes = Vec::new();
+    loop {
+        if state.step_minute(&mut rng).is_finished || state.minute() > until_minute {
+            break;
+        }
+        if state.minute() < from_minute {
+            continue;
+        }
+        state.test_set_score(home_goals, away_goals);
+        for cmd in ai_decide(&state, Side::Home, profile, &mut rng) {
+            minutes.push((state.minute(), cmd.clone()));
+            let _ = state.apply_command(cmd);
+        }
+    }
+    minutes
+}
+
+/// The minutes of the substitutions among [`commands_while_stuck_at`].
+fn substitution_minutes_while_stuck_at(
+    home_goals: u8,
+    away_goals: u8,
+    from_minute: u8,
+    until_minute: u8,
+    profile: &AiProfile,
+) -> Vec<u8> {
+    commands_while_stuck_at(home_goals, away_goals, from_minute, until_minute, profile)
+        .into_iter()
+        .filter(|(_, command)| matches!(command, MatchCommand::Substitute { .. }))
+        .map(|(minute, _)| minute)
+        .collect()
+}
+
+/// The minutes of the changes of play style among [`commands_while_stuck_at`].
+fn style_change_minutes_while_stuck_at(
+    home_goals: u8,
+    away_goals: u8,
+    from_minute: u8,
+    until_minute: u8,
+    profile: &AiProfile,
+) -> Vec<u8> {
+    commands_while_stuck_at(home_goals, away_goals, from_minute, until_minute, profile)
+        .into_iter()
+        .filter(|(_, command)| matches!(command, MatchCommand::ChangePlayStyle { .. }))
+        .map(|(minute, _)| minute)
+        .collect()
+}
+
+/// Given two managers who differ only in their appetite for risk, one goal ahead
+/// When the game reaches the seventieth minute
+/// Then the cautious one starts protecting the lead and the bold one is still playing to win it:
+///      he leaves it until the last ten minutes.
+#[test]
+fn a_cautious_manager_protects_a_lead_earlier_than_a_bold_one() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+
+    let cautious =
+        substitution_minutes_while_stuck_at(1, 0, 61, 79, &with_risk(manager.clone(), 0.0));
+    let bold = substitution_minutes_while_stuck_at(1, 0, 61, 79, &with_risk(manager, 1.0));
+
+    assert!(
+        cautious.iter().any(|minute| *minute <= 72),
+        "the cautious manager took no precaution with a lead at seventy: {cautious:?}"
+    );
+    assert!(
+        bold.is_empty(),
+        "the bold manager substituted before the last ten minutes: {bold:?}"
+    );
+}
+
+/// Given two managers who differ only in their appetite for risk, one goal behind
+/// When the game reaches the hour
+/// Then the bold one reaches for the bench and the cautious one waits another ten minutes.
+#[test]
+fn a_bold_manager_chases_one_goal_before_a_cautious_one() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+
+    let cautious =
+        substitution_minutes_while_stuck_at(0, 1, 59, 66, &with_risk(manager.clone(), 0.0));
+    let bold = substitution_minutes_while_stuck_at(0, 1, 59, 66, &with_risk(manager, 1.0));
+
+    assert!(
+        cautious.is_empty(),
+        "the cautious manager chased a one-goal deficit at the hour: {cautious:?}"
+    );
+    assert!(
+        bold.iter().any(|minute| *minute <= 61),
+        "the bold manager did not chase at the hour: {bold:?}"
+    );
+}
+
+/// Given a manager of average appetite for risk, one goal behind
+/// When the game runs from the fiftieth minute to the sixty-fifth
+/// Then he reaches for the bench at the hour and not before: the default is the old rule.
+#[test]
+fn an_average_appetite_for_risk_chases_one_goal_at_the_hour_as_before() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+    assert!((manager.risk - 0.5).abs() < f64::EPSILON);
+
+    let chasing = substitution_minutes_while_stuck_at(0, 1, 50, 65, &manager);
+
+    assert_eq!(chasing, vec![60]);
+}
+
+/// Given a manager of average appetite for risk, one goal ahead
+/// When the game runs from the sixty-first minute to the eighty-fifth
+/// Then he starts protecting the lead at eighty and not before: the default is the old rule.
+#[test]
+fn an_average_appetite_for_risk_protects_a_lead_at_eighty_as_before() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+
+    let protecting = substitution_minutes_while_stuck_at(1, 0, 61, 85, &manager);
+
+    assert_eq!(protecting, vec![80]);
+}
+
+/// Given two managers who differ only in their appetite for risk, one goal behind
+/// When the game reaches the hour
+/// Then the bold one changes his side's play style and the cautious one leaves it.
+#[test]
+fn a_bold_manager_changes_play_style_for_one_goal_before_a_cautious_one() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+
+    let cautious =
+        style_change_minutes_while_stuck_at(0, 1, 59, 66, &with_risk(manager.clone(), 0.0));
+    let bold = style_change_minutes_while_stuck_at(0, 1, 59, 66, &with_risk(manager, 1.0));
+
+    assert!(cautious.is_empty(), "{cautious:?}");
+    assert!(bold.contains(&60), "{bold:?}");
+}
+
+/// Given two managers who differ only in their appetite for risk, one goal ahead
+/// When the game reaches the seventieth minute
+/// Then the cautious one changes to a defensive play style and the bold one does not.
+#[test]
+fn a_cautious_manager_protects_a_lead_with_his_play_style_before_a_bold_one() {
+    let manager = profile(90, AiPersonality::Pragmatist);
+
+    let cautious =
+        style_change_minutes_while_stuck_at(1, 0, 61, 79, &with_risk(manager.clone(), 0.0));
+    let bold = style_change_minutes_while_stuck_at(1, 0, 61, 79, &with_risk(manager, 1.0));
+
+    assert!(cautious.contains(&70), "{cautious:?}");
+    assert!(bold.is_empty(), "{bold:?}");
+}
+
+// ---------------------------------------------------------------------------
+// A player hurt in the match is not left on the pitch while there is a bench
+// ---------------------------------------------------------------------------
+
+/// A match to the thirtieth minute, a home player hurt in it, and the home manager asked what he
+/// does about it. An unknown id hurts nobody.
+fn commands_after_a_home_player_is_hurt(player_id: &str) -> (LiveMatchState, Vec<MatchCommand>) {
+    let mut state = LiveMatchState::new(
+        team("home", eleven("home", 60, 100)),
+        team("away", eleven("away", 60, 100)),
+        MatchConfig::default(),
+        bench("home", 55),
+        bench("away", 55),
+        false,
+    );
+    let mut rng = StdRng::seed_from_u64(11);
+    while state.minute() < 30 {
+        state.step_minute(&mut rng);
+    }
+    state.test_injure(player_id, Side::Home);
+    let commands = ai_decide(
+        &state,
+        Side::Home,
+        &profile(50, AiPersonality::Pragmatist),
+        &mut rng,
+    );
+    (state, commands)
+}
+
+/// Given a midfielder injured in the thirtieth minute and a full bench
+/// When the manager is next asked
+/// Then he takes the injured player off for the bench midfielder, without waiting for a
+///      checkpoint.
+#[test]
+fn a_player_hurt_in_the_match_is_replaced_by_one_of_his_position() {
+    let (state, commands) = commands_after_a_home_player_is_hurt("home_mid1");
+
+    assert!(
+        commands.iter().any(|command| matches!(command,
+            MatchCommand::Substitute { player_off_id, player_on_id, .. }
+                if player_off_id == "home_mid1" && player_on_id == "home_sub_mid")),
+        "the injured player was left on the pitch at minute {}: {commands:?}",
+        state.minute()
+    );
+}
+
+/// Given the goalkeeper injured in the match and a goalkeeper on the bench
+/// When the manager is next asked
+/// Then the bench goalkeeper goes on for him.
+#[test]
+fn a_goalkeeper_hurt_in_the_match_is_replaced_by_the_other_goalkeeper() {
+    let (_, commands) = commands_after_a_home_player_is_hurt("home_gk");
+
+    assert!(
+        commands.iter().any(|command| matches!(command,
+            MatchCommand::Substitute { player_off_id, player_on_id, .. }
+                if player_off_id == "home_gk" && player_on_id == "home_sub_gk")),
+        "{commands:?}"
+    );
+}
+
+/// Given nobody on the pitch is hurt and nobody is tired
+/// When the manager is asked at an ordinary minute
+/// Then he does nothing: an injury is the only reason for this branch.
+#[test]
+fn a_manager_with_a_fit_side_makes_no_unforced_substitution() {
+    let (_, commands) = commands_after_a_home_player_is_hurt("nobody-is-called-this");
+
+    assert!(
+        !commands
+            .iter()
+            .any(|command| matches!(command, MatchCommand::Substitute { .. })),
+        "{commands:?}"
+    );
 }

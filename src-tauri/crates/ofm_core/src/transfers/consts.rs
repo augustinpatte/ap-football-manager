@@ -60,6 +60,7 @@ pub(super) const ERR_COUNTER_OFFER_MUST_EXCEED_CURRENT: &str =
 pub(super) const ERR_LOAN_COUNTER_MUST_IMPROVE_TERMS: &str =
     "be.error.transfers.loanCounterMustImproveTerms";
 pub(super) const ERR_PLAYER_NOT_LOAN_LISTED: &str = "be.error.transfers.playerNotLoanListed";
+pub(super) const ERR_PLAYER_REFUSES_LOAN: &str = "be.error.transfers.playerRefusesLoan";
 pub(super) const ERR_PLAYER_ALREADY_LOANED: &str = "be.error.transfers.playerAlreadyLoaned";
 pub(super) const ERR_INVALID_LOAN_END_DATE: &str = "be.error.transfers.invalidLoanEndDate";
 pub(super) const ERR_INVALID_LOAN_WAGE_CONTRIBUTION: &str =
