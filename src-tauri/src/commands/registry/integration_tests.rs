@@ -205,12 +205,23 @@ impl Career {
             .team_id
             .clone()
             .expect("the manager has a club");
+        // Cash moves through the ledger like everywhere else (the finance-journal guard).
+        let today = game.clock.current_date.date_naive();
+        ofm_core::finances::post_all(
+            &mut game,
+            &[ofm_core::finances::PostRequest::new(
+                &team_id,
+                900_000_000,
+                domain::finance::CashKind::BoardSupport,
+                today,
+            )],
+        )
+        .expect("the board funds the club");
         let team = game
             .teams
             .iter_mut()
             .find(|team| team.id == team_id)
             .unwrap();
-        team.finance = 900_000_000;
         team.transfer_budget = 900_000_000;
         team.wage_budget = 900_000_000;
         game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
