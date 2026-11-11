@@ -3044,7 +3044,8 @@
       "registry": {
         "playerAlreadyInWorld": "Este jogador já está no seu mundo.",
         "playerNotAvailable": "Este jogador não está disponível.",
-        "playerIncomplete": "O registro deste jogador está incompleto, então ele não pode ser contratado."
+        "playerIncomplete": "O registro deste jogador está incompleto, então ele não pode ser contratado.",
+        "offerRejected": "O clube vendedor recusou esta proposta por considerá-la baixa demais."
       }
     },
     "sender": {

@@ -108,6 +108,10 @@ export interface ExternalRecruitPreview {
   freeAgent: boolean;
   alreadyInWorld: boolean;
   fee: number;
+  /** The contracted club's own floor for this player. `fee` is never below it. */
+  minimumFee: number;
+  /** "accepted", "countered" or "rejected" in the backend's deterministic club model. */
+  clubDecision: "accepted" | "countered" | "rejected";
   weeklyWage: number;
   contractYears: number;
   contractEnd: string;

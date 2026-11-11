@@ -39,7 +39,7 @@ pub const REGISTRY_FILE_NAME: &str = "registry.db";
 pub const DEFAULT_PAGE_SIZE: u32 = 25;
 pub const MAX_PAGE_SIZE: u32 = 100;
 
-const SCHEMA: &str = r#"
+pub(crate) const SCHEMA: &str = r#"
 CREATE TABLE meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -497,7 +497,7 @@ fn row_hash(row: &crate::source::PlayerRow, ofm_id: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
-fn group_name(position: &Position) -> &'static str {
+pub(crate) fn group_name(position: &Position) -> &'static str {
     match position.to_group_position() {
         Position::Goalkeeper => "goalkeeper",
         Position::Defender => "defender",
@@ -506,7 +506,7 @@ fn group_name(position: &Position) -> &'static str {
     }
 }
 
-fn footedness_name(foot: &Footedness) -> &'static str {
+pub(crate) fn footedness_name(foot: &Footedness) -> &'static str {
     match foot {
         Footedness::Left => "Left",
         Footedness::Right => "Right",
@@ -728,6 +728,7 @@ impl RegistryPlayerDetail {
             name: self.club_name.clone().unwrap_or_default(),
             contract_end: self.contract_end.clone(),
             weekly_wage: u32::try_from(self.weekly_wage).unwrap_or(u32::MAX),
+            reputation: self.club_reputation,
         });
         let full_name = self.name.clone();
         let match_name = self

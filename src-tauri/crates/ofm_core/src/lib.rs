@@ -35,6 +35,7 @@ pub mod division_move;
 pub mod edition_archive;
 pub mod end_of_season;
 pub mod external_registry;
+pub mod external_world;
 pub mod finances;
 pub mod firing;
 pub mod football_identity;

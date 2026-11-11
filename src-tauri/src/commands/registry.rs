@@ -6,7 +6,7 @@
 //! decides whether a source player may join lives in `ofm_core::external_registry`; this file only
 //! joins the active game's clock and roster to it.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::NaiveDate;
@@ -14,6 +14,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 
+use fm24_adapter::career;
 use fm24_adapter::registry::{
     self, RegistryAvailability, RegistryPage, RegistryPlayerDetail, RegistryPositionFilter,
     RegistryQuery, RegistrySort,
@@ -55,6 +56,9 @@ pub struct RegistrySearchRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegistryContext {
     pub today: NaiveDate,
+    /// The career's own deterministic seed. The external world's projection is a function of it,
+    /// so two saves of the same source but different seeds see different markets.
+    pub seed: u64,
     pub excluded_ids: Vec<String>,
 }
 
@@ -70,13 +74,14 @@ pub fn registry_context(game: &Game) -> RegistryContext {
         .iter()
         .map(|player| player.id.as_str())
         .chain(game.retired_players.iter().map(|player| player.id.as_str()))
-        .filter(|id| id.starts_with("fm-p-"))
+        .filter(|id| id.starts_with("fm-p-") || id.starts_with("fm-n-"))
         .map(str::to_string)
         .collect();
     excluded_ids.sort_unstable();
     excluded_ids.dedup();
     RegistryContext {
         today: game.clock.current_date.date_naive(),
+        seed: game.seed,
         excluded_ids,
     }
 }
@@ -110,6 +115,15 @@ fn registry_file(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|_| "be.error.fm24.writeFailed".to_string())
 }
 
+/// The career's materialised market, rebuilt or advanced at most once per season. Blocking: call
+/// it from `spawn_blocking`, never on the async executor.
+fn career_registry_path(base: &Path, seed: u64, today: NaiveDate) -> Result<PathBuf, String> {
+    let cache_dir = base
+        .parent()
+        .ok_or_else(|| "be.error.fm24.writeFailed".to_string())?;
+    Ok(career::ensure_career_cache(base, cache_dir, seed, today)?.path)
+}
+
 fn context_for(state: &StateManager) -> Result<RegistryContext, String> {
     state
         .get_game(registry_context)
@@ -123,11 +137,13 @@ pub async fn search_external_players(
     request: RegistrySearchRequest,
 ) -> Result<RegistryPage, String> {
     info!("[cmd] search_external_players");
-    let path = registry_file(&app_handle)?;
+    let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
     let query = registry_query(request, &context);
     let excluded = context.excluded_ids;
+    let seed = context.seed;
     tauri::async_runtime::spawn_blocking(move || {
+        let path = career_registry_path(&base, seed, query.today)?;
         let conn = registry::open_registry(&path)?;
         registry::query_registry(&conn, &query, &excluded)
     })
@@ -142,10 +158,12 @@ pub async fn get_external_player(
     player_id: String,
 ) -> Result<Option<RegistryPlayerDetail>, String> {
     info!("[cmd] get_external_player: player_id={player_id}");
-    let path = registry_file(&app_handle)?;
+    let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
     let today = context.today;
+    let seed = context.seed;
     tauri::async_runtime::spawn_blocking(move || {
+        let path = career_registry_path(&base, seed, today)?;
         let conn = registry::open_registry(&path)?;
         registry::get_registry_player(&conn, &player_id, today)
     })
@@ -228,10 +246,13 @@ async fn load_detail(
     state: &State<'_, Arc<StateManager>>,
     player_id: &str,
 ) -> Result<RegistryPlayerDetail, String> {
-    let path = registry_file(app_handle)?;
-    let today = context_for(state)?.today;
+    let base = registry_file(app_handle)?;
+    let context = context_for(state)?;
+    let today = context.today;
+    let seed = context.seed;
     let player_id = player_id.to_string();
     let detail = tauri::async_runtime::spawn_blocking(move || {
+        let path = career_registry_path(&base, seed, today)?;
         let conn = registry::open_registry(&path)?;
         registry::get_registry_player(&conn, &player_id, today)
     })
@@ -462,12 +483,26 @@ mod tests {
     }
 
     /// Given the active game, when the excluded set is built, then it names the roster and the
-    /// retired archive by source identity only.
+    /// retired archive by source identity only, including a promoted external newgen.
     #[test]
     fn the_context_excludes_roster_and_retired_source_identities() {
-        let context = registry_context(&game());
-        assert_eq!(context.excluded_ids, vec!["fm-p-1", "fm-p-2"]);
+        let mut game = game();
+        game.players.push(domain::player::Player::new(
+            "fm-n-2027-0001".to_string(),
+            "Newgen".to_string(),
+            "Newgen Player".to_string(),
+            "2008-01-01".to_string(),
+            "GB".to_string(),
+            Position::Striker,
+            attrs(),
+        ));
+        let context = registry_context(&game);
+        assert_eq!(
+            context.excluded_ids,
+            vec!["fm-n-2027-0001", "fm-p-1", "fm-p-2"]
+        );
         assert_eq!(context.today, NaiveDate::from_ymd_opt(2026, 8, 1).unwrap());
+        assert_eq!(context.seed, game.seed);
     }
 
     /// Given a screen request, when it is mapped, then the clock and paging come from the career,
@@ -476,6 +511,7 @@ mod tests {
     fn a_search_request_takes_its_clock_from_the_career() {
         let context = RegistryContext {
             today: NaiveDate::from_ymd_opt(2026, 9, 1).unwrap(),
+            seed: 5,
             excluded_ids: vec![],
         };
         let request = RegistrySearchRequest {
@@ -535,6 +571,7 @@ mod tests {
             name: "External United".to_string(),
             contract_end: Some("2028-06-30".to_string()),
             weekly_wage: 8_000,
+            reputation: 620,
         });
 
         let (game, outcome) = recruit_internal(&state, &external).unwrap();

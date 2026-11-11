@@ -3044,7 +3044,8 @@
       "registry": {
         "playerAlreadyInWorld": "Pemain ini sudah ada di dunia Anda.",
         "playerNotAvailable": "Pemain ini tidak tersedia.",
-        "playerIncomplete": "Catatan pemain ini tidak lengkap, sehingga tidak dapat direkrut."
+        "playerIncomplete": "Catatan pemain ini tidak lengkap, sehingga tidak dapat direkrut.",
+        "offerRejected": "Klub penjual menolak tawaran ini karena terlalu rendah."
       }
     },
     "sender": {

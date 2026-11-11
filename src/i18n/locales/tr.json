@@ -3044,7 +3044,8 @@
       "registry": {
         "playerAlreadyInWorld": "Bu oyuncu zaten dünyanızda.",
         "playerNotAvailable": "Bu oyuncu müsait değil.",
-        "playerIncomplete": "Bu oyuncunun kaydı eksik, bu yüzden sözleşme imzalanamaz."
+        "playerIncomplete": "Bu oyuncunun kaydı eksik, bu yüzden sözleşme imzalanamaz.",
+        "offerRejected": "Satıcı kulüp bu teklifi çok düşük olduğu için reddetti."
       }
     },
     "sender": {

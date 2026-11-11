@@ -3044,7 +3044,8 @@
       "registry": {
         "playerAlreadyInWorld": "This player is already in your world.",
         "playerNotAvailable": "This player is not available.",
-        "playerIncomplete": "This player's record is incomplete, so he cannot be signed."
+        "playerIncomplete": "This player's record is incomplete, so he cannot be signed.",
+        "offerRejected": "The selling club rejected this offer as too low."
       }
     },
     "sender": {

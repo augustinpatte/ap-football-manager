@@ -10,6 +10,7 @@
 //! the FM Unique ID is not unique (see `person.fm_uid_status`) and is only ever kept as metadata.
 
 pub mod attributes;
+pub mod career;
 pub mod checks;
 pub mod competitions;
 pub mod config;

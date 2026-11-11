@@ -8,9 +8,10 @@
 //!   in the retired archive — the promotion is refused, so a player can never be two people.
 //! * A player without a club, or whose source contract has expired, is a free agent and signs on the
 //!   club's standard terms. A player still under contract at an external club is bought at the
-//!   registry's asking price: a deterministic multiple of his market value by the contract left.
-//!   External clubs do not run a transfer AI in this phase; they accept at that price, and only
-//!   that price.
+//!   club's own request: the D7B1 asking price, raised to the deterministic floor the club puts on
+//!   a player important to it. The one-click screen offers that request, so the player is expensive
+//!   rather than impossible; an explicit lower offer can be countered or rejected before any money
+//!   moves.
 //! * Everything (identity, window, cash, wage policy) is checked before the first mutation, because
 //!   `StateManager::update_game` cannot roll a closure back.
 //! * The source attributes, positions, foot and value are copied unchanged. Only the contract is
@@ -23,11 +24,12 @@ use crate::contracts::{
     contract_entry, contract_record, expected_contract_years, expected_wage,
     free_agent_signed_message, sign_free_agent, standard_contract_terms,
 };
+use crate::external_world::{ExternalOfferContext, ExternalOfferDecision};
 use crate::game::Game;
 use crate::transfers::{
     can_afford_fee, fee_block, log_completed_transfer, transfer_window_is_open,
 };
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use domain::contract_ledger::{ContractRecord, ContractSource};
 use domain::league::CompletedTransfer;
 use domain::player::{
@@ -38,6 +40,8 @@ use domain::team::Team;
 pub const ERR_PLAYER_ALREADY_IN_WORLD: &str = "be.error.registry.playerAlreadyInWorld";
 pub const ERR_PLAYER_NOT_AVAILABLE: &str = "be.error.registry.playerNotAvailable";
 pub const ERR_PLAYER_INCOMPLETE: &str = "be.error.registry.playerIncomplete";
+/// The external club refused the buyer's offer as too low. No money moves.
+pub const ERR_OFFER_REJECTED: &str = "be.error.registry.offerRejected";
 pub const ERR_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 pub const ERR_NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 pub const ERR_MANAGED_TEAM_NOT_FOUND: &str = "be.error.managedTeamNotFound";
@@ -58,6 +62,9 @@ pub struct ExternalClub {
     /// The contract the source records at this club, if any.
     pub contract_end: Option<String>,
     pub weekly_wage: u32,
+    /// The source club's standing on its own 0..=1000 scale. Used by the career projection to
+    /// decide whether a player matters to the club and which clubs suit his level.
+    pub reputation: i64,
 }
 
 /// One source player, before he enters the active world.
@@ -196,6 +203,11 @@ pub struct ExternalRecruitPreview {
     pub free_agent: bool,
     pub already_in_world: bool,
     pub fee: u64,
+    /// The club's own floor for this player. `fee` is never below it for a contracted player.
+    pub minimum_fee: u64,
+    /// `accepted`, `countered` or `rejected`. The default one-click path always offers the club's
+    /// request, so it is `accepted`; an explicit lower offer can produce the other two.
+    pub club_decision: String,
     pub weekly_wage: u32,
     pub contract_years: u32,
     pub contract_end: String,
@@ -243,9 +255,117 @@ fn standard_terms(game: &Game, player: &Player, team: &Team) -> Result<(u32, Nai
     standard_contract_terms(player, team, today, 0).ok_or(ERR_CONTRACT_END.to_string())
 }
 
+/// Whole years left on a source contract, on the career's clock. An unknown end counts as none,
+/// which makes the club's valuation treat the player as expiring.
+fn contract_years_left(contract_end: Option<&str>, today: NaiveDate) -> u8 {
+    let Some(end) = contract_end.and_then(|end| NaiveDate::parse_from_str(end, "%Y-%m-%d").ok())
+    else {
+        return 0;
+    };
+    if end <= today {
+        return 0;
+    }
+    ((end - today).num_days() / 365).clamp(1, 5) as u8
+}
+
 pub fn preview_external_recruitment(
     game: &Game,
     external: &ExternalPlayer,
+) -> Result<ExternalRecruitPreview, String> {
+    preview_external_recruitment_with_offer(game, external, None)
+}
+
+/// What the preview shows for the fee: the club's floor, the fee actually payable, its named
+/// decision and whether a lowball was refused.
+struct OfferTerms {
+    fee: u64,
+    minimum_fee: u64,
+    club_decision: &'static str,
+    rejected: bool,
+}
+
+/// The pricing inputs of one preview. A plain value keeps the valuation helper to two parameters
+/// instead of a long positional list whose order a caller could silently swap.
+struct OfferRequest<'a> {
+    external: &'a ExternalPlayer,
+    today: NaiveDate,
+    free_agent: bool,
+    asking: u64,
+    age: i32,
+    buyer_reputation: i64,
+    offer: Option<u64>,
+}
+
+/// Price one external player. `offer = None` is the one-click request; `Some(offer)` is an explicit
+/// buyer's offer, which the club may accept, counter or reject. Pure: everything it reads is passed
+/// in, including the career seed and season, so a repeated preview cannot re-roll the club.
+fn offer_terms(game: &Game, request: &OfferRequest<'_>) -> OfferTerms {
+    let OfferRequest {
+        external,
+        today,
+        free_agent,
+        asking,
+        age,
+        buyer_reputation,
+        offer,
+    } = *request;
+    if free_agent {
+        return OfferTerms {
+            fee: 0,
+            minimum_fee: 0,
+            club_decision: "accepted",
+            rejected: false,
+        };
+    }
+    let context = ExternalOfferContext {
+        seed: game.seed,
+        season: today.year(),
+        asking_price: asking,
+        free_agent,
+        player_ovr: external.ovr,
+        player_potential: external.potential,
+        player_age: age,
+        contract_years_left: contract_years_left(
+            external
+                .club
+                .as_ref()
+                .and_then(|club| club.contract_end.as_deref()),
+            today,
+        ),
+        seller_reputation: external
+            .club
+            .as_ref()
+            .map(|club| club.reputation)
+            .unwrap_or(0),
+        buyer_reputation,
+        player_id: external.id.clone(),
+    };
+    let minimum = context.minimum_fee();
+    let terms = |fee: u64, decision: &'static str, rejected: bool| OfferTerms {
+        fee,
+        minimum_fee: minimum,
+        club_decision: decision,
+        rejected,
+    };
+    match offer {
+        None => terms(asking.max(minimum), "accepted", false),
+        Some(offer) => match context.decide(offer) {
+            ExternalOfferDecision::Accepted { fee } => terms(fee, "accepted", false),
+            ExternalOfferDecision::Countered { fee } => terms(fee, "countered", false),
+            ExternalOfferDecision::Rejected { minimum } => terms(minimum, "rejected", true),
+        },
+    }
+}
+
+/// The promotion rule, optionally against an explicit buyer's offer.
+///
+/// `offer` is `None` for the one-click screen: the club's own request is the price, so an
+/// important player is expensive rather than impossible. An explicit offer below 75% of that floor
+/// is rejected outright, and no mutation happens; an offer in between is countered at the floor.
+pub fn preview_external_recruitment_with_offer(
+    game: &Game,
+    external: &ExternalPlayer,
+    offer: Option<u64>,
 ) -> Result<ExternalRecruitPreview, String> {
     let team = managed_team(game)?;
     let today = game.clock.current_date.date_naive();
@@ -253,7 +373,8 @@ pub fn preview_external_recruitment(
     let (weekly_wage, contract_end) = standard_terms(game, &player, team)?;
     let contract_years = expected_contract_years(&player, today).max(1);
     let free_agent = external.is_free_agent(today);
-    let fee = if free_agent {
+    let age = external.age_on(today).unwrap_or(i32::MAX);
+    let asking = if free_agent {
         0
     } else {
         asking_price(
@@ -265,42 +386,40 @@ pub fn preview_external_recruitment(
             today,
         )
     };
+    let terms = offer_terms(
+        game,
+        &OfferRequest {
+            external,
+            today,
+            free_agent,
+            asking,
+            age,
+            buyer_reputation: i64::from(team.reputation),
+            offer,
+        },
+    );
+
     let already_in_world = duplicate_in_world(game, &external.id);
-    let affordable = can_afford_fee(team, fee);
+    let affordable = can_afford_fee(team, terms.fee);
     let wage_policy_allows =
         purchase_wage_policy_verdict(game, team, &player, weekly_wage).permits();
     let window_open = free_agent || transfer_window_is_open(game);
-    let age = external.age_on(today).unwrap_or(i32::MAX);
 
     let blocker = if already_in_world {
         Some(ERR_PLAYER_ALREADY_IN_WORLD.to_string())
-    } else if external.full_name.trim().is_empty()
-        || external.nationality.trim().is_empty()
-        || external.date_of_birth.trim().is_empty()
-    {
-        Some(ERR_PLAYER_INCOMPLETE.to_string())
-    } else if !(14..=MAX_EXTERNAL_AGE).contains(&age) {
-        Some(ERR_PLAYER_NOT_AVAILABLE.to_string())
-    } else if !window_open {
-        Some(ERR_WINDOW_CLOSED.to_string())
-    } else if !affordable {
-        Some(
-            fee_block(team, fee)
-                .err()
-                .map(|block| block.error_key().to_string())
-                .unwrap_or_else(|| "be.error.transfers.insufficientFunds".to_string()),
-        )
-    } else if !wage_policy_allows {
-        Some(renewal_wage_policy_error_message(team))
     } else {
-        None
+        identity_blocker(external, age, window_open)
+            .or_else(|| terms.rejected.then(|| ERR_OFFER_REJECTED.to_string()))
+            .or_else(|| finance_blocker(team, terms.fee, affordable, wage_policy_allows))
     };
 
     Ok(ExternalRecruitPreview {
         player_id: external.id.clone(),
         free_agent,
         already_in_world,
-        fee,
+        fee: terms.fee,
+        minimum_fee: terms.minimum_fee,
+        club_decision: terms.club_decision.to_string(),
         weekly_wage,
         contract_years,
         contract_end: contract_end.format("%Y-%m-%d").to_string(),
@@ -311,12 +430,60 @@ pub fn preview_external_recruitment(
     })
 }
 
-/// Promote `external` into the active game for the manager's club.
+/// Identity, record completeness, age and window: the refusals that do not depend on money. Order
+/// matters — a stale screen must not hide a permanent refusal behind a price.
+fn identity_blocker(external: &ExternalPlayer, age: i32, window_open: bool) -> Option<String> {
+    if external.full_name.trim().is_empty()
+        || external.nationality.trim().is_empty()
+        || external.date_of_birth.trim().is_empty()
+    {
+        Some(ERR_PLAYER_INCOMPLETE.to_string())
+    } else if !(14..=MAX_EXTERNAL_AGE).contains(&age) {
+        Some(ERR_PLAYER_NOT_AVAILABLE.to_string())
+    } else if !window_open {
+        Some(ERR_WINDOW_CLOSED.to_string())
+    } else {
+        None
+    }
+}
+
+/// Cash, transfer budget and wage policy. Runs only after the identity refusals.
+fn finance_blocker(
+    team: &Team,
+    fee: u64,
+    affordable: bool,
+    wage_policy_allows: bool,
+) -> Option<String> {
+    if !affordable {
+        Some(
+            fee_block(team, fee)
+                .err()
+                .map(|block| block.error_key().to_string())
+                .unwrap_or_else(|| "be.error.transfers.insufficientFunds".to_string()),
+        )
+    } else if !wage_policy_allows {
+        Some(renewal_wage_policy_error_message(team))
+    } else {
+        None
+    }
+}
+
+/// Promote `external` into the active game for the manager's club at the club's own request.
 pub fn recruit_external_player(
     game: &mut Game,
     external: &ExternalPlayer,
 ) -> Result<ExternalRecruitOutcome, String> {
-    let preview = preview_external_recruitment(game, external)?;
+    recruit_external_player_at_offer(game, external, None)
+}
+
+/// Promote `external` against an explicit offer. A rejected offer returns
+/// [`ERR_OFFER_REJECTED`] before the first mutation; a counter is accepted at the club's floor.
+pub fn recruit_external_player_at_offer(
+    game: &mut Game,
+    external: &ExternalPlayer,
+    offer: Option<u64>,
+) -> Result<ExternalRecruitOutcome, String> {
+    let preview = preview_external_recruitment_with_offer(game, external, offer)?;
     if let Some(blocker) = preview.blocker.clone() {
         return Err(blocker);
     }
@@ -529,6 +696,7 @@ mod tests {
             name: "External United".to_string(),
             contract_end: Some("2028-06-30".to_string()),
             weekly_wage: 8_000,
+            reputation: 600,
         });
         player
     }
@@ -662,5 +830,48 @@ mod tests {
         let mut player = external_contracted("fm-p-49");
         player.club.as_mut().unwrap().contract_end = Some("2026-07-31".to_string());
         assert!(player.is_free_agent(today));
+    }
+
+    /// Given a lowball explicit offer, when the move is previewed and attempted, then the club
+    /// rejects it and nothing in the career moves.
+    #[test]
+    fn a_lowball_offer_is_rejected_before_any_mutation() {
+        let mut game = game();
+        let player = external_contracted("fm-p-50");
+        let preview = preview_external_recruitment_with_offer(&game, &player, Some(1)).unwrap();
+        assert_eq!(preview.club_decision, "rejected");
+        assert_eq!(preview.blocker.as_deref(), Some(ERR_OFFER_REJECTED));
+        assert!(preview.minimum_fee > 1);
+        let cash = game.teams[0].finance;
+        let players = game.players.len();
+
+        let error = recruit_external_player_at_offer(&mut game, &player, Some(1)).unwrap_err();
+
+        assert_eq!(error, ERR_OFFER_REJECTED);
+        assert_eq!(game.teams[0].finance, cash);
+        assert_eq!(game.players.len(), players);
+    }
+
+    /// Given an offer below the club's floor but above its rejection threshold, when it is made
+    /// twice, then it is countered to the same fee both times and signing at that counter succeeds.
+    #[test]
+    fn a_counter_is_deterministic_and_payable() {
+        let mut game = game();
+        let player = external_contracted("fm-p-51");
+        let requested = preview_external_recruitment(&game, &player).unwrap();
+        let offer = requested.minimum_fee * 4 / 5;
+
+        let first = preview_external_recruitment_with_offer(&game, &player, Some(offer)).unwrap();
+        let second = preview_external_recruitment_with_offer(&game, &player, Some(offer)).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.club_decision, "countered");
+        assert_eq!(first.fee, requested.minimum_fee);
+        assert_eq!(first.blocker, None);
+
+        let cash = game.teams[0].finance;
+        let outcome = recruit_external_player_at_offer(&mut game, &player, Some(offer)).unwrap();
+        assert_eq!(outcome.fee, requested.minimum_fee);
+        assert_eq!(game.teams[0].finance, cash - outcome.fee as i64);
     }
 }
