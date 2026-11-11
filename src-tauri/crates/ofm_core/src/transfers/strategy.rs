@@ -213,6 +213,17 @@ pub(crate) fn profiles(
     game: &Game,
     wage_bills: &HashMap<String, i64>,
 ) -> HashMap<String, ClubProfile> {
+    profiles_among(game, wage_bills, None)
+}
+
+/// [`profiles`] for the clubs named in `only` (every club when `None`): a pass that decides for a
+/// handful of clubs reads those and not the whole world's.
+pub(crate) fn profiles_among(
+    game: &Game,
+    wage_bills: &HashMap<String, i64>,
+    only: Option<&std::collections::HashSet<String>>,
+) -> HashMap<String, ClubProfile> {
+    let wanted = |team_id: &str| only.is_none_or(|clubs| clubs.contains(team_id));
     #[derive(Default)]
     struct Squad {
         seniors: u32,
@@ -225,7 +236,7 @@ pub(crate) fn profiles(
         let Some(team_id) = player.team_id.as_deref() else {
             continue;
         };
-        if player.squad_role != SquadRole::Senior {
+        if player.squad_role != SquadRole::Senior || !wanted(team_id) {
             continue;
         }
         let squad = squads.entry(team_id).or_default();
@@ -257,6 +268,7 @@ pub(crate) fn profiles(
 
     game.teams
         .iter()
+        .filter(|team| wanted(&team.id))
         .map(|team| {
             let (standing_pct, finished_pct) = match league_of.get(team.id.as_str()) {
                 Some(league) => {
@@ -321,6 +333,30 @@ pub(crate) fn profile_of(game: &Game, team_id: &str) -> ClubProfile {
     let wage_bills = crate::finances::wage_bills_by_club(game);
     profiles(game, &wage_bills)
         .remove(team_id)
+        .unwrap_or(ClubProfile::NEUTRAL)
+}
+
+/// A club's profile from a reading shared by the clubs of one pass: the profiles of the day's
+/// `reviewing` clubs are read the first time one is asked for and kept in `shared`, so a pass over
+/// them costs one read of those clubs and not one per club. The same clubs review their contracts,
+/// their listings and their formation on the same day, so one reading serves all three.
+pub(crate) fn profile_in(
+    game: &Game,
+    shared: &mut Option<HashMap<String, ClubProfile>>,
+    reviewing: &[String],
+    team_id: &str,
+) -> ClubProfile {
+    shared
+        .get_or_insert_with(|| {
+            let clubs: std::collections::HashSet<String> = reviewing.iter().cloned().collect();
+            profiles_among(
+                game,
+                &crate::finances::wage_bills_by_club(game),
+                Some(&clubs),
+            )
+        })
+        .get(team_id)
+        .copied()
         .unwrap_or(ClubProfile::NEUTRAL)
 }
 

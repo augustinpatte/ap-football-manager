@@ -181,7 +181,10 @@ fn process_day_common(game: &mut Game, today: &str) {
     // AI clubs decide on their running-down contracts first, so a renewal made
     // on the day a contract ends lands before the expiry that would release him.
     let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
-    crate::ai_contracts::apply_ai_contract_decisions(game, weekday_num);
+    // Every club's strategy, read once for the day and only if a review needs it: the renewals
+    // and the listings of the same day read the one answer.
+    let mut strategies = None;
+    crate::ai_contracts::apply_ai_contract_decisions_with(game, weekday_num, &mut strategies);
     crate::contracts::process_contract_expiries(game);
     // Free agents answer the offers whose time has come, now that expiries have put the day's
     // new ones on the market.
@@ -209,7 +212,7 @@ fn process_day_common(game: &mut Game, today: &str) {
     // Later instalments of fees agreed in earlier windows or seasons fall due whatever the window.
     transfers::process_transfer_obligations(game);
     // AI clubs say whom they would sell before the market looks for what is for sale.
-    crate::ai_squad_sales::apply_ai_listing_decisions(game, weekday_num);
+    crate::ai_squad_sales::apply_ai_listing_decisions_with(game, weekday_num, &mut strategies);
     transfers::generate_incoming_transfer_offers(game);
     // After the market has had its last say on the closing day, whatever is still unanswered ends.
     transfers::expire_negotiations_at_deadline(game);

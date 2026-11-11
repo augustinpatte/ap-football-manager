@@ -38,8 +38,13 @@ const MAX_LISTED: usize = 3;
 /// A contract with this many days or fewer left, that the club will not renew, is one it sells.
 const LEAVING_HORIZON_DAYS: i64 = 365;
 
-/// Run the listing decisions of every AI club whose review falls on this weekday.
-pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
+/// Run the listing decisions of every AI club whose review falls on this weekday, sharing a day's
+/// reading of every club's strategy with the other reviews that day (`transfers::profile_in`).
+pub(crate) fn apply_ai_listing_decisions_with(
+    game: &mut Game,
+    weekday_num: u32,
+    strategies: &mut Option<std::collections::HashMap<String, crate::transfers::ClubProfile>>,
+) {
     let current_date = game.clock.current_date.date_naive();
     let reviewing = crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num);
     // Every wage bill, in one pass over the players. Asked per club it scanned all of them for
@@ -47,7 +52,7 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
     // bill is read before the review touches its squad, and the only contract this pass ends is
     // one of the reviewing club's own, so no other club's bill moves under it.
     let bills = crate::finances::wage_bills_by_club(game);
-    for team_id in reviewing {
+    for team_id in reviewing.iter().cloned() {
         let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
             continue;
         };
@@ -60,7 +65,8 @@ pub(crate) fn apply_ai_listing_decisions(game: &mut Game, weekday_num: u32) {
             })
             .map(|player| player.id.clone())
             .collect();
-        let decisions = list_decisions(game, &team, bill, current_date);
+        let profile = crate::transfers::profile_in(game, strategies, &reviewing, &team_id);
+        let decisions = list_decisions(game, &team, bill, current_date, profile);
         for (index, listed) in decisions {
             game.players[index].transfer_listed = listed;
         }
@@ -162,8 +168,9 @@ fn list_decisions(
     team: &Team,
     bill: i64,
     current_date: chrono::NaiveDate,
+    profile: crate::transfers::ClubProfile,
 ) -> Vec<(usize, bool)> {
-    let wanted: Vec<usize> = ranked_sellable(game, team, bill, current_date)
+    let wanted: Vec<usize> = ranked_sellable_for(game, team, bill, current_date, profile)
         .into_iter()
         .take(MAX_LISTED)
         .map(|candidate| candidate.index)
@@ -203,7 +210,26 @@ pub(crate) fn ranked_sellable(
     bill: i64,
     current_date: chrono::NaiveDate,
 ) -> Vec<ListingCandidate> {
-    let facts = SquadFacts::of(game, &team.id);
+    ranked_sellable_for(
+        game,
+        team,
+        bill,
+        current_date,
+        crate::transfers::ClubProfile::NEUTRAL,
+    )
+}
+
+/// [`ranked_sellable`] for a club with this strategy: a club contending holds on to the player a
+/// sale would fund a replacement for (it asks more of the reinvestment), one that is small and
+/// developing sells him on readily.
+pub(crate) fn ranked_sellable_for(
+    game: &Game,
+    team: &Team,
+    bill: i64,
+    current_date: chrono::NaiveDate,
+    profile: crate::transfers::ClubProfile,
+) -> Vec<ListingCandidate> {
+    let facts = SquadFacts::of_club(game, &team.id, profile);
     let seniors: Vec<usize> = facts
         .club()
         .iter()
@@ -266,7 +292,9 @@ pub(crate) fn ranked_sellable(
             let funds = facts
                 .squad()
                 .zip(case.as_ref())
-                .is_some_and(|(squad, case)| funds_a_bigger_need(squad, team, player, case));
+                .is_some_and(|(squad, case)| {
+                    funds_a_bigger_need(squad, team, player, case, profile.ambition)
+                });
             reason_to_sell(
                 &facts,
                 player,
@@ -325,11 +353,29 @@ impl Reason {
 
 /// Whether the money for this player would buy the club more than he is worth to its side, with
 /// the sale worth a tenth of the transfer budget at least: a spare asset, not loose change.
-fn funds_a_bigger_need(squad: &ClubSquad, team: &Team, player: &Player, case: &SaleCase) -> bool {
+fn funds_a_bigger_need(
+    squad: &ClubSquad,
+    team: &Team,
+    player: &Player,
+    case: &SaleCase,
+    ambition: crate::transfers::Ambition,
+) -> bool {
     !case.critical
         && player.market_value.saturating_mul(10)
             >= u64::try_from(team.transfer_budget).unwrap_or(0)
-        && reinvestment_gain(squad, &player.id) >= REINVESTMENT_RATIO * case.net_loss
+        && reinvestment_gain(squad, &player.id)
+            >= REINVESTMENT_RATIO * reinvestment_demand(ambition) * case.net_loss
+}
+
+/// How much more or less of the money's worth a club asks before it sells a player to fund
+/// another: a contender, playing for this season, wants a clear gain to part with a good one; a
+/// small club that develops its own and lives on the fees is the readiest seller.
+fn reinvestment_demand(ambition: crate::transfers::Ambition) -> f32 {
+    match ambition {
+        crate::transfers::Ambition::Contender => 1.5,
+        crate::transfers::Ambition::Established => 1.0,
+        crate::transfers::Ambition::Fighter => 0.75,
+    }
 }
 
 fn reason_to_sell(
@@ -493,9 +539,22 @@ mod tests {
             &team,
             crate::finances::calc_wages(game, &team.id),
             today(),
+            crate::transfers::ClubProfile::NEUTRAL,
         ) {
             game.players[index].transfer_listed = flag;
         }
+    }
+
+    /// Given the three ambitions
+    /// When each asks what the money has to be worth before a sale funds another player
+    /// Then a contender asks more than an established club and a fighter least, and the neutral
+    /// club asks exactly what it always did.
+    #[test]
+    fn a_contender_asks_more_of_a_sale_than_a_club_that_lives_on_its_fees() {
+        use crate::transfers::Ambition::{Contender, Established, Fighter};
+        assert!(reinvestment_demand(Contender) > reinvestment_demand(Established));
+        assert!(reinvestment_demand(Established) > reinvestment_demand(Fighter));
+        assert!((reinvestment_demand(Established) - 1.0).abs() < f32::EPSILON);
     }
 
     /// Given a club with exactly the depth it wants in every group

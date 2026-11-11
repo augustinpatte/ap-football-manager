@@ -39,9 +39,22 @@ const IMPROVEMENT_SQUAD_LIMIT: usize = 24;
 const PROSPECT_AGE_LIMIT: i32 = 23;
 
 /// Run every AI club's contract review that falls on this weekday.
+#[cfg(test)]
 pub(crate) fn apply_ai_contract_decisions(game: &mut Game, weekday_num: u32) {
+    apply_ai_contract_decisions_with(game, weekday_num, &mut None);
+}
+
+/// [`apply_ai_contract_decisions`] sharing a day's reading of every club's strategy
+/// (`transfers::profile_in`) with the other reviews that day: it is taken the first time one is
+/// needed, and one world-wide read serves them all.
+pub(crate) fn apply_ai_contract_decisions_with(
+    game: &mut Game,
+    weekday_num: u32,
+    strategies: &mut Option<std::collections::HashMap<String, crate::transfers::ClubProfile>>,
+) {
     let current_date = game.clock.current_date.date_naive();
-    for team_id in crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num) {
+    let reviewing = crate::ai_tactics::ai_clubs_reviewing_on(game, weekday_num);
+    for team_id in reviewing.iter().cloned() {
         let Some(team) = game.teams.iter().find(|team| team.id == team_id).cloned() else {
             continue;
         };
@@ -49,7 +62,8 @@ pub(crate) fn apply_ai_contract_decisions(game: &mut Game, weekday_num: u32) {
         if running_down.is_empty() {
             continue;
         }
-        let facts = SquadFacts::of(game, &team_id);
+        let profile = crate::transfers::profile_in(game, strategies, &reviewing, &team_id);
+        let facts = SquadFacts::of_club(game, &team_id, profile);
         for player_index in running_down {
             if keeps_given(&facts, &game.players[player_index], current_date) {
                 renew(game, &team, player_index, current_date);
@@ -331,6 +345,9 @@ fn contracts_running_down(game: &Game, team_id: &str, current_date: NaiveDate) -
 /// not the standard a senior is held to). Counted once for a club's whole review.
 pub(crate) struct SquadFacts {
     team_id: String,
+    /// What the club is about: how high it aims, what it can spend, how much it builds on youth.
+    /// Neutral for a reader that has none (the manager's assistant).
+    profile: crate::transfers::ClubProfile,
     seniors_by_group: [usize; 4],
     seniors: usize,
     median_ovr: u8,
@@ -347,7 +364,19 @@ pub(crate) struct SquadFacts {
 }
 
 impl SquadFacts {
+    /// The squad of `team_id` read for a club with no strategy of its own: what every club did
+    /// before its profile reached these decisions.
+    #[cfg(test)]
     pub(crate) fn of(game: &Game, team_id: &str) -> Self {
+        Self::of_club(game, team_id, crate::transfers::ClubProfile::NEUTRAL)
+    }
+
+    /// The squad of `team_id` read for a club with this strategy (`transfers::profiles`).
+    pub(crate) fn of_club(
+        game: &Game,
+        team_id: &str,
+        profile: crate::transfers::ClubProfile,
+    ) -> Self {
         let mut seniors_by_group = [0; 4];
         let mut ratings: Vec<u8> = Vec::new();
         let mut club: Vec<usize> = Vec::new();
@@ -377,6 +406,7 @@ impl SquadFacts {
             });
         Self {
             team_id: team_id.to_string(),
+            profile,
             seniors_by_group,
             seniors: ratings.len(),
             median_ovr: ratings.get(ratings.len() / 2).copied().unwrap_or(0),
@@ -462,18 +492,54 @@ fn needed_for_depth(facts: &SquadFacts, player: &Player) -> bool {
 /// need, and a forward below the median is when the club has no other. A club the model cannot read
 /// falls back to the median.
 fn worth_keeping(facts: &SquadFacts, player: &Player, current_date: NaiveDate) -> bool {
+    let profile = &facts.profile;
     let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
-    let prospect = age <= PROSPECT_AGE_LIMIT && player.potential >= facts.median_ovr;
-    let in_his_prime = age <= crate::squad_outlook::peak_age_limit(group_index(&player.position));
+    // A club that builds on youth keeps a prospect whose ceiling is a little under the standard:
+    // it will make something of him; one that does not asks for a ceiling at the standard.
+    let prospect = age <= PROSPECT_AGE_LIMIT
+        && player.potential.saturating_add(prospect_slack(profile)) >= facts.median_ovr;
+    let in_his_prime = age
+        <= crate::squad_outlook::peak_age_limit(group_index(&player.position))
+            + prime_extension_years(profile);
     let at_the_standard = player.ovr >= facts.median_ovr;
     let useful = match facts.cost_of_losing(&player.id) {
         Some(cost) => {
             cost >= crate::squad_intelligence::impact::SURPLUS_LOSS
-                || (at_the_standard && facts.seniors <= PLANNED_SQUAD_SIZE)
+                || (at_the_standard
+                    && facts.seniors <= PLANNED_SQUAD_SIZE
+                    && renews_for_numbers(profile))
         }
         None => at_the_standard,
     };
     prospect || (in_his_prime && useful)
+}
+
+/// Rating points below the squad's median a prospect's ceiling may sit for a club of this youth
+/// focus (0 to 1) to renew him: none for a club with no lean, the full amount for one built around
+/// its young players.
+const YOUTH_RENEWAL_SLACK: f64 = 8.0;
+
+fn prospect_slack(profile: &crate::transfers::ClubProfile) -> u8 {
+    (YOUTH_RENEWAL_SLACK * profile.youth_focus.clamp(0.0, 1.0)).round() as u8
+}
+
+/// Years past his group's peak age a player is still renewed for his experience by a club that is
+/// contending: a side playing for this season keeps the proven player a year or two longer than
+/// one that is building.
+const CONTENDER_PRIME_EXTENSION_YEARS: i32 = 2;
+
+fn prime_extension_years(profile: &crate::transfers::ClubProfile) -> i32 {
+    match profile.ambition {
+        crate::transfers::Ambition::Contender => CONTENDER_PRIME_EXTENSION_YEARS,
+        _ => 0,
+    }
+}
+
+/// Whether the club renews a player at the squad's standard whom the side would not miss, merely
+/// because its squad is within the size it plans for: not a club that can least afford the wage.
+/// The replacement it can sign for nothing is as good as a contract it cannot carry.
+fn renews_for_numbers(profile: &crate::transfers::ClubProfile) -> bool {
+    profile.means != crate::transfers::Means::Constrained
 }
 
 /// Seniors a club plans to carry: the depth it wants in every group (22).
@@ -617,6 +683,7 @@ mod tests {
     use super::*;
     use crate::clock::GameClock;
     use crate::contract_wage_policy::wage_policy_verdict;
+    use crate::transfers::{Ambition, ClubProfile, Means};
     use chrono::{Datelike, Duration, TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{PlayerAttributes, Position};
@@ -1153,6 +1220,82 @@ mod tests {
         );
         assert!(facts.sale_case("borrowed_star").is_none());
         assert!(facts.cost_of_losing("borrowed_star").is_none());
+    }
+
+    /// The club `ai` read for a club with this profile.
+    fn facts_with(game: &Game, ambition: Ambition, means: Means, youth_focus: f64) -> SquadFacts {
+        SquadFacts::of_club(
+            game,
+            "ai",
+            ClubProfile {
+                ambition,
+                means,
+                youth_focus,
+            },
+        )
+    }
+
+    /// Given a deep squad of players rated 60, and a 20-year-old of 40 whose ceiling is 56, four
+    /// under the squad's median
+    /// When a club with no lean on youth and one built around its young players decide on his
+    /// contract
+    /// Then the first lets him go and the second renews him: the strategy reaches the renewal.
+    #[test]
+    fn a_club_built_on_youth_renews_a_prospect_a_club_with_no_lean_lets_go() {
+        let mut game = world();
+        let mut prospect = player("prospect", "ai", Position::Forward, 40, 20, 90);
+        prospect.potential = 56;
+        game.players.push(prospect);
+        let prospect = game.players.last().unwrap().clone();
+        let neutral = facts_with(&game, Ambition::Established, Means::Comfortable, 0.0);
+        assert!(
+            !needed_for_depth(&neutral, &prospect),
+            "the fixture is deep"
+        );
+        let today = today();
+        assert!(!keeps_given(&neutral, &prospect, today));
+        let youthful = facts_with(&game, Ambition::Established, Means::Comfortable, 1.0);
+        assert!(keeps_given(&youthful, &prospect, today));
+    }
+
+    /// Given a deep squad and a player at its standard whom the side would not miss
+    /// When a comfortable club and a financially constrained one decide on his contract
+    /// Then the comfortable one renews him to keep its numbers up and the constrained one lets
+    /// him go: the free replacement is as good as a contract it cannot carry.
+    #[test]
+    fn a_constrained_club_does_not_renew_a_player_it_would_not_miss() {
+        let game = world();
+        let player = game.players.iter().find(|p| p.id == "ai_Forward0").unwrap();
+        let comfortable = facts_with(&game, Ambition::Established, Means::Comfortable, 0.0);
+        assert!(
+            !needed_for_depth(&comfortable, player),
+            "the fixture is deep"
+        );
+        assert!(keeps_given(&comfortable, player, today()));
+        let constrained = facts_with(&game, Ambition::Established, Means::Constrained, 0.0);
+        assert!(!keeps_given(&constrained, player, today()));
+    }
+
+    /// Given a veteran of 36 at the squad's standard, past his group's peak
+    /// When a contending club and an established one decide on his contract
+    /// Then only the contender renews him: a side playing for this season keeps the proven
+    /// player a year or two longer.
+    #[test]
+    fn a_contender_renews_a_veteran_an_established_club_would_let_go() {
+        let mut game = world();
+        let mut veteran = player("veteran", "ai", Position::Forward, 60, 34, 90);
+        veteran.potential = 60;
+        game.players.push(veteran);
+        let veteran = game.players.last().unwrap().clone();
+        let peak = crate::squad_outlook::peak_age_limit(group_index(&veteran.position));
+        assert!(
+            34 > peak && 34 <= peak + CONTENDER_PRIME_EXTENSION_YEARS,
+            "peak {peak}"
+        );
+        let established = facts_with(&game, Ambition::Established, Means::Comfortable, 0.0);
+        let contender = facts_with(&game, Ambition::Contender, Means::Comfortable, 0.0);
+        assert!(!keeps_given(&established, &veteran, today()));
+        assert!(keeps_given(&contender, &veteran, today()));
     }
 
     /// One other forward: without him the club is below the floor, so the board
