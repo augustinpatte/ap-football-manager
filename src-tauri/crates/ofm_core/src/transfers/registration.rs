@@ -51,6 +51,31 @@ pub(crate) fn pending_wage_commitments(game: &Game, team_id: &str) -> i64 {
     }
     reserved
 }
+/// The cash and transfer budget `team_id` has agreed to spend in purchases that wait for their
+/// registration date. Derived from the saved offers like [`pending_wage_commitments`]: it survives
+/// a save, ends the moment a deal registers (the money has then left the books) or is voided, and
+/// a registration that fails for want of money is the notified failure it always was. Loans carry
+/// no fee, so they reserve none. Read when a bid is made, never when one registers.
+pub(crate) fn pending_fee_commitments(game: &Game, team_id: &str) -> terms::PendingFees {
+    let mut reserved = terms::PendingFees::default();
+    for player in &game.players {
+        for offer in &player.transfer_offers {
+            if offer.status == TransferOfferStatus::PendingRegistration
+                && offer.from_team_id == team_id
+            {
+                let cash = terms::cash_due_on_completion(offer.fee, &offer.terms);
+                let budget = offer.fee.saturating_add(offer.terms.signing_bonus);
+                reserved.cash = reserved
+                    .cash
+                    .saturating_add(i64::try_from(cash).unwrap_or(i64::MAX));
+                reserved.budget = reserved
+                    .budget
+                    .saturating_add(i64::try_from(budget).unwrap_or(i64::MAX));
+            }
+        }
+    }
+    reserved
+}
 pub(crate) fn player_has_pending_registration(player: &domain::player::Player) -> bool {
     player_has_active_or_pending_loan(player) || has_pending_transfer_registration(player)
 }

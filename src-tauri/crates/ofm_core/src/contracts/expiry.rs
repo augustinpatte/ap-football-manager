@@ -179,6 +179,7 @@ pub(crate) fn release_player_contract(
             || game.players[player_index].team_id.as_deref() == Some(user_team_id)
     });
 
+    crate::turn::squad::refill_saved_eleven_slot_of(game, &player_id);
     for team in &mut game.teams {
         remove_player_from_team_references(team, &player_id);
     }

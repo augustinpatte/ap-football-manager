@@ -2407,6 +2407,209 @@ fn selling_a_player_releases_every_role_he_held() {
     assert_eq!(old_club.match_roles.corner_taker, None);
 }
 
+/// A game in the closed window with two willing targets at the seller, the user's club holding
+/// exactly what one of them costs: the second bid is the one a reservation has to stop.
+fn closed_window_game_with_two_targets(finance: i64, transfer_budget: i64) -> Game {
+    let mut game = make_game_with_player(make_player("target-a"), vec![], finance, transfer_budget);
+    game.players.push(make_player("target-b"));
+    give_every_club_squad_depth(&mut game);
+    game.clock.current_date = Utc.with_ymd_and_hms(2026, 12, 20, 12, 0, 0).unwrap();
+    game.season_context.transfer_window.status = TransferWindowStatus::Closed;
+    game.season_context.transfer_window.opens_on = Some("2027-01-01".to_string());
+    game
+}
+
+/// Given the window is shut and the user has agreed to buy one player for the whole of the
+///   transfer budget, the deal waiting for the window to open
+/// When the user bids for a second player with the budget already spoken for
+/// Then the bid is refused, and its projection says the budget is overdrawn.
+#[test]
+fn a_manual_bid_cannot_spend_the_budget_an_agreed_deal_is_waiting_to_pay() {
+    let mut game = closed_window_game_with_two_targets(9_000_000, 2_000_000);
+    let first = make_transfer_bid(&mut game, "target-a", 2_000_000)
+        .expect("the first bid is agreed and scheduled");
+    assert_eq!(first.decision, TransferNegotiationDecision::Accepted);
+
+    let projection =
+        ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-b", 2_000_000)
+            .expect("the projection is available");
+    let second = make_transfer_bid(&mut game, "target-b", 2_000_000);
+
+    assert!(projection.exceeds_transfer_budget, "{projection:?}");
+    assert!(
+        second.is_err(),
+        "a second bid has to be refused: the budget is already promised, got {second:?}"
+    );
+}
+
+/// Given the same shut window and cash for one player only, not the budget
+/// When the second bid asks for cash that an agreed deal will take on the day it registers
+/// Then it is refused for want of cash, not left to fail when the window opens.
+#[test]
+fn a_manual_bid_cannot_spend_the_cash_an_agreed_deal_is_waiting_to_pay() {
+    let mut game = closed_window_game_with_two_targets(2_500_000, 9_000_000);
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the first bid is agreed");
+
+    let projection =
+        ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-b", 2_000_000)
+            .expect("the projection is available");
+
+    assert!(projection.exceeds_finance, "{projection:?}");
+    assert!(make_transfer_bid(&mut game, "target-b", 2_000_000).is_err());
+}
+
+/// Given an agreed deal waiting to register and a wage budget with room for one more player only
+/// When a second bid is judged against the board's wage policy
+/// Then the agreed player's wage is already in the bill it is judged against.
+#[test]
+fn a_manual_bid_is_judged_against_the_wages_of_agreed_deals() {
+    let mut game = closed_window_game_with_two_targets(90_000_000, 90_000_000);
+    let wage = ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-a", 1)
+        .expect("the projection is available")
+        .incoming_player_weekly_wage;
+    assert!(wage > 0, "the fixture's players have a wage");
+    // The soft cap is 110 % of the wage budget: room for one and a half such wages.
+    game.teams[0].wage_budget = (wage * 3 / 2) * 100 / 110 + 1;
+    let before = calc_wages(&game, "team-1");
+    let first =
+        make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the first bid fits the room");
+    assert_eq!(first.decision, TransferNegotiationDecision::Accepted);
+
+    let projection =
+        ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-b", 2_000_000)
+            .expect("the projection is available");
+
+    assert_eq!(
+        projection.annual_wage_bill_before,
+        before + wage,
+        "the agreed player's wage is reserved: {projection:?}"
+    );
+    assert!(projection.blocked_by_wage_policy, "{projection:?}");
+    assert!(make_transfer_bid(&mut game, "target-b", 2_000_000).is_err());
+}
+
+/// Given an agreed deal that then registers when the window opens
+/// When the club's books are read again
+/// Then the fee and the wage are counted once: the player is in the bill and the money is gone,
+///      and nothing is still reserved for a deal that no longer waits.
+#[test]
+fn a_registered_deal_is_not_reserved_a_second_time() {
+    let mut game = closed_window_game_with_two_targets(9_000_000, 9_000_000);
+    let wage = ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-a", 1)
+        .expect("the projection is available")
+        .incoming_player_weekly_wage;
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the first bid is agreed");
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
+    game.season_context.transfer_window.status = TransferWindowStatus::Open;
+    process_pending_transfer_registrations(&mut game);
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|player| player.id == "target-a")
+            .and_then(|player| player.team_id.as_deref()),
+        Some("team-1"),
+        "the deal registered"
+    );
+
+    let projection =
+        ofm_core::transfers::project_transfer_bid_financial_impact(&game, "target-b", 1_000_000)
+            .expect("the projection is available");
+
+    assert_eq!(projection.annual_wage_bill_before, wage, "one wage, once");
+    assert_eq!(
+        projection.transfer_budget_before, game.teams[0].transfer_budget,
+        "nothing is held back for a deal that has registered"
+    );
+    assert_eq!(projection.finance_before, game.teams[0].finance);
+    assert_eq!(
+        projection.finance_after,
+        game.teams[0].finance - 1_000_000,
+        "the new bid is the only claim on what is left"
+    );
+}
+
+/// A permanent sale of a starter must not shorten the selling club's saved eleven or move the
+/// starters behind him up a slot: the eleven is slot-aligned, and a reserve takes his place.
+#[test]
+fn selling_a_starter_keeps_the_saved_eleven_whole_and_in_its_slots() {
+    let mut player = make_user_player("player-departing-starter");
+    player.transfer_listed = true;
+    player.market_value = 900_000;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-starter", 1_000_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 9_000_000;
+    game.teams[1].transfer_budget = 6_000_000;
+
+    let seller = game.teams[0].id.clone();
+    let mut saved: Vec<String> = (0..10).map(|i| format!("mate-{i:02}")).collect();
+    saved.insert(3, "player-departing-starter".to_string());
+    let template = game
+        .players
+        .iter()
+        .find(|p| p.id == "player-departing-starter")
+        .cloned()
+        .unwrap();
+    for id in saved
+        .iter()
+        .filter(|id| id.as_str() != "player-departing-starter")
+        .chain(std::iter::once(&"reserve".to_string()))
+    {
+        let mut mate = template.clone();
+        mate.id = id.clone();
+        if id == "reserve" {
+            // The best fit outside the eleven, so the choice of replacement is not a tie.
+            mate.attributes = PlayerAttributes {
+                pace: 95,
+                stamina: 95,
+                strength: 95,
+                agility: 95,
+                passing: 95,
+                shooting: 95,
+                tackling: 95,
+                dribbling: 95,
+                defending: 95,
+                positioning: 95,
+                vision: 95,
+                decisions: 95,
+                composure: 95,
+                aggression: 95,
+                teamwork: 95,
+                leadership: 95,
+                handling: 30,
+                reflexes: 30,
+                aerial: 95,
+            };
+        }
+        mate.team_id = Some(seller.clone());
+        mate.transfer_listed = false;
+        mate.transfer_offers.clear();
+        game.players.push(mate);
+    }
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids = saved.clone();
+
+    respond_to_offer(&mut game, "player-departing-starter", "offer-starter", true)
+        .expect("accepting the offer should complete the sale");
+
+    let xi = &game
+        .teams
+        .iter()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids;
+    assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+    for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+        assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+    }
+    assert_eq!(xi[3], "reserve");
+}
+
 /// A completed transfer has to reach the competition its clubs actually play in.
 /// `Game::sync_legacy_league` overwrites `game.league` with a clone of a competition, so a record
 /// written only there is discarded rather than merely misfiled.

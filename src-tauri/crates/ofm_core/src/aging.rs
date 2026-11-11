@@ -223,6 +223,9 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
     let world_seed = game.seed;
     let market = FreeAgentMarket::of(game);
     let matches_recorded = matches_recorded_by_club(&game.players);
+    // (club, player) of everyone who retires, settled once the whole squad has aged: a retiring
+    // starter's slot in the saved eleven is refilled from the players who are left.
+    let mut retiring: Vec<(String, String)> = Vec::new();
     for player in game.players.iter_mut() {
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
         let mut stream = crate::seed::rng_for_seed(
@@ -239,12 +242,16 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
             chance > 0 && seeded_value(&player.id, season, "free-agent-drift") % 100 < chance
         };
         if drifts_out || should_retire(player, age, current_date, season) {
-            if let Some(team_id) = player.team_id.clone()
-                && let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id)
-            {
-                team.remove_player_references(&player.id);
+            if let Some(team_id) = player.team_id.clone() {
+                retiring.push((team_id, player.id.clone()));
             }
             retire_player(player, current_date);
+        }
+    }
+    for (team_id, player_id) in retiring {
+        crate::turn::squad::refill_saved_eleven_slot(game, &team_id, &player_id);
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            team.remove_player_references(&player_id);
         }
     }
     crate::retirees::archive_retired_players(game, &iso(current_date), season);
@@ -469,6 +476,66 @@ mod tests {
         assert!(game.teams[0].starting_xi_ids.is_empty());
         assert!(game.teams[0].training_groups[0].player_ids.is_empty());
         assert_eq!(game.teams[0].match_roles.captain, None);
+    }
+
+    /// Given a user's saved eleven in which a veteran starts at slot 3 and a healthy reserve waits
+    /// When the veteran retires at the season's end
+    /// Then the saved eleven is still eleven, the others keep their slots, and the reserve has
+    ///      taken the veteran's.
+    #[test]
+    fn a_retiring_starter_is_replaced_in_his_own_slot_of_the_saved_eleven() {
+        let mut squad: Vec<Player> = (0..12)
+            .map(|i| make_player(&format!("young-{i:02}"), "2000-01-01"))
+            .collect();
+        // The best fit outside the eleven, so the choice of replacement is not a tie.
+        squad[11].attributes = PlayerAttributes {
+            pace: 95,
+            stamina: 95,
+            strength: 95,
+            agility: 95,
+            passing: 95,
+            shooting: 95,
+            tackling: 95,
+            dribbling: 95,
+            defending: 95,
+            positioning: 95,
+            vision: 95,
+            decisions: 95,
+            composure: 95,
+            aggression: 95,
+            teamwork: 95,
+            leadership: 95,
+            handling: 20,
+            reflexes: 20,
+            aerial: 95,
+        };
+        let mut veteran = make_player("older-pro", "1988-01-01");
+        veteran.stage_contract_start(Some("2023-07-01".to_string()));
+        veteran.stage_contract_end(Some("2026-05-01".to_string()));
+        veteran.stats = PlayerSeasonStats {
+            appearances: 6,
+            avg_rating: 6.1,
+            ..PlayerSeasonStats::default()
+        };
+        squad.push(veteran);
+        let mut game = make_game(squad);
+        let mut saved: Vec<String> = (0..11).map(|i| format!("young-{i:02}")).collect();
+        saved[3] = "older-pro".to_string();
+        game.teams[0].starting_xi_ids = saved.clone();
+        let current_date = game.clock.current_date.date_naive();
+
+        apply_seasonal_aging(&mut game, current_date, 1);
+
+        assert!(
+            game.retired_players.iter().any(|p| p.id == "older-pro"),
+            "the veteran retired"
+        );
+        let xi = &game.teams[0].starting_xi_ids;
+        assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+        for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+            assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+        }
+        assert_eq!(xi[3], "young-11", "the reserve took the vacated slot");
     }
 
     /// Retirement ends the contract like any other exit: it is in the history, and

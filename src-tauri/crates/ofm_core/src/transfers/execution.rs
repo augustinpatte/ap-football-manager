@@ -80,6 +80,7 @@ pub(super) fn execute_loan(
         .find(|team| team.id == loan_team_id)
         .and_then(|team| crate::roster::resolve_jersey_for(game, &player_snapshot, team));
 
+    crate::turn::squad::refill_saved_eleven_slot_of(game, player_id);
     for team in &mut game.teams {
         team.remove_player_references(player_id);
     }
@@ -316,7 +317,14 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
         .iter()
         .find(|player| player.id == player_id)
         .ok_or("be.error.playerNotFound")?;
-    buyers_contract_terms(game, player, buyer_team_id, deal_terms).map(|_| ())
+    let (buyer, wage, _) = buyers_agreed_terms(game, player, buyer_team_id, deal_terms)?;
+    if !BuyerWageFacts::of_committed(game, buyer_team_id)
+        .purchase_verdict(&buyer, player, wage)
+        .permits()
+    {
+        return Err(renewal_wage_policy_error_message(&buyer));
+    }
+    Ok(())
 }
 
 /// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a
@@ -428,6 +436,7 @@ pub(super) fn execute_transfer_with_terms(
         t.starting_xi_ids.remove(pos);
     }
 
+    crate::turn::squad::refill_saved_eleven_slot(game, from_team_id, player_id);
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == from_team_id) {
         // A departing player gives up every role, not just his place in the XI. Trimming the XI by
         // hand here used to leave him as the old club's captain and penalty taker.

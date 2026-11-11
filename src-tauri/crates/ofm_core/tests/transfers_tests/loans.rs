@@ -311,13 +311,16 @@ fn accepted_loan_offer_moves_player_until_return_date() {
     assert_eq!(loan.loan_start_appearances, 2);
     assert_eq!(loan.development_reported_minutes, 180);
     assert_eq!(loan.development_reported_appearances, 2);
+    // He has left his parent club's eleven: a one-man eleven has nobody to take the shirt but a
+    // reserve, whom the club names in his slot rather than leaving it empty.
     assert!(
-        game.teams
+        !game
+            .teams
             .iter()
             .find(|team| team.id == "team-2")
             .unwrap()
             .starting_xi_ids
-            .is_empty()
+            .contains(&"player-loan-target".to_string())
     );
 
     game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 2, 12, 0, 0).unwrap();
@@ -1356,7 +1359,12 @@ fn accepting_incoming_loan_offer_moves_user_player_to_borrowing_club() {
             .and_then(|loan| loan.buy_option_fee),
         Some(1_100_000)
     );
-    assert!(game.teams[0].starting_xi_ids.is_empty());
+    assert!(
+        !game.teams[0]
+            .starting_xi_ids
+            .contains(&"player-incoming-loan".to_string()),
+        "the lent player has left the eleven"
+    );
     assert_eq!(calc_wages(&game, "team-1"), 130_000);
     assert_eq!(calc_wages(&game, "team-2"), 390_000);
 }

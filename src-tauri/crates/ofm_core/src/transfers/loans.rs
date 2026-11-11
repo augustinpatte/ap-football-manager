@@ -845,6 +845,7 @@ pub(crate) fn complete_loan_buy_option_transfer(
     // Same rule as a permanent sale: the proceeds replenish this season's transfer envelope, not
     // only the balance, so a club that sold through an option can spend what it has just earned.
     terms::apply_budgets(game, &deal, &settlement);
+    crate::turn::squad::refill_saved_eleven_slot(game, parent_team_id, player_id);
     for team in &mut game.teams {
         if team.id != buying_team_id {
             team.remove_player_references(player_id);

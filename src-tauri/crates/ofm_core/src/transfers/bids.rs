@@ -438,10 +438,14 @@ pub fn project_transfer_bid_financial_impact_with_terms(
     let incoming_wage = standard_terms
         .as_ref()
         .map_or_else(|| i64::from(player.wage()), |(_, wage, _)| i64::from(*wage));
+    let committed_bill = BuyerWageFacts::of_committed(game, &team.id);
     let blocked_by_wage_policy = standard_terms.as_ref().is_some_and(|(buyer, wage, _)| {
-        !purchase_wage_policy_verdict(game, buyer, player, *wage).permits()
+        !committed_bill
+            .purchase_verdict(buyer, player, *wage)
+            .permits()
     });
-    let annual_wage_bill_before = calc_wages(game, &team.id);
+    let annual_wage_bill_before = committed_bill.current_bill();
+    let reserved_fees = pending_fee_commitments(game, &team.id);
     let annual_wage_bill_after = annual_wage_bill_before + incoming_wage;
     let projected_wage_budget_usage_pct = if team.wage_budget > 0 {
         ((annual_wage_bill_after as f64 / team.wage_budget as f64) * 100.0).round() as i64
@@ -450,9 +454,12 @@ pub fn project_transfer_bid_financial_impact_with_terms(
     };
 
     let cash_due = terms::cash_due_on_completion(fee, terms);
-    let transfer_budget_after =
-        team.transfer_budget - fee as i64 - i64::try_from(terms.signing_bonus).unwrap_or(i64::MAX);
-    let finance_after = team.finance - i64::try_from(cash_due).unwrap_or(i64::MAX);
+    let transfer_budget_after = team.transfer_budget
+        - reserved_fees.budget
+        - fee as i64
+        - i64::try_from(terms.signing_bonus).unwrap_or(i64::MAX);
+    let finance_after =
+        team.finance - reserved_fees.cash - i64::try_from(cash_due).unwrap_or(i64::MAX);
     let (_, later_instalment_amount) = terms::instalment_split(fee, terms.instalments);
 
     // Same rule as make_transfer_bid uses when it decides Accepted vs
@@ -591,7 +598,13 @@ fn place_bid(
         .find(|t| t.id == user_team_id)
         .ok_or("be.error.managedTeamNotFound")?;
 
-    terms::fund_block(my_team, fee, &terms).map_err(|block| block.error_key().to_string())?;
+    terms::fund_block_after(
+        my_team,
+        &pending_fee_commitments(game, &user_team_id),
+        fee,
+        &terms,
+    )
+    .map_err(|block| block.error_key().to_string())?;
     terms::ensure_promise_is_wanted(player, &terms, current_date)?;
 
     let owner_team = game
@@ -865,7 +878,13 @@ pub(crate) fn bid_is_possible(
         .iter()
         .find(|team| team.id == user_team_id)
         .ok_or("be.error.managedTeamNotFound")?;
-    terms::fund_block(buyer, fee, terms).map_err(|block| block.error_key().to_string())?;
+    terms::fund_block_after(
+        buyer,
+        &pending_fee_commitments(game, user_team_id),
+        fee,
+        terms,
+    )
+    .map_err(|block| block.error_key().to_string())?;
     ensure_buyer_can_pay_standard_wage(game, player_id, user_team_id, terms)
 }
 

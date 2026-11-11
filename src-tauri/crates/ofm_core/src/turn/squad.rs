@@ -237,6 +237,78 @@ pub(crate) fn reconcile_user_starting_xi(game: &mut Game, team_id: &str) {
     }
 }
 
+/// Puts a replacement in the slot of a player who is about to leave a club, in that club's saved
+/// eleven.
+///
+/// A saved eleven is slot-aligned: entry `i` plays formation slot `i`. `Team::remove_player_references`
+/// removes an id with `retain`, so a leaver in slot 3 used to shorten the eleven *and* move every
+/// later starter up a slot: a midfielder inherited the full-back's shirt, and the eleven stayed
+/// short until the next lineup run (the delegated assistant's, at best a day before a match).
+/// Call this before the references are removed. The replacement is the best fit for the vacated
+/// slot among healthy, match-day-eligible players outside the eleven, chosen the way the kick-off
+/// fills a slot; with nobody to give it to the slot is left for `remove_player_references` to
+/// drop, and the kick-off tops the eleven up from the treatment room as it always has.
+pub(crate) fn refill_saved_eleven_slot(game: &mut Game, team_id: &str, leaving_player_id: &str) {
+    let Some(replacement) = replacement_for_saved_slot(game, team_id, leaving_player_id) else {
+        return;
+    };
+    if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id)
+        && let Some(slot) = team
+            .starting_xi_ids
+            .iter()
+            .position(|id| id == leaving_player_id)
+    {
+        team.starting_xi_ids[slot] = replacement;
+    }
+}
+
+/// [`refill_saved_eleven_slot`] in every club whose saved eleven names a player who is leaving
+/// them all: a retirement, a release, a loan out (his loan club's eleven names him too).
+pub(crate) fn refill_saved_eleven_slot_of(game: &mut Game, leaving_player_id: &str) {
+    let clubs: Vec<String> = game
+        .teams
+        .iter()
+        .filter(|team| {
+            team.starting_xi_ids
+                .iter()
+                .any(|id| id == leaving_player_id)
+        })
+        .map(|team| team.id.clone())
+        .collect();
+    for team_id in clubs {
+        refill_saved_eleven_slot(game, &team_id, leaving_player_id);
+    }
+}
+
+fn replacement_for_saved_slot(
+    game: &Game,
+    team_id: &str,
+    leaving_player_id: &str,
+) -> Option<String> {
+    let team = game.teams.iter().find(|team| team.id == team_id)?;
+    let slot_index = team
+        .starting_xi_ids
+        .iter()
+        .position(|id| id == leaving_player_id)?;
+    let slot = formation_slots(&team.formation).get(slot_index).cloned()?;
+    let club = crate::match_day_eligibility::club_players(&game.players, team_id);
+    crate::match_day_eligibility::eligible_among(&club)
+        .into_iter()
+        .filter(|player| {
+            player.can_play()
+                && player.id != leaving_player_id
+                && !team.starting_xi_ids.contains(&player.id)
+        })
+        .max_by(|left, right| {
+            compare_goalkeeper_fit(left, right, &slot).then_with(|| {
+                effective_rating_for_assignment(left, &slot)
+                    .partial_cmp(&effective_rating_for_assignment(right, &slot))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        })
+        .map(|player| player.id.clone())
+}
+
 /// Make a short XI up to the number of slots the formation asks for, drawing on
 /// players who are carrying an injury.
 ///
@@ -1329,6 +1401,136 @@ pub(crate) mod match_day_pool_tests {
         crate::live_match_manager::prepare_kick_off(&mut game, 0, None);
 
         assert_eq!(game.teams[0].starting_xi_ids, saved);
+    }
+
+    fn saved_eleven_game() -> (Game, Vec<String>) {
+        let mut game = match_day_game(true, 18, 0);
+        // Distinct, ordered ratings so "the best fit for the slot" is unambiguous: senior-17 is the
+        // best outfield player outside the eleven, senior-11 the worst.
+        for (i, player) in game.players.iter_mut().enumerate().skip(1) {
+            player.attributes = super::tests::attrs(50 + i as u8);
+        }
+        let saved: Vec<String> = (0..11).map(|i| format!("senior-{i:02}")).collect();
+        game.teams[0].starting_xi_ids = saved.clone();
+        (game, saved)
+    }
+
+    /// Given a user's saved eleven with a starter in slot 3
+    /// When that starter leaves the club and a replacement is refilled for him
+    /// Then the eleven is still eleven, every other starter keeps his own slot, and the
+    ///      vacated slot holds a healthy player from outside the eleven.
+    #[test]
+    fn a_departing_starter_is_replaced_in_his_own_slot() {
+        let (mut game, saved) = saved_eleven_game();
+
+        refill_saved_eleven_slot_of(&mut game, "senior-03");
+        game.teams[0].remove_player_references("senior-03");
+
+        let xi = &game.teams[0].starting_xi_ids;
+        assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+        for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+            assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+        }
+        assert!(
+            !saved.contains(&xi[3]),
+            "the vacancy goes to a bench player"
+        );
+        assert_eq!(xi[3], "senior-17", "the best fit outside the eleven");
+    }
+
+    /// Given a goalkeeper in the saved eleven and a second keeper on the bench
+    /// When the first-choice keeper leaves
+    /// Then the other keeper takes the shirt in slot 0, not the best outfielder.
+    #[test]
+    fn a_departing_keeper_is_replaced_by_the_other_keeper() {
+        let (mut game, _) = saved_eleven_game();
+        let spare = game
+            .players
+            .iter_mut()
+            .find(|p| p.id == "senior-12")
+            .unwrap();
+        spare.natural_position = DomainPos::Goalkeeper;
+        spare.attributes = super::tests::attrs(30);
+
+        refill_saved_eleven_slot_of(&mut game, "senior-00");
+
+        assert_eq!(game.teams[0].starting_xi_ids[0], "senior-12");
+    }
+
+    /// Given a saved eleven with a starter whose contract the club ends
+    /// When the contract is released
+    /// Then the eleven is still eleven and the other starters keep their slots.
+    #[test]
+    fn a_released_starter_is_replaced_in_his_own_slot_of_the_saved_eleven() {
+        let (mut game, saved) = saved_eleven_game();
+        let index = game
+            .players
+            .iter()
+            .position(|p| p.id == "senior-05")
+            .unwrap();
+
+        crate::contracts::release_player_contract(
+            &mut game,
+            index,
+            crate::contracts::ContractReleaseReason::Expired,
+        );
+
+        let xi = &game.teams[0].starting_xi_ids;
+        assert_eq!(xi.len(), 11);
+        for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 5) {
+            assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+        }
+        assert_ne!(xi[5], "senior-05");
+    }
+
+    /// Given a saved eleven and nobody healthy outside it
+    /// When a starter leaves
+    /// Then the slot is dropped as before: a short eleven is better than an invented one, and
+    ///      the kick-off fills it from the treatment room.
+    #[test]
+    fn a_departing_starter_with_nobody_to_replace_him_leaves_a_short_eleven() {
+        let mut game = match_day_game(true, 11, 0);
+        game.teams[0].starting_xi_ids = (0..11).map(|i| format!("senior-{i:02}")).collect();
+
+        refill_saved_eleven_slot_of(&mut game, "senior-03");
+        game.teams[0].remove_player_references("senior-03");
+
+        assert_eq!(game.teams[0].starting_xi_ids.len(), 10);
+    }
+
+    /// Given a player who is not in anyone's saved eleven
+    /// When he leaves
+    /// Then no eleven changes.
+    #[test]
+    fn a_departing_reserve_leaves_the_saved_eleven_alone() {
+        let (mut game, saved) = saved_eleven_game();
+
+        refill_saved_eleven_slot_of(&mut game, "senior-14");
+
+        assert_eq!(game.teams[0].starting_xi_ids, saved);
+    }
+
+    /// Given an injured and a suspended player outside the saved eleven who are the best fits
+    /// When a starter leaves
+    /// Then neither is put into the saved eleven.
+    #[test]
+    fn a_vacated_slot_is_never_given_to_an_injured_or_suspended_player() {
+        let (mut game, _) = saved_eleven_game();
+        for (id, hurt) in [("senior-17", true), ("senior-16", false)] {
+            let player = game.players.iter_mut().find(|p| p.id == id).unwrap();
+            if hurt {
+                player.injury = Some(domain::player::Injury {
+                    name: "Knock".into(),
+                    days_remaining: 9,
+                });
+            } else {
+                player.suspended_matches = 2;
+            }
+        }
+
+        refill_saved_eleven_slot_of(&mut game, "senior-03");
+
+        assert_eq!(game.teams[0].starting_xi_ids[3], "senior-15");
     }
 
     /// Given fewer players than a full squad needs, when either manager builds it,

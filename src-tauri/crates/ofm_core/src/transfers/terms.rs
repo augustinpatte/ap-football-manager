@@ -66,15 +66,36 @@ pub(crate) fn seller_price_pct(terms: &TransferTerms) -> u64 {
 /// Whether `team` can carry these terms: the cash due on completion within its cash, and the
 /// whole fee and bonus within its transfer budget. Plain terms ask exactly what a plain fee asks.
 pub(crate) fn fund_block(team: &Team, fee: u64, terms: &TransferTerms) -> Result<(), FeeBlock> {
+    fund_block_after(team, &PendingFees::default(), fee, terms)
+}
+
+/// What deals the club has agreed and that wait to register will take from its cash and from its
+/// transfer budget the day they do. Until then the money is still in the books, so a bid judged
+/// against the books alone could spend it twice.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct PendingFees {
+    pub cash: i64,
+    pub budget: i64,
+}
+
+/// [`fund_block`] for a bid made while `pending` agreed deals still wait to register: the same
+/// two tests against what is left once they have been paid. Registration itself calls
+/// [`fund_block`], because by then the deal being registered is the one that is asking.
+pub(crate) fn fund_block_after(
+    team: &Team,
+    pending: &PendingFees,
+    fee: u64,
+    terms: &TransferTerms,
+) -> Result<(), FeeBlock> {
     let commitment = fee.saturating_add(terms.signing_bonus);
     let cash = cash_due_on_completion(fee, terms);
     let (Ok(commitment), Ok(cash)) = (i64::try_from(commitment), i64::try_from(cash)) else {
         return Err(FeeBlock::InsufficientFunds);
     };
-    if team.finance < cash {
+    if team.finance.saturating_sub(pending.cash) < cash {
         return Err(FeeBlock::InsufficientFunds);
     }
-    if team.transfer_budget < commitment {
+    if team.transfer_budget.saturating_sub(pending.budget) < commitment {
         return Err(FeeBlock::TransferBudgetTooLow);
     }
     Ok(())
