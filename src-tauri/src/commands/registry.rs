@@ -139,16 +139,35 @@ pub async fn search_external_players(
     info!("[cmd] search_external_players");
     let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
-    let query = registry_query(request, &context);
-    let excluded = context.excluded_ids;
-    let seed = context.seed;
-    tauri::async_runtime::spawn_blocking(move || {
-        let path = career_registry_path(&base, seed, query.today)?;
-        let conn = registry::open_registry(&path)?;
-        registry::query_registry(&conn, &query, &excluded)
-    })
-    .await
-    .map_err(|_| REGISTRY_READ_FAILED.to_string())?
+    tauri::async_runtime::spawn_blocking(move || search_internal(&base, &context, request))
+        .await
+        .map_err(|_| REGISTRY_READ_FAILED.to_string())?
+}
+
+/// One page of this career's market: the cache at the career's season, the screen's filters and the
+/// career's own exclusion set. Blocking, for `spawn_blocking`; shared with the integration tests so
+/// they run the code the command runs.
+pub fn search_internal(
+    base: &Path,
+    context: &RegistryContext,
+    request: RegistrySearchRequest,
+) -> Result<RegistryPage, String> {
+    let query = registry_query(request, context);
+    let path = career_registry_path(base, context.seed, query.today)?;
+    let conn = registry::open_registry(&path)?;
+    registry::query_registry(&conn, &query, &context.excluded_ids)
+}
+
+/// One player of this career's market, read at the career's season. Blocking, like
+/// [`search_internal`].
+pub fn detail_internal(
+    base: &Path,
+    context: &RegistryContext,
+    player_id: &str,
+) -> Result<Option<RegistryPlayerDetail>, String> {
+    let path = career_registry_path(base, context.seed, context.today)?;
+    let conn = registry::open_registry(&path)?;
+    registry::get_registry_player(&conn, player_id, context.today)
 }
 
 #[tauri::command]
@@ -160,15 +179,9 @@ pub async fn get_external_player(
     info!("[cmd] get_external_player: player_id={player_id}");
     let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
-    let today = context.today;
-    let seed = context.seed;
-    tauri::async_runtime::spawn_blocking(move || {
-        let path = career_registry_path(&base, seed, today)?;
-        let conn = registry::open_registry(&path)?;
-        registry::get_registry_player(&conn, &player_id, today)
-    })
-    .await
-    .map_err(|_| REGISTRY_READ_FAILED.to_string())?
+    tauri::async_runtime::spawn_blocking(move || detail_internal(&base, &context, &player_id))
+        .await
+        .map_err(|_| REGISTRY_READ_FAILED.to_string())?
 }
 
 /// The promotion payload, or the key that says why the stored record cannot be one.
@@ -248,16 +261,11 @@ async fn load_detail(
 ) -> Result<RegistryPlayerDetail, String> {
     let base = registry_file(app_handle)?;
     let context = context_for(state)?;
-    let today = context.today;
-    let seed = context.seed;
     let player_id = player_id.to_string();
-    let detail = tauri::async_runtime::spawn_blocking(move || {
-        let path = career_registry_path(&base, seed, today)?;
-        let conn = registry::open_registry(&path)?;
-        registry::get_registry_player(&conn, &player_id, today)
-    })
-    .await
-    .map_err(|_| REGISTRY_READ_FAILED.to_string())??;
+    let detail =
+        tauri::async_runtime::spawn_blocking(move || detail_internal(&base, &context, &player_id))
+            .await
+            .map_err(|_| REGISTRY_READ_FAILED.to_string())??;
     detail.ok_or_else(|| "be.error.registry.playerNotAvailable".to_string())
 }
 
@@ -587,3 +595,6 @@ mod tests {
         assert_eq!(player.team_id.as_deref(), Some("team-1"));
     }
 }
+
+#[cfg(test)]
+mod integration_tests;

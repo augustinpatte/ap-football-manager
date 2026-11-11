@@ -3209,6 +3209,7 @@ dependencies = [
  "ofm_core",
  "rand",
  "rmcp",
+ "rusqlite",
  "season-harness",
  "semver",
  "serde",

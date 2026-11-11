@@ -105,6 +105,9 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 # The season test plays a generated world through the application layer (Run F4.2, scenario 6).
 [dev-dependencies]
 season-harness = { path = "crates/season-harness" }
+# Writes the invented source database of the registry integration tests (same version as the
+# workspace's other rusqlite users, so Cargo.lock is unchanged).
+rusqlite = { version = "0.32.1", features = ["bundled"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gtk = "0.18"
