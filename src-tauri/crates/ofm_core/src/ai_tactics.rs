@@ -616,8 +616,6 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
 
     // Every club's squad in one pass rather than one scan of the world per club reviewing.
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
-    // Every club's strategy, read at most once a day, for the clubs that look at their formation.
-    let mut club_profiles = None;
 
     for team_id in due {
         let Some(team_index) = game.teams.iter().position(|team| team.id == team_id) else {
@@ -629,13 +627,7 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
         let squad = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
         let reading = read_squad(squad);
 
-        let new_formation = reviewed_formation(
-            game,
-            team_index,
-            squad,
-            form.get(&team_id),
-            &mut club_profiles,
-        );
+        let new_formation = reviewed_formation(game, team_index, squad, form.get(&team_id));
 
         let team = &mut game.teams[team_index];
         let manager = ManagerIdentity::of_club_manager(team.manager_id.as_deref());
@@ -653,14 +645,12 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
 }
 
 /// The formation the club at `team_index` moves to this week, if it looks at its shape this week
-/// and the squad, the manager's taste and the results say to move. `profiles` holds every club's
-/// strategy, read once for the day and only if some club is looking.
+/// and the squad, the manager's taste and the results say to move.
 fn reviewed_formation(
     game: &Game,
     team_index: usize,
     squad: &[&Player],
     form: Option<&FormReading>,
-    profiles: &mut Option<std::collections::HashMap<String, crate::transfers::ClubProfile>>,
 ) -> Option<&'static str> {
     let team = &game.teams[team_index];
     let today = game.clock.current_date.date_naive();
@@ -668,16 +658,8 @@ fn reviewed_formation(
     if !crate::ai_formation::is_review_week(&team.id, today, tenure_days) {
         return None;
     }
-    let profiles = profiles.get_or_insert_with(|| {
-        crate::transfers::profiles(game, &crate::finances::wage_bills_by_club(game))
-    });
-    let profile = profiles
-        .get(&team.id)
-        .copied()
-        .unwrap_or(crate::transfers::ClubProfile::NEUTRAL);
     let circumstances = crate::ai_formation::Circumstances {
         today,
-        appetite: crate::squad_intelligence::appetite::Appetite::of(&profile),
         manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
         tenure_days,
         points_per_game: form.and_then(|reading| reading.points_per_game),

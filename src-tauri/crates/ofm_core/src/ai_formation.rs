@@ -58,11 +58,14 @@ pub fn freeze_reviews_for_study(frozen: bool) {
 
 /// How many weekly reviews apart a settled club looks at its formation: about once a quarter. A
 /// club does not reconsider its shape every week (and each look builds the squad model eight times,
-/// so it is not free); a manager new in post does (see [`BEDDING_IN_DAYS`]).
+/// so it is not free); a manager new in post does (see [`BEDDING_IN_LOOKS`]).
 const REVIEW_EVERY_WEEKS: u64 = 12;
 
-/// A manager in his first weeks reviews the shape every week: he came to change things.
-const BEDDING_IN_DAYS: i64 = 28;
+/// A manager in post looks at the shape he inherited on his first weekly review, and again a month
+/// in, when he has seen the squad play: he came to change things, but each look builds the squad
+/// model eight times. The two windows are a week wide, the weekly review's own cadence, so each
+/// is one look.
+const BEDDING_IN_LOOKS: [std::ops::Range<i64>; 2] = [0..7, 28..35];
 
 /// Days over which a new manager's mandate to change the side fades to none.
 const MANDATE_DAYS: f64 = 90.0;
@@ -170,19 +173,14 @@ pub(crate) fn taste(team: &Team, manager: &ManagerIdentity, formation: &str) -> 
         + PERSONAL_TASTE * personal_liking(team.manager_id.as_deref(), formation)
 }
 
-/// What the squad is worth in `formation`: the market's own squad model, planned over the club's
-/// horizon. The mean expected rating of the eleven slots.
-pub(crate) fn squad_score(
-    squad: &[&Player],
-    formation: &str,
-    today: NaiveDate,
-    appetite: &Appetite,
-) -> f64 {
+/// What the squad is worth in `formation`: the market's own squad model, planned over its horizon.
+/// The mean expected rating of the eleven slots.
+pub(crate) fn squad_score(squad: &[&Player], formation: &str, today: NaiveDate) -> f64 {
     let model = SquadModel::build(
         squad.iter().copied(),
         formation,
         today,
-        appetite.weights,
+        Appetite::NEUTRAL.weights,
         Availability::Planning,
     );
     f64::from(model.evaluate_now().value)
@@ -191,7 +189,6 @@ pub(crate) fn squad_score(
 /// Everything a club's formation review reads besides the squad.
 pub(crate) struct Circumstances {
     pub today: NaiveDate,
-    pub appetite: Appetite,
     pub manager: ManagerIdentity,
     /// Days the manager has been in post at this club, when known.
     pub tenure_days: Option<i64>,
@@ -240,12 +237,7 @@ pub(crate) fn score_all(
         .iter()
         .map(|formation| FormationScore {
             formation,
-            squad: squad_score(
-                squad,
-                formation,
-                circumstances.today,
-                &circumstances.appetite,
-            ),
+            squad: squad_score(squad, formation, circumstances.today),
             taste: taste(team, &circumstances.manager, formation),
         })
         .collect()
@@ -315,7 +307,6 @@ pub struct ClubFormationReading {
 
 /// Every AI club's formation review as of today. Measurement only: nothing is changed.
 pub fn read_all_clubs(game: &crate::game::Game) -> Vec<ClubFormationReading> {
-    let profiles = crate::transfers::profiles(game, &crate::finances::wage_bills_by_club(game));
     let by_club = crate::match_day_eligibility::players_by_club(&game.players);
     let today = game.clock.current_date.date_naive();
     crate::ai_tactics::ai_clubs(game)
@@ -323,13 +314,8 @@ pub fn read_all_clubs(game: &crate::game::Game) -> Vec<ClubFormationReading> {
         .filter_map(|team_id| {
             let team = game.teams.iter().find(|t| t.id == team_id)?;
             let squad = by_club.get(team_id.as_str())?;
-            let profile = profiles
-                .get(&team_id)
-                .copied()
-                .unwrap_or(crate::transfers::ClubProfile::NEUTRAL);
             let circumstances = Circumstances {
                 today,
-                appetite: Appetite::of(&profile),
                 manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
                 tenure_days: tenure_days(game, team),
                 points_per_game: None,
@@ -350,7 +336,7 @@ pub(crate) fn is_review_week(team_id: &str, today: NaiveDate, tenure_days: Optio
     if REVIEWS_FROZEN.load(std::sync::atomic::Ordering::Relaxed) {
         return false;
     }
-    if tenure_days.is_some_and(|days| days < BEDDING_IN_DAYS) {
+    if tenure_days.is_some_and(|days| BEDDING_IN_LOOKS.iter().any(|look| look.contains(&days))) {
         return true;
     }
     let week = today.signed_duration_since(NaiveDate::default()).num_days() as u64 / 7;
@@ -376,7 +362,6 @@ mod tests {
     fn circumstances(manager: ManagerIdentity) -> Circumstances {
         Circumstances {
             today: today(),
-            appetite: Appetite::NEUTRAL,
             manager,
             tenure_days: Some(400),
             points_per_game: None,
@@ -650,25 +635,31 @@ mod tests {
         );
     }
 
-    /// Given a settled club and one whose manager has been in post a week
+    /// Given a manager new in post and a settled one
     /// When the weeks of a year are walked
-    /// Then the settled club reviews about one week in twelve and the new manager's club every week.
+    /// Then the new manager looks on his first review and again a month in, and the settled club
+    /// about one week in twelve.
     #[test]
-    fn settled_clubs_review_every_few_weeks_and_new_managers_every_week() {
+    fn settled_clubs_review_every_few_weeks_and_new_managers_look_twice() {
         let start = today();
-        let reviews = |tenure| {
+        let weeks = |tenure_at_start: i64| {
             (0..52)
                 .filter(|week| {
                     is_review_week(
                         "club",
                         start + chrono::Duration::days(week * 7),
-                        Some(tenure),
+                        Some(tenure_at_start + week * 7),
                     )
                 })
                 .count()
         };
-        assert_eq!(reviews(7), 52);
-        assert!((4..=5).contains(&reviews(400)), "{}", reviews(400));
+        // A manager hired today: weeks 0 and 4 are his looks, and the quarterly cycle adds
+        // its own three or four.
+        let settled = weeks(400);
+        assert!((4..=5).contains(&settled), "{settled}");
+        assert!(weeks(0) >= settled + 1, "{} vs {settled}", weeks(0));
+        assert!(is_review_week("club", start, Some(0)));
+        assert!(is_review_week("club", start, Some(30)));
     }
 
     /// Given results as points from each match

@@ -73,7 +73,7 @@ pub(crate) use registration::{
     player_has_pending_registration, transfer_window_is_open,
 };
 pub(crate) use sale_view::reinvestment_gain;
-pub(crate) use strategy::{Ambition, ClubProfile, Means, profile_of, profiles};
+pub(crate) use strategy::{Ambition, ClubProfile, Means, profile_of};
 pub use strategy::{ClubStrategyReport, strategy_reports};
 pub use terms::{
     ERR_INVALID_DEAL_TERMS, ERR_SELL_ON_UNAFFORDABLE, ensure_bonus_affordable,
