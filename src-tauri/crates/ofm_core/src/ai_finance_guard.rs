@@ -46,6 +46,11 @@ pub(crate) const AI_WAGE_CEILING_PCT: i64 = 100;
 /// Weeks of a weekly loss the club must hold in cash after a signing that makes it run one.
 pub(crate) const SAFETY_WEEKS: i64 = 52;
 
+/// Home league matches assumed when a decision has no schedule to count them from: a twenty-club
+/// league plays nineteen. The gate it implies is within a few per cent of the scheduled one for any
+/// league the game builds, and the rules that read it work at the scale of a year's cash.
+pub(crate) const ESTIMATED_HOME_MATCHES: i64 = 19;
+
 /// Attendance and ticket price the game's own estimate of a gate uses (`finances`).
 const ESTIMATED_ATTENDANCE: f64 = 0.76;
 const ESTIMATED_TICKET: f64 = 20.0;
@@ -101,6 +106,27 @@ impl SigningBooks {
         }
     }
 
+    /// A club's books for a decision that has no schedule to read: its own bill, with the home
+    /// matches a league of twenty clubs plays ([`ESTIMATED_HOME_MATCHES`]).
+    pub(crate) fn estimated(team: &Team, weekly_bill: i64) -> Self {
+        Self::given(team, weekly_bill, ESTIMATED_HOME_MATCHES)
+    }
+
+    /// Whether the club's cash carries a bill that grows by `extra_weekly`, whatever its budget
+    /// says: not while it is in debt, and, when the club would then spend more than it earns, only
+    /// with [`SAFETY_WEEKS`] of that loss in hand. A wage is paid every week for the length of a
+    /// contract, so the first week's cash says nothing about whether the last can be paid.
+    pub(crate) fn cash_carries_wage(&self, extra_weekly: i64) -> bool {
+        if extra_weekly <= 0 {
+            return true;
+        }
+        self.cash >= 0
+            && covers_weekly_loss(
+                self.cash,
+                self.weekly_income - (self.weekly_bill + extra_weekly),
+            )
+    }
+
     /// Whether the club may add `extra_weekly` to its wage bill: not while it is in debt, and not
     /// past its budget. The question for a signing on a free transfer or a renewal at a
     /// raise — a wage, with no fee to pay and no reason to ask for a year of cash in hand: a club
@@ -138,9 +164,17 @@ impl SigningBooks {
         if cash_after < 0 {
             return false;
         }
-        let weekly_result = self.weekly_income - (self.weekly_bill + extra_weekly.max(0));
-        weekly_result >= 0 || cash_after >= -weekly_result * SAFETY_WEEKS
+        covers_weekly_loss(
+            cash_after,
+            self.weekly_income - (self.weekly_bill + extra_weekly.max(0)),
+        )
     }
+}
+
+/// Whether `cash` meets a season of the weekly loss `weekly_result` stands for; a club that earns
+/// what it pays has no loss to meet.
+fn covers_weekly_loss(cash: i64, weekly_result: i64) -> bool {
+    weekly_result >= 0 || cash >= -weekly_result * SAFETY_WEEKS
 }
 
 #[cfg(test)]
