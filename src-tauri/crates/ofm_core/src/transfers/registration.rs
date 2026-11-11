@@ -51,6 +51,28 @@ pub(crate) fn pending_wage_commitments(game: &Game, team_id: &str) -> i64 {
     }
     reserved
 }
+/// The players `team_id` has agreed to buy that wait to register, other than `except_player_id`:
+/// each will take a place on its senior list. Derived from the saved offers like the wage and the
+/// fee. A player already registered at the club (a loan that becomes a purchase) takes none.
+pub(crate) fn pending_incoming_purchases(
+    game: &Game,
+    team_id: &str,
+    except_player_id: &str,
+) -> usize {
+    game.players
+        .iter()
+        .filter(|player| {
+            player.id != except_player_id && player.team_id.as_deref() != Some(team_id)
+        })
+        .filter(|player| {
+            player.transfer_offers.iter().any(|offer| {
+                offer.status == TransferOfferStatus::PendingRegistration
+                    && offer.from_team_id == team_id
+            })
+        })
+        .count()
+}
+
 /// The cash and transfer budget `team_id` has agreed to spend in purchases that wait for their
 /// registration date. Derived from the saved offers like [`pending_wage_commitments`]: it survives
 /// a save, ends the moment a deal registers (the money has then left the books) or is voided, and

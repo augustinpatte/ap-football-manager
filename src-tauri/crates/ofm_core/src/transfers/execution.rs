@@ -300,7 +300,29 @@ pub(super) fn buyers_contract_terms(
     if !purchase_wage_policy_verdict(game, &buyer, player, wage).permits() {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
+    ensure_place_for(game, player, buyer_team_id, 0)?;
     Ok((buyer, wage, end))
+}
+
+/// Whether `buyer_team_id` has a place on its senior list for `player`: the limit a free agent
+/// meets, which a purchase did not. `promised` places are taken already by purchases agreed and
+/// waiting to register. A player already registered with the club (a loan that becomes a purchase)
+/// needs no new place.
+fn ensure_place_for(
+    game: &Game,
+    player: &Player,
+    buyer_team_id: &str,
+    promised: usize,
+) -> Result<(), String> {
+    if player.team_id.as_deref() == Some(buyer_team_id) {
+        return Ok(());
+    }
+    let capacity = crate::contracts::squad_capacity(game, buyer_team_id);
+    if capacity.free_places > promised {
+        Ok(())
+    } else {
+        Err(capacity.full_error())
+    }
 }
 
 /// Whether `buyer_team_id` could be given the contract it would need to buy this
@@ -324,7 +346,8 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
     {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
-    Ok(())
+    let promised = super::registration::pending_incoming_purchases(game, buyer_team_id, player_id);
+    ensure_place_for(game, player, buyer_team_id, promised)
 }
 
 /// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a

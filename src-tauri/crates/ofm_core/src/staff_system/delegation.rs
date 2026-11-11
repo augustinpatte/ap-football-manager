@@ -114,7 +114,14 @@ pub(super) fn books_of(game: &Game, team_id: &str) -> Books {
         };
     };
     Books {
-        transfer_cash: team.transfer_budget.min(team.finance).max(0),
+        // Likewise the fees: a second purchase is judged against the cash and the budget that
+        // the agreed ones leave, not the ones they will both be paid from.
+        transfer_cash: {
+            let promised = crate::transfers::pending_fee_commitments(game, team_id);
+            (team.transfer_budget - promised.budget)
+                .min(team.finance - promised.cash)
+                .max(0)
+        },
         // The wages of deals agreed and waiting to register are as good as paid: a second
         // approach is judged against what is left of the room, not the room both would share.
         wage_room: (team.wage_budget
@@ -733,6 +740,34 @@ mod tests {
 
     fn delegate(g: &mut Game, duty: Duty, confirm: bool) {
         g.delegation.set(duty, true, confirm);
+    }
+
+    /// Given a club with 5 000 000 in cash and in its transfer budget, which has agreed to buy a
+    ///   player for 2 000 000 and waits for the window to open
+    /// When the assistant's books are read
+    /// Then the cash he may spend is what is left once that deal is paid, 3 000 000: his wage
+    ///      room already reads the agreed deal, and a second purchase must not be allowed to
+    ///      promise the same money.
+    #[test]
+    fn the_assistants_transfer_cash_is_what_agreed_deals_leave() {
+        let mut g = game(Some(60), 5);
+        g.teams[0].finance = 5_000_000;
+        g.teams[0].transfer_budget = 5_000_000;
+        g.players
+            .iter_mut()
+            .find(|p| p.team_id.as_deref() == Some("team2"))
+            .expect("a player of the other club")
+            .transfer_offers
+            .push(
+                serde_json::from_value(serde_json::json!({
+                    "id": "agreed", "from_team_id": "team1", "fee": 2_000_000,
+                    "wage_offered": 0, "status": "PendingRegistration", "date": "2026-07-20",
+                    "registration_date": "2027-01-01"
+                }))
+                .unwrap(),
+            );
+
+        assert_eq!(books_of(&g, "team1").transfer_cash, 3_000_000);
     }
 
     #[test]
