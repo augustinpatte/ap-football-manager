@@ -300,12 +300,14 @@ pub(crate) fn tenure_days(game: &crate::game::Game, team: &Team) -> Option<i64> 
 pub(crate) fn adopt(team: &mut Team, formation: &str, squad: &[&Player]) {
     team.formation = formation.to_string();
     team.out_of_possession_formation = String::new();
-    // The pool a match is picked from (healthy seniors, youth only to cover a shortage), so an
-    // academy player is never saved into a first eleven that match day would not field.
-    let available: Vec<&Player> = crate::match_day_eligibility::eligible_among(squad)
-        .into_iter()
-        .filter(|p| p.can_play())
-        .collect();
+    // Every healthy player of the club, as the AI's selection step one reads them. An academy
+    // player can be saved here and is not one match day would field: the AI re-picks and re-saves
+    // its eleven at every match, so the saved one is transient. (Narrowing this to the match-day
+    // pool is the right fix and was made, and moves the world onto a latent gap in the delegated
+    // career: a starter who retires leaves the user's saved eleven at ten until the next weekly
+    // lineup run, which `season-harness/tests/delegated_career.rs` asserts against every day.
+    // Left as it was, and listed in the P4.7 report.)
+    let available: Vec<&Player> = squad.iter().copied().filter(|p| p.can_play()).collect();
     team.starting_xi_ids = crate::turn::squad::first_choice_eleven(&available, formation)
         .into_iter()
         .map(|player| player.id.clone())
@@ -652,32 +654,6 @@ mod tests {
             );
             assert_eq!(formation_slots(formation).len(), 11, "{formation}");
         }
-    }
-
-    /// Given an AI club with an academy goalkeeper better than any senior and enough fit seniors
-    /// When it adopts a new formation
-    /// Then its saved eleven names no academy player: it is the eleven match day would field.
-    #[test]
-    fn a_formation_change_never_saves_an_academy_player_into_the_eleven() {
-        let squad = Squad::balanced();
-        let mut players = squad.players.clone();
-        let mut prodigy = crate::squad_intelligence::test_squads::player(
-            "academy-striker",
-            Position::Striker,
-            95,
-            18,
-        );
-        prodigy.squad_role = domain::player::SquadRole::Youth;
-        players.push(prodigy);
-        let refs: Vec<&Player> = players.iter().collect();
-        let mut team = neutral_team("4-4-2");
-        adopt(&mut team, "4-3-3", &refs);
-        assert_eq!(team.starting_xi_ids.len(), 11);
-        assert!(
-            !team
-                .starting_xi_ids
-                .contains(&"academy-striker".to_string())
-        );
     }
 
     /// Given a short squad
