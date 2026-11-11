@@ -37,6 +37,10 @@ pub(crate) struct ManagerIdentity {
     pub youth_trust: f64,
 }
 
+/// How far into either end of its range a disposition has to be before a manager acts on it: the
+/// top and the bottom quarter.
+const CLEAR_DISPOSITION: f64 = 0.25;
+
 // Salts distinct per disposition, so one id's four draws are independent of each other.
 const RISK_SALT: u64 = 0x6d67_7220_7269_736b; // "mgr risk"
 const ADAPTABILITY_SALT: u64 = 0x6d67_7220_6164_6170; // "mgr adap"
@@ -52,6 +56,22 @@ impl ManagerIdentity {
         rotation: 0.5,
         youth_trust: 0.5,
     };
+
+    /// Clearly bold: the top quarter of the range. A manager leans away from his club's style only
+    /// when his temperament is clearly one way; in the middle half he plays the badge as it is.
+    pub(crate) fn is_clearly_bold(&self) -> bool {
+        self.risk >= 1.0 - CLEAR_DISPOSITION
+    }
+
+    /// Clearly cautious: the bottom quarter of the range.
+    pub(crate) fn is_clearly_cautious(&self) -> bool {
+        self.risk <= CLEAR_DISPOSITION
+    }
+
+    /// Clearly adaptable: the top quarter of the range.
+    pub(crate) fn is_clearly_adaptable(&self) -> bool {
+        self.adaptability >= 1.0 - CLEAR_DISPOSITION
+    }
 
     /// The identity of the manager with this id: the same on every call, in every save.
     pub(crate) fn of(manager_id: &str) -> Self {

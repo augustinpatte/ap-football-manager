@@ -143,8 +143,10 @@ fn season_of_matches(
     sides
 }
 
+/// One setting to try on a club, with its name.
+type Variation<'a> = (&'a str, Box<dyn Fn(&mut domain::team::Team)>);
+
 struct Subject {
-    id: String,
     /// The squad model's score for each formation, in `FORMATIONS` order.
     scores: Vec<f64>,
     /// Per formation: the mean over the club's matches.
@@ -295,7 +297,7 @@ fn p5_formation_matches() {
                 let matches = season_of_matches(&mut game, club, &panel, reps, seed);
                 mean(&matches)
             };
-            let variations: Vec<(&str, Box<dyn Fn(&mut domain::team::Team)>)> = vec![
+            let variations: Vec<Variation> = vec![
                 (
                     "style Defensive",
                     Box::new(|t| t.play_style = PlayStyle::Defensive),
@@ -376,7 +378,6 @@ fn p5_formation_matches() {
             all_subjects.push((
                 seed,
                 Subject {
-                    id: club.clone(),
                     scores,
                     by_formation,
                 },
@@ -736,7 +737,7 @@ fn p5_league_quality() {
                     .iter()
                     .filter(|p| p.team_id.as_deref() == Some(id.as_str()))
                     .collect();
-                club.sort_by(|a, b| b.ovr.cmp(&a.ovr));
+                club.sort_by_key(|p| std::cmp::Reverse(p.ovr));
                 for (position, count, out) in [
                     (Position::Forward, 3, &mut shoot),
                     (Position::Defender, 4, &mut defend),

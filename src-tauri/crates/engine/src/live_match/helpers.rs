@@ -45,33 +45,29 @@ impl LiveMatchState {
     /// How well `side` defends a shot right now: its defenders on the pitch, as good as their
     /// condition lets them be. See [`crate::shared::defensive_quality`].
     pub(super) fn defensive_quality(&self, side: Side) -> f64 {
-        let factor = |player: &PlayerData| {
-            let condition = self
-                .player_conditions
-                .get(&player.id)
-                .copied()
-                .unwrap_or(50.0);
-            0.6 + 0.4 * (condition / 100.0)
-        };
         crate::shared::defensive_quality(
             self.team_ref(side)
                 .players
                 .iter()
                 .filter(|player| !self.sent_off.contains(&player.id))
-                .map(|player| (player, factor(player))),
+                .map(|player| (player, self.condition_factor(&player.id))),
         )
     }
 
-    /// Adjust a skill value based on the player's current in-match condition.
-    pub(super) fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
+    /// How much of his skill a player has in him right now.
+    /// At 100% condition: all of it. At 50%: ~80%. At 0%: ~60%.
+    fn condition_factor(&self, player_id: &str) -> f64 {
         let condition = self
             .player_conditions
             .get(player_id)
             .copied()
             .unwrap_or(50.0);
-        // At 100% condition: full skill. At 50%: ~80% skill. At 0%: ~60% skill.
-        let factor = 0.6 + 0.4 * (condition / 100.0);
-        base_skill * factor
+        0.6 + 0.4 * (condition / 100.0)
+    }
+
+    /// Adjust a skill value based on the player's current in-match condition.
+    pub(super) fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
+        base_skill * self.condition_factor(player_id)
     }
 
     // -----------------------------------------------------------------------

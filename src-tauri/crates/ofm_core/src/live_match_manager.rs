@@ -602,10 +602,6 @@ fn manager_for_team<'a>(game: &'a Game, team_id: &str) -> Option<&'a Manager> {
         .or_else(|| (game.manager.id == manager_id).then_some(&game.manager))
 }
 
-/// A manager this far towards an extreme of a disposition acts on it whatever his club's
-/// reputation or record: the top and bottom quarter of the range.
-const DISPOSITION_EXTREME: f64 = 0.25;
-
 /// The manager on `team_id`'s touchline as the match engine sees him: how experienced (from the
 /// club's standing), which personality, and his appetite for risk. The last two come from his
 /// [`ManagerIdentity`], the same disposition the line-up and formation reviews read, so one
@@ -635,15 +631,15 @@ fn derive_personality(
     manager: Option<&Manager>,
     identity: &ManagerIdentity,
 ) -> AiPersonality {
-    let bold = identity.risk >= 1.0 - DISPOSITION_EXTREME;
-    let adaptable = identity.adaptability >= 1.0 - DISPOSITION_EXTREME;
+    let bold = identity.is_clearly_bold();
+    let adaptable = identity.is_clearly_adaptable();
     if bold && (!adaptable || identity.risk >= identity.adaptability) {
         return AiPersonality::Visionary;
     }
     if adaptable {
         return AiPersonality::Reactive;
     }
-    if identity.risk <= DISPOSITION_EXTREME {
+    if identity.is_clearly_cautious() {
         return AiPersonality::Pragmatist;
     }
 

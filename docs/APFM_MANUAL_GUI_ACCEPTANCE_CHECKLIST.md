@@ -1,6 +1,6 @@
 # APFM manual GUI acceptance checklist
 
-**Status: nothing on this page has been performed.** (P3 added rows 2.7-2.10, 4.8, 7.7, 7.8 and sharpened 2.3, 4.6, 7.5, 10.2; see `APFM_P3_MANAGEMENT_UX_REPORT.md`.) No graphical session has been run by the
+**Status: nothing on this page has been performed.** (P5 added section 11.) (P3 added rows 2.7-2.10, 4.8, 7.7, 7.8 and sharpened 2.3, 4.6, 7.5, 10.2; see `APFM_P3_MANAGEMENT_UX_REPORT.md`.) No graphical session has been run by the
 agent that wrote it, in this or any earlier APFM session. Every "Result" cell is empty on purpose.
 Until a person has filled them in, the career journey is **not** verified from the window; see
 `APFM_PLAYABLE_CAREER_IMPLEMENTATION_REPORT.md` for what the automated tests do and do not cover.
@@ -129,6 +129,23 @@ Fill the Result cell with `OK`, or `DEFECT #n`, or `BLOCKED` (could not reach it
 | 10.1 | Switch English ↔ French on every tab above | No raw `be.error.*` or `dashboard.alerts.*` key visible; no English left in French | |
 | 10.2 | Keyboard only through a tab, a modal and a table | Focus ring visible; Esc closes modals; nothing traps focus. Staff tab: the three view buttons and role filters say pressed/not pressed to a screen reader | |
 | 10.3 | Resize to a small window | Sidebar and tables remain usable | |
+
+## 11. P5 additions (match engines, saved eleven, deals waiting to register)
+
+Not performed. Added by P5 (`docs/APFM_P5_MATCH_REALISM_AND_FINAL_AI.md`) for behaviour that now has automated tests but that
+no person has seen in the window. Use a career whose club has a veteran aged 35 or over who starts.
+
+| # | Do | Expect | Result |
+|---|---|---|---|
+| 11.1 | Pick a manual career, note the saved eleven (Squad tab), play to the end of the season and through the rollover (Continue) | A starter who retired is **replaced in his own slot** by a bench player; the eleven is still eleven and nobody else has moved a position. Before P5 the eleven fell to ten and every later starter slid up a slot | |
+| 11.2 | Same, in a **fully delegated** career (Staff tab, Full mode) | The eleven stays eleven after every day; no day-end error | |
+| 11.3 | Release a starter (Squad > player > Release) or sell one to an AI bid | The slot is filled at once by a healthy player; the eleven is still eleven | |
+| 11.4 | In the closed transfer window, agree a signing that takes most of your transfer budget, then bid for a second player | The second bid is **refused** with a readable budget or cash message; the projection panel shows the budget overdrawn before you send it | |
+| 11.5 | In the closed window, agree one signing, then open the projection for a second | The projected **wage bill already includes the agreed player**; when the window opens and the first registers, the wage and the fee are counted **once** (not twice) | |
+| 11.6 | Change formation in Tactics, Save, exit to menu, Load | The same formation shows, and the eleven is unchanged; start the match and the viewer shows that shape | |
+| 11.7 | Play one league match with **Quick simulation** (spectator or delegate) and the next with the **M12 viewer** | Both name the same eleven for your club and the same formation as the Tactics tab; neither fields an injured or suspended player. Scores need not agree | |
+| 11.8 | Watch several AI v AI results over a month | Goals a match are **about 2.5 to 3.5**, with some 0-0 draws and the odd 5-goal match; a week of 5+ goal matches is a defect (before P5 the engine averaged 3.9) | |
+| 11.9 | In a match where one of your players is injured (interactive path, no substitution made by you) | The injury is shown in the match; the AI opponent **replaces its own injured player** with a bench player of the same position | |
 
 ## Sign-off
 

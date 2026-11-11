@@ -283,20 +283,20 @@ fn chasing(obs: &AiObservation<'_>, profile: &AiProfile) -> bool {
 /// played the match out. A goalkeeper is replaced only by another goalkeeper: an outfielder in
 /// goal is the emergency `put_someone_in_goal` handles, not a tidy substitution.
 fn replace_the_injured(obs: &AiObservation<'_>) -> Option<MatchCommand> {
-    let hurt = obs
-        .team
+    obs.team
         .players
         .iter()
-        .find(|player| obs.is_injured(player) && obs.available(player))?;
-    let replacement = find_best_bench_replacement(obs.bench, hurt.position, obs, None)?;
-    if hurt.position == Position::Goalkeeper && replacement.position != Position::Goalkeeper {
-        return None;
-    }
-    Some(MatchCommand::Substitute {
-        side: obs.side,
-        player_off_id: hurt.id.clone(),
-        player_on_id: replacement.id.clone(),
-    })
+        .filter(|player| obs.is_injured(player) && obs.available(player))
+        .find_map(|hurt| {
+            let replacement = find_best_bench_replacement(obs.bench, hurt.position, obs, None)?;
+            let outfielder_for_keeper = hurt.position == Position::Goalkeeper
+                && replacement.position != Position::Goalkeeper;
+            (!outfielder_for_keeper).then(|| MatchCommand::Substitute {
+                side: obs.side,
+                player_off_id: hurt.id.clone(),
+                player_on_id: replacement.id.clone(),
+            })
+        })
 }
 
 /// The goalkeeper has been sent off. Somebody has to go in.

@@ -454,12 +454,8 @@ pub fn project_transfer_bid_financial_impact_with_terms(
     };
 
     let cash_due = terms::cash_due_on_completion(fee, terms);
-    let transfer_budget_after = team.transfer_budget
-        - reserved_fees.budget
-        - fee as i64
-        - i64::try_from(terms.signing_bonus).unwrap_or(i64::MAX);
-    let finance_after =
-        team.finance - reserved_fees.cash - i64::try_from(cash_due).unwrap_or(i64::MAX);
+    let (transfer_budget_after, finance_after) =
+        money_left_after(team, &reserved_fees, fee, terms, cash_due);
     let (_, later_instalment_amount) = terms::instalment_split(fee, terms.instalments);
 
     // Same rule as make_transfer_bid uses when it decides Accepted vs
@@ -547,6 +543,24 @@ pub fn make_manager_transfer_bid(
     terms: TransferTerms,
 ) -> Result<TransferNegotiationOutcome, String> {
     place_bid(game, player_id, fee, terms, PlayerHearing::Required)
+}
+
+/// The transfer budget and the cash `team` would have left if it made this bid, once the agreed
+/// deals waiting to register (`reserved`) have been paid: the whole fee and bonus come off the
+/// budget, the cash due on completion off the cash.
+fn money_left_after(
+    team: &Team,
+    reserved: &terms::PendingFees,
+    fee: u64,
+    terms: &TransferTerms,
+    cash_due: u64,
+) -> (i64, i64) {
+    let budget_after = team.transfer_budget
+        - reserved.budget
+        - fee as i64
+        - i64::try_from(terms.signing_bonus).unwrap_or(i64::MAX);
+    let cash_after = team.finance - reserved.cash - i64::try_from(cash_due).unwrap_or(i64::MAX);
+    (budget_after, cash_after)
 }
 
 fn place_bid(

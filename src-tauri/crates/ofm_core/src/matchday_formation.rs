@@ -1,4 +1,12 @@
-//! The shape an AI club takes the field in on a day when players are missing.
+//! The shape an AI club could take the field in on a day when players are missing.
+//!
+//! **Not wired into match preparation.** `p5_absence_formation` measured it (the club's two best
+//! defenders, midfielders or forwards out, twelve worlds): -0.004 +- 0.015, -0.013 +- 0.015 and
+//! +0.043 +- 0.018 points a game against the club's own shape, one marginal result of three, so the
+//! five-zone engine, which reads a formation as four group counts, cannot be shown to reward it.
+//! The module stays, `pub` for that study, until an engine that prices a shape's fit (M12) can be
+//! measured with it: wire it in `turn::squad::build_team_with_bench_from` (for AI clubs only) and
+//! hand the same shape to the spatial adapter, which reads `Team::formation`, or delete it.
 //!
 //! The club's formation is its habit (`Team::formation`, reviewed by `ai_formation` against the
 //! whole squad). A manager whose two best centre backs are injured does not play a back four with
@@ -80,31 +88,8 @@ pub fn shape_for_the_day(game: &crate::game::Game, team_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::player::{Injury, PlayerAttributes, Position};
-
-    fn attributes(value: u8) -> PlayerAttributes {
-        PlayerAttributes {
-            pace: value,
-            stamina: value,
-            strength: value,
-            agility: value,
-            passing: value,
-            shooting: value,
-            tackling: value,
-            dribbling: value,
-            defending: value,
-            positioning: value,
-            vision: value,
-            decisions: value,
-            composure: value,
-            aggression: value,
-            teamwork: value,
-            leadership: value,
-            handling: value,
-            reflexes: value,
-            aerial: value,
-        }
-    }
+    use crate::test_support::uniform_attributes;
+    use domain::player::{Injury, Position};
 
     fn player(id: &str, position: Position) -> Player {
         Player::new(
@@ -114,7 +99,7 @@ mod tests {
             "1998-01-01".to_string(),
             "GB".to_string(),
             position,
-            attributes(70),
+            uniform_attributes(70),
         )
     }
 

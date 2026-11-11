@@ -1935,3 +1935,63 @@ fn a_loan_to_buy_is_judged_at_the_whole_wage_not_the_loan_share() {
     assert!(target.active_loan.is_some(), "he is still on loan");
     assert_eq!(game.teams[0].finance, 5_000_000, "no fee was paid");
 }
+
+/// Given a loanee who starts in slot 3 of the borrowing club's saved eleven, and a reserve there
+/// When the loan runs out and he goes back to his parent club
+/// Then the borrower's eleven is still eleven, every other starter keeps his slot, and the
+///      vacated slot is held by a player who is still at the borrower.
+#[test]
+fn a_loan_that_ends_replaces_the_loanee_in_his_slot_of_the_borrowers_saved_eleven() {
+    let mut loanee = make_user_player("player-loan-in-xi");
+    loanee.team_id = Some("team-2".to_string());
+    loanee.active_loan = Some(ActiveLoan {
+        parent_team_id: "team-1".to_string(),
+        loan_team_id: "team-2".to_string(),
+        loan_team_name: None,
+        start_date: "2026-08-01".to_string(),
+        end_date: "2027-01-01".to_string(),
+        wage_contribution_pct: 60,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    let mut game = make_game_with_player(loanee, vec![], 5_000_000, 2_000_000);
+    attach_transfer_log_league(&mut game);
+    let mates: Vec<String> = game
+        .players
+        .iter()
+        .filter(|player| {
+            player.team_id.as_deref() == Some("team-2") && player.id.starts_with("depth-")
+        })
+        .take(10)
+        .map(|player| player.id.clone())
+        .collect();
+    let mut saved = mates.clone();
+    saved.insert(3, "player-loan-in-xi".to_string());
+    game.teams[1].starting_xi_ids = saved.clone();
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 2, 12, 0, 0).unwrap();
+
+    process_loan_returns(&mut game);
+
+    let returned = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-loan-in-xi")
+        .unwrap();
+    assert_eq!(returned.team_id.as_deref(), Some("team-1"), "he went home");
+    let xi = &game.teams[1].starting_xi_ids;
+    assert_eq!(xi.len(), 11, "the borrower's eleven is still eleven");
+    for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+        assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+    }
+    assert!(!saved.contains(&xi[3]), "a reserve took the vacated slot");
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|player| player.id == xi[3])
+            .and_then(|player| player.team_id.as_deref()),
+        Some("team-2")
+    );
+}

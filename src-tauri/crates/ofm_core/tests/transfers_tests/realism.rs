@@ -1020,3 +1020,85 @@ fn a_prospect_who_would_start_is_borrowed() {
     evaluate_transfer_market(&mut game);
     assert_eq!(borrowed_by(&game, "loanee").as_deref(), Some("borrower"));
 }
+
+/// A permanent sale of a starter must not shorten the selling club's saved eleven or move the
+/// starters behind him up a slot: the eleven is slot-aligned, and a reserve takes his place.
+#[test]
+fn selling_a_starter_keeps_the_saved_eleven_whole_and_in_its_slots() {
+    let mut player = make_user_player("player-departing-starter");
+    player.transfer_listed = true;
+    player.market_value = 900_000;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-starter", 1_000_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 9_000_000;
+    game.teams[1].transfer_budget = 6_000_000;
+
+    let seller = game.teams[0].id.clone();
+    let mut saved: Vec<String> = (0..10).map(|i| format!("mate-{i:02}")).collect();
+    saved.insert(3, "player-departing-starter".to_string());
+    let template = game
+        .players
+        .iter()
+        .find(|p| p.id == "player-departing-starter")
+        .cloned()
+        .unwrap();
+    for id in saved
+        .iter()
+        .filter(|id| id.as_str() != "player-departing-starter")
+        .chain(std::iter::once(&"reserve".to_string()))
+    {
+        let mut mate = template.clone();
+        mate.id = id.clone();
+        if id == "reserve" {
+            // The best fit outside the eleven, so the choice of replacement is not a tie.
+            mate.attributes = PlayerAttributes {
+                pace: 95,
+                stamina: 95,
+                strength: 95,
+                agility: 95,
+                passing: 95,
+                shooting: 95,
+                tackling: 95,
+                dribbling: 95,
+                defending: 95,
+                positioning: 95,
+                vision: 95,
+                decisions: 95,
+                composure: 95,
+                aggression: 95,
+                teamwork: 95,
+                leadership: 95,
+                handling: 30,
+                reflexes: 30,
+                aerial: 95,
+            };
+        }
+        mate.team_id = Some(seller.clone());
+        mate.transfer_listed = false;
+        mate.transfer_offers.clear();
+        game.players.push(mate);
+    }
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids = saved.clone();
+
+    respond_to_offer(&mut game, "player-departing-starter", "offer-starter", true)
+        .expect("accepting the offer should complete the sale");
+
+    let xi = &game
+        .teams
+        .iter()
+        .find(|team| team.id == seller)
+        .unwrap()
+        .starting_xi_ids;
+    assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+    for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+        assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+    }
+    assert_eq!(xi[3], "reserve");
+}

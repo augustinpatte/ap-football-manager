@@ -292,21 +292,17 @@ fn replacement_for_saved_slot(
         .position(|id| id == leaving_player_id)?;
     let slot = formation_slots(&team.formation).get(slot_index).cloned()?;
     let club = crate::match_day_eligibility::club_players(&game.players, team_id);
-    crate::match_day_eligibility::eligible_among(&club)
-        .into_iter()
-        .filter(|player| {
-            player.can_play()
-                && player.id != leaving_player_id
-                && !team.starting_xi_ids.contains(&player.id)
-        })
-        .max_by(|left, right| {
-            compare_goalkeeper_fit(left, right, &slot).then_with(|| {
-                effective_rating_for_assignment(left, &slot)
-                    .partial_cmp(&effective_rating_for_assignment(right, &slot))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
-        })
-        .map(|player| player.id.clone())
+    best_fit_for_slot(
+        crate::match_day_eligibility::eligible_among(&club)
+            .into_iter()
+            .filter(|player| {
+                player.can_play()
+                    && player.id != leaving_player_id
+                    && !team.starting_xi_ids.contains(&player.id)
+            }),
+        &slot,
+    )
+    .map(|player| player.id.clone())
 }
 
 /// Make a short XI up to the number of slots the formation asks for, drawing on
@@ -440,18 +436,13 @@ fn select_starting_xi<'a>(
         if chosen_slot.is_some() {
             continue;
         }
-        let slot = &slots[slot_index];
-        let best = available_players
-            .iter()
-            .copied()
-            .filter(|player| !used_ids.contains(&player.id))
-            .max_by(|left, right| {
-                compare_goalkeeper_fit(left, right, slot).then_with(|| {
-                    effective_rating_for_assignment(left, slot)
-                        .partial_cmp(&effective_rating_for_assignment(right, slot))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-            });
+        let best = best_fit_for_slot(
+            available_players
+                .iter()
+                .copied()
+                .filter(|player| !used_ids.contains(&player.id)),
+            &slots[slot_index],
+        );
         if let Some(player) = best {
             used_ids.insert(player.id.clone());
             *chosen_slot = Some(player);
@@ -467,6 +458,22 @@ fn select_starting_xi<'a>(
     }
 
     chosen.into_iter().map(Option::unwrap).collect()
+}
+
+/// The candidate who fits `slot` best: for the goalkeeper slot a natural keeper first, then by
+/// rating in the slot. The one ordering the kick-off, the AI's first pick and the refill of a
+/// leaver's slot all fill a slot by.
+fn best_fit_for_slot<'a>(
+    candidates: impl Iterator<Item = &'a domain::player::Player>,
+    slot: &DomainPosition,
+) -> Option<&'a domain::player::Player> {
+    candidates.max_by(|left, right| {
+        compare_goalkeeper_fit(left, right, slot).then_with(|| {
+            effective_rating_for_assignment(left, slot)
+                .partial_cmp(&effective_rating_for_assignment(right, slot))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+    })
 }
 
 /// A natural keeper covers the goalkeeper slot before outfield rating matters.
@@ -491,17 +498,13 @@ pub(crate) fn auto_select_starting_xi<'a>(
     let mut starting_xi = Vec::with_capacity(11);
 
     for slot in slots.iter().take(11) {
-        let best_player = available_players
-            .iter()
-            .copied()
-            .filter(|player| !used_ids.contains(&player.id))
-            .max_by(|left, right| {
-                compare_goalkeeper_fit(left, right, slot).then_with(|| {
-                    effective_rating_for_assignment(left, slot)
-                        .partial_cmp(&effective_rating_for_assignment(right, slot))
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-            });
+        let best_player = best_fit_for_slot(
+            available_players
+                .iter()
+                .copied()
+                .filter(|player| !used_ids.contains(&player.id)),
+            slot,
+        );
 
         let Some(player) = best_player else {
             break;

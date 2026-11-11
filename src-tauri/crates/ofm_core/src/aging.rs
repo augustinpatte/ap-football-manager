@@ -489,25 +489,9 @@ mod tests {
             .collect();
         // The best fit outside the eleven, so the choice of replacement is not a tie.
         squad[11].attributes = PlayerAttributes {
-            pace: 95,
-            stamina: 95,
-            strength: 95,
-            agility: 95,
-            passing: 95,
-            shooting: 95,
-            tackling: 95,
-            dribbling: 95,
-            defending: 95,
-            positioning: 95,
-            vision: 95,
-            decisions: 95,
-            composure: 95,
-            aggression: 95,
-            teamwork: 95,
-            leadership: 95,
             handling: 20,
             reflexes: 20,
-            aerial: 95,
+            ..crate::test_support::uniform_attributes(95)
         };
         let mut veteran = make_player("older-pro", "1988-01-01");
         veteran.stage_contract_start(Some("2023-07-01".to_string()));

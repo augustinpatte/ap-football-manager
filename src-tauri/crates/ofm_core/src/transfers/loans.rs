@@ -1280,6 +1280,7 @@ pub fn process_loan_returns(game: &mut Game) {
             _ => None,
         };
 
+        crate::turn::squad::refill_saved_eleven_slot_of(game, &player_id);
         for team in &mut game.teams {
             team.remove_player_references(&player_id);
         }

@@ -498,11 +498,6 @@ fn match_plan(
 const LEAKY_ADAPTABILITY_RANGE: f64 = 0.5;
 const BLUNT_ADAPTABILITY_RANGE: f64 = 0.25;
 
-/// A manager leans away from his club's blueprint only when his temperament is clearly one way: in
-/// the middle half of the range he plays the badge's style as it is.
-const BOLD_FROM: f64 = 0.75;
-const CAUTIOUS_UNTIL: f64 = 0.25;
-
 /// [`match_plan`] for the manager who is actually in the dugout. The club's style is its
 /// philosophy; the manager tilts it (his risk), and decides how soon a bad run changes it (his
 /// adaptability). Neither can breach the ration of under-priced dials, which `shade` enforces, and
@@ -515,7 +510,7 @@ fn match_plan_by(
 ) -> TacticsPhaseSettings {
     let mut settings = blueprint_for(play_style);
 
-    if manager.risk >= BOLD_FROM {
+    if manager.is_clearly_bold() {
         shade(
             &mut settings,
             &[
@@ -525,7 +520,7 @@ fn match_plan_by(
                 go_more_direct,
             ],
         );
-    } else if manager.risk <= CAUTIOUS_UNTIL {
+    } else if manager.is_clearly_cautious() {
         shade(&mut settings, &[close_the_gaps, sit_deeper, press_less]);
     }
 

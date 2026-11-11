@@ -796,7 +796,7 @@ fn an_average_appetite_for_risk_keeps_the_old_thresholds() {
     let chasing = substitution_minutes_while_stuck_at(0, 1, 59, 62, &manager);
     let protecting = substitution_minutes_while_stuck_at(1, 0, 61, 79, &manager);
 
-    assert!(chasing.iter().any(|minute| *minute == 60), "{chasing:?}");
+    assert!(chasing.contains(&60), "{chasing:?}");
     assert!(protecting.is_empty(), "{protecting:?}");
 }
 
