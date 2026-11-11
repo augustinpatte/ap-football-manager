@@ -147,6 +147,38 @@ impl LiveMatchState {
     // Rating helpers
     // -----------------------------------------------------------------------
 
+    /// Players of `position` `side` has on the pitch: a player sent off is gone, an injured one plays
+    /// on (the engine has no rule for a hurt player's reduced play).
+    pub(super) fn on_the_pitch(&self, side: Side, position: Position) -> usize {
+        self.team_ref(side)
+            .players
+            .iter()
+            .filter(|player| player.position == position && !self.sent_off.contains(&player.id))
+            .count()
+    }
+
+    /// What `side`'s midfielders on the pitch, against the other side's, are worth in a contest in
+    /// the middle of the park: 1.0 when level or when the football prices no numbers.
+    pub(super) fn midfield_numbers_edge(&self, side: Side) -> f64 {
+        crate::shared::numbers_edge(
+            self.on_the_pitch(side, Position::Midfielder),
+            self.on_the_pitch(side.opposite(), Position::Midfielder),
+            1.0,
+            self.config.midfield_numbers_weight,
+        )
+    }
+
+    /// What `side`'s forwards per defender facing them are worth in the attacking third, against the
+    /// two forwards to four defenders of a 4-4-2: 1.0 there or when the football prices no numbers.
+    pub(super) fn attack_numbers_edge(&self, side: Side) -> f64 {
+        crate::shared::numbers_edge(
+            self.on_the_pitch(side, Position::Forward),
+            self.on_the_pitch(side.opposite(), Position::Defender),
+            0.5,
+            self.config.attack_numbers_weight,
+        )
+    }
+
     pub(super) fn effective_midfield(&self, side: Side) -> f64 {
         let base = self.team_ref(side).midfield_rating();
         let modifier = play_style_modifier(

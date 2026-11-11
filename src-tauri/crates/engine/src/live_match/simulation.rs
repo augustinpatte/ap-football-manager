@@ -188,7 +188,9 @@ impl LiveMatchState {
         let def_side = poss_side.opposite();
         let poss_tactics = self.team_ref(poss_side).tactics.clone();
         let def_tactics = self.team_ref(def_side).tactics.clone();
-        let mid_att = self.effective_midfield(poss_side) * tactics_tempo_retention(&poss_tactics);
+        let mid_att = self.effective_midfield(poss_side)
+            * tactics_tempo_retention(&poss_tactics)
+            * self.midfield_numbers_edge(poss_side);
         let mid_def = self.effective_midfield(def_side)
             * tactics_pressing_contest(&def_tactics)
             * tactics_defensive_line_recovery(&def_tactics);

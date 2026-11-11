@@ -143,6 +143,24 @@ pub(crate) fn defensive_quality<'a>(
 }
 
 // ---------------------------------------------------------------------------
+// Numbers in a contest
+// ---------------------------------------------------------------------------
+
+/// The ratio of numbers beyond which more bodies stop counting: a side twice as numerous in a
+/// zone is not twice as likely to win it, and a side with nobody there is not certain to lose it.
+const NUMBERS_RATIO_BOUNDS: (f64, f64) = (0.5, 2.0);
+
+/// The edge a side's numbers give it in a contest: its players there per player facing them, against
+/// what is level (`level_ratio`), raised to `weight`. Exactly 1.0 when the weight is 0, so a
+/// football that prices no numbers stays the football it was.
+pub(crate) fn numbers_edge(own: usize, opposing: usize, level_ratio: f64, weight: f64) -> f64 {
+    let ratio = own as f64 / opposing.max(1) as f64 / level_ratio;
+    ratio
+        .clamp(NUMBERS_RATIO_BOUNDS.0, NUMBERS_RATIO_BOUNDS.1)
+        .powf(weight)
+}
+
+// ---------------------------------------------------------------------------
 // TraitContext — which game action context we're computing a bonus for
 // ---------------------------------------------------------------------------
 
@@ -297,12 +315,12 @@ pub(crate) fn play_style_modifier(
         return 1.0;
     }
     match (style, phase) {
-        (PlayStyle::Attacking, PlayStylePhase::Attack) => 1.12,
+        (PlayStyle::Attacking, PlayStylePhase::Attack) => 1.10,
         (PlayStyle::Attacking, PlayStylePhase::Defense) => 0.93,
         (PlayStyle::Defensive, PlayStylePhase::Defense) => 1.12,
         (PlayStyle::Defensive, PlayStylePhase::Attack) => 0.93,
-        (PlayStyle::Possession, PlayStylePhase::Midfield) => 1.15,
-        (PlayStyle::Possession, PlayStylePhase::Attack) => 0.97,
+        (PlayStyle::Possession, PlayStylePhase::Midfield) => 1.12,
+        (PlayStyle::Possession, PlayStylePhase::Attack) => 0.93,
         (PlayStyle::Counter, PlayStylePhase::Attack) => 1.18,
         (PlayStyle::Counter, PlayStylePhase::Midfield) => 0.92,
         (PlayStyle::HighPress, PlayStylePhase::Press) => 1.20,
@@ -424,9 +442,9 @@ pub(crate) fn tactics_cross_probability(tactics: &TacticsConfig) -> f64 {
 /// High line = more space in behind = easier for attackers to score.
 pub(crate) fn tactics_defensive_conversion_mod(tactics: &TacticsConfig) -> f64 {
     match tactics.defensive_line {
-        DefensiveLine::High => 1.12,
-        DefensiveLine::Low => 0.92,
-        DefensiveLine::VeryLow => 0.85,
+        DefensiveLine::High => 1.05,
+        DefensiveLine::Low => 0.975,
+        DefensiveLine::VeryLow => 0.95,
         DefensiveLine::Medium => 1.0,
     }
 }
@@ -577,8 +595,8 @@ pub(crate) fn tactics_break_distance(tactics: &TacticsConfig) -> f64 {
 pub(crate) fn tactics_counter_press_exposure(tactics: &TacticsConfig) -> f64 {
     match tactics.counter_press_duration {
         CounterPressDuration::None => 0.0,
-        CounterPressDuration::Short => 0.05,
-        CounterPressDuration::Long => 0.11,
+        CounterPressDuration::Short => 0.06,
+        CounterPressDuration::Long => 0.14,
     }
 }
 
@@ -597,9 +615,9 @@ pub(crate) fn tactics_width_versus_shape(
 ) -> f64 {
     match (&attacking.width, &defending.defensive_shape) {
         (TacticsPitchWidth::Wide, DefensiveShape::Compact) => 0.93,
-        (TacticsPitchWidth::Wide, DefensiveShape::Normal) => 0.97,
-        (TacticsPitchWidth::Narrow, DefensiveShape::Compact) => 1.05,
-        (TacticsPitchWidth::Narrow, DefensiveShape::Normal) => 1.02,
+        (TacticsPitchWidth::Wide, DefensiveShape::Normal) => 0.95,
+        (TacticsPitchWidth::Narrow, DefensiveShape::Compact) => 1.08,
+        (TacticsPitchWidth::Narrow, DefensiveShape::Normal) => 1.08,
         // A stretched block has no middle to overload and no width to exploit,
         // and a normal attack has no shape preference to reward either way.
         _ => 1.0,
@@ -927,5 +945,56 @@ mod shot_accuracy_tests {
 
         assert!((defensive_quality(no_defenders.iter().map(|p| (p, 1.0))) - 40.0).abs() < 1e-12);
         assert!((defensive_quality(only_a_keeper.iter().map(|p| (p, 1.0))) - 50.0).abs() < 1e-12);
+    }
+}
+
+#[cfg(test)]
+mod numbers_edge_tests {
+    use super::numbers_edge;
+
+    /// Given any numbers on either side
+    /// When the weight is 0
+    /// Then the edge is exactly 1.0, so a football that prices no numbers is bit-for-bit the one
+    ///      that never counted them.
+    #[test]
+    fn an_unpriced_number_is_exactly_neutral() {
+        for (own, opposing) in [(0, 4), (1, 4), (4, 4), (5, 3), (10, 0)] {
+            assert_eq!(numbers_edge(own, opposing, 1.0, 0.0), 1.0);
+            assert_eq!(numbers_edge(own, opposing, 0.5, 0.0), 1.0);
+        }
+    }
+
+    /// Given a contest whose level ratio is 1 (midfield) and one whose is 0.5 (two forwards to four
+    ///   defenders)
+    /// When the numbers are level in each
+    /// Then neither side has an edge.
+    #[test]
+    fn level_numbers_give_no_edge() {
+        assert_eq!(numbers_edge(4, 4, 1.0, 0.4), 1.0);
+        assert_eq!(numbers_edge(2, 4, 0.5, 0.4), 1.0);
+    }
+
+    /// Given more players than the other side, and fewer
+    /// When the weight is positive
+    /// Then the edge is above 1.0 for the larger side and below it for the smaller.
+    #[test]
+    fn more_players_are_an_edge_and_fewer_a_handicap() {
+        assert!(numbers_edge(5, 4, 1.0, 0.4) > 1.0);
+        assert!(numbers_edge(3, 4, 1.0, 0.4) < 1.0);
+        assert!(
+            numbers_edge(3, 4, 0.5, 0.4) > 1.0,
+            "three forwards to four defenders"
+        );
+        assert!(numbers_edge(1, 4, 0.5, 0.4) < 1.0, "a lone striker");
+    }
+
+    /// Given a side with ten times the players, and a side with nobody there
+    /// When the edge is read
+    /// Then numbers stop counting at a ratio of two and a side with none is not written off.
+    #[test]
+    fn the_edge_is_bounded_and_an_empty_zone_is_not_certain_defeat() {
+        assert_eq!(numbers_edge(10, 1, 1.0, 0.4), numbers_edge(2, 1, 1.0, 0.4));
+        assert_eq!(numbers_edge(0, 4, 1.0, 0.4), 0.5_f64.powf(0.4));
+        assert_eq!(numbers_edge(4, 0, 1.0, 0.4), numbers_edge(2, 1, 1.0, 0.4));
     }
 }

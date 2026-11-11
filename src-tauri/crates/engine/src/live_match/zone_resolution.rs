@@ -121,7 +121,8 @@ impl LiveMatchState {
         let att_eff = att_rating
             * att_mod
             * crate::shared::home_mod(att_side, &self.config)
-            * tactics_tempo_progression(&self.team_ref(att_side).tactics);
+            * tactics_tempo_progression(&self.team_ref(att_side).tactics)
+            * self.midfield_numbers_edge(att_side);
         let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
@@ -199,12 +200,17 @@ impl LiveMatchState {
             PlayStylePhase::Attack,
             true,
         ) * role_modifier(Position::Forward, attacker.role, PlayStylePhase::Attack);
+        // Defending is the defender's own phase: a Defensive style defends better and an Attacking
+        // one worse. Passing `false` here made the defensive half of every style inert.
         let def_mod = play_style_modifier(
             self.team_ref(def_side).play_style,
             PlayStylePhase::Defense,
-            false,
+            true,
         ) * role_modifier(Position::Defender, defender.role, PlayStylePhase::Defense);
-        let att_eff = att_rating * att_mod * crate::shared::home_mod(att_side, &self.config);
+        let att_eff = att_rating
+            * att_mod
+            * crate::shared::home_mod(att_side, &self.config)
+            * self.attack_numbers_edge(att_side);
         let def_eff = def_rating
             * def_mod
             * crate::shared::home_mod(def_side, &self.config)
