@@ -42,6 +42,26 @@ impl LiveMatchState {
         }
     }
 
+    /// How well `side` defends a shot right now: its defenders on the pitch, as good as their
+    /// condition lets them be. See [`crate::shared::defensive_quality`].
+    pub(super) fn defensive_quality(&self, side: Side) -> f64 {
+        let factor = |player: &PlayerData| {
+            let condition = self
+                .player_conditions
+                .get(&player.id)
+                .copied()
+                .unwrap_or(50.0);
+            0.6 + 0.4 * (condition / 100.0)
+        };
+        crate::shared::defensive_quality(
+            self.team_ref(side)
+                .players
+                .iter()
+                .filter(|player| !self.sent_off.contains(&player.id))
+                .map(|player| (player, factor(player))),
+        )
+    }
+
     /// Adjust a skill value based on the player's current in-match condition.
     pub(super) fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
         let condition = self

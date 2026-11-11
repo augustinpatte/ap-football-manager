@@ -344,8 +344,11 @@ impl LiveMatchState {
         let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-        let accuracy =
-            (self.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+        let accuracy = crate::shared::shot_accuracy(
+            self.config.shot_accuracy_base,
+            shoot_rating,
+            self.defensive_quality(def_side),
+        );
 
         if rng.random_range(0.0..1.0f64) > accuracy {
             let detail = EventDetail::Shot {

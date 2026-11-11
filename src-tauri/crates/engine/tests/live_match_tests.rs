@@ -2034,3 +2034,92 @@ fn every_period_lasts_its_full_length_whatever_stoppage_came_before() {
         "200 seeds should include first-half stoppage and a drawn match, or this test proves nothing"
     );
 }
+
+// ---------------------------------------------------------------------------
+// How many goals a match has is a property of the football, not of how good everyone is
+// ---------------------------------------------------------------------------
+
+/// A team whose forwards and midfielders have `attack` and whose defenders and goalkeeper have
+/// `defence`, everything else at the midpoint: the squads these tests set against each other.
+fn two_way_team(id: &str, attack: u8, defence: u8) -> TeamData {
+    let mut team = make_team(id, id, 60, PlayStyle::Balanced);
+    for player in &mut team.players {
+        let skill = match player.position {
+            Position::Forward | Position::Midfielder => attack,
+            Position::Defender | Position::Goalkeeper => defence,
+        };
+        *player = make_player(&player.id, &player.name, player.position, skill);
+    }
+    team
+}
+
+/// Goals a match, over `matches` seeded matches between `home` and `away`, played to the end.
+fn goals_a_match(home: &TeamData, away: &TeamData, matches: u64) -> f64 {
+    let mut goals = 0.0;
+    for seed in 0..matches {
+        let mut state = LiveMatchState::new(
+            home.clone(),
+            away.clone(),
+            MatchConfig::default(),
+            make_bench("home", 60),
+            make_bench("away", 60),
+            false,
+        );
+        let mut rng = seeded_rng(1_000 + seed);
+        run_to_finish(&mut state, &mut rng);
+        let snapshot = state.snapshot();
+        goals += f64::from(snapshot.home_score) + f64::from(snapshot.away_score);
+    }
+    goals / matches as f64
+}
+
+/// Given two worlds that differ only in how good every player is, 60 against 60 and 80 against
+///   80, so that every contest is as even as it was
+/// When the same number of matches are played in each
+/// Then they have the same number of goals: the rating scale is a unit, and a world whose players
+///      were all rated twenty points higher would not score a goal more.
+///
+/// This was not so while shot accuracy was measured from a fixed 50: the football was calibrated
+/// on a world of lower ratings and has scored 40 % more in every world rated since.
+#[test]
+fn a_world_of_better_players_does_not_score_more() {
+    let modest = goals_a_match(
+        &two_way_team("home", 60, 60),
+        &two_way_team("away", 60, 60),
+        400,
+    );
+    let strong = goals_a_match(
+        &two_way_team("home", 80, 80),
+        &two_way_team("away", 80, 80),
+        400,
+    );
+
+    let ratio = strong / modest;
+    assert!(
+        (0.9..=1.1).contains(&ratio),
+        "{strong:.2} goals a match at 80 against {modest:.2} at 60 (ratio {ratio:.2})"
+    );
+}
+
+/// Given the same two worlds' attackers and defenders set against each other the other way round
+/// When goals are counted
+/// Then attackers ahead of defenders score clearly more than defenders ahead of attackers: the
+///      relative quality that decides a chance is still what decides it.
+#[test]
+fn attackers_ahead_of_the_defence_score_more_than_attackers_behind_it() {
+    let attack_ahead = goals_a_match(
+        &two_way_team("home", 75, 60),
+        &two_way_team("away", 75, 60),
+        400,
+    );
+    let defence_ahead = goals_a_match(
+        &two_way_team("home", 60, 75),
+        &two_way_team("away", 60, 75),
+        400,
+    );
+
+    assert!(
+        attack_ahead > defence_ahead * 1.2,
+        "{attack_ahead:.2} goals with the attackers ahead against {defence_ahead:.2} behind"
+    );
+}

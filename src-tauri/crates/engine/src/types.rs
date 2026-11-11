@@ -464,7 +464,7 @@ impl Default for MatchConfig {
     fn default() -> Self {
         Self {
             home_advantage: 1.08,
-            shot_accuracy_base: 0.35,
+            shot_accuracy_base: 0.29,
             goal_conversion_base: 0.36,
             fatigue_per_minute: 0.20,
             foul_probability: 0.40,

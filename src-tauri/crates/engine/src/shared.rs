@@ -105,6 +105,44 @@ impl PlayerSnap {
 }
 
 // ---------------------------------------------------------------------------
+// Shot accuracy
+// ---------------------------------------------------------------------------
+
+/// The chance a shot from the box is on target: the base rate, moved by how much better the
+/// shooter is than the side defending the shot.
+///
+/// Both ratings are on the scale players are rated on, so the difference is the same whether the
+/// world's players are rated 50 or 80: a shot is as likely to be on target in a world where
+/// everybody is twenty points better. It was measured from a fixed 50 instead, which made the
+/// football calibrated on one generation of ratings score 40 % more on the next.
+pub(crate) fn shot_accuracy(base: f64, shoot_rating: f64, defence_rating: f64) -> f64 {
+    (base + (shoot_rating - defence_rating) / 200.0).clamp(0.15, 0.85)
+}
+
+/// How well a side defends a shot: the mean of its defenders' defending and positioning, each as
+/// good as his condition lets him be, on the scale a shooter is rated on. Falls back to the whole
+/// outfield and then to the midpoint of the scale, so a side with no defender left on the pitch
+/// is defended by whoever is there.
+pub(crate) fn defensive_quality<'a>(
+    outfield: impl Iterator<Item = (&'a PlayerData, f64)> + Clone,
+) -> f64 {
+    const MIDPOINT: f64 = 50.0;
+    let mean_of = |pick: &dyn Fn(&PlayerData) -> bool| {
+        let (sum, count) = outfield.clone().filter(|(player, _)| pick(player)).fold(
+            (0.0, 0u32),
+            |(sum, count), (player, condition_factor)| {
+                let skill = (f64::from(player.defending) + f64::from(player.positioning)) / 2.0;
+                (sum + skill * condition_factor, count + 1)
+            },
+        );
+        (count > 0).then(|| sum / f64::from(count))
+    };
+    mean_of(&|player| player.position == Position::Defender)
+        .or_else(|| mean_of(&|player| player.position != Position::Goalkeeper))
+        .unwrap_or(MIDPOINT)
+}
+
+// ---------------------------------------------------------------------------
 // TraitContext — which game action context we're computing a bonus for
 // ---------------------------------------------------------------------------
 

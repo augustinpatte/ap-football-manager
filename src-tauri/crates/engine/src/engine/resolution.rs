@@ -331,8 +331,22 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
             * trait_bonus(&goalkeeper, TraitContext::Goalkeeping)
             * def_cond;
 
-    let accuracy =
-        (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+    let defending_team = if def_side == Side::Home {
+        &ctx.home
+    } else {
+        &ctx.away
+    };
+    let accuracy = crate::shared::shot_accuracy(
+        ctx.config.shot_accuracy_base,
+        shoot_rating,
+        crate::shared::defensive_quality(
+            defending_team
+                .players
+                .iter()
+                .filter(|player| !ctx.sent_off.contains(&player.id))
+                .map(|player| (player, def_cond)),
+        ),
+    );
 
     if rng.random_range(0.0..1.0f64) > accuracy {
         if rng.random_range(0.0..1.0f64) < 0.4 {
