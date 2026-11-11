@@ -4,6 +4,8 @@
 //! defenders, midfielders or forwards out, twelve worlds): -0.004 +- 0.015, -0.013 +- 0.015 and
 //! +0.043 +- 0.018 points a game against the club's own shape, one marginal result of three, so the
 //! five-zone engine, which reads a formation as four group counts, cannot be shown to reward it.
+//! P6 measured it again on the engine that prices numbers in the contests (twelve worlds): +0.012 +-
+//! 0.016, +0.003 +- 0.016 and +0.022 +- 0.019, all under two standard errors. Still not enabled.
 //! The module stays, `pub` for that study, until an engine that prices a shape's fit (M12) can be
 //! measured with it: wire it in `turn::squad::build_team_with_bench_from` (for AI clubs only) and
 //! hand the same shape to the spatial adapter, which reads `Team::formation`, or delete it.
