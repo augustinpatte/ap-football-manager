@@ -115,7 +115,12 @@ pub(super) fn books_of(game: &Game, team_id: &str) -> Books {
     };
     Books {
         transfer_cash: team.transfer_budget.min(team.finance).max(0),
-        wage_room: (team.wage_budget - crate::finances::calc_wages(game, team_id)).max(0),
+        // The wages of deals agreed and waiting to register are as good as paid: a second
+        // approach is judged against what is left of the room, not the room both would share.
+        wage_room: (team.wage_budget
+            - crate::finances::calc_wages(game, team_id)
+            - crate::transfers::pending_wage_commitments(game, team_id))
+        .max(0),
         staff_room: market::staff_headroom(game, team_id),
     }
 }
@@ -1156,5 +1161,172 @@ mod tests {
         let json = serde_json::to_string(&g.delegation).unwrap();
         let back: domain::delegation::DelegationState = serde_json::from_str(&json).unwrap();
         assert_eq!(back, g.delegation);
+    }
+
+    // --- Wages of deals that are agreed and waiting to register ------------------------------
+
+    /// Room for 28,120 a week under the wage budget, as in the P4.6 finding.
+    const ROOM: i64 = 28_120;
+
+    fn club_with_room() -> Game {
+        let mut g = game(Some(80), 1);
+        let bill = crate::finances::calc_wages(&g, "team1");
+        g.teams[0].wage_budget = bill + ROOM;
+        g
+    }
+
+    /// An agreed purchase of `player_id` by team1 at `wage` a week, waiting for its date.
+    fn agree_purchase(g: &mut Game, player_id: &str, wage: u32) {
+        let player = g.players.iter_mut().find(|p| p.id == player_id).unwrap();
+        crate::transfers::upsert_transfer_offer(
+            player,
+            "team1",
+            1_000_000,
+            domain::player::TransferOfferStatus::PendingRegistration,
+            "2026-08-01",
+            None,
+            1,
+            None,
+            Some("2026-09-01".to_string()),
+        );
+        player
+            .transfer_offers
+            .last_mut()
+            .unwrap()
+            .terms
+            .player_weekly_wage = wage;
+    }
+
+    fn wage_room(g: &Game) -> i64 {
+        books_of(g, "team1").wage_room
+    }
+
+    fn authorisation_for(g: &Game, wage: u32) -> super::super::delegation_policy::Authorization {
+        let mut g = g.clone();
+        g.delegation.limits.finance_bound = true;
+        g.delegation.set(Duty::PlayerRecruitment, true, false);
+        super::super::delegation_policy::authorize_in_books(
+            &g.delegation,
+            Duty::PlayerRecruitment,
+            super::super::delegation_policy::Spend::Transfer {
+                fee: 0,
+                weekly_wage: wage,
+                years: 3,
+            },
+            &books_of(&g, "team1"),
+            wage,
+        )
+    }
+
+    /// Given a club with room for 28,120 a week and two deals it has agreed at 18,000 and 16,000
+    /// that wait for their registration date
+    /// When the assistant is asked whether the second may be made on his own
+    /// Then he may not: the first has used the room, and the second becomes a proposal for the
+    /// manager. Without the first agreed, the second goes through (the control).
+    #[test]
+    fn a_second_approach_is_judged_against_the_room_an_agreed_deal_has_left() {
+        use super::super::delegation_policy::{Authorization, Reason};
+        let mut g = club_with_room();
+        assert_eq!(wage_room(&g), ROOM);
+        assert_eq!(authorisation_for(&g, 16_000), Authorization::Auto);
+
+        agree_purchase(&mut g, "o0", 18_000);
+        assert_eq!(wage_room(&g), ROOM - 18_000);
+        assert_eq!(
+            authorisation_for(&g, 16_000),
+            Authorization::NeedsApproval(Reason::BeyondTheClubsMeans)
+        );
+
+        agree_purchase(&mut g, "o1", 16_000);
+        assert_eq!(
+            wage_room(&g),
+            0,
+            "two deals together use more than the room"
+        );
+    }
+
+    /// Given an agreed deal that is then withdrawn, voided at registration, or rejected
+    /// When the room is read
+    /// Then it is back: a reservation lives only as long as the agreement.
+    #[test]
+    fn a_deal_that_falls_through_gives_its_wage_room_back() {
+        use domain::player::TransferOfferStatus::{Rejected, Withdrawn};
+        for ended in [Withdrawn, Rejected] {
+            let mut g = club_with_room();
+            agree_purchase(&mut g, "o0", 18_000);
+            assert_eq!(wage_room(&g), ROOM - 18_000);
+            let player = g.players.iter_mut().find(|p| p.id == "o0").unwrap();
+            player.transfer_offers.last_mut().unwrap().status = ended.clone();
+            assert_eq!(wage_room(&g), ROOM, "{ended:?}");
+        }
+    }
+
+    /// Given an agreed deal that registers
+    /// When the room is read afterwards
+    /// Then the wage is counted once, in the bill, and not again as a reservation.
+    #[test]
+    fn a_deal_that_registers_is_counted_once() {
+        let mut g = club_with_room();
+        agree_purchase(&mut g, "o0", 18_000);
+        let player = g.players.iter_mut().find(|p| p.id == "o0").unwrap();
+        player.transfer_offers.last_mut().unwrap().status =
+            domain::player::TransferOfferStatus::Accepted;
+        player.team_id = Some("team1".to_string());
+        player.stage_wage(18_000);
+        let bill_without_him = crate::finances::calc_wages(&g, "team1") - 18_000;
+        assert_eq!(
+            wage_room(&g),
+            (g.teams[0].wage_budget - bill_without_him - 18_000).max(0)
+        );
+        assert_eq!(wage_room(&g), ROOM - 18_000);
+    }
+
+    /// Given an agreed loan at half the player's wage, and a deal agreed by another club
+    /// When team1's room is read
+    /// Then the loan reserves its half and the other club's deal reserves nothing here.
+    #[test]
+    fn a_loan_reserves_its_share_and_another_clubs_deal_reserves_nothing() {
+        let mut g = club_with_room();
+        let loanee = g.players.iter_mut().find(|p| p.id == "o2").unwrap();
+        loanee.stage_wage(10_000);
+        crate::transfers::upsert_loan_offer(
+            loanee,
+            "team1",
+            "team2",
+            "2026-09-01",
+            "2027-05-30",
+            50,
+            None,
+            domain::player::LoanOfferStatus::PendingRegistration,
+            "2026-08-01",
+        );
+        assert_eq!(wage_room(&g), ROOM - 5_000);
+        // A purchase that another club (the player's own is team2's rival) has agreed.
+        let other = g.players.iter_mut().find(|p| p.id == "o3").unwrap();
+        crate::transfers::upsert_transfer_offer(
+            other,
+            "team2",
+            1_000_000,
+            domain::player::TransferOfferStatus::PendingRegistration,
+            "2026-08-01",
+            None,
+            1,
+            None,
+            Some("2026-09-01".to_string()),
+        );
+        assert_eq!(wage_room(&g), ROOM - 5_000);
+    }
+
+    /// Given two agreed deals
+    /// When the game is saved and loaded
+    /// Then the room is the same: the reservation is derived from the offers, which are saved.
+    #[test]
+    fn the_reservation_survives_a_save() {
+        let mut g = club_with_room();
+        agree_purchase(&mut g, "o0", 18_000);
+        agree_purchase(&mut g, "o1", 16_000);
+        let reloaded: Game = serde_json::from_str(&serde_json::to_string(&g).unwrap()).unwrap();
+        assert_eq!(wage_room(&reloaded), wage_room(&g));
+        assert_eq!(wage_room(&reloaded), 0);
     }
 }

@@ -69,7 +69,7 @@ use realism::*;
 pub(crate) use realism::{DESIRED_DEPTH, LONG_INJURY_DAYS, group_is_thin, window_phase};
 use registration::*;
 pub(crate) use registration::{
-    has_pending_transfer_registration, player_has_active_or_pending_loan,
+    has_pending_transfer_registration, pending_wage_commitments, player_has_active_or_pending_loan,
     player_has_pending_registration, transfer_window_is_open,
 };
 pub(crate) use sale_view::reinvestment_gain;
