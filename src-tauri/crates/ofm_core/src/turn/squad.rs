@@ -1486,6 +1486,66 @@ pub(crate) mod match_day_pool_tests {
         assert_ne!(xi[5], "senior-05");
     }
 
+    /// Given a bench with a better-rated striker and a lesser-rated centre back
+    /// When a centre back leaves the saved eleven
+    /// Then the centre back takes his shirt: the slot is filled by fit, not by who is rated highest.
+    #[test]
+    fn a_vacated_slot_goes_to_the_best_fit_for_it_and_not_the_best_rated_player() {
+        let (mut game, _) = saved_eleven_game();
+        for player in game
+            .players
+            .iter_mut()
+            .filter(|p| p.id.starts_with("senior-1"))
+        {
+            player.attributes = super::tests::attrs(40);
+        }
+        let striker = game
+            .players
+            .iter_mut()
+            .find(|p| p.id == "senior-16")
+            .unwrap();
+        striker.natural_position = DomainPos::Striker;
+        striker.attributes = super::tests::attrs(75);
+        let centre_back = game
+            .players
+            .iter_mut()
+            .find(|p| p.id == "senior-14")
+            .unwrap();
+        centre_back.attributes = super::tests::attrs(62);
+
+        refill_saved_eleven_slot_of(&mut game, "senior-03");
+
+        assert_eq!(game.teams[0].starting_xi_ids[3], "senior-14");
+    }
+
+    /// Given a squad so thin (ten healthy seniors) that the kick-off's eligibility adds injured
+    ///   players to make up an eleven, and an injured reserve outside the saved eleven
+    /// When a starter leaves
+    /// Then the injured reserve does not take his slot: a short eleven is better than a hurt player
+    ///   saved as a starter.
+    #[test]
+    fn a_thin_squad_does_not_save_an_injured_reserve_into_the_eleven() {
+        let mut game = match_day_game(true, 12, 0);
+        game.teams[0].starting_xi_ids = (0..11).map(|i| format!("senior-{i:02}")).collect();
+        for hurt in ["senior-10", "senior-11"] {
+            game.players
+                .iter_mut()
+                .find(|p| p.id == hurt)
+                .unwrap()
+                .injury = Some(domain::player::Injury {
+                name: "Knock".into(),
+                days_remaining: 9,
+            });
+        }
+
+        refill_saved_eleven_slot_of(&mut game, "senior-03");
+        game.teams[0].remove_player_references("senior-03");
+
+        let xi = &game.teams[0].starting_xi_ids;
+        assert_eq!(xi.len(), 10);
+        assert!(!xi.contains(&"senior-11".to_string()));
+    }
+
     /// Given a saved eleven and nobody healthy outside it
     /// When a starter leaves
     /// Then the slot is dropped as before: a short eleven is better than an invented one, and

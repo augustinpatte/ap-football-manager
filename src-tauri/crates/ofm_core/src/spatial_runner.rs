@@ -674,6 +674,15 @@ pub(crate) mod tests {
         game.teams[1].formation = "4-4-2".to_string();
         let injured = "home-p3";
         let suspended = "away-p4";
+        // The control: both start the match when they are fit, in both engines.
+        let fit_five = five_zone_sheet(&game);
+        let fit_m12 = m12_sheet(
+            &crate::live_match_manager::adapt_spatial_fixture(&game, 0).expect("M12 can adapt it"),
+        );
+        for sheet in [&fit_five, &fit_m12] {
+            assert!(sheet.0.0.iter().any(|id| id == injured), "fit, he starts");
+            assert!(sheet.1.0.iter().any(|id| id == suspended), "fit, he starts");
+        }
         game.players
             .iter_mut()
             .find(|p| p.id == injured)

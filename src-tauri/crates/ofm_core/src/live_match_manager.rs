@@ -714,6 +714,91 @@ mod tests {
         );
     }
 
+    /// Given a manager who is both bold and adaptable
+    /// When his touchline personality is derived
+    /// Then the stronger disposition decides, and an exact tie goes to boldness.
+    #[test]
+    fn a_manager_who_is_both_bold_and_adaptable_acts_on_the_stronger_disposition() {
+        assert_eq!(
+            derive_personality(500, None, &identity(0.95, 0.80)),
+            AiPersonality::Visionary
+        );
+        assert_eq!(
+            derive_personality(500, None, &identity(0.80, 0.95)),
+            AiPersonality::Reactive
+        );
+        assert_eq!(
+            derive_personality(500, None, &identity(0.85, 0.85)),
+            AiPersonality::Visionary
+        );
+    }
+
+    /// Given managers a hair either side of the top and bottom quarters of the range
+    /// When their touchline personality is derived
+    /// Then the cutoffs fall at 0.75 and 0.25, as they do for the match plan.
+    #[test]
+    fn the_cutoffs_for_a_clear_disposition_are_the_top_and_bottom_quarter() {
+        let at_a_grand_club =
+            |risk, adaptability| derive_personality(950, None, &identity(risk, adaptability));
+
+        assert_eq!(
+            at_a_grand_club(0.26, 0.5),
+            AiPersonality::Visionary,
+            "reputation rule"
+        );
+        assert_eq!(at_a_grand_club(0.25, 0.5), AiPersonality::Pragmatist);
+        assert_eq!(
+            derive_personality(500, None, &identity(0.74, 0.5)),
+            AiPersonality::Pragmatist
+        );
+        assert_eq!(
+            derive_personality(500, None, &identity(0.75, 0.5)),
+            AiPersonality::Visionary
+        );
+        assert_eq!(
+            derive_personality(500, None, &identity(0.5, 0.74)),
+            AiPersonality::Pragmatist
+        );
+        assert_eq!(
+            derive_personality(500, None, &identity(0.5, 0.75)),
+            AiPersonality::Reactive
+        );
+    }
+
+    /// Given the player's own club, whose manager is the player
+    /// When the touchline profile is built
+    /// Then it is the neutral manager's, whatever identity the id would have drawn.
+    #[test]
+    fn the_players_own_club_gets_the_neutral_touchline_profile() {
+        use domain::team::Team;
+        let bold = manager_id_where(|m| m.risk > 0.8);
+        let mut team = Team::new(
+            "mine".to_string(),
+            "Mine".to_string(),
+            "MIN".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "Ground".to_string(),
+            20_000,
+        );
+        team.manager_id = Some(bold);
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap());
+        let mut user = Manager::new(
+            "user".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        user.hire("mine".to_string());
+        let game = Game::new(clock, user, vec![team], vec![], vec![], vec![]);
+
+        let profile = ai_profile_for(&game, "mine", 500);
+
+        assert!((profile.risk - 0.5).abs() < f64::EPSILON);
+        assert_eq!(profile.personality, AiPersonality::Pragmatist);
+    }
+
     /// Given a manager who changes plan readily and whose appetite for risk is average
     /// When his touchline personality is derived
     /// Then he is Reactive, and takes stock whenever the score changes.
@@ -746,8 +831,9 @@ mod tests {
     #[test]
     fn the_touchline_profile_is_built_from_the_clubs_own_manager() {
         use domain::team::Team;
-        let bold = manager_id_where(|m| m.risk > 0.8);
-        let cautious = manager_id_where(|m| m.risk < 0.2);
+        // Neither is adaptable enough to be Reactive, which would take precedence.
+        let bold = manager_id_where(|m| m.risk > 0.8 && m.adaptability < 0.7);
+        let cautious = manager_id_where(|m| m.risk < 0.2 && m.adaptability < 0.7);
         let team = |id: &str, manager: &str| {
             let mut team = Team::new(
                 id.to_string(),

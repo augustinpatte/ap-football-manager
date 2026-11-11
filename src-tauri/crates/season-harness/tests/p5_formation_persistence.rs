@@ -1,3 +1,6 @@
+//! A characterisation test: formation persistence already worked, and this holds it (it fails when the
+//! match is prepared in another shape than the club's, or the reload loses one).
+//!
 //! A formation is one fact in three places: the club's row, the match that is prepared from it and
 //! the match that is played. This asserts they stay one fact across a save and a reload.
 //!

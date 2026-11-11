@@ -241,9 +241,10 @@ fn a_manual_bid_cannot_spend_the_budget_an_agreed_deal_is_waiting_to_pay() {
     let second = make_transfer_bid(&mut game, "target-b", 2_000_000);
 
     assert!(projection.exceeds_transfer_budget, "{projection:?}");
-    assert!(
-        second.is_err(),
-        "a second bid has to be refused: the budget is already promised, got {second:?}"
+    assert_eq!(
+        second.err().as_deref(),
+        Some("be.error.transfers.transferBudgetTooLow"),
+        "a second bid has to be refused: the budget is already promised"
     );
 }
 
@@ -260,7 +261,12 @@ fn a_manual_bid_cannot_spend_the_cash_an_agreed_deal_is_waiting_to_pay() {
             .expect("the projection is available");
 
     assert!(projection.exceeds_finance, "{projection:?}");
-    assert!(make_transfer_bid(&mut game, "target-b", 2_000_000).is_err());
+    assert_eq!(
+        make_transfer_bid(&mut game, "target-b", 2_000_000)
+            .err()
+            .as_deref(),
+        Some("be.error.transfers.insufficientFunds")
+    );
 }
 
 /// Given an agreed deal waiting to register and a wage budget with room for one more player only
