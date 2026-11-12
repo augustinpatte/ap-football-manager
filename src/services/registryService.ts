@@ -136,6 +136,46 @@ export interface RecruitExternalResponse {
   outcome: ExternalRecruitOutcome;
 }
 
+/** What the manager puts on the table. `null`/omitted keeps the buyer's standard term. */
+export interface ExternalNegotiationRequest {
+  fee?: number | null;
+  weeklyWage?: number | null;
+  contractYears?: number | null;
+  signingBonus?: number | null;
+}
+
+/** Where one negotiation stands; the screen shows it instead of inferring it from the numbers. */
+export type ExternalNegotiationStatus =
+  | "agreed"
+  | "club_countered"
+  | "club_rejected"
+  | "player_countered"
+  | "player_refused"
+  | "blocked";
+
+/** One complete answer: both parties' decisions and every check the move still has to pass. */
+export interface ExternalNegotiationOutcome {
+  playerId: string;
+  freeAgent: boolean;
+  status: ExternalNegotiationStatus;
+  fee: number;
+  minimumFee: number;
+  clubDecision: "accepted" | "countered" | "rejected";
+  weeklyWage: number;
+  contractYears: number;
+  signingBonus: number;
+  contractEnd: string;
+  playerVerdict: "accepts" | "counters" | "refuses";
+  playerScore: number;
+  mainObstacle: string | null;
+  canAffordFee: boolean;
+  wagePolicyAllows: boolean;
+  canAffordBonus: boolean;
+  windowOpen: boolean;
+  blocker: string | null;
+  fromClub: string | null;
+}
+
 export interface ExternalRegistryStatus {
   installed: boolean;
   schemaVersion: number | null;
@@ -165,6 +205,22 @@ export function previewExternalRecruitment(playerId: string): Promise<ExternalRe
 
 export function recruitExternalPlayer(playerId: string): Promise<RecruitExternalResponse> {
   return invoke<RecruitExternalResponse>("recruit_external_player", { playerId });
+}
+
+/** Ask the selling club and the player what they make of these terms. Pure: nothing moves. */
+export function negotiateExternalTransfer(
+  playerId: string,
+  request: ExternalNegotiationRequest,
+): Promise<ExternalNegotiationOutcome> {
+  return invoke<ExternalNegotiationOutcome>("negotiate_external_transfer", { playerId, request });
+}
+
+/** Complete an agreed negotiation. A counter is refused: it is not a signature. */
+export function finalizeExternalTransfer(
+  playerId: string,
+  request: ExternalNegotiationRequest,
+): Promise<RecruitExternalResponse> {
+  return invoke<RecruitExternalResponse>("finalize_external_transfer", { playerId, request });
 }
 
 export function getExternalRegistryStatus(): Promise<ExternalRegistryStatus> {

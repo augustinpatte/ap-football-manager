@@ -100,7 +100,7 @@ impl From<&Team> for ClubView {
 }
 
 /// What is wrong, from his point of view, at the club he is at. Bounded by `PUSH_MAX` in the score.
-fn push_to_leave(player: &Player, seller: ClubView, today: NaiveDate) -> i32 {
+pub(crate) fn push_to_leave(player: &Player, seller: ClubView, today: NaiveDate) -> i32 {
     let mut push = 0;
     if player.transfer_listed {
         push += PUSH_LISTED;

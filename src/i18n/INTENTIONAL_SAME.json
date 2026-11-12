@@ -32,6 +32,7 @@
     "apfmWorld.demo.badge"
   ],
   "de": [
+    "globalMarket.sort.name",
     "match.formationFit",
     "nations.eng",
     "nations.wal",
@@ -147,6 +148,9 @@
     "match.replayStats.fouls"
   ],
   "fr": [
+    "globalMarket.club",
+    "globalMarket.nationPlaceholder",
+    "globalMarket.sort.club",
     "match.formationFit",
     "nations.pt",
     "nations.ua",
@@ -277,6 +281,8 @@
     "staff.delegation.mode.full"
   ],
   "it": [
+    "globalMarket.club",
+    "globalMarket.sort.club",
     "nations.ru",
     "nations.sn",
     "nations.gh",
@@ -346,6 +352,8 @@
     "teamSelect.regionLabels.africa"
   ],
   "es": [
+    "globalMarket.club",
+    "globalMarket.sort.club",
     "nations.pt",
     "nations.cn",
     "nations.sn",

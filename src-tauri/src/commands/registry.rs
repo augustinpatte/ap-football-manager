@@ -20,8 +20,11 @@ use fm24_adapter::registry::{
     RegistryQuery, RegistrySort,
 };
 use ofm_core::external_registry::{
+    finalize_external_transfer as finalize_promotion,
+    negotiate_external_transfer as negotiate_promotion,
     preview_external_recruitment as preview_promotion, recruit_external_player as promote_player,
-    ExternalPlayer, ExternalRecruitOutcome, ExternalRecruitPreview,
+    ExternalNegotiationOutcome, ExternalNegotiationRequest, ExternalPlayer, ExternalRecruitOutcome,
+    ExternalRecruitPreview,
 };
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
@@ -202,6 +205,33 @@ pub fn preview_recruitment_internal(
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())?
 }
 
+/// Negotiate with the selling club and the player. Pure: previewing a negotiation twice answers
+/// the same, and no counter can move money or sign anyone.
+pub fn negotiate_recruitment_internal(
+    state: &StateManager,
+    external: &ExternalPlayer,
+    request: ExternalNegotiationRequest,
+) -> Result<ExternalNegotiationOutcome, String> {
+    state
+        .get_game(|game| negotiate_promotion(game, external, request))
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())?
+}
+
+/// Complete a negotiation that ended in agreement, returning the new game and what it cost.
+pub fn finalize_recruitment_internal(
+    state: &StateManager,
+    external: &ExternalPlayer,
+    request: ExternalNegotiationRequest,
+) -> Result<(Game, ExternalRecruitOutcome), String> {
+    let mut outcome = None;
+    let game = mutate_active_game(state, |game| {
+        outcome = Some(finalize_promotion(game, external, request)?);
+        Ok(())
+    })?;
+    let outcome = outcome.ok_or_else(|| NO_ACTIVE_GAME.to_string())?;
+    Ok((game, outcome))
+}
+
 /// Promote the player into the active game for the manager's club, returning the new game and what
 /// the move cost.
 pub fn recruit_internal(
@@ -251,6 +281,39 @@ pub async fn recruit_external_player(
     let detail = load_detail(&app_handle, &state, &player_id).await?;
     let external = external_from_detail(detail)?;
     let (game, outcome) = recruit_internal(&state, &external)?;
+    Ok(RecruitExternalResponse { game, outcome })
+}
+
+#[tauri::command]
+pub async fn negotiate_external_transfer(
+    app_handle: tauri::AppHandle,
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+    request: ExternalNegotiationRequest,
+) -> Result<ExternalNegotiationOutcome, String> {
+    info!("[cmd] negotiate_external_transfer: player_id={player_id}");
+    let _managed_team = state
+        .get_game(user_team_id)
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())??;
+    let detail = load_detail(&app_handle, &state, &player_id).await?;
+    let external = external_from_detail(detail)?;
+    negotiate_recruitment_internal(&state, &external, request)
+}
+
+#[tauri::command]
+pub async fn finalize_external_transfer(
+    app_handle: tauri::AppHandle,
+    state: State<'_, Arc<StateManager>>,
+    player_id: String,
+    request: ExternalNegotiationRequest,
+) -> Result<RecruitExternalResponse, String> {
+    info!("[cmd] finalize_external_transfer: player_id={player_id}");
+    let _managed_team = state
+        .get_game(user_team_id)
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())??;
+    let detail = load_detail(&app_handle, &state, &player_id).await?;
+    let external = external_from_detail(detail)?;
+    let (game, outcome) = finalize_recruitment_internal(&state, &external, request)?;
     Ok(RecruitExternalResponse { game, outcome })
 }
 
@@ -338,7 +401,10 @@ mod tests {
     use domain::player::{Footedness, PlayerAttributes, Position};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
-    use ofm_core::external_registry::ExternalClub;
+    use ofm_core::external_registry::{
+        ExternalClub, ERR_INVALID_NEGOTIATION_TERMS, ERR_NEGOTIATION_NOT_AGREED,
+        NEGOTIATION_AGREED, NEGOTIATION_BLOCKED, NEGOTIATION_PLAYER_COUNTERED,
+    };
 
     fn attrs() -> PlayerAttributes {
         PlayerAttributes {
@@ -374,7 +440,7 @@ mod tests {
             "Alpha Ground".to_string(),
             30_000,
         );
-        team.reputation = 50;
+        team.reputation = 600;
         team.wage_budget = 500_000;
         team.finance = 50_000_000;
         team.transfer_budget = 20_000_000;
@@ -449,6 +515,21 @@ mod tests {
             market_value: 2_000_000,
             club: None,
         }
+    }
+
+    fn registered_senior(id: usize) -> domain::player::Player {
+        let mut player = domain::player::Player::new(
+            format!("senior-{id}"),
+            format!("Senior {id}"),
+            format!("S{id}"),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            attrs(),
+        );
+        player.team_id = Some("team-1".to_string());
+        player.squad_role = domain::player::SquadRole::Senior;
+        player
     }
 
     fn detail(id: &str) -> RegistryPlayerDetail {
@@ -593,6 +674,97 @@ mod tests {
             .find(|player| player.id == "fm-p-4")
             .expect("promoted");
         assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    }
+
+    /// Given a club whose senior list is full, when a contracted external player is recruited
+    /// through the command, then the command answers with the senior-list key and the game is
+    /// unchanged.
+    #[test]
+    fn a_full_senior_list_blocks_a_contracted_command_signing() {
+        let state = StateManager::new();
+        let mut active = game();
+        active.players.extend((0..30).map(registered_senior));
+        state.set_game(active);
+        let mut external = free_agent("fm-p-4b");
+        external.club = Some(ExternalClub {
+            id: "fm-c-900".to_string(),
+            name: "External United".to_string(),
+            contract_end: Some("2028-06-30".to_string()),
+            weekly_wage: 8_000,
+            reputation: 620,
+        });
+
+        let outcome =
+            negotiate_recruitment_internal(&state, &external, Default::default()).unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_BLOCKED);
+        assert!(
+            outcome
+                .blocker
+                .as_deref()
+                .is_some_and(|key| key.starts_with("be.error.freeAgents.squadFull")),
+            "blocker was {:?}",
+            outcome.blocker
+        );
+
+        let error = recruit_internal(&state, &external).unwrap_err();
+        assert!(error.starts_with("be.error.freeAgents.squadFull"));
+        let held = state.get_game(Game::clone).unwrap();
+        assert!(!held.players.iter().any(|player| player.id == "fm-p-4b"));
+        assert_eq!(held.players.len(), 31);
+    }
+
+    /// Given a free agent and a wage well below his standard term, when the command negotiates,
+    /// then the player counters, the counter is repeatable, nothing mutates, and only the countered
+    /// terms sign him.
+    #[test]
+    fn negotiating_through_the_command_needs_the_counter_put_back_on_the_table() {
+        let state = StateManager::new();
+        state.set_game(game());
+        let external = free_agent("fm-p-5");
+        let standard =
+            negotiate_recruitment_internal(&state, &external, Default::default()).unwrap();
+        assert_eq!(standard.status, NEGOTIATION_AGREED);
+
+        let low = ExternalNegotiationRequest {
+            weekly_wage: Some(standard.weekly_wage / 2),
+            ..ExternalNegotiationRequest::default()
+        };
+        let counter = negotiate_recruitment_internal(&state, &external, low).unwrap();
+        let again = negotiate_recruitment_internal(&state, &external, low).unwrap();
+        assert_eq!(counter, again, "a repeated preview re-rolled the player");
+        assert_eq!(counter.status, NEGOTIATION_PLAYER_COUNTERED);
+
+        let error = finalize_recruitment_internal(&state, &external, low).unwrap_err();
+        assert_eq!(error, ERR_NEGOTIATION_NOT_AGREED);
+        let held = state.get_game(Game::clone).unwrap();
+        assert!(!held.players.iter().any(|player| player.id == "fm-p-5"));
+
+        let accepted = ExternalNegotiationRequest {
+            weekly_wage: Some(counter.weekly_wage),
+            contract_years: Some(counter.contract_years),
+            ..ExternalNegotiationRequest::default()
+        };
+        let (game, outcome) = finalize_recruitment_internal(&state, &external, accepted).unwrap();
+        assert!(outcome.free_agent);
+        assert_eq!(outcome.weekly_wage, counter.weekly_wage);
+        assert!(game.players.iter().any(|player| player.id == "fm-p-5"));
+    }
+
+    /// Given contract terms a contract cannot carry, when the command negotiates, then it answers
+    /// with the translation key and no party is asked.
+    #[test]
+    fn invalid_negotiation_terms_reach_the_command_with_a_key() {
+        let state = StateManager::new();
+        state.set_game(game());
+        let external = free_agent("fm-p-6");
+        let request = ExternalNegotiationRequest {
+            contract_years: Some(9),
+            ..ExternalNegotiationRequest::default()
+        };
+        assert_eq!(
+            negotiate_recruitment_internal(&state, &external, request).unwrap_err(),
+            ERR_INVALID_NEGOTIATION_TERMS
+        );
     }
 }
 

@@ -10,9 +10,9 @@ use super::*;
 use domain::player::Footedness;
 use ofm_core::contracts::squad_capacity;
 use ofm_core::external_registry::{
-    ERR_OFFER_REJECTED, ERR_PLAYER_ALREADY_IN_WORLD, ExternalClub, ExternalPlayer,
-    preview_external_recruitment, preview_external_recruitment_with_offer, recruit_external_player,
-    recruit_external_player_at_offer,
+    ERR_NEGOTIATION_NOT_AGREED, ERR_OFFER_REJECTED, ERR_PLAYER_ALREADY_IN_WORLD, ExternalClub,
+    ExternalPlayer, preview_external_recruitment, preview_external_recruitment_with_offer,
+    recruit_external_player, recruit_external_player_at_offer,
 };
 
 const BOARD_WAGE_POLICY: &str = "be.error.contracts.boardWagePolicy";
@@ -192,7 +192,8 @@ fn a_rejected_offer_changes_nothing() {
 
 /// Given an offer between 75 % and 100 % of the floor
 /// When the club counters, and the manager can pay the counter / is one unit short of it
-/// Then he pays exactly the counter; short of it the signing is refused and nothing changes
+/// Then the counter is not a signature: he must offer it back; paying it succeeds, and being short
+///      of it is refused with nothing changed
 #[test]
 fn a_counter_is_paid_at_the_floor_and_only_if_the_club_can_afford_it() {
     let target = contracted("fm-p-9004");
@@ -204,14 +205,19 @@ fn a_counter_is_paid_at_the_floor_and_only_if_the_club_can_afford_it() {
 
     let mut game = rich.clone();
     let countered = preview_external_recruitment_with_offer(&game, &target, Some(offer)).unwrap();
-    let outcome = recruit_external_player_at_offer(&mut game, &target, Some(offer)).unwrap();
     assert_eq!(countered.club_decision, "countered");
+    let players = game.players.len();
+    let not_yet = recruit_external_player_at_offer(&mut game, &target, Some(offer)).unwrap_err();
+    assert_eq!(not_yet, ERR_NEGOTIATION_NOT_AGREED);
+    assert_eq!(game.players.len(), players, "a counter signs nobody");
+
+    let outcome = recruit_external_player_at_offer(&mut game, &target, Some(floor)).unwrap();
     assert_eq!(outcome.fee, floor, "a counter is the floor, not the offer");
     assert_eq!(game.teams[0].finance, 20_000_000 - floor as i64);
 
     let mut short = open_game(20_000_000, floor as i64 - 1);
     let before = snapshot(&short);
-    let refused = recruit_external_player_at_offer(&mut short, &target, Some(offer));
+    let refused = recruit_external_player_at_offer(&mut short, &target, Some(floor));
     assert_eq!(refused.err().as_deref(), Some(BUDGET_TOO_LOW));
     assert_eq!(snapshot(&short), before);
 }

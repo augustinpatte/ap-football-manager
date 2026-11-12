@@ -866,15 +866,19 @@ fn availability_clause(
     }
 }
 
+/// The page order. `descending` always means "the larger value first" from the screen's point of
+/// view: Z before A for a name, 90 before 50 for a rating or a fee, the oldest first for an age.
+/// Age is the one column stored the other way round (an earlier birth date is older), so it alone
+/// reverses the direction.
 fn order_clause(query: &RegistryQuery) -> String {
     let direction = if query.descending { "DESC" } else { "ASC" };
-    let reversed = if query.descending { "ASC" } else { "DESC" };
+    let age_direction = if query.descending { "ASC" } else { "DESC" };
     match query.sort {
         RegistrySort::Name => format!(" ORDER BY search_name {direction}, ofm_id ASC"),
-        RegistrySort::Age => format!(" ORDER BY birth_date {reversed}, ofm_id ASC"),
-        RegistrySort::Ovr => format!(" ORDER BY ovr {reversed}, search_name ASC"),
+        RegistrySort::Age => format!(" ORDER BY birth_date {age_direction}, ofm_id ASC"),
+        RegistrySort::Ovr => format!(" ORDER BY ovr {direction}, search_name ASC"),
         RegistrySort::Value => {
-            format!(" ORDER BY market_value_eur {reversed}, search_name ASC")
+            format!(" ORDER BY market_value_eur {direction}, search_name ASC")
         }
         RegistrySort::Club => format!(" ORDER BY club_name {direction}, search_name ASC"),
     }
@@ -1552,5 +1556,272 @@ mod tests {
             assert_eq!(sorted.items.len(), 25);
             assert!(free.total > 0);
         }
+    }
+
+    /// A small registry with one player per direction of every sortable column, plus the filters
+    /// the search screen sends. Rows are inserted directly so the test is about the query, not
+    /// about the source importer.
+    fn sortable_registry(path: &Path) -> Connection {
+        let conn = Connection::open(path).unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        let mut insert = conn
+            .prepare(
+                "INSERT INTO registry_player (
+                    person_id, ofm_id, fm_uid, fm_uid_status, first_name, last_name, common_name,
+                    display_name, search_name, birth_date, nation, nation_code, natural_position,
+                    position_group, alternate_positions, attributes_json, ovr, potential, footedness,
+                    weak_foot, club_id, club_name, club_search, club_nation, club_reputation,
+                    club_is_active_world, ownership, contract_end, wage_eur_week, market_value_eur,
+                    value_source, wage_source, status, exclusion_reason, source_row_hash)
+                 VALUES (?1, ?2, NULL, 'unique', ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                         '[]', NULL, ?12, ?13, 'Right', 3, ?14, ?15, ?16, ?17, 600, 0, ?18, ?19,
+                         5000, ?20, 'save', 'save', 'eligible', NULL, ?21)",
+            )
+            .unwrap();
+        for (
+            id,
+            first,
+            last,
+            birth,
+            nation,
+            code,
+            position,
+            group,
+            ovr,
+            value,
+            club_id,
+            club,
+            ownership,
+            contract_end,
+        ) in [
+            (
+                1,
+                "Alpha",
+                "Keeper",
+                "2000-01-01",
+                "France",
+                "FR",
+                "\"Goalkeeper\"",
+                "goalkeeper",
+                60,
+                1_000_000,
+                Some(900),
+                "Zulu FC",
+                "contracted",
+                Some("2028-06-30"),
+            ),
+            (
+                2,
+                "Bravo",
+                "Defender",
+                "1996-01-01",
+                "England",
+                "GB",
+                "\"CenterBack\"",
+                "defender",
+                90,
+                9_000_000,
+                Some(901),
+                "Alpha FC",
+                "contracted",
+                Some("2028-06-30"),
+            ),
+            (
+                3,
+                "Charlie",
+                "Mid",
+                "2001-01-01",
+                "England",
+                "GB",
+                "\"CentralMidfielder\"",
+                "midfielder",
+                70,
+                5_000_000,
+                None,
+                "",
+                "free_agent",
+                None,
+            ),
+            (
+                4,
+                "Delta",
+                "Striker",
+                "2010-01-01",
+                "Brazil",
+                "BR",
+                "\"Striker\"",
+                "forward",
+                50,
+                500_000,
+                Some(902),
+                "Mike FC",
+                "contracted",
+                Some("2027-06-30"),
+            ),
+        ] {
+            let display = format!("{first} {last}");
+            insert
+                .execute(params![
+                    id,
+                    format!("fm-p-{id}"),
+                    first,
+                    last,
+                    display,
+                    fold_text(&display),
+                    birth,
+                    nation,
+                    code,
+                    position,
+                    group,
+                    ovr,
+                    ovr + 10,
+                    club_id,
+                    club,
+                    fold_text(club),
+                    if club.is_empty() { None } else { Some(code) },
+                    ownership,
+                    contract_end,
+                    value,
+                    format!("hash-{id}"),
+                ])
+                .unwrap();
+        }
+        drop(insert);
+        conn
+    }
+
+    fn ids_for(conn: &Connection, query: &RegistryQuery, excluded: &[String]) -> Vec<String> {
+        query_registry(conn, query, excluded)
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|item| item.id)
+            .collect()
+    }
+
+    fn sort_query(sort: RegistrySort, descending: bool) -> RegistryQuery {
+        RegistryQuery {
+            sort,
+            descending,
+            page_size: 10,
+            today: NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+            ..RegistryQuery::default()
+        }
+    }
+
+    /// Given players whose name, age, rating, value and club all differ
+    /// When each sortable column is requested in both directions
+    /// Then the page is ordered the way the screen's arrow says, and an age descending starts with
+    ///      the oldest while rating and value descending start with the largest
+    #[test]
+    fn every_sort_direction_orders_the_page_the_screen_asks_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = sortable_registry(&dir.path().join("registry.db"));
+        let excluded: Vec<String> = vec![];
+
+        let asc = |sort| ids_for(&conn, &sort_query(sort, false), &excluded);
+        let desc = |sort| ids_for(&conn, &sort_query(sort, true), &excluded);
+
+        assert_eq!(
+            asc(RegistrySort::Name),
+            ["fm-p-1", "fm-p-2", "fm-p-3", "fm-p-4"]
+        );
+        assert_eq!(
+            desc(RegistrySort::Name),
+            ["fm-p-4", "fm-p-3", "fm-p-2", "fm-p-1"]
+        );
+
+        // Birth date ascending is oldest first, so an ascending age is the reverse.
+        assert_eq!(
+            asc(RegistrySort::Age),
+            ["fm-p-4", "fm-p-3", "fm-p-1", "fm-p-2"]
+        );
+        assert_eq!(
+            desc(RegistrySort::Age),
+            ["fm-p-2", "fm-p-1", "fm-p-3", "fm-p-4"]
+        );
+
+        // The D7B1 defect: these two used the age reversal, so "best first" returned the worst.
+        assert_eq!(
+            asc(RegistrySort::Ovr),
+            ["fm-p-4", "fm-p-1", "fm-p-3", "fm-p-2"]
+        );
+        assert_eq!(
+            desc(RegistrySort::Ovr),
+            ["fm-p-2", "fm-p-3", "fm-p-1", "fm-p-4"]
+        );
+        assert_eq!(
+            asc(RegistrySort::Value),
+            ["fm-p-4", "fm-p-1", "fm-p-3", "fm-p-2"]
+        );
+        assert_eq!(
+            desc(RegistrySort::Value),
+            ["fm-p-2", "fm-p-3", "fm-p-1", "fm-p-4"]
+        );
+
+        // A free agent has no club; SQLite sorts the empty name first ascending.
+        assert_eq!(
+            asc(RegistrySort::Club),
+            ["fm-p-3", "fm-p-2", "fm-p-4", "fm-p-1"]
+        );
+        assert_eq!(
+            desc(RegistrySort::Club),
+            ["fm-p-1", "fm-p-4", "fm-p-2", "fm-p-3"]
+        );
+    }
+
+    /// Given the same page of players
+    /// When the search screen's filters are applied one at a time
+    /// Then only the players matching that filter are returned, and the career's exclusions still
+    ///      remove a player from every filtered page
+    #[test]
+    fn every_search_filter_narrows_the_same_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = sortable_registry(&dir.path().join("registry.db"));
+        let base = sort_query(RegistrySort::Name, false);
+
+        let filtered = |patch: &dyn Fn(&mut RegistryQuery)| {
+            let mut query = base.clone();
+            patch(&mut query);
+            ids_for(&conn, &query, &[])
+        };
+
+        assert_eq!(
+            filtered(&|query| query.text = "bravo".to_string()),
+            ["fm-p-2"]
+        );
+        assert_eq!(
+            filtered(&|query| query.club = "alpha".to_string()),
+            ["fm-p-2"]
+        );
+        assert_eq!(
+            filtered(&|query| query.nation = Some("GB".to_string())),
+            ["fm-p-2", "fm-p-3"]
+        );
+        assert_eq!(
+            filtered(&|query| query.position = RegistryPositionFilter::Defender),
+            ["fm-p-2"]
+        );
+        assert_eq!(
+            filtered(&|query| {
+                query.min_age = Some(25);
+                query.max_age = Some(30);
+            }),
+            ["fm-p-1", "fm-p-2", "fm-p-3"]
+        );
+        assert_eq!(
+            filtered(&|query| query.availability = RegistryAvailability::FreeAgent),
+            ["fm-p-3"]
+        );
+        assert_eq!(
+            filtered(&|query| query.availability = RegistryAvailability::Contracted),
+            ["fm-p-1", "fm-p-2", "fm-p-4"]
+        );
+
+        let excluded = vec!["fm-p-2".to_string()];
+        assert_eq!(
+            ids_for(&conn, &sort_query(RegistrySort::Ovr, true), &excluded),
+            ["fm-p-3", "fm-p-1", "fm-p-4"]
+        );
     }
 }

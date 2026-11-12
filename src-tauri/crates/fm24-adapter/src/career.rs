@@ -25,8 +25,8 @@ use chrono::NaiveDate;
 use domain::player::{PlayerAttributes, Position};
 use ofm_core::external_registry::{ExternalClub, ExternalPlayer};
 use ofm_core::external_world::{
-    ExternalCareerKey, ExternalClubRef, NEWGEN_INTAKE_PER_SEASON, newgen_cohort, project_from,
-    projection_season,
+    ExternalCareerKey, ExternalClubRef, MAX_NEWGEN_INTAKE_PER_SEASON, newgen_cohort,
+    newgen_intake_for, project_from, projection_season,
 };
 use rusqlite::{Connection, OpenFlags, params};
 
@@ -596,7 +596,9 @@ fn advance(
 ) -> crate::Result<()> {
     for season in (from_season + 1)..=to_season {
         let rows = read_rows(conn)?;
-        let mut next: Vec<CachedRow> = Vec::with_capacity(rows.len() + NEWGEN_INTAKE_PER_SEASON);
+        let mut next: Vec<CachedRow> =
+            Vec::with_capacity(rows.len() + MAX_NEWGEN_INTAKE_PER_SEASON);
+        let mut retirements = 0usize;
         for mut row in rows {
             if row.status != "eligible" {
                 next.push(row);
@@ -608,12 +610,19 @@ fn advance(
             let is_newgen = row.ofm_id.starts_with("fm-n-");
             let projected = project_from(&external, key, season - 1, season, clubs, is_newgen);
             if projected.retired {
+                retirements += 1;
                 continue;
             }
             row.apply_projection(&projected);
             next.push(row);
         }
-        for (index, newgen) in newgen_cohort(key, season, clubs).into_iter().enumerate() {
+        // One-for-one replacement: the market is a population, so a season that lost players gets
+        // the same number of new ones. The fixed D7B2 intake shrank the searchable market by ~77%
+        // over thirty seasons; sizing births to deaths keeps it stable without inflating quality.
+        for (index, newgen) in newgen_cohort(key, season, clubs, newgen_intake_for(retirements))
+            .into_iter()
+            .enumerate()
+        {
             let projected = project_from(&newgen, key, season, season, clubs, true);
             if projected.retired {
                 continue;
@@ -872,6 +881,54 @@ mod tests {
         assert_eq!(snapshot(&one), snapshot(&two));
     }
 
+    /// Given a career advanced one season at a time and the same career built cold at the target
+    /// season, when both markets are read, then they are byte-for-byte the same rows: the cache is
+    /// a replay, not a different roll of the dice.
+    #[test]
+    fn an_incremental_cache_matches_a_cold_build_at_the_same_season() {
+        let source_dir = TempDir::new().unwrap();
+        let incremental_dir = TempDir::new().unwrap();
+        let cold_dir = TempDir::new().unwrap();
+        let registry = synthetic_registry(source_dir.path(), &source_rows());
+
+        for year in 2027..=2036 {
+            ensure_career_cache(&registry, incremental_dir.path(), 31, today(year)).unwrap();
+        }
+        let incremental =
+            ensure_career_cache(&registry, incremental_dir.path(), 31, today(2036)).unwrap();
+        let cold = ensure_career_cache(&registry, cold_dir.path(), 31, today(2036)).unwrap();
+
+        assert_eq!(
+            incremental.seasons_advanced, 0,
+            "the loop left the cache current"
+        );
+        assert!(cold.rebuilt, "the cold career has no cache to reuse");
+        let fingerprint = |report: &CareerCacheReport| {
+            read_rows(&open_read(&report.path).unwrap())
+                .unwrap()
+                .into_iter()
+                .map(|row| {
+                    format!(
+                        "{}|{}|{}|{}|{}|{}|{}|{:?}|{}|{}|{}|{}",
+                        row.ofm_id,
+                        row.ovr,
+                        row.potential,
+                        row.birth_date.unwrap_or_default(),
+                        row.club_id.unwrap_or(0),
+                        row.ownership,
+                        row.contract_end.unwrap_or_default(),
+                        row.attributes_json,
+                        row.market_value_eur,
+                        row.wage_eur_week,
+                        row.status,
+                        row.source_row_hash,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(fingerprint(&incremental), fingerprint(&cold));
+    }
+
     /// Given two careers with the same source but different seeds, when both project to the same
     /// season, then their markets differ: the shared registry is not one career's save.
     #[test]
@@ -1014,10 +1071,14 @@ mod tests {
         };
         let dir = TempDir::new().unwrap();
         let registry = dir.path().join("registry.db");
+        let seed = std::env::var("APFM_D7B3_SEED")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(777);
         let started = Instant::now();
         let report = crate::registry::build_registry(Path::new(&world_db), &registry).unwrap();
         println!(
-            "registry: stored={} eligible={} active_world={} bytes={} build_ms={} total_ms={}",
+            "seed={seed} registry: stored={} eligible={} active_world={} bytes={} build_ms={} total_ms={}",
             report.stored,
             report.eligible,
             report.active_world,
@@ -1029,7 +1090,7 @@ mod tests {
             let cache_dir = dir.path().join(format!("cache-{year}"));
             let on = NaiveDate::from_ymd_opt(2026 + year, 8, 1).unwrap();
             let build_started = Instant::now();
-            let cache = ensure_career_cache(&registry, &cache_dir, 777, on).unwrap();
+            let cache = ensure_career_cache(&registry, &cache_dir, seed, on).unwrap();
             let build_ms = build_started.elapsed().as_millis();
             let bytes = std::fs::metadata(&cache.path).map(|m| m.len()).unwrap_or(0);
             let conn = open_read(&cache.path).unwrap();
