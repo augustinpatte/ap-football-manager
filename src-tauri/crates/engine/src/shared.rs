@@ -356,13 +356,91 @@ pub(crate) fn role_modifier(position: Position, role: PlayerRole, phase: PlaySty
     }
 }
 
+/// What a role gives up in a phase its holder's position *is* consulted on. It is charged only
+/// alongside the benefit it pays for: AttackingFB, WingBack and ShadowStriker earn their attacking
+/// bonus through [`role_support_entry`], so a football that prices no support (a
+/// `role_support_weight` of 0) also charges no cost, which is what keeps them from being strictly
+/// worse than Standard (see `role_attribute_modifier`).
+fn role_cost(role: PlayerRole, phase: PlayStylePhase) -> f64 {
+    match (role, phase) {
+        (PlayerRole::AttackingFB, PlayStylePhase::Defense) => 0.93,
+        (PlayerRole::WingBack, PlayStylePhase::Defense) => 0.97,
+        (PlayerRole::ShadowStriker, PlayStylePhase::Defense) => 0.92,
+        _ => 1.0,
+    }
+}
+
+/// [`role_modifier`] for the live engine: the same table, plus the cost of a role whose benefit
+/// the engine credits through support (`support_weight` above 0).
+pub(crate) fn live_role_modifier(
+    position: Position,
+    role: PlayerRole,
+    phase: PlayStylePhase,
+    support_weight: f64,
+) -> f64 {
+    let native = role_modifier(position, role, phase);
+    if support_weight > 0.0 && consulted_phases(position).contains(&phase) {
+        native * role_cost(role, phase)
+    } else {
+        native
+    }
+}
+
+/// What a role adds to a contest whose players are drawn from another group, as the table's own
+/// bonus (0.08 for ×1.08): a full back's attacking role in the attacking third, a ball-playing
+/// centre back's or keeper's in the midfield, a sweeper keeper's in the defence, a pressing
+/// forward's in the press. Zero for a phase the holder's position is drawn on, which
+/// [`role_modifier`] already prices when he is.
+///
+/// Only a bonus is credited. A penalty is charged where the holder is drawn and nowhere else: an
+/// anchor man's attacking penalty, charged to the whole side's attack as well, outweighs a
+/// defensive bonus that is only paid when he is the man drawn, and turned a role that is slightly
+/// useful today into a net cost in every match measured.
+pub(crate) fn role_support_entry(
+    position: Position,
+    role: PlayerRole,
+    phase: PlayStylePhase,
+) -> f64 {
+    if consulted_phases(position).contains(&phase) {
+        0.0
+    } else {
+        (role_attribute_modifier(role, phase) - 1.0).max(0.0)
+    }
+}
+
+/// The most a side's roles can move a contest through support, either way. A safety stop: with a
+/// holder's share already diluted by the players the resolver draws from, it binds only on a side
+/// that gave every outfielder a role.
+const ROLE_SUPPORT_LIMIT: f64 = 0.15;
+
+/// The multiplier a side's roles put on one contest through support. Each holder outside the group
+/// the resolver draws from joins its pool with one ticket, so his share of the contest is his
+/// entry over the pool's size plus his own: what he would be worth if he were drawn like the rest.
+/// 1.0 when nobody holds a role that reaches the contest or when `weight` is 0; `weight` scales every
+/// share together (1.0 is the full share).
+pub(crate) fn role_support_multiplier<'a>(
+    holders: impl Iterator<Item = &'a PlayerData>,
+    phase: PlayStylePhase,
+    weight: f64,
+    drawn_group_size: usize,
+) -> f64 {
+    if weight == 0.0 {
+        return 1.0;
+    }
+    let entries: f64 = holders
+        .map(|player| role_support_entry(player.position, player.role, phase))
+        .sum();
+    let share = weight * entries / (drawn_group_size as f64 + 1.0);
+    (1.0 + share).clamp(1.0 - ROLE_SUPPORT_LIMIT, 1.0 + ROLE_SUPPORT_LIMIT)
+}
+
 /// Returns a multiplier (0.88–1.20) applied to the player's effective skill
 /// calculation based on their assigned tactical role. Values reflect the
 /// attribute biases described in domain::team::PlayerRole documentation.
 //
-// The penalty half of AttackingFB, WingBack and ShadowStriker is gone: their boost is on
-// a phase the resolvers never ask their position about, so only the penalty fired.
-// Restore both halves together when that phase is wired.
+// The penalty half of AttackingFB, WingBack and ShadowStriker is kept out of this table (see
+// `role_cost`): their boost is on a phase the resolvers never ask their position about, so, with
+// the penalty here, only it fired and they played strictly worse than Standard.
 fn role_attribute_modifier(role: PlayerRole, phase: PlayStylePhase) -> f64 {
     match (role, phase) {
         // Goalkeepers
@@ -698,6 +776,207 @@ mod phase_modifier_tests {
             ),
             1.12
         );
+    }
+
+    const EVERY_PHASE: [PlayStylePhase; 4] = [
+        PlayStylePhase::Midfield,
+        PlayStylePhase::Attack,
+        PlayStylePhase::Defense,
+        PlayStylePhase::Press,
+    ];
+
+    fn holder(role: PlayerRole, position: Position) -> PlayerData {
+        PlayerData {
+            id: "holder".to_string(),
+            name: "holder".to_string(),
+            position,
+            ovr: 60,
+            condition: 100,
+            fitness: 80,
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+            traits: vec![],
+            role,
+        }
+    }
+
+    /// Given the roles the resolvers never asked their holder's position about
+    /// When the support entry of each is read
+    /// Then a bonus is credited on the phase it is on, and nothing is credited for a phase the
+    ///      position is drawn on, for a penalty, or for Standard.
+    #[test]
+    fn support_credits_an_unconsulted_bonus_and_nothing_else() {
+        let entry = role_support_entry;
+        assert!(
+            (entry(
+                Position::Defender,
+                PlayerRole::AttackingFB,
+                PlayStylePhase::Attack
+            ) - 0.08)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (entry(
+                Position::Goalkeeper,
+                PlayerRole::SweeperKeeper,
+                PlayStylePhase::Defense
+            ) - 0.06)
+                .abs()
+                < 1e-12
+        );
+        assert!(
+            (entry(
+                Position::Forward,
+                PlayerRole::PressingForward,
+                PlayStylePhase::Press
+            ) - 0.15)
+                .abs()
+                < 1e-12
+        );
+        // Drawn on that phase already: the table prices it when he is drawn.
+        assert_eq!(
+            entry(
+                Position::Defender,
+                PlayerRole::Stopper,
+                PlayStylePhase::Defense
+            ),
+            0.0
+        );
+        assert_eq!(
+            entry(
+                Position::Forward,
+                PlayerRole::Poacher,
+                PlayStylePhase::Attack
+            ),
+            0.0
+        );
+        // A penalty is charged where the holder is drawn and nowhere else.
+        assert_eq!(
+            entry(
+                Position::Midfielder,
+                PlayerRole::AnchorMan,
+                PlayStylePhase::Attack
+            ),
+            0.0
+        );
+        assert_eq!(
+            entry(
+                Position::Forward,
+                PlayerRole::Poacher,
+                PlayStylePhase::Defense
+            ),
+            0.0
+        );
+        for phase in EVERY_PHASE {
+            assert_eq!(
+                entry(Position::Midfielder, PlayerRole::Standard, phase),
+                0.0
+            );
+        }
+    }
+
+    /// Given an attacking full back among a side with two forwards
+    /// When the attacking third's support multiplier is read at several weights
+    /// Then it is exactly 1.0 at weight 0, his bonus over the three tickets of two forwards and
+    ///      himself at weight 1, and half of that at weight 0.5.
+    #[test]
+    fn a_holders_share_is_his_bonus_over_the_pool_he_joins() {
+        let full_back = holder(PlayerRole::AttackingFB, Position::Defender);
+        let attack = |weight| {
+            role_support_multiplier([&full_back].into_iter(), PlayStylePhase::Attack, weight, 2)
+        };
+        assert_eq!(attack(0.0), 1.0);
+        assert!((attack(1.0) - (1.0 + 0.08 / 3.0)).abs() < 1e-12);
+        assert!((attack(0.5) - (1.0 + 0.04 / 3.0)).abs() < 1e-12);
+    }
+
+    /// Given more support roles than any side holds
+    /// When the multiplier is read
+    /// Then it stops at 15 % either way.
+    #[test]
+    fn the_support_multiplier_is_capped() {
+        let wing_backs: Vec<PlayerData> = (0..40)
+            .map(|_| holder(PlayerRole::WingBack, Position::Defender))
+            .collect();
+        let multiplier = role_support_multiplier(wing_backs.iter(), PlayStylePhase::Attack, 1.0, 0);
+        assert!((multiplier - 1.15).abs() < 1e-12, "{multiplier}");
+    }
+
+    /// Given the roles whose bonus the engine credits through support
+    /// When the cost they are designed with is asked for
+    /// Then it is charged only alongside the benefit (a weight above 0) and only on the phase the
+    ///      position is drawn on.
+    #[test]
+    fn a_roles_cost_is_charged_only_with_its_benefit() {
+        let defence = |role, weight| {
+            live_role_modifier(Position::Defender, role, PlayStylePhase::Defense, weight)
+        };
+        assert_eq!(defence(PlayerRole::AttackingFB, 0.0), 1.0);
+        assert_eq!(defence(PlayerRole::AttackingFB, 1.0), 0.93);
+        assert_eq!(defence(PlayerRole::WingBack, 1.0), 0.97);
+        assert_eq!(
+            live_role_modifier(
+                Position::Midfielder,
+                PlayerRole::ShadowStriker,
+                PlayStylePhase::Defense,
+                1.0
+            ),
+            0.92
+        );
+        // A phase the position is not drawn on charges nothing.
+        assert_eq!(
+            live_role_modifier(
+                Position::Defender,
+                PlayerRole::AttackingFB,
+                PlayStylePhase::Attack,
+                1.0
+            ),
+            1.0
+        );
+    }
+
+    /// Given every role, in every group that may hold it, in the football that credits support
+    /// When what the engine can apply is collected (the phases the holder is drawn on, with the
+    ///   cost the role is designed with, and the support credited on the others)
+    /// Then none is without a benefit: no role is strictly worse than Standard, and none is inert.
+    #[test]
+    fn with_support_every_role_other_than_standard_has_a_benefit_and_none_is_only_a_cost() {
+        for role in PlayerRole::ALL
+            .into_iter()
+            .filter(|r| *r != PlayerRole::Standard)
+        {
+            for &group in role.position_groups() {
+                let benefits = EVERY_PHASE
+                    .iter()
+                    .filter(|phase| {
+                        live_role_modifier(group, role, **phase, 1.0) > 1.0
+                            || role_support_entry(group, role, **phase) > 0.0
+                    })
+                    .count();
+                assert!(
+                    benefits > 0,
+                    "{role:?} as a {group:?} has no benefit the engine applies"
+                );
+            }
+        }
     }
 
     use super::*;

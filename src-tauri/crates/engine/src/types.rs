@@ -467,6 +467,13 @@ pub struct MatchConfig {
     /// defender facing them, against the two to four of a 4-4-2. 0 prices no number at all.
     #[serde(default)]
     pub attack_numbers_weight: f64,
+    /// How much of a role's bonus or cost counts in a contest its holder is not drawn into: a full
+    /// back's attacking role in the attacking third, a ball-playing centre back's in the midfield, a
+    /// sweeper keeper's in the defence. 0 consults a role only where its holder's own group is
+    /// drawn, which leaves those roles inert. Absent in a configuration written before this
+    /// existed, which meant 0.
+    #[serde(default)]
+    pub role_support_weight: f64,
 }
 
 impl Default for MatchConfig {
@@ -484,6 +491,7 @@ impl Default for MatchConfig {
             injury_probability: 0.03,
             midfield_numbers_weight: 0.3,
             attack_numbers_weight: 0.3,
+            role_support_weight: 1.0,
         }
     }
 }

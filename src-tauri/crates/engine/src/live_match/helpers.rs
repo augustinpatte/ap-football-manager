@@ -179,6 +179,21 @@ impl LiveMatchState {
         )
     }
 
+    /// What `side`'s roles that are not drawn into this contest put on it: 1.0 when the football
+    /// prices no role support or no one on the pitch holds a role that reaches `phase`. `drawn` is
+    /// the group the resolver draws the contest's players from.
+    pub(super) fn role_support(&self, side: Side, phase: PlayStylePhase, drawn: Position) -> f64 {
+        crate::shared::role_support_multiplier(
+            self.team_ref(side)
+                .players
+                .iter()
+                .filter(|player| !self.sent_off.contains(&player.id)),
+            phase,
+            self.config.role_support_weight,
+            self.on_the_pitch(side, drawn),
+        )
+    }
+
     pub(super) fn effective_midfield(&self, side: Side) -> f64 {
         let base = self.team_ref(side).midfield_rating();
         let modifier = play_style_modifier(
@@ -198,6 +213,7 @@ impl LiveMatchState {
         base * modifier
             * tactics_pressing_press(&team.tactics)
             * home_mod(pressing_side, &self.config)
+            * self.role_support(pressing_side, PlayStylePhase::Press, Position::Midfielder)
     }
 
     // -----------------------------------------------------------------------

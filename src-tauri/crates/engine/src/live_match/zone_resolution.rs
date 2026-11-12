@@ -2,7 +2,7 @@ use rand::{Rng, RngExt};
 
 use crate::event::{EventDetail, EventType, MatchEvent};
 use crate::shared::{
-    PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, role_modifier,
+    PlayStylePhase, PlayerSnap, TraitContext, live_role_modifier, play_style_modifier,
     tactics_buildup_mod, tactics_cross_probability, tactics_defensive_conversion_mod,
     tactics_foul_modifier, tactics_shape_modifier, tactics_tempo_progression,
     tactics_width_versus_shape, trait_bonus,
@@ -103,26 +103,33 @@ impl LiveMatchState {
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_bonus(&defender, TraitContext::Tackling);
 
+        let support = self.config.role_support_weight;
         let att_mod = play_style_modifier(
             self.team_ref(att_side).play_style,
             PlayStylePhase::Midfield,
             true,
-        ) * role_modifier(
+        ) * live_role_modifier(
             Position::Midfielder,
             attacker.role,
             PlayStylePhase::Midfield,
+            support,
         );
-        let def_mod =
-            play_style_modifier(
-                self.team_ref(def_side).play_style,
-                PlayStylePhase::Midfield,
-                false,
-            ) * role_modifier(Position::Midfielder, defender.role, PlayStylePhase::Defense);
+        let def_mod = play_style_modifier(
+            self.team_ref(def_side).play_style,
+            PlayStylePhase::Midfield,
+            false,
+        ) * live_role_modifier(
+            Position::Midfielder,
+            defender.role,
+            PlayStylePhase::Defense,
+            support,
+        );
         let att_eff = att_rating
             * att_mod
             * crate::shared::home_mod(att_side, &self.config)
             * tactics_tempo_progression(&self.team_ref(att_side).tactics)
-            * self.midfield_numbers_edge(att_side);
+            * self.midfield_numbers_edge(att_side)
+            * self.role_support(att_side, PlayStylePhase::Midfield, Position::Midfielder);
         let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
@@ -195,24 +202,40 @@ impl LiveMatchState {
         let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
             * trait_bonus(&defender, TraitContext::Tackling);
 
+        let support = self.config.role_support_weight;
         let att_mod = play_style_modifier(
             self.team_ref(att_side).play_style,
             PlayStylePhase::Attack,
             true,
-        ) * role_modifier(Position::Forward, attacker.role, PlayStylePhase::Attack);
+        ) * live_role_modifier(
+            Position::Forward,
+            attacker.role,
+            PlayStylePhase::Attack,
+            support,
+        );
         // Defending is the defender's own phase: a Defensive style defends better and an Attacking
         // one worse. Passing `false` here made the defensive half of every style inert.
         let def_mod = play_style_modifier(
             self.team_ref(def_side).play_style,
             PlayStylePhase::Defense,
             true,
-        ) * role_modifier(Position::Defender, defender.role, PlayStylePhase::Defense);
+        ) * live_role_modifier(
+            Position::Defender,
+            defender.role,
+            PlayStylePhase::Defense,
+            support,
+        );
+        // Roles whose holders are not drawn into this contest still play a part in it: a full back
+        // overlaps, a sweeper keeper covers behind the line, a striker who will not track back
+        // leaves his side short.
         let att_eff = att_rating
             * att_mod
             * crate::shared::home_mod(att_side, &self.config)
-            * self.attack_numbers_edge(att_side);
+            * self.attack_numbers_edge(att_side)
+            * self.role_support(att_side, PlayStylePhase::Attack, Position::Forward);
         let def_eff = def_rating
             * def_mod
+            * self.role_support(def_side, PlayStylePhase::Defense, Position::Defender)
             * crate::shared::home_mod(def_side, &self.config)
             * tactics_shape_modifier(&self.team_ref(def_side).tactics)
             * tactics_width_versus_shape(
