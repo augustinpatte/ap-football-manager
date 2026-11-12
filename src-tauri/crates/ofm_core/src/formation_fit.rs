@@ -57,9 +57,14 @@ const EMPTY_GROUP_MEAN: f64 = 50.0;
 /// The eleven is the one the club's selection names with nobody tired (`first_choice_eleven`), and a
 /// player counts in the group of the slot he stands in, with his own attributes: the engine has no
 /// notion of a player out of position, only of whose attributes sit in which group.
+///
+/// The squad is taken at full strength: a player who is injured or suspended today still counts. A
+/// shape is a decision about the structure of a squad, and scored on who can play this week it
+/// followed the treatment room, which put every club through about 1.4 formation changes a season
+/// (the margin a change must clear is far smaller than an injury to the first-choice forward moves
+/// a shape's score).
 pub(crate) fn engine_fit(squad: &[&Player], formation: &str) -> f64 {
-    let available: Vec<&Player> = squad.iter().copied().filter(|p| p.can_play()).collect();
-    let eleven = first_choice_eleven(&available, formation);
+    let eleven = first_choice_eleven(squad, formation);
     let slots = formation_slots(formation);
     let group_mean = |group: Position, read: fn(&Player) -> f64| -> f64 {
         let members: Vec<f64> = slots
@@ -181,6 +186,33 @@ mod tests {
             "gained {gain}, expected about {expected}"
         );
         assert!(gain > 0.0);
+    }
+
+    /// Given a squad in which the best forward is injured and another suspended
+    /// When the engine's fit is read
+    /// Then it is what the squad would be worth at full strength: a club's shape answers to the
+    ///      structure of its squad, not to this week's treatment room. (Scored on who can play today,
+    ///      a club changed formation 110 times a season across 80 clubs, against 23 before.)
+    #[test]
+    fn a_squads_shape_does_not_move_with_this_weeks_injuries() {
+        let healthy = squad();
+        let mut hurt = squad();
+        let mut strikers = hurt
+            .players
+            .iter_mut()
+            .filter(|p| p.natural_position == Position::Striker);
+        strikers.next().expect("a striker").injury = Some(domain::player::Injury {
+            name: "Hamstring".to_string(),
+            days_remaining: 20,
+        });
+        strikers.next().expect("a second striker").suspended_matches = 2;
+        for formation in ["4-4-2", "4-3-3", "3-5-2"] {
+            assert_eq!(
+                engine_fit(&refs(&healthy), formation),
+                engine_fit(&refs(&hurt), formation),
+                "{formation} moved with the injury list"
+            );
+        }
     }
 
     /// Given the stored overall of a squad's players raised, with their attributes as they were

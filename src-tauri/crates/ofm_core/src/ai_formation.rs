@@ -91,8 +91,17 @@ const MANDATE_DAYS: f64 = 90.0;
 const MANDATE_DISCOUNT: f64 = 0.6;
 
 /// What the best formation must beat the current one by, in rating points of the mean of the
-/// eleven slots (about 2.5 points of rating over a whole side), before a settled club moves.
-const BASE_MARGIN: f64 = 0.25;
+/// eleven slots (1.0 is about 0.14 goals a match in the engine), before a settled club moves.
+///
+/// The engine charges a side nothing for changing shape, so this is not a cost the club bears: it is
+/// the inertia of a manager who does not rebuild his side on a small gain. It was 0.25 for the squad
+/// model's score, whose ranking was a level per shape and so barely moved once clubs had settled.
+/// The engine's fit follows the squad, which is always changing (transfers, development, ageing),
+/// and at 0.25 clubs changed shape 67 times a season across 80 (23 before; the P4.7 target was about
+/// 0.2 a club-season). Swept over three ten-season careers: 0.5 gave 54, 1.0 gives 34, 1.5 gave 26.
+/// 1.5 would have matched the old churn but refuses a back three to a side of three outstanding
+/// centre backs and no other defender, whose gain in the engine is 1.5 points.
+const BASE_MARGIN: f64 = 1.0;
 
 /// What a club's play style asks of the shape, a manager's risk asks of it, and what a manager
 /// simply likes, in the same rating points. Each moves a formation's score by at most this much.
@@ -409,15 +418,16 @@ mod tests {
         team
     }
 
-    /// A squad built for a back three: three outstanding centre backs, ordinary full backs.
+    /// A squad built for a back three: three outstanding centre backs, poor full backs and wing backs
+    /// the engine sees as defenders (a back four must play two of them).
     fn back_three_squad() -> Squad {
         Squad::new()
             .add(Position::Goalkeeper, &[72, 60])
-            .add(Position::CenterBack, &[84, 83, 82, 60])
-            .add(Position::LeftBack, &[55, 50])
-            .add(Position::RightBack, &[55, 50])
-            .add(Position::LeftWingBack, &[70, 60])
-            .add(Position::RightWingBack, &[70, 60])
+            .add(Position::CenterBack, &[90, 89, 88, 60])
+            .add(Position::LeftBack, &[45, 40])
+            .add(Position::RightBack, &[45, 40])
+            .add(Position::LeftWingBack, &[45, 40])
+            .add(Position::RightWingBack, &[45, 40])
             .add(Position::CentralMidfielder, &[72, 70, 68, 62])
             .add(Position::LeftMidfielder, &[55])
             .add(Position::RightMidfielder, &[55])
