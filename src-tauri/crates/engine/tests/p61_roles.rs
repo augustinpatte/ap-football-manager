@@ -480,3 +480,44 @@ mod role_support {
         assert_eq!(config.role_support_weight, 0.0);
     }
 }
+
+/// What a rating point of squad quality is worth in the engine, to put a formation's price in the
+/// same units as the squad model's rating points: a side whose every attribute is `r + gap` against
+/// one whose every attribute is `r`, 4-4-2 each.
+#[test]
+#[ignore = "measurement study"]
+fn p61_points_per_rating_point() {
+    let matches = matches_per_role().max(20_000);
+    let config = MatchConfig::default();
+    eprintln!(
+        "\n== a uniform side {{gap}} rating points above a 70-rated 4-4-2 ({matches} matches) =="
+    );
+    for gap in [1u8, 2, 3, 5] {
+        let outcomes: Vec<Outcome> = (0..matches)
+            .map(|seed| {
+                subject_outcome(
+                    four_four_two("s", 70 + gap),
+                    four_four_two("o", 70),
+                    &config,
+                    seed,
+                )
+            })
+            .collect();
+        let points = mean_se(&outcomes.iter().map(|o| o.points).collect::<Vec<_>>());
+        let difference = mean_se(
+            &outcomes
+                .iter()
+                .map(|o| o.goals_for - o.goals_against)
+                .collect::<Vec<_>>(),
+        );
+        eprintln!(
+            "+{gap}: points {:.3} (se {:.3}), goal difference {:+.3} (se {:.3}); per point: {:+.3} points, {:+.3} goals",
+            points.0,
+            points.1,
+            difference.0,
+            difference.1,
+            (points.0 - 1.36) / f64::from(gap),
+            difference.0 / f64::from(gap),
+        );
+    }
+}

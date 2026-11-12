@@ -8,98 +8,12 @@
 //!
 //! `P6_SEEDS=1 P6_MATCHES=200 P6_RATING=70 cargo test --release -p season-harness --test p6_cross_engine -- --ignored --nocapture`
 
-use domain::team::{PlayStyle, TacticsPhaseSettings};
 use ofm_core::game::Game;
 use ofm_core::player_rating::FORMATIONS;
 use season_harness::env;
-use season_harness::match_study::{Football, SideResult, mean_se, play};
-
-/// Every player of `club` at one rating, fit and uncontracted from the injury list.
-fn make_uniform(game: &mut Game, club: &str, rating: u8) {
-    for player in game
-        .players
-        .iter_mut()
-        .filter(|p| p.team_id.as_deref() == Some(club))
-    {
-        let a = &mut player.attributes;
-        for attribute in [
-            &mut a.pace,
-            &mut a.stamina,
-            &mut a.strength,
-            &mut a.agility,
-            &mut a.passing,
-            &mut a.shooting,
-            &mut a.tackling,
-            &mut a.dribbling,
-            &mut a.defending,
-            &mut a.positioning,
-            &mut a.vision,
-            &mut a.decisions,
-            &mut a.composure,
-            &mut a.aggression,
-            &mut a.teamwork,
-            &mut a.leadership,
-            &mut a.handling,
-            &mut a.reflexes,
-            &mut a.aerial,
-        ] {
-            *attribute = rating;
-        }
-        player.ovr = rating;
-        player.condition = 100;
-        player.injury = None;
-    }
-    if let Some(team) = game.teams.iter_mut().find(|t| t.id == club) {
-        team.play_style = PlayStyle::Balanced;
-        team.tactics_phase = TacticsPhaseSettings::default();
-    }
-}
-
-fn set_formation(game: &mut Game, club: &str, formation: &str) {
-    if let Some(team) = game.teams.iter_mut().find(|t| t.id == club) {
-        team.formation = formation.to_string();
-        team.starting_xi_ids.clear();
-    }
-}
-
-/// Two clubs of the first league that are not the user's.
-fn two_clubs(game: &Game) -> (String, String) {
-    let user = game.manager.team_id.clone();
-    let league = game
-        .competitions
-        .iter()
-        .find(|c| c.participant_ids.len() >= 4)
-        .expect("the world has a league");
-    let mut ids = league
-        .participant_ids
-        .iter()
-        .filter(|id| Some(*id) != user.as_ref());
-    (
-        ids.next().expect("a first club").clone(),
-        ids.next().expect("a second club").clone(),
-    )
-}
-
-/// The subject's mean result against the reference over `matches`, home and away alternating.
-fn subject_results(
-    game: &mut Game,
-    football: Football,
-    subject: &str,
-    reference: &str,
-    matches: u64,
-    seed: u64,
-) -> Vec<SideResult> {
-    (0..matches)
-        .map(|n| {
-            game.seed = seed.wrapping_mul(100_000).wrapping_add(n);
-            if n % 2 == 0 {
-                play(game, football, subject, reference).expect("plays").0
-            } else {
-                play(game, football, reference, subject).expect("plays").1
-            }
-        })
-        .collect()
-}
+use season_harness::match_study::{
+    Football, SideResult, make_uniform, mean_se, play, set_formation, subject_results, two_clubs,
+};
 
 #[test]
 #[ignore = "measurement study"]
