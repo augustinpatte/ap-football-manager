@@ -243,6 +243,15 @@ fn back_line_and_finishing(row: &Row) -> Vec<f64> {
     vec![row.lineup.back_hold, row.lineup.finishing]
 }
 
+/// The back line's hold and the forwards' finishing, each less what a typical squad reaches in the
+/// same shape: how much better this squad suits the shape than most.
+fn back_line_and_finishing_suitability(row: &Row) -> Vec<f64> {
+    vec![
+        row.lineup.back_hold - row.typical.back_hold,
+        row.lineup.finishing - row.typical.finishing,
+    ]
+}
+
 /// The eight contest means less what a typical squad reaches in the same shape.
 fn suitability_to_the_shape(row: &Row) -> Vec<f64> {
     let (l, t) = (&row.lineup, &row.typical);
@@ -262,7 +271,7 @@ fn joined(parts: &[fn(&Row) -> Vec<f64>], row: &Row) -> Vec<f64> {
     parts.iter().flat_map(|part| part(row)).collect()
 }
 
-const CANDIDATES: [Candidate; 13] = [
+const CANDIDATES: [Candidate; 14] = [
     Candidate {
         name: "squad model's score (today's)",
         predictors: |r| vec![r.squad_score],
@@ -286,6 +295,10 @@ const CANDIDATES: [Candidate; 13] = [
     Candidate {
         name: "shape + back line + finishing (9)",
         predictors: |r| joined(&[shape_dummies, back_line_and_finishing], r),
+    },
+    Candidate {
+        name: "suitability: back line + finishing (2)",
+        predictors: back_line_and_finishing_suitability,
     },
     Candidate {
         name: "suitability to the shape (8)",

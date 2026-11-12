@@ -20,17 +20,25 @@
 //!
 //! # How a change is decided
 //!
-//! Each candidate formation is scored by what the engine makes of the eleven the club would field
-//! in it ([`crate::formation_fit`]): the means of the attributes the match contests read, in the
-//! squad model's own unit of a mean rating point of the eleven, plus a *taste* of at most a few
-//! tenths of a point (the manager's and the club's). Taste decides between formations the squad
-//! is indifferent between and cannot make a squad play a shape it cannot fill.
+//! Each candidate formation is scored by the squad model the market already prices signings by: the
+//! squad built for that formation, planned over the club's own horizon, with absences allowed for.
+//! That one number already knows depth (cover when a starter is out), ageing, development and
+//! contracts that run out, so there is no second squad-quality model here. The score is the model's
+//! mean rating of the eleven slots, plus a *taste* of at most a few tenths of a point (the manager's
+//! and the club's), so taste decides between formations the squad is indifferent between and cannot
+//! make a squad play a shape it cannot fill.
 //!
-//! The squad model the market prices signings by used to be this score. It still rates every
-//! formation ([`FormationScore::squad`]) and still prices a signing, but it no longer ranks a
-//! club's formations: across a club's own eight formations it had no relationship to results that
-//! could be told from a reversed one (P6.1), because what it rates is the fit of players to slots,
-//! which the engine does not read.
+//! **That ranking is a poor guide, and a better one exists that is not used.** Across a club's own
+//! eight formations the squad model's score is a level per shape (4-3-3 a point above 4-4-2) and
+//! it correlates -0.14 with results; picking its favourite earns less than a random shape (P6.1).
+//! [`FormationScore::fit`] is what the engine makes of the eleven the club would field
+//! ([`crate::formation_fit`]); on held-out worlds it ranks a club's shapes at +0.45. It is carried on
+//! every score for the studies and **does not decide**: made the ranking, it moved the league's goals
+//! a match from 3.18 to 3.65-3.81, because every club then picked the shape that suits its own back
+//! line and finishers, and the five-zone engine reads a group by its mean, so a squad's best players
+//! in a thin group beat the same players in a full one. The old rule's mass move to 4-3-3 had been
+//! holding that down (every club in 4-3-3: 3.19 goals; in 4-4-2: 3.51). Adopting it needs the engine
+//! to read a thin group differently, which is not this module's to decide.
 //!
 //! The club moves only when the best formation beats the current one by a **margin**. The margin
 //! falls while a new manager beds in and when results have been poor for a manager who adapts
@@ -91,17 +99,8 @@ const MANDATE_DAYS: f64 = 90.0;
 const MANDATE_DISCOUNT: f64 = 0.6;
 
 /// What the best formation must beat the current one by, in rating points of the mean of the
-/// eleven slots (1.0 is about 0.14 goals a match in the engine), before a settled club moves.
-///
-/// The engine charges a side nothing for changing shape, so this is not a cost the club bears: it is
-/// the inertia of a manager who does not rebuild his side on a small gain. It was 0.25 for the squad
-/// model's score, whose ranking was a level per shape and so barely moved once clubs had settled.
-/// The engine's fit follows the squad, which is always changing (transfers, development, ageing),
-/// and at 0.25 clubs changed shape 67 times a season across 80 (23 before; the P4.7 target was about
-/// 0.2 a club-season). Swept over three ten-season careers: 0.5 gave 54, 1.0 gives 34, 1.5 gave 26.
-/// 1.5 would have matched the old churn but refuses a back three to a side of three outstanding
-/// centre backs and no other defender, whose gain in the engine is 1.5 points.
-const BASE_MARGIN: f64 = 1.0;
+/// eleven slots (about 2.5 points of rating over a whole side), before a settled club moves.
+const BASE_MARGIN: f64 = 0.25;
 
 /// What a club's play style asks of the shape, a manager's risk asks of it, and what a manager
 /// simply likes, in the same rating points. Each moves a formation's score by at most this much.
@@ -241,10 +240,11 @@ pub(crate) fn margin(circumstances: &Circumstances) -> f64 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormationScore {
     pub formation: &'static str,
-    /// What the squad is worth in it (the squad model's mean rating of the eleven slots). Not part
-    /// of the total: kept so a study can set it against results.
+    /// What the squad is worth in it (the squad model's mean rating of the eleven slots).
     pub squad: f64,
-    /// What the engine makes of the eleven the club would field in it, in mean rating points.
+    /// How much better than a typical squad the eleven the club would field suits it, as the engine
+    /// plays it, in mean rating points ([`crate::formation_fit`]). Not part of the total: see the
+    /// module documentation.
     pub fit: f64,
     /// What the club and its manager like about it.
     pub taste: f64,
@@ -252,7 +252,7 @@ pub struct FormationScore {
 
 impl FormationScore {
     pub fn total(&self) -> f64 {
-        self.fit + self.taste
+        self.squad + self.taste
     }
 }
 
@@ -418,32 +418,32 @@ mod tests {
         team
     }
 
-    /// A squad built for a back three: three outstanding centre backs, poor full backs and wing backs
-    /// the engine sees as defenders (a back four must play two of them).
+    /// A squad built for a back three: three outstanding centre backs, ordinary full backs.
     fn back_three_squad() -> Squad {
         Squad::new()
             .add(Position::Goalkeeper, &[72, 60])
-            .add(Position::CenterBack, &[90, 89, 88, 60])
-            .add(Position::LeftBack, &[45, 40])
-            .add(Position::RightBack, &[45, 40])
-            .add(Position::LeftWingBack, &[45, 40])
-            .add(Position::RightWingBack, &[45, 40])
+            .add(Position::CenterBack, &[84, 83, 82, 60])
+            .add(Position::LeftBack, &[55, 50])
+            .add(Position::RightBack, &[55, 50])
+            .add(Position::LeftWingBack, &[70, 60])
+            .add(Position::RightWingBack, &[70, 60])
             .add(Position::CentralMidfielder, &[72, 70, 68, 62])
             .add(Position::LeftMidfielder, &[55])
             .add(Position::RightMidfielder, &[55])
             .add(Position::Striker, &[75, 73, 67])
     }
 
-    /// Given a formation the squad model rates far above the others and the engine's fit does not
+    /// Given a formation whose engine fit is far above the squad model's score
     /// When the score's total is read
-    /// Then it is the engine's fit and the taste, whatever the squad model says: the squad model
-    ///      ranked a club's formations by a level per shape the engine does not pay (P6.1).
+    /// Then it is the squad model's score and the taste, and the fit does not enter: ranked by the
+    ///      fit, the AI sent clubs to the shapes whose group means the engine over-rewards and moved
+    ///      the league's goals a match from 3.18 to 3.65-3.81.
     #[test]
-    fn a_formations_total_is_the_engines_fit_and_the_taste_and_not_the_squad_models_score() {
+    fn a_formations_total_is_the_squad_models_score_and_the_taste_and_not_the_engines_fit() {
         let score = FormationScore {
             formation: "4-3-3",
-            squad: 99.0,
-            fit: 1.5,
+            squad: 1.5,
+            fit: 99.0,
             taste: -0.25,
         };
         assert_eq!(score.total(), 1.25);
@@ -451,9 +451,10 @@ mod tests {
 
     /// Given a full squad
     /// When every formation is scored
-    /// Then each score carries the engine's fit of that formation, not a copy of the squad score.
+    /// Then each score carries the engine's fit of that formation next to the squad model's score,
+    ///      for the studies that set them against results.
     #[test]
-    fn every_formation_is_scored_by_the_engines_fit() {
+    fn every_formation_carries_the_engines_fit_for_the_studies() {
         let squad = Squad::balanced()
             .add(Position::AttackingMidfielder, &[72, 68])
             .add(Position::DefensiveMidfielder, &[72, 68])
@@ -478,7 +479,7 @@ mod tests {
 
     /// Given a squad with three outstanding centre backs and poor full backs, playing a back four
     /// When its formation is reviewed
-    /// Then it moves to a back three, because the engine makes more of its back line there.
+    /// Then it moves to a back three, because the squad model values the side higher in one.
     #[test]
     fn a_squad_with_three_great_centre_backs_moves_to_a_back_three() {
         let squad = back_three_squad();

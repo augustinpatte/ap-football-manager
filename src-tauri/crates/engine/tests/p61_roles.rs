@@ -455,6 +455,7 @@ mod role_support {
             .map(|seed| stacked(&football(1.0), seed) - stacked(&football(0.0), seed))
             .collect();
         let (gain, se) = mean_se(&gains);
+        eprintln!("stacked side gains {gain:+.3} points a match (se {se:.3})");
         assert!(
             gain > 0.0,
             "stacking gains {gain:.3} points a match (se {se:.3})"

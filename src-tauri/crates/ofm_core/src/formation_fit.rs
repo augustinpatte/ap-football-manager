@@ -8,18 +8,29 @@
 //! club's squad has no relationship to its results (-0.02 +/- 0.03). The engine does not read slot
 //! ratings. It reads, per group of the eleven, the means of a handful of attributes.
 //!
+//! **This measures; it does not decide.** The AI's formation review ranks by the squad model: ranked
+//! by this, every club picked the shape that suits its own back line and finishers and the league's
+//! goals a match rose from 3.18 to 3.65-3.81 (see `ai_formation`). It is carried on every
+//! `FormationScore` for the studies, and is the evaluator to use once the engine reads a thin group
+//! of a squad's best players as less than the best of them.
+//!
 //! This is the engine's own reading, with only the two group means that carry the formation-to-
 //! formation variation of a real squad: the back line's hold (defending, tackling, positioning,
 //! aerial: the defender in the attacking-third contest) and the forwards' finishing (shooting,
-//! composure, decisions: the shot), plus what the engine charges the shape itself. On the same
-//! held-out worlds it ranks a club's formations at +0.53 against +0.14 and earns +0.13 points a
-//! match over a random shape against +0.05 (`season-harness/tests/p61_formation_selection.rs`).
+//! composure, decisions: the shot). A squad is scored by how far those means are above what a
+//! typical squad reaches **in the same shape**, and not by their level. The level of a shape is not a
+//! reason to choose it: a thin group of a squad's best players has a higher mean than a full one, so
+//! a rule that took the level (the first version, with the shape's own price) sent half the league
+//! into a back three and raised the goals a match from 3.18 to 3.65, an equilibrium the clubs then
+//! moved. Out of sample (192 clubs, 12 worlds, leave one world out) the suitability rule ranks a
+//! club's formations at +0.45 against the squad model's +0.14 and earns +0.11 points a match over a
+//! random shape against +0.05 (`season-harness/tests/p61_formation_selection.rs`).
 //!
 //! The weights are goals of goal difference a match per attribute point, fitted within club across
-//! its eight formations on the study's 192 clubs; the number returned is those goals expressed in
-//! the squad model's own unit, a mean rating point of the eleven, at what a rating point is worth
-//! in the engine (`p61_points_per_rating_point`: 0.136 goals a match). A formation the game does
-//! not offer is priced as a 4-4-2.
+//! its eight formations; the number returned is those goals expressed in the squad model's own unit,
+//! a mean rating point of the eleven, at what a rating point is worth in the engine
+//! (`p61_points_per_rating_point`: 0.136 goals a match). A formation the game does not offer is read
+//! as a 4-4-2.
 
 use domain::player::{Player, Position};
 
@@ -30,22 +41,26 @@ use crate::turn::squad::first_choice_eleven;
 const GOALS_PER_RATING_POINT: f64 = 0.136;
 
 /// Goals a match per point of the back line's mean hold.
-const BACK_LINE_GOALS: f64 = 0.025;
+const BACK_LINE_GOALS: f64 = 0.026;
 
 /// Goals a match per point of the forwards' mean finishing.
-const FINISHING_GOALS: f64 = 0.035;
+const FINISHING_GOALS: f64 = 0.036;
 
-/// What the engine charges a shape, in goals a match, against a 4-4-2 with the same back line and
-/// forwards. Fitted with the two weights above.
-const SHAPE_GOALS: [(&str, f64); 8] = [
-    ("4-4-2", 0.0),
-    ("4-3-3", -0.069),
-    ("3-5-2", 0.072),
-    ("4-5-1", -0.037),
-    ("4-2-3-1", -0.022),
-    ("3-4-3", 0.067),
-    ("5-3-2", -0.129),
-    ("4-1-4-1", -0.059),
+/// What a typical squad's eleven reaches in each shape, as `(formation, back-line hold, forwards'
+/// finishing)`: the mean over 192 clubs of 12 generated worlds. A squad is scored by how far it is
+/// from these in each shape, so a shape's own level (one forward is one forward of the best
+/// finishing, three are a mean of three) is not a reason to choose it. The levels are a property of
+/// a world's players, and a club is scored against its own other shapes only, so a world whose
+/// players are all better or worse moves every shape's score alike and changes no choice.
+const TYPICAL: [(&str, f64, f64); 8] = [
+    ("4-4-2", 67.295, 69.212),
+    ("4-3-3", 67.117, 66.593),
+    ("3-5-2", 67.792, 68.655),
+    ("4-5-1", 67.127, 70.151),
+    ("4-2-3-1", 67.127, 70.151),
+    ("3-4-3", 67.914, 66.560),
+    ("5-3-2", 66.649, 68.585),
+    ("4-1-4-1", 67.106, 68.693),
 ];
 
 /// The engine reads a group nobody stands in as a flat 50.
@@ -91,11 +106,20 @@ pub(crate) fn engine_fit(squad: &[&Player], formation: &str) -> f64 {
         let a = &p.attributes;
         (f64::from(a.shooting) + f64::from(a.composure) + f64::from(a.decisions)) / 3.0
     });
-    let shape = SHAPE_GOALS
+    suitability_in(formation, back_line, finishing)
+}
+
+/// How much better than a typical squad the back line and the forwards suit `formation`, in mean
+/// rating points of the side. A formation the game does not offer is read as a 4-4-2.
+fn suitability_in(formation: &str, back_line: f64, finishing: f64) -> f64 {
+    let (_, typical_back_line, typical_finishing) = TYPICAL
         .iter()
-        .find(|(name, _)| *name == formation)
-        .map_or(0.0, |(_, goals)| *goals);
-    (shape + BACK_LINE_GOALS * back_line + FINISHING_GOALS * finishing) / GOALS_PER_RATING_POINT
+        .find(|(name, _, _)| *name == formation)
+        .copied()
+        .unwrap_or(TYPICAL[0]);
+    (BACK_LINE_GOALS * (back_line - typical_back_line)
+        + FINISHING_GOALS * (finishing - typical_finishing))
+        / GOALS_PER_RATING_POINT
 }
 
 #[cfg(test)]
@@ -116,23 +140,36 @@ mod tests {
         squad.players.iter().collect()
     }
 
-    /// Given the same squad in a 3-5-2 and in a 5-3-2
-    /// When the engine's fit is read for each
-    /// Then the shape the engine rewards is worth more, by exactly what it charges the shapes
-    ///      (in rating points), whoever is fielded in them: 3-5-2 stands one point and a half
-    ///      above 5-3-2 on shape alone.
+    /// Given a squad that is exactly what a typical squad is in each shape (the typical back line and
+    ///   forwards of every formation)
+    /// When its suitability is read in each of the eight shapes
+    /// Then it is the same in all of them: the rule carries no price for a shape itself. A price per
+    ///      shape (3-5-2 and 3-4-3 above 4-4-2) sent half the league into a back three and raised the
+    ///      goals a match from 3.18 to 3.65, because it described one equilibrium and the clubs
+    ///      moved it.
     #[test]
-    fn the_engine_prices_a_shape_in_rating_points() {
-        let squad = squad();
-        let players = refs(&squad);
-        let price = |formation| {
-            let shape = SHAPE_GOALS.iter().find(|(f, _)| *f == formation).unwrap().1;
-            shape / GOALS_PER_RATING_POINT
+    fn a_typical_squad_is_worth_the_same_in_every_shape() {
+        for (formation, back_line, finishing) in TYPICAL {
+            let suitability = suitability_in(formation, back_line, finishing);
+            assert!(suitability.abs() < 1e-12, "{formation}: {suitability}");
+        }
+    }
+
+    /// Given a squad better than a typical one by a back line and by finishing, in two shapes
+    /// When their suitability is read
+    /// Then it is the same gain in both: a point of finishing is worth the same wherever it stands.
+    #[test]
+    fn a_point_of_finishing_is_worth_the_same_in_every_shape() {
+        let gain = |formation: &str| {
+            let (_, back_line, finishing) = TYPICAL
+                .iter()
+                .find(|(f, _, _)| *f == formation)
+                .copied()
+                .unwrap();
+            suitability_in(formation, back_line, finishing + 4.0)
         };
-        assert!(price("3-5-2") - price("5-3-2") > 1.4);
-        // Same eleven in both would make the difference exactly the price; with the squad's own
-        // eleven the difference is the price plus what the lineups differ by.
-        assert!(engine_fit(&players, "3-5-2") > engine_fit(&players, "5-3-2"));
+        assert!((gain("4-4-2") - gain("3-4-3")).abs() < 1e-12);
+        assert!((gain("4-4-2") - 4.0 * FINISHING_GOALS / GOALS_PER_RATING_POINT).abs() < 1e-12);
     }
 
     /// Given two squads that differ only in how well their forwards finish

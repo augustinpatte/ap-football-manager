@@ -55,6 +55,7 @@ fn p61_world_roles() {
     let reps = env::first("P61_REPS", "4");
     let clear_roles = std::env::var("P61_NOROLES").is_ok_and(|v| v == "1");
     let mut census: BTreeMap<String, usize> = BTreeMap::new();
+    let mut shapes: BTreeMap<String, usize> = BTreeMap::new();
     let mut squads_counted = 0usize;
     // One row per world: both sides of every match, home first.
     let mut per_world: Vec<(SideResult, SideResult, f64)> = Vec::new();
@@ -65,6 +66,16 @@ fn p61_world_roles() {
         }
         let _frozen = freeze_reviews_for_study();
         let clubs = league_clubs(&game);
+        // `P61_FORCE=4-1-4-1` puts every club of the league in that shape: the league's goal rate
+        // when everyone plays it.
+        if let Ok(shape) = std::env::var("P61_FORCE") {
+            for club in &clubs {
+                if let Some(team) = game.teams.iter_mut().find(|t| &t.id == club) {
+                    team.formation = shape.clone();
+                    team.starting_xi_ids.clear();
+                }
+            }
+        }
         if clear_roles {
             for team in game.teams.iter_mut() {
                 team.player_roles.clear();
@@ -73,6 +84,7 @@ fn p61_world_roles() {
         for club in &clubs {
             squads_counted += 1;
             if let Some(team) = game.teams.iter().find(|t| &t.id == club) {
+                *shapes.entry(team.formation.clone()).or_default() += 1;
                 for role in team.player_roles.values() {
                     *census.entry(format!("{role:?}")).or_default() += 1;
                 }
@@ -107,6 +119,14 @@ fn p61_world_roles() {
         per_world.len(),
         reps * 380,
         if clear_roles { ", ROLES CLEARED" } else { "" }
+    );
+    eprintln!(
+        "formations of the {squads_counted} league clubs: {}",
+        shapes
+            .iter()
+            .map(|(shape, n)| format!("{shape} {n}"))
+            .collect::<Vec<_>>()
+            .join(", ")
     );
     eprintln!("role census over {squads_counted} league squads (players holding the role):");
     for (role, count) in &census {
