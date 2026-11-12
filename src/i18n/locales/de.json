@@ -3348,7 +3348,8 @@
         "playerAlreadyInWorld": "Dieser Spieler ist bereits in deiner Welt.",
         "playerNotAvailable": "Dieser Spieler ist nicht verfügbar.",
         "playerIncomplete": "Der Datensatz dieses Spielers ist unvollständig, daher kann er nicht verpflichtet werden.",
-        "offerRejected": "Der abgebende Verein hat dieses Angebot als zu niedrig abgelehnt."
+        "offerRejected": "Der abgebende Verein hat dieses Angebot als zu niedrig abgelehnt.",
+        "negotiationNotAgreed": "Die Bedingungen wurden nicht vereinbart, daher kann die Verpflichtung nicht abgeschlossen werden."
       }
     },
     "sender": {

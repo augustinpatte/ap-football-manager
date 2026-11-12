@@ -243,6 +243,26 @@ describe("GlobalMarketTab", () => {
     expect(screen.getByRole("button", { name: "globalMarket.sign" })).toBeEnabled();
   });
 
+  it("resolves a blocker that carries parameters, so a full squad reads as a sentence", async () => {
+    const blocked: ExternalNegotiationOutcome = {
+      ...agreed,
+      status: "blocked",
+      blocker: "be.error.freeAgents.squadFull?count=30&max=30&release=1",
+    };
+    mockedDetail.mockResolvedValue(detail);
+    mockedNegotiate.mockResolvedValue(blocked);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
+
+    await screen.findByText(/be\.error\.freeAgents\.squadFull \{.*"count":"30"/);
+    expect(screen.queryByText(/squadFull\?count=/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "globalMarket.sign" })).toBeDisabled();
+  });
+
   it("shows a refusal with its reason and keeps the signing button closed", async () => {
     mockedDetail.mockResolvedValue(detail);
     mockedNegotiate.mockResolvedValue(refused);

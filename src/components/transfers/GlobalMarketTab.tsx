@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, CardBody, Dialog } from "../ui";
 import { formatDate } from "../../lib/dateFormatting";
-import { formatExactMoney, formatVal } from "../../lib/valueFormatting";
+import { formatExactMoney, formatVal, formatWeeklyWage } from "../../lib/valueFormatting";
 import GlobalMarketDetail from "./GlobalMarketDetail";
 import GlobalMarketFilters from "./GlobalMarketFilters";
 import GlobalMarketResults from "./GlobalMarketResults";
@@ -107,7 +107,7 @@ function ConfirmSigningDialog({ controller }: { controller: GlobalMarketControll
         <Term label={t("globalMarket.feeOffer")} value={formatVal(outcome.fee)} />
         <Term
           label={t("globalMarket.wageOffer")}
-          value={`${formatExactMoney(outcome.weeklyWage)} / w`}
+          value={formatWeeklyWage(outcome.weeklyWage)}
         />
         <Term
           label={t("globalMarket.yearsOffer")}

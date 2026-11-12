@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Badge, Button, Card, CardBody, CardHeader } from "../ui";
 import { buildPlayerAttributeGroups } from "../playerProfile/PlayerProfile.attributes";
 import { formatDate } from "../../lib/dateFormatting";
-import { formatExactMoney, formatVal } from "../../lib/valueFormatting";
+import { formatExactMoney, formatVal, formatWeeklyWage } from "../../lib/valueFormatting";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import {
@@ -94,7 +94,7 @@ function PlayerSummary({ controller }: GlobalMarketDetailProps) {
         <Stat label={t("common.ovr")} value={String(detail.ovr)} />
         <Stat label={t("globalMarket.potential")} value={String(detail.potential)} />
         <Stat label={t("globalMarket.marketValue")} value={formatVal(detail.marketValue)} />
-        <Stat label={t("common.wage")} value={`${formatExactMoney(detail.weeklyWage)} / w`} />
+        <Stat label={t("common.wage")} value={formatWeeklyWage(detail.weeklyWage)} />
         <Stat
           label={t("globalMarket.club")}
           value={detail.clubName ?? t("globalMarket.freeAgent")}
@@ -273,7 +273,7 @@ function OutcomePanel({ outcome }: { outcome: ExternalNegotiationOutcome }) {
       </ul>
       {outcome.blocker ? (
         <p role="alert" className="font-semibold">
-          {t(outcome.blocker)}
+          {resolveTranslatedErrorMessage(outcome.blocker, t)}
         </p>
       ) : null}
     </div>

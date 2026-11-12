@@ -3348,7 +3348,8 @@
         "playerAlreadyInWorld": "该球员已在你的世界中。",
         "playerNotAvailable": "该球员不可用。",
         "playerIncomplete": "该球员的记录不完整，无法签约。",
-        "offerRejected": "卖方俱乐部认为报价过低，已拒绝。"
+        "offerRejected": "卖方俱乐部认为报价过低，已拒绝。",
+        "negotiationNotAgreed": "条款尚未达成一致，因此无法完成签约。"
       }
     },
     "sender": {

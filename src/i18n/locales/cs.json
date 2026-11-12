@@ -3348,7 +3348,8 @@
         "playerAlreadyInWorld": "Tento hráč už je ve vašem světě.",
         "playerNotAvailable": "Tento hráč není k dispozici.",
         "playerIncomplete": "Záznam tohoto hráče je neúplný, takže ho nelze podepsat.",
-        "offerRejected": "Prodávající klub tuto nabídku odmítl jako příliš nízkou."
+        "offerRejected": "Prodávající klub tuto nabídku odmítl jako příliš nízkou.",
+        "negotiationNotAgreed": "Podmínky nebyly dohodnuty, takže přestup nelze dokončit."
       }
     },
     "sender": {

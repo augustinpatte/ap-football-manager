@@ -50,11 +50,25 @@ pub(crate) fn fee_block(team: &Team, fee: u64) -> Result<(), FeeBlock> {
 /// the moment it is agreed (a signing from the external registry) must read this, not
 /// [`fee_block`], or it could spend the cash and budget a deferred bid has already promised.
 pub(crate) fn fee_block_after_pending(game: &Game, team: &Team, fee: u64) -> Result<(), FeeBlock> {
+    fee_and_bonus_block_after_pending(game, team, fee, 0)
+}
+
+/// [`fee_block_after_pending`] for a deal that also pays a signing bonus today: the fee and the
+/// bonus are tested together, so neither can pass alone and the pair overdraw the club.
+pub(crate) fn fee_and_bonus_block_after_pending(
+    game: &Game,
+    team: &Team,
+    fee: u64,
+    signing_bonus: u64,
+) -> Result<(), FeeBlock> {
     fund_block_after(
         team,
         &pending_fee_commitments(game, &team.id),
         fee,
-        &TransferTerms::default(),
+        &TransferTerms {
+            signing_bonus,
+            ..TransferTerms::default()
+        },
     )
 }
 

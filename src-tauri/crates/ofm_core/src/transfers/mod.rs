@@ -45,7 +45,8 @@ mod strategy;
 mod terms;
 
 pub(crate) use affordability::{
-    FeeBlock, can_afford_fee, fee_block_after_pending, transfer_fee_ceiling,
+    FeeBlock, can_afford_fee, fee_and_bonus_block_after_pending, fee_block_after_pending,
+    transfer_fee_ceiling,
 };
 pub use bids::*;
 pub use consent::ERR_PLAYER_REFUSES_MOVE;

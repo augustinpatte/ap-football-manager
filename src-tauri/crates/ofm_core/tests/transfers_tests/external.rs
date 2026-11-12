@@ -401,6 +401,107 @@ fn an_external_free_agent_respects_the_senior_registration_limit() {
     );
 }
 
+/// Fills `team-1`'s senior list until exactly one place is free.
+fn leave_one_senior_place(game: &mut Game) {
+    let mut index = 0;
+    while squad_capacity(game, "team-1").free_places > 1 {
+        let mut filler = make_player(&format!("filler-{index}"));
+        filler.team_id = Some("team-1".to_string());
+        filler.stage_wage(0);
+        game.players.push(filler);
+        index += 1;
+    }
+}
+
+/// Given a senior list with one free place, and an in-game purchase agreed in the shut window that
+///       will take it when it registers
+/// When the window opens and the manager buys a contracted player from the global market
+/// Then the place is not his to take: he is refused with the registration limit's key and nothing
+///      changes, and the agreed deal still registers into the place it held, filling the list to 30
+#[test]
+fn an_agreed_in_game_purchase_holds_its_place_against_a_global_market_purchase() {
+    let target = contracted("fm-p-9011");
+    let mut game = closed_window_game(900_000_000, 900_000_000);
+    leave_one_senior_place(&mut game);
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the in-game deal is agreed");
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
+    open_the_window(&mut game);
+    let before = snapshot(&game);
+
+    let preview = preview_external_recruitment(&game, &target).unwrap();
+    let refused = recruit_external_player(&mut game, &target);
+
+    assert!(
+        preview
+            .blocker
+            .as_deref()
+            .is_some_and(|e| e.starts_with(SQUAD_FULL)),
+        "{preview:?}"
+    );
+    assert!(
+        refused
+            .as_deref_err()
+            .is_some_and(|e| e.starts_with(SQUAD_FULL)),
+        "{refused:?}"
+    );
+    assert_eq!(snapshot(&game), before, "a refusal mutates nothing");
+
+    process_pending_transfer_registrations(&mut game);
+
+    let registered = game.players.iter().find(|p| p.id == "target-a").unwrap();
+    assert_eq!(
+        registered.team_id.as_deref(),
+        Some("team-1"),
+        "the agreed deal registered"
+    );
+    assert_eq!(
+        squad_capacity(&game, "team-1").registered_seniors,
+        squad_capacity(&game, "team-1").senior_limit
+    );
+}
+
+/// Given the same agreed in-game purchase holding the last senior place
+/// When a global-market FREE AGENT is signed first (a free agent is judged against the live list,
+///      as every free-agent signing is) and the deal's registration date then arrives
+/// Then the list never exceeds the limit: the deal fails to register, is withdrawn with a reason,
+///      and the fee it would have paid is not taken
+///
+/// Characterizes a known gap, not a desired rule: the free agent takes the place the deal was
+/// promised. It fails cleanly; see docs/APFM_I2_INTEGRATION.md.
+#[test]
+fn a_free_agent_can_take_the_place_an_agreed_purchase_was_promised_and_the_deal_fails_cleanly() {
+    let free = external("fm-p-9012", None);
+    let mut game = closed_window_game(900_000_000, 900_000_000);
+    leave_one_senior_place(&mut game);
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the in-game deal is agreed");
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
+    open_the_window(&mut game);
+    recruit_external_player(&mut game, &free).expect("a free agent meets the live list only");
+    let cash = game.teams[0].finance;
+
+    process_pending_transfer_registrations(&mut game);
+
+    let capacity = squad_capacity(&game, "team-1");
+    assert_eq!(
+        capacity.registered_seniors, capacity.senior_limit,
+        "never above the limit"
+    );
+    let target = game.players.iter().find(|p| p.id == "target-a").unwrap();
+    assert_ne!(
+        target.team_id.as_deref(),
+        Some("team-1"),
+        "the deal did not register"
+    );
+    assert!(
+        target
+            .transfer_offers
+            .iter()
+            .all(|o| o.status != TransferOfferStatus::PendingRegistration),
+        "nothing is left pending"
+    );
+    assert_eq!(game.teams[0].finance, cash, "the fee was not taken");
+}
+
 /// `Result::as_deref_err` is not in std; the tests only need to look at the error text.
 trait ErrText {
     fn as_deref_err(&self) -> Option<&str>;

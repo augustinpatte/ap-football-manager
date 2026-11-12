@@ -29,8 +29,9 @@ use crate::external_world::{
 };
 use crate::game::Game;
 use crate::transfers::{
-    ClubView, ERR_PLAYER_REFUSES_MOVE, FeeBlock, fee_block_after_pending, log_completed_transfer,
-    pending_incoming_purchases, push_to_leave, senior_place_refusal, transfer_window_is_open,
+    ClubView, ERR_PLAYER_REFUSES_MOVE, FeeBlock, fee_and_bonus_block_after_pending,
+    fee_block_after_pending, log_completed_transfer, pending_incoming_purchases, push_to_leave,
+    senior_place_refusal, transfer_window_is_open,
 };
 use chrono::{Datelike, Months, NaiveDate};
 use domain::contract_ledger::{ContractRecord, ContractSource};
@@ -49,12 +50,13 @@ pub const ERR_OFFER_REJECTED: &str = "be.error.registry.offerRejected";
 pub const ERR_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 pub const ERR_NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 pub const ERR_MANAGED_TEAM_NOT_FOUND: &str = "be.error.managedTeamNotFound";
-pub const ERR_CONTRACT_END: &str = "be.error.contracts.unableToCalculateContractEnd";
+pub const ERR_CONTRACT_END: &str = crate::contracts::ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE;
 /// A negotiation attempt that did not end in agreement: a counter is not a signature, and the
 /// caller must put the countered terms back on the table.
 pub const ERR_NEGOTIATION_NOT_AGREED: &str = "be.error.registry.negotiationNotAgreed";
-/// The manager's contract terms are outside what a contract may carry.
-pub const ERR_INVALID_NEGOTIATION_TERMS: &str = "be.error.registry.invalidOffer";
+/// The manager's contract terms are outside what a contract may carry: the free-agent talks'
+/// refusal, so a player reads one sentence for one mistake wherever it is made.
+pub const ERR_INVALID_NEGOTIATION_TERMS: &str = crate::contracts::ERR_INVALID_OFFER;
 
 /// Where a negotiation stands. The interface shows one of these and never has to infer it from
 /// the numbers.
@@ -610,7 +612,7 @@ fn negotiation_facts(
     };
 
     let window_open = free_agent || transfer_window_is_open(game);
-    let fee_check = fee_block_after_pending(game, team, terms.fee);
+    let fee_check = fee_and_bonus_block_after_pending(game, team, terms.fee, signing_bonus);
     let wage_policy_allows = BuyerWageFacts::of_committed(game, &team.id)
         .purchase_verdict(team, &player, final_wage)
         .permits();
@@ -1617,6 +1619,71 @@ mod tests {
         assert_eq!(game.teams[0].finance, cash - 100_000);
         assert_eq!(game.teams[0].transfer_budget, budget - 100_000);
         assert!(game.players.iter().any(|stored| stored.id == "fm-p-55"));
+    }
+
+    /// Given cash and a transfer budget that cover a contracted player's fee but not the fee plus
+    /// a signing bonus
+    /// When the manager negotiates and then signs him with that bonus
+    /// Then the move is blocked on the fee-and-bonus total, nothing is signed, and cash and budget
+    /// stay non-negative; with room for both, the same terms sign
+    #[test]
+    fn a_fee_and_bonus_together_cannot_overdraw_cash_or_the_transfer_budget() {
+        let player = external_contracted("fm-p-57");
+        let asking =
+            negotiate_external_transfer(&game(), &player, ExternalNegotiationRequest::default())
+                .unwrap();
+        let bonus = 100_000_u64;
+        let request = ExternalNegotiationRequest {
+            weekly_wage: Some(asking.weekly_wage),
+            contract_years: Some(2),
+            signing_bonus: Some(bonus),
+            ..ExternalNegotiationRequest::default()
+        };
+
+        let mut short = game();
+        short.teams[0].finance = asking.fee as i64 + bonus as i64 - 1;
+        short.teams[0].transfer_budget = asking.fee as i64 + bonus as i64 - 1;
+        let players = short.players.len();
+        let outcome = negotiate_external_transfer(&short, &player, request).unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_BLOCKED, "{outcome:?}");
+        assert!(finalize_external_transfer(&mut short, &player, request).is_err());
+        assert_eq!(short.players.len(), players, "nothing was signed");
+        assert_eq!(short.teams[0].finance, asking.fee as i64 + bonus as i64 - 1);
+
+        let mut roomy = game();
+        roomy.teams[0].finance = asking.fee as i64 + bonus as i64;
+        roomy.teams[0].transfer_budget = asking.fee as i64 + bonus as i64;
+        finalize_external_transfer(&mut roomy, &player, request).expect("room for both signs");
+        assert_eq!(roomy.teams[0].finance, 0);
+        assert_eq!(roomy.teams[0].transfer_budget, 0);
+    }
+
+    /// Given an agreed in-game purchase waiting to register that holds most of the club's cash
+    /// When the manager signs a free agent whose bonus needs that held cash
+    /// Then the bonus is refused: held cash is not his to spend twice
+    #[test]
+    fn a_signing_bonus_cannot_spend_cash_an_agreed_purchase_is_holding() {
+        let player = external_free_agent("fm-p-58");
+        let standard =
+            negotiate_external_transfer(&game(), &player, ExternalNegotiationRequest::default())
+                .unwrap();
+        let request = ExternalNegotiationRequest {
+            weekly_wage: Some(standard.weekly_wage),
+            contract_years: Some(2),
+            signing_bonus: Some(100_000),
+            ..ExternalNegotiationRequest::default()
+        };
+        let mut game = game();
+        promised_incoming_purchase(&mut game, "held-deal");
+        game.teams[0].finance = 1_000_000 + 99_999;
+        game.teams[0].transfer_budget = 900_000_000;
+        let before_players = game.players.len();
+
+        let outcome = negotiate_external_transfer(&game, &player, request).unwrap();
+
+        assert_eq!(outcome.status, NEGOTIATION_BLOCKED, "{outcome:?}");
+        assert!(finalize_external_transfer(&mut game, &player, request).is_err());
+        assert_eq!(game.players.len(), before_players);
     }
 
     /// Given terms a contract cannot carry, when they are negotiated, then the request is refused

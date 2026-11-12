@@ -3348,7 +3348,8 @@
         "playerAlreadyInWorld": "Ce joueur fait déjà partie de votre monde.",
         "playerNotAvailable": "Ce joueur n'est pas disponible.",
         "playerIncomplete": "La fiche de ce joueur est incomplète, il ne peut donc pas être recruté.",
-        "offerRejected": "Le club vendeur a refusé cette offre, jugée trop basse."
+        "offerRejected": "Le club vendeur a refusé cette offre, jugée trop basse.",
+        "negotiationNotAgreed": "Les conditions n'ont pas été acceptées, la signature ne peut donc pas avoir lieu."
       }
     },
     "sender": {

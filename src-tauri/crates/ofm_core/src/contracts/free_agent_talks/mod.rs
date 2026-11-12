@@ -26,6 +26,7 @@ pub(crate) use appeal::{
 };
 pub use capacity::{SquadCapacity, squad_capacity};
 pub(crate) use consts::ACCEPT_AT;
+pub(crate) use consts::ERR_INVALID_OFFER;
 pub(crate) use consts::{
     PUSH_CLUB_IN_TROUBLE, PUSH_CONTRACT_ENDING, PUSH_CONTRACT_RUNNING_DOWN, PUSH_DISCONTENT,
     PUSH_LISTED, PUSH_UNHAPPY,
