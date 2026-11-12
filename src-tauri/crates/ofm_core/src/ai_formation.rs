@@ -20,13 +20,17 @@
 //!
 //! # How a change is decided
 //!
-//! Each candidate formation is scored by the squad model the market already prices signings by: the
-//! squad built for that formation, planned over the club's own horizon, with absences allowed for.
-//! That one number already knows depth (cover when a starter is out), ageing, development and
-//! contracts that run out, so there is no second squad-quality model here. The score is the model's
-//! mean rating of the eleven slots, plus a *taste* of at most a few tenths of a point (the manager's
-//! and the club's), so taste decides between formations the squad is indifferent between and cannot
-//! make a squad play a shape it cannot fill.
+//! Each candidate formation is scored by what the engine makes of the eleven the club would field
+//! in it ([`crate::formation_fit`]): the means of the attributes the match contests read, in the
+//! squad model's own unit of a mean rating point of the eleven, plus a *taste* of at most a few
+//! tenths of a point (the manager's and the club's). Taste decides between formations the squad
+//! is indifferent between and cannot make a squad play a shape it cannot fill.
+//!
+//! The squad model the market prices signings by used to be this score. It still rates every
+//! formation ([`FormationScore::squad`]) and still prices a signing, but it no longer ranks a
+//! club's formations: across a club's own eight formations it had no relationship to results that
+//! could be told from a reversed one (P6.1), because what it rates is the fit of players to slots,
+//! which the engine does not read.
 //!
 //! The club moves only when the best formation beats the current one by a **margin**. The margin
 //! falls while a new manager beds in and when results have been poor for a manager who adapts
@@ -228,15 +232,18 @@ pub(crate) fn margin(circumstances: &Circumstances) -> f64 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormationScore {
     pub formation: &'static str,
-    /// What the squad is worth in it (the squad model's mean rating of the eleven slots).
+    /// What the squad is worth in it (the squad model's mean rating of the eleven slots). Not part
+    /// of the total: kept so a study can set it against results.
     pub squad: f64,
+    /// What the engine makes of the eleven the club would field in it, in mean rating points.
+    pub fit: f64,
     /// What the club and its manager like about it.
     pub taste: f64,
 }
 
 impl FormationScore {
     pub fn total(&self) -> f64 {
-        self.squad + self.taste
+        self.fit + self.taste
     }
 }
 
@@ -251,6 +258,7 @@ pub(crate) fn score_all(
         .map(|formation| FormationScore {
             formation,
             squad: squad_score(squad, formation, circumstances.today),
+            fit: crate::formation_fit::engine_fit(squad, formation),
             taste: taste(team, &circumstances.manager, formation),
         })
         .collect()
@@ -416,9 +424,51 @@ mod tests {
             .add(Position::Striker, &[75, 73, 67])
     }
 
+    /// Given a formation the squad model rates far above the others and the engine's fit does not
+    /// When the score's total is read
+    /// Then it is the engine's fit and the taste, whatever the squad model says: the squad model
+    ///      ranked a club's formations by a level per shape the engine does not pay (P6.1).
+    #[test]
+    fn a_formations_total_is_the_engines_fit_and_the_taste_and_not_the_squad_models_score() {
+        let score = FormationScore {
+            formation: "4-3-3",
+            squad: 99.0,
+            fit: 1.5,
+            taste: -0.25,
+        };
+        assert_eq!(score.total(), 1.25);
+    }
+
+    /// Given a full squad
+    /// When every formation is scored
+    /// Then each score carries the engine's fit of that formation, not a copy of the squad score.
+    #[test]
+    fn every_formation_is_scored_by_the_engines_fit() {
+        let squad = Squad::balanced()
+            .add(Position::AttackingMidfielder, &[72, 68])
+            .add(Position::DefensiveMidfielder, &[72, 68])
+            .add(Position::LeftWinger, &[70, 66])
+            .add(Position::RightWinger, &[70, 66]);
+        let players = refs(&squad);
+        let team = neutral_team("4-4-2");
+        let scores = score_all(&team, &players, &circumstances(ManagerIdentity::NEUTRAL));
+        assert_eq!(scores.len(), FORMATIONS.len());
+        for score in &scores {
+            assert_eq!(
+                score.fit,
+                crate::formation_fit::engine_fit(&players, score.formation)
+            );
+        }
+        let fits: Vec<f64> = scores.iter().map(|s| s.fit).collect();
+        assert!(
+            fits.windows(2).any(|pair| (pair[0] - pair[1]).abs() > 0.05),
+            "a squad's formations all fit alike: {fits:?}"
+        );
+    }
+
     /// Given a squad with three outstanding centre backs and poor full backs, playing a back four
     /// When its formation is reviewed
-    /// Then it moves to a back three, because the squad model values the side higher in one.
+    /// Then it moves to a back three, because the engine makes more of its back line there.
     #[test]
     fn a_squad_with_three_great_centre_backs_moves_to_a_back_three() {
         let squad = back_three_squad();

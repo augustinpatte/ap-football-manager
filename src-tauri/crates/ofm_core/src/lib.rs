@@ -42,6 +42,7 @@ pub mod fast_forward;
 pub mod finances;
 pub mod firing;
 pub mod football_identity;
+mod formation_fit;
 pub mod game;
 pub mod generator;
 pub mod group_stage;
