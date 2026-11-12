@@ -34,17 +34,49 @@ use crate::external_registry::{ExternalClub, ExternalPlayer};
 use crate::player_rating::{natural_ovr, refresh_player_derived};
 use crate::seed::rng_for_seed;
 
-/// How many new professional players the aggregate generator adds to the market each season.
+/// The largest number of new professional players one season may add to the market.
 ///
-/// This is not a youth academy per club: it is the whole external world's annual intake, split
-/// across the clubs already present in the source. 900 is deliberately smaller than the source's
-/// retirement rate, so the market thins over a long career instead of inflating; the long-career
-/// test measures the resulting population.
-pub const NEWGEN_INTAKE_PER_SEASON: usize = 900;
+/// The intake is **not** a fixed number any more: it replaces the players who actually retired in
+/// the season (see [`newgen_intake_for`]). That keeps the market populated without inflating it,
+/// because births track deaths instead of adding a permanently growing layer of generated players.
+/// The cap is a safety bound for a corrupt source or a pathological retirement season; a real
+/// 61k-player market retires a few thousand a season, well below it.
+pub const MAX_NEWGEN_INTAKE_PER_SEASON: usize = 6_000;
+
+/// Elite prospects per thousand newgens. The generator's ordinary ceilings make an 85+ player
+/// vanishingly rare; this small deterministic supplement keeps elite talent emerging without
+/// turning the market into a superclub. At a 2 300 intake this is about 19 prospects a season.
+pub const ELITE_NEWGENS_PER_THOUSAND: usize = 8;
+
+/// No season with an intake may add more than this many elite prospects, so a very large intake
+/// cannot flood the top of the market.
+pub const ELITE_NEWGEN_MAX_PER_SEASON: usize = 24;
 
 /// The projection is only ever asked for a plausible career span. A corrupt clock cannot make the
 /// cache builder replay ten thousand seasons.
 pub const MAX_CAREER_SEASONS: i32 = 80;
+
+/// How many newgens a season generates for the number of external players who retired at its end.
+///
+/// One-for-one replacement is the sustainable rule: the external market is a population, not a
+/// pipeline, so a season that loses 2 400 players needs about 2 400 new ones. The old fixed 900
+/// intake was below the source's retirement flow and shrank the searchable market from ~61k to
+/// ~14k over twenty seasons. The cap is the only bound; a season with nothing retiring adds nobody.
+pub fn newgen_intake_for(retirements: usize) -> usize {
+    retirements.min(MAX_NEWGEN_INTAKE_PER_SEASON)
+}
+
+/// How many of this season's newgens are elite prospects. Proportional to the intake, bounded, and
+/// zero when nothing is generated.
+pub fn elite_newgens_for(intake: usize) -> usize {
+    if intake == 0 {
+        return 0;
+    }
+    intake
+        .saturating_mul(ELITE_NEWGENS_PER_THOUSAND)
+        .div_ceil(1_000)
+        .clamp(1, ELITE_NEWGEN_MAX_PER_SEASON)
+}
 
 /// A career's external-world identity. The seed is `Game::seed`; the start season is the season the
 /// career's clock started in. The pair is saved with the game, so a reload projects the same world.
@@ -546,10 +578,16 @@ fn fallback_clubs() -> Vec<ExternalClubRef> {
 
 /// One season's aggregate intake. Generated from the seed and the absolute season alone, so a
 /// rebuild of the cache for the same season cannot invent a different class of youngsters.
+///
+/// The size is the season's retirement count (see [`newgen_intake_for`]). The first
+/// [`elite_newgens_for`] slots of the class are the season's elite prospects; every other slot is
+/// an ordinary youth. Slot order is fixed, so the same seed and season always names the same
+/// player, whichever rebuild produced the cohort.
 pub fn newgen_cohort(
     key: ExternalCareerKey,
     season: i32,
     clubs: &[ExternalClubRef],
+    intake: usize,
 ) -> Vec<ExternalPlayer> {
     let fallback;
     let pool = if clubs.is_empty() {
@@ -558,9 +596,17 @@ pub fn newgen_cohort(
     } else {
         clubs
     };
-    (0..NEWGEN_INTAKE_PER_SEASON)
-        .filter_map(|index| newgen_one(key, season, index, pool))
+    let elite = elite_newgens_for(intake);
+    (0..intake)
+        .filter_map(|index| newgen_one(key, season, index, pool, index < elite))
         .collect()
+}
+
+/// The potential an elite prospect may reach: the top of the market, drawn narrowly so the very
+/// best players keep being replaced without a superclub forming. Ordinary youth keep the shared
+/// generator's ceiling.
+fn elite_potential(rng: &mut impl Rng) -> u8 {
+    86 + rng.random_range(0..10) as u8
 }
 
 fn newgen_one(
@@ -568,6 +614,7 @@ fn newgen_one(
     season: i32,
     index: usize,
     clubs: &[ExternalClubRef],
+    elite: bool,
 ) -> Option<ExternalPlayer> {
     let mut rng = rng_for_seed(
         key.seed,
@@ -600,6 +647,9 @@ fn newgen_one(
     );
     player.id = format!("fm-n-{season}-{index:04}");
     player.team_id = None;
+    if elite {
+        player.potential = player.potential.max(elite_potential(&mut rng));
+    }
     let age = age_on(season_start(season), &player.date_of_birth);
     let attached = rng.random_range(0..100) < 70;
     let contract = if attached {
@@ -638,40 +688,45 @@ fn newgen_one(
     })
 }
 
-/// Every newgen that exists at `season`, projected to it. The cohort of a season is generated from
-/// that season's own stream, then developed forward exactly like a source player.
-pub fn projected_newgens(
-    key: ExternalCareerKey,
-    season: i32,
-    clubs: &[ExternalClubRef],
-) -> Vec<ProjectedExternalPlayer> {
-    let mut all = Vec::new();
-    for intake in (key.start_season + 1)..=season {
-        for newgen in newgen_cohort(key, intake, clubs) {
-            let projected = project_from(&newgen, key, intake, season, clubs, true);
-            if !projected.retired {
-                all.push(projected);
-            }
-        }
-    }
-    all
-}
-
 /// The whole market at `season`: surviving source players plus generated newgens. Used by the
-/// cache builder and by the long-career validation, so both see the same world.
+/// long-career validation, so it applies exactly the rule the cache builder applies — one-for-one
+/// replacement sized by the retirements of the season just replayed.
 pub fn projected_market(
     sources: &[ExternalPlayer],
     key: ExternalCareerKey,
     season: i32,
     clubs: &[ExternalClubRef],
 ) -> Vec<ProjectedExternalPlayer> {
-    let mut market: Vec<ProjectedExternalPlayer> = sources
+    let mut market: Vec<(ExternalPlayer, bool)> = sources
         .iter()
-        .map(|player| project_player(player, key, season, clubs))
-        .filter(|projected| !projected.retired)
+        .cloned()
+        .map(|player| (player, false))
         .collect();
-    market.extend(projected_newgens(key, season, clubs));
+    let start = key.start_season;
+    for replay in (start + 1)..=season {
+        let mut retired = 0;
+        market.retain_mut(|(external, newgen)| {
+            let projected = project_from(external, key, replay - 1, replay, clubs, *newgen);
+            if projected.retired {
+                retired += 1;
+                return false;
+            }
+            *external = projected.player;
+            true
+        });
+        for newgen in newgen_cohort(key, replay, clubs, newgen_intake_for(retired)) {
+            market.push((newgen, true));
+        }
+    }
     market
+        .into_iter()
+        .map(|(player, newgen)| ProjectedExternalPlayer {
+            player,
+            retired: false,
+            newgen,
+            season,
+        })
+        .collect()
 }
 
 /// The annual external-world maintenance the turn loop can call, without touching the match engine:
@@ -886,13 +941,15 @@ mod tests {
     }
 
     /// Given a newgen class, when it is generated twice, then the identities are unique and the
-    /// same seed re-generates the same class.
+    /// same seed re-generates the same class; the elite slots reach the top of the market and only
+    /// a bounded share of the class is elite.
     #[test]
     fn newgens_are_unique_and_repeatable() {
         let key = ExternalCareerKey::new(21, 2026);
-        let first = newgen_cohort(key, 2027, &clubs());
-        let second = newgen_cohort(key, 2027, &clubs());
-        assert_eq!(first.len(), NEWGEN_INTAKE_PER_SEASON);
+        let intake = 400;
+        let first = newgen_cohort(key, 2027, &clubs(), intake);
+        let second = newgen_cohort(key, 2027, &clubs(), intake);
+        assert_eq!(first.len(), intake);
         assert_eq!(
             first.iter().map(|p| p.id.clone()).collect::<Vec<_>>(),
             second.iter().map(|p| p.id.clone()).collect::<Vec<_>>()
@@ -903,6 +960,30 @@ mod tests {
         assert_eq!(ids.len(), first.len());
         assert!(first.iter().all(|p| p.id.starts_with("fm-n-2027-")));
         assert!(first.iter().all(|p| p.potential >= p.ovr));
+
+        let elite_count = elite_newgens_for(intake);
+        assert!((1..=ELITE_NEWGEN_MAX_PER_SEASON).contains(&elite_count));
+        let elite = first.iter().filter(|p| p.potential >= 86).count();
+        assert_eq!(elite, elite_count, "elite slots did not reach 86");
+        assert!(elite * 100 / first.len() < 10, "elite share is not small");
+    }
+
+    /// Given a season's retirement count, when the intake is computed, then it replaces deaths
+    /// one-for-one and is bounded; a season with no deaths adds nobody.
+    #[test]
+    fn intake_tracks_retirements_one_for_one() {
+        assert_eq!(newgen_intake_for(0), 0);
+        assert_eq!(newgen_intake_for(2_340), 2_340);
+        assert_eq!(
+            newgen_intake_for(MAX_NEWGEN_INTAKE_PER_SEASON + 5_000),
+            MAX_NEWGEN_INTAKE_PER_SEASON
+        );
+        assert_eq!(elite_newgens_for(0), 0);
+        assert_eq!(elite_newgens_for(2_000), 16);
+        assert_eq!(
+            elite_newgens_for(MAX_NEWGEN_INTAKE_PER_SEASON),
+            ELITE_NEWGEN_MAX_PER_SEASON
+        );
     }
 
     /// Given a career thirty seasons old, when the market is projected, then it is populated by
@@ -924,8 +1005,13 @@ mod tests {
             .collect();
         let market = projected_market(&sources, key, 2056, &clubs());
         assert!(
-            market.len() > 400,
+            market.len() >= sources.len() * 9 / 10,
             "market collapsed: {} players",
+            market.len()
+        );
+        assert!(
+            market.len() <= sources.len() * 11 / 10,
+            "market inflated: {} players",
             market.len()
         );
         assert!(market.iter().any(|projected| projected.newgen));
@@ -937,6 +1023,23 @@ mod tests {
         );
         let sources_left = market.iter().filter(|projected| !projected.newgen).count();
         assert!(sources_left < sources.len(), "no source player retired");
+        // Elite regeneration: some generated prospect must carry a top-of-market ceiling, or the
+        // top of the world decays to the source cohort's last veterans.
+        assert!(
+            market
+                .iter()
+                .any(|projected| projected.newgen && projected.player.potential >= 86),
+            "no elite prospect was generated"
+        );
+        let elite = market
+            .iter()
+            .filter(|projected| projected.player.potential >= 86)
+            .count();
+        assert!(
+            elite * 100 / market.len() < 15,
+            "elite prospects are not rare: {elite} of {}",
+            market.len()
+        );
     }
 
     fn source_player(n: usize) -> ExternalPlayer {
@@ -978,6 +1081,7 @@ mod tests {
         season: i32,
         clubs: &[ExternalClubRef],
     ) {
+        let mut retirements = 0usize;
         market.retain_mut(|external| {
             let projected = project_from(
                 external,
@@ -988,12 +1092,13 @@ mod tests {
                 external.id.starts_with("fm-n-"),
             );
             if projected.retired {
+                retirements += 1;
                 return false;
             }
             *external = projected.player;
             true
         });
-        for newgen in newgen_cohort(key, season, clubs) {
+        for newgen in newgen_cohort(key, season, clubs, newgen_intake_for(retirements)) {
             let projected = project_from(&newgen, key, season, season, clubs, true);
             if !projected.retired {
                 market.push(projected.player);

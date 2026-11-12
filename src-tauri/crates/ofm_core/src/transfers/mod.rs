@@ -51,7 +51,8 @@ pub use bids::*;
 pub use consent::ERR_PLAYER_REFUSES_MOVE;
 pub use consent::PlayerOutlook;
 pub(crate) use consent::{
-    MoveJudgement, SweepConsent, incoming_deal_terms, judge_in_game, still_agrees,
+    ClubView, MoveJudgement, SweepConsent, incoming_deal_terms, judge_in_game, push_to_leave,
+    still_agrees,
 };
 use consts::*;
 pub use deadline::{
@@ -71,8 +72,9 @@ use realism::*;
 pub(crate) use realism::{DESIRED_DEPTH, LONG_INJURY_DAYS, group_is_thin, window_phase};
 use registration::*;
 pub(crate) use registration::{
-    has_pending_transfer_registration, pending_fee_commitments, pending_wage_commitments,
-    player_has_active_or_pending_loan, player_has_pending_registration, transfer_window_is_open,
+    has_pending_transfer_registration, pending_fee_commitments, pending_incoming_purchases,
+    pending_wage_commitments, player_has_active_or_pending_loan, player_has_pending_registration,
+    senior_place_refusal, transfer_window_is_open,
 };
 pub(crate) use sale_view::reinvestment_gain;
 pub(crate) use strategy::{Ambition, ClubProfile, Means, profile_in, profile_of, strategies_of};

@@ -317,12 +317,7 @@ fn ensure_place_for(
     if player.team_id.as_deref() == Some(buyer_team_id) {
         return Ok(());
     }
-    let capacity = crate::contracts::squad_capacity(game, buyer_team_id);
-    if capacity.free_places > promised {
-        Ok(())
-    } else {
-        Err(capacity.full_error())
-    }
+    super::registration::senior_place_refusal(game, buyer_team_id, promised).map_or(Ok(()), Err)
 }
 
 /// Whether `buyer_team_id` could be given the contract it would need to buy this

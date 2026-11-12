@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
 import {
+  finalizeExternalTransfer,
   getExternalPlayer,
   getExternalRegistryStatus,
+  negotiateExternalTransfer,
   previewExternalRecruitment,
   recruitExternalPlayer,
   searchExternalPlayers,
+  type ExternalNegotiationRequest,
   type RegistrySearchRequest,
 } from "./registryService";
 
@@ -75,5 +78,29 @@ describe("registryService", () => {
 
     await expect(getExternalRegistryStatus()).resolves.toBe(status);
     expect(mockedInvoke).toHaveBeenCalledWith("get_external_registry_status");
+  });
+
+  it("negotiates, then finalizes, through the two negotiation commands", async () => {
+    const request: ExternalNegotiationRequest = {
+      fee: 5_000_000,
+      weeklyWage: 40_000,
+      contractYears: 3,
+      signingBonus: 250_000,
+    };
+    const outcome = { playerId: "fm-p-42", status: "agreed", fee: 5_000_000 };
+    const signed = { game: {}, outcome: { playerId: "fm-p-42" } };
+    mockedInvoke.mockResolvedValueOnce(outcome).mockResolvedValueOnce(signed);
+
+    await expect(negotiateExternalTransfer("fm-p-42", request)).resolves.toBe(outcome);
+    await expect(finalizeExternalTransfer("fm-p-42", request)).resolves.toBe(signed);
+
+    expect(mockedInvoke).toHaveBeenNthCalledWith(1, "negotiate_external_transfer", {
+      playerId: "fm-p-42",
+      request,
+    });
+    expect(mockedInvoke).toHaveBeenNthCalledWith(2, "finalize_external_transfer", {
+      playerId: "fm-p-42",
+      request,
+    });
   });
 });

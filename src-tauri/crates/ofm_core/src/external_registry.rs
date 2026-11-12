@@ -19,16 +19,22 @@
 
 use crate::contract_wage_policy::{BuyerWageFacts, renewal_wage_policy_error_message};
 use crate::contracts::{
-    contract_entry, contract_record, expected_contract_years, expected_wage,
-    free_agent_signed_message, sign_free_agent, squad_capacity, standard_contract_terms,
+    ACCEPT_AT, ClubSquad, Incumbent, MAX_CONTRACT_YEARS, OfferTerms as AppealTerms, Verdict,
+    appeal_of, club_standing, contract_entry, contract_record, counter_terms,
+    expected_contract_years, expected_wage, facts_for, free_agent_signed_message, sign_free_agent,
+    standard_contract_terms,
 };
-use crate::external_world::{ExternalOfferContext, ExternalOfferDecision};
+use crate::external_world::{
+    ExternalOfferContext, ExternalOfferDecision, expected_ovr_for_reputation,
+};
 use crate::game::Game;
 use crate::transfers::{
-    FeeBlock, fee_block_after_pending, log_completed_transfer, transfer_window_is_open,
+    ClubView, ERR_PLAYER_REFUSES_MOVE, FeeBlock, fee_block_after_pending, log_completed_transfer,
+    pending_incoming_purchases, push_to_leave, senior_place_refusal, transfer_window_is_open,
 };
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Months, NaiveDate};
 use domain::contract_ledger::{ContractRecord, ContractSource};
+use domain::free_agent_talk::FreeAgentTalkReason;
 use domain::league::CompletedTransfer;
 use domain::player::{
     Footedness, Player, PlayerAttributes, PlayerMovementEntry, PlayerMovementKind, Position,
@@ -44,6 +50,81 @@ pub const ERR_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 pub const ERR_NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
 pub const ERR_MANAGED_TEAM_NOT_FOUND: &str = "be.error.managedTeamNotFound";
 pub const ERR_CONTRACT_END: &str = "be.error.contracts.unableToCalculateContractEnd";
+/// A negotiation attempt that did not end in agreement: a counter is not a signature, and the
+/// caller must put the countered terms back on the table.
+pub const ERR_NEGOTIATION_NOT_AGREED: &str = "be.error.registry.negotiationNotAgreed";
+/// The manager's contract terms are outside what a contract may carry.
+pub const ERR_INVALID_NEGOTIATION_TERMS: &str = "be.error.registry.invalidOffer";
+
+/// Where a negotiation stands. The interface shows one of these and never has to infer it from
+/// the numbers.
+pub const NEGOTIATION_AGREED: &str = "agreed";
+/// The selling club wants a higher fee; no deal exists until the buyer offers it.
+pub const NEGOTIATION_CLUB_COUNTERED: &str = "club_countered";
+/// The selling club refused the fee as an insult.
+pub const NEGOTIATION_CLUB_REJECTED: &str = "club_rejected";
+/// The player wants a different wage or length.
+pub const NEGOTIATION_PLAYER_COUNTERED: &str = "player_countered";
+/// The player will not move, whatever the money.
+pub const NEGOTIATION_PLAYER_REFUSED: &str = "player_refused";
+/// A permanent or financial rule blocks the move before either party answers.
+pub const NEGOTIATION_BLOCKED: &str = "blocked";
+
+/// What the manager puts on the table for one external player. Every field is optional: `None`
+/// means the buyer's standard term for it, which keeps the one-click path a real offer rather than
+/// a hidden shortcut. `#[serde(default)]` keeps an older client's payload valid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalNegotiationRequest {
+    /// The fee offered to the selling club. `None` offers the club's own request.
+    #[serde(default)]
+    pub fee: Option<u64>,
+    /// The weekly wage offered to the player. `None` offers the buyer's standard terms.
+    #[serde(default)]
+    pub weekly_wage: Option<u32>,
+    /// Contract length in years. `None` uses the standard length for his age.
+    #[serde(default)]
+    pub contract_years: Option<u32>,
+    /// Paid to the player on completion, on top of the fee.
+    #[serde(default)]
+    pub signing_bonus: Option<u64>,
+}
+
+/// One complete answer to a negotiation attempt: both parties' decisions, the terms that would
+/// end the negotiation if the manager accepts them, and every check the move still has to pass.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalNegotiationOutcome {
+    pub player_id: String,
+    pub free_agent: bool,
+    /// One of the `NEGOTIATION_*` constants.
+    pub status: String,
+    /// The fee the buyer must pay to complete, or the club's counter when it countered.
+    pub fee: u64,
+    /// The club's own floor for this player, whatever was offered.
+    pub minimum_fee: u64,
+    /// `accepted`, `countered` or `rejected`, as the selling club answered.
+    pub club_decision: String,
+    /// The wage that would complete the move: the manager's, or the player's ask after a counter.
+    pub weekly_wage: u32,
+    /// The length that would complete the move.
+    pub contract_years: u32,
+    pub signing_bonus: u64,
+    pub contract_end: String,
+    /// `accepts`, `counters` or `refuses`, as the player answered.
+    pub player_verdict: String,
+    /// The player's explainable score for the terms; negative means he is not convinced.
+    pub player_score: i32,
+    /// The term that hurt his answer most, when he did not accept.
+    pub main_obstacle: Option<FreeAgentTalkReason>,
+    pub can_afford_fee: bool,
+    pub wage_policy_allows: bool,
+    pub can_afford_bonus: bool,
+    pub window_open: bool,
+    /// The translation key that blocks the move, if any.
+    pub blocker: Option<String>,
+    pub from_club: Option<String>,
+}
 
 /// The oldest age at which the registry still considers an external player available. It matches
 /// the retirement projection the registry query applies, so a player who has disappeared from
@@ -275,7 +356,7 @@ pub fn preview_external_recruitment(
 
 /// What the preview shows for the fee: the club's floor, the fee actually payable, its named
 /// decision and whether a lowball was refused.
-struct OfferTerms {
+struct FeeTerms {
     fee: u64,
     minimum_fee: u64,
     club_decision: &'static str,
@@ -297,7 +378,7 @@ struct OfferRequest<'a> {
 /// Price one external player. `offer = None` is the one-click request; `Some(offer)` is an explicit
 /// buyer's offer, which the club may accept, counter or reject. Pure: everything it reads is passed
 /// in, including the career seed and season, so a repeated preview cannot re-roll the club.
-fn offer_terms(game: &Game, request: &OfferRequest<'_>) -> OfferTerms {
+fn fee_terms(game: &Game, request: &OfferRequest<'_>) -> FeeTerms {
     let OfferRequest {
         external,
         today,
@@ -308,7 +389,7 @@ fn offer_terms(game: &Game, request: &OfferRequest<'_>) -> OfferTerms {
         offer,
     } = *request;
     if free_agent {
-        return OfferTerms {
+        return FeeTerms {
             fee: 0,
             minimum_fee: 0,
             club_decision: "accepted",
@@ -339,7 +420,7 @@ fn offer_terms(game: &Game, request: &OfferRequest<'_>) -> OfferTerms {
         player_id: external.id.clone(),
     };
     let minimum = context.minimum_fee();
-    let terms = |fee: u64, decision: &'static str, rejected: bool| OfferTerms {
+    let terms = |fee: u64, decision: &'static str, rejected: bool| FeeTerms {
         fee,
         minimum_fee: minimum,
         club_decision: decision,
@@ -384,7 +465,7 @@ pub fn preview_external_recruitment_with_offer(
             today,
         )
     };
-    let terms = offer_terms(
+    let terms = fee_terms(
         game,
         &OfferRequest {
             external,
@@ -412,7 +493,7 @@ pub fn preview_external_recruitment_with_offer(
     } else {
         identity_blocker(external, age, window_open)
             .or_else(|| terms.rejected.then(|| ERR_OFFER_REJECTED.to_string()))
-            .or_else(|| squad_blocker(game, team, free_agent))
+            .or_else(|| squad_blocker(game, team, &external.id, free_agent))
             .or_else(|| finance_blocker(team, fee_check, wage_policy_allows))
     };
 
@@ -433,6 +514,373 @@ pub fn preview_external_recruitment_with_offer(
     })
 }
 
+/// Everything both parties decided, before the permanent and financial rules are folded in.
+struct NegotiationFacts {
+    today: NaiveDate,
+    free_agent: bool,
+    age: i32,
+    terms: FeeTerms,
+    response: PlayerResponse,
+    final_wage: u32,
+    final_years: u32,
+    signing_bonus: u64,
+    window_open: bool,
+    can_afford_fee: bool,
+    wage_policy_allows: bool,
+    can_afford_bonus: bool,
+    already_in_world: bool,
+    bonus_blocker: Option<String>,
+    squad_blocker: Option<String>,
+    finance_blocker: Option<String>,
+}
+
+/// The whole negotiation, with no mutation: the selling club's answer on the fee, the player's
+/// answer on the contract, and every permanent or financial rule that would stop the deal. The
+/// same inputs always produce the same answer, so previewing twice cannot re-roll either party.
+///
+/// A counter is not an agreement. The manager accepts it by sending the countered terms back as a
+/// new request; only [`finalize_external_transfer`] ever changes the game.
+pub fn negotiate_external_transfer(
+    game: &Game,
+    external: &ExternalPlayer,
+    request: ExternalNegotiationRequest,
+) -> Result<ExternalNegotiationOutcome, String> {
+    let facts = negotiation_facts(game, external, request)?;
+    let (status, blocker) = judge_negotiation(external, &facts);
+    outcome_from(external, facts, status, blocker)
+}
+
+/// Ask both parties and run every check. Pure, and split out so the public function reads as the
+/// negotiation it is rather than as a list of calculations.
+fn negotiation_facts(
+    game: &Game,
+    external: &ExternalPlayer,
+    request: ExternalNegotiationRequest,
+) -> Result<NegotiationFacts, String> {
+    let team = managed_team(game)?;
+    let today = game.clock.current_date.date_naive();
+    let player = external.to_player(today);
+    let (standard_wage, _) = standard_terms(game, &player, team)?;
+    let standard_years = expected_contract_years(&player, today).max(1);
+    let offered_wage = request
+        .weekly_wage
+        .filter(|wage| *wage > 0)
+        .unwrap_or(standard_wage);
+    let offered_years = request
+        .contract_years
+        .filter(|years| *years > 0)
+        .unwrap_or(standard_years);
+    let signing_bonus = request.signing_bonus.unwrap_or(0);
+    validate_negotiation_terms(offered_wage, offered_years, signing_bonus)?;
+
+    let free_agent = external.is_free_agent(today);
+    let age = external.age_on(today).unwrap_or(i32::MAX);
+    let asking = asking_price_of(external, today, free_agent);
+    let terms = fee_terms(
+        game,
+        &OfferRequest {
+            external,
+            today,
+            free_agent,
+            asking,
+            age,
+            buyer_reputation: i64::from(team.reputation),
+            offer: request.fee,
+        },
+    );
+
+    let offer = AppealTerms {
+        weekly_wage: offered_wage,
+        contract_years: offered_years,
+        signing_bonus,
+        promise_stepping_stone: false,
+    };
+    let mut response = player_response(game, external, &player, team, offer, today);
+    let club_accepted = terms.club_decision == "accepted";
+    let (final_wage, final_years) = if club_accepted && response.verdict == Verdict::Counter {
+        match response.counter {
+            Some((wage, years)) => (wage, years),
+            None => {
+                response.verdict = Verdict::Refuse;
+                (offered_wage, offered_years)
+            }
+        }
+    } else {
+        (offered_wage, offered_years)
+    };
+
+    let window_open = free_agent || transfer_window_is_open(game);
+    let fee_check = fee_block_after_pending(game, team, terms.fee);
+    let wage_policy_allows = BuyerWageFacts::of_committed(game, &team.id)
+        .purchase_verdict(team, &player, final_wage)
+        .permits();
+    let bonus_check = signing_bonus_check(game, team, signing_bonus, today);
+    let can_afford_bonus = bonus_check.is_ok();
+    Ok(NegotiationFacts {
+        today,
+        free_agent,
+        age,
+        can_afford_fee: fee_check.is_ok(),
+        finance_blocker: finance_blocker(team, fee_check, wage_policy_allows),
+        squad_blocker: squad_blocker(game, team, &external.id, free_agent),
+        bonus_blocker: bonus_check.err(),
+        can_afford_bonus,
+        wage_policy_allows,
+        window_open,
+        already_in_world: duplicate_in_world(game, &external.id),
+        signing_bonus,
+        final_wage,
+        final_years,
+        response,
+        terms,
+    })
+}
+
+/// The one status the screen shows, and the one key that stops the move, from the order the rules
+/// already had: a club refusal, then a player refusal, then a permanent/financial block, then a
+/// counter, then agreement.
+fn judge_negotiation(
+    external: &ExternalPlayer,
+    facts: &NegotiationFacts,
+) -> (String, Option<String>) {
+    let club_accepted = facts.terms.club_decision == "accepted";
+    let player_refused = club_accepted && facts.response.verdict == Verdict::Refuse;
+    let mut blocker = if facts.already_in_world {
+        Some(ERR_PLAYER_ALREADY_IN_WORLD.to_string())
+    } else {
+        identity_blocker(external, facts.age, facts.window_open)
+    };
+    if blocker.is_none() && facts.terms.rejected {
+        blocker = Some(ERR_OFFER_REJECTED.to_string());
+    }
+    if blocker.is_none() {
+        blocker.clone_from(&facts.squad_blocker);
+    }
+    if blocker.is_none() {
+        blocker = facts
+            .finance_blocker
+            .clone()
+            .or_else(|| facts.bonus_blocker.clone());
+    }
+    if blocker.is_none() && player_refused {
+        blocker = Some(ERR_PLAYER_REFUSES_MOVE.to_string());
+    }
+
+    let status = if facts.terms.rejected {
+        NEGOTIATION_CLUB_REJECTED
+    } else if player_refused {
+        NEGOTIATION_PLAYER_REFUSED
+    } else if blocker.is_some() {
+        NEGOTIATION_BLOCKED
+    } else if facts.terms.club_decision == "countered" {
+        NEGOTIATION_CLUB_COUNTERED
+    } else {
+        match facts.response.verdict {
+            Verdict::Accept => NEGOTIATION_AGREED,
+            Verdict::Counter => NEGOTIATION_PLAYER_COUNTERED,
+            Verdict::Refuse => NEGOTIATION_PLAYER_REFUSED,
+        }
+    };
+    (status.to_string(), blocker)
+}
+
+fn outcome_from(
+    external: &ExternalPlayer,
+    facts: NegotiationFacts,
+    status: String,
+    blocker: Option<String>,
+) -> Result<ExternalNegotiationOutcome, String> {
+    let contract_end = contract_end_after(facts.today, facts.final_years)?
+        .format("%Y-%m-%d")
+        .to_string();
+    Ok(ExternalNegotiationOutcome {
+        player_id: external.id.clone(),
+        free_agent: facts.free_agent,
+        status,
+        fee: facts.terms.fee,
+        minimum_fee: facts.terms.minimum_fee,
+        club_decision: facts.terms.club_decision.to_string(),
+        weekly_wage: facts.final_wage,
+        contract_years: facts.final_years,
+        signing_bonus: facts.signing_bonus,
+        contract_end,
+        player_verdict: verdict_name(facts.response.verdict).to_string(),
+        player_score: facts.response.score,
+        main_obstacle: facts.response.main_obstacle,
+        can_afford_fee: facts.can_afford_fee,
+        wage_policy_allows: facts.wage_policy_allows,
+        can_afford_bonus: facts.can_afford_bonus,
+        window_open: facts.window_open,
+        blocker,
+        from_club: external.club.as_ref().map(|club| club.name.clone()),
+    })
+}
+
+/// Complete a negotiation that ended in agreement. Re-runs the negotiation and refuses anything
+/// that is not `agreed`, so a counter, a refusal or a stale screen cannot sign a player.
+pub fn finalize_external_transfer(
+    game: &mut Game,
+    external: &ExternalPlayer,
+    request: ExternalNegotiationRequest,
+) -> Result<ExternalRecruitOutcome, String> {
+    let outcome = negotiate_external_transfer(game, external, request)?;
+    if let Some(blocker) = &outcome.blocker {
+        return Err(blocker.clone());
+    }
+    if outcome.status != NEGOTIATION_AGREED {
+        return Err(ERR_NEGOTIATION_NOT_AGREED.to_string());
+    }
+    complete_external_transfer(game, external, &outcome)
+}
+
+fn validate_negotiation_terms(weekly_wage: u32, years: u32, bonus: u64) -> Result<(), String> {
+    let weeks = 52 * u64::from(years.max(1));
+    if weekly_wage == 0
+        || years == 0
+        || years > MAX_CONTRACT_YEARS
+        || bonus > u64::from(weekly_wage) * weeks
+    {
+        return Err(ERR_INVALID_NEGOTIATION_TERMS.to_string());
+    }
+    Ok(())
+}
+
+fn contract_end_after(today: NaiveDate, years: u32) -> Result<NaiveDate, String> {
+    today
+        .checked_add_months(Months::new(years * 12))
+        .ok_or_else(|| ERR_CONTRACT_END.to_string())
+}
+
+fn asking_price_of(external: &ExternalPlayer, today: NaiveDate, free_agent: bool) -> u64 {
+    if free_agent {
+        return 0;
+    }
+    asking_price(
+        external.market_value,
+        external
+            .club
+            .as_ref()
+            .and_then(|club| club.contract_end.as_deref()),
+        today,
+    )
+}
+
+/// A selling club's side as the player sees it. The registry does not simulate a squad, so the
+/// shape is derived from the club's reputation: enough seniors per group that "key player",
+/// "starter" and "backup" mean something.
+fn external_club_squad(club: &ExternalClub) -> ClubSquad {
+    let level = expected_ovr_for_reputation(club.reputation).clamp(0, 100) as u8;
+    let group = |offset: i32, count: i32| -> Vec<u8> {
+        (0..count)
+            .map(|index| (i32::from(level) + offset - index).clamp(0, 100) as u8)
+            .collect()
+    };
+    ClubSquad::from_levels(&[group(3, 3), group(2, 6), group(2, 6), group(2, 4)])
+}
+
+struct PlayerResponse {
+    verdict: Verdict,
+    score: i32,
+    main_obstacle: Option<FreeAgentTalkReason>,
+    counter: Option<(u32, u32)>,
+}
+
+/// The player's answer, through P5's appeal score: the same one a free agent or a contracted
+/// player weighs an offer by. An external player has no simulated club squad, so his incumbent
+/// side is the shape [`external_club_squad`] derives from the selling club's reputation.
+fn player_response(
+    game: &Game,
+    external: &ExternalPlayer,
+    player: &Player,
+    team: &Team,
+    offer: AppealTerms,
+    today: NaiveDate,
+) -> PlayerResponse {
+    let buyer_squad = ClubSquad::of(&game.players, &team.id);
+    let mut facts = facts_for(player, team, &buyer_squad, &offer, today);
+    if let Some(club) = &external.club {
+        let reputation = club.reputation.clamp(0, 1000) as u32;
+        let seller_squad = external_club_squad(club);
+        facts.incumbent = Some(Incumbent {
+            club_standing: club_standing(reputation, seller_squad.level()),
+            place: seller_squad.place_among_others(player),
+            push: push_to_leave(
+                player,
+                ClubView {
+                    reputation,
+                    in_debt: false,
+                },
+                today,
+            ),
+        });
+    }
+    let appeal = appeal_of(&facts, &offer);
+    let verdict = appeal.verdict();
+    PlayerResponse {
+        verdict,
+        score: appeal.score,
+        main_obstacle: (appeal.score < ACCEPT_AT).then(|| appeal.main_obstacle()),
+        counter: (verdict != Verdict::Accept)
+            .then(|| counter_terms(&facts, &offer))
+            .flatten(),
+    }
+}
+
+fn verdict_name(verdict: Verdict) -> &'static str {
+    match verdict {
+        Verdict::Accept => "accepts",
+        Verdict::Counter => "counters",
+        Verdict::Refuse => "refuses",
+    }
+}
+
+fn signing_bonus_check(
+    game: &Game,
+    team: &Team,
+    bonus: u64,
+    today: NaiveDate,
+) -> Result<(), String> {
+    if bonus == 0 {
+        return Ok(());
+    }
+    crate::transfers::ensure_bonus_affordable(team, bonus)?;
+    let amount = i64::try_from(bonus).map_err(|_| "be.error.finance.amountOverflow".to_string())?;
+    crate::finances::validate_posts(
+        game,
+        &[crate::finances::PostRequest::new(
+            &team.id,
+            -amount,
+            crate::finances::CashKind::SigningBonus,
+            today,
+        )],
+    )
+}
+
+fn pay_signing_bonus(
+    game: &mut Game,
+    team_id: &str,
+    bonus: u64,
+    today: NaiveDate,
+) -> Result<(), String> {
+    if bonus == 0 {
+        return Ok(());
+    }
+    let amount = i64::try_from(bonus).map_err(|_| "be.error.finance.amountOverflow".to_string())?;
+    crate::finances::post_all(
+        game,
+        &[crate::finances::PostRequest::new(
+            team_id,
+            -amount,
+            crate::finances::CashKind::SigningBonus,
+            today,
+        )],
+    )?;
+    if let Some(club) = game.teams.iter_mut().find(|club| club.id == team_id) {
+        club.transfer_budget -= amount;
+    }
+    Ok(())
+}
+
 /// Identity, record completeness, age and window: the refusals that do not depend on money. Order
 /// matters — a stale screen must not hide a permanent refusal behind a price.
 fn identity_blocker(external: &ExternalPlayer, age: i32, window_open: bool) -> Option<String> {
@@ -450,11 +898,17 @@ fn identity_blocker(external: &ExternalPlayer, age: i32, window_open: bool) -> O
     }
 }
 
-/// The senior registration limit, which every free agent signing meets (`contracts::squad_capacity`).
-/// A purchase from another club is judged by the transfer rules, which have no such limit.
-fn squad_blocker(game: &Game, team: &Team, free_agent: bool) -> Option<String> {
-    let capacity = squad_capacity(game, &team.id);
-    (free_agent && capacity.blocks_signing).then(|| capacity.full_error())
+/// The senior registration limit (`contracts::squad_capacity`), which a free agent signing meets
+/// and a contracted purchase now meets too. A free agent is judged against the live list; a
+/// purchase also counts the places promised to deals already agreed and waiting to register, the
+/// same reservation P6 applies to an in-game purchase.
+fn squad_blocker(game: &Game, team: &Team, external_id: &str, free_agent: bool) -> Option<String> {
+    let promised = if free_agent {
+        0
+    } else {
+        pending_incoming_purchases(game, &team.id, external_id)
+    };
+    senior_place_refusal(game, &team.id, promised)
 }
 
 /// Cash, transfer budget and wage policy. Runs only after the identity refusals.
@@ -472,7 +926,9 @@ fn finance_blocker(
     }
 }
 
-/// Promote `external` into the active game for the manager's club at the club's own request.
+/// Promote `external` into the active game for the manager's club at the club's own request and
+/// on the buyer's standard contract terms. This is the one-click path: it is a real negotiation
+/// with no explicit counter, so it signs only when both parties accept.
 pub fn recruit_external_player(
     game: &mut Game,
     external: &ExternalPlayer,
@@ -480,17 +936,31 @@ pub fn recruit_external_player(
     recruit_external_player_at_offer(game, external, None)
 }
 
-/// Promote `external` against an explicit offer. A rejected offer returns
-/// [`ERR_OFFER_REJECTED`] before the first mutation; a counter is accepted at the club's floor.
+/// Promote `external` against an explicit fee, on standard contract terms. A rejected or countered
+/// offer returns before the first mutation; a counter is a next step for the manager, not a
+/// signature. Use [`finalize_external_transfer`] to accept a counter or to set the player's terms.
 pub fn recruit_external_player_at_offer(
     game: &mut Game,
     external: &ExternalPlayer,
     offer: Option<u64>,
 ) -> Result<ExternalRecruitOutcome, String> {
-    let preview = preview_external_recruitment_with_offer(game, external, offer)?;
-    if let Some(blocker) = preview.blocker.clone() {
-        return Err(blocker);
-    }
+    finalize_external_transfer(
+        game,
+        external,
+        ExternalNegotiationRequest {
+            fee: offer,
+            ..ExternalNegotiationRequest::default()
+        },
+    )
+}
+
+/// Write an agreed negotiation into the world. Every check already passed in
+/// [`negotiate_external_transfer`]; this is the only function on the external route that mutates.
+fn complete_external_transfer(
+    game: &mut Game,
+    external: &ExternalPlayer,
+    outcome: &ExternalNegotiationOutcome,
+) -> Result<ExternalRecruitOutcome, String> {
     let today = game.clock.current_date.date_naive();
     let team = managed_team(game)?.clone();
     let mut player = external.to_player(today);
@@ -501,34 +971,56 @@ pub fn recruit_external_player_at_offer(
     game.players.push(player);
     let index = game.players.len() - 1;
 
-    if preview.free_agent {
-        sign_free_agent(
-            game,
-            index,
-            &team,
-            preview.weekly_wage,
-            preview.contract_years,
-            today,
-        )?;
-        let signed = &game.players[index];
-        game.messages.push(free_agent_signed_message(
-            &signed.id,
-            &signed.full_name,
-            &team.name,
-            preview.contract_years,
-            &today.format("%Y-%m-%d").to_string(),
-        ));
-        return Ok(ExternalRecruitOutcome {
-            player_id: external.id.clone(),
-            free_agent: true,
-            fee: 0,
-            weekly_wage: preview.weekly_wage,
-            contract_end: preview.contract_end,
-            from_club: None,
-        });
+    if outcome.free_agent {
+        return complete_free_agent_transfer(game, external, outcome, &team, today, index);
     }
+    complete_contracted_transfer(game, external, outcome, &team, today, index)
+}
 
-    let fee = preview.fee;
+fn complete_free_agent_transfer(
+    game: &mut Game,
+    external: &ExternalPlayer,
+    outcome: &ExternalNegotiationOutcome,
+    team: &Team,
+    today: NaiveDate,
+    index: usize,
+) -> Result<ExternalRecruitOutcome, String> {
+    sign_free_agent(
+        game,
+        index,
+        team,
+        outcome.weekly_wage,
+        outcome.contract_years,
+        today,
+    )?;
+    pay_signing_bonus(game, &team.id, outcome.signing_bonus, today)?;
+    let signed = &game.players[index];
+    game.messages.push(free_agent_signed_message(
+        &signed.id,
+        &signed.full_name,
+        &team.name,
+        outcome.contract_years,
+        &today.format("%Y-%m-%d").to_string(),
+    ));
+    Ok(ExternalRecruitOutcome {
+        player_id: external.id.clone(),
+        free_agent: true,
+        fee: 0,
+        weekly_wage: outcome.weekly_wage,
+        contract_end: outcome.contract_end.clone(),
+        from_club: None,
+    })
+}
+
+fn complete_contracted_transfer(
+    game: &mut Game,
+    external: &ExternalPlayer,
+    outcome: &ExternalNegotiationOutcome,
+    team: &Team,
+    today: NaiveDate,
+    index: usize,
+) -> Result<ExternalRecruitOutcome, String> {
+    let fee = outcome.fee;
     let fee_i64 = i64::try_from(fee).map_err(|_| "be.error.finance.amountOverflow".to_string())?;
     crate::finances::post_all(
         game,
@@ -539,13 +1031,14 @@ pub fn recruit_external_player_at_offer(
             today,
         )],
     )?;
+    pay_signing_bonus(game, &team.id, outcome.signing_bonus, today)?;
 
     let from_club = external.club.clone().ok_or(ERR_PLAYER_NOT_AVAILABLE)?;
-    let contract_end = NaiveDate::parse_from_str(&preview.contract_end, "%Y-%m-%d")
+    let contract_end = NaiveDate::parse_from_str(&outcome.contract_end, "%Y-%m-%d")
         .map_err(|_| ERR_CONTRACT_END.to_string())?;
     let jersey = {
         let candidate = &game.players[index];
-        crate::roster::resolve_jersey_for(game, candidate, &team)
+        crate::roster::resolve_jersey_for(game, candidate, team)
     };
     let player = &mut game.players[index];
     player.team_id = Some(team.id.clone());
@@ -561,11 +1054,11 @@ pub fn recruit_external_player_at_offer(
         ..contract_entry(
             PlayerMovementKind::PermanentTransfer,
             today,
-            &team,
+            team,
             contract_record(
                 today,
                 contract_end,
-                preview.weekly_wage,
+                outcome.weekly_wage,
                 ContractSource::Transfer,
             ),
         )
@@ -592,8 +1085,8 @@ pub fn recruit_external_player_at_offer(
         player_id: external.id.clone(),
         free_agent: false,
         fee,
-        weekly_wage: preview.weekly_wage,
-        contract_end: preview.contract_end,
+        weekly_wage: outcome.weekly_wage,
+        contract_end: outcome.contract_end.clone(),
         from_club: Some(from_club.name),
     })
 }
@@ -614,6 +1107,7 @@ mod tests {
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
+    use domain::player::{SquadRole, TransferOffer, TransferOfferStatus};
     use domain::season::TransferWindowStatus;
     use domain::team::Team;
 
@@ -651,7 +1145,7 @@ mod tests {
             "Alpha Ground".to_string(),
             30_000,
         );
-        team.reputation = 50;
+        team.reputation = 600;
         team.wage_budget = 500_000;
         team.finance = 50_000_000;
         team.transfer_budget = 20_000_000;
@@ -703,6 +1197,124 @@ mod tests {
             reputation: 600,
         });
         player
+    }
+
+    fn registered_senior(id: usize) -> Player {
+        let mut player = Player::new(
+            format!("senior-{id}"),
+            format!("Senior {id}"),
+            format!("S{id}"),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            attrs(),
+        );
+        player.team_id = Some("team-1".to_string());
+        player.squad_role = SquadRole::Senior;
+        player
+    }
+
+    fn fill_senior_list(game: &mut Game, seniors: usize) {
+        game.players.extend((0..seniors).map(registered_senior));
+    }
+
+    /// A player another club has already agreed to sell to `team-1`, waiting to register: he holds
+    /// a place the external market must not offer again.
+    fn promised_incoming_purchase(game: &mut Game, id: &str) {
+        let mut player = registered_senior(999);
+        player.id = id.to_string();
+        player.team_id = Some("elsewhere".to_string());
+        player.transfer_offers.push(TransferOffer {
+            id: format!("offer-{id}"),
+            from_team_id: "team-1".to_string(),
+            fee: 1_000_000,
+            wage_offered: 5_000,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2026-08-01".to_string()),
+            registration_failure_reason: None,
+            closed_on: None,
+            terms: Default::default(),
+        });
+        game.players.push(player);
+    }
+
+    /// Given a club with thirty registered seniors, when a contracted external player is
+    /// negotiated, then the move is blocked by the same senior-list key a free agent meets and
+    /// nothing is signed.
+    #[test]
+    fn a_contracted_purchase_meets_the_thirty_senior_limit() {
+        let mut game = game();
+        fill_senior_list(&mut game, 30);
+        let players_before = game.players.len();
+        let cash_before = game.teams[0].finance;
+        let external = external_contracted("fm-p-52");
+
+        let outcome =
+            negotiate_external_transfer(&game, &external, ExternalNegotiationRequest::default())
+                .unwrap();
+
+        assert_eq!(outcome.status, NEGOTIATION_BLOCKED);
+        assert!(
+            outcome
+                .blocker
+                .as_deref()
+                .is_some_and(|key| key.starts_with("be.error.freeAgents.squadFull")),
+            "blocker was {:?}",
+            outcome.blocker
+        );
+
+        let error = recruit_external_player(&mut game, &external).unwrap_err();
+        assert!(error.starts_with("be.error.freeAgents.squadFull"));
+        assert_eq!(game.players.len(), players_before);
+        assert_eq!(game.teams[0].finance, cash_before);
+    }
+
+    /// Given a club with one senior place left and a purchase already agreed to fill it, when a
+    /// contracted external player is negotiated, then the promised place is counted and the move
+    /// is refused before anyone signs.
+    #[test]
+    fn a_contracted_purchase_counts_places_promised_to_agreed_deals() {
+        let mut game = game();
+        fill_senior_list(&mut game, 29);
+        promised_incoming_purchase(&mut game, "agreed-arrival");
+        let external = external_contracted("fm-p-53");
+
+        let outcome =
+            negotiate_external_transfer(&game, &external, ExternalNegotiationRequest::default())
+                .unwrap();
+
+        assert_eq!(outcome.status, NEGOTIATION_BLOCKED);
+        assert!(
+            outcome
+                .blocker
+                .as_deref()
+                .is_some_and(|key| key.starts_with("be.error.freeAgents.squadFull")),
+            "blocker was {:?}",
+            outcome.blocker
+        );
+    }
+
+    /// Given twenty-nine registered seniors and no promised place, when a contracted external
+    /// player is negotiated, then the senior-list rule does not block the move.
+    #[test]
+    fn a_contracted_purchase_is_allowed_into_the_last_senior_place() {
+        let mut game = game();
+        fill_senior_list(&mut game, 29);
+        let external = external_contracted("fm-p-54");
+
+        let outcome =
+            negotiate_external_transfer(&game, &external, ExternalNegotiationRequest::default())
+                .unwrap();
+
+        assert!(
+            outcome.blocker.is_none(),
+            "blocker was {:?}",
+            outcome.blocker
+        );
     }
 
     /// Given a free agent from the registry, when he is recruited, then he joins on a free-agent
@@ -857,7 +1469,8 @@ mod tests {
     }
 
     /// Given an offer below the club's floor but above its rejection threshold, when it is made
-    /// twice, then it is countered to the same fee both times and signing at that counter succeeds.
+    /// twice, then it is countered to the same fee both times; the counter is not a signature, and
+    /// signing only succeeds once the manager puts the countered fee back on the table.
     #[test]
     fn a_counter_is_deterministic_and_payable() {
         let mut game = game();
@@ -873,9 +1486,162 @@ mod tests {
         assert_eq!(first.fee, requested.minimum_fee);
         assert_eq!(first.blocker, None);
 
+        let players = game.players.len();
         let cash = game.teams[0].finance;
-        let outcome = recruit_external_player_at_offer(&mut game, &player, Some(offer)).unwrap();
+        let error = recruit_external_player_at_offer(&mut game, &player, Some(offer)).unwrap_err();
+        assert_eq!(error, ERR_NEGOTIATION_NOT_AGREED);
+        assert_eq!(game.players.len(), players);
+        assert_eq!(game.teams[0].finance, cash);
+
+        let outcome =
+            recruit_external_player_at_offer(&mut game, &player, Some(first.fee)).unwrap();
         assert_eq!(outcome.fee, requested.minimum_fee);
         assert_eq!(game.teams[0].finance, cash - outcome.fee as i64);
+    }
+
+    /// Given a low wage, when the player is asked, then he counters with a wage and length, no
+    /// money moves, and only the countered terms sign him.
+    #[test]
+    fn a_low_wage_gets_a_counter_and_only_the_counter_signs() {
+        let mut game = game();
+        let player = external_contracted("fm-p-52");
+        let standard =
+            negotiate_external_transfer(&game, &player, ExternalNegotiationRequest::default())
+                .unwrap();
+        let low = ExternalNegotiationRequest {
+            weekly_wage: Some(standard.weekly_wage * 5 / 10),
+            ..ExternalNegotiationRequest::default()
+        };
+
+        let first = negotiate_external_transfer(&game, &player, low).unwrap();
+        let second = negotiate_external_transfer(&game, &player, low).unwrap();
+        assert_eq!(first, second, "a repeated preview re-rolled the player");
+        assert_eq!(first.status, NEGOTIATION_PLAYER_COUNTERED);
+        assert_eq!(first.player_verdict, "counters");
+        assert!(first.weekly_wage > 500);
+        assert!(first.main_obstacle.is_some());
+
+        let players = game.players.len();
+        let cash = game.teams[0].finance;
+        let error = finalize_external_transfer(&mut game, &player, low).unwrap_err();
+        assert_eq!(error, ERR_NEGOTIATION_NOT_AGREED);
+        assert_eq!(game.players.len(), players);
+        assert_eq!(game.teams[0].finance, cash);
+
+        let accepted = ExternalNegotiationRequest {
+            weekly_wage: Some(first.weekly_wage),
+            contract_years: Some(first.contract_years),
+            ..ExternalNegotiationRequest::default()
+        };
+        let outcome = finalize_external_transfer(&mut game, &player, accepted).unwrap();
+        assert_eq!(outcome.weekly_wage, first.weekly_wage);
+        assert_eq!(game.teams[0].finance, cash - outcome.fee as i64);
+    }
+
+    /// Given a club far below his level, when an elite player is approached, then he refuses
+    /// whatever the fee and nothing in the world moves.
+    #[test]
+    fn a_player_refuses_a_club_far_below_his_level_without_mutation() {
+        let mut game = game();
+        game.teams[0].reputation = 20;
+        let player = external_contracted("fm-p-53");
+
+        let outcome =
+            negotiate_external_transfer(&game, &player, ExternalNegotiationRequest::default())
+                .unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_PLAYER_REFUSED);
+        assert_eq!(outcome.blocker.as_deref(), Some(ERR_PLAYER_REFUSES_MOVE));
+        assert_eq!(outcome.player_verdict, "refuses");
+
+        let players = game.players.len();
+        let cash = game.teams[0].finance;
+        let error =
+            finalize_external_transfer(&mut game, &player, ExternalNegotiationRequest::default())
+                .unwrap_err();
+        assert_eq!(error, ERR_PLAYER_REFUSES_MOVE);
+        assert_eq!(game.players.len(), players);
+        assert_eq!(game.teams[0].finance, cash);
+    }
+
+    /// Given a fee below the club's floor, when it is negotiated, then the club counter is a next
+    /// step, not an agreement, and finalizing it changes nothing.
+    #[test]
+    fn a_club_counter_is_not_an_agreement() {
+        let mut game = game();
+        let player = external_contracted("fm-p-54");
+        let request = ExternalNegotiationRequest {
+            fee: Some(1),
+            ..ExternalNegotiationRequest::default()
+        };
+        let outcome = negotiate_external_transfer(&game, &player, request).unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_CLUB_REJECTED);
+        assert_eq!(outcome.blocker.as_deref(), Some(ERR_OFFER_REJECTED));
+
+        let request = ExternalNegotiationRequest {
+            fee: Some(outcome.minimum_fee * 4 / 5),
+            ..ExternalNegotiationRequest::default()
+        };
+        let outcome = negotiate_external_transfer(&game, &player, request).unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_CLUB_COUNTERED);
+        assert_eq!(outcome.fee, outcome.minimum_fee);
+        let players = game.players.len();
+        let error = finalize_external_transfer(&mut game, &player, request).unwrap_err();
+        assert_eq!(error, ERR_NEGOTIATION_NOT_AGREED);
+        assert_eq!(game.players.len(), players);
+    }
+
+    /// Given a signing bonus, when the move is agreed, then the bonus is paid from cash and the
+    /// transfer envelope, and the contract is the negotiated one.
+    #[test]
+    fn an_agreed_signing_bonus_is_paid_and_budgeted() {
+        let mut game = game();
+        let player = external_free_agent("fm-p-55");
+        let standard =
+            negotiate_external_transfer(&game, &player, ExternalNegotiationRequest::default())
+                .unwrap();
+        let request = ExternalNegotiationRequest {
+            weekly_wage: Some(standard.weekly_wage),
+            contract_years: Some(2),
+            signing_bonus: Some(100_000),
+            ..ExternalNegotiationRequest::default()
+        };
+        let outcome = negotiate_external_transfer(&game, &player, request).unwrap();
+        assert_eq!(outcome.status, NEGOTIATION_AGREED);
+        assert!(outcome.can_afford_bonus);
+        assert_eq!(outcome.contract_years, 2);
+
+        let cash = game.teams[0].finance;
+        let budget = game.teams[0].transfer_budget;
+        let signed = finalize_external_transfer(&mut game, &player, request).unwrap();
+        assert_eq!(signed.weekly_wage, standard.weekly_wage);
+        assert_eq!(game.teams[0].finance, cash - 100_000);
+        assert_eq!(game.teams[0].transfer_budget, budget - 100_000);
+        assert!(game.players.iter().any(|stored| stored.id == "fm-p-55"));
+    }
+
+    /// Given terms a contract cannot carry, when they are negotiated, then the request is refused
+    /// before either party answers.
+    #[test]
+    fn invalid_negotiation_terms_are_refused() {
+        let game = game();
+        let player = external_contracted("fm-p-56");
+        let too_long = ExternalNegotiationRequest {
+            contract_years: Some(6),
+            ..ExternalNegotiationRequest::default()
+        };
+        assert_eq!(
+            negotiate_external_transfer(&game, &player, too_long).unwrap_err(),
+            ERR_INVALID_NEGOTIATION_TERMS
+        );
+        let bonus_over_wage = ExternalNegotiationRequest {
+            weekly_wage: Some(1_000),
+            contract_years: Some(1),
+            signing_bonus: Some(100_000_000),
+            ..ExternalNegotiationRequest::default()
+        };
+        assert_eq!(
+            negotiate_external_transfer(&game, &player, bonus_over_wage).unwrap_err(),
+            ERR_INVALID_NEGOTIATION_TERMS
+        );
     }
 }

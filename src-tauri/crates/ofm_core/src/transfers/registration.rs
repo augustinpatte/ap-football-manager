@@ -73,6 +73,14 @@ pub(crate) fn pending_incoming_purchases(
         .count()
 }
 
+/// The refusal when `team_id` has no place left on its senior list once `promised` places, taken
+/// by purchases agreed and waiting to register, are set aside; `None` when there is room. The one
+/// place the limit is applied to a purchase, shared by the in-game market and the global market.
+pub(crate) fn senior_place_refusal(game: &Game, team_id: &str, promised: usize) -> Option<String> {
+    let capacity = crate::contracts::squad_capacity(game, team_id);
+    (capacity.free_places <= promised).then(|| capacity.full_error())
+}
+
 /// The cash and transfer budget `team_id` has agreed to spend in purchases that wait for their
 /// registration date. Derived from the saved offers like [`pending_wage_commitments`]: it survives
 /// a save, ends the moment a deal registers (the money has then left the books) or is voided, and

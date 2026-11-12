@@ -35,7 +35,7 @@ struct Person {
     position: &'static str,
 }
 
-const PEOPLE: [Person; 8] = [
+const PEOPLE: [Person; 9] = [
     Person {
         id: 101,
         club: None,
@@ -85,6 +85,15 @@ const PEOPLE: [Person; 8] = [
         ability: 60,
         age: 29,
         position: "MC",
+    },
+    // Every season of a real market loses players to retirement, and the market replaces them.
+    // He retires on the first advance, so the fixture has the turnover the intake is sized from.
+    Person {
+        id: 108,
+        club: Some(900),
+        ability: 52,
+        age: 38,
+        position: "DC",
     },
     // The source's own perimeter: the registry never offers him.
     Person {

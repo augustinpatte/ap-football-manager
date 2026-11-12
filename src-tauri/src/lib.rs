@@ -268,6 +268,8 @@ pub fn run() {
             get_external_player,
             preview_external_recruitment,
             recruit_external_player,
+            negotiate_external_transfer,
+            finalize_external_transfer,
             get_external_registry_status,
             install_package,
             list_installed_packages,
