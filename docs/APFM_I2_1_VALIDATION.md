@@ -29,8 +29,8 @@ in the integration doc §9 and neither is caused by this change.
 | --- | --- |
 | Base | `73db8d43` (`docs(i2): integration and validation reports`) |
 | Branch | `deepseek/i2-1-transfer-integrity` |
-| Commit | `<commit>` |
-| Files changed | 11 modified, 1 new test module, 2 new docs; no frontend, translation, engine, M12, formation-AI or tactical file |
+| Commit | `2b7344e7` (`fix(transfers): reserve a promised senior place on every signing route`) |
+| Files changed | 14 in the code commit: 11 modified, 1 new test module, 2 new docs; no frontend, translation, engine, M12, formation-AI or tactical file |
 
 ## 3. Gates run on the final tree
 
