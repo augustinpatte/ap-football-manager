@@ -197,30 +197,32 @@ Frontend:
 
 ### 6.1 Backend suite count
 
-See the final report. The suite includes the existing ~4,964-test baseline plus the D7B3 ordering,
-population, negotiation, cache and command tests; no existing test was removed or weakened.
+The full workspace run reported **4,979 passed, 0 failed, 105 ignored**. That includes the existing
+baseline plus the D7B3 ordering, population, negotiation, cache and command tests; no existing test
+was removed or weakened.
 
 ### 6.2 Completion pass (2026-11-12)
 
-The 30-senior rule for a contracted external purchase was added after the gates above, so the
-full workspace suite was not rerun. Only Rust changed; the final tree was checked with:
+The 30-senior rule for a contracted external purchase was added after the first gates, and the
+negotiation/completion functions were split to stay inside the function-length limits. The final
+tree was then rerun in full:
 
 | Gate | Command | Result |
 |---|---|---|
-| `ofm_core`, unit and integration | `cargo test -p ofm_core` | 3,221 passed, 0 failed, 16 ignored |
-| Root library | `cargo test --lib` | 584 passed, 0 failed, 10 ignored |
-| `fm24-adapter` library | `cargo test -p fm24-adapter --lib` | 101 passed, 0 failed, 2 ignored |
-| Changed-crate lint | `cargo clippy -p ofm_core -p openfootmanager --all-targets` | pass, no warnings |
-| Format | `cargo fmt --all` | pass |
+| Backend workspace | `cargo test --manifest-path src-tauri/Cargo.toml --workspace` | 4,979 passed, 0 failed, 105 ignored |
+| Backend lint | `cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets` | pass, no warnings |
+| Backend format | `cargo fmt --all -- --check` | pass |
+| Frontend suite | `npm test` | 343 files passed, 1 skipped; 3,011 tests passed, 4 skipped |
+| Frontend build | `npm run build` | pass |
 | Frontend lint and format | `npm run lint`, `npm run format:check` | pass |
 | Dead code | `npm run knip` | pass |
-| i18n report | `npm run audit:i18n` | exit 0 |
-| Frontend build | `npm run build` | pass |
-| Global market + service tests | `vitest run ...GlobalMarket*, registryService.test.ts` | 18 passed |
-| i18n gates | `vitest run src/i18n` | 35 passed |
+| i18n report | `npm run audit:i18n` | exit 0; all locales match the English key set |
+| i18n gates | `vitest run src/i18n` | pass |
+| Global market + service tests | `vitest run ...GlobalMarket*, registryService.test.ts` | pass |
 
-The full frontend suite and the full workspace `cargo test` were not rerun; their 2026-11-11
-results are in §6. No frontend file changed in the completion pass.
+No frontend file changed during the completion pass; the frontend results are the full-suite
+results recorded in §6. The backend workspace result above is the final-tree rerun, not the earlier
+partial run.
 
 ## 7. Not run
 
