@@ -660,12 +660,7 @@ fn resolve_due_talks(game: &mut Game, index: usize, today: NaiveDate) {
                     .iter_mut()
                     .find(|talk| &talk.id == talk_id)
                 {
-                    close_talk(
-                        talk,
-                        FreeAgentTalkStatus::Lapsed,
-                        Some(reason),
-                        today,
-                    );
+                    close_talk(talk, FreeAgentTalkStatus::Lapsed, Some(reason), today);
                     let ended = talk.clone();
                     notify_talk_ended(game, index, &ended, today, None);
                 }
