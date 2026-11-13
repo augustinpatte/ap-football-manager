@@ -5178,6 +5178,12 @@
     "checkWindow": "转会窗口已开启",
     "checkPassed": "通过",
     "checkFailed": "未通过",
-    "openProfile": "打开 {{player}}"
+    "openProfile": "打开 {{player}}",
+    "tableCaption": "全球市场球员，第 {{page}} 页，共 {{pages}} 页",
+    "selected": "已选择",
+    "signHintCheck": "查看条款，确认俱乐部和球员是否接受。",
+    "signHintCounter": "请先接受他们的条款；还价不能直接签约。",
+    "signHintRefused": "这笔转会目前无法签约。",
+    "errorGeneric": "市场未能完成该请求，请重试。"
   }
 }

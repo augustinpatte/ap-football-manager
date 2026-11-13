@@ -5178,6 +5178,12 @@
     "checkWindow": "Transfer dönemi açık",
     "checkPassed": "uygun",
     "checkFailed": "uygun değil",
-    "openProfile": "{{player}} oyuncusunu aç"
+    "openProfile": "{{player}} oyuncusunu aç",
+    "tableCaption": "Global market oyuncuları, sayfa {{page}} / {{pages}}",
+    "selected": "Seçildi",
+    "signHintCheck": "Kulübün ve oyuncunun kabul edip etmediğini görmek için şartları kontrol et.",
+    "signHintCounter": "Önce onların şartlarını kabul et; karşı teklif imzalanamaz.",
+    "signHintRefused": "Bu transfer olduğu gibi imzalanamaz.",
+    "errorGeneric": "Pazar bu isteği tamamlayamadı. Tekrar dene."
   }
 }

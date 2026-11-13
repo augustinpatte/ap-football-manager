@@ -5178,6 +5178,12 @@
     "checkWindow": "Transfer window is open",
     "checkPassed": "passes",
     "checkFailed": "fails",
-    "openProfile": "Open {{player}}"
+    "openProfile": "Open {{player}}",
+    "tableCaption": "Players in the global market, page {{page}} of {{pages}}",
+    "selected": "Selected",
+    "signHintCheck": "Check the terms to see whether the club and player accept.",
+    "signHintCounter": "Use their terms first; a counter-offer cannot be signed.",
+    "signHintRefused": "This move cannot be signed as it stands.",
+    "errorGeneric": "The market could not complete that request. Try again."
   }
 }

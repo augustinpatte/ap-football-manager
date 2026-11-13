@@ -5083,9 +5083,9 @@
     "kicker": "Přestupy",
     "title": "Světový trh",
     "subtitle": "Všichni hráči, které by svět prodal, ze všech klubů mimo vaši ligu",
-    "countAll": "{{count}} na trhu",
-    "countFree": "{{count}} volných hráčů",
-    "countContracted": "{{count}} se smlouvou",
+    "countAll": "Na trhu: {{count}}",
+    "countFree": "Volných hráčů: {{count}}",
+    "countContracted": "Se smlouvou: {{count}}",
     "searchLabel": "Hledat",
     "searchPlaceholder": "Jméno, klub nebo země",
     "nationLabel": "Národnost",
@@ -5119,7 +5119,7 @@
     "descending": "Sestupně",
     "search": "Hledat",
     "reset": "Obnovit",
-    "results": "{{count}} hráčů odpovídá filtrům",
+    "results": "Filtrům odpovídá: {{count}}",
     "range": "{{from}}–{{to}} z {{total}}",
     "pageOf": "Strana {{page}} z {{pages}}",
     "previousPage": "Předchozí strana",
@@ -5154,12 +5154,12 @@
     "confirmBody": "Podepsat {{player}} z {{club}} za {{fee}}, s platem {{wage}} týdně do {{date}}?",
     "confirmFreeBody": "Podepsat {{player}} s platem {{wage}} týdně do {{date}}?",
     "confirm": "Potvrdit podpis",
-    "years": "{{count}} let",
+    "years": "{{count}}",
     "status": {
       "agreed": "Dohodnuto",
-      "club_countered": "Proti nabídka klubu",
+      "club_countered": "Protinabídka klubu",
       "club_rejected": "Nabídka odmítnuta",
-      "player_countered": "Proti nabídka hráče",
+      "player_countered": "Protinabídka hráče",
       "player_refused": "Hráč odmítá",
       "blocked": "Přestup zablokován"
     },
@@ -5167,7 +5167,7 @@
       "agreed": "Klub i hráč tyto podmínky přijímají.",
       "clubCountered": "{{club}} chce {{fee}}. Přijměte jejich podmínky a pokračujte.",
       "clubRejected": "{{club}} částku odmítl. Jejich minimum je {{fee}}.",
-      "playerCountered": "Hráč chce {{wage}} týdně na {{years}} let.",
+      "playerCountered": "Hráč chce {{wage}} týdně; délka smlouvy: {{years}}.",
       "playerRefused": "Hráč přestup neuskuteční.",
       "blocked": "Přestup blokuje pravidlo nebo vaše finance."
     },
@@ -5178,6 +5178,12 @@
     "checkWindow": "Přestupové okno je otevřené",
     "checkPassed": "splněno",
     "checkFailed": "nesplněno",
-    "openProfile": "Otevřít {{player}}"
+    "openProfile": "Otevřít {{player}}",
+    "tableCaption": "Hráči na světovém trhu, strana {{page}} z {{pages}}",
+    "selected": "Vybráno",
+    "signHintCheck": "Zkontrolujte podmínky a zjistěte, zda klub a hráč souhlasí.",
+    "signHintCounter": "Nejprve přijměte jejich podmínky; protinabídku nelze podepsat.",
+    "signHintRefused": "Tento přestup v této podobě podepsat nelze.",
+    "errorGeneric": "Trh nemohl požadavek dokončit. Zkuste to znovu."
   }
 }

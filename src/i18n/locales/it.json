@@ -5178,6 +5178,12 @@
     "checkWindow": "La finestra di mercato è aperta",
     "checkPassed": "superato",
     "checkFailed": "non superato",
-    "openProfile": "Apri {{player}}"
+    "openProfile": "Apri {{player}}",
+    "tableCaption": "Giocatori del mercato globale, pagina {{page}} di {{pages}}",
+    "selected": "Selezionato",
+    "signHintCheck": "Controlla i termini per vedere se il club e il giocatore accettano.",
+    "signHintCounter": "Accetta prima i loro termini; una controproposta non può essere firmata.",
+    "signHintRefused": "Questo trasferimento non può essere firmato così com'è.",
+    "errorGeneric": "Il mercato non è riuscito a completare la richiesta. Riprova."
   }
 }

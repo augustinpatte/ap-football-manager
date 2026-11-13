@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, CardBody, Dialog } from "../ui";
@@ -7,6 +7,7 @@ import { formatExactMoney, formatVal, formatWeeklyWage } from "../../lib/valueFo
 import GlobalMarketDetail from "./GlobalMarketDetail";
 import GlobalMarketFilters from "./GlobalMarketFilters";
 import GlobalMarketResults from "./GlobalMarketResults";
+import { marketErrorMessage } from "./globalMarketModel";
 import { useGlobalMarket, type GlobalMarketController } from "./useGlobalMarket";
 import type { GameStateData } from "../../store/gameStore";
 
@@ -19,16 +20,31 @@ export default function GlobalMarketTab({ onGameUpdate }: GlobalMarketTabProps) 
   const { t } = useTranslation();
   const controller = useGlobalMarket(onGameUpdate);
   const counts = controller.page?.counts;
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  // The confirmation is the result of the signing the manager just completed: take the keyboard
+  // there instead of dropping it on a row that has just closed.
+  useEffect(() => {
+    if (controller.notice) noticeRef.current?.focus();
+  }, [controller.notice]);
+
+  const statusMessage = controller.notice
+    ? t(controller.notice.key, controller.notice.params)
+    : controller.loading && !controller.page
+      ? t("globalMarket.loading")
+      : !controller.error && controller.page && controller.page.items.length === 0
+        ? t("globalMarket.noResults")
+        : "";
 
   return (
     <div className="space-y-5">
       <Card accent="primary">
         <CardBody className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-heading font-bold uppercase tracking-[0.25em] text-primary-500">
+            <p className="text-caption font-heading font-bold uppercase tracking-[0.25em] text-primary-500">
               {t("globalMarket.kicker")}
             </p>
-            <h2 className="text-2xl font-heading font-bold uppercase tracking-wide text-fg">
+            <h2 className="text-title font-heading font-bold uppercase tracking-wide text-fg">
               {t("globalMarket.title")}
             </h2>
             <p className="text-caption text-fg-muted">{t("globalMarket.subtitle")}</p>
@@ -47,14 +63,21 @@ export default function GlobalMarketTab({ onGameUpdate }: GlobalMarketTabProps) 
         </CardBody>
       </Card>
 
-      {controller.notice ? (
-        <p
-          role="status"
-          className="rounded-lg border border-positive/40 bg-positive-tint px-4 py-3 text-body text-positive"
-        >
-          {t(controller.notice.key, controller.notice.params)}
-        </p>
-      ) : null}
+      <div
+        ref={noticeRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label={t("globalMarket.title")}
+        tabIndex={-1}
+        className={
+          controller.notice
+            ? "rounded-lg border border-positive/40 bg-positive-tint px-4 py-3 text-body text-positive focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+            : "sr-only"
+        }
+      >
+        {statusMessage}
+      </div>
 
       <GlobalMarketFilters
         query={controller.query}
@@ -62,6 +85,23 @@ export default function GlobalMarketTab({ onGameUpdate }: GlobalMarketTabProps) 
         onSearch={controller.reload}
         resultCount={controller.page?.total ?? 0}
       />
+
+      <div
+        role="alert"
+        aria-live="assertive"
+        aria-atomic="true"
+        aria-label={t("globalMarket.title")}
+        className={controller.error ? "" : "sr-only"}
+      >
+        {controller.error ? (
+          <Card accent="danger">
+            <CardBody className="space-y-3">
+              <p className="text-body text-danger">{marketErrorMessage(controller.error, t)}</p>
+              <Button onClick={controller.reload}>{t("globalMarket.retry")}</Button>
+            </CardBody>
+          </Card>
+        ) : null}
+      </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <GlobalMarketResults controller={controller} />
@@ -97,9 +137,12 @@ function ConfirmSigningDialog({ controller }: { controller: GlobalMarketControll
       labelledBy={titleId}
       onClose={controller.cancelSign}
       busy={signing}
-      className="w-full max-w-lg p-6"
+      className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto p-6"
     >
-      <h2 id={titleId} className="font-heading text-xl font-bold uppercase tracking-wide text-fg">
+      <h2
+        id={titleId}
+        className="font-heading text-heading font-bold uppercase tracking-wide text-fg"
+      >
         {t("globalMarket.confirmTitle")}
       </h2>
       <p className="mt-3 text-body text-fg-muted">{body}</p>
@@ -137,7 +180,7 @@ function Term({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
       <dt>{label}</dt>
-      <dd className="font-heading font-bold tabular-nums text-fg">{value}</dd>
+      <dd className="text-right font-heading font-bold tabular-nums text-fg">{value}</dd>
     </div>
   );
 }

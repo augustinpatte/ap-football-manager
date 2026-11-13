@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes } from "react";
+import type { ReactNode, ButtonHTMLAttributes, Ref } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "accent" | "ghost" | "outline";
@@ -6,6 +6,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   icon?: ReactNode;
   iconRight?: ReactNode;
+  /** A caller that has to move focus to the button, such as pagination after a page ends. */
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Button({
@@ -16,6 +18,7 @@ export function Button({
   iconRight,
   className = "",
   disabled,
+  ref,
   ...props
 }: ButtonProps) {
   const base =
@@ -39,6 +42,7 @@ export function Button({
 
   return (
     <button
+      ref={ref}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled}
       {...props}

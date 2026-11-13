@@ -5083,9 +5083,9 @@
     "kicker": "Трансферы",
     "title": "Мировой рынок",
     "subtitle": "Все игроки, которых готов продать мир, из всех клубов вне вашей лиги",
-    "countAll": "{{count}} на рынке",
-    "countFree": "{{count}} свободных агентов",
-    "countContracted": "{{count}} с контрактом",
+    "countAll": "На рынке: {{count}}",
+    "countFree": "Свободных агентов: {{count}}",
+    "countContracted": "С контрактом: {{count}}",
     "searchLabel": "Поиск",
     "searchPlaceholder": "Имя, клуб или страна",
     "nationLabel": "Гражданство",
@@ -5119,7 +5119,7 @@
     "descending": "По убыванию",
     "search": "Искать",
     "reset": "Сбросить",
-    "results": "{{count}} игроков подходят под фильтры",
+    "results": "Под фильтры подходит: {{count}}",
     "range": "{{from}}–{{to}} из {{total}}",
     "pageOf": "Страница {{page}} из {{pages}}",
     "previousPage": "Предыдущая страница",
@@ -5154,7 +5154,7 @@
     "confirmBody": "Подписать {{player}} из {{club}} за {{fee}} с зарплатой {{wage}} в неделю до {{date}}?",
     "confirmFreeBody": "Подписать {{player}} с зарплатой {{wage}} в неделю до {{date}}?",
     "confirm": "Подтвердить подписание",
-    "years": "{{count}} лет",
+    "years": "{{count}}",
     "status": {
       "agreed": "Согласовано",
       "club_countered": "Контроферта клуба",
@@ -5167,7 +5167,7 @@
       "agreed": "Клуб и игрок принимают эти условия.",
       "clubCountered": "{{club}} требует {{fee}}. Примите их условия, чтобы продолжить.",
       "clubRejected": "{{club}} отклонил сумму. Их минимум — {{fee}}.",
-      "playerCountered": "Игрок требует {{wage}} в неделю на {{years}} лет.",
+      "playerCountered": "Игрок требует {{wage}} в неделю; срок контракта — {{years}}.",
       "playerRefused": "Игрок не совершит переход.",
       "blocked": "Правило или ваши финансы блокируют переход."
     },
@@ -5178,6 +5178,12 @@
     "checkWindow": "Трансферное окно открыто",
     "checkPassed": "выполнено",
     "checkFailed": "не выполнено",
-    "openProfile": "Открыть {{player}}"
+    "openProfile": "Открыть {{player}}",
+    "tableCaption": "Игроки мирового рынка, страница {{page}} из {{pages}}",
+    "selected": "Выбран",
+    "signHintCheck": "Проверьте условия, чтобы узнать, согласны ли клуб и игрок.",
+    "signHintCounter": "Сначала примите их условия; контроферту подписать нельзя.",
+    "signHintRefused": "Этот переход нельзя подписать в текущем виде.",
+    "errorGeneric": "Рынок не смог выполнить запрос. Попробуйте ещё раз."
   }
 }
