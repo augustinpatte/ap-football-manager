@@ -18,7 +18,10 @@ use db::save_manager::SaveManager;
 use domain::stats::StatsState;
 use fm24_adapter::registry::{build_registry, RegistryAvailability, RegistrySort};
 use ofm_core::end_of_season;
-use ofm_core::external_registry::{preview_external_recruitment, recruit_external_player};
+use ofm_core::external_registry::{
+    negotiate_external_transfer, recruit_external_player, ExternalNegotiationRequest,
+    NEGOTIATION_AGREED,
+};
 use ofm_core::finances::calc_wages;
 use season_harness::driver::{play_day, roll_season_over, RunOptions, SeasonObserver};
 use season_harness::env;
@@ -108,9 +111,10 @@ fn candidates(
     let request = RegistrySearchRequest {
         availability,
         sort: RegistrySort::Ovr,
-        // Best first. The registry reads `descending: true` as ascending for Ovr and Value (a
-        // D7B1 inversion recorded in docs/APFM_I1_P5_D7B2_INTEGRATION.md), so this asks for neither.
-        descending: false,
+        // Best first. D7B3 made `descending` mean "the larger value first" for every sort, the
+        // reading the screen's arrow has; before it the registry read `descending: true` as
+        // ascending for Ovr and Value, and this study asked for `false` to compensate.
+        descending: true,
         page_size: attempts as u32,
         ..RegistrySearchRequest::default()
     };
@@ -134,9 +138,15 @@ fn shop(base: &Path, game: &mut Game, club: &str, passes: &[Pass], tally: &mut T
                 break;
             }
             let before = money_of(game, club);
-            let preview = preview_external_recruitment(game, &external).expect("a preview");
+            let negotiation =
+                negotiate_external_transfer(game, &external, ExternalNegotiationRequest::default())
+                    .expect("a negotiation");
             match recruit_external_player(game, &external) {
                 Ok(outcome) => {
+                    assert_eq!(
+                        negotiation.status, NEGOTIATION_AGREED,
+                        "signed without agreement"
+                    );
                     signed += 1;
                     let after = money_of(game, club);
                     let fee = i64::try_from(outcome.fee).expect("a fee fits");
@@ -157,10 +167,11 @@ fn shop(base: &Path, game: &mut Game, club: &str, passes: &[Pass], tally: &mut T
                         || before.players != after.players
                         || before.messages != after.messages;
                     tally.refusals_that_mutated += u32::from(changed);
-                    // The preview said so too: a screen and a signing must not disagree.
-                    assert!(
-                        preview.blocker.is_some(),
-                        "refused {key} but previewed clean"
+                    // The screen said so too: what the negotiation reports is what signing does,
+                    // since one-click signing is a negotiation that signs only on agreement.
+                    assert_ne!(
+                        negotiation.status, NEGOTIATION_AGREED,
+                        "refused {key} but the negotiation was agreed"
                     );
                     *tally.refused.entry(key).or_default() += 1;
                 }
@@ -184,9 +195,10 @@ fn census(base: &Path, game: &Game) -> Census {
     let context = registry_context(game);
     let request = RegistrySearchRequest {
         sort: RegistrySort::Ovr,
-        // Best first. The registry reads `descending: true` as ascending for Ovr and Value (a
-        // D7B1 inversion recorded in docs/APFM_I1_P5_D7B2_INTEGRATION.md), so this asks for neither.
-        descending: false,
+        // Best first. D7B3 made `descending` mean "the larger value first" for every sort, the
+        // reading the screen's arrow has; before it the registry read `descending: true` as
+        // ascending for Ovr and Value, and this study asked for `false` to compensate.
+        descending: true,
         page_size: 100,
         ..RegistrySearchRequest::default()
     };
