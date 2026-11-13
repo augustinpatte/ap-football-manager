@@ -117,6 +117,34 @@ fn a_free_agent_is_signed_once_and_cannot_be_signed_again() {
     assert_eq!(snapshot(&game), after, "a refusal mutates nothing");
 }
 
+/// Given a club far below an elite player's level
+/// When the manager previews the signing and then attempts it
+/// Then the legacy one-click preview and the attempt report the same player refusal, and nothing
+///      changes: the preview is the negotiation, not a second set of rules
+#[test]
+fn the_legacy_preview_agrees_with_the_attempt_when_the_player_refuses_the_move() {
+    let mut game = open_game(900_000_000, 900_000_000);
+    game.teams[0].reputation = 20;
+    let mut target = contracted("fm-p-9015");
+    target.ovr = 90;
+    target.potential = 95;
+    let before = snapshot(&game);
+
+    let preview = preview_external_recruitment(&game, &target).unwrap();
+    let result = recruit_external_player(&mut game, &target);
+
+    assert_eq!(
+        preview.blocker.as_deref(),
+        Some(ofm_core::transfers::ERR_PLAYER_REFUSES_MOVE),
+        "the old preview would have shown no blocker here: {preview:?}"
+    );
+    assert_eq!(
+        result.as_deref_err(),
+        Some(ofm_core::transfers::ERR_PLAYER_REFUSES_MOVE)
+    );
+    assert_eq!(snapshot(&game), before, "a refusal mutates nothing");
+}
+
 /// Given an open window and a Newgen identity (`fm-n-*`) from the registry
 /// When the manager signs him twice
 /// Then the Newgen is promoted once under his own stable id
@@ -460,24 +488,30 @@ fn an_agreed_in_game_purchase_holds_its_place_against_a_global_market_purchase()
     );
 }
 
-/// Given the same agreed in-game purchase holding the last senior place
-/// When a global-market FREE AGENT is signed first (a free agent is judged against the live list,
-///      as every free-agent signing is) and the deal's registration date then arrives
-/// Then the list never exceeds the limit: the deal fails to register, is withdrawn with a reason,
-///      and the fee it would have paid is not taken
-///
-/// Characterizes a known gap, not a desired rule: the free agent takes the place the deal was
-/// promised. It fails cleanly; see docs/APFM_I2_INTEGRATION.md.
+/// Given an agreed in-game purchase holding the last senior place
+/// When a global-market FREE AGENT is signed first
+/// Then the place promised to the purchase is not the free agent's: he is refused with the
+///      registration limit's key and nothing changes, and the deal still registers into the place
+///      it held, filling the list to 30
 #[test]
-fn a_free_agent_can_take_the_place_an_agreed_purchase_was_promised_and_the_deal_fails_cleanly() {
+fn a_global_market_free_agent_cannot_take_the_place_an_agreed_purchase_was_promised() {
     let free = external("fm-p-9012", None);
     let mut game = closed_window_game(900_000_000, 900_000_000);
     leave_one_senior_place(&mut game);
     make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the in-game deal is agreed");
     game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
     open_the_window(&mut game);
-    recruit_external_player(&mut game, &free).expect("a free agent meets the live list only");
-    let cash = game.teams[0].finance;
+    let before = snapshot(&game);
+
+    let refused = recruit_external_player(&mut game, &free);
+
+    assert!(
+        refused
+            .as_deref_err()
+            .is_some_and(|e| e.starts_with(SQUAD_FULL)),
+        "{refused:?}"
+    );
+    assert_eq!(snapshot(&game), before, "a refusal mutates nothing");
 
     process_pending_transfer_registrations(&mut game);
 
@@ -487,19 +521,77 @@ fn a_free_agent_can_take_the_place_an_agreed_purchase_was_promised_and_the_deal_
         "never above the limit"
     );
     let target = game.players.iter().find(|p| p.id == "target-a").unwrap();
-    assert_ne!(
+    assert_eq!(
         target.team_id.as_deref(),
         Some("team-1"),
-        "the deal did not register"
+        "the promised deal registered into the place it held"
     );
+}
+
+/// Given a full list of 30 that also has an agreed purchase waiting to register
+/// When a global-market free agent is signed
+/// Then the promised place is not subtracted from the live count a second time: he is refused by
+///      the same limit and nothing changes.
+#[test]
+fn a_full_list_with_a_pending_purchase_refuses_a_global_market_free_agent() {
+    let free = external("fm-p-9013", None);
+    let mut game = closed_window_game(900_000_000, 900_000_000);
+    leave_one_senior_place(&mut game);
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the in-game deal is agreed");
+    // Refill the place the deal reserved, as a list that lost and regained a senior would.
+    let mut filler = make_player("refilled-place");
+    filler.team_id = Some("team-1".to_string());
+    filler.stage_wage(0);
+    game.players.push(filler);
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
+    open_the_window(&mut game);
+    let before = snapshot(&game);
+
+    let refused = recruit_external_player(&mut game, &free);
+
     assert!(
-        target
-            .transfer_offers
-            .iter()
-            .all(|o| o.status != TransferOfferStatus::PendingRegistration),
-        "nothing is left pending"
+        refused
+            .as_deref_err()
+            .is_some_and(|e| e.starts_with(SQUAD_FULL)),
+        "{refused:?}"
     );
-    assert_eq!(game.teams[0].finance, cash, "the fee was not taken");
+    assert_eq!(snapshot(&game), before);
+    assert_eq!(squad_capacity(&game, "team-1").registered_seniors, 30);
+}
+
+/// Given an agreed purchase holding the last senior place
+/// When a senior leaves and the global-market free agent is previewed and signed
+/// Then the preview and the attempt agree: the place is free only once it is actually released.
+#[test]
+fn a_global_market_free_agent_signs_once_the_promised_place_frees() {
+    let free = external("fm-p-9014", None);
+    let mut game = closed_window_game(900_000_000, 900_000_000);
+    leave_one_senior_place(&mut game);
+    make_transfer_bid(&mut game, "target-a", 2_000_000).expect("the in-game deal is agreed");
+    game.clock.current_date = Utc.with_ymd_and_hms(2027, 1, 1, 12, 0, 0).unwrap();
+    open_the_window(&mut game);
+
+    let blocked = preview_external_recruitment(&game, &free).unwrap();
+    assert!(
+        blocked
+            .blocker
+            .as_deref()
+            .is_some_and(|e| e.starts_with(SQUAD_FULL)),
+        "{blocked:?}"
+    );
+
+    game.players
+        .iter_mut()
+        .find(|player| player.team_id.as_deref() == Some("team-1"))
+        .expect("a senior leaves")
+        .team_id = None;
+
+    let preview = preview_external_recruitment(&game, &free).unwrap();
+    let signed = recruit_external_player(&mut game, &free);
+
+    assert_eq!(preview.blocker, None, "{preview:?}");
+    assert!(signed.is_ok(), "{signed:?}");
+    assert_eq!(squad_capacity(&game, "team-1").registered_seniors, 29);
 }
 
 /// `Result::as_deref_err` is not in std; the tests only need to look at the error text.

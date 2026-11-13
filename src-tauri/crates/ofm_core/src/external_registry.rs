@@ -30,8 +30,7 @@ use crate::external_world::{
 use crate::game::Game;
 use crate::transfers::{
     ClubView, ERR_PLAYER_REFUSES_MOVE, FeeBlock, fee_and_bonus_block_after_pending,
-    fee_block_after_pending, log_completed_transfer, pending_incoming_purchases, push_to_leave,
-    senior_place_refusal, transfer_window_is_open,
+    log_completed_transfer, push_to_leave, signing_place_refusal, transfer_window_is_open,
 };
 use chrono::{Datelike, Months, NaiveDate};
 use domain::contract_ledger::{ContractRecord, ContractSource};
@@ -443,76 +442,36 @@ fn fee_terms(game: &Game, request: &OfferRequest<'_>) -> FeeTerms {
 /// `offer` is `None` for the one-click screen: the club's own request is the price, so an
 /// important player is expensive rather than impossible. An explicit offer below 75% of that floor
 /// is rejected outright, and no mutation happens; an offer in between is countered at the floor.
+///
+/// The preview is the negotiation with nothing written: both parties answer, and every permanent
+/// or financial rule is run, so the blocker shown here is exactly the one an attempt would report.
 pub fn preview_external_recruitment_with_offer(
     game: &Game,
     external: &ExternalPlayer,
     offer: Option<u64>,
 ) -> Result<ExternalRecruitPreview, String> {
-    let team = managed_team(game)?;
-    let today = game.clock.current_date.date_naive();
-    let player = external.to_player(today);
-    let (weekly_wage, contract_end) = standard_terms(game, &player, team)?;
-    let contract_years = expected_contract_years(&player, today).max(1);
-    let free_agent = external.is_free_agent(today);
-    let age = external.age_on(today).unwrap_or(i32::MAX);
-    let asking = if free_agent {
-        0
-    } else {
-        asking_price(
-            external.market_value,
-            external
-                .club
-                .as_ref()
-                .and_then(|club| club.contract_end.as_deref()),
-            today,
-        )
-    };
-    let terms = fee_terms(
+    let outcome = negotiate_external_transfer(
         game,
-        &OfferRequest {
-            external,
-            today,
-            free_agent,
-            asking,
-            age,
-            buyer_reputation: i64::from(team.reputation),
-            offer,
+        external,
+        ExternalNegotiationRequest {
+            fee: offer,
+            ..ExternalNegotiationRequest::default()
         },
-    );
-
-    let already_in_world = duplicate_in_world(game, &external.id);
-    // Both limits are read against what the club has already promised: a deal agreed and waiting
-    // to register holds its fee and its wage, and this signing completes at once, so it is the one
-    // that could spend them a second time. See `transfers::pending_fee_commitments`.
-    let fee_check = fee_block_after_pending(game, team, terms.fee);
-    let wage_policy_allows = BuyerWageFacts::of_committed(game, &team.id)
-        .purchase_verdict(team, &player, weekly_wage)
-        .permits();
-    let window_open = free_agent || transfer_window_is_open(game);
-
-    let blocker = if already_in_world {
-        Some(ERR_PLAYER_ALREADY_IN_WORLD.to_string())
-    } else {
-        identity_blocker(external, age, window_open)
-            .or_else(|| terms.rejected.then(|| ERR_OFFER_REJECTED.to_string()))
-            .or_else(|| squad_blocker(game, team, &external.id, free_agent))
-            .or_else(|| finance_blocker(team, fee_check, wage_policy_allows))
-    };
-
+    )?;
     Ok(ExternalRecruitPreview {
-        player_id: external.id.clone(),
-        free_agent,
-        already_in_world,
-        fee: terms.fee,
-        minimum_fee: terms.minimum_fee,
-        club_decision: terms.club_decision.to_string(),
-        weekly_wage,
-        contract_years,
-        contract_end: contract_end.format("%Y-%m-%d").to_string(),
-        can_afford_fee: fee_check.is_ok(),
-        wage_policy_allows,
-        window_open,
-        blocker,
+        player_id: outcome.player_id,
+        free_agent: outcome.free_agent,
+        already_in_world: duplicate_in_world(game, &external.id),
+        fee: outcome.fee,
+        minimum_fee: outcome.minimum_fee,
+        club_decision: outcome.club_decision,
+        weekly_wage: outcome.weekly_wage,
+        contract_years: outcome.contract_years,
+        contract_end: outcome.contract_end,
+        can_afford_fee: outcome.can_afford_fee,
+        wage_policy_allows: outcome.wage_policy_allows,
+        window_open: outcome.window_open,
+        blocker: outcome.blocker,
     })
 }
 
@@ -624,7 +583,7 @@ fn negotiation_facts(
         age,
         can_afford_fee: fee_check.is_ok(),
         finance_blocker: finance_blocker(team, fee_check, wage_policy_allows),
-        squad_blocker: squad_blocker(game, team, &external.id, free_agent),
+        squad_blocker: squad_blocker(game, team, &external.id),
         bonus_blocker: bonus_check.err(),
         can_afford_bonus,
         wage_policy_allows,
@@ -901,16 +860,11 @@ fn identity_blocker(external: &ExternalPlayer, age: i32, window_open: bool) -> O
 }
 
 /// The senior registration limit (`contracts::squad_capacity`), which a free agent signing meets
-/// and a contracted purchase now meets too. A free agent is judged against the live list; a
-/// purchase also counts the places promised to deals already agreed and waiting to register, the
-/// same reservation P6 applies to an in-game purchase.
-fn squad_blocker(game: &Game, team: &Team, external_id: &str, free_agent: bool) -> Option<String> {
-    let promised = if free_agent {
-        0
-    } else {
-        pending_incoming_purchases(game, &team.id, external_id)
-    };
-    senior_place_refusal(game, &team.id, promised)
+/// and a contracted purchase now meets too. The places promised to deals already agreed and
+/// waiting to register are reserved for every signing — free agent or purchase — through the same
+/// predicate P6 applies to an in-game purchase.
+fn squad_blocker(game: &Game, team: &Team, external_id: &str) -> Option<String> {
+    signing_place_refusal(game, &team.id, external_id)
 }
 
 /// Cash, transfer budget and wage policy. Runs only after the identity refusals.

@@ -231,7 +231,8 @@ fn validate_affordable(
         return Err(renewal_wage_policy_error_message(team));
     }
     if terms.signing_bonus > 0 {
-        crate::transfers::ensure_bonus_affordable(team, terms.signing_bonus)?;
+        crate::transfers::fee_and_bonus_block_after_pending(game, team, 0, terms.signing_bonus)
+            .map_err(|block| block.error_key().to_string())?;
         let bonus = i64::try_from(terms.signing_bonus)
             .map_err(|_| "be.error.finance.amountOverflow".to_string())?;
         crate::finances::validate_posts(
@@ -247,12 +248,10 @@ fn validate_affordable(
     Ok(())
 }
 
-fn ensure_room_in_the_squad(game: &Game, club_id: &str) -> Result<(), String> {
-    let capacity = squad_capacity(game, club_id);
-    if capacity.blocks_signing {
-        return Err(capacity.full_error());
-    }
-    Ok(())
+/// Whether `club_id` has a senior place for `player_id`, with the places promised to purchases
+/// agreed and waiting to register set aside: the same rule every other signing follows.
+fn ensure_room_for(game: &Game, club_id: &str, player_id: &str) -> Result<(), String> {
+    crate::transfers::signing_place_refusal(game, club_id, player_id).map_or(Ok(()), Err)
 }
 
 fn open_talk_of<'a>(player: &'a Player, club_id: &str) -> Option<&'a FreeAgentTalk> {
@@ -332,7 +331,7 @@ pub fn submit_free_agent_offer(
         return Err(ERR_TOO_MANY_OPEN_TALKS.to_string());
     }
     validate_affordable(game, &team, &game.players[index], &terms, today)?;
-    ensure_room_in_the_squad(game, &team.id)?;
+    ensure_room_for(game, &team.id, player_id)?;
 
     let squad = ClubSquad::of(&game.players, &team.id);
     let player = &game.players[index];
@@ -767,7 +766,7 @@ fn complete_signing(
         .cloned()
         .ok_or("be.error.teamNotFound".to_string())?;
     let player = game.players[index].clone();
-    ensure_room_in_the_squad(game, club_id)?;
+    ensure_room_for(game, club_id, &player.id)?;
     validate_affordable(game, &team, &player, terms, today)?;
     if !made_by_manager && !rivals::club_can_carry_wage(game, &team, terms.weekly_wage) {
         return Err(renewal_wage_policy_error_message(&team));

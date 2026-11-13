@@ -300,24 +300,19 @@ pub(super) fn buyers_contract_terms(
     if !purchase_wage_policy_verdict(game, &buyer, player, wage).permits() {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
-    ensure_place_for(game, player, buyer_team_id, 0)?;
+    ensure_place_for(game, player, buyer_team_id)?;
     Ok((buyer, wage, end))
 }
 
-/// Whether `buyer_team_id` has a place on its senior list for `player`: the limit a free agent
-/// meets, which a purchase did not. `promised` places are taken already by purchases agreed and
-/// waiting to register. A player already registered with the club (a loan that becomes a purchase)
-/// needs no new place.
-fn ensure_place_for(
-    game: &Game,
-    player: &Player,
-    buyer_team_id: &str,
-    promised: usize,
-) -> Result<(), String> {
+/// Whether `buyer_team_id` has a place on its senior list for `player`: the same limit every
+/// signing meets, with the places taken by purchases agreed and waiting to register reserved,
+/// except the player's own deal. A player already registered with the club (a loan that becomes a
+/// purchase) needs no new place.
+fn ensure_place_for(game: &Game, player: &Player, buyer_team_id: &str) -> Result<(), String> {
     if player.team_id.as_deref() == Some(buyer_team_id) {
         return Ok(());
     }
-    super::registration::senior_place_refusal(game, buyer_team_id, promised).map_or(Ok(()), Err)
+    super::registration::signing_place_refusal(game, buyer_team_id, &player.id).map_or(Ok(()), Err)
 }
 
 /// Whether `buyer_team_id` could be given the contract it would need to buy this
@@ -341,8 +336,7 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
     {
         return Err(renewal_wage_policy_error_message(&buyer));
     }
-    let promised = super::registration::pending_incoming_purchases(game, buyer_team_id, player_id);
-    ensure_place_for(game, player, buyer_team_id, promised)
+    ensure_place_for(game, player, buyer_team_id)
 }
 
 /// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a

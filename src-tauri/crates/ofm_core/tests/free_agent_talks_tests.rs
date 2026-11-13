@@ -8,7 +8,7 @@ use chrono::{TimeZone, Utc};
 use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkReason, FreeAgentTalkStatus};
 use domain::manager::Manager;
 use domain::player::PlayerAttributes;
-use domain::player::{Player, PlayerMovementKind, Position};
+use domain::player::{Player, PlayerMovementKind, Position, TransferOfferStatus};
 use domain::season::TransferWindowStatus;
 use domain::team::Team;
 use free_agent_support::{DAYS_TO_AN_ANSWER, run_days};
@@ -335,6 +335,178 @@ fn an_offer_the_club_can_no_longer_pay_lapses_instead_of_signing() {
     let talk = &talks(&game, "fa")[0];
     assert_eq!(talk.status, FreeAgentTalkStatus::Lapsed);
     assert_eq!(talk.reason, Some(FreeAgentTalkReason::ClubCannotAfford));
+}
+
+/// Given a club with one senior place left and an agreed purchase waiting to register
+/// When the manager offers a free agent the contract he would take
+/// Then the promised place is not the free agent's: the offer is refused before a talk exists.
+#[test]
+fn a_free_agent_offer_is_refused_when_the_last_place_is_promised_to_a_purchase() {
+    let mut game = world(free_agent("fa", 58, "1998-01-01", 400_000, 3_000), 300, 60);
+    let ask = {
+        let a = interest(&game, "fa", terms(1, 3));
+        terms(a.expected_wage, a.expected_years)
+    };
+    pad_to_seniors(&mut game, 29);
+    promise_a_purchase(&mut game, 2_000_000);
+
+    let refused = submit_free_agent_offer(&mut game, "fa", ask);
+
+    assert!(
+        refused
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+        "{refused:?}"
+    );
+    assert!(talks(&game, "fa").is_empty(), "no talk was opened");
+
+    // The promise released, the same offer opens an ordinary talk.
+    game.players
+        .iter_mut()
+        .find(|player| player.team_id.as_deref() == Some(USER))
+        .expect("a senior leaves")
+        .team_id = None;
+    assert!(submit_free_agent_offer(&mut game, "fa", ask).is_ok());
+}
+
+/// Given a free agent whose talk is already open and going his way
+/// When the club's last senior place is promised to a purchase before he answers
+/// Then he does not sign: the talk lapses, the list stays at 29 and the agreed purchase is still
+///      waiting for its place.
+#[test]
+fn a_free_agent_lapses_when_the_last_place_is_promised_before_he_answers() {
+    let mut game = world(free_agent("fa", 58, "1998-01-01", 400_000, 3_000), 300, 60);
+    let ask = {
+        let a = interest(&game, "fa", terms(1, 3));
+        terms(a.expected_wage, a.expected_years)
+    };
+    submit_free_agent_offer(&mut game, "fa", ask).unwrap();
+    pad_to_seniors(&mut game, 29);
+    promise_a_purchase(&mut game, 2_000_000);
+
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
+
+    assert_eq!(player(&game, "fa").team_id, None, "no contract");
+    assert!(player(&game, "fa").movement_history.is_empty());
+    let talk = &talks(&game, "fa")[0];
+    assert_eq!(talk.status, FreeAgentTalkStatus::Lapsed);
+    assert_eq!(
+        talk.reason,
+        Some(FreeAgentTalkReason::ClubCannotAfford),
+        "the talk's one failure reason, reused for the squad limit"
+    );
+    assert_eq!(
+        ofm_core::contracts::squad_capacity(&game, USER).registered_seniors,
+        29
+    );
+    let promised = game
+        .players
+        .iter()
+        .find(|player| player.id == "promised-purchase")
+        .unwrap();
+    assert!(
+        promised
+            .transfer_offers
+            .iter()
+            .any(|offer| offer.status == domain::player::TransferOfferStatus::PendingRegistration),
+        "the purchase's place is still held"
+    );
+}
+
+/// Given a club whose cash covers a free agent's bonus only if it does not also pay a purchase
+///   agreed and waiting to register
+/// When the manager offers that bonus
+/// Then the offer is refused for want of money: the pending fee is as good as paid. Once the
+///      purchase is withdrawn the same offer is taken: no commitment survives a dead deal.
+#[test]
+fn a_free_agent_bonus_is_judged_against_the_fees_of_agreed_deals() {
+    let ask = |game: &Game| {
+        let a = interest(game, "fa", terms(1, 3));
+        terms(a.expected_wage, a.expected_years)
+    };
+    let mut game = world(free_agent("fa", 58, "1998-01-01", 400_000, 3_000), 300, 60);
+    let base = ask(&game);
+    let bonus = 100_000;
+    let offer = OfferTerms {
+        signing_bonus: bonus,
+        ..base
+    };
+    promise_a_purchase(&mut game, 2_000_000);
+    game.teams[0].finance = 2_000_000 + bonus as i64 - 1;
+    game.teams[0].transfer_budget = 10_000_000;
+
+    let refused = submit_free_agent_offer(&mut game, "fa", offer);
+
+    assert_eq!(
+        refused.as_ref().err().map(String::as_str),
+        Some("be.error.transfers.insufficientFunds")
+    );
+    assert!(talks(&game, "fa").is_empty(), "no talk was opened");
+
+    game.players
+        .iter_mut()
+        .find(|player| player.id == "promised-purchase")
+        .expect("the agreed purchase")
+        .transfer_offers[0]
+        .status = TransferOfferStatus::Withdrawn;
+
+    assert!(
+        submit_free_agent_offer(&mut game, "fa", offer).is_ok(),
+        "the withdrawn purchase releases the fee it held"
+    );
+}
+
+/// Pads the user's club with inert seniors until it holds `seniors`, never removing anyone.
+fn pad_to_seniors(game: &mut Game, seniors: usize) {
+    let template = game
+        .players
+        .iter()
+        .find(|player| player.team_id.as_deref() == Some(USER))
+        .cloned()
+        .expect("the club has a senior");
+    let mut index = 0;
+    while ofm_core::contracts::squad_capacity(game, USER).registered_seniors < seniors {
+        let mut padding = template.clone();
+        padding.id = format!("padding-{index}");
+        padding.match_name = padding.id.clone();
+        padding.full_name = padding.id.clone();
+        padding.stage_wage(0);
+        padding.market_value = 0;
+        game.players.push(padding);
+        index += 1;
+    }
+}
+
+/// An agreed purchase waiting to register, at another club, from the user's club.
+fn promise_a_purchase(game: &mut Game, fee: u64) {
+    let mut promised = game
+        .players
+        .iter()
+        .find(|player| player.team_id.as_deref() == Some("big-club"))
+        .cloned()
+        .expect("the other club has a player");
+    promised.id = "promised-purchase".to_string();
+    promised.match_name = promised.id.clone();
+    promised.full_name = promised.id.clone();
+    promised
+        .transfer_offers
+        .push(domain::player::TransferOffer {
+            id: "offer-promised-purchase".to_string(),
+            from_team_id: USER.to_string(),
+            fee,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: domain::player::TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-01-01".to_string()),
+            closed_on: None,
+            registration_failure_reason: None,
+            terms: Default::default(),
+        });
+    game.players.push(promised);
 }
 
 /// Run F1, anomaly 2. Given the user's club holds 33 senior players and a free agent who would

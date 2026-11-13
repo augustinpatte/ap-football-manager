@@ -81,6 +81,23 @@ pub(crate) fn senior_place_refusal(game: &Game, team_id: &str, promised: usize) 
     (capacity.free_places <= promised).then(|| capacity.full_error())
 }
 
+/// The refusal when `team_id` has no place left on its senior list for `incoming_player_id` once
+/// the places taken by purchases agreed and waiting to register are set aside; `None` when he can
+/// be registered. `incoming_player_id` is excepted from the reservation, so a deal that is
+/// registering does not block itself through its own `PendingRegistration` offer.
+///
+/// Every senior signing route — an in-game purchase, a free-agent talk, a global-market signing,
+/// an AI club filling its squad — asks this, so a promised place is respected everywhere a
+/// permanent signing is made. Loans and academy promotions are separate paths.
+pub(crate) fn signing_place_refusal(
+    game: &Game,
+    team_id: &str,
+    incoming_player_id: &str,
+) -> Option<String> {
+    let promised = pending_incoming_purchases(game, team_id, incoming_player_id);
+    senior_place_refusal(game, team_id, promised)
+}
+
 /// The cash and transfer budget `team_id` has agreed to spend in purchases that wait for their
 /// registration date. Derived from the saved offers like [`pending_wage_commitments`]: it survives
 /// a save, ends the moment a deal registers (the money has then left the books) or is voided, and

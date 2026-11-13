@@ -45,16 +45,10 @@ pub(crate) fn fee_block(team: &Team, fee: u64) -> Result<(), FeeBlock> {
     Ok(())
 }
 
-/// [`fee_block`] for a plain fee paid today by a club that has deals agreed and waiting to
-/// register: the same two tests against what is left once those are paid. A purchase that completes
-/// the moment it is agreed (a signing from the external registry) must read this, not
-/// [`fee_block`], or it could spend the cash and budget a deferred bid has already promised.
-pub(crate) fn fee_block_after_pending(game: &Game, team: &Team, fee: u64) -> Result<(), FeeBlock> {
-    fee_and_bonus_block_after_pending(game, team, fee, 0)
-}
-
-/// [`fee_block_after_pending`] for a deal that also pays a signing bonus today: the fee and the
-/// bonus are tested together, so neither can pass alone and the pair overdraw the club.
+/// [`fee_block`] for a deal that pays a fee and a signing bonus today, by a club that has deals
+/// agreed and waiting to register: both amounts are tested together against what is left once those
+/// are paid, so neither can pass alone and the pair overdraw the club. A purchase or a free signing
+/// that completes the moment it is agreed must read this, not [`fee_block`].
 pub(crate) fn fee_and_bonus_block_after_pending(
     game: &Game,
     team: &Team,

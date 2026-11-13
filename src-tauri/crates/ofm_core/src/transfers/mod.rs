@@ -45,8 +45,7 @@ mod strategy;
 mod terms;
 
 pub(crate) use affordability::{
-    FeeBlock, can_afford_fee, fee_and_bonus_block_after_pending, fee_block_after_pending,
-    transfer_fee_ceiling,
+    FeeBlock, can_afford_fee, fee_and_bonus_block_after_pending, transfer_fee_ceiling,
 };
 pub use bids::*;
 pub use consent::ERR_PLAYER_REFUSES_MOVE;
@@ -73,9 +72,9 @@ use realism::*;
 pub(crate) use realism::{DESIRED_DEPTH, LONG_INJURY_DAYS, group_is_thin, window_phase};
 use registration::*;
 pub(crate) use registration::{
-    has_pending_transfer_registration, pending_fee_commitments, pending_incoming_purchases,
-    pending_wage_commitments, player_has_active_or_pending_loan, player_has_pending_registration,
-    senior_place_refusal, transfer_window_is_open,
+    has_pending_transfer_registration, pending_fee_commitments, pending_wage_commitments,
+    player_has_active_or_pending_loan, player_has_pending_registration, signing_place_refusal,
+    transfer_window_is_open,
 };
 pub(crate) use sale_view::reinvestment_gain;
 pub(crate) use strategy::{Ambition, ClubProfile, Means, profile_in, profile_of, strategies_of};
