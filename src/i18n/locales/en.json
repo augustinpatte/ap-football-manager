@@ -5025,6 +5025,7 @@
       "talks_broken_off": "He has run out of patience with the talks.",
       "better_offer_elsewhere": "Another club made him a better offer.",
       "club_cannot_afford": "Your club can no longer afford the deal.",
+      "no_senior_place": "Your senior squad had no free place when he was ready to sign: the list is full, or its last place is promised to an agreed transfer.",
       "manager_withdrew": "You took the offer back.",
       "counter_expired": "His counter-offer was not answered in time."
     }

@@ -651,8 +651,9 @@ fn resolve_due_talks(game: &mut Game, index: usize, today: NaiveDate) {
             today,
         ) {
             Ok(()) => return,
-            Err(_) => {
-                // The club can no longer pay what it offered: the offer lapses, the next is weighed.
+            Err(error) => {
+                // The club can no longer carry the deal: the offer lapses, the next is weighed.
+                let reason = lapse_reason(&error);
                 if let Some(talk) = game.players[index]
                     .morale_core
                     .free_agent_talks
@@ -662,7 +663,7 @@ fn resolve_due_talks(game: &mut Game, index: usize, today: NaiveDate) {
                     close_talk(
                         talk,
                         FreeAgentTalkStatus::Lapsed,
-                        Some(FreeAgentTalkReason::ClubCannotAfford),
+                        Some(reason),
                         today,
                     );
                     let ended = talk.clone();
@@ -673,6 +674,17 @@ fn resolve_due_talks(game: &mut Game, index: usize, today: NaiveDate) {
     }
 
     answer_due_offers(game, index, &ranked, today);
+}
+
+/// Why a signing that was agreed on paper could not be completed: a full or fully promised senior
+/// list is a capacity problem the manager fixes by freeing a place, and anything else the club
+/// failed to carry (cash, wage policy, a missing club) is reported as money, as before.
+fn lapse_reason(completion_error: &str) -> FreeAgentTalkReason {
+    if completion_error.starts_with(ERR_SQUAD_FULL) {
+        FreeAgentTalkReason::NoSeniorPlace
+    } else {
+        FreeAgentTalkReason::ClubCannotAfford
+    }
 }
 
 /// Nobody signed: each offer whose answer is due gets its own — a counter or a refusal.

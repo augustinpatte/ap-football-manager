@@ -151,6 +151,24 @@ describe("FreeAgentTalkPanel", () => {
   });
 
   /**
+   * Given a talk that lapsed because the senior list had no free place when he was ready to sign
+   * When the panel renders
+   * Then it states the squad-place reason, not the money one.
+   */
+  it("reports a lapse caused by the squad limit as a missing place, not as money", () => {
+    render(
+      <FreeAgentTalkPanel
+        panel={panel({
+          talk: talk({ status: "lapsed", respond_on: null, reason: "no_senior_place" }),
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("freeAgents.reason.no_senior_place");
+    expect(screen.queryByText(/club_cannot_afford/)).not.toBeInTheDocument();
+  });
+
+  /**
    * Given a squad list that is over its limit after three releases (33 registered, limit 30)
    * When the panel renders
    * Then it gives the exact numbers, the places still to free, and says it is the club's

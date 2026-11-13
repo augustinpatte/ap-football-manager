@@ -50,6 +50,8 @@ offer ──► AwaitingResponse ──(1–3 game days)──► Signed
 * Money is checked twice with the same rules: when the offer is made and when the player says yes (wage
   policy, signing bonus against cash and transfer budget). A club whose books changed in between loses the deal
   (`Lapsed`, reason `club_cannot_afford`) and nothing is signed.
+* The senior-list limit is checked at the same two moments, with places promised to agreed purchases set aside. A talk
+  whose place disappeared in between lapses with reason `no_senior_place` (a capacity problem, not a money one).
 
 ### How the player decides (`contracts/free_agent_talks/appeal.rs`)
 

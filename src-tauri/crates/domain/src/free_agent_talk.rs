@@ -57,6 +57,10 @@ pub enum FreeAgentTalkReason {
     BetterOfferElsewhere,
     /// The club can no longer afford the deal it offered.
     ClubCannotAfford,
+    /// The club's senior list had no place left for him when he was ready to sign: it filled up,
+    /// or its last place was promised to a purchase agreed and waiting to register. A capacity
+    /// problem, not a money one. Appended after the existing variants; old saves never hold it.
+    NoSeniorPlace,
     /// The manager took the offer back.
     ManagerWithdrew,
     /// The offer sat unanswered past its time.
@@ -119,5 +123,36 @@ impl Default for FreeAgentTalk {
 impl FreeAgentTalk {
     pub fn is_open(&self) -> bool {
         self.status.is_open()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Given a talk saved before the squad-place reason existed, carrying an older reason
+    /// When it is loaded
+    /// Then it keeps that reason: the new variant changes no stored value.
+    #[test]
+    fn a_talk_saved_with_an_older_reason_still_loads_unchanged() {
+        let saved = r#"{"id":"t","status":"lapsed","reason":"club_cannot_afford"}"#;
+
+        let talk: FreeAgentTalk = serde_json::from_str(saved).expect("an old save loads");
+
+        assert_eq!(talk.reason, Some(FreeAgentTalkReason::ClubCannotAfford));
+    }
+
+    /// Given the squad-place reason
+    /// When it is saved and loaded again
+    /// Then it round-trips under the snake_case name the interface derives its translation key from.
+    #[test]
+    fn the_squad_place_reason_round_trips_under_its_translation_key_name() {
+        let encoded = serde_json::to_string(&FreeAgentTalkReason::NoSeniorPlace).unwrap();
+
+        assert_eq!(encoded, "\"no_senior_place\"");
+        assert_eq!(
+            serde_json::from_str::<FreeAgentTalkReason>(&encoded).unwrap(),
+            FreeAgentTalkReason::NoSeniorPlace
+        );
     }
 }

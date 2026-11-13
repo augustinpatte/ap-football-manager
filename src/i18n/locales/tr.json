@@ -5025,6 +5025,7 @@
       "talks_broken_off": "Görüşmelerde sabrı tükendi.",
       "better_offer_elsewhere": "Başka bir kulüp ona daha iyi bir teklif yaptı.",
       "club_cannot_afford": "Kulübün bu anlaşmayı artık karşılayamıyor.",
+      "no_senior_place": "Oyuncu imza atmaya hazırken A takım kadronda boş yer kalmamıştı: liste dolu ya da son yer anlaşılmış bir transfere ayrılmış.",
       "manager_withdrew": "Teklifi geri çektin.",
       "counter_expired": "Karşı teklifine zamanında yanıt verilmedi."
     }

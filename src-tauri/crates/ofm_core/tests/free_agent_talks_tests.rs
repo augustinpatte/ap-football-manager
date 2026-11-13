@@ -393,8 +393,8 @@ fn a_free_agent_lapses_when_the_last_place_is_promised_before_he_answers() {
     assert_eq!(talk.status, FreeAgentTalkStatus::Lapsed);
     assert_eq!(
         talk.reason,
-        Some(FreeAgentTalkReason::ClubCannotAfford),
-        "the talk's one failure reason, reused for the squad limit"
+        Some(FreeAgentTalkReason::NoSeniorPlace),
+        "a squad-limit lapse says places, not money"
     );
     assert_eq!(
         ofm_core::contracts::squad_capacity(&game, USER).registered_seniors,

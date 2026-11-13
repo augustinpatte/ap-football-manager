@@ -309,6 +309,7 @@ export type FreeAgentTalkReason =
   | "talks_broken_off"
   | "better_offer_elsewhere"
   | "club_cannot_afford"
+  | "no_senior_place"
   | "manager_withdrew"
   | "counter_expired";
 

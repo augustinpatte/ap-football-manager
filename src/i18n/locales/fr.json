@@ -5025,6 +5025,7 @@
       "talks_broken_off": "Il a perdu patience face aux discussions.",
       "better_offer_elsewhere": "Un autre club lui a fait une meilleure offre.",
       "club_cannot_afford": "Votre club n'a plus les moyens de cet accord.",
+      "no_senior_place": "Votre groupe professionnel n'avait plus de place libre au moment de sa signature : la liste est pleine, ou sa dernière place est promise à un transfert convenu.",
       "manager_withdrew": "Vous avez retiré l'offre.",
       "counter_expired": "Sa contre-proposition est restée sans réponse."
     }
