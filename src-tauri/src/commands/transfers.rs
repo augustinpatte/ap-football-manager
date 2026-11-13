@@ -1374,4 +1374,155 @@ mod tests {
 
         assert_eq!(error, "be.error.noActiveGameSession");
     }
+
+    /// Given a buyer with one senior place left and a purchase already agreed and waiting to
+    ///   register
+    /// When the manager accepts an incoming offer from that buyer
+    /// Then the promised place is not his: the command fails with the squad-limit key and the
+    ///      stored career is unchanged.
+    #[test]
+    fn respond_to_offer_internal_refuses_a_buyer_whose_last_place_is_promised() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 29);
+        promise_a_purchase(&mut game, "team-2");
+        let before = snapshot(&game);
+        state.set_game(game);
+
+        let refused = respond_to_offer_internal(&state, "player-1", "offer-1", true);
+
+        assert!(
+            refused
+                .as_ref()
+                .err()
+                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            "{refused:?}"
+        );
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(snapshot(&stored), before, "nothing moved");
+        let player = stored
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("the player");
+        assert_eq!(player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(
+            player.transfer_offers[0].status,
+            TransferOfferStatus::Pending
+        );
+    }
+
+    /// Given a buyer with one senior place left and a purchase already agreed and waiting to
+    ///   register
+    /// When the manager counters an incoming offer at a fee the buyer would accept
+    /// Then the promised place stops the sale: the command fails and the offer is still pending at
+    ///      its original fee.
+    #[test]
+    fn counter_offer_internal_refuses_a_buyer_whose_last_place_is_promised() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 29);
+        promise_a_purchase(&mut game, "team-2");
+        let before = snapshot(&game);
+        state.set_game(game);
+
+        let refused = counter_offer_internal(&state, "player-1", "offer-1", 1_050_000);
+
+        assert!(
+            refused
+                .as_ref()
+                .err()
+                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            "{refused:?}"
+        );
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(snapshot(&stored), before, "nothing moved");
+        let player = stored
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("the player");
+        assert_eq!(
+            player.transfer_offers[0].status,
+            TransferOfferStatus::Pending
+        );
+        assert_eq!(player.transfer_offers[0].fee, 900_000);
+    }
+
+    /// Given a buyer with no senior place left and a reservation
+    /// When the manager counters at a fee the buyer would refuse
+    /// Then the rejection is still recorded: a refusal is not a signing and needs no place.
+    #[test]
+    fn counter_offer_internal_rejects_a_fee_even_when_the_buyer_has_no_place() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 30);
+        state.set_game(game);
+
+        let response = counter_offer_internal(&state, "player-1", "offer-1", 5_000_000)
+            .expect("the negotiation can be ended");
+
+        assert_eq!(
+            response.game.players[0].transfer_offers[0].status,
+            TransferOfferStatus::Rejected
+        );
+        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
+    }
+
+    /// Brings `club` up to `seniors` senior players on no wage.
+    fn fill_senior_list(game: &mut Game, club: &str, seniors: usize) {
+        let mut index = 0;
+        while ofm_core::contracts::squad_capacity(game, club).registered_seniors < seniors {
+            let mut filler = Player::new(
+                format!("filler-{club}-{index}"),
+                format!("Filler {index}"),
+                format!("Filler {index}"),
+                "1998-01-01".to_string(),
+                "England".to_string(),
+                Position::Midfielder,
+                default_attrs(),
+            );
+            filler.team_id = Some(club.to_string());
+            filler.stage_contract_end(Some("2031-06-30".to_string()));
+            filler.stage_wage(0);
+            filler.market_value = 0;
+            game.players.push(filler);
+            index += 1;
+        }
+    }
+
+    /// An agreed purchase waiting to register, at another club, from `buyer_id`.
+    fn promise_a_purchase(game: &mut Game, buyer_id: &str) {
+        let mut promised = Player::new(
+            "promised-purchase".to_string(),
+            "P. Romised".to_string(),
+            "Promised Purchase".to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            default_attrs(),
+        );
+        promised.team_id = Some("elsewhere".to_string());
+        promised.stage_contract_end(Some("2028-06-30".to_string()));
+        promised.transfer_offers.push(TransferOffer {
+            id: "offer-promised-purchase".to_string(),
+            from_team_id: buyer_id.to_string(),
+            fee: 1_000_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-01-01".to_string()),
+            closed_on: None,
+            registration_failure_reason: None,
+            terms: Default::default(),
+        });
+        game.players.push(promised);
+    }
+
+    fn snapshot(game: &Game) -> serde_json::Value {
+        serde_json::to_value(game).expect("a game serialises")
+    }
 }

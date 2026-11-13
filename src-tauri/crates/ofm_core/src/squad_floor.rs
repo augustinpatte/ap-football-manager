@@ -856,6 +856,12 @@ pub(crate) fn sign_free_agent_for(
     better_than: Option<BetterThan>,
     context: &mut SigningContext,
 ) -> Option<BroughtIn> {
+    // A club with no senior place left cannot sign, however badly it wants the player: the places
+    // promised to purchases agreed and waiting to register are its players too. Checked before the
+    // market scan so a full club does not pay for it.
+    if crate::transfers::signing_place_refusal(game, &team.id, "").is_some() {
+        return None;
+    }
     let current_date = game.clock.current_date.date_naive();
     let (index, wage) = best_signing(
         game,
@@ -1375,6 +1381,114 @@ mod tests {
         game.teams[0].wage_budget = 10_000;
         game.teams[0].finance = 5_000_000;
         game
+    }
+
+    /// Given a club with one senior place left and an agreed purchase waiting to register
+    /// When its squad planning looks for a free agent
+    /// Then it signs nobody: the place is promised to the deal, not to a free agent.
+    #[test]
+    fn a_club_with_a_promised_place_signs_no_free_agent() {
+        let mut game = club_with([6, 9, 9, 5]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        game.players.push(promised_purchase("promised", "club"));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, None);
+        assert_eq!(team_of(&game, "keeper"), None);
+    }
+
+    /// Given a club already at its 30-senior limit and no promise
+    /// When its squad planning looks for a free agent
+    /// Then it signs nobody: the list is full with or without a purchase promised to it.
+    #[test]
+    fn a_full_club_signs_no_free_agent() {
+        let mut game = club_with([6, 9, 9, 6]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, None);
+        assert_eq!(team_of(&game, "keeper"), None);
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, &team.id).registered_seniors,
+            30
+        );
+    }
+
+    /// Given the same club with one senior place left and no promise
+    /// When its squad planning looks for a free agent
+    /// Then it signs him into the last place.
+    #[test]
+    fn a_club_with_a_free_place_signs_a_free_agent() {
+        let mut game = club_with([6, 9, 9, 5]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, Some(BroughtIn::Signed("keeper".to_string())));
+    }
+
+    /// A player at another club whose transfer to `buyer_id` is agreed and waits to register.
+    fn promised_purchase(id: &str, buyer_id: &str) -> Player {
+        let mut promised = player(id, Some("elsewhere"), Position::Midfielder);
+        promised
+            .transfer_offers
+            .push(domain::player::TransferOffer {
+                id: format!("offer-{id}"),
+                from_team_id: buyer_id.to_string(),
+                fee: 1_000_000,
+                wage_offered: 0,
+                last_manager_fee: None,
+                negotiation_round: 1,
+                suggested_counter_fee: None,
+                status: domain::player::TransferOfferStatus::PendingRegistration,
+                date: "2026-08-01".to_string(),
+                registration_date: Some("2027-01-01".to_string()),
+                closed_on: None,
+                registration_failure_reason: None,
+                terms: Default::default(),
+            });
+        promised
     }
 
     /// Given a club that pays 1 000 a week with a little room under its budget, a star asking 17 000

@@ -8,6 +8,8 @@ mod finance_integrity;
 mod loans;
 #[path = "transfers_tests/realism.rs"]
 mod realism;
+#[path = "transfers_tests/squad_places.rs"]
+mod squad_places;
 
 use chrono::{TimeZone, Utc};
 use domain::league::{CompetitionType, League};
