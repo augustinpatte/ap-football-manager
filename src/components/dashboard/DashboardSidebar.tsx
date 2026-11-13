@@ -21,6 +21,7 @@ import {
   Newspaper,
   LogOut,
   GraduationCap,
+  Earth,
   PanelLeftClose,
   PanelLeftOpen,
   User,
@@ -134,6 +135,7 @@ export default function DashboardSidebar({
   ];
   const worldItems: Array<{ icon: JSX.Element; label: string; tab: string }> = [
     { icon: <Globe />, label: t("transfers.centre"), tab: "TransferCentre" },
+    { icon: <Earth />, label: t("globalMarket.title"), tab: "GlobalMarket" },
     { icon: <Medal />, label: t("dashboard.hallOfFame"), tab: "HallOfFame" },
     { icon: <UsersRound />, label: t("dashboard.players"), tab: "Players" },
     { icon: <UserCheck />, label: t("dashboard.managers"), tab: "Managers" },

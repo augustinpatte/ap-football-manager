@@ -13,7 +13,7 @@ pub struct Config {
     pub start: StartCfg,
     pub contracts: ContractsCfg,
     pub loans: LoansCfg,
-    pub potential: PotentialCfg,
+    pub ratings: RatingsCfg,
     pub positions: PositionsCfg,
     pub squad: SquadCfg,
     pub finance: FinanceCfg,
@@ -75,9 +75,15 @@ pub struct LoansCfg {
     pub wage_contribution_pct: u8,
 }
 
+/// How FM's Current Ability sets a player's level on OFM's scale (see `ratings.rs`).
 #[derive(Debug, Clone, Deserialize)]
-pub struct PotentialCfg {
-    pub ovr_points_per_ca: f64,
+pub struct RatingsCfg {
+    /// `false` keeps the rating the converted attributes give, unanchored (the baseline the
+    /// anchored one is compared with).
+    pub anchor_to_ca: bool,
+    /// `[CA, OFM rating]` knots, CA strictly increasing, rating never decreasing; interpolated
+    /// linearly, constant beyond the ends. Potential is read off the same curve at PA.
+    pub ca_to_ovr: Vec<[f64; 2]>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,6 +106,19 @@ pub struct FinanceCfg {
     pub restore_transfer_budget: bool,
     pub restore_wage_budget: bool,
     pub restore_recurring_income: bool,
+    /// The most of a club's income (per cent) its day-one commitments may take before its recurring
+    /// income is raised to carry them; 0 leaves the source's income as it is.
+    #[serde(default = "default_commitment_share")]
+    pub max_commitment_share_of_income_pct: i64,
+}
+
+/// The board's own soft cap on a wage bill (110 % of the budget, `contract_wage_policy`): a club
+/// is let carry commitments up to that share of its income, and no further. 90 % was measured
+/// first and rejected: it gave 31 of 240 clubs invented income (twelve of them never in debt),
+/// and the 19 that needed it spent five times what they did without it. At 110 % the same 19 go
+/// from 26 club-seasons in debt to 2 and spend what they did before.
+fn default_commitment_share() -> i64 {
+    110
 }
 
 /// Which of the save's unattached players enter the world as free agents, and what they ask.
@@ -132,7 +151,9 @@ impl Config {
     }
 
     pub fn from_toml(text: &str) -> Result<Self> {
-        toml::from_str(text).map_err(|e| format!("adapter.toml: {e}"))
+        let config: Self = toml::from_str(text).map_err(|e| format!("adapter.toml: {e}"))?;
+        crate::ratings::validate(&config.ratings).map_err(|e| format!("adapter.toml: {e}"))?;
+        Ok(config)
     }
 
     /// £ -> € for a weekly or total amount, rounded to the nearest unit.

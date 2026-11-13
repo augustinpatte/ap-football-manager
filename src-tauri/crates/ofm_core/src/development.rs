@@ -268,12 +268,18 @@ fn grow(player: &mut Player, points: f64, curve_age: f64, rng: &mut impl Rng) {
 
 /// Ages a player's attributes by a season of decline, each by the table's change for its group,
 /// slowed by his resilience, halved in the body for a goalkeeper, and given its own luck.
-fn decline(player: &mut Player, curve_age: f64, traits: &DevelopmentTraits, rng: &mut impl Rng) {
+fn decline(
+    player: &mut Player,
+    curve_age: f64,
+    traits: &DevelopmentTraits,
+    harshness: f64,
+    rng: &mut impl Rng,
+) {
     let keeper = is_goalkeeper(player);
     for (attribute, aspect) in aspects_of(&mut player.attributes) {
         let mut change = decline_per_season(curve_age, aspect);
         if change < 0.0 {
-            change /= traits.resilience;
+            change = change * harshness / traits.resilience;
             if keeper && is_physical(aspect) {
                 change *= GOALKEEPER_PHYSICAL_DECLINE;
             }
@@ -323,19 +329,111 @@ fn drift_ceiling(player: &mut Player, age: u32, rng: &mut impl Rng) {
     player.potential = ceiling.max(natural_ovr(player).round() as u8);
 }
 
+/// Minutes of a player who starts every match of a season (about 30 full matches).
+pub const STARTER_MINUTES: u32 = 2_700;
+/// The minutes of a typical senior squad member, measured on the FM24 world: on average a senior
+/// plays 40 % of what a starter does (a few play nearly everything, many play almost nothing). The
+/// calibrated growth and decline tables stand for that player, so a player with these minutes is
+/// moved by nothing below; one who plays more grows a little more and one who plays less a little
+/// less, which keeps the world's average where the tables put it.
+pub const TYPICAL_MINUTES: u32 = 1_080;
+/// Days injured in a season that the tables already stand for; the penalties start above it.
+const FREE_INJURY_DAYS: f64 = 10.0;
+/// Days injured at which the injury penalties are at their full size.
+const FULL_INJURY_DAYS: f64 = 200.0;
+/// How far growth moves per unit of playing time away from the typical share, for the youngest;
+/// it fades to a third of that by the end of the growing years.
+const PLAYING_TIME_GROWTH: f64 = 0.45;
+/// Bounds on the playing-time factor, so a starter is not a prodigy and a bench is not a wasted year.
+const PLAYING_TIME_FACTOR: (f64, f64) = (0.80, 1.25);
+/// The most growth loses to a season lost to injury, and the most decline gains.
+const INJURY_GROWTH_PENALTY: f64 = 0.40;
+const INJURY_DECLINE_PENALTY: f64 = 0.35;
+/// How far decline moves per unit of playing time away from the typical share: a veteran who is
+/// not playing loses his edge a little faster, one who plays every week a little slower.
+const PLAYING_TIME_DECLINE: f64 = 0.10;
+
+/// What the season did to a player apart from his age: the minutes he played and the days he spent
+/// injured. Read from his season statistics when the season turns, so it needs no place in a save.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SeasonLoad {
+    pub minutes: u32,
+    pub injured_days: u32,
+}
+
+impl SeasonLoad {
+    /// A typical senior who stayed fit: the baseline the tables were calibrated on.
+    pub const TYPICAL: SeasonLoad = SeasonLoad {
+        minutes: TYPICAL_MINUTES,
+        injured_days: 0,
+    };
+
+    /// Share of a starter's minutes, 0 to 1.
+    fn playing_share(self) -> f64 {
+        (f64::from(self.minutes) / f64::from(STARTER_MINUTES)).min(1.0)
+    }
+
+    /// Where the typical senior sits on the same scale.
+    fn typical_share() -> f64 {
+        f64::from(TYPICAL_MINUTES) / f64::from(STARTER_MINUTES)
+    }
+
+    /// How much of the way from "nothing to worry about" to "a season lost" the injuries went.
+    fn injury_share(self) -> f64 {
+        ((f64::from(self.injured_days) - FREE_INJURY_DAYS) / (FULL_INJURY_DAYS - FREE_INJURY_DAYS))
+            .clamp(0.0, 1.0)
+    }
+}
+
+/// How much of the season's growth a player at `curve_age` keeps given his season. Playing time
+/// moves it either way, most for the young: a teenager who never plays grows 18 % less than the
+/// table, one who starts every match 27 % more. A season lost to injury costs growth at any age.
+fn growth_multiplier(curve_age: f64, load: SeasonLoad) -> f64 {
+    let youth = ((DECLINE_STARTS_AT - 1.0 - curve_age) / 10.0).clamp(0.0, 1.0) * 0.7 + 0.3;
+    let playing = (1.0
+        + PLAYING_TIME_GROWTH * youth * (load.playing_share() - SeasonLoad::typical_share()))
+    .clamp(PLAYING_TIME_FACTOR.0, PLAYING_TIME_FACTOR.1);
+    let hurt = 1.0 - INJURY_GROWTH_PENALTY * load.injury_share();
+    playing * hurt
+}
+
+/// How much more (or less) of the table's decline a player suffers given his season.
+fn decline_multiplier(load: SeasonLoad) -> f64 {
+    1.0 + INJURY_DECLINE_PENALTY * load.injury_share()
+        + PLAYING_TIME_DECLINE * (SeasonLoad::typical_share() - load.playing_share())
+}
+
 /// One season of development for a player aged `age`: growth while his curve says he grows, the
 /// decline table once it says he declines, and the drift of his ceiling on the way. Draws from
 /// `rng`, which the caller derives from the player and the date so a replay gives the same season.
 pub fn develop_one_season(player: &mut Player, age: i32, world_seed: u64, rng: &mut impl Rng) {
+    develop_season(player, age, world_seed, rng, SeasonLoad::TYPICAL);
+}
+
+/// [`develop_one_season`] for a player whose season is known: the minutes he played and the days
+/// he was injured bend the growth or the decline the tables give. Deterministic in the same way: it
+/// draws the same numbers from `rng` whatever the load.
+pub fn develop_season(
+    player: &mut Player,
+    age: i32,
+    world_seed: u64,
+    rng: &mut impl Rng,
+    load: SeasonLoad,
+) {
     let traits = traits_of(world_seed, &player.id);
     let curve = curve_age(player, age, &traits);
     if curve < DECLINE_STARTS_AT {
         let gap = player
             .potential
             .saturating_sub(natural_ovr(player).round() as u8);
-        grow(player, growth_points(curve, gap), curve, rng);
+        grow(
+            player,
+            growth_points(curve, gap) * growth_multiplier(curve, load),
+            curve,
+            rng,
+        );
     } else {
-        decline(player, curve, &traits, rng);
+        decline(player, curve, &traits, decline_multiplier(load), rng);
     }
     drift_ceiling(player, age.max(0) as u32, rng);
 }
@@ -513,7 +611,7 @@ mod tests {
         let mut strength = 0.0;
         for seed in 0..200 {
             let mut old = player("old", Position::CentralMidfielder, 70, 70);
-            decline(&mut old, 33.0, &neutral(), &mut rng(seed));
+            decline(&mut old, 33.0, &neutral(), 1.0, &mut rng(seed));
             speed += f64::from(70 - old.attributes.pace);
             strength += f64::from(70 - old.attributes.strength);
         }
@@ -538,7 +636,7 @@ mod tests {
             (0..200)
                 .map(|seed| {
                     let mut old = player("old", Position::CentralMidfielder, 70, 70);
-                    decline(&mut old, 34.0, &traits, &mut rng(seed));
+                    decline(&mut old, 34.0, &traits, 1.0, &mut rng(seed));
                     f64::from(70 - old.attributes.pace)
                 })
                 .sum::<f64>()
@@ -555,7 +653,7 @@ mod tests {
             (0..300)
                 .map(|seed| {
                     let mut old = player("old", position.clone(), 70, 70);
-                    decline(&mut old, 34.0, &neutral(), &mut rng(seed));
+                    decline(&mut old, 34.0, &neutral(), 1.0, &mut rng(seed));
                     f64::from(70 - old.attributes.pace)
                 })
                 .sum::<f64>()
@@ -875,7 +973,7 @@ mod tests {
         for seed in 0..seasons {
             let mut p = player("old", Position::CentralMidfielder, 70, 70);
             let before = f64::from(p.attributes.pace);
-            decline(&mut p, 33.0, &neutral(), &mut rng(seed));
+            decline(&mut p, 33.0, &neutral(), 1.0, &mut rng(seed));
             total += before - f64::from(p.attributes.pace);
         }
         let mean = total / f64::from(seasons as u32);
@@ -896,7 +994,7 @@ mod tests {
                 f64::from(p.attributes.pace),
                 f64::from(p.attributes.handling),
             );
-            decline(&mut p, 34.0, &neutral(), &mut rng(seed));
+            decline(&mut p, 34.0, &neutral(), 1.0, &mut rng(seed));
             pace += pace_before - f64::from(p.attributes.pace);
             handling += handling_before - f64::from(p.attributes.handling);
         }
@@ -1024,6 +1122,120 @@ mod tests {
                 "seed {seed}: {}",
                 natural_ovr(&young)
             );
+        }
+    }
+
+    /// The mean rating after one season over many seeds, for a player of the given age and load.
+    fn mean_after(age: i32, ovr: u8, potential: u8, load: SeasonLoad) -> f64 {
+        let seeds = 300;
+        let total: f64 = (0..seeds)
+            .map(|seed| {
+                let mut p = player("p", Position::Midfielder, ovr, potential);
+                develop_season(&mut p, age, 5, &mut rng(seed), load);
+                natural_ovr(&p)
+            })
+            .sum();
+        total / seeds as f64
+    }
+
+    /// Given two identical 19-year-olds with room to grow, one who started every match and one
+    /// who never got on the pitch
+    /// When a season of development is run over many seeds
+    /// Then the one who played grows clearly more.
+    #[test]
+    fn a_teenager_who_does_not_play_grows_less_than_one_who_does() {
+        let played = SeasonLoad {
+            minutes: STARTER_MINUTES,
+            injured_days: 0,
+        };
+        let benched = SeasonLoad {
+            minutes: 0,
+            injured_days: 0,
+        };
+        assert!(
+            mean_after(19, 55, 85, played) > mean_after(19, 55, 85, benched) + 0.5,
+            "played {} benched {}",
+            mean_after(19, 55, 85, played),
+            mean_after(19, 55, 85, benched),
+        );
+    }
+
+    /// Given a player in his prime
+    /// When minutes are cut to nothing
+    /// Then the growth factor moves far less than for a teenager: minutes are for the young.
+    #[test]
+    fn minutes_matter_less_the_older_the_player() {
+        let none = SeasonLoad {
+            minutes: 0,
+            injured_days: 0,
+        };
+        assert!(growth_multiplier(18.0, none) < growth_multiplier(25.0, none));
+        assert!(growth_multiplier(25.0, none) < 1.0);
+        assert_eq!(
+            growth_multiplier(18.0, SeasonLoad::TYPICAL),
+            1.0,
+            "the typical senior is the baseline"
+        );
+        let starter = SeasonLoad {
+            minutes: STARTER_MINUTES,
+            injured_days: 0,
+        };
+        assert!(
+            growth_multiplier(18.0, starter) > 1.0,
+            "and a starter grows more"
+        );
+    }
+
+    /// Given a teenager with a season lost to injury
+    /// When he develops
+    /// Then he grows less than the one who stayed fit.
+    #[test]
+    fn a_season_lost_to_injury_slows_growth() {
+        let fit = SeasonLoad {
+            minutes: TYPICAL_MINUTES,
+            injured_days: 0,
+        };
+        let hurt = SeasonLoad {
+            minutes: TYPICAL_MINUTES,
+            injured_days: 180,
+        };
+        assert!(mean_after(20, 55, 85, fit) > mean_after(20, 55, 85, hurt) + 0.4);
+    }
+
+    /// Given a 31-year-old
+    /// When he has a season with a long injury against one without
+    /// Then he loses at least a quarter more of his rating.
+    #[test]
+    fn injuries_speed_decline_for_an_older_player() {
+        let fit = SeasonLoad {
+            minutes: TYPICAL_MINUTES,
+            injured_days: 0,
+        };
+        let hurt = SeasonLoad {
+            minutes: TYPICAL_MINUTES,
+            injured_days: 180,
+        };
+        let loss = |load| 75.0 - mean_after(31, 75, 75, load);
+        assert!(
+            loss(hurt) > loss(fit) * 1.25,
+            "loss with the injury {} against {} without",
+            loss(hurt),
+            loss(fit)
+        );
+    }
+
+    /// Given the typical load
+    /// When the season is run through the loaded path and through the plain one
+    /// Then the result is identical: nothing calibrated moves for a player who plays a normal
+    /// season.
+    #[test]
+    fn the_typical_load_changes_nothing() {
+        for age in [17, 22, 26, 29, 33] {
+            let mut plain = player("same", Position::Forward, 60, 80);
+            let mut loaded = plain.clone();
+            develop_one_season(&mut plain, age, 3, &mut rng(11));
+            develop_season(&mut loaded, age, 3, &mut rng(11), SeasonLoad::TYPICAL);
+            assert_eq!(plain.attributes, loaded.attributes, "age {age}");
         }
     }
 }

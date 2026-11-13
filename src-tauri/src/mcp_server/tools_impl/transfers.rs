@@ -93,6 +93,7 @@ pub fn transfer_make_bid(
     ctx: Arc<McpContext>,
     player_id: String,
     fee: u64,
+    player_contract: (Option<u32>, Option<u8>),
 ) -> Result<BidMade, String> {
     let game = require_game(&ctx.state_manager)?;
     let player_name = game
@@ -106,6 +107,11 @@ pub fn transfer_make_bid(
         &ctx.state_manager,
         &player_id,
         fee,
+        domain::transfer_terms::TransferTerms {
+            player_weekly_wage: player_contract.0.unwrap_or(0),
+            player_contract_years: player_contract.1.unwrap_or(0),
+            ..domain::transfer_terms::TransferTerms::default()
+        },
     )?;
 
     let bid = BidMade {
@@ -118,6 +124,9 @@ pub fn transfer_make_bid(
         tension: response.feedback.tension,
         patience: response.feedback.patience,
         round: response.feedback.round,
+        player_asks_weekly_wage: response.player_demand.as_ref().map(|d| d.weekly_wage),
+        player_asks_contract_years: response.player_demand.as_ref().map(|d| d.contract_years),
+        registration_date: response.registration_date.clone(),
     };
 
     {
@@ -149,6 +158,7 @@ pub fn transfer_preview_bid(
         &ctx.state_manager,
         &player_id,
         fee,
+        &domain::transfer_terms::TransferTerms::default(),
     )?;
     let p = &response.projection;
 
@@ -318,6 +328,8 @@ pub fn transfer_free_agent_offer(
         &player_id,
         weekly_wage,
         contract_years,
+        false,
+        0,
     )?;
 
     {
@@ -329,10 +341,10 @@ pub fn transfer_free_agent_offer(
         weekly_wage,
         contract_years,
         outcome: serde_label(&response.outcome),
+        respond_on: response.respond_on,
+        reason: response.reason.as_ref().map(serde_label),
     })
 }
-
-// ─── transfer_free_agent_preview ────────────────────────────────────────────
 
 // ─── transfer_free_agent_preview ────────────────────────────────────────────
 
@@ -340,13 +352,21 @@ pub fn transfer_free_agent_preview(
     ctx: Arc<McpContext>,
     player_id: String,
     weekly_wage: u32,
+    contract_years: Option<u32>,
 ) -> Result<FreeAgentPreview, String> {
     let response = crate::commands::contracts::preview_free_agent_contract_impact_internal(
         &ctx.state_manager,
         &player_id,
-        weekly_wage,
+        ofm_core::contracts::OfferTerms {
+            weekly_wage,
+            contract_years: contract_years.unwrap_or(0),
+            signing_bonus: 0,
+            promise_stepping_stone: false,
+        },
     )?;
     let p = &response.projection;
+    let interest = &response.interest;
+    let talk = interest.open_talk.as_ref();
 
     Ok(FreeAgentPreview {
         weekly_wage,
@@ -358,6 +378,19 @@ pub fn transfer_free_agent_preview(
         projected_cash_runway_weeks: p.projected_cash_runway_weeks,
         currently_over_budget: p.currently_over_budget,
         policy_allows: p.policy_allows,
+        interest: serde_label(&interest.verdict),
+        main_obstacle: interest.main_obstacle.as_ref().map(serde_label),
+        expected_wage: interest.expected_wage,
+        expected_years: interest.expected_years,
+        talk_status: talk.map(|talk| serde_label(&talk.status)),
+        respond_on: talk.and_then(|talk| talk.respond_on.clone()),
+        counter_wage: talk.and_then(|talk| talk.counter_wage),
+        counter_years: talk.and_then(|talk| talk.counter_years),
+        rival_clubs: interest
+            .rival_clubs
+            .iter()
+            .map(|rival| rival.club_name.clone())
+            .collect(),
     })
 }
 

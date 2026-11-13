@@ -295,6 +295,30 @@ describe("TacticsTab", () => {
     expect(screen.getByTestId("pitch-bench-player-d5")).toBeInTheDocument();
   });
 
+  /**
+   * Given a manager opening the tactics screen for the first time
+   * When nothing has been expanded
+   * Then the basic controls (formation, play style) are in view, the advanced phase dials are
+   *      folded away, and opening the section reveals them.
+   */
+  it("keeps the advanced phase blueprint folded until the manager opens it", () => {
+    render(
+      <TacticsTab gameState={makeGameState()} onSelectPlayer={vi.fn()} onGameUpdate={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "tactics.formation" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "tactics.playStyle" })).toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", { name: "tactics.phaseBlueprint" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("tactics.phaseSettings.width")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("tactics.phaseSettings.width")).toBeInTheDocument();
+  });
+
   it("shows the compact tactics toolbar across the top of the lineup workspace", () => {
     render(
       <TacticsTab gameState={makeGameState()} onSelectPlayer={vi.fn()} onGameUpdate={vi.fn()} />,
@@ -311,8 +335,8 @@ describe("TacticsTab", () => {
     const gameState = makeGameState();
     gameState.teams = [
       makeTeam({
-        formation: "4-4-2",
-        play_style: "Counter",
+        formation: "3-5-2",
+        play_style: "Balanced",
         starting_xi_ids: ["gk1", "d1", "d2", "d3", "d4", "m1", "m2", "m3", "m4", "f1", "f2"],
       }),
     ];
@@ -339,6 +363,18 @@ describe("TacticsTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: {
+          build_up_style: "Mixed",
+          width: "Normal",
+          tempo: "Direct",
+          defensive_line: "High",
+          pressing_intensity: "Aggressive",
+          defensive_shape: "Normal",
+          marking_style: "Zonal",
+          counter_press_duration: "Long",
+          break_speed: "Medium",
+        },
       });
     });
   });
@@ -620,6 +656,18 @@ describe("TacticsTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: {
+          build_up_style: "Mixed",
+          width: "Normal",
+          tempo: "Direct",
+          defensive_line: "High",
+          pressing_intensity: "Aggressive",
+          defensive_shape: "Normal",
+          marking_style: "Zonal",
+          counter_press_duration: "Long",
+          break_speed: "Medium",
+        },
       });
     });
 

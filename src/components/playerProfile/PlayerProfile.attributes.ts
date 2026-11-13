@@ -17,6 +17,16 @@ export interface PlayerAttributeGroup {
 export type PlayerAttributeKey = keyof PlayerData["attributes"];
 type AttributeGroupKey = "physical" | "technical" | "mental" | "goalkeeper";
 
+/**
+ * The attribute shape a profile needs. Wider than `PlayerData` so a registry detail — which is
+ * not a `Game` player yet — renders with the same groups and labels as a profile.
+ */
+export interface PlayerAttributeSource {
+  position: string;
+  natural_position?: string;
+  attributes: Partial<Record<PlayerAttributeKey, number>>;
+}
+
 // Single source of truth for the profile display. Every attribute in
 // PlayerData["attributes"] must appear here — `satisfies Record<...>` makes
 // adding an attribute to the domain a compile-time error until it's grouped.
@@ -77,11 +87,14 @@ function createAttributeGroup(label: string, attrs: PlayerAttributeEntry[]): Pla
 // radar keys agree on who is a goalkeeper. Prefers natural_position (same as
 // primaryPosition in PlayerProfile) so temporary re-deployments don't hide GK
 // attributes from a natural keeper's card.
-export function isGoalkeeper(player: PlayerData): boolean {
+export function isGoalkeeper(player: { position: string; natural_position?: string }): boolean {
   return naturalPositionOf(player) === "Goalkeeper";
 }
 
-function isGroupApplicable(group: AttributeGroupKey, player: PlayerData): boolean {
+function isGroupApplicable(
+  group: AttributeGroupKey,
+  player: { position: string; natural_position?: string },
+): boolean {
   if (group === "goalkeeper") {
     return isGoalkeeper(player);
   }
@@ -89,7 +102,7 @@ function isGroupApplicable(group: AttributeGroupKey, player: PlayerData): boolea
 }
 
 export function buildPlayerAttributeGroups(
-  player: PlayerData,
+  player: PlayerAttributeSource,
   translate: TranslateFn,
 ): PlayerAttributeGroup[] {
   const buckets = new Map<AttributeGroupKey, PlayerAttributeEntry[]>();
@@ -100,7 +113,7 @@ export function buildPlayerAttributeGroups(
     const bucket = buckets.get(groupKey) ?? [];
     bucket.push({
       name: translate(`common.attributes.${attributeKey}`),
-      value: player.attributes[attributeKey],
+      value: player.attributes[attributeKey] ?? 0,
     });
     buckets.set(groupKey, bucket);
   }

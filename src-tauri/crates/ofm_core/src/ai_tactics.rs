@@ -49,6 +49,7 @@
 
 use crate::ai_math::mean_u8;
 use crate::game::Game;
+use crate::manager_identity::ManagerIdentity;
 use crate::stable_hash::stable_hash;
 use domain::league::FixtureStatus;
 use domain::player::{Player, Position};
@@ -242,7 +243,7 @@ fn read_squad(squad: &[&Player]) -> Option<SquadReading> {
         candidates.sort_by(|a, b| b.ovr.cmp(&a.ovr).then_with(|| a.id.cmp(&b.id)));
     };
 
-    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.injury.is_none()).collect();
+    let mut available: Vec<&&Player> = squad.iter().filter(|p| p.can_play()).collect();
     if available.is_empty() {
         // An entire squad in the treatment room is still the squad the manager
         // has to plan around.
@@ -310,6 +311,9 @@ const BLUNT: f64 = 1.6;
 struct FormReading {
     conceded_per_game: f64,
     scored_per_game: f64,
+    /// Points a game over a longer run than the other two, for the formation review: whether the
+    /// shape is working is a question about weeks, not about a single bad Saturday.
+    points_per_game: Option<f64>,
 }
 
 /// Every club's recent results, most recent first, across every competition it
@@ -324,12 +328,21 @@ struct FormReading {
 /// `game.teams` while holding this, and a key borrowed out of the fixture list
 /// would pin `game.competitions` for the whole loop.
 fn read_form(game: &Game) -> std::collections::HashMap<String, FormReading> {
+    read_form_of(game, None)
+}
+
+/// [`read_form`], for one club when `only` names it: the assistant planning his own side's next
+/// match has no use for the other clubs' results.
+fn read_form_of(game: &Game, only: Option<&str>) -> std::collections::HashMap<String, FormReading> {
     let mut results: std::collections::HashMap<&str, Vec<(&str, u32, u32)>> = Default::default();
     for fixture in game
         .competitions_in_play()
         .iter()
         .flat_map(|competition| competition.fixtures.iter())
         .filter(|fixture| fixture.status == FixtureStatus::Completed)
+        .filter(|fixture| {
+            only.is_none_or(|id| fixture.home_team_id == id || fixture.away_team_id == id)
+        })
     {
         let Some(result) = fixture.result.as_ref() else {
             continue;
@@ -355,9 +368,18 @@ fn read_form(game: &Game) -> std::collections::HashMap<String, FormReading> {
             played.sort_by(|a, b| b.0.cmp(a.0));
             let window = &played[..FORM_WINDOW.min(played.len())];
             let games = window.len() as f64;
+            let points: Vec<u32> = played
+                .iter()
+                .map(|(_, scored, conceded)| match scored.cmp(conceded) {
+                    std::cmp::Ordering::Greater => 3,
+                    std::cmp::Ordering::Equal => 1,
+                    std::cmp::Ordering::Less => 0,
+                })
+                .collect();
             Some((
                 team_id.to_string(),
                 FormReading {
+                    points_per_game: crate::ai_formation::points_per_game(&points),
                     scored_per_game: window.iter().map(|(_, s, _)| f64::from(*s)).sum::<f64>()
                         / games,
                     conceded_per_game: window.iter().map(|(_, _, c)| f64::from(*c)).sum::<f64>()
@@ -465,13 +487,51 @@ fn match_plan(
     squad: Option<&SquadReading>,
     form: Option<&FormReading>,
 ) -> TacticsPhaseSettings {
+    match_plan_by(play_style, squad, form, &ManagerIdentity::NEUTRAL)
+}
+
+/// How far a manager's adaptability moves the two triggers, in goals a game. An adaptable manager
+/// acts on a run this much milder than [`LEAKY`] or [`BLUNT`] says, a stubborn one waits for one
+/// this much worse; the neutral manager acts on the measured line itself. Half a goal on the
+/// conceding side puts the quick reader at about the world's p70 and the stubborn one past p92 of
+/// the five-match windows the triggers were measured on.
+const LEAKY_ADAPTABILITY_RANGE: f64 = 0.5;
+const BLUNT_ADAPTABILITY_RANGE: f64 = 0.25;
+
+/// [`match_plan`] for the manager who is actually in the dugout. The club's style is its
+/// philosophy; the manager tilts it (his risk), and decides how soon a bad run changes it (his
+/// adaptability). Neither can breach the ration of under-priced dials, which `shade` enforces, and
+/// the squad's caps below close over both.
+fn match_plan_by(
+    play_style: &PlayStyle,
+    squad: Option<&SquadReading>,
+    form: Option<&FormReading>,
+    manager: &ManagerIdentity,
+) -> TacticsPhaseSettings {
     let mut settings = blueprint_for(play_style);
 
+    if manager.is_clearly_bold() {
+        shade(
+            &mut settings,
+            &[
+                press_higher,
+                break_faster,
+                stretch_the_pitch,
+                go_more_direct,
+            ],
+        );
+    } else if manager.is_clearly_cautious() {
+        shade(&mut settings, &[close_the_gaps, sit_deeper, press_less]);
+    }
+
     if let Some(form) = form {
-        if form.conceded_per_game >= LEAKY {
+        let quickness = (manager.adaptability - 0.5) * 2.0;
+        let leaky = LEAKY - quickness * LEAKY_ADAPTABILITY_RANGE;
+        let blunt = BLUNT + quickness * BLUNT_ADAPTABILITY_RANGE;
+        if form.conceded_per_game >= leaky {
             shade(&mut settings, &[close_the_gaps, sit_deeper, press_less]);
         }
-        if form.scored_per_game <= BLUNT {
+        if form.scored_per_game <= blunt {
             shade(
                 &mut settings,
                 &[
@@ -507,6 +567,32 @@ fn match_plan(
     settings
 }
 
+/// The plan an assistant manager takes into the next match of `team_id`: what the weekly review
+/// gives an AI club, from the same style, results and (when the planner can read the squad)
+/// players. An assistant who cannot read a squad plans from style and results alone, so he may
+/// ask a tired side to press; a good one does not.
+pub(crate) fn plan_for_club(
+    game: &Game,
+    team_id: &str,
+    reads_the_squad: bool,
+) -> TacticsPhaseSettings {
+    let Some(team) = game.teams.iter().find(|team| team.id == team_id) else {
+        return TacticsPhaseSettings::default();
+    };
+    let reading = reads_the_squad
+        .then(|| {
+            let squad: Vec<&Player> = game
+                .players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team_id))
+                .collect();
+            read_squad(&squad)
+        })
+        .flatten();
+    let form = read_form_of(game, Some(team_id));
+    match_plan(&team.play_style, reading.as_ref(), form.get(team_id))
+}
+
 /// Every club the player does not manage looks at how it plays, once a week.
 ///
 /// This is what pays for slices 6 and 7 shipping without a backfill. A save made
@@ -536,9 +622,55 @@ pub fn apply_ai_tactical_reviews(game: &mut Game, weekday_num: u32) {
         let squad = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
         let reading = read_squad(squad);
 
+        let new_formation = reviewed_formation(game, team_index, squad, form.get(&team_id));
+
         let team = &mut game.teams[team_index];
-        team.tactics_phase = match_plan(&team.play_style, reading.as_ref(), form.get(&team_id));
+        let manager = ManagerIdentity::of_club_manager(team.manager_id.as_deref());
+        team.tactics_phase = match_plan_by(
+            &team.play_style,
+            reading.as_ref(),
+            form.get(&team_id),
+            &manager,
+        );
+        if let Some(formation) = new_formation {
+            crate::ai_formation::adopt(team, formation, squad);
+        }
         crate::ai_roles::assign_squad_roles(team, squad.iter().copied());
+    }
+}
+
+/// The formation the club at `team_index` moves to this week, if it looks at its shape this week
+/// and the squad, the manager's taste and the results say to move.
+fn reviewed_formation(
+    game: &Game,
+    team_index: usize,
+    squad: &[&Player],
+    form: Option<&FormReading>,
+) -> Option<&'static str> {
+    let team = &game.teams[team_index];
+    let circumstances = formation_circumstances(game, team, form);
+    if !crate::ai_formation::is_review_week(
+        &team.id,
+        circumstances.today,
+        circumstances.tenure_days,
+    ) {
+        return None;
+    }
+    crate::ai_formation::formation_to_move_to(team, squad, &circumstances)
+}
+
+/// What the formation review reads about a club besides its squad: today, who manages it, how long
+/// he has been in post and how the last eight results went.
+fn formation_circumstances(
+    game: &Game,
+    team: &domain::team::Team,
+    form: Option<&FormReading>,
+) -> crate::ai_formation::Circumstances {
+    crate::ai_formation::Circumstances {
+        today: game.clock.current_date.date_naive(),
+        manager: ManagerIdentity::of_club_manager(team.manager_id.as_deref()),
+        tenure_days: crate::ai_formation::tenure_days(game, team),
+        points_per_game: form.and_then(|reading| reading.points_per_game),
     }
 }
 
@@ -607,6 +739,93 @@ mod tests {
         let mut game = Game::new(clock, manager, teams, vec![], vec![], vec![]);
         game.competitions = vec![league];
         game
+    }
+
+    /// Given a club that has won two, drawn two and lost four of its last eight matches, and
+    /// older results besides
+    /// When its form is read for the formation review
+    /// Then points a game are 1.0 over the last eight: three for a win, one for a draw, none for
+    /// a defeat, and nothing before the eighth match counts.
+    #[test]
+    fn the_formation_review_reads_points_a_game_over_the_last_eight_results() {
+        let mut game = form_game();
+        let results = [
+            // (goals for the club, against), oldest first; the first four are before the window.
+            (5, 0),
+            (4, 0),
+            (3, 0),
+            (2, 0),
+            (1, 0),
+            (2, 1),
+            (1, 1),
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (1, 3),
+            (0, 4),
+        ];
+        let league = &mut game.competitions[0];
+        league.fixtures.clear();
+        for (index, (for_goals, against)) in results.into_iter().enumerate() {
+            league.fixtures.push(Fixture {
+                postponement: None,
+                id: format!("older-{index}"),
+                competition_id: "league".into(),
+                matchday: index as u32 + 1,
+                date: format!("2026-08-{:02}", index + 1),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: for_goals,
+                    away_goals: against,
+                    ..Default::default()
+                }),
+            });
+        }
+        let form = read_form_of(&game, Some("home"));
+        let reading = form.get("home").expect("twelve results are enough");
+        assert_eq!(reading.points_per_game, Some(1.0));
+    }
+
+    /// Given a club whose manager took the job three days ago and whose last eight results are
+    /// all defeats
+    /// When the formation review's circumstances are assembled
+    /// Then they carry his three days in post and nothing points a game: the tenure and the
+    /// results reach the decision.
+    #[test]
+    fn the_formation_review_is_given_the_managers_tenure_and_the_clubs_results() {
+        let mut game = form_game();
+        let mut manager = Manager::new(
+            "boss".into(),
+            "New".into(),
+            "Boss".into(),
+            "1970-01-01".into(),
+            "England".into(),
+        );
+        manager.hire("home".into());
+        manager
+            .career_history
+            .push(domain::manager::ManagerCareerEntry::open(
+                "home".into(),
+                "home".into(),
+                "2026-07-29".into(),
+            ));
+        game.teams[0].manager_id = Some("boss".into());
+        game.managers.push(manager);
+        let form = FormReading {
+            points_per_game: Some(0.0),
+            conceded_per_game: 3.0,
+            scored_per_game: 0.0,
+        };
+        let circumstances = formation_circumstances(&game, &game.teams[0], Some(&form));
+        assert_eq!(circumstances.tenure_days, Some(3));
+        assert_eq!(circumstances.points_per_game, Some(0.0));
+        assert_eq!(
+            formation_circumstances(&game, &game.teams[1], None).points_per_game,
+            None
+        );
     }
 
     const EVERY_STYLE: [PlayStyle; 6] = [
@@ -750,6 +969,7 @@ mod tests {
     /// scoring well enough that the other trigger stays quiet.
     fn leaking() -> FormReading {
         FormReading {
+            points_per_game: None,
             conceded_per_game: LEAKY,
             scored_per_game: 2.0,
         }
@@ -758,6 +978,7 @@ mod tests {
     /// Scoring at exactly the blunt rate, and keeping them out at the other end.
     fn toothless() -> FormReading {
         FormReading {
+            points_per_game: None,
             conceded_per_game: 1.0,
             scored_per_game: BLUNT,
         }
@@ -1028,6 +1249,7 @@ mod tests {
             Some(leaking()),
             Some(toothless()),
             Some(FormReading {
+                points_per_game: None,
                 conceded_per_game: 4.0,
                 scored_per_game: 0.0,
             }),
@@ -1080,5 +1302,272 @@ mod tests {
              the week at all",
             days.len()
         );
+    }
+
+    fn tired_high_press_club() -> Game {
+        let mut game = form_game();
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "home")
+            .unwrap()
+            .play_style = PlayStyle::HighPress;
+        for index in 0..14 {
+            let mut attributes = crate::test_support::uniform_attributes(60);
+            attributes.stamina = 30;
+            let mut player = Player::new(
+                format!("home-{index}"),
+                format!("home-{index}"),
+                format!("home-{index}"),
+                "1998-01-01".into(),
+                "England".into(),
+                Position::Midfielder,
+                attributes,
+            );
+            player.team_id = Some("home".into());
+            game.players.push(player);
+        }
+        game
+    }
+
+    /// Given a pressing club whose players have no legs
+    /// When an assistant who reads the squad plans for it, and one who does not
+    /// Then the first asks for less pressing; the second plans from style and results alone.
+    #[test]
+    fn a_plan_for_one_club_reads_the_squad_only_when_the_planner_can() {
+        let game = tired_high_press_club();
+
+        let reads = plan_for_club(&game, "home", true);
+        let blind = plan_for_club(&game, "home", false);
+
+        assert_eq!(reads.pressing_intensity, PressingIntensity::Medium);
+        assert_ne!(blind.pressing_intensity, reads.pressing_intensity);
+    }
+
+    /// Given a club that has conceded heavily
+    /// When a plan is made for it
+    /// Then it differs from its style's blueprint, and it is the one the weekly review gives the
+    /// AI clubs: the assistant and an AI manager reason alike.
+    #[test]
+    fn a_plan_for_one_club_reacts_to_results_like_the_weekly_review() {
+        let mut game = form_game();
+        let plan = plan_for_club(&game, "home", true);
+        assert_ne!(plan, blueprint_for(&PlayStyle::Attacking));
+
+        apply_ai_tactical_reviews(&mut game, review_weekday("home"));
+        let reviewed = game.teams.iter().find(|t| t.id == "home").unwrap();
+        assert_eq!(plan, reviewed.tactics_phase);
+    }
+
+    // --- Managers are not interchangeable -----------------------------------
+
+    use crate::manager_identity::ManagerIdentity;
+
+    fn manager(risk: f64, adaptability: f64) -> ManagerIdentity {
+        ManagerIdentity {
+            risk,
+            adaptability,
+            ..ManagerIdentity::NEUTRAL
+        }
+    }
+
+    /// Conceding between the stubborn and the adaptable manager's line: more than a quick reader
+    /// of results would sit through, less than anyone would.
+    fn conceding_a_little_too_much() -> FormReading {
+        FormReading {
+            points_per_game: None,
+            conceded_per_game: LEAKY - 0.3,
+            scored_per_game: 2.0,
+        }
+    }
+
+    /// Given the same club, the same squad and the same run of results, conceding a little more
+    /// than usual
+    /// When an adaptable manager and a stubborn one plan the next match
+    /// Then the adaptable one changes something and the stubborn one plays the blueprint.
+    #[test]
+    fn an_adaptable_manager_reacts_to_a_run_that_a_stubborn_one_sits_through() {
+        let squad = a_squad_that_can_run();
+        let form = conceding_a_little_too_much();
+        let blueprint = blueprint_for(&PlayStyle::Attacking);
+        let adaptable = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 1.0),
+        );
+        let stubborn = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 0.0),
+        );
+        assert_ne!(
+            adaptable, blueprint,
+            "the adaptable manager changed nothing"
+        );
+        assert_eq!(stubborn, blueprint, "the stubborn manager reacted");
+    }
+
+    /// Given a run of results that is bad enough for anyone
+    /// When the most stubborn manager plans the match
+    /// Then he reacts too: stubbornness delays a change, it does not forbid one.
+    #[test]
+    fn even_the_most_stubborn_manager_reacts_to_a_disastrous_run() {
+        let squad = a_squad_that_can_run();
+        let form = FormReading {
+            points_per_game: None,
+            conceded_per_game: LEAKY + 1.0,
+            scored_per_game: 2.0,
+        };
+        let plan = match_plan_by(
+            &PlayStyle::Attacking,
+            Some(&squad),
+            Some(&form),
+            &manager(0.5, 0.0),
+        );
+        assert_ne!(plan, blueprint_for(&PlayStyle::Attacking));
+    }
+
+    /// Given the same balanced club with nothing wrong
+    /// When a bold, a cautious and a neutral manager plan the match
+    /// Then the neutral one plays the blueprint and the other two play it differently from it and
+    /// from each other: bold presses or breaks harder, cautious sits deeper or presses less.
+    #[test]
+    fn a_bold_and_a_cautious_manager_run_the_same_club_differently() {
+        let squad = a_squad_that_can_run();
+        let plan = |identity: &ManagerIdentity| {
+            match_plan_by(&PlayStyle::Balanced, Some(&squad), None, identity)
+        };
+        let neutral = plan(&ManagerIdentity::NEUTRAL);
+        let bold = plan(&manager(1.0, 0.5));
+        let cautious = plan(&manager(0.0, 0.5));
+        assert_eq!(neutral, blueprint_for(&PlayStyle::Balanced));
+        assert_ne!(bold, neutral);
+        assert_ne!(cautious, neutral);
+        assert_ne!(bold, cautious);
+        // The neutral blueprint presses at medium intensity and plays a normal shape. A bold
+        // manager's first move is to press higher; a cautious one's, to close the gaps.
+        assert_eq!(bold.pressing_intensity, PressingIntensity::Aggressive);
+        assert_eq!(cautious.defensive_shape, DefensiveShape::Compact);
+        assert_ne!(cautious.pressing_intensity, PressingIntensity::Aggressive);
+    }
+
+    /// Given managers with every combination of extremes
+    /// When any of them plans any club's match
+    /// Then the plan never holds more under-priced dials than the engine allows, and a bold
+    /// manager is still held to what his squad can run.
+    #[test]
+    fn identity_never_breaks_the_ration_or_what_the_squad_can_do() {
+        for style in EVERY_STYLE {
+            for risk in [0.0, 0.5, 1.0] {
+                for adaptability in [0.0, 0.5, 1.0] {
+                    for form in [None, Some(leaking()), Some(toothless())] {
+                        let plan = match_plan_by(
+                            &style,
+                            Some(&a_squad_that_can_run()),
+                            form.as_ref(),
+                            &manager(risk, adaptability),
+                        );
+                        assert!(
+                            under_priced_dials(&plan) <= engine::ai::MAX_UNDER_PRICED_DIALS,
+                            "{style:?} risk {risk} adaptability {adaptability}: {plan:?}"
+                        );
+                    }
+                }
+            }
+            let tired = match_plan_by(
+                &style,
+                Some(&a_squad_with_no_legs()),
+                None,
+                &manager(1.0, 0.5),
+            );
+            assert_ne!(tired.pressing_intensity, PressingIntensity::Aggressive);
+        }
+    }
+
+    /// Given a run of scoring a little above the blunt line
+    /// When an adaptable manager and a stubborn one plan
+    /// Then the adaptable one reacts in attack and the stubborn one does not.
+    #[test]
+    fn an_adaptable_manager_reacts_to_a_blunt_run_that_a_stubborn_one_sits_through() {
+        let squad = a_squad_that_can_run();
+        let form = FormReading {
+            points_per_game: None,
+            conceded_per_game: 1.0,
+            scored_per_game: BLUNT + 0.1,
+        };
+        let blueprint = blueprint_for(&PlayStyle::Defensive);
+        let plan = |adaptability: f64| {
+            match_plan_by(
+                &PlayStyle::Defensive,
+                Some(&squad),
+                Some(&form),
+                &manager(0.5, adaptability),
+            )
+        };
+        assert_ne!(plan(1.0), blueprint);
+        assert_eq!(plan(0.0), blueprint);
+    }
+
+    /// Given the neutral manager and a run one hundredth of a goal short of each trigger, then at it
+    /// When he plans
+    /// Then he sits through the first and reacts at the second: the measured lines themselves,
+    /// pinned to their numbers rather than compared with the wrapper that delegates to him.
+    #[test]
+    fn the_neutral_manager_reacts_at_exactly_the_measured_lines() {
+        let squad = a_squad_that_can_run();
+        let blueprint = blueprint_for(&PlayStyle::Balanced);
+        let plan = |conceded, scored| {
+            match_plan_by(
+                &PlayStyle::Balanced,
+                Some(&squad),
+                Some(&FormReading {
+                    points_per_game: None,
+                    conceded_per_game: conceded,
+                    scored_per_game: scored,
+                }),
+                &ManagerIdentity::NEUTRAL,
+            )
+        };
+        assert_eq!(plan(LEAKY - 0.01, 2.0), blueprint);
+        assert_ne!(plan(LEAKY, 2.0), blueprint);
+        assert_eq!(plan(1.0, BLUNT + 0.01), blueprint);
+        assert_ne!(plan(1.0, BLUNT), blueprint);
+    }
+
+    /// Given the same club and the same run of results under a bold and a cautious manager
+    /// When the weekly review runs
+    /// Then the club's stored tactics follow its own manager: the identity reaches the review.
+    #[test]
+    fn the_weekly_review_reads_the_clubs_own_manager() {
+        let manager_like = |wanted: &dyn Fn(&ManagerIdentity) -> bool| {
+            (0..)
+                .map(|index| format!("manager-{index}"))
+                .find(|id| wanted(&ManagerIdentity::of(id)))
+                .expect("some manager fits")
+        };
+        let bold = manager_like(&|m| m.risk > 0.9);
+        let cautious = manager_like(&|m| m.risk < 0.1);
+        let reviewed = |manager_id: Option<&str>| {
+            let mut game = form_game();
+            let home = game.teams.iter_mut().find(|t| t.id == "home").unwrap();
+            home.play_style = PlayStyle::Balanced;
+            home.manager_id = manager_id.map(str::to_string);
+            apply_ai_tactical_reviews(&mut game, review_weekday("home"));
+            game.teams
+                .iter()
+                .find(|t| t.id == "home")
+                .unwrap()
+                .tactics_phase
+                .clone()
+        };
+        let (bold_plan, cautious_plan, neutral_plan) = (
+            reviewed(Some(&bold)),
+            reviewed(Some(&cautious)),
+            reviewed(None),
+        );
+        assert_ne!(bold_plan, cautious_plan);
+        assert_ne!(bold_plan, neutral_plan);
+        assert_ne!(cautious_plan, neutral_plan);
     }
 }

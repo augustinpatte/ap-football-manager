@@ -60,6 +60,7 @@ mod tests {
             appearances: 30,
             goals: 3,
             assists: 4,
+            synthetic: false,
         }];
         game.retired_players
             .push(RetiredPlayer::from_player(&veteran, "2039-06-30", 2039));

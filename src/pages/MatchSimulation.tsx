@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useGameStore, type GameStateData } from "../store/gameStore";
 import { useSettingsStore } from "../store/settingsStore";
+import { resolveBackendKeyError } from "../utils/backendI18n";
 import type {
   MatchSnapshot,
   MatchEvent,
@@ -21,8 +22,12 @@ import RoundDigestScreen from "../components/match/RoundDigestScreen";
 import PressConference from "../components/match/PressConference";
 import PenaltyShootoutScreen from "../components/match/PenaltyShootoutScreen";
 import M12ReplayViewer from "../components/match/M12ReplayViewer";
+import InteractiveMatchScreen from "../components/match/InteractiveMatchScreen";
+import MatchViewModePanel, { type SpatialAction } from "../components/match/MatchViewModePanel";
+import SpectatorViewChoice from "../components/match/SpectatorViewChoice";
 import {
   finishSpatialReplay as finishPreparedSpatialReplay,
+  loadMatchReplay,
   prepareSpatialReplay,
   simulateSpatialMatch,
 } from "../services/matchReplayService";
@@ -37,6 +42,8 @@ interface MatchRouteState {
   fixtureId?: string;
   mode?: string;
   snapshot?: MatchSnapshot;
+  /** A match saved in progress was restored: go straight back into it. */
+  resume?: boolean;
 }
 
 interface FinishLiveMatchResponse {
@@ -50,7 +57,35 @@ interface SpatialMatchResult {
   events: MatchEvent[];
 }
 
-type SpatialAction = "simulating" | "preparing" | "finalizing";
+/** A replay opened while the match is still pending (finalised on confirmation) or afterwards. */
+interface OpenReplay {
+  json: string;
+  /** A completed match: closing the viewer must never finalise anything. */
+  readOnly: boolean;
+}
+
+function snapshotPlayerNames(snapshot: MatchSnapshot): Record<string, string> {
+  const everyone = [
+    ...snapshot.home_team.players,
+    ...snapshot.away_team.players,
+    ...snapshot.home_bench,
+    ...snapshot.away_bench,
+  ];
+  return Object.fromEntries(everyone.map((player) => [player.id, player.name]));
+}
+
+/** Every player the game knows, so a stored replay (which has no match snapshot) is still named. */
+function gamePlayerNames(
+  players: ReadonlyArray<{ id: string; match_name?: string; full_name: string }>,
+): Record<string, string> {
+  return Object.fromEntries(
+    players.map((player) => [player.id, player.match_name || player.full_name]),
+  );
+}
+
+function snapshotHomePlayerIds(snapshot: MatchSnapshot): ReadonlySet<string> {
+  return new Set([...snapshot.home_team.players, ...snapshot.home_bench].map((p) => p.id));
+}
 
 export default function MatchSimulation() {
   const { t } = useTranslation();
@@ -64,7 +99,11 @@ export default function MatchSimulation() {
   const [stage, setStage] = useState<MatchDayStage>("prematch");
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
   const [spatialResult, setSpatialResult] = useState<SpatialMatchResult | null>(null);
-  const [spatialReplay, setSpatialReplay] = useState<string | null>(null);
+  const [spatialReplay, setSpatialReplay] = useState<OpenReplay | null>(null);
+  const [replayRef, setReplayRef] = useState<{ competitionId: string; fixtureId: string } | null>(
+    null,
+  );
+  const [hasStoredReplay, setHasStoredReplay] = useState(false);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
   const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
   const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
@@ -74,6 +113,7 @@ export default function MatchSimulation() {
   const [hasUserOverriddenSpeed, setHasUserOverriddenSpeed] = useState(false);
   const [spatialAction, setSpatialAction] = useState<SpatialAction | null>(null);
   const [spatialError, setSpatialError] = useState<string | null>(null);
+  const [managing, setManaging] = useState(routeState?.resume === true);
   const spatialActionInFlight = useRef(false);
 
   // Each match screen is a new live session; commands from an earlier one must not hold it up.
@@ -213,18 +253,19 @@ export default function MatchSimulation() {
     routeState?.snapshot,
   ]);
 
-  // Skip pre-match for spectators
-  useEffect(() => {
-    if (isSpectator && stage === "prematch") {
-      setStage("first_half");
-    }
-  }, [isSpectator, stage]);
-
   // Callbacks for stage transitions
   const handleStartMatch = useCallback(() => {
     console.info("[MatchSimulation] handleStartMatch");
     setStage("first_half");
   }, []);
+  // The stable identity of the fixture being played, kept so its stored replay can be reopened
+  // after the live session (and with it the route state) is gone.
+  const identifyFixture = useCallback(() => {
+    const fixture = resolveMatchFixture(gameState, snapshot, routeState ?? undefined);
+    const competitionId = routeState?.competitionId ?? fixture?.competition_id;
+    const fixtureId = routeState?.fixtureId ?? fixture?.id;
+    return competitionId && fixtureId ? { competitionId, fixtureId } : null;
+  }, [gameState, snapshot, routeState]);
   const beginSpatialAction = useCallback(
     (action: SpatialAction): boolean => {
       if (spatialActionInFlight.current || hasFinalizedMatch) return false;
@@ -252,24 +293,27 @@ export default function MatchSimulation() {
         awayGoals: response.away_goals,
         events: response.events,
       });
+      setReplayRef(identifyFixture());
+      setHasStoredReplay(true);
       setHasFinalizedMatch(true);
       setStage("postmatch");
     } catch (error) {
       console.error("M12 simulation failed", error);
-      setSpatialError(t("match.m12SimulationFailed"));
+      setSpatialError(resolveBackendKeyError(error, t("match.m12SimulationFailed")));
     } finally {
       endSpatialAction();
     }
-  }, [beginSpatialAction, endSpatialAction, setGameState, t]);
+  }, [beginSpatialAction, endSpatialAction, identifyFixture, setGameState, t]);
 
   const handleSpatialReplay = useCallback(async () => {
     if (!beginSpatialAction("preparing")) return;
     try {
       const response = await prepareSpatialReplay();
-      setSpatialReplay(response.replay_json);
+      setSpatialReplay({ json: response.replay_json, readOnly: false });
     } catch (error) {
       console.error("M12 replay preparation failed", error);
-      setSpatialError(t("match.replayUnavailable"));
+      // A match that could not be prepared is not a corrupted replay: say what was refused.
+      setSpatialError(resolveBackendKeyError(error, t("match.replayPreparationFailed")));
     } finally {
       endSpatialAction();
     }
@@ -286,6 +330,8 @@ export default function MatchSimulation() {
         awayGoals: response.away_goals,
         events: response.events,
       });
+      setReplayRef(identifyFixture());
+      setHasStoredReplay(true);
       setHasFinalizedMatch(true);
       setSpatialReplay(null);
       setStage("postmatch");
@@ -296,7 +342,46 @@ export default function MatchSimulation() {
     } finally {
       endSpatialAction();
     }
-  }, [beginSpatialAction, endSpatialAction, setGameState, t]);
+  }, [beginSpatialAction, endSpatialAction, identifyFixture, setGameState, t]);
+
+  // The managed match has been played to full time and applied to the career by the backend's
+  // one finalisation: show the result the career now holds.
+  const handleManagedFinished = useCallback(
+    (response: FinishLiveMatchResponse) => {
+      setGameState(response.game);
+      setRoundSummary(response.round_summary ?? null);
+      setCupRoundSummaries(response.cup_round_summaries ?? []);
+      const fixture = resolveMatchFixture(response.game, snapshot, routeState ?? undefined);
+      if (fixture?.result) {
+        setSpatialResult({
+          homeGoals: fixture.result.home_goals,
+          awayGoals: fixture.result.away_goals,
+          events: [],
+        });
+      }
+      setHasFinalizedMatch(true);
+      setManaging(false);
+      setStage("postmatch");
+    },
+    [setGameState, snapshot, routeState],
+  );
+
+  // Reads the stored document only: the backend never simulates or finalises here.
+  const handleWatchStoredReplay = useCallback(async () => {
+    if (!replayRef || spatialActionInFlight.current) return;
+    spatialActionInFlight.current = true;
+    setSpatialError(null);
+    try {
+      const stored = await loadMatchReplay(replayRef.competitionId, replayRef.fixtureId);
+      if (stored) setSpatialReplay({ json: stored.replay_json, readOnly: true });
+      else setSpatialError(t("match.replayNotRecorded"));
+    } catch (error) {
+      console.error("Stored replay could not be read", error);
+      setSpatialError(t("match.replayUnavailable"));
+    } finally {
+      spatialActionInFlight.current = false;
+    }
+  }, [replayRef, t]);
 
   const handleHalfTime = useCallback((phase: "HalfTime" | "ExtraTimeHalfTime") => {
     console.info("[MatchSimulation] handleHalfTime", { phase });
@@ -408,12 +493,32 @@ export default function MatchSimulation() {
   }
 
   const currentFixture = resolveMatchFixture(gameState, snapshot, routeState ?? undefined);
+  if (managing) {
+    return (
+      <InteractiveMatchScreen<FinishLiveMatchResponse>
+        homeName={
+          gameState.teams.find((team) => team.id === snapshot.home_team.id)?.name ??
+          snapshot.home_team.name
+        }
+        awayName={
+          gameState.teams.find((team) => team.id === snapshot.away_team.id)?.name ??
+          snapshot.away_team.name
+        }
+        onFinished={handleManagedFinished}
+      />
+    );
+  }
   if (spatialReplay) {
+    const closeReplay = () => setSpatialReplay(null);
     return (
       <M12ReplayViewer
-        replayJson={spatialReplay}
-        onFinish={finishSpatialReplay}
-        onBack={() => setSpatialReplay(null)}
+        replayJson={spatialReplay.json}
+        readOnly={spatialReplay.readOnly}
+        onFinish={spatialReplay.readOnly ? closeReplay : finishSpatialReplay}
+        onBack={closeReplay}
+        playerNames={{ ...gamePlayerNames(gameState.players), ...snapshotPlayerNames(snapshot) }}
+        teams={gameState.teams}
+        homePlayerIds={spatialReplay.readOnly ? undefined : snapshotHomePlayerIds(snapshot)}
       />
     );
   }
@@ -421,54 +526,37 @@ export default function MatchSimulation() {
   // Render the current stage
   switch (stage) {
     case "prematch":
+      if (isSpectator) {
+        return (
+          <SpectatorViewChoice
+            snapshot={snapshot}
+            busy={spatialAction}
+            error={spatialError}
+            onPlayLive={handleStartMatch}
+            onWatchIn2d={() => void handleSpatialReplay()}
+            onQuickSimulation={() => void handleSpatialSimulation()}
+          />
+        );
+      }
       if (!userSide) return null;
       return (
-        <>
-          <div className="fixed right-4 top-4 z-50">
-            <button
-              type="button"
-              onClick={() => void handleSpatialSimulation()}
-              disabled={spatialAction !== null}
-              aria-busy={spatialAction === "simulating"}
-              className="rounded bg-primary-600 px-4 py-2 font-heading text-sm text-white hover:bg-primary-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              {t("match.simulateWithM12")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSpatialReplay()}
-              disabled={spatialAction !== null}
-              aria-busy={spatialAction === "preparing"}
-              className="mt-2 rounded bg-accent-solid px-4 py-2 font-heading text-sm text-on-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-wait disabled:opacity-60"
-            >
-              {t("match.watchWithM12")}
-            </button>
-            {spatialAction && (
-              <p
-                className="mt-2 rounded bg-panel px-3 py-2 text-caption text-fg shadow"
-                role="status"
-              >
-                {t("dashboard.loading")}
-              </p>
-            )}
-            {spatialError && (
-              <p
-                className="mt-2 max-w-64 rounded bg-danger-tint px-3 py-2 text-caption text-danger"
-                role="alert"
-              >
-                {spatialError}
-              </p>
-            )}
-          </div>
-          <PreMatchSetup
-            snapshot={snapshot}
-            gameState={gameState}
-            currentFixture={currentFixture}
-            userSide={userSide}
-            onStart={handleStartMatch}
-            onUpdateSnapshot={handleSnapshotUpdate}
-          />
-        </>
+        <PreMatchSetup
+          snapshot={snapshot}
+          gameState={gameState}
+          currentFixture={currentFixture}
+          userSide={userSide}
+          onStart={handleStartMatch}
+          onUpdateSnapshot={handleSnapshotUpdate}
+          viewModeSlot={
+            <MatchViewModePanel
+              busy={spatialAction}
+              error={spatialError}
+              onWatchIn2d={() => void handleSpatialReplay()}
+              onQuickSimulation={() => void handleSpatialSimulation()}
+              onManage={() => setManaging(true)}
+            />
+          }
+        />
       );
 
     case "first_half":
@@ -524,16 +612,26 @@ export default function MatchSimulation() {
 
     case "postmatch":
       return (
-        <PostMatchScreen
-          snapshot={snapshot}
-          gameState={gameState}
-          userSide={userSide}
-          isSpectator={isSpectator}
-          importantEvents={importantEvents}
-          spatialResult={spatialResult}
-          onContinue={handlePostMatchContinue}
-          onFinish={handleFinishMatch}
-        />
+        <>
+          {spatialError && (
+            <p className="bg-danger-tint px-6 py-2 text-body text-danger" role="alert">
+              {spatialError}
+            </p>
+          )}
+          <PostMatchScreen
+            snapshot={snapshot}
+            gameState={gameState}
+            userSide={userSide}
+            isSpectator={isSpectator}
+            importantEvents={importantEvents}
+            spatialResult={spatialResult}
+            onContinue={handlePostMatchContinue}
+            onFinish={handleFinishMatch}
+            onWatchReplay={
+              hasStoredReplay && replayRef ? () => void handleWatchStoredReplay() : undefined
+            }
+          />
+        </>
       );
 
     case "digest": {

@@ -1,4 +1,5 @@
 use chrono::{TimeZone, Utc};
+use domain::free_agent_talk::{FreeAgentTalkReason, FreeAgentTalkStatus};
 use domain::manager::Manager;
 use domain::player::{
     ActiveLoan, ContractExitIntent, ContractRenewalState, Player, PlayerAttributes, Position,
@@ -9,13 +10,26 @@ use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::{FinancialTransactionKind, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::contracts::{
-    ContractWarningStage, DelegatedRenewalOptions, DelegatedRenewalResultStatus, RenewalDecision,
-    RenewalOffer, clear_contract_exit_intent, contract_warning_stages, delegate_renewals,
-    evaluate_renewal_offer, has_let_expire_intent, offer_free_agent_contract,
+    ContractWarningStage, DelegatedRenewalOptions, DelegatedRenewalResultStatus,
+    FreeAgentOfferDecision, OfferTerms, RenewalDecision, RenewalOffer, clear_contract_exit_intent,
+    contract_warning_stages, delegate_renewals, evaluate_renewal_offer, has_let_expire_intent,
     preview_contract_termination, project_free_agent_contract_impact,
     project_renewal_financial_impact, propose_renewal, set_contract_exit_intent,
-    terminate_contract_now,
+    submit_free_agent_offer, terminate_contract_now,
 };
+
+#[path = "support/free_agent_talks.rs"]
+mod free_agent_support;
+use free_agent_support::{DAYS_TO_AN_ANSWER, run_days};
+
+fn offer(weekly_wage: u32, contract_years: u32) -> OfferTerms {
+    OfferTerms {
+        weekly_wage,
+        contract_years,
+        signing_bonus: 0,
+        promise_stepping_stone: false,
+    }
+}
 use ofm_core::finances::calc_wages;
 use ofm_core::game::Game;
 
@@ -593,21 +607,19 @@ fn high_value_star_expects_more_than_fringe_player() {
     assert!(star_outcome.suggested_wage > fringe_outcome.suggested_wage);
 }
 
+/// Given a free agent and a club he suits
+/// When the manager offers terms that meet his ask
+/// Then he does not sign at once: the offer is pending, and he joins when he answers a few days later.
 #[test]
 fn free_agent_offer_accepts_and_assigns_player_to_manager_team() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    )
-    .expect("free-agent offer should resolve");
+    let outcome = submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3))
+        .expect("free-agent offer should be accepted for negotiation");
+    assert_eq!(outcome.decision, FreeAgentOfferDecision::Pending);
+    assert_eq!(game.players[0].team_id, None, "he has not answered yet");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
-    assert!(matches!(outcome.decision, RenewalDecision::Accepted));
     let player = game
         .players
         .iter()
@@ -615,7 +627,14 @@ fn free_agent_offer_accepts_and_assigns_player_to_manager_team() {
         .unwrap();
     assert_eq!(player.team_id.as_deref(), Some("team-1"));
     assert_eq!(player.wage(), 4_000);
-    assert_eq!(player.contract_end(), Some("2029-08-01"));
+    let start = player
+        .contract_start()
+        .expect("a signed contract has a start");
+    assert_eq!(
+        player.contract_end(),
+        Some(format!("2029{}", &start[4..]).as_str()),
+        "three years from the day he signed"
+    );
     let message = game
         .messages
         .iter()
@@ -652,94 +671,75 @@ fn free_agent_offer_accepts_and_assigns_player_to_manager_team() {
     assert_eq!(message.i18n_params.get("years"), Some(&"3".to_string()));
 }
 
+/// Given a free agent whose ask is above the offer but within reach
+/// When he answers a few days after the offer
+/// Then he asks for other terms, nobody is signed, and the counter is on his record for the manager to answer.
 #[test]
 fn free_agent_offer_returns_counter_when_terms_are_close_but_short() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 3_000,
-            contract_years: 2,
-        },
-    )
-    .expect("free-agent offer should resolve");
+    let outcome = submit_free_agent_offer(&mut game, "free-agent-1", offer(2_300, 3))
+        .expect("free-agent offer should be accepted for negotiation");
+    assert_eq!(outcome.decision, FreeAgentOfferDecision::Pending);
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
-    assert!(matches!(outcome.decision, RenewalDecision::CounterOffer));
-    // The ask is rounded up to the grain of a wage this size (hundreds below 10 000), not to the
-    // next thousand: 3 5xx is asked as 3 500, not 4 000.
-    assert_eq!(outcome.suggested_wage, Some(3_500));
-    assert_eq!(outcome.suggested_years, Some(3));
+    let talk = &game.players[0].morale_core.free_agent_talks[0];
+    assert_eq!(talk.status, FreeAgentTalkStatus::CounterOffered);
+    // He would be the club's first player in his position, so he asks for less than his full 3 500:
+    // enough to bring the offer to his line, rounded up to the grain of a wage this size.
+    let asked = talk.counter_wage.expect("a counter carries a wage");
+    assert!((2_301..3_500).contains(&asked), "asked {asked}");
+    assert_eq!(asked % 100, 0);
+    assert_eq!(talk.counter_years, Some(3));
     assert_eq!(game.players[0].team_id, None);
 }
 
+/// Given a free agent and an offer far under his worth
+/// When the manager makes it
+/// Then he refuses on the spot, the talk is closed as an insult, and the club is not heard again
+///      for a fortnight.
 #[test]
 fn free_agent_offer_rejects_lowball_terms() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 1_000,
-            contract_years: 1,
-        },
-    )
-    .expect("free-agent offer should resolve");
+    let outcome = submit_free_agent_offer(&mut game, "free-agent-1", offer(1_000, 1))
+        .expect("an insulting offer is still answered");
 
-    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
-    assert_eq!(outcome.session_status, RenewalSessionStatus::Blocked);
-    assert!(outcome.is_terminal);
+    assert_eq!(outcome.decision, FreeAgentOfferDecision::Rejected);
+    assert_eq!(outcome.reason, Some(FreeAgentTalkReason::OfferInsulting));
     assert_eq!(game.players[0].team_id, None);
     assert_eq!(game.players[0].wage(), 0);
-    let renewal_state = game.players[0]
-        .morale_core
-        .renewal_state
-        .as_ref()
-        .expect("free agent should remember the lowball");
-    assert_eq!(renewal_state.status, RenewalSessionStatus::Blocked);
-    assert_eq!(
-        renewal_state.manager_blocked_until.as_deref(),
-        Some("2026-08-31")
-    );
+    let again = submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3));
+    assert_eq!(again.unwrap_err(), "be.error.freeAgents.talksBrokenOff");
 }
 
+/// Given the transfer window is in the Closed state
+/// When the manager makes a suitable offer to a free agent and he answers
+/// Then he signs: free agents are not bound to the window.
 #[test]
 fn free_agent_can_be_signed_when_transfer_window_is_closed() {
     let mut game = make_free_agent_game();
     game.season_context.transfer_window.status = TransferWindowStatus::Closed;
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    )
-    .expect("free agents should be signable outside the transfer window");
+    submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3))
+        .expect("free agents can be negotiated with at any time");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
-    assert!(matches!(outcome.decision, RenewalDecision::Accepted));
     assert_eq!(game.players[0].team_id.as_deref(), Some("team-1"));
 }
 
+/// Given the transfer window is in the DeadlineDay state
+/// When the manager makes a suitable offer to a free agent and he answers
+/// Then he signs: free agents are not bound to the window.
 #[test]
 fn free_agent_can_be_signed_on_deadline_day() {
     let mut game = make_free_agent_game();
     game.season_context.transfer_window.status = TransferWindowStatus::DeadlineDay;
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    )
-    .expect("free agents should be signable on deadline day");
+    submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3))
+        .expect("free agents can be negotiated with at any time");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
-    assert!(matches!(outcome.decision, RenewalDecision::Accepted));
     assert_eq!(game.players[0].team_id.as_deref(), Some("team-1"));
 }
 
@@ -747,19 +747,12 @@ fn free_agent_can_be_signed_on_deadline_day() {
 fn free_agent_offer_rejects_contracts_longer_than_five_years() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 6,
-        },
-    )
-    .expect("free-agent offer should resolve");
+    let refused = submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 6));
 
-    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
+    assert_eq!(refused.unwrap_err(), "be.error.freeAgents.invalidOffer");
     assert_eq!(game.players[0].team_id, None);
     assert_eq!(game.players[0].contract_end(), None);
+    assert!(game.players[0].morale_core.free_agent_talks.is_empty());
 }
 
 #[test]
@@ -866,6 +859,7 @@ fn manager_block_prevents_manual_renewal_until_it_expires() {
         last_outcome: None,
         conversation_round: 0,
         exit_intent: None,
+        warning_handled: None,
     });
 
     let outcome = propose_renewal(
@@ -894,6 +888,7 @@ fn stale_manual_renewal_talks_cool_off_and_restart_from_round_one() {
         last_outcome: None,
         conversation_round: 3,
         exit_intent: None,
+        warning_handled: None,
     });
     game.clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 26, 12, 0, 0).unwrap());
 
@@ -1011,23 +1006,23 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
     );
 }
 
-/// The same offer the test below has refused, but player-1 is the club's only
-/// forward: without him it would be below the squad floor, so the board lets
-/// the wage policy go — and the manager is told that is why.
+/// Player-1 is the club's only forward and the club is on its wage budget: without him it would
+/// be below the squad floor, so the board lets the wage policy go for a raise on the club's own
+/// pay scale — and tells the manager that is why.
 #[test]
 fn renewal_over_the_wage_policy_goes_through_when_the_squad_would_fall_below_the_floor() {
     let mut game = make_game();
-    game.teams[0].wage_budget = 200_000;
+    game.teams[0].wage_budget = 12_000;
 
     let outcome = propose_renewal(
         &mut game,
         "player-1",
         RenewalOffer {
-            weekly_wage: 250_000,
+            weekly_wage: 17_000,
             contract_years: 3,
         },
     )
-    .expect("the floor overrules the wage policy");
+    .expect("the floor overrules the wage policy for a raise on the club's scale");
 
     assert_eq!(outcome.decision, RenewalDecision::Accepted);
     assert_eq!(
@@ -1037,7 +1032,29 @@ fn renewal_over_the_wage_policy_goes_through_when_the_squad_would_fall_below_the
             .and_then(|feedback| feedback.detail_key.as_deref()),
         Some("playerProfile.renewalFeedbackAcceptedToKeepSquadFloorDetail")
     );
-    assert_eq!(game.players[0].wage(), 250_000);
+    assert_eq!(game.players[0].wage(), 17_000);
+}
+
+/// The same club and the same only forward, asking a wage twenty times the club's pay scale
+/// (12 000 a week is what a senior of the club is paid): the squad floor does not buy him at
+/// any price. The renewal is refused and his wage is what it was; the floor is filled by
+/// signing a forward when he goes, not by paying this one a whole budget.
+#[test]
+fn the_squad_floor_does_not_waive_the_wage_policy_for_a_wage_far_beyond_the_clubs_scale() {
+    let mut game = make_game();
+    game.teams[0].wage_budget = 200_000;
+
+    let refused = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 250_000,
+            contract_years: 3,
+        },
+    );
+
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(game.players[0].wage(), 12_000);
 }
 
 /// A renewal inside the policy is not described as a waiver.
@@ -1159,34 +1176,29 @@ fn an_accepted_renewal_dates_the_new_agreement_from_today() {
 }
 
 #[test]
-fn signing_a_free_agent_dates_the_agreement_from_today() {
+fn signing_a_free_agent_dates_the_agreement_from_the_day_he_signs() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    )
-    .expect("free agent signing should succeed");
-
-    // Asserted, not assumed: a counter-offer is also `Ok`, so without this the
-    // test passes while nothing was ever signed and the dates were never written.
-    assert!(
-        matches!(outcome.decision, RenewalDecision::Accepted),
-        "the offer must actually be accepted for there to be an agreement to date"
-    );
+    submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3))
+        .expect("free agent offer should be taken");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
     let player = game
         .players
         .iter()
         .find(|p| p.id == "free-agent-1")
         .unwrap();
+    // Asserted, not assumed: until he answers there is no agreement to date.
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    let signed_on = player
+        .movement_history
+        .last()
+        .expect("a signing is recorded")
+        .date
+        .clone();
     assert_eq!(
         player.contract_start(),
-        Some("2026-08-01"),
+        Some(signed_on.as_str()),
         "a free agent's first day at the club is the day they signed"
     );
 }
@@ -1323,16 +1335,9 @@ fn a_delegated_renewal_appends_one_renewal_entry() {
 fn a_free_agent_signing_appends_a_free_agent_contract() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    )
-    .expect("free agent signing should succeed");
-    assert!(matches!(outcome.decision, RenewalDecision::Accepted));
+    submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3))
+        .expect("free agent offer should be taken");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
     let player = &game.players[0];
     let entry = last_entry(player);
@@ -1340,26 +1345,20 @@ fn a_free_agent_signing_appends_a_free_agent_contract() {
     assert_eq!(entry.to_team_id.as_deref(), Some("team-1"));
     let record = recorded(entry);
     assert_eq!(record.source, ContractSource::FreeAgent);
-    assert_eq!(record.start.as_deref(), Some("2026-08-01"));
-    assert_eq!(record.end.as_deref(), Some("2029-08-01"));
+    assert_eq!(record.start.as_deref(), Some(entry.date.as_str()));
     assert_eq!(record.weekly_wage, 4_000);
+    assert_eq!(player.movement_history.len(), 1, "one signing, one record");
 }
 
 #[test]
 fn a_rejected_free_agent_offer_appends_nothing() {
     let mut game = make_free_agent_game();
 
-    let outcome = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 1_000,
-            contract_years: 3,
-        },
-    )
-    .expect("a lowball offer still returns a decision");
+    let outcome = submit_free_agent_offer(&mut game, "free-agent-1", offer(1_000, 3))
+        .expect("a lowball offer still returns a decision");
+    run_days(&mut game, DAYS_TO_AN_ANSWER);
 
-    assert!(!matches!(outcome.decision, RenewalDecision::Accepted));
+    assert_eq!(outcome.decision, FreeAgentOfferDecision::Rejected);
     assert!(game.players[0].movement_history.is_empty());
 }
 
@@ -1524,17 +1523,11 @@ fn a_retired_player_cannot_be_signed_and_nothing_is_written() {
     let mut game = make_free_agent_game();
     game.players[0].retired = true;
 
-    let refused = offer_free_agent_contract(
-        &mut game,
-        "free-agent-1",
-        RenewalOffer {
-            weekly_wage: 4_000,
-            contract_years: 3,
-        },
-    );
+    let refused = submit_free_agent_offer(&mut game, "free-agent-1", offer(4_000, 3));
 
     assert!(refused.is_err());
     assert!(game.players[0].movement_history.is_empty());
+    assert!(game.players[0].morale_core.free_agent_talks.is_empty());
 }
 
 /// Given players whose contracts end 400, 365, 181, 180, 90, 30 and 0 days from the game date (1 Aug

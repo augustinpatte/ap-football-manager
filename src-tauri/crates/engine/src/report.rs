@@ -58,6 +58,10 @@ pub struct PlayerMatchStats {
     pub red_cards: u8,
     /// Match rating 0.0–10.0, computed after the match.
     pub rating: f32,
+    /// Share of the aerobic reserve the match engine spent on this player (0..1), when one measured
+    /// it. `None` for the legacy engine, which only knows minutes. Absent in older records.
+    #[serde(default)]
+    pub physical_load: Option<f32>,
 }
 
 // ---------------------------------------------------------------------------

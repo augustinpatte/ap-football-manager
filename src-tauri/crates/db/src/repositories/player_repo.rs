@@ -52,8 +52,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
           ovr, potential, media_json, jersey_number, loan_offers, active_loan, movement_history,
-          contract_start)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39)
+          contract_start, suspended_matches)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40)
          ON CONFLICT(id) DO UPDATE SET
            match_name = excluded.match_name,
            full_name = excluded.full_name,
@@ -92,7 +92,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
            jersey_number = excluded.jersey_number,
            loan_offers = excluded.loan_offers,
            active_loan = excluded.active_loan,
-           movement_history = excluded.movement_history",
+           movement_history = excluded.movement_history,
+           suspended_matches = excluded.suspended_matches",
     )
     .and_then(|mut statement| {
         statement.execute(params![
@@ -135,6 +136,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             active_loan_json,
             movement_history_json,
             p.contract_start(),
+            i64::from(p.suspended_matches),
         ])
     })
     .map_err(|error| {
@@ -267,7 +269,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start
+                    contract_start, COALESCE(suspended_matches, 0)
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -295,7 +297,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start
+                    contract_start, COALESCE(suspended_matches, 0)
              FROM players WHERE team_id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -309,6 +311,15 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
         players.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
     Ok(players)
+}
+
+/// A player's season statistics, with the detailed-minutes count a save from before it existed
+/// lacked filled in from the counters it did record.
+fn season_stats_from_json(json: &str) -> domain::player::PlayerSeasonStats {
+    let mut stats: domain::player::PlayerSeasonStats =
+        serde_json::from_str(json).unwrap_or_default();
+    stats.backfill_detail_minutes();
+    stats
 }
 
 fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
@@ -400,12 +411,13 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         injury: injury_json.and_then(|j| serde_json::from_str(&j).ok()),
         team_id: row.get(12)?,
         retired: retired != 0,
+        suspended_matches: row.get::<_, i64>(39).unwrap_or(0).clamp(0, 255) as u8,
         squad_role: parse_squad_role(&squad_role_str),
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
         ovr,
         potential,
         market_value: market_value_i64 as u64,
-        stats: serde_json::from_str(&stats_json).unwrap_or_default(),
+        stats: season_stats_from_json(&stats_json),
         career: serde_json::from_str(&career_json).unwrap_or_default(),
         // The contract columns are read only as a legacy input: they describe a contract
         // for a save from before the ledger, and are ignored once the entries hold one.
@@ -938,6 +950,7 @@ mod tests {
             registration_date: None,
             closed_on: Some("2026-08-14".to_string()),
             registration_failure_reason: None,
+            terms: Default::default(),
         });
         player.loan_offers.push(LoanOffer {
             id: "loan-offer-closed".to_string(),
@@ -1302,6 +1315,52 @@ mod tests {
         assert_eq!(team2.len(), 1);
     }
 
+    /// Given a career with a generated season and a played one, when saved and reloaded, then
+    /// each keeps its `synthetic` flag.
+    #[test]
+    fn test_career_entry_synthetic_flag_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-career", Some("team-001"));
+        let entry = |season: u32, synthetic: bool| domain::player::CareerEntry {
+            season,
+            team_id: "team-001".into(),
+            team_name: "Team".into(),
+            appearances: 20,
+            goals: 3,
+            assists: 2,
+            synthetic,
+        };
+        player.career = vec![entry(2024, true), entry(2025, false)];
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        let flags: Vec<bool> = loaded[0].career.iter().map(|e| e.synthetic).collect();
+        assert_eq!(flags, vec![true, false]);
+    }
+
+    /// Given a save written before `synthetic` existed, when it is loaded, then the career is
+    /// still there (the column falls back to an EMPTY career on any parse failure, so a missing
+    /// serde default would silently erase it) and its entries read as not synthetic.
+    #[test]
+    fn test_career_written_before_the_synthetic_flag_still_loads() {
+        let db = test_db();
+        let player = sample_player("p-legacy", Some("team-001"));
+        upsert_player(db.conn(), &player).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE players SET career = ?1 WHERE id = 'p-legacy'",
+                [r#"[{"season":2020,"team_id":"t","team_name":"T","appearances":9,"goals":1,"assists":0}]"#],
+            )
+            .unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].career.len(), 1);
+        assert_eq!(loaded[0].career[0].appearances, 9);
+        assert!(!loaded[0].career[0].synthetic);
+    }
+
     #[test]
     fn test_player_alternate_positions_roundtrip() {
         let db = test_db();
@@ -1421,6 +1480,31 @@ mod tests {
     }
 
     #[test]
+    fn detail_minutes_survive_the_round_trip_and_a_legacy_season_is_backfilled() {
+        let db = test_db();
+        let mut recorded = sample_player("p-recorded", None);
+        recorded.stats.minutes_played = 2_000;
+        recorded.stats.detail_minutes_played = 450;
+        recorded.stats.shots = 5;
+        let mut dormant = sample_player("p-dormant", None);
+        dormant.stats.minutes_played = 2_700;
+        upsert_player(db.conn(), &recorded).unwrap();
+        upsert_player(db.conn(), &dormant).unwrap();
+        // A save from before the field: detail counters, no detailed minutes on record.
+        let mut legacy = sample_player("p-legacy", None);
+        legacy.stats.minutes_played = 900;
+        legacy.stats.passes_attempted = 300;
+        upsert_player(db.conn(), &legacy).unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+        let by_id = |id: &str| loaded.iter().find(|p| p.id == id).unwrap();
+
+        assert_eq!(by_id("p-recorded").stats.detail_minutes_played, 450);
+        assert_eq!(by_id("p-dormant").stats.detail_minutes_played, 0);
+        assert_eq!(by_id("p-legacy").stats.detail_minutes_played, 900);
+    }
+
+    #[test]
     fn test_legacy_player_stats_defaults_new_fields() {
         let db = test_db();
         let player = sample_player("p-legacy", None);
@@ -1469,6 +1553,8 @@ mod tests {
             pending_promise: None,
             talk_cooldown_until: None,
             renewal_state: None,
+            stepping_stone_promise: None,
+            free_agent_talks: Vec::new(),
         };
 
         upsert_player(db.conn(), &player).unwrap();
@@ -1483,6 +1569,85 @@ mod tests {
                 .map(|issue| &issue.category),
             Some(&PlayerIssueCategory::PlayingTime)
         );
+    }
+
+    /// Given a free agent with one open talk awaiting an answer, one counter on the table and one
+    ///       closed talk, none of them with default values
+    /// When he is saved to SQLite and read back
+    /// Then every talk comes back whole: club, terms, status, deadlines and reason.
+    #[test]
+    fn free_agent_talks_survive_a_sqlite_round_trip() {
+        use domain::free_agent_talk::{FreeAgentTalk, FreeAgentTalkReason, FreeAgentTalkStatus};
+        let db = test_db();
+        let mut player = sample_player("p-fa", None);
+        player.morale_core.free_agent_talks = vec![
+            FreeAgentTalk {
+                id: "fat:p-fa:club-a:2026-08-01".to_string(),
+                club_id: "club-a".to_string(),
+                weekly_wage: 41_500,
+                contract_years: 4,
+                signing_bonus: 250_000,
+                promise_stepping_stone: true,
+                round: 2,
+                opened_on: "2026-08-01".to_string(),
+                updated_on: "2026-08-02".to_string(),
+                respond_on: Some("2026-08-04".to_string()),
+                made_by_manager: true,
+                ..FreeAgentTalk::default()
+            },
+            FreeAgentTalk {
+                id: "fat:p-fa:club-b:2026-08-01".to_string(),
+                club_id: "club-b".to_string(),
+                status: FreeAgentTalkStatus::CounterOffered,
+                counter_wage: Some(52_000),
+                counter_years: Some(3),
+                counter_expires_on: Some("2026-08-06".to_string()),
+                reason: Some(FreeAgentTalkReason::ClubBelowHisLevel),
+                ..FreeAgentTalk::default()
+            },
+            FreeAgentTalk {
+                id: "fat:p-fa:club-c:2026-07-20".to_string(),
+                club_id: "club-c".to_string(),
+                status: FreeAgentTalkStatus::LostToRival,
+                closed_on: Some("2026-07-25".to_string()),
+                reason: Some(FreeAgentTalkReason::BetterOfferElsewhere),
+                ..FreeAgentTalk::default()
+            },
+        ];
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(
+            loaded[0].morale_core.free_agent_talks,
+            player.morale_core.free_agent_talks
+        );
+    }
+
+    /// Given a player carrying a breached stepping-stone promise,
+    /// When he is saved and loaded back,
+    /// Then every term of the promise survives in the existing `morale_core` column.
+    #[test]
+    fn test_stepping_stone_promise_roundtrip() {
+        use domain::player::{SteppingStonePromise, SteppingStonePromiseStatus};
+        let db = test_db();
+        let mut player = sample_player("p-promise", Some("team-001"));
+        let promise = SteppingStonePromise {
+            club_id: "team-001".to_string(),
+            made_on: "2026-08-01".to_string(),
+            protected_from: "2027-01-28".to_string(),
+            expires_on: "2029-08-01".to_string(),
+            min_buyer_reputation: 640,
+            min_fee_pct_of_value: 75,
+            status: SteppingStonePromiseStatus::Breached,
+            resolved_on: Some("2027-03-01".to_string()),
+        };
+        player.morale_core.stepping_stone_promise = Some(promise.clone());
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].morale_core.stepping_stone_promise, Some(promise));
     }
 
     #[test]
@@ -1568,5 +1733,30 @@ mod tests {
         let result = load_all_players(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    /// Given a suspended player,
+    /// When he is saved and loaded, and when a save written before suspensions existed is read,
+    /// Then the ban survives the round trip, and the older row reads as no ban.
+    #[test]
+    fn test_player_suspension_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-banned", None);
+        player.suspended_matches = 2;
+        upsert_player(db.conn(), &player).unwrap();
+        let stored = load_all_players(db.conn())
+            .unwrap()
+            .into_iter()
+            .find(|p| p.id == "p-banned")
+            .unwrap();
+        assert_eq!(stored.suspended_matches, 2);
+
+        let mut older = serde_json::to_value(&player).unwrap();
+        older.as_object_mut().unwrap().remove("suspended_matches");
+        let loaded: Player = serde_json::from_value(older).unwrap();
+        assert_eq!(
+            loaded.suspended_matches, 0,
+            "a save from before suspensions has no ban"
+        );
     }
 }

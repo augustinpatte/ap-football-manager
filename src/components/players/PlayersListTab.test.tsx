@@ -9,6 +9,7 @@ import { resetPackageAssetRoot } from "../../hooks/usePackageAssetSrc";
 import PlayersListTab from "./PlayersListTab";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { createSeasonContext } from "../../test-utils/factories";
+import { defined } from "../../test-utils/defined";
 
 vi.mock("../../hooks/useRatingTiers", async () => {
   const { cannedRatingTiersModule } = await import("../../test-utils/ratingTiers");
@@ -348,7 +349,7 @@ type InvokeOverrides = Record<string, (args: unknown) => unknown>;
 function setupSliceMock(gameState: GameStateData, overrides: InvokeOverrides = {}) {
   mockedInvoke.mockImplementation(async (cmd: string, args?: unknown) => {
     if (cmd in overrides) {
-      const result = overrides[cmd]!(args);
+      const result = defined(overrides[cmd], cmd)(args);
       if (result instanceof Error) throw result;
       return result;
     }
@@ -640,6 +641,34 @@ describe("PlayersListTab", () => {
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
+  });
+
+  /**
+   * Given the manager opens a transfer bid from the Players list (not the Transfers tab),
+   * When the bid modal is shown,
+   * Then the player's contract (wage, length) and the deal terms are editable, not only the fee.
+   */
+  it("lets the manager edit the player's contract and deal terms from the bid modal", async () => {
+    setupSliceMock(createGameState(), {
+      preview_transfer_bid_financial_impact: () => ({ projection: null }),
+    });
+    render(
+      <PlayersListTab
+        gameState={createGameState()}
+        onGameUpdate={vi.fn()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    const playerRow = (await screen.findByText("A. Keeper")).closest("tr");
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Make Transfer Bid" }));
+
+    expect(screen.getByLabelText("transfers.playerTerms.wage")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.playerTerms.years")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.terms.signingBonus")).toBeInTheDocument();
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toBeInTheDocument();
   });
 
   it("does not offer scouting or contract actions for retired free agents", async () => {

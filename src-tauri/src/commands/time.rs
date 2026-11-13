@@ -246,7 +246,15 @@ pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Va
 ///   - `blocked`    — action-required blocker exists; game state unchanged
 ///   - `fired`      — manager was dismissed during today's processing
 ///   - `advanced`   — quiet day processed successfully; game state updated
-pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Value, String> {
+///
+/// `ignore_blockers` is the manager's "continue anyway" on the blockers just shown: today is
+/// played without asking again, and the contract warnings among them are recorded as dealt with,
+/// so the same warning does not stop every following day. It is not a standing permission:
+/// tomorrow's blockers are checked as usual.
+pub fn advance_one_day_internal(
+    state: &StateManager,
+    ignore_blockers: bool,
+) -> Result<serde_json::Value, String> {
     let _operation = crate::application::live_session::idle_operation(state)?;
     // The whole check-process-respond sequence runs under the game lock
     // (update_game) so a concurrent GUI/MCP write is never clobbered by a
@@ -267,7 +275,15 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
                 });
             }
 
-            let blockers = compute_blocking_actions(game);
+            if ignore_blockers {
+                let acknowledged = ofm_core::contracts::acknowledge_user_team_contract_warnings(game);
+                info!("[cmd] advance_one_day: continuing past blockers, {acknowledged} contract warning(s) dealt with");
+            }
+            let blockers = if ignore_blockers {
+                Vec::new()
+            } else {
+                compute_blocking_actions(game)
+            };
             if !blockers.is_empty() {
                 info!(
                     "[cmd] advance_one_day: blocked date={} count={}",
@@ -326,9 +342,25 @@ pub fn advance_one_day_internal(state: &StateManager) -> Result<serde_json::Valu
 #[tauri::command]
 pub async fn advance_one_day(
     state: State<'_, Arc<StateManager>>,
+    ignore_blockers: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let state = state.inner().clone();
-    run_off_thread(move || advance_one_day_internal(&state)).await
+    run_off_thread(move || advance_one_day_internal(&state, ignore_blockers.unwrap_or(false))).await
+}
+
+/// The manager chose to carry on past the contract warnings showing: they are dealt with until
+/// the player's contract reaches its next stage. Returns how many players that covered.
+pub fn acknowledge_contract_warnings_internal(state: &StateManager) -> Result<usize, String> {
+    state
+        .update_game(ofm_core::contracts::acknowledge_user_team_contract_warnings)
+        .ok_or_else(|| "be.error.noActiveGameSession".to_string())
+}
+
+#[tauri::command]
+pub async fn acknowledge_contract_warnings(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<usize, String> {
+    acknowledge_contract_warnings_internal(&state)
 }
 
 fn count_high_priority_messages(game: &Game) -> usize {
@@ -772,6 +804,7 @@ mod tests {
                 set_on: "2025-06-15".to_string(),
                 reason: Some("test".to_string()),
             }),
+            warning_handled: None,
         });
     }
 
@@ -1143,6 +1176,7 @@ mod tests {
                 set_on: "2025-06-15".to_string(),
                 reason: Some("test".to_string()),
             }),
+            warning_handled: None,
         });
 
         let second_key_player = game
@@ -1166,6 +1200,7 @@ mod tests {
                 set_on: "2025-06-15".to_string(),
                 reason: Some("test".to_string()),
             }),
+            warning_handled: None,
         });
 
         let blockers = compute_blocking_actions(&game);
@@ -1349,7 +1384,8 @@ mod tests {
         // checks game.competitions, not the legacy game.league mirror.
         state.set_game(make_game_with_competition_matchday());
 
-        let result = super::advance_one_day_internal(&state).expect("advance_one_day result");
+        let result =
+            super::advance_one_day_internal(&state, false).expect("advance_one_day result");
 
         assert_eq!(
             result.get("action").and_then(Value::as_str),
@@ -1379,7 +1415,8 @@ mod tests {
         }
         state.set_game(game);
 
-        let result = super::advance_one_day_internal(&state).expect("advance_one_day result");
+        let result =
+            super::advance_one_day_internal(&state, false).expect("advance_one_day result");
 
         assert_eq!(
             result.get("action").and_then(Value::as_str),
@@ -1389,13 +1426,123 @@ mod tests {
         assert!(!blockers.is_empty(), "blockers array must be populated");
     }
 
+    fn make_key_players_with_expiring_contracts(game: &mut Game) {
+        for (id, end) in [("p10", "2025-08-01"), ("p11", "2025-09-01")] {
+            let player = game.players.iter_mut().find(|p| p.id == id).unwrap();
+            player.stage_contract_end(Some(end.to_string()));
+            player.attributes.pace = 92;
+            player.attributes.shooting = 94;
+            player.attributes.dribbling = 90;
+        }
+    }
+
+    fn action_of(result: &Value) -> &str {
+        result.get("action").and_then(Value::as_str).unwrap_or("")
+    }
+
+    /// Given key players whose contracts are about to expire, which blocks the day-by-day advance
+    /// When the manager chooses "continue anyway"
+    /// Then that day is played, and the next day is not blocked again by the same warning.
+    #[test]
+    fn continuing_anyway_does_not_raise_the_same_contract_warning_every_day() {
+        let state = StateManager::new();
+        let mut game = make_game(12);
+        make_key_players_with_expiring_contracts(&mut game);
+        state.set_game(game);
+
+        let blocked = super::advance_one_day_internal(&state, false).unwrap();
+        assert_eq!(action_of(&blocked), "blocked");
+        let ids: Vec<&str> = blocked["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|b| b.get("id").and_then(Value::as_str))
+            .collect();
+        assert!(ids.contains(&"key_contract_risk"), "{ids:?}");
+
+        let carried_on = super::advance_one_day_internal(&state, true).unwrap();
+        assert_eq!(action_of(&carried_on), "advanced");
+        let next_day = super::advance_one_day_internal(&state, false).unwrap();
+        // The fixture's tiny squad raises its own (urgent-mail) blocker; what matters is that the
+        // contract warning is not among the reasons.
+        let reasons: Vec<&str> = next_day["blockers"]
+            .as_array()
+            .map(|blockers| {
+                blockers
+                    .iter()
+                    .filter_map(|b| b.get("id").and_then(Value::as_str))
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert!(
+            !reasons.contains(&"key_contract_risk") && !reasons.contains(&"contract_wage_risk"),
+            "the warning was dealt with and does not stop the next day: {reasons:?}"
+        );
+    }
+
+    /// Given a real, unresolved squad problem (two injured starters)
+    /// When the manager continues anyway
+    /// Then only that day is played: the problem is raised again the next day.
+    #[test]
+    fn continuing_anyway_is_not_a_standing_permission_for_squad_problems() {
+        let state = StateManager::new();
+        let mut game = make_game(11);
+        for player_id in ["p2", "p5"] {
+            let player = game.players.iter_mut().find(|p| p.id == player_id).unwrap();
+            player.injury = Some(Injury {
+                name: "Hamstring".to_string(),
+                days_remaining: 30,
+            });
+        }
+        state.set_game(game);
+
+        assert_eq!(
+            action_of(&super::advance_one_day_internal(&state, true).unwrap()),
+            "advanced"
+        );
+        assert_eq!(
+            action_of(&super::advance_one_day_internal(&state, false).unwrap()),
+            "blocked"
+        );
+    }
+
+    /// Given a contract warning
+    /// When the warning reaches its next stage
+    /// Then it stops the advance once more: a real new decision.
+    #[test]
+    fn a_dealt_with_contract_warning_returns_at_the_next_stage() {
+        let state = StateManager::new();
+        let mut game = make_game(12);
+        make_key_players_with_expiring_contracts(&mut game);
+        state.set_game(game);
+        assert_eq!(
+            super::acknowledge_contract_warnings_internal(&state).unwrap(),
+            2
+        );
+        assert_eq!(
+            action_of(&super::advance_one_day_internal(&state, false).unwrap()),
+            "advanced"
+        );
+
+        // Jump to the last weeks of p10's contract (2025-08-01): final-weeks is a new stage.
+        state
+            .update_game(|game| {
+                game.clock.current_date = Utc.with_ymd_and_hms(2025, 7, 10, 12, 0, 0).unwrap();
+            })
+            .unwrap();
+
+        let blocked = super::advance_one_day_internal(&state, false).unwrap();
+        assert_eq!(action_of(&blocked), "blocked");
+    }
+
     #[test]
     fn advance_one_day_advances_quiet_day_and_returns_date() {
         let state = StateManager::new();
         // No match today, no blockers.
         state.set_game(make_game(11));
 
-        let result = super::advance_one_day_internal(&state).expect("advance_one_day result");
+        let result =
+            super::advance_one_day_internal(&state, false).expect("advance_one_day result");
 
         assert_eq!(
             result.get("action").and_then(Value::as_str),
@@ -1425,7 +1572,8 @@ mod tests {
         game.manager.fire("2025-06-10");
         state.set_game(game);
 
-        let result = super::advance_one_day_internal(&state).expect("advance_one_day result");
+        let result =
+            super::advance_one_day_internal(&state, false).expect("advance_one_day result");
 
         assert_eq!(
             result.get("action").and_then(Value::as_str),

@@ -433,6 +433,7 @@ export default function TacticsPitch({
                   className="absolute"
                   style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
                 >
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: a drag-and-drop target is pointer-only by nature; the keyboard path is selecting two tokens and confirming the swap. */}
                   <div
                     data-testid={`pitch-slot-${slot.index}`}
                     className={getSlotTargetClassName(isHovered, !!player)}
@@ -469,6 +470,7 @@ export default function TacticsPitch({
                             t,
                           })}
                         >
+                          {/* biome-ignore lint/a11y/useSemanticElements: the token embeds the role select, which HTML forbids inside a button; focus, Enter and Space are handled below. */}
                           <div
                             role="button"
                             tabIndex={0}
@@ -512,6 +514,7 @@ export default function TacticsPitch({
                             >
                               {/* Role combobox */}
                               {onRoleChange && (
+                                // biome-ignore lint/a11y/noStaticElementInteractions: not a control; it only keeps the select's mouse and key events from starting a drag or a token click on the parent.
                                 <div
                                   draggable={false}
                                   onMouseDown={(e) => e.stopPropagation()}

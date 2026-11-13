@@ -458,13 +458,29 @@ pub struct MatchConfig {
     pub stoppage_time_max: u8,
     /// Probability of an injury per foul event.
     pub injury_probability: f64,
+    /// How much a side's numbers count in the midfield: the exponent of the ratio of its midfielders
+    /// on the pitch to the other side's. 0 prices no number at all; a sending-off in midfield is then
+    /// free. Absent in a configuration written before this existed, which meant 0.
+    #[serde(default)]
+    pub midfield_numbers_weight: f64,
+    /// How much a side's numbers count in the attacking third: the exponent of its forwards per
+    /// defender facing them, against the two to four of a 4-4-2. 0 prices no number at all.
+    #[serde(default)]
+    pub attack_numbers_weight: f64,
+    /// How much of a role's bonus or cost counts in a contest its holder is not drawn into: a full
+    /// back's attacking role in the attacking third, a ball-playing centre back's in the midfield, a
+    /// sweeper keeper's in the defence. 0 consults a role only where its holder's own group is
+    /// drawn, which leaves those roles inert. Absent in a configuration written before this
+    /// existed, which meant 0.
+    #[serde(default)]
+    pub role_support_weight: f64,
 }
 
 impl Default for MatchConfig {
     fn default() -> Self {
         Self {
             home_advantage: 1.08,
-            shot_accuracy_base: 0.35,
+            shot_accuracy_base: 0.29,
             goal_conversion_base: 0.36,
             fatigue_per_minute: 0.20,
             foul_probability: 0.40,
@@ -473,6 +489,9 @@ impl Default for MatchConfig {
             penalty_probability: 0.50,
             stoppage_time_max: 4,
             injury_probability: 0.03,
+            midfield_numbers_weight: 0.3,
+            attack_numbers_weight: 0.3,
+            role_support_weight: 1.0,
         }
     }
 }

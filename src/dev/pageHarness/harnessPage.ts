@@ -7,11 +7,15 @@ export function readHarnessLanguage(search: string): SupportedLanguageCode {
 }
 
 /** The pages the harness can mount, by the Dashboard tab each opens on. */
-export const HARNESS_PAGES = { home: "Home", squad: "Squad" } as const;
+export const HARNESS_PAGES = {
+  home: "Home",
+  squad: "Squad",
+  globalMarket: "GlobalMarket",
+} as const;
 export type HarnessPage = keyof typeof HARNESS_PAGES;
 
-/** `?page=home` or `?page=squad`; anything else is the style guide itself. */
+/** `?page=home`, `?page=squad` or `?page=globalMarket`; anything else is the style guide itself. */
 export function readHarnessPage(search: string): HarnessPage | null {
   const page = new URLSearchParams(search).get("page");
-  return page === "home" || page === "squad" ? page : null;
+  return page !== null && page in HARNESS_PAGES ? (page as HarnessPage) : null;
 }

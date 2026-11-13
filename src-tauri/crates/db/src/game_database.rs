@@ -1,10 +1,12 @@
 use log::{debug, error, info};
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
+use std::fs::{self, File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::migrations::{
     MIGRATION_COUNT, all_migrations, expected_layout, first_layout_difference, layout_of,
-    migration_owned_tables,
+    migration_owned_tables, needs_run2_dev_repair, repair_run2_dev_save,
 };
 use crate::save_load_error::SaveLoadError;
 
@@ -41,6 +43,126 @@ fn verify_layout_matches_version(
     }
 }
 
+/// Where the pre-v063 copy of `path` goes: `<save>.db.pre-v063.bak`, or the first numbered variant
+/// of it that is free. A file already there is never overwritten, and never mistaken for a copy of
+/// this save: whatever sits under that name may be an older save's.
+fn unused_backup_path(path: &Path) -> PathBuf {
+    let plain = path.with_extension("db.pre-v063.bak");
+    if !plain.exists() {
+        return plain;
+    }
+    (1..)
+        .map(|n| path.with_extension(format!("db.pre-v063.{n}.bak")))
+        .find(|candidate| !candidate.exists())
+        .unwrap_or(plain)
+}
+
+fn remove_incomplete_backup(path: &Path) {
+    if let Err(error) = fs::remove_file(path) {
+        error!("[game_db] could not remove incomplete backup {path:?}: {error}");
+    }
+}
+
+/// Copy a save without overwriting another backup, then prove the copy stayed byte-identical while
+/// it was made. The source digest is read both before and after the copy: a concurrently changed
+/// save is not a usable pre-migration recovery point.
+fn copy_verified_backup(source: &Path, backup: &Path) -> Result<(), String> {
+    let source_checksum = crate::save_index::compute_checksum(source)
+        .map_err(|_| format!("cannot checksum source save {source:?}"))?;
+    let source_size = fs::metadata(source)
+        .map_err(|error| format!("cannot inspect source save {source:?}: {error}"))?
+        .len();
+    let mut source_file = File::open(source)
+        .map_err(|error| format!("cannot open source save {source:?}: {error}"))?;
+    let mut backup_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(backup)
+        .map_err(|error| format!("cannot create backup {backup:?}: {error}"))?;
+
+    let copied = match io::copy(&mut source_file, &mut backup_file) {
+        Ok(copied) => copied,
+        Err(error) => {
+            drop(backup_file);
+            remove_incomplete_backup(backup);
+            return Err(format!(
+                "cannot copy save {source:?} to {backup:?}: {error}"
+            ));
+        }
+    };
+    if copied != source_size {
+        drop(backup_file);
+        remove_incomplete_backup(backup);
+        return Err(format!(
+            "backup {backup:?} copied {copied} bytes but source save {source:?} has {source_size}"
+        ));
+    }
+    if let Err(error) = backup_file.sync_all() {
+        drop(backup_file);
+        remove_incomplete_backup(backup);
+        return Err(format!("cannot sync backup {backup:?}: {error}"));
+    }
+    drop(backup_file);
+
+    let verification = (|| {
+        let current_source_checksum = crate::save_index::compute_checksum(source)
+            .map_err(|_| format!("cannot re-check source save {source:?}"))?;
+        let backup_checksum = crate::save_index::compute_checksum(backup)
+            .map_err(|_| format!("cannot checksum backup {backup:?}"))?;
+        let backup_size = fs::metadata(backup)
+            .map_err(|error| format!("cannot inspect backup {backup:?}: {error}"))?
+            .len();
+        if source_checksum != current_source_checksum
+            || current_source_checksum != backup_checksum
+            || source_size != backup_size
+        {
+            return Err(format!(
+                "backup {backup:?} does not exactly match save {source:?}"
+            ));
+        }
+        Ok(())
+    })();
+    if verification.is_err() {
+        remove_incomplete_backup(backup);
+    }
+    verification
+}
+
+/// Preserve a verified recovery copy before any schema-changing operation. Returns whether the
+/// save needs an ordinary migration after a possible Run 2 numbering repair.
+fn backup_before_schema_change(conn: &Connection, path: &Path) -> Result<bool, String> {
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|error| format!("cannot read schema version of {path:?}: {error}"))?;
+    if version >= MIGRATION_COUNT as i64 {
+        return Ok(false);
+    }
+
+    let backup = unused_backup_path(path);
+    copy_verified_backup(path, &backup)?;
+    info!("[game_db] verified pre-migration backup {path:?} -> {backup:?}");
+    Ok(true)
+}
+
+/// Upgrades a save written by a Run 2 development build (see `migrations::needs_run2_dev_repair`).
+/// Its caller takes the verified pre-migration backup before calling this function.
+fn reconcile_run2_dev_save(conn: &mut Connection, path: Option<&Path>) -> Result<bool, String> {
+    match needs_run2_dev_repair(conn) {
+        Ok(true) => {}
+        Ok(false) => return Ok(false),
+        Err(e) => {
+            error!("[game_db] cannot inspect {path:?} for a Run 2 development save: {e}");
+            return Err(e);
+        }
+    }
+    repair_run2_dev_save(conn).map_err(|error| {
+        error!("[game_db] repairing the Run 2 development save {path:?} failed: {error}");
+        error
+    })?;
+    info!("[game_db] repaired the Run 2 development save {path:?} to v063");
+    Ok(true)
+}
+
 /// Represents an open per-save game database with migrations applied.
 pub struct GameDatabase {
     conn: Connection,
@@ -51,11 +173,22 @@ impl GameDatabase {
     /// Open (or create) a game database at the given path and apply all migrations.
     pub fn open(path: &Path) -> Result<Self, String> {
         debug!("[game_db] opening database at {:?}", path);
+        let existed_before_open = path.exists();
         let mut conn = Connection::open(path).map_err(|e| {
             error!("[game_db] failed to open database at {:?}: {}", path, e);
             GAME_DATABASE_OPEN_FAILED.to_string()
         })?;
 
+        if existed_before_open {
+            backup_before_schema_change(&conn, path).map_err(|error| {
+                error!("[game_db] refusing to migrate {path:?} without a verified backup: {error}");
+                GAME_DATABASE_MIGRATION_FAILED.to_string()
+            })?;
+        }
+        reconcile_run2_dev_save(&mut conn, Some(path)).map_err(|error| {
+            error!("[game_db] cannot repair Run 2 save {path:?}: {error}");
+            GAME_DATABASE_MIGRATION_FAILED.to_string()
+        })?;
         let migrations = all_migrations();
         migrations.to_latest(&mut conn).map_err(|e| {
             error!("[game_db] migration failed for {:?}: {}", path, e);
@@ -74,23 +207,39 @@ impl GameDatabase {
     /// by the save-loading path; other callers use [`GameDatabase::open`].
     pub fn open_save(path: &Path) -> Result<Self, SaveLoadError> {
         debug!("[game_db] opening save at {:?}", path);
-        let mut conn = Connection::open(path).map_err(|e| {
-            error!("[game_db] failed to open save at {:?}: {}", path, e);
-            SaveLoadError::Corrupted
-        })?;
+        let mut conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+            .map_err(|e| {
+                error!("[game_db] failed to open save at {:?}: {}", path, e);
+                SaveLoadError::Corrupted
+            })?;
 
         // A save from a newer build carries a higher schema version than we can
         // apply; detect it before migrating so the failure is explainable rather
         // than a generic migration error.
         let save_version: i64 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap_or(0);
+            .map_err(|error| {
+                error!("[game_db] cannot read schema version of save {path:?}: {error}");
+                SaveLoadError::Corrupted
+            })?;
         if save_version > MIGRATION_COUNT as i64 {
             return Err(SaveLoadError::IncompatibleVersion {
                 save_version,
                 supported: MIGRATION_COUNT as i64,
             });
         }
+
+        backup_before_schema_change(&conn, path).map_err(|error| {
+            error!("[game_db] refusing to migrate {path:?} without a verified backup: {error}");
+            SaveLoadError::Unknown
+        })?;
+        reconcile_run2_dev_save(&mut conn, Some(path)).map_err(|error| {
+            error!("[game_db] cannot repair Run 2 save {path:?}: {error}");
+            SaveLoadError::Unknown
+        })?;
+        let save_version: i64 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap_or(save_version);
 
         // `user_version` alone decides which migrations run, so a file whose tables
         // contradict it would be "migrated" into something half-built. Refuse it
@@ -310,10 +459,47 @@ mod tests {
     fn open_save_migrates_an_honest_older_save() {
         let dir = tempfile::tempdir().unwrap();
         let path = save_claiming_version(dir.path(), MIGRATION_COUNT - 3, "");
+        let original = std::fs::read(&path).unwrap();
 
         let db = GameDatabase::open_save(&path).expect("an honest older save loads");
 
         assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(
+            std::fs::read(path.with_extension("db.pre-v063.bak")).unwrap(),
+            original,
+            "every migrated user save retains a byte-for-byte pre-migration backup"
+        );
+    }
+
+    /// Given an indexed save that disappeared before it can be opened,
+    /// When the load path tries to open it,
+    /// Then it reports corruption and never creates a blank replacement database.
+    #[test]
+    fn open_save_never_creates_a_missing_save_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing.db");
+
+        assert!(matches!(
+            GameDatabase::open_save(&path),
+            Err(SaveLoadError::Corrupted)
+        ));
+        assert!(
+            !path.exists(),
+            "a failed load must not replace a missing save"
+        );
+    }
+
+    /// Given a path that cannot be copied,
+    /// When the backup helper is asked to make the pre-migration copy,
+    /// Then it fails and leaves no deceptive backup behind.
+    #[test]
+    fn an_unreadable_save_cannot_produce_a_verified_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("missing.db");
+        let backup = unused_backup_path(&source);
+
+        assert!(copy_verified_backup(&source, &backup).is_err());
+        assert!(!backup.exists(), "a failed copy must not look recoverable");
     }
 
     /// Given a save at version N that lacks a column migration N built
@@ -396,5 +582,607 @@ mod tests {
         );
 
         assert_refused_naming(&path, "sneaky");
+    }
+
+    const RUN2_DEV_COLUMN_SQL: &str =
+        "ALTER TABLE teams ADD COLUMN out_of_possession_formation TEXT NOT NULL DEFAULT '';";
+    const TEAM_ROW_SQL: &str = "INSERT INTO teams (id, name, short_name, country, city, \
+        stadium_name, stadium_capacity, wage_budget, transfer_budget, formation) \
+        VALUES ('t1', 'Team', 'TM', 'FR', 'Paris', 'Stade', 40000, 1, 1, '4-3-3')";
+
+    fn user_version(path: &Path) -> i64 {
+        Connection::open(path)
+            .unwrap()
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap()
+    }
+
+    /// A save as the Run 1 development build wrote it: 62 migrations, the old numbering where
+    /// `v062` is the transfer obligations table.
+    fn run1_dev_save(dir: &Path) -> PathBuf {
+        let path = dir.join("run1.db");
+        let mut conn = Connection::open(&path).unwrap();
+        all_migrations().to_version(&mut conn, 62).unwrap();
+        conn.execute_batch(TEAM_ROW_SQL).unwrap();
+        conn.execute(
+            "INSERT INTO transfer_obligations (id, obligation_json) VALUES ('o1', '{\"kind\":\"x\"}')",
+            [],
+        )
+        .unwrap();
+        path
+    }
+
+    /// A save as the Run 2 development build wrote it: 61 migrations, then the out-of-possession
+    /// column under the old `v062` label, and no transfer obligations table.
+    fn run2_dev_save(dir: &Path) -> PathBuf {
+        let path = dir.join("run2.db");
+        let mut conn = Connection::open(&path).unwrap();
+        all_migrations().to_version(&mut conn, 61).unwrap();
+        conn.execute_batch(RUN2_DEV_COLUMN_SQL).unwrap();
+        conn.pragma_update(None, "user_version", 62).unwrap();
+        conn.execute_batch(TEAM_ROW_SQL).unwrap();
+        conn.execute(
+            "UPDATE teams SET out_of_possession_formation = '5-4-1' WHERE id = 't1'",
+            [],
+        )
+        .unwrap();
+        path
+    }
+
+    fn team_defensive_shape(db: &GameDatabase) -> String {
+        db.conn()
+            .query_row(
+                "SELECT out_of_possession_formation FROM teams WHERE id = 't1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    /// Given a save a Run 1 build wrote at schema 62 with a pending obligation
+    /// When it is opened by the integrated build
+    /// Then v063 adds the defensive-shape column and the obligation and team survive untouched.
+    #[test]
+    fn a_run1_development_save_upgrades_to_the_integrated_schema_without_loss() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run1_dev_save(dir.path());
+
+        let db = GameDatabase::open_save(&path).expect("a Run 1 dev save loads");
+
+        assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(
+            team_defensive_shape(&db),
+            "",
+            "legacy: defend with the attacking shape"
+        );
+        let obligations: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(obligations, 1);
+        let formation: String = db
+            .conn()
+            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(formation, "4-3-3");
+    }
+
+    /// Given a save a Run 2 build wrote at schema 62 (defensive shape set, no obligations table)
+    /// When it is opened by the integrated build
+    /// Then it gains the obligations table, keeps its defensive shape, a backup copy is taken,
+    /// and a second open is a no-op.
+    #[test]
+    fn a_run2_development_save_is_repaired_to_the_integrated_schema_without_loss() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+
+        let db = GameDatabase::open_save(&path).expect("a Run 2 dev save loads");
+
+        assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(team_defensive_shape(&db), "5-4-1");
+        let obligations: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM transfer_obligations", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(obligations, 0);
+        drop(db);
+        let backup = dir.path().join("run2.db.pre-v063.bak");
+        assert!(backup.exists(), "a pre-repair copy is kept");
+        assert_eq!(
+            user_version(&backup),
+            62,
+            "the backup is the untouched original"
+        );
+
+        let again = GameDatabase::open_save(&path).expect("reopening works");
+        assert_eq!(team_defensive_shape(&again), "5-4-1");
+    }
+
+    /// Given the same Run 2 development save
+    /// When it is opened through the non-save entry point (`GameDatabase::open`)
+    /// Then it is repaired there too instead of failing on a duplicate column.
+    #[test]
+    fn a_run2_development_save_also_opens_through_the_plain_entry_point() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+
+        let db = GameDatabase::open(&path).expect("plain open repairs the Run 2 dev save");
+
+        assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(team_defensive_shape(&db), "5-4-1");
+    }
+
+    /// Given a v62 save holding BOTH the column and the table (neither build wrote this)
+    /// When it is opened
+    /// Then it is not "repaired" blindly: it is refused as a layout contradiction, file untouched.
+    #[test]
+    fn a_v62_save_that_matches_neither_dev_build_is_refused_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(dir.path(), 62, RUN2_DEV_COLUMN_SQL);
+        let before = std::fs::read(&path).unwrap();
+
+        assert_refused_naming(&path, "out_of_possession_formation");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+
+    /// Given a released v61 save with data
+    /// When it is opened
+    /// Then both new migrations apply in order and the data survives.
+    #[test]
+    fn a_v61_save_upgrades_through_both_new_migrations() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(dir.path(), 61, TEAM_ROW_SQL);
+
+        let db = GameDatabase::open_save(&path).expect("a v61 save loads");
+
+        assert_eq!(db.schema_version().unwrap(), MIGRATION_COUNT as i64);
+        assert_eq!(team_defensive_shape(&db), "");
+        let formation: String = db
+            .conn()
+            .query_row("SELECT formation FROM teams WHERE id = 't1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(formation, "4-3-3");
+    }
+
+    // ── Schema checks that read the tables, not the version number ─────────────────────────────
+
+    type ColumnShape = (String, String, i64, Option<String>, i64);
+
+    /// Every user table with each column's name, declared type, NOT NULL flag, default and
+    /// primary-key position, so an upgrade that ends on the right `user_version` but with a
+    /// differently declared column cannot pass.
+    fn schema_of(conn: &Connection) -> std::collections::BTreeMap<String, Vec<ColumnShape>> {
+        let mut tables = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap();
+        let names: Vec<String> = tables
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        names
+            .into_iter()
+            .map(|name| {
+                let mut info = conn
+                    .prepare("SELECT name, type, \"notnull\", dflt_value, pk FROM pragma_table_xinfo(?1) ORDER BY cid")
+                    .unwrap();
+                let columns = info
+                    .query_map([&name], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                    })
+                    .unwrap()
+                    .collect::<Result<_, _>>()
+                    .unwrap();
+                (name, columns)
+            })
+            .collect()
+    }
+
+    fn index_names(conn: &Connection) -> std::collections::BTreeSet<String> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
+            )
+            .unwrap();
+        stmt.query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    /// Given each way a save can reach the current schema (a released v61, a Run 1 development
+    ///       save at 62, a Run 2 development save at 62 repaired to 63, and the same through the
+    ///       plain entry point),
+    /// When it has been opened,
+    /// Then its tables, columns (type, NOT NULL, default, primary key) and indexes are exactly
+    ///      those of a database created fresh at the current version.
+    #[test]
+    fn every_upgrade_path_ends_on_the_schema_of_a_fresh_database() {
+        let fresh = GameDatabase::open_in_memory().unwrap();
+        let (fresh_schema, fresh_indexes) = (schema_of(fresh.conn()), index_names(fresh.conn()));
+        assert!(fresh_schema.contains_key("transfer_obligations"));
+        assert!(
+            fresh_schema["teams"]
+                .iter()
+                .any(|column| column.0 == "out_of_possession_formation")
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let upgraded: [(&str, GameDatabase); 4] = [
+            (
+                "released v61",
+                GameDatabase::open_save(&save_claiming_version(dir.path(), 61, TEAM_ROW_SQL))
+                    .unwrap(),
+            ),
+            (
+                "Run 1 development save",
+                GameDatabase::open_save(&run1_dev_save(dir.path())).unwrap(),
+            ),
+            (
+                "Run 2 development save",
+                GameDatabase::open_save(&run2_dev_save(dir.path())).unwrap(),
+            ),
+            ("Run 2 development save, plain open", {
+                let other = tempfile::tempdir().unwrap();
+                let path = run2_dev_save(other.path());
+                let db = GameDatabase::open(&path).unwrap();
+                // The temp directory outlives the assertions below through the open handle.
+                std::mem::forget(other);
+                db
+            }),
+        ];
+        for (label, db) in &upgraded {
+            assert_eq!(
+                db.schema_version().unwrap(),
+                MIGRATION_COUNT as i64,
+                "{label}"
+            );
+            assert_eq!(
+                schema_of(db.conn()),
+                fresh_schema,
+                "{label}: tables or columns differ"
+            );
+            assert_eq!(
+                index_names(db.conn()),
+                fresh_indexes,
+                "{label}: indexes differ"
+            );
+        }
+    }
+
+    fn rows_of(conn: &Connection, table: &str, columns: &[&str]) -> Vec<Vec<String>> {
+        let sql = format!(
+            "SELECT {} FROM \"{table}\" ORDER BY 1",
+            columns
+                .iter()
+                .map(|c| format!("CAST(\"{c}\" AS TEXT)"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        let mut stmt = conn.prepare(&sql).unwrap();
+        stmt.query_map([], |row| {
+            (0..columns.len())
+                .map(|i| Ok(row.get::<_, Option<String>>(i)?.unwrap_or_default()))
+                .collect()
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
+    }
+
+    fn every_table_with_its_rows(
+        path: &Path,
+    ) -> std::collections::BTreeMap<String, (Vec<String>, Vec<Vec<String>>)> {
+        let conn = Connection::open(path).unwrap();
+        schema_of(&conn)
+            .into_iter()
+            .map(|(table, columns)| {
+                let names: Vec<String> = columns.into_iter().map(|c| c.0).collect();
+                let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+                let rows = rows_of(&conn, &table, &refs);
+                (table, (names, rows))
+            })
+            .collect()
+    }
+
+    /// Given a v65 save whose match history was written the old way: an ordinary match, a match
+    /// only a team line knows, and a record that disagrees with its own match about the date,
+    /// When it is upgraded,
+    /// Then every record reads back equal and in the order it had, and the old tables are gone.
+    #[test]
+    fn a_v65_upgrade_carries_the_match_history_over_record_for_record() {
+        use domain::league::FixtureCompetition;
+        use domain::stats::{PlayerMatchStatsRecord, TeamMatchStatsRecord};
+
+        let player =
+            |fixture: &str, player: &str, date: &str, rating: f32| PlayerMatchStatsRecord {
+                fixture_id: fixture.into(),
+                season: 2034,
+                matchday: 7,
+                date: date.into(),
+                competition: FixtureCompetition::League,
+                player_id: player.into(),
+                team_id: "home".into(),
+                opponent_team_id: "away".into(),
+                home_team_id: "home".into(),
+                away_team_id: "away".into(),
+                home_goals: 3,
+                away_goals: 1,
+                minutes_played: 83,
+                goals: 2,
+                assists: 1,
+                shots: 5,
+                shots_on_target: 3,
+                passes_completed: 31,
+                passes_attempted: 40,
+                tackles_won: 2,
+                interceptions: 1,
+                fouls_committed: 4,
+                yellow_cards: 1,
+                red_cards: 0,
+                rating,
+            };
+        let team = |fixture: &str, team: &str, for_: u8, against: u8| TeamMatchStatsRecord {
+            fixture_id: fixture.into(),
+            season: 2034,
+            matchday: 7,
+            date: "2034-09-02".into(),
+            competition: FixtureCompetition::League,
+            team_id: team.into(),
+            opponent_team_id: if team == "home" { "away" } else { "home" }.into(),
+            home_team_id: "home".into(),
+            away_team_id: "away".into(),
+            goals_for: for_,
+            goals_against: against,
+            possession_pct: 58,
+            shots: 14,
+            shots_on_target: 6,
+            passes_completed: 410,
+            passes_attempted: 480,
+            tackles_won: 17,
+            interceptions: 9,
+            fouls_committed: 12,
+            yellow_cards: 2,
+            red_cards: 1,
+        };
+        let players = vec![
+            player("fx-1", "p-1", "2034-09-02", 7.4),
+            player("fx-1", "p-2", "2034-09-02", 0.0),
+            // A cup tie, not the league the default would read back.
+            PlayerMatchStatsRecord {
+                competition: FixtureCompetition::Cup,
+                ..player("fx-2", "p-1", "2034-09-09", 6.25)
+            },
+            // Disagrees with the other records of its match about the date: kept as written.
+            player("fx-1", "p-3", "2034-09-03", 8.1),
+        ];
+        let teams = vec![
+            team("fx-1", "home", 3, 1),
+            team("fx-1", "away", 1, 3),
+            // A match no player line mentions.
+            team("fx-9", "home", 3, 1),
+        ];
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(dir.path(), 65, "");
+        {
+            let conn = Connection::open(&path).unwrap();
+            for r in &players {
+                conn.execute(
+                    "INSERT INTO player_match_stats VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25)",
+                    rusqlite::params![
+                        r.fixture_id, r.season, r.matchday, r.date, if r.competition == FixtureCompetition::Cup { "Cup" } else { "League" }, r.player_id,
+                        r.team_id, r.opponent_team_id, r.home_team_id, r.away_team_id,
+                        r.home_goals, r.away_goals, r.minutes_played, r.goals, r.assists, r.shots,
+                        r.shots_on_target, r.passes_completed, r.passes_attempted, r.tackles_won,
+                        r.interceptions, r.fouls_committed, r.yellow_cards, r.red_cards, r.rating
+                    ],
+                )
+                .unwrap();
+            }
+            for r in &teams {
+                conn.execute(
+                    "INSERT INTO team_match_stats VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+                    rusqlite::params![
+                        r.fixture_id, r.season, r.matchday, r.date, "League", r.team_id,
+                        r.opponent_team_id, r.home_team_id, r.away_team_id, r.goals_for,
+                        r.goals_against, r.possession_pct, r.shots, r.shots_on_target,
+                        r.passes_completed, r.passes_attempted, r.tackles_won, r.interceptions,
+                        r.fouls_committed, r.yellow_cards, r.red_cards
+                    ],
+                )
+                .unwrap();
+            }
+        }
+
+        let db = GameDatabase::open_save(&path).unwrap();
+        let loaded = crate::repositories::stats_repo::load_stats_state(db.conn()).unwrap();
+
+        assert_eq!(loaded.player_matches, players);
+        assert_eq!(loaded.team_matches, teams);
+        let tables = every_table_with_its_rows(&path);
+        assert!(!tables.contains_key("player_match_stats"));
+        assert!(!tables.contains_key("team_match_stats"));
+    }
+
+    /// Given a released v61 save holding a team and a message,
+    /// When it is upgraded,
+    /// Then every row of every table it already had is still there, value for value, and the two
+    ///      new structures start empty (no obligations; the defensive shape reads as "none").
+    #[test]
+    fn a_v61_upgrade_keeps_every_row_of_every_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = save_claiming_version(
+            dir.path(),
+            61,
+            &format!(
+                "{TEAM_ROW_SQL}; INSERT INTO messages (id, subject, body, sender, sender_role, date, read, category, priority, actions, context, i18n) \
+                 VALUES ('m1', 's', 'b', 'x', 'r', '2033-07-01', 0, 'Welcome', 'Normal', '[]', '{{}}', '{{}}')"
+            ),
+        );
+        let before = every_table_with_its_rows(&path);
+        assert!(!before["messages"].1.is_empty() && !before["teams"].1.is_empty());
+
+        drop(GameDatabase::open_save(&path).unwrap());
+        let after = every_table_with_its_rows(&path);
+
+        for (table, (columns, rows)) in &before {
+            // v066 replaced these two with compact tables: the history is carried over, and
+            // `a_v65_upgrade_carries_the_match_history_over_record_for_record` reads it back.
+            if matches!(table.as_str(), "player_match_stats" | "team_match_stats") {
+                continue;
+            }
+            let (after_columns, after_rows) = &after[table];
+            let kept: Vec<usize> = columns
+                .iter()
+                .map(|c| {
+                    after_columns
+                        .iter()
+                        .position(|a| a == c)
+                        .unwrap_or_else(|| panic!("{table}.{c} was lost"))
+                })
+                .collect();
+            let projected: Vec<Vec<String>> = after_rows
+                .iter()
+                .map(|row| kept.iter().map(|&i| row[i].clone()).collect())
+                .collect();
+            assert_eq!(&projected, rows, "rows of {table} changed by the upgrade");
+        }
+        assert!(after["transfer_obligations"].1.is_empty());
+    }
+
+    /// Given the Run 2 development save repaired once,
+    /// When it is opened a second and a third time,
+    /// Then the file is byte-identical after the first repair (the repair is idempotent and a
+    ///      plain open never rewrites), and the backup still holds the original.
+    #[test]
+    fn the_run2_repair_is_idempotent_down_to_the_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let original = std::fs::read(&path).unwrap();
+        drop(GameDatabase::open_save(&path).unwrap());
+        let repaired = std::fs::read(&path).unwrap();
+        assert_ne!(repaired, original, "the first open repaired it");
+
+        drop(GameDatabase::open_save(&path).unwrap());
+        drop(GameDatabase::open(&path).unwrap());
+
+        assert_eq!(std::fs::read(&path).unwrap(), repaired);
+        assert_eq!(
+            std::fs::read(dir.path().join("run2.db.pre-v063.bak")).unwrap(),
+            original,
+            "the backup is still the untouched original"
+        );
+    }
+
+    /// Given a Run 2 development save and a backup file that already sits where the repair would
+    ///       write one (left by an earlier save of the same name),
+    /// When the save is repaired,
+    /// Then the existing file is never overwritten and a fresh copy of *this* save is taken
+    ///      before the repair: the pre-repair state is always recoverable.
+    #[test]
+    fn an_existing_backup_is_never_overwritten_and_the_save_is_still_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let stale = dir.path().join("run2.db.pre-v063.bak");
+        std::fs::write(&stale, b"an older, unrelated backup").unwrap();
+        let original = std::fs::read(&path).unwrap();
+
+        drop(GameDatabase::open_save(&path).expect("the save is repaired"));
+
+        assert_eq!(
+            std::fs::read(&stale).unwrap(),
+            b"an older, unrelated backup"
+        );
+        let copies: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|p| {
+                p != &stale
+                    && p.file_name()
+                        .is_some_and(|n| n.to_string_lossy().contains("pre-v063"))
+            })
+            .collect();
+        assert_eq!(copies.len(), 1, "one fresh copy of the save: {copies:?}");
+        assert_eq!(std::fs::read(&copies[0]).unwrap(), original);
+    }
+
+    /// Given a Run 2 development save whose backup cannot be taken (the file is gone from under
+    ///       the open connection),
+    /// When the repair is attempted,
+    /// Then nothing is changed: still version 62, still no obligations table.
+    #[test]
+    fn a_failed_backup_leaves_the_run2_save_unrepaired() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = run2_dev_save(dir.path());
+        let mut conn = Connection::open(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+
+        assert!(reconcile_run2_dev_save(&mut conn, Some(&path)).is_err());
+
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 62);
+        assert!(
+            !layout_of(&conn)
+                .unwrap()
+                .contains_key("transfer_obligations")
+        );
+    }
+
+    /// Given saves whose tables contradict the version they claim (a v63 without the
+    ///       out-of-possession column, a v62 without the obligations table, a v63 without it),
+    /// When they are opened,
+    /// Then each is refused naming what is missing, and its bytes are untouched.
+    #[test]
+    fn saves_missing_what_their_version_promises_are_refused_untouched() {
+        // One directory per case: `save_claiming_version` names its file after the version only.
+        let dirs: Vec<tempfile::TempDir> = (0..3).map(|_| tempfile::tempdir().unwrap()).collect();
+        let cases = [
+            (
+                save_claiming_version(
+                    dirs[0].path(),
+                    63,
+                    "ALTER TABLE teams DROP COLUMN out_of_possession_formation;",
+                ),
+                "out_of_possession_formation",
+            ),
+            (
+                save_claiming_version(dirs[1].path(), 63, "DROP TABLE transfer_obligations;"),
+                "transfer_obligations",
+            ),
+            (
+                {
+                    // v61's tables, but claiming 62: no obligations table, no column.
+                    let path = save_claiming_version(dirs[2].path(), 61, "");
+                    Connection::open(&path)
+                        .unwrap()
+                        .pragma_update(None, "user_version", 62)
+                        .unwrap();
+                    path
+                },
+                "transfer_obligations",
+            ),
+        ];
+        for (path, missing) in cases {
+            let before = std::fs::read(&path).unwrap();
+            assert_refused_naming(&path, missing);
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                before,
+                "{path:?} was modified"
+            );
+        }
     }
 }

@@ -158,7 +158,8 @@
       "matchTodayStartingXi": "Ada pertandingan hari ini! Atur Starting XI",
       "financeCrisis": "Keuangan kritis — saldo {{balance}}, sisa {{weeks}} minggu",
       "financeRunway": "Sisa kas tinggal {{count}} minggu",
-      "wagePressure": "Beban gaji mencapai {{percent}}% dari anggaran"
+      "wagePressure": "Beban gaji mencapai {{percent}}% dari anggaran",
+      "delegationProposals": "{{count}} usulan staf menunggu keputusan Anda"
     },
     "unemployedBanner": "Kamu sedang tanpa klub. Tawaran pekerjaan akan tiba di kotak masuk.",
     "digestAdvancing": "Melanjutkan...",
@@ -704,11 +705,16 @@
       "Possession": "Mendorong tim mengalirkan bola dengan sabar, mengontrol tempo, dan mencari peluang yang lebih bersih.",
       "Counter": "Mengajak tim melancarkan serangan cepat setelah merebut bola, menyerang ruang sebelum lawan menyusun kembali.",
       "HighPress": "Meminta tim menekan lebih awal, merebut bola lebih tinggi di lapangan, dan terus memberi tekanan kepada lawan."
-    }
+    },
+    "protectFromSale": "Lindungi dari penjualan",
+    "removeSaleProtection": "Izinkan asisten menjualnya",
+    "columnsChoose": "Kolom",
+    "columnsShowAll": "Tampilkan semua kolom"
   },
   "tactics": {
     "formationStyle": "Formasi & Gaya",
     "formation": "Formasi",
+    "outOfPossessionFormation": "Tanpa penguasaan bola",
     "playStyle": "Gaya Bermain",
     "teamIdentity": "Identitas Tim",
     "presetTactics": "Taktik Prasetel",
@@ -799,14 +805,40 @@
       "wing-play": "Permainan Sayap",
       "high-press": "Pressing Tinggi",
       "counter-attack": "Serangan Balik",
-      "low-block": "Blok Rendah"
+      "low-block": "Blok Rendah",
+      "control-possession": "Kontrol penguasaan",
+      "tiki-taka": "Gaya tiki-taka",
+      "vertical-tiki-taka": "Tiki-taka vertikal",
+      "gegenpress": "Tekanan balik",
+      "direct-counter": "Serangan balik langsung",
+      "direct-play": "Permainan langsung",
+      "mid-block": "Blok menengah",
+      "high-defensive-line": "Garis pertahanan tinggi",
+      "defensive": "Bertahan",
+      "attacking": "Menyerang",
+      "long-ball": "Bola panjang",
+      "park-the-bus": "Parkir bus",
+      "fast-transition": "Transisi cepat"
     },
     "presetDescriptions": {
       "balanced-control": "Garis yang stabil, jangkauan yang andal, dan bentuk yang sederhana untuk sebagian besar skuad.",
       "wing-play": "Lebar alami, dukungan lebih awal di sekitar kotak penalti, dan lebih banyak pemain yang berlari di depan bola.",
       "high-press": "Menaikkan blok lebih tinggi, menuntut tekanan agresif, dan mengerahkan banyak pemain ke depan.",
       "counter-attack": "Mengutamakan serangan balik cepat dari lini tengah yang lebih aman setelah penguasaan bola kembali.",
-      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan."
+      "low-block": "Perlindungan ekstra di lini belakang dan bentuk yang lebih kompak saat menahan tekanan.",
+      "control-possession": "Menjaga bola dengan sirkulasi pendek dan sabar serta struktur lini tengah yang stabil.",
+      "tiki-taka": "Memakai umpan pendek rapat dan dukungan dekat untuk maju melalui lini yang terhubung.",
+      "vertical-tiki-taka": "Memadukan kombinasi pendek dengan garis tinggi agar bola lebih cepat maju.",
+      "gegenpress": "Mengejar bola segera setelah kehilangan dengan garis tinggi dan tekanan balik berkelanjutan.",
+      "direct-counter": "Bertahan rapat sebelum melepas umpan panjang cepat ke ruang di belakang lawan.",
+      "direct-play": "Mengirim bola lebih awal ke depan melalui opsi lebar dan lebih sedikit umpan di tengah.",
+      "mid-block": "Melindungi ruang tengah dalam blok menengah yang kompak tanpa terlalu mundur.",
+      "high-defensive-line": "Menahan tim tetap tinggi untuk memadatkan lapangan dan mendukung penguasaan proaktif.",
+      "defensive": "Mengutamakan bentuk rendah dan sempit serta perlindungan area penalti yang disiplin.",
+      "attacking": "Mendorong pemain ke depan dengan lebar, garis tinggi, dan dukungan cepat di sepertiga akhir.",
+      "long-ball": "Memakai dasar rendah dan aman sebelum umpan panjang cepat untuk merebut wilayah.",
+      "park-the-bus": "Bermain sangat dalam, sempit, dan pasif untuk menutup ruang di sekitar kotak penalti.",
+      "fast-transition": "Mengubah perebutan bola menjadi serangan langsung dengan transisi cepat dan tekanan aktif."
     },
     "playerRoles": {
       "Standard": "Standard",
@@ -1070,7 +1102,8 @@
       "budget": "Anggaran staf",
       "budgetUsed": "terpakai {{bill}} dari {{budget}}",
       "headroom": "Sisa ruang: {{amount}} per minggu",
-      "vacant": "Kosong"
+      "vacant": "Kosong",
+      "loadFailed": "Tidak dapat memuat pengelolaan staf."
     },
     "posts": {
       "AssistantManager": "Asisten manajer",
@@ -1117,7 +1150,12 @@
         "Scouting": "Pemanduan bakat",
         "Youth": "Akademi",
         "StaffRecruitment": "Perekrutan staf",
-        "StaffRenewals": "Perpanjangan staf"
+        "StaffRenewals": "Perpanjangan staf",
+        "Lineup": "Susunan pemain & rotasi",
+        "PlayerRenewals": "Perpanjangan kontrak pemain",
+        "PlayerRecruitment": "Perekrutan pemain",
+        "Tactics": "Persiapan taktik",
+        "Offers": "Tawaran masuk"
       },
       "confirmMajor": "Tanya saya untuk keputusan besar",
       "delegate": "Delegasikan",
@@ -1127,7 +1165,35 @@
       "accept": "Terima",
       "decline": "Tolak",
       "log": "Keputusan terbaru",
-      "noLog": "Belum ada keputusan."
+      "noLog": "Belum ada keputusan.",
+      "mode": {
+        "title": "Mode delegasi",
+        "manual": "Manual",
+        "approval": "Hati-hati",
+        "full": "Penuh",
+        "custom": "Kustom",
+        "manualDesc": "Anda membuat semua keputusan. Asisten hanya memberi saran.",
+        "approvalDesc": "Asisten menjalankan urusan rutin dan membawa setiap keputusan penting (rekrutmen, penjualan, perpanjangan) kepada Anda sebagai usulan yang bisa Anda baca dan jawab.",
+        "fullDesc": "Asisten mengelola sendiri setiap tugas — rekrutmen, negosiasi, penjualan, perpanjangan — dalam batas keuangan klub dan aturan, dan tidak pernah menjual pemain yang Anda lindungi.",
+        "customDesc": "Tugas diatur satu per satu di bawah.",
+        "totalNote": "Otoritas penuh: asisten dibatasi oleh kas klub, ruang gaji, dan aturan dewan, sehingga batas pengeluaran di bawah tidak dipakai untuk rekrutmen dan perpanjangan. Dia tidak pernah menjual pemain yang Anda lindungi.",
+        "limitsOnlyNote": "Mode ini bekerja dalam batas pengeluaran di bawah. Pilih Penuh untuk memberi asisten otoritas atas keuangan klub."
+      },
+      "limits": {
+        "title": "Batas pengeluaran",
+        "intro": "Yang boleh dikomitmenkan asisten tanpa bertanya. Yang melebihi batas datang sebagai usulan.",
+        "max_staff_wage": "Gaji staf, per minggu",
+        "max_player_wage": "Gaji perpanjangan pemain, per minggu",
+        "max_commitment": "Total satu kontrak",
+        "max_transfer_fee": "Biaya transfer",
+        "transferNote": "Batas biaya transfer 0 berarti semua transfer menjadi urusan Anda.",
+        "save": "Simpan batas"
+      },
+      "outcome": {
+        "approved": "disetujui",
+        "declined": "ditolak",
+        "leftToManager": "diserahkan kepada Anda"
+      }
     },
     "assistant": {
       "title": "Saran asisten",
@@ -1278,7 +1344,8 @@
       "Media": "Media",
       "System": "Sistem",
       "JobOffer": "Tawaran Pekerjaan"
-    }
+    },
+    "actionFailed": "Tindakan itu tidak dapat diselesaikan."
   },
   "manager": {
     "managerOf": "Manajer {{team}}",
@@ -1414,9 +1481,9 @@
     "bidAmount": "Jumlah Tawaran (€M)",
     "bidImpactTitle": "Perkiraan dampak",
     "bidImpactTransferBudget": "Anggaran transfer {{before}} → {{after}}",
-    "bidImpactTransferBudgetDeferred": "Anggaran transfer {{before}} → {{after}} (pada {{date}}, saat jendela transfer dibuka)",
+    "bidImpactTransferBudgetDeferred": "Anggaran transfer {{before}} → {{after}} (pada {{date}}, saat registrasi)",
     "bidImpactBalance": "Saldo klub {{before}} → {{after}}",
-    "bidImpactBalanceDeferred": "Saldo klub {{before}} → {{after}} (pada {{date}}, saat jendela transfer dibuka)",
+    "bidImpactBalanceDeferred": "Saldo klub {{before}} → {{after}} (pada {{date}}, saat registrasi)",
     "bidImpactWagePressure": "Perkiraan penggunaan anggaran gaji {{percent}}%",
     "bidImpactOverTransferBudget": "Tawaran ini melebihi anggaran transfer.",
     "bidImpactOverBalance": "Tawaran ini akan membawa klub ke dalam utang",
@@ -1498,7 +1565,7 @@
     "talksResumeOn": "Negosiasi dapat dilanjutkan pada {{date}}.",
     "transferFeedbackAcceptedHeadline": "Klub lain siap untuk berbisnis.",
     "transferFeedbackAcceptedDetail": "Nomor kamu masuk dalam zona nyaman mereka, sehingga percakapan berjalan cepat.",
-    "transferFeedbackScheduledHeadline": "Kesepakatan tercapai untuk jendela registrasi berikutnya.",
+    "transferFeedbackScheduledHeadline": "Kesepakatan tercapai; registrasi sedang diproses.",
     "transferFeedbackScheduledDetail": "Syarat diterima. Registrasi dijadwalkan pada {{date}}.",
     "transferFeedbackCounterHeadline": "Mereka menginginkan lebih sebelum berjabat tangan.",
     "transferFeedbackCounterDetail": "Tawaran cukup dekat untuk terus bernegosiasi, tetapi pihak mereka mengisyaratkan harga yang mendekati {{fee}}.",
@@ -1509,7 +1576,79 @@
     "registrationFailureInsufficientFunds": "Registrasi gagal: dana pembeli tidak cukup",
     "registrationFailureLoanConflict": "Registrasi gagal: benturan pinjaman",
     "registrationFailurePlayerUnavailable": "Registrasi gagal: pemain tidak tersedia",
-    "registrationFailureRegistrationBlocked": "Registrasi terhalang"
+    "registrationFailureRegistrationBlocked": "Registrasi terhalang",
+    "deadline": {
+      "title": "Pantauan tenggat",
+      "phase": {
+        "early": "Bursa transfer dibuka",
+        "mid": "Bursa transfer dibuka",
+        "last_week": "Minggu terakhir",
+        "last_72h": "72 jam terakhir",
+        "deadline_day": "Hari penutupan"
+      },
+      "needsResponse": "{{count}} negosiasi menunggu jawabanmu",
+      "nothingPending": "Tidak ada yang menunggu jawabanmu.",
+      "lapseWarning": "Pembicaraan yang belum dijawab berakhir saat bursa ditutup.",
+      "pendingList": "Negosiasi yang berjalan",
+      "recentDeals": "Aktivitas pasar",
+      "dealLine": "{{player}} pindah dari {{from}} ke {{to}} seharga {{fee}}",
+      "scheduledFor": "didaftarkan {{date}}",
+      "state": {
+        "incoming_offer": "Tawaran diterima",
+        "counter_received": "Tawaran balasan diterima",
+        "awaiting_club": "Menunggu jawaban klub",
+        "scheduled_registration": "Kesepakatan tercapai"
+      }
+    },
+    "promise": {
+      "label": "Janji tidak menghalangi kepindahan nanti",
+      "hint": "Pemain muda mungkin menerima gaji lebih rendah jika kamu berjanji tidak menghalangi kepindahan yang layak di kemudian hari. Menolak tawaran seperti itu melanggar janji.",
+      "bidHint": "Ia mungkin menerima klub yang lebih kecil jika kamu berjanji tidak menghalangi kepindahan yang layak nanti."
+    },
+    "terms": {
+      "title": "Ketentuan kesepakatan",
+      "instalments": "Pembayaran",
+      "instalmentsSingle": "Dibayar sekaligus",
+      "instalmentsCount": "{{count}} cicilan tahunan",
+      "sellOn": "Klausul jual kembali (% dari penjualan berikutnya)",
+      "signingBonus": "Bonus tanda tangan (juta)",
+      "hint": "Rencana cicilan yang lebih panjang lebih mahal; klausul jual kembali menurunkan harga. Pemain menerima bonusnya saat menandatangani.",
+      "bonusHint": "Dibayar saat tanda tangan, di luar gaji, dari kas dan anggaran transfer.",
+      "projectionInstalments": "Bayar {{now}} sekarang, lalu {{count}} cicilan lagi sebesar {{amount}} dengan selang setahun.",
+      "projectionBonus": "Bonus tanda tangan {{amount}}, dibayar saat selesai.",
+      "signingBonusEuros": "Bonus tanda tangan (euro bulat)",
+      "invalid": "Gunakan 1 sampai {{instalments}} cicilan, klausul jual kembali 0 sampai {{sellOn}}%, dan bonus 0 atau lebih."
+    },
+    "transferFeedbackPlayerRefusesHeadline": "Pemain menolak kepindahan ini",
+    "transferFeedbackPlayerRefusesDetail": "Kedua klub bisa sepakat, tetapi ia tidak menginginkan kepindahan ini: klub, peran yang akan ia mainkan, atau persyaratannya tidak cocok baginya.",
+    "transferFeedbackPlayerWantsMoreHeadline": "Pemain meminta persyaratan yang lebih baik",
+    "transferFeedbackPlayerWantsMoreDetail": "Kedua klub sepakat di {{fee}}, tetapi ia hanya mau menandatangani dengan {{wage}} per minggu selama {{years}} tahun.",
+    "playerTerms": {
+      "wage": "Gaji mingguan pemain",
+      "years": "Lama kontrak (tahun)",
+      "hint": "Kosongkan keduanya untuk persyaratan standar. Ia menilai kepindahan dari gaji, lama kontrak, kedudukan klub, dan peran yang akan ia mainkan.",
+      "meetTerms": "Tawarkan persyaratannya",
+      "outlookKeen": "Ia akan antusias dengan kepindahan ini.",
+      "outlookHesitant": "Ia ragu: bersiaplah ia meminta persyaratan yang lebih baik.",
+      "outlookUnlikely": "Ia kecil kemungkinan mau bergabung dengan klub ini.",
+      "expects": "Ia mengharapkan sekitar {{wage}} per minggu selama {{years}} tahun."
+    },
+    "squadCapacity": {
+      "summary": "Daftar skuad utama: {{count}} / {{max}} · tim muda {{youth}} · dipinjam klub {{loanedIn}} · dipinjamkan {{loanedOut}}",
+      "room": "Sisa {{free}} tempat di daftar skuad utama.",
+      "full": "Tidak ada tempat di daftar: kosongkan {{release}} sebelum merekrut. Ini batas pendaftaran klub, bukan penolakan pemain."
+    },
+    "transferFeedbackPlayerTermsHeadline": "Kedua klub sepakat — sekarang pemain harus setuju",
+    "transferFeedbackPlayerTermsDetail": "Kedua klub sepakat di {{fee}}. Belum ada yang selesai: ia akan menandatangani dengan {{wage}} per minggu selama {{years}} tahun. Tawarkan kontrak kepadanya untuk menutup kesepakatan, atau ubah persyaratan.",
+    "bidPlayerTalks": "Klub sepakat. Sekarang kontrak pemain.",
+    "submitPlayerTerms": "Tawarkan kontrak ke pemain",
+    "restriction": {
+      "onLoanTitle": "Sedang dipinjamkan",
+      "onLoanDetail": "Dia dipinjamkan ke {{club}} hingga {{date}} dan tidak bisa didekati sebelum itu.",
+      "pendingTitle": "Perpindahan sudah disepakati",
+      "pendingDetail": "Perpindahannya menunggu registrasi pada {{date}}.",
+      "pendingDetailNoDate": "Perpindahannya menunggu registrasi."
+    }
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -1770,6 +1909,7 @@
     "per90": "Per 90 menit",
     "passAccuracy": "Akurasi Umpan",
     "percentile": "Persentil",
+    "detailNotRecorded": "Statistik pertandingan terperinci tidak dicatat untuk pertandingan yang dimainkan di latar belakang.",
     "percentileUnavailable": "Persentil tidak tersedia",
     "percentileGroup": "Dibandingkan dengan: {{position}} di {{league}}",
     "recentMatches": "Pertandingan Terakhir",
@@ -1790,6 +1930,8 @@
     "avgRating": "Rata-rata Rating",
     "careerHistory": "Riwayat Karier",
     "noCareer": "Belum ada riwayat karier — musim pertama.",
+    "careerSimulated": "Disimulasikan",
+    "careerSimulatedNote": "Musim yang ditandai Disimulasikan dibuat saat dunia ini dibuat. Itu bukan catatan nyata pemain ini.",
     "movementHistory": "Riwayat Perpindahan",
     "noMovementHistory": "Belum ada riwayat transfer atau pinjaman.",
     "movementPermanentTransfer": "Transfer",
@@ -1824,7 +1966,16 @@
     "renewalProjectionTitle": "Perkiraan dampak finansial",
     "renewalProjectionWageBill": "Beban gaji mingguan {{before}} → {{after}}",
     "renewalProjectionBudgetUsage": "Penggunaan anggaran gaji {{before}}% → {{after}}%",
-    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}"
+    "renewalProjectionRunway": "Jarak kas {{before}} → {{after}}",
+    "promise": {
+      "title": "Janji batu loncatan",
+      "active": "Berlaku sampai {{date}}: tawaran layak dari klub yang lebih besar tidak boleh dihalangi.",
+      "fulfilled": "Ditepati: ia diizinkan pergi.",
+      "lapsed": "Berakhir tanpa dilanggar.",
+      "breached": "Dilanggar: tawaran layak ditolak, dan untuk sementara ia tidak mau membahas kontrak."
+    },
+    "suspendedShort": "Diskors",
+    "suspendedTitle": "Diskors — pertandingan yang masih dilewatkan: {{matches}}"
   },
   "teamProfile": {
     "clubInfo": "Informasi Klub",
@@ -2028,17 +2179,27 @@
     "confidence": "Keyakinan"
   },
   "match": {
-    "simulateWithM12": "Simulasikan dengan M12",
-    "watchWithM12": "Tonton 2D dengan M12",
-    "m12SimulationFailed": "M12 tidak dapat menyelesaikan pertandingan ini.",
+    "simulateWithM12": "Simulasi cepat",
+    "watchWithM12": "Tonton 2D",
+    "m12SimulationFailed": "Pertandingan tidak dapat disimulasikan. Tidak ada yang diubah.",
     "replayUnavailable": "Tayangan ulang ini tidak tersedia atau rusak.",
-    "replayPitch": "Lapangan tayangan ulang M12",
+    "replayPitch": "Lapangan pertandingan 2D",
     "pauseReplay": "Jeda",
     "playReplay": "Putar",
     "replaySpeed": "Kecepatan pemutaran",
     "replayTimeline": "Linimasa tayangan ulang",
     "goToResult": "Ke hasil",
-    "reviewMatch": "Tonton ulang pertandingan",
+    "reviewMatch": "Putar ulang 2D",
+    "viewMode": {
+      "heading": "Pilih cara memainkan pertandingan ini",
+      "liveDesc": "Ikuti pertandingan menit demi menit dengan komentar dan lakukan perubahan saat berlangsung. Mode ini memakai mesin klasik: tidak ada lapangan 2D.",
+      "watchDesc": "Tonton ke-22 pemain dan bola bergerak di lapangan. Hasil baru berlaku setelah Anda memilih Ke hasil.",
+      "quickDesc": "Mainkan pertandingan seketika dan langsung ke hasilnya. Tayangan ulang 2D disimpan sehingga tetap bisa ditonton setelahnya."
+    },
+    "replayNotRecorded": "Tidak ada tayangan ulang 2D yang direkam untuk pertandingan ini. Hanya pertandingan yang dimainkan lewat Tonton 2D atau Simulasi cepat yang menyimpannya; pertandingan langsung dan yang didelegasikan tidak.",
+    "replayUnsupportedSchema": "Tayangan ulang ini disimpan dalam format yang tidak bisa diputar oleh versi ini.",
+    "replayNoFrames": "Pertandingan ini tidak memiliki data pergerakan pemain, sehingga tidak dapat ditampilkan dalam 2D. Hasil dan statistiknya tidak terpengaruh.",
+    "replayPlayersOnPitch": "Pemain di lapangan: {{home}} tuan rumah · {{away}} tamu (total {{total}})",
     "backToSchedule": "Kembali ke jadwal",
     "live": "Langsung",
     "paused": "Dijeda",
@@ -2690,7 +2851,99 @@
     "resume": "Lanjutkan",
     "pausedResumesAt": "Dijeda · lanjut dengan {{speed}}",
     "playingAt": "Berjalan dengan {{speed}}",
-    "spaceKey": "Spasi"
+    "spaceKey": "Spasi",
+    "replayPreparationFailed": "Pertandingan 2D tidak dapat disiapkan. Tidak ada yang diubah.",
+    "replayViews": "Tampilan pertandingan",
+    "replayTab": {
+      "pitch": "Lapangan 2D",
+      "condition": "Kondisi",
+      "stats": "Statistik",
+      "lineup": "Susunan pemain dan pergantian"
+    },
+    "replayTeam": {
+      "home": "Tuan rumah",
+      "away": "Tamu"
+    },
+    "replayUnknownPlayer": "Seorang pemain",
+    "replayGoalBanner": "Gol! {{player}} · {{minute}}'",
+    "replayFeedTitle": "Peristiwa pertandingan",
+    "replayFeed": {
+      "kickoff": "Kick-off",
+      "halfTime": "Babak pertama usai",
+      "secondHalfStart": "Babak kedua dimulai",
+      "fullTime": "Pertandingan usai",
+      "goal": "Gol: {{player}}",
+      "ownGoal": "Gol bunuh diri: {{player}}",
+      "shotSaved": "Tembakan ditepis: {{player}}",
+      "shotOffTarget": "Tembakan melebar: {{player}}",
+      "shotBlocked": "Tembakan diblok: {{player}}",
+      "woodwork": "Mengenai tiang gawang: {{player}}",
+      "yellowCard": "Kartu kuning: {{player}}",
+      "secondYellow": "Kuning kedua, diusir: {{player}}",
+      "redCard": "Kartu merah: {{player}}",
+      "substitution": "Pergantian: {{player}} masuk menggantikan {{other}}",
+      "injury": "Cedera: {{player}}",
+      "corner": "Tendangan sudut",
+      "foul": "Pelanggaran oleh {{player}}",
+      "offside": "Offside: {{player}}"
+    },
+    "replayStats": {
+      "title": "Statistik hingga menit ke-{{minute}}",
+      "possession": "Penguasaan bola",
+      "goals": "Gol",
+      "shots": "Tembakan",
+      "shotsOnTarget": "Tembakan tepat sasaran",
+      "corners": "Tendangan sudut",
+      "fouls": "Pelanggaran",
+      "offsides": "Offside",
+      "yellowCards": "Kartu kuning",
+      "redCards": "Kartu merah"
+    },
+    "replayCondition": {
+      "title": "Kondisi pemain",
+      "hint": "100 berarti sangat segar. Dicatat oleh mesin pertandingan setiap detik.",
+      "none": "Kondisi pemain tidak direkam untuk tayangan ulang ini."
+    },
+    "replayLineup": {
+      "onPitch": "Di lapangan",
+      "bench": "Bangku cadangan",
+      "gone": "Meninggalkan pertandingan",
+      "substituted": "diganti",
+      "sentOff": "diusir",
+      "replayOnly": "Ini adalah tayangan ulang simulasi yang sudah selesai. Taktik dan pergantian diputuskan dalam pertandingan langsung; tidak ada yang mengubah hasil di sini."
+    },
+    "interactive": {
+      "heading": "Manajemen pertandingan",
+      "manage": "Kelola pertandingan",
+      "manageDesc": "Keputusan taktik dan pergantian pemain dibuat selama pertandingan berlangsung. Hasilnya berlaku setelah pertandingan diselesaikan.",
+      "play": "Main",
+      "resume": "Lanjutkan",
+      "toEnd": "Main sampai akhir",
+      "applyTactics": "Terapkan taktik",
+      "assistant": "Asisten pelatih mengelola tim saya",
+      "assistantHint": "Asisten melakukan perubahan rutin. Instruksi dari Anda selalu didahulukan.",
+      "assistantUnavailable": "Serahkan taktik hari pertandingan kepada asisten di menu Staf untuk mengaktifkannya.",
+      "finish": "Selesaikan pertandingan",
+      "orderRefused": "Instruksi ditolak: {{reason}}",
+      "pendingNote": "Pergantian pemain dilakukan pada jeda permainan berikutnya.",
+      "fullTimeHint": "Pertandingan usai. Selesaikan pertandingan untuk menerapkan hasilnya.",
+      "matchFailed": "Pertandingan tidak dapat dilanjutkan. Tidak ada yang diubah.",
+      "rejection": {
+        "stale_revision": "Pertandingan sudah berjalan sebelum instruksi tiba. Coba lagi.",
+        "no_substitutions_left": "Tidak ada pergantian pemain tersisa.",
+        "no_window_left": "Tidak ada jendela pergantian tersisa.",
+        "goalkeeper_mismatch": "Kiper hanya dapat diganti oleh kiper.",
+        "already_played": "Pemain itu sudah pernah bermain di pertandingan ini.",
+        "not_on_pitch": "Pemain itu tidak ada di lapangan.",
+        "not_on_bench": "Pemain itu tidak ada di bangku cadangan.",
+        "duplicate_request": "Pemain itu sudah menjadi bagian dari pergantian yang tertunda.",
+        "not_pending": "Tidak ada pergantian tertunda untuk pemain itu.",
+        "match_finished": "Pertandingan sudah selesai.",
+        "formation_needs_eleven_players": "Formasi tidak dapat diubah selama ada pemain cedera di lapangan.",
+        "unauthorized": "Instruksi itu tidak dapat diberikan.",
+        "other": "Mesin pertandingan menolak instruksi itu."
+      }
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Musim Selesai",
@@ -2709,7 +2962,13 @@
     "nGoals": "{{count}} gol",
     "playerOfYear": "Pemain Terbaik Tahun Ini",
     "avgRating": "Rating rata-rata: {{rating}}",
-    "continueDashboard": "Lanjut ke Dashboard"
+    "continueDashboard": "Lanjut ke Dashboard",
+    "promoted": "Promosi ke {{league}}",
+    "relegated": "Degradasi ke {{league}}",
+    "stayedUp": "Bertahan di {{league}}",
+    "cupResults": "Hasil piala",
+    "cupWon": "Kalian memenangkan {{cup}}",
+    "cupLost": "{{cup}}: {{champion}} merebut trofi"
   },
   "notifications": {
     "attentionRequired": "Perlu Perhatian",
@@ -2986,7 +3245,11 @@
         "loanBuyOptionNotAvailable": "Tidak ada opsi pembelian pinjaman yang dapat digunakan untuk pemain ini",
         "invalidYouthScoutingRegion": "Wilayah scouting pemuda tidak didukung.",
         "invalidYouthScoutingObjective": "Sasaran scouting pemuda tidak didukung.",
-        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung."
+        "invalidYouthScoutingTargetPosition": "Posisi target scouting pemuda tidak didukung.",
+        "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
+        "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya.",
+        "playerRefusesMove": "Pemain tidak mau bergabung dengan klub itu.",
+        "playerRefusesLoan": "Pemain tidak mau dipinjamkan ke klub itu."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",
@@ -2997,7 +3260,8 @@
         "terminationWouldLeaveMatchdaySquadShort": "Mengakhiri kontrak ini akan membuat skuad kamu tidak dapat menurunkan XI pertandingan",
         "noAssistantManagerAssigned": "Tidak ada asisten manajer yang ditugaskan ke tim kamu",
         "playerHasNoTeam": "Pemain tidak memiliki tim",
-        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih."
+        "boardWagePolicy": "Perpanjangan diblokir oleh kebijakan gaji manajemen. Jaga gaji mingguan di sekitar {{budget}} untuk pulih.",
+        "promiseNotWanted": "Pemain ini tidak membutuhkan janji batu loncatan."
       },
       "scouting": {
         "scoutNotFound": "Scout tidak ditemukan",
@@ -3021,7 +3285,10 @@
         "worldDbMissing": "File world.db tidak ditemukan. Pilih file yang dihasilkan oleh pengimpor FM24.",
         "importFailed": "Dunia FM24 tidak dapat dibangun dari file ini. Pastikan itu world.db yang valid.",
         "checksFailed": "Data FM24 gagal dalam pemeriksaan integritas, sehingga dunia tidak dipasang. Dunia sebelumnya, jika ada, tidak berubah.",
-        "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses."
+        "writeFailed": "Dunia FM24 tidak dapat ditulis ke folder data game. Periksa ruang disk dan izin akses.",
+        "registryMissing": "Registri pemain eksternal belum terpasang. Bangun ulang dunia FM24 untuk mencari di luar liga Anda.",
+        "registryBuildFailed": "Registri pemain eksternal tidak dapat dibuat dari world.db.",
+        "registryQueryFailed": "Registri pemain eksternal tidak dapat dibaca."
       },
       "staff": {
         "badContractLength": "Durasi kontrak tidak valid.",
@@ -3036,7 +3303,53 @@
       },
       "delegation": {
         "noAssistant": "Anda perlu asisten manajer untuk mendelegasikan.",
-        "proposalNotFound": "Usulan itu sudah tidak ada."
+        "proposalNotFound": "Usulan itu sudah tidak ada.",
+        "invalidMode": "Mode delegasi itu tidak dapat diterapkan.",
+        "invalidLimits": "Batas pengeluaran tidak boleh negatif.",
+        "wagePolicy": "Kebijakan gaji dewan tidak lagi mengizinkan persyaratan ini.",
+        "signingRefusedByClub": "Klub penjual tidak akan menyetujui perekrutan itu.",
+        "signingRefusedByPlayer": "Pemain tidak akan bergabung dengan persyaratan apa pun yang dapat Anda tawarkan."
+      },
+      "freeAgents": {
+        "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
+        "talksBrokenOff": "Pemain ini tidak mau berbicara dengan klubmu untuk saat ini.",
+        "tooManyOpenTalks": "Kamu punya terlalu banyak negosiasi terbuka. Tunggu jawaban atau tarik satu tawaran.",
+        "squadFull": "Daftar skuad utama penuh: {{count}} dari {{max}} tempat terisi. Kosongkan {{release}} tempat sebelum merekrut pemain lain: putus kontrak, jual, pinjamkan, atau pindahkan pemain ke tim muda.",
+        "noCounterToAnswer": "Pemain ini tidak punya tawaran balik yang perlu dijawab.",
+        "counterExpired": "Tawaran baliknya sudah kedaluwarsa.",
+        "noOpenTalk": "Kamu tidak punya tawaran terbuka untuk pemain ini.",
+        "invalidOffer": "Itu bukan tawaran kontrak yang valid."
+      },
+      "fastForward": {
+        "invalidDate": "Itu bukan tanggal yang valid.",
+        "targetNotInFuture": "Pilih tanggal setelah hari ini.",
+        "targetTooFar": "Tanggal itu terlalu jauh untuk dimainkan sekaligus.",
+        "alreadyRunning": "Proses maju lain sedang berjalan.",
+        "careerChanged": "Karier berubah selama proses maju, jadi dihentikan."
+      },
+      "spatialReplay": {
+        "inputRejected": "Pertandingan 2D tidak dapat disiapkan: susunan pemain ditolak ({{code}}). Tidak ada yang diubah.",
+        "engineFailed": "Mesin pertandingan 2D tidak dapat menjalankan pertandingan ini: {{detail}}. Tidak ada yang diubah.",
+        "outputInvalid": "Mesin pertandingan 2D mengembalikan hasil yang gagal divalidasi ({{code}}). Tidak ada yang diubah.",
+        "notPrepared": "Belum ada pertandingan 2D yang disiapkan. Buka tampilan 2D lagi sebelum menuju hasil."
+      },
+      "interactive": {
+        "noActiveMatch": "Tidak ada pertandingan yang sedang berlangsung.",
+        "notYourMatch": "Klub Anda tidak bermain di pertandingan ini.",
+        "assistantNotDelegated": "Taktik hari pertandingan belum diserahkan kepada asisten.",
+        "notFinished": "Pertandingan belum mencapai akhir.",
+        "alreadyCompleted": "Pertandingan ini sudah diselesaikan.",
+        "unsupportedFormation": "Mesin pertandingan tidak dapat memainkan formasi itu.",
+        "nothingToChange": "Instruksi itu tidak mengubah apa pun.",
+        "engineFailed": "Mesin pertandingan tidak dapat melanjutkan. Tidak ada yang diubah.",
+        "savedMatchDiscarded": "Pertandingan yang disimpan di tengah jalan tidak dapat dipulihkan, jadi akan dimulai lagi dari kick-off."
+      },
+      "registry": {
+        "playerAlreadyInWorld": "Pemain ini sudah ada di dunia Anda.",
+        "playerNotAvailable": "Pemain ini tidak tersedia.",
+        "playerIncomplete": "Catatan pemain ini tidak lengkap, sehingga tidak dapat direkrut.",
+        "offerRejected": "Klub penjual menolak tawaran ini karena terlalu rendah.",
+        "negotiationNotAgreed": "Persyaratan belum disepakati, jadi perekrutan tidak dapat dilanjutkan."
       }
     },
     "sender": {
@@ -3079,9 +3392,27 @@
       "sportsDaily": "Harian Olahraga"
     },
     "msg": {
+      "freeAgentTalk": {
+        "counter": {
+          "subject": "{{player}} menginginkan syarat lain",
+          "body": "{{player}} menjawab tawaran {{team}} dengan tawaran balik: {{wage}} per minggu selama {{years}} tahun. Syaratnya berlaku {{days}} hari."
+        },
+        "rejected": {
+          "subject": "{{player}} menolak {{team}}",
+          "body": "{{player}} menolak tawaran {{team}}. Buka profilnya untuk melihat alasannya."
+        },
+        "lost": {
+          "subject": "{{player}} menandatangani kontrak dengan {{team}}",
+          "body": "{{player}} memilih klub lain, {{team}}, daripada tawaranmu."
+        },
+        "lapsed": {
+          "subject": "Tawaran untuk {{player}} kedaluwarsa",
+          "body": "Tawaran untuk {{player}} tidak membuahkan hasil: tawaran baliknya tidak dijawab tepat waktu atau klub tidak lagi mampu membayar kesepakatan itu."
+        }
+      },
       "world": {
         "randomName": "Dunia Acak",
-        "randomDescription": "Liga yang dihasilkan secara acak dengan {{teamCount}} tim di seluruh Eropa",
+        "randomDescription": "Dunia fiktif sepenuhnya dengan {{teamCount}} klub buatan. Setiap klub, pemain, dan nama adalah rekaan.",
         "exportedName": "Dunia yang Diekspor",
         "exportedDescription": "Dunia dengan {{teamCount}} tim yang diekspor dari permainan tersimpan"
       },
@@ -3505,6 +3836,19 @@
         "totalSubject": "Tidak Ada yang Tersedia untuk Melengkapi Skuad",
         "totalBody": "Bos, di tim utama kita tinggal {{have}} pemain, kurang dari {{floor}} yang harus dipertahankan klub, dan baik akademi kita maupun pasar agen bebas tidak punya siapa pun untuk menutup kekurangan itu."
       },
+      "assistantDigest": {
+        "subject": "Laporan asisten",
+        "body": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda.",
+        "bodyTransfers": "Bos, sejak laporan terakhir saya membuat {{done}} keputusan, termasuk {{signings}} rekrutmen dan {{sales}} penjualan, dan menyerahkan {{left}} kepada Anda. {{waiting}} usulan menunggu jawaban Anda."
+      },
+      "assistantProposals": {
+        "subject": "Usulan menunggu",
+        "body": "Bos, {{count}} usulan menunggu jawaban Anda di tab Staf."
+      },
+      "assistantMissing": {
+        "subject": "Tidak ada asisten untuk menjalankan delegasi Anda",
+        "body": "Posisi asisten pelatih kosong, jadi tugas yang didelegasikan tidak dijalankan. Rekrut asisten baru untuk melanjutkan."
+      },
       "delegatedRenewals": {
         "subject": "Laporan Asisten — Perpanjangan Kontrak",
         "body": "Bos, saya sudah menelusuri daftar perpanjangan kami di {{team}}. {{successes}} selesai, {{stalled}} masih tertunda, {{failures}} gagal.",
@@ -3613,7 +3957,23 @@
       "transferInterest": {
         "subject": "Minat Transfer pada {{player}}",
         "body": "Klub dengan tawaran aktif untuk {{player}}: {{n}}. Pertanyaan terbaru: {{team}} ({{fee}}). Tinjau tawaran di tab Transfer untuk merespons.",
-        "actionReview": "Tinjau Tawaran"
+        "actionReview": "Tinjau Tawaran",
+        "actionRespond": "Jawab tawaran",
+        "option": {
+          "accept": {
+            "label": "Terima tawaran",
+            "description": "Jual pemain ke klub ini dengan harga yang ditawarkan."
+          },
+          "reject": {
+            "label": "Tolak tawaran",
+            "description": "Tolak. Klub dapat kembali setelah masa jeda."
+          }
+        },
+        "effect": {
+          "accepted": "Penjualan {{player}} telah disepakati.",
+          "rejected": "Tawaran untuk {{player}} telah ditolak.",
+          "expired": "Tawaran untuk {{player}} itu sudah tidak terbuka. Lihat tab Transfer."
+        }
       },
       "loanAgreed": {
         "subject": "Pinjaman disepakati: {{player}}",
@@ -3644,6 +4004,34 @@
       "matchesMoved": {
         "subject": "Jadwal pertandingan diubah",
         "body": "Beberapa pertandingan kamu dipindahkan agar para pemain kamu tetap mendapat waktu istirahat dan jeda internasional dihormati:\n{{matches}}"
+      },
+      "steppingStone": {
+        "breached": {
+          "subject": "{{player}} merasa dikhianati",
+          "body": "{{player}} dijanjikan bahwa {{team}} tidak akan menghalangi kepindahan yang layak, namun tawaran yang layak ditolak. Kepercayaan dan moralnya turun, dan untuk sementara ia tidak mau membahas kontrak baru."
+        },
+        "fulfilled": {
+          "subject": "{{player}} berterima kasih",
+          "body": "{{team}} menepati janji dan membiarkan {{player}} pindah ke klub yang lebih besar."
+        },
+        "lapsed": {
+          "subject": "Janji untuk {{player}} telah berakhir",
+          "body": "Janji yang diberikan kepada {{player}} berakhir tanpa {{team}} pernah menghalangi kepindahan yang layak. Ia jadi sedikit lebih percaya padamu."
+        }
+      },
+      "deadlineExpired": {
+        "subject": "Tenggat transfer berlalu",
+        "body": "Bursa telah ditutup. {{count}} negosiasi yang belum dijawab gugur."
+      },
+      "transferInstalment": {
+        "paid": {
+          "subject": "Cicilan untuk {{player}} dibayar",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} dibayarkan ke {{club}}."
+        },
+        "received": {
+          "subject": "Cicilan untuk {{player}} diterima",
+          "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} diterima dari {{club}}."
+        }
       }
     },
     "news": {
@@ -4536,19 +4924,267 @@
       "hire": "Rekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
       "upgradeRelease": "Berhentikan {{replaces}} (level {{current}})",
       "upgradeHire": "Ganti dengan {{name}} (level {{ovr}})",
-      "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun"
+      "renew": "Perpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
+      "renewPlayer": "Perpanjang {{player}} dengan {{wage}} per minggu selama {{years}} tahun",
+      "signPlayer": "Rekrut {{player}} ({{position}}) seharga {{fee}}, dengan gaji {{wage}} per minggu selama {{years}} tahun",
+      "sellPlayer": "Jual {{player}} ke {{club}} seharga {{fee}}",
+      "counterOffer": "Minta {{fee}} dari {{club}} untuk {{player}} (mereka menawar {{offered}})",
+      "listPlayer": "Masukkan {{player}} ke daftar transfer"
     },
     "reason": {
       "vacancy": "Posisi wajib masih kosong.",
       "upgrade": "Tersedia kandidat yang jelas lebih baik.",
-      "contractEnding": "Kontrak hampir berakhir."
+      "contractEnding": "Kontrak hampir berakhir.",
+      "aboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten.",
+      "recruitNeed": "Skuad membutuhkan pemain di posisi ini.",
+      "recruitAboveLimit": "Ini melebihi batas pengeluaran yang Anda tetapkan untuk asisten, atau harga yang ia anggap wajar.",
+      "recruitStarter": "Dia akan jadi pemain inti di posisi {{role}} dan menambah sekitar {{gain}} poin rating bagi tim.",
+      "recruitDepth": "Skuad kekurangan pemain di sekitar posisi {{role}}: dia akan menutupnya dan menambah sekitar {{gain}} poin rating kekuatan.",
+      "recruitSuccession": "Pemain utama di posisi {{role}} menua atau akan pergi: dia penggantinya.",
+      "saleSurplus": "Tim nyaris tidak kehilangan dia (sekitar {{loss}} poin rating) dan harganya wajar.",
+      "saleFunds": "Uang itu akan memperkuat posisi lemah tim lebih besar daripada sumbangan dia (kehilangannya bernilai sekitar {{loss}} poin rating).",
+      "saleFair": "Harga wajar untuk pemain yang bisa dilepas tim (kehilangannya bernilai sekitar {{loss}} poin rating).",
+      "listSurplus": "Skuad punya lebih banyak pemain di posisinya daripada yang dibutuhkan: tim hanya kehilangan sekitar {{loss}} poin rating.",
+      "listLeaving": "Kontraknya hampir habis dan klub tidak berencana memperpanjangnya.",
+      "listFunds": "Menjualnya akan mendanai tim yang lebih kuat: kepergiannya merugikan tim sekitar {{loss}} poin rating.",
+      "listBooks": "Total gaji melebihi anggaran dan dia bukan bagian dari tim inti."
     },
     "log": {
       "hired": "Merekrut {{name}} ({{post}}) dengan {{wage}} per minggu",
       "promoted": "Mempromosikan {{player}} dari akademi",
       "recoveryOrdered": "Mengalihkan latihan ke pemulihan",
       "renewed": "Memperpanjang {{name}} dengan {{wage}} per minggu selama {{years}} tahun",
-      "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}"
+      "scoutSent": "Mengirim pemandu bakat untuk memantau {{player}}",
+      "lineupChosen": "Susunan sebelas pemain laga berikutnya ditetapkan ({{changes}} perubahan)",
+      "playerRenewed": "{{player}} diperpanjang dengan {{wage}} per minggu selama {{years}} tahun",
+      "playerRenewalLeft": "Kontrak {{player}} diserahkan kepada Anda",
+      "recruitSigned": "Merekrut {{player}} ({{position}}) seharga {{fee}}",
+      "recruitScheduled": "Sepakat dengan {{player}} ({{position}}) seharga {{fee}}; ia terdaftar pada {{date}}",
+      "recruitClubRefused": "{{player}} ({{position}}) dibatalkan: klubnya tidak menjual dengan harga wajar",
+      "recruitPlayerRefused": "{{player}} ({{position}}) dibatalkan: ia tidak mau bergabung",
+      "recruitNotPossible": "{{player}} ({{position}}) dibatalkan: kesepakatan tidak dapat dibuat",
+      "managerOverride": "Anda mengubahnya sendiri, jadi asisten mundur sampai {{until}}",
+      "tacticsSet": "Menetapkan rencana taktik untuk pertandingan berikutnya (gaya {{style}})",
+      "trainingIntensity": "Mengatur latihan ke {{focus}} dengan intensitas {{intensity}}",
+      "offerDeclined": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: jauh di bawah nilainya",
+      "offerKeepsStarter": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: dia pemain inti",
+      "offerDeclinedProtected": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: Anda meminta dia tidak dijual",
+      "offerKept": "Menolak tawaran {{club}} sebesar {{fee}} untuk {{player}}: klub lebih memilih mempertahankannya",
+      "offerAcceptedSurplus": "Menjual {{player}} ke {{club}} seharga {{fee}}: tim nyaris tidak kehilangan dia ({{loss}} poin rating), dan gajinya {{wage}} per minggu keluar dari total gaji",
+      "offerAcceptedFunds": "Menjual {{player}} ke {{club}} seharga {{fee}} untuk memperkuat posisi yang lemah: tim kehilangan sekitar {{loss}} poin rating; gajinya {{wage}} per minggu keluar dari total gaji",
+      "offerAcceptedFair": "Menjual {{player}} ke {{club}} seharga {{fee}}, harga wajar untuk pemain yang bisa dilepas ({{loss}} poin rating)",
+      "offerCounteredAccepted": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka setuju",
+      "offerCounteredAgain": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka datang dengan tawaran lain",
+      "offerCounteredRefused": "Meminta {{asked}} dari {{club}} untuk {{player}} (mereka menawar {{offered}}): mereka mundur",
+      "offerNotAccepted": "Menyerahkan tawaran {{club}} sebesar {{fee}} untuk {{player}} kepada Anda: penjualan tidak bisa dilakukan dalam kondisi saat ini",
+      "listedSurplus": "Memasukkan {{player}} ke daftar transfer: skuad punya lebih banyak pemain di posisinya daripada yang dibutuhkan ({{loss}} poin rating bagi tim)",
+      "listedLeaving": "Memasukkan {{player}} ke daftar transfer: kontraknya hampir habis dan tidak akan diperpanjang",
+      "listedFunds": "Memasukkan {{player}} ke daftar transfer untuk mendanai tim yang lebih kuat ({{loss}} poin rating bagi tim)",
+      "listedBooks": "Memasukkan {{player}} ke daftar transfer: total gaji melebihi anggaran",
+      "delisted": "Menghapus {{player}} dari daftar transfer: tim membutuhkannya",
+      "released": "Mengakhiri kontrak {{player}} dengan pesangon: tidak ada yang membelinya dan total gaji melebihi anggaran",
+      "listedApproved": "Memasukkan {{player}} ke daftar transfer, sesuai persetujuan Anda",
+      "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya"
     }
+  },
+  "freeAgents": {
+    "talk": {
+      "title": "Negosiasi",
+      "interest": {
+        "keen": "Dia kemungkinan besar menerima syarat ini.",
+        "hesitant": "Dia ragu dan mungkin meminta syarat lain.",
+        "unlikely": "Dia kemungkinan besar tidak menerima syarat ini."
+      },
+      "expects": "Dia mengharapkan sekitar {{wage}} per minggu selama {{years}} tahun.",
+      "place": {
+        "key": "Di klubmu dia akan menjadi pemain kunci.",
+        "starter": "Di klubmu dia akan menjadi pemain inti reguler.",
+        "rotation": "Di klubmu dia akan masuk dalam rotasi.",
+        "backup": "Di klubmu dia akan menjadi pemain cadangan."
+      },
+      "responseTime": "Dia menjawab {{min}} sampai {{max}} hari setelah tawaran.",
+      "awaiting": "Tawaran terkirim. Dia akan menjawab pada {{date}}.",
+      "counter": "Dia meminta {{wage}} per minggu selama {{years}} tahun. Syaratnya berlaku sampai {{date}}.",
+      "acceptCounter": "Terima syaratnya",
+      "withdraw": "Tarik tawaran",
+      "rivals": "Klub lain juga sedang berbicara dengannya: {{clubs}}.",
+      "ended": {
+        "rejected": "Dia menolak tawaran itu.",
+        "withdrawn": "Kamu menarik tawaran itu.",
+        "lost_to_rival": "Dia menandatangani kontrak dengan klub lain.",
+        "lapsed": "Tawaran kedaluwarsa."
+      },
+      "offerPending": "Tawaran menunggu jawaban"
+    },
+    "reason": {
+      "wage_too_low": "Gajinya di bawah yang bisa dia minta.",
+      "club_below_his_level": "Klubmu jauh di bawah levelnya.",
+      "no_place_in_side_for_him": "Dia tidak akan menjadi pemain reguler di timmu.",
+      "contract_too_short": "Kontraknya lebih pendek dari yang dia inginkan.",
+      "offer_insulting": "Dia menganggap tawaran itu menghina dan tidak akan berbicara denganmu selama dua minggu.",
+      "talks_broken_off": "Kesabarannya habis dalam perundingan.",
+      "better_offer_elsewhere": "Klub lain memberinya tawaran yang lebih baik.",
+      "club_cannot_afford": "Klubmu tidak lagi mampu membayar kesepakatan ini.",
+      "no_senior_place": "Skuad utama klubmu tidak punya tempat kosong saat ia siap menandatangani kontrak: daftar sudah penuh, atau tempat terakhir sudah dijanjikan untuk transfer yang disepakati.",
+      "manager_withdrew": "Kamu menarik tawaran itu.",
+      "counter_expired": "Tawaran baliknya tidak dijawab tepat waktu."
+    }
+  },
+  "fastForward": {
+    "menuTitle": "Maju hingga tanggal",
+    "menuDesc": "Mainkan berhari-hari, berminggu-minggu, atau berbulan-bulan sekaligus",
+    "title": "Maju hingga tanggal",
+    "targetLabel": "Maju hingga",
+    "preset": {
+      "week": "+1 minggu",
+      "month": "+1 bulan",
+      "threeMonths": "+3 bulan"
+    },
+    "daysAhead": "Hari yang dimainkan: {{days}}",
+    "invalidTarget": "Pilih tanggal setelah hari ini.",
+    "policyLabel": "Berhenti saat",
+    "policy": {
+      "decisions": "Hanya untuk keputusan",
+      "decisionsDesc": "Pertandinganmu dimainkan untukmu. Berhenti saat ada yang perlu persetujuanmu.",
+      "nextMatch": "Sebelum pertandingan berikutnya",
+      "nextMatchDesc": "Berhenti pada hari pertandingan berikutnya, sebelum dimainkan.",
+      "target": "Langsung ke tanggal",
+      "targetDesc": "Tidak pernah berhenti untuk keputusan: pertandingan dimainkan, musim ditutup, dan yang terlewat dicantumkan setelahnya."
+    },
+    "start": "Mulai",
+    "progressDays": "Hari {{done}} dari {{total}}",
+    "progressMatches": "Pertandinganmu yang dimainkan: {{matches}}",
+    "stop": "Hentikan",
+    "stopping": "Berhenti setelah hari ini…",
+    "result": {
+      "targetReached": "Mencapai {{date}}",
+      "nextMatch": "Berhenti sebelum pertandingan berikutnya",
+      "decisions": "Berhenti: keputusanmu diperlukan",
+      "seasonComplete": "Musim telah berakhir: tutup musim untuk melanjutkan",
+      "managerFired": "Kamu telah dipecat",
+      "cancelled": "Dihentikan atas permintaanmu",
+      "dayLimit": "Berhenti: terlalu banyak hari sekaligus",
+      "error": "Proses maju tidak dapat diselesaikan"
+    },
+    "summary": "{{days}} hari dimainkan, dari {{from}} sampai {{to}}",
+    "seasonsRolled": "Musim yang ditutup: {{seasons}}",
+    "decisionsTitle": "Perlu perhatianmu",
+    "passedTitle": "Terlewati di tengah jalan",
+    "decision": {
+      "blocker": "Masalah skuad atau kontrak",
+      "delegationProposal": "Usulan dari asistenmu",
+      "incomingTransferOffer": "Tawaran untuk salah satu pemainmu",
+      "incomingLoanOffer": "Permintaan pinjaman untuk salah satu pemainmu",
+      "freeAgentCounterOffer": "Agen bebas telah mengajukan tawaran balik",
+      "transferDeadline": "Bursa transfer ditutup saat negosiasi masih berjalan"
+    },
+    "resume": "Lanjutkan"
+  },
+  "globalMarket": {
+    "kicker": "Rekrutmen",
+    "title": "Pasar global",
+    "subtitle": "Setiap pemain yang mau dijual dunia, dari semua klub di luar liga Anda",
+    "countAll": "{{count}} di pasar",
+    "countFree": "{{count}} agen bebas",
+    "countContracted": "{{count}} terikat kontrak",
+    "searchLabel": "Cari",
+    "searchPlaceholder": "Nama, klub, atau negara",
+    "nationLabel": "Kewarganegaraan",
+    "nationPlaceholder": "Kode",
+    "club": "Klub",
+    "clubPlaceholder": "Semua klub",
+    "availabilityLabel": "Ketersediaan",
+    "availability": {
+      "all": "Semua",
+      "free_agent": "Agen bebas",
+      "contracted": "Terikat kontrak"
+    },
+    "position": {
+      "any": "Semua posisi",
+      "goalkeeper": "Kiper",
+      "defender": "Bek",
+      "midfielder": "Gelandang",
+      "forward": "Penyerang"
+    },
+    "minAge": "Usia minimum",
+    "maxAge": "Usia maksimum",
+    "sortBy": "Urutkan berdasarkan",
+    "sort": {
+      "ovr": "Kemampuan",
+      "value": "Nilai pasar",
+      "age": "Usia",
+      "name": "Nama",
+      "club": "Klub"
+    },
+    "ascending": "Naik",
+    "descending": "Turun",
+    "search": "Cari",
+    "reset": "Atur ulang",
+    "results": "{{count}} pemain cocok dengan filter ini",
+    "range": "{{from}}–{{to}} dari {{total}}",
+    "pageOf": "Halaman {{page}} dari {{pages}}",
+    "previousPage": "Halaman sebelumnya",
+    "nextPage": "Halaman berikutnya",
+    "loading": "Membaca pasar…",
+    "loadingProfile": "Membaca pemain…",
+    "retry": "Coba lagi",
+    "noResults": "Tidak ada pemain yang cocok dengan filter ini.",
+    "profileUnavailable": "Pemain ini tidak lagi ada di pasar.",
+    "selectPrompt": "Pilih pemain untuk melihat profil dan menegosiasikan transfer.",
+    "profile": "Profil pemain",
+    "freeAgent": "Agen bebas",
+    "contracted": "Terikat kontrak",
+    "potential": "Potensi",
+    "marketValue": "Nilai pasar",
+    "askingPrice": "Harga yang diminta",
+    "contractUntil": "Kontrak hingga",
+    "noContract": "Tanpa kontrak",
+    "negotiation": "Negosiasi",
+    "negotiationHelp": "Biarkan kosong untuk menawarkan permintaan klub atau ketentuan standar Anda.",
+    "feeOffer": "Biaya transfer",
+    "wageOffer": "Gaji mingguan",
+    "yearsOffer": "Tahun kontrak",
+    "bonusOffer": "Bonus tanda tangan",
+    "checkTerms": "Periksa ketentuan",
+    "checking": "Memeriksa…",
+    "useTheirTerms": "Terima ketentuan mereka",
+    "sign": "Teken pemain",
+    "signing": "Meneken…",
+    "signed": "{{player}} bergabung dengan {{club}}.",
+    "confirmTitle": "Konfirmasi transfer",
+    "confirmBody": "Teken {{player}} dari {{club}} sebesar {{fee}}, dengan gaji {{wage}} per pekan hingga {{date}}?",
+    "confirmFreeBody": "Teken {{player}} dengan gaji {{wage}} per pekan hingga {{date}}?",
+    "confirm": "Konfirmasi transfer",
+    "years": "{{count}} tahun",
+    "status": {
+      "agreed": "Sepakat",
+      "club_countered": "Tawaran balik klub",
+      "club_rejected": "Tawaran ditolak",
+      "player_countered": "Tawaran balik pemain",
+      "player_refused": "Pemain menolak",
+      "blocked": "Transfer terblokir"
+    },
+    "outcome": {
+      "agreed": "Klub dan pemain menerima ketentuan ini.",
+      "clubCountered": "{{club}} meminta {{fee}}. Terima ketentuan mereka untuk melanjutkan.",
+      "clubRejected": "{{club}} menolak biaya itu. Batas bawah mereka {{fee}}.",
+      "playerCountered": "Pemain meminta {{wage}} per pekan selama {{years}} tahun.",
+      "playerRefused": "Pemain tidak akan melakukan transfer.",
+      "blocked": "Aturan atau keuangan Anda memblokir transfer ini."
+    },
+    "mainConcern": "Kekhawatiran utama",
+    "checkFee": "Biaya muat dalam anggaran",
+    "checkWage": "Gaji sesuai kebijakan direksi",
+    "checkBonus": "Bonus tanda tangan terjangkau",
+    "checkWindow": "Jendela transfer terbuka",
+    "checkPassed": "lolos",
+    "checkFailed": "tidak lolos",
+    "openProfile": "Buka {{player}}",
+    "tableCaption": "Pemain pasar global, halaman {{page}} dari {{pages}}",
+    "selected": "Dipilih",
+    "signHintCheck": "Periksa ketentuannya untuk melihat apakah klub dan pemain setuju.",
+    "signHintCounter": "Terima ketentuan mereka dulu; tawaran balik tidak bisa ditandatangani.",
+    "signHintRefused": "Transfer ini tidak bisa ditandatangani sebagaimana adanya.",
+    "errorGeneric": "Pasar tidak dapat menyelesaikan permintaan itu. Coba lagi."
   }
 }

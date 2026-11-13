@@ -14,7 +14,7 @@ import {
   FORMATIONS,
 } from "./types";
 import MatchEventSideBadge from "./MatchEventSideBadge";
-import { getEventDisplay, getPlayerName, makeTeamFallback, phaseLabel } from "./helpers";
+import { getEventDisplay, goalPlayerLabel, makeTeamFallback, phaseLabel } from "./helpers";
 import { TeamLogo } from "../ui";
 import { useSettingsStore } from "../../store/settingsStore";
 import { EventFeed, MatchStats, Lineups } from "./MatchPanels";
@@ -546,7 +546,7 @@ export default function MatchLive({
                       </span>
                       <span>{display.icon}</span>
                       <span className={`${display.color} font-medium truncate`}>
-                        {getPlayerName(snapshot, evt.player_id)}
+                        {goalPlayerLabel(snapshot, evt, t)}
                       </span>
                       <MatchEventSideBadge
                         side={evt.side}

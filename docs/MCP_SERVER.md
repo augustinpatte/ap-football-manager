@@ -161,14 +161,14 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | Tool | Description |
 |------|-------------|
 | `transfer_market_browse` | Browse players with optional position, max price, and listed-only filters |
-| `transfer_make_bid` | Make a transfer bid. Returns negotiation feedback (mood, tension, patience, suggested fee). |
+| `transfer_make_bid` | Make a transfer bid. Returns negotiation feedback (mood, tension, patience, suggested fee). The player has his own say once the clubs agree: the first answer is `decision: player_talks` (nothing is completed, nothing is paid) with the contract he would sign in `player_asks_*`; bid again naming a contract to close the deal. When he wants other terms the result carries `player_asks_weekly_wage` / `player_asks_contract_years`; bid again with the optional `player_weekly_wage` and `player_contract_years` (1-5) to meet them. `accepted` means agreed, not completed: when `registration_date` is present the player stays at his club and nothing is paid until that day (a deal takes from none to a few days to register, longer when the window is shut). |
 | `transfer_preview_bid` | Preview financial impact of a bid without making it |
 | `transfer_respond_to_offer` | Accept or reject an incoming transfer offer |
 | `transfer_counter_offer` | Counter an incoming offer with a different fee |
 | `transfer_toggle_listed` | Toggle a player's transfer-listed status |
 | `transfer_toggle_loan` | Toggle a player's loan-listed status |
-| `transfer_free_agent_offer` | Offer a contract to a free agent |
-| `transfer_free_agent_preview` | Preview free agent contract financial impact |
+| `transfer_free_agent_offer` | Offer a contract to a free agent. Opens a negotiation: he answers in 1–3 game days (it never signs on the spot) |
+| `transfer_free_agent_preview` | Preview a free-agent signing: financial impact, how interested he is, the club's open talk (and his counter-offer), rival bids |
 
 ### Contracts (7 tools)
 

@@ -256,6 +256,44 @@ is skipped on the IPC payload because it only grows.
 - **Readers.** The Hall of Fame, a retiree's profile, his stats overview and the names on old
   results read the archive (`ofm_core::retirees`, `ofm_core::hall_of_fame`).
 
+### Storage of long careers (Run F5.0 and F5.1)
+
+Three stores are written once or folded so a thirty-season career stays compact. Their figures,
+measured on generated careers, are in `docs/APFM_RUN_F5_1_INTELLIGENT_WORLD.md` section 15.
+
+- **Deflated archives** (v067, v068). A finished competition edition, a replay, a retired player and a
+  retired manager are stored deflated in a `*_z` column with an empty JSON column; a row written
+  before the migration keeps its JSON and is still read. Nothing is rewritten.
+- **Folded cash journal.** The journal is append-only and was 54 % of a thirty-season file. At each
+  rollover `finances::journal::fold_old_posts` replaces every post older than two years (to the start
+  of its month) by one post per club, kind and month, with id `fold:<club>:<kind>:<YYYY-MM>`. A club's
+  cash is the sum of its posts and a fold changes no sum; opening balances are kept and a fold is
+  never folded again. The file is told on the next save: `Game::cash_journal_fold_pending` carries the
+  cutoff (runtime only, never saved), `journal_repo::persist_cash_journal` deletes the stored posts
+  before it that are not folds and inserts the folds in the same transaction, and
+  `application::saving` clears the marker once the save that carried it has succeeded. A save made
+  before the fold is compacted the first time it rolls over.
+- **Compact match history** (v066) and its retention window are described in the F5.0 report.
+
+### Job-offer clock and rating repair (P4.6)
+
+- **Job-offer clock** (v069). `game_meta.days_since_last_job_offer` (nullable integer) stores
+  `Game::days_since_last_job_offer`, which decides the day the next job offer arrives; before it, a
+  load restarted the clock and a reloaded career received offers on different days. NULL is "no
+  clock running", which is what every older save held in memory after loading, so an old save behaves
+  as it always did. A stored value outside `u32` is damage and reads as NULL rather than refusing the
+  load. No save-format version bump (the field is `serde(default)` on `GameMeta`), but it is a schema
+  migration: a save opened by this build is at `user_version` 69, which a build with 68 migrations
+  refuses, as for every migration.
+- **Stale-rating repair on load** (`player_rating::repair_stale_ratings`). A save written by a build
+  before D6 can hold a granular position beside the rating of the coarse group the player was
+  generated as. On every load a player whose `ovr` drifts from his own attributes by more than
+  `world_integrity::MAX_OVR_ATTRIBUTE_DRIFT` has his derived fields re-derived (`ovr`, attribute
+  traits, and a ceiling the new rating overtakes) and the save is written back. It needs no
+  save-format bump of its own. Identity, attributes,
+  contract, wage and market value are not touched; a repaired save finds nothing to repair, and a
+  player with no rating is left to the backfill.
+
 ### Football Identity Notes
 
 - Legacy saves may still store `nationality` / `country` values such as `"GB"`, `"British"`, or demonyms like `"English"`.

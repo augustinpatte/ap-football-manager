@@ -228,5 +228,16 @@ export function getDashboardAlerts(
     });
   }
 
+  // Last, below the match-day and money alerts: a proposal is not tied to today's fixture.
+  const pendingProposalCount = gameState.delegation?.proposals?.length ?? 0;
+  if (pendingProposalCount > 0) {
+    alerts.push({
+      id: "delegation_proposals",
+      text: t("dashboard.alerts.delegationProposals", { count: pendingProposalCount }),
+      tab: "Staff",
+      severity: "warn",
+    });
+  }
+
   return alerts;
 }

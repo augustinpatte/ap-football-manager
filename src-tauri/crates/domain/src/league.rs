@@ -451,9 +451,13 @@ pub struct CompactMatchEvent {
     pub side: String,
     pub player_id: Option<String>,
     pub secondary_player_id: Option<String>,
+    /// For a goal that is an own goal: the player who put it into his own net (`player_id` is empty,
+    /// nobody is credited with the goal). Absent in records from before Run F4.2.
+    #[serde(default)]
+    pub own_goal_by: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StandingEntry {
     pub team_id: String,
     pub played: u32,

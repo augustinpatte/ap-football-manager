@@ -16,3 +16,5 @@ workspace = true
 [dev-dependencies]
 db = { version = "0.3.0", path = "../db" }
 tempfile = "3"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+flate2 = "1.1"

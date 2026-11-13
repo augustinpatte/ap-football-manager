@@ -57,8 +57,9 @@ export default function ScoutingAssignmentsList({
               contextItems.push(buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)));
             }
 
-            if (player.team_id && onSelectTeam) {
-              contextItems.push(buildViewTeamMenuItem(t, () => onSelectTeam(player.team_id!)));
+            const teamId = player.team_id;
+            if (teamId && onSelectTeam) {
+              contextItems.push(buildViewTeamMenuItem(t, () => onSelectTeam(teamId)));
             }
 
             const row = (

@@ -10,6 +10,7 @@ const ScheduleTab = lazy(() => import("../schedule/ScheduleTab"));
 const FinancesTab = lazy(() => import("../finances/FinancesTab"));
 const TransfersTab = lazy(() => import("../transfers/TransfersTab"));
 const TransferCentreWorldTab = lazy(() => import("../transfers/TransferCentreWorldTab"));
+const GlobalMarketTab = lazy(() => import("../transfers/GlobalMarketTab"));
 const HallOfFameWorldTab = lazy(() => import("../hallOfFame/HallOfFameWorldTab"));
 const PlayersListTab = lazy(() => import("../players/PlayersListTab"));
 const ManagersWorldTab = lazy(() => import("../manager/ManagersWorldTab"));
@@ -42,8 +43,16 @@ export default function DashboardTabContent({ viewModel }: DashboardTabContentPr
     managerId,
     seasonComplete,
     squadListSortState,
+    squadListFilters,
     visitedOnboardingTabs,
-    handlers: { onGameUpdate, onNavigate, onSelectPlayer, onSelectTeam, onSquadListSortChange },
+    handlers: {
+      onGameUpdate,
+      onNavigate,
+      onSelectPlayer,
+      onSelectTeam,
+      onSquadListSortChange,
+      onSquadListFiltersChange,
+    },
   } = viewModel;
 
   const renderHomeContent = () => {
@@ -76,6 +85,8 @@ export default function DashboardTabContent({ viewModel }: DashboardTabContentPr
         onGameUpdate={onGameUpdate}
         sortState={squadListSortState}
         onSortStateChange={onSquadListSortChange}
+        filters={squadListFilters}
+        onFiltersChange={onSquadListFiltersChange}
       />
     );
   } else if (activeTab === "Tactics") {
@@ -115,6 +126,8 @@ export default function DashboardTabContent({ viewModel }: DashboardTabContentPr
         onSelectTeam={onSelectTeam}
       />
     );
+  } else if (activeTab === "GlobalMarket") {
+    content = <GlobalMarketTab gameState={gameState} onGameUpdate={onGameUpdate} />;
   } else if (activeTab === "HallOfFame") {
     content = (
       <HallOfFameWorldTab

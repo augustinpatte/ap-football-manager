@@ -312,6 +312,7 @@ fn upsert_team_history(game: &mut Game, season: u32, tables: &[Vec<StandingEntry
         let record = TeamSeasonRecord {
             season,
             league_position: *league_position,
+            tier: None,
             played: standing.played,
             won: standing.won,
             drawn: standing.drawn,
@@ -499,6 +500,10 @@ fn synthesize_player_season(
         avg_rating: 0.0,
         rated_appearances: 0,
         minutes_played,
+        // The invented season carries detail counters for every minute it invents.
+        detail_minutes_played: minutes_played,
+        // Invented seasons record no injuries.
+        injured_days: 0,
         shots,
         shots_on_target,
         passes_completed,
@@ -539,6 +544,23 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
             continue;
         }
 
+        // A season the world file recorded is a fact about this player, possibly at another club:
+        // it is neither replaced by the club he is at now nor re-rolled. Awards still see its
+        // real numbers (the rest of the stat line was not recorded, so it stays empty).
+        if let Some(recorded) = player
+            .career
+            .iter()
+            .find(|entry| entry.season == season && !entry.synthetic)
+        {
+            player.stats = PlayerSeasonStats {
+                appearances: recorded.appearances,
+                goals: recorded.goals,
+                assists: recorded.assists,
+                ..PlayerSeasonStats::default()
+            };
+            continue;
+        }
+
         player.stats = synthesize_player_season(player, matches_played, season);
         player.career.retain(|entry| entry.season != season);
         let entry = CareerEntry {
@@ -552,6 +574,7 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
             appearances: player.stats.appearances,
             goals: player.stats.goals,
             assists: player.stats.assists,
+            synthetic: true,
         };
 
         if player
@@ -851,6 +874,7 @@ mod tests {
         game.teams[0].history.push(TeamSeasonRecord {
             season: 2031,
             league_position: 2,
+            tier: None,
             played: 38,
             won: 22,
             drawn: 8,
@@ -871,6 +895,7 @@ mod tests {
             appearances: 33,
             goals: 7,
             assists: 4,
+            synthetic: false,
         });
 
         game.manager.career_history.push(ManagerCareerEntry {
@@ -1004,6 +1029,7 @@ mod tests {
             appearances: 38,
             goals: 999,
             assists: 0,
+            synthetic: false,
         });
 
         generate_past_world_history(&mut game, 2032, 1);
@@ -1024,6 +1050,52 @@ mod tests {
         );
         assert_eq!(career_seasons(&game, "player-1"), vec![2031]);
         assert_eq!(game.players[0].career[0].goals, 999);
+    }
+
+    /// Given a world with no recorded past, when history is generated, then every season it
+    /// writes is flagged synthetic, so nothing invented can pass for a record.
+    #[test]
+    fn generated_history_is_flagged_synthetic() {
+        let mut game = make_game();
+
+        generate_past_world_history(&mut game, 2032, 3);
+
+        let entries: Vec<_> = game.players.iter().flat_map(|p| p.career.iter()).collect();
+        assert!(!entries.is_empty());
+        assert!(entries.iter().all(|entry| entry.synthetic));
+    }
+
+    /// Given an adult with a recorded season at another club inside the generated window, when
+    /// history is generated, then that record is kept as it was and only the other seasons are
+    /// invented; the season's stats come from the record, not from the generator.
+    #[test]
+    fn a_recorded_season_is_never_overwritten_by_generated_history() {
+        let mut game = make_game();
+        game.players[0].date_of_birth = "1995-03-15".to_string();
+        game.players[0].career.push(CareerEntry {
+            season: 2030,
+            team_id: "former-club".to_string(),
+            team_name: "Former FC".to_string(),
+            appearances: 12,
+            goals: 4,
+            assists: 3,
+            synthetic: false,
+        });
+
+        generate_past_world_history(&mut game, 2032, 3);
+
+        let career = &game.players[0].career;
+        let recorded: Vec<_> = career.iter().filter(|entry| entry.season == 2030).collect();
+        assert_eq!(recorded.len(), 1, "{career:?}");
+        assert_eq!(recorded[0].team_id, "former-club");
+        assert_eq!(recorded[0].goals, 4);
+        assert!(!recorded[0].synthetic);
+        let invented: Vec<u32> = career
+            .iter()
+            .filter(|entry| entry.synthetic)
+            .map(|entry| entry.season)
+            .collect();
+        assert_eq!(invented, vec![2029, 2031]);
     }
 
     #[test]

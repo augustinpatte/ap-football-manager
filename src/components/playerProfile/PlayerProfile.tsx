@@ -110,12 +110,11 @@ export default function PlayerProfile({
     setContractWage,
     contractLength,
     setContractLength,
-    contractFeedback,
+    talkPanel,
     contractProjection,
     contractSubmitting,
     contractSubmitDisabled,
-    contractStatusMessage,
-    contractStatusClassName,
+    contractError,
     openFreeAgentContract,
     closeFreeAgentContract,
     submitFreeAgentContract,
@@ -125,6 +124,8 @@ export default function PlayerProfile({
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidResult,
     bidLoading,
     bidFeedback,
@@ -314,6 +315,7 @@ export default function PlayerProfile({
           contractRiskLabel={contractRiskLabel}
           isOwnClub={isManagerOwnedProfile}
           isFreeAgent={isFreeAgent}
+          steppingStonePromise={player.morale_core?.stepping_stone_promise}
           hasLetExpireIntent={hasLetExpireIntent}
           actionSubmitting={contractActionSubmitting}
           onOpenRenewal={openRenewalModal}
@@ -378,6 +380,8 @@ export default function PlayerProfile({
           teams={gameState.teams}
           bidAmount={bidAmount}
           onBidAmountChange={setBidAmount}
+          bidTerms={bidTerms}
+          onBidTermsChange={setBidTerms}
           myTeam={myTeam}
           bidFee={bidFee}
           bidProjection={bidProjection}
@@ -401,9 +405,8 @@ export default function PlayerProfile({
           contractLength={contractLength}
           onContractLengthChange={setContractLength}
           projection={contractProjection}
-          feedback={contractFeedback}
-          statusMessage={contractStatusMessage(t)}
-          statusClassName={contractStatusClassName}
+          talkPanel={talkPanel}
+          errorMessage={contractError}
           submitting={contractSubmitting}
           submitDisabled={contractSubmitDisabled}
           onSubmit={submitFreeAgentContract}

@@ -1,5 +1,6 @@
 use domain::negotiation::NegotiationFeedback;
 use domain::player::{LoanOfferStatus, Position};
+use domain::transfer_terms::TransferTerms;
 use log::info;
 use std::sync::Arc;
 use tauri::State;
@@ -37,6 +38,10 @@ pub struct TransferNegotiationCommandResponse {
     pub is_terminal: bool,
     pub registration_date: Option<String>,
     pub feedback: NegotiationFeedback,
+    /// The wage and length the player asks for, when he is the one holding the deal up.
+    pub player_demand: Option<ofm_core::transfers::PlayerDemand>,
+    /// What stood in his way, when he turned the move down.
+    pub player_obstacle: Option<domain::free_agent_talk::FreeAgentTalkReason>,
     pub game: Game,
 }
 
@@ -119,8 +124,9 @@ pub fn make_transfer_bid(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
     fee: u64,
+    terms: Option<TransferTerms>,
 ) -> Result<TransferNegotiationCommandResponse, String> {
-    make_transfer_bid_internal(&state, &player_id, fee)
+    make_transfer_bid_internal(&state, &player_id, fee, terms.unwrap_or_default())
 }
 
 #[tauri::command]
@@ -128,8 +134,29 @@ pub fn preview_transfer_bid_financial_impact(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
     fee: u64,
+    terms: Option<TransferTerms>,
 ) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
-    preview_transfer_bid_financial_impact_internal(&state, &player_id, fee)
+    preview_transfer_bid_financial_impact_internal(
+        &state,
+        &player_id,
+        fee,
+        &terms.unwrap_or_default(),
+    )
+}
+
+#[tauri::command]
+pub fn get_transfer_deadline_summary(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<ofm_core::transfers::DeadlineSummary, String> {
+    get_transfer_deadline_summary_internal(&state)
+}
+
+pub fn get_transfer_deadline_summary_internal(
+    state: &StateManager,
+) -> Result<ofm_core::transfers::DeadlineSummary, String> {
+    state
+        .get_game(ofm_core::transfers::transfer_deadline_summary)
+        .ok_or_else(|| "be.error.noActiveGameSession".to_string())
 }
 
 #[tauri::command]
@@ -154,17 +181,19 @@ pub fn make_transfer_bid_internal(
     state: &StateManager,
     player_id: &str,
     fee: u64,
+    terms: TransferTerms,
 ) -> Result<TransferNegotiationCommandResponse, String> {
     info!(
-        "[cmd] make_transfer_bid: player_id={}, fee={}",
-        player_id, fee
+        "[cmd] make_transfer_bid: player_id={}, fee={}, terms={:?}",
+        player_id, fee, terms
     );
     // make_transfer_bid validates (window/player/funds) before executing; its
     // only post-mutation error path (player-not-found in execute_transfer) is
     // unreachable here, so in-place mutation is safe.
     state
         .update_game(|game| {
-            let result = ofm_core::transfers::make_transfer_bid(game, player_id, fee)?;
+            let result =
+                ofm_core::transfers::make_manager_transfer_bid(game, player_id, fee, terms)?;
             Ok(map_transfer_negotiation_response(result, game.ui_clone()))
         })
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
@@ -240,15 +269,18 @@ pub fn preview_transfer_bid_financial_impact_internal(
     state: &StateManager,
     player_id: &str,
     fee: u64,
+    terms: &TransferTerms,
 ) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
     info!(
-        "[cmd] preview_transfer_bid_financial_impact: player_id={}, fee={}",
-        player_id, fee
+        "[cmd] preview_transfer_bid_financial_impact: player_id={}, fee={}, terms={:?}",
+        player_id, fee, terms
     );
 
     let projection = state
         .get_game(|game| {
-            ofm_core::transfers::project_transfer_bid_financial_impact(game, player_id, fee)
+            ofm_core::transfers::project_transfer_bid_financial_impact_with_terms(
+                game, player_id, fee, terms,
+            )
         })
         .ok_or_else(|| "be.error.noActiveGameSession".to_string())??;
 
@@ -395,6 +427,8 @@ fn map_transfer_negotiation_response(
         is_terminal: outcome.is_terminal,
         registration_date: outcome.registration_date,
         feedback: outcome.feedback,
+        player_demand: outcome.player_demand,
+        player_obstacle: outcome.player_obstacle,
         game,
     }
 }
@@ -514,9 +548,10 @@ fn parse_youth_target_position(value: Option<&str>) -> Result<Option<Position>, 
 mod tests {
     use super::{
         counter_loan_offer_internal, counter_offer_internal, exercise_loan_buy_option_internal,
-        make_loan_offer_internal, make_transfer_bid_internal,
-        preview_transfer_bid_financial_impact_internal, respond_to_loan_offer_internal,
-        respond_to_offer_internal, toggle_loan_list_internal, toggle_transfer_list_internal,
+        get_transfer_deadline_summary_internal, make_loan_offer_internal,
+        make_transfer_bid_internal, preview_transfer_bid_financial_impact_internal,
+        respond_to_loan_offer_internal, respond_to_offer_internal, toggle_loan_list_internal,
+        toggle_transfer_list_internal,
     };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
@@ -612,6 +647,7 @@ mod tests {
             registration_date: None,
             closed_on: None,
             registration_failure_reason: None,
+            terms: Default::default(),
         });
         player
     }
@@ -742,12 +778,55 @@ mod tests {
         );
     }
 
+    /// The manager's bid, carried through the player's step: the first answer on a fee the clubs
+    /// agree is `PlayerTalks` with the contract he would sign (nothing completed); the second puts
+    /// that contract to him.
+    fn bid_through_the_player_step(
+        state: &StateManager,
+        player_id: &str,
+        fee: u64,
+    ) -> super::TransferNegotiationCommandResponse {
+        let first = make_transfer_bid_internal(
+            state,
+            player_id,
+            fee,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("first bid");
+        assert_eq!(first.decision, TransferNegotiationDecision::PlayerTalks);
+        let shown = first.player_demand.expect("the contract he would sign");
+        make_transfer_bid_internal(
+            state,
+            player_id,
+            fee,
+            domain::transfer_terms::TransferTerms {
+                player_weekly_wage: shown.weekly_wage,
+                player_contract_years: u8::try_from(shown.contract_years).expect("years"),
+                ..domain::transfer_terms::TransferTerms::default()
+            },
+        )
+        .expect("bid with his contract")
+    }
+
     #[test]
     fn make_transfer_bid_internal_returns_payload_and_updates_state() {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
+        let first = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            1_050_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("first bid");
+        assert_eq!(first.decision, TransferNegotiationDecision::PlayerTalks);
+        assert_eq!(
+            first.game.players[0].team_id.as_deref(),
+            Some("team-2"),
+            "the clubs agreeing moves nobody"
+        );
+        let response = bid_through_the_player_step(&state, "player-2", 1_050_000);
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
@@ -777,7 +856,7 @@ mod tests {
         game.season_context.transfer_window.opens_on = Some("2027-01-01".to_string());
         state.set_game(game);
 
-        let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
+        let response = bid_through_the_player_step(&state, "player-2", 1_050_000);
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.registration_date.as_deref(), Some("2027-01-01"));
@@ -860,7 +939,13 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response = make_transfer_bid_internal(&state, "player-2", 900_000).expect("response");
+        let response = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            900_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.decision, TransferNegotiationDecision::CounterOffer);
         assert_eq!(response.suggested_fee, Some(950_000));
@@ -884,11 +969,17 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let first = make_transfer_bid_internal(&state, "player-2", 900_000).expect("first bid");
+        let first = make_transfer_bid_internal(
+            &state,
+            "player-2",
+            900_000,
+            domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("first bid");
         assert_eq!(first.decision, TransferNegotiationDecision::CounterOffer);
         assert_eq!(first.feedback.round, 1);
 
-        let second = make_transfer_bid_internal(&state, "player-2", 950_000).expect("second bid");
+        let second = bid_through_the_player_step(&state, "player-2", 950_000);
 
         assert_eq!(second.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(second.feedback.round, 2);
@@ -1173,9 +1264,13 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_bid_game());
 
-        let response =
-            preview_transfer_bid_financial_impact_internal(&state, "player-2", 1_000_000)
-                .expect("response");
+        let response = preview_transfer_bid_financial_impact_internal(
+            &state,
+            "player-2",
+            1_000_000,
+            &domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(response.projection.transfer_budget_before, 2_000_000);
         assert_eq!(response.projection.transfer_budget_after, 1_000_000);
@@ -1218,9 +1313,13 @@ mod tests {
         game.season_context.transfer_window.opens_on = Some("2027-01-02".to_string());
         state.set_game(game);
 
-        let response =
-            preview_transfer_bid_financial_impact_internal(&state, "player-2", 1_000_000)
-                .expect("response");
+        let response = preview_transfer_bid_financial_impact_internal(
+            &state,
+            "player-2",
+            1_000_000,
+            &domain::transfer_terms::TransferTerms::default(),
+        )
+        .expect("response");
 
         assert_eq!(
             response.projection.pending_registration_date.as_deref(),
@@ -1263,5 +1362,167 @@ mod tests {
         let result = super::parse_youth_target_position(Some("Goalkeeper"));
 
         assert_eq!(result.unwrap(), Some(Position::Goalkeeper));
+    }
+
+    /// Given no active game, When the deadline summary is requested,
+    /// Then the command fails with the shared translation key.
+    #[test]
+    fn deadline_summary_without_a_game_reports_the_no_session_key() {
+        let state = StateManager::new();
+
+        let error = get_transfer_deadline_summary_internal(&state).expect_err("no game");
+
+        assert_eq!(error, "be.error.noActiveGameSession");
+    }
+
+    /// Given a buyer with one senior place left and a purchase already agreed and waiting to
+    ///   register
+    /// When the manager accepts an incoming offer from that buyer
+    /// Then the promised place is not his: the command fails with the squad-limit key and the
+    ///      stored career is unchanged.
+    #[test]
+    fn respond_to_offer_internal_refuses_a_buyer_whose_last_place_is_promised() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 29);
+        promise_a_purchase(&mut game, "team-2");
+        let before = snapshot(&game);
+        state.set_game(game);
+
+        let refused = respond_to_offer_internal(&state, "player-1", "offer-1", true);
+
+        assert!(
+            refused
+                .as_ref()
+                .err()
+                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            "{refused:?}"
+        );
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(snapshot(&stored), before, "nothing moved");
+        let player = stored
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("the player");
+        assert_eq!(player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(
+            player.transfer_offers[0].status,
+            TransferOfferStatus::Pending
+        );
+    }
+
+    /// Given a buyer with one senior place left and a purchase already agreed and waiting to
+    ///   register
+    /// When the manager counters an incoming offer at a fee the buyer would accept
+    /// Then the promised place stops the sale: the command fails and the offer is still pending at
+    ///      its original fee.
+    #[test]
+    fn counter_offer_internal_refuses_a_buyer_whose_last_place_is_promised() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 29);
+        promise_a_purchase(&mut game, "team-2");
+        let before = snapshot(&game);
+        state.set_game(game);
+
+        let refused = counter_offer_internal(&state, "player-1", "offer-1", 1_050_000);
+
+        assert!(
+            refused
+                .as_ref()
+                .err()
+                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            "{refused:?}"
+        );
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(snapshot(&stored), before, "nothing moved");
+        let player = stored
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("the player");
+        assert_eq!(
+            player.transfer_offers[0].status,
+            TransferOfferStatus::Pending
+        );
+        assert_eq!(player.transfer_offers[0].fee, 900_000);
+    }
+
+    /// Given a buyer with no senior place left and a reservation
+    /// When the manager counters at a fee the buyer would refuse
+    /// Then the rejection is still recorded: a refusal is not a signing and needs no place.
+    #[test]
+    fn counter_offer_internal_rejects_a_fee_even_when_the_buyer_has_no_place() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        fill_senior_list(&mut game, "team-2", 30);
+        state.set_game(game);
+
+        let response = counter_offer_internal(&state, "player-1", "offer-1", 5_000_000)
+            .expect("the negotiation can be ended");
+
+        assert_eq!(
+            response.game.players[0].transfer_offers[0].status,
+            TransferOfferStatus::Rejected
+        );
+        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
+    }
+
+    /// Brings `club` up to `seniors` senior players on no wage.
+    fn fill_senior_list(game: &mut Game, club: &str, seniors: usize) {
+        let mut index = 0;
+        while ofm_core::contracts::squad_capacity(game, club).registered_seniors < seniors {
+            let mut filler = Player::new(
+                format!("filler-{club}-{index}"),
+                format!("Filler {index}"),
+                format!("Filler {index}"),
+                "1998-01-01".to_string(),
+                "England".to_string(),
+                Position::Midfielder,
+                default_attrs(),
+            );
+            filler.team_id = Some(club.to_string());
+            filler.stage_contract_end(Some("2031-06-30".to_string()));
+            filler.stage_wage(0);
+            filler.market_value = 0;
+            game.players.push(filler);
+            index += 1;
+        }
+    }
+
+    /// An agreed purchase waiting to register, at another club, from `buyer_id`.
+    fn promise_a_purchase(game: &mut Game, buyer_id: &str) {
+        let mut promised = Player::new(
+            "promised-purchase".to_string(),
+            "P. Romised".to_string(),
+            "Promised Purchase".to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            default_attrs(),
+        );
+        promised.team_id = Some("elsewhere".to_string());
+        promised.stage_contract_end(Some("2028-06-30".to_string()));
+        promised.transfer_offers.push(TransferOffer {
+            id: "offer-promised-purchase".to_string(),
+            from_team_id: buyer_id.to_string(),
+            fee: 1_000_000,
+            wage_offered: 0,
+            last_manager_fee: None,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
+            status: TransferOfferStatus::PendingRegistration,
+            date: "2026-08-01".to_string(),
+            registration_date: Some("2027-01-01".to_string()),
+            closed_on: None,
+            registration_failure_reason: None,
+            terms: Default::default(),
+        });
+        game.players.push(promised);
+    }
+
+    fn snapshot(game: &Game) -> serde_json::Value {
+        serde_json::to_value(game).expect("a game serialises")
     }
 }

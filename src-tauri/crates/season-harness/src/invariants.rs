@@ -102,7 +102,13 @@ pub struct Invariants {
     violations: Vec<Violation>,
     seen: BTreeSet<(&'static str, String)>,
     dropped: BTreeMap<&'static str, usize>,
+    /// Players serving a ban at the end of the previous day, and where the run stood then.
+    banned: BTreeSet<String>,
+    day: (u32, Option<u32>),
 }
+
+/// The name `banned_players_do_not_play` reports under.
+pub const BANNED_PLAYER_PLAYED: &str = "banned-player-never-plays";
 
 impl Invariants {
     /// Takes the authored division sizes from `game` as it is now, and checks
@@ -114,6 +120,8 @@ impl Invariants {
             violations: Vec::new(),
             seen: BTreeSet::new(),
             dropped: BTreeMap::new(),
+            banned: BTreeSet::new(),
+            day: (0, None),
         };
         invariants.check_every_day(game, 0, None);
         let sizes = invariants.authored_sizes.clone();
@@ -197,6 +205,33 @@ impl Invariants {
 impl SeasonObserver for Invariants {
     fn on_day_end(&mut self, game: &Game, season: u32, day: u32) {
         self.check_every_day(game, season, Some(day));
+        self.banned = game
+            .players
+            .iter()
+            .filter(|player| player.suspended_matches > 0)
+            .map(|player| player.id.clone())
+            .collect();
+        self.day = (season, Some(day + 1));
+    }
+
+    /// The stats a match handed over: nobody who was serving a ban when the day began has minutes
+    /// in it. Suspension is the one availability rule with no emergency exception (an injured
+    /// player may be fielded when a healthy eleven is impossible; a suspended one never is).
+    fn on_stats_captured(&mut self, stats: &domain::stats::StatsState) {
+        let breaches: Vec<String> = stats
+            .player_matches
+            .iter()
+            .filter(|record| record.minutes_played > 0 && self.banned.contains(&record.player_id))
+            .map(|record| {
+                format!(
+                    "{} played {} minutes of fixture {} while suspended",
+                    record.player_id, record.minutes_played, record.fixture_id
+                )
+            })
+            .collect();
+        for message in breaches {
+            self.record(self.day.0, self.day.1, BANNED_PLAYER_PLAYED, message, false);
+        }
     }
 
     fn on_before_rollover(&mut self, game: &Game, _season: u32) {

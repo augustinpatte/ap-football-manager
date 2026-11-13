@@ -11,6 +11,7 @@ import {
   buildMakeTransferBidMenuItem,
   buildOfferFreeAgentContractMenuItem,
   buildToggleLoanListMenuItem,
+  buildToggleSaleProtectionMenuItem,
   buildToggleTransferListMenuItem,
 } from "../playerActions/playerContextMenuItems";
 import {
@@ -20,6 +21,7 @@ import {
 } from "../squad/SquadTab.helpers";
 import { canDelegateToYouthAcademy } from "../../lib/playerSquad";
 import { setPlayerSquadRole, setStartingXi } from "../../services/squadService";
+import { setPlayerProtected } from "../../services/staffService";
 import { toggleLoanList, toggleTransferList } from "../../services/transfersService";
 import { resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { Button } from "../ui";
@@ -80,6 +82,7 @@ export default function PlayerProfileActionsMenu({
   const managerTeamId = gameState.manager.team_id;
   const managerTeam = gameState.teams.find((team) => team.id === managerTeamId);
   const actionBusy = mutationPending || actionSubmitting;
+  const isProtectedFromSale = gameState.delegation?.protected_players?.includes(player.id) ?? false;
 
   const runMutation = async (mutation: () => Promise<GameStateData>): Promise<void> => {
     setMutationPending(true);
@@ -182,6 +185,12 @@ export default function PlayerProfileActionsMenu({
       {
         ...buildToggleLoanListMenuItem(t, player.loan_listed, () => {
           void runMutation(() => toggleLoanList(player.id));
+        }),
+        disabled: actionBusy,
+      },
+      {
+        ...buildToggleSaleProtectionMenuItem(t, isProtectedFromSale, () => {
+          void runMutation(() => setPlayerProtected(player.id, !isProtectedFromSale));
         }),
         disabled: actionBusy,
       },

@@ -49,9 +49,6 @@ export function Dialog({
   surfaceClassName = "bg-panel",
   children,
 }: DialogProps) {
-  // A press that starts inside the panel (selecting text in a field) and ends on the backdrop is
-  // not a click on the backdrop, though the browser reports one.
-  const pressStartedOnBackdrop = useRef(false);
   const ownPanelRef = useRef<HTMLDivElement>(null);
   const panelRef = callerPanelRef ?? ownPanelRef;
   useDialogKeyboard(panelRef, onClose);
@@ -64,20 +61,24 @@ export function Dialog({
 
   return (
     <div
-      data-testid="dialog-backdrop"
+      data-testid="dialog-layer"
       className={`fixed inset-0 z-50 flex items-center justify-center ${overlayClassName}`}
-      onMouseDown={(event) => {
-        pressStartedOnBackdrop.current = event.target === event.currentTarget;
-      }}
-      onClick={(event) => {
-        if (
-          dismissOnBackdrop &&
-          event.target === event.currentTarget &&
-          pressStartedOnBackdrop.current
-        )
-          onClose();
-      }}
     >
+      {/* A sibling of the panel, not its parent: a press that starts in the panel (selecting text
+          in a field) and ends over the backdrop is reported as a click on their common ancestor,
+          so it never reaches this button. Keyboard users close with Escape (useDialogKeyboard). */}
+      {dismissOnBackdrop ? (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          data-testid="dialog-backdrop"
+          className="absolute inset-0 cursor-default"
+          onClick={onClose}
+        />
+      ) : (
+        <div aria-hidden="true" data-testid="dialog-backdrop" className="absolute inset-0" />
+      )}
       <div
         ref={panelRef}
         role="dialog"
@@ -87,7 +88,7 @@ export function Dialog({
         aria-describedby={describedBy}
         aria-busy={busy}
         tabIndex={-1}
-        className={`${surfaceClassName} border border-line shadow-2xl focus:outline-none ${className}`}
+        className={`${surfaceClassName} relative border border-line shadow-2xl focus:outline-none ${className}`}
       >
         {children}
       </div>

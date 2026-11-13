@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlayerData, TeamData, TransferOfferData } from "../../store/gameStore";
 import type { TransferBidProjectionData } from "../../services/transfersService";
 import { formatExactMoney } from "../../lib/helpers";
+import { DEFAULT_BID_TERMS } from "./bidTerms";
 import TransferBidModal from "./TransferBidModal";
 
 // The language the mocked translation reports; a test sets it to read a date in another one.
@@ -223,6 +224,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.5"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1500000}
         bidProjection={createProjection()}
@@ -242,6 +245,236 @@ describe("TransferBidModal", () => {
     expect(screen.queryByText("error")).not.toBeInTheDocument();
   });
 
+  /**
+   * Given a bid form with deal terms wired in, for a player who would value a promise
+   * When the manager changes the payment plan, the clause and the bonus, and ticks the promise
+   * Then each change reaches the parent whole, and the promise option exists only for him.
+   */
+  it("edits the deal terms and offers the promise only where the backend allows it", () => {
+    const onBidTermsChange = vi.fn();
+    const baseProps = {
+      bidTarget: createPlayer(),
+      teams: [createTeam(), createTeam({ id: "team-2", name: "Seller FC" })],
+      bidAmount: "1.0",
+      onBidAmountChange: vi.fn(),
+      bidTerms: {
+        instalments: "1",
+        sellOnPct: "0",
+        signingBonusMillions: "0",
+        promise: false,
+        playerWage: "",
+        playerYears: "",
+      },
+      onBidTermsChange,
+      myTeam: createTeam(),
+      bidFee: 1000000,
+      bidFeedback: null,
+      activeBidOffer: null,
+      hasExistingOffer: false,
+      bidResult: null,
+      bidLoading: false,
+      bidSubmitDisabled: false,
+      onSubmit: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    const { unmount } = render(
+      <TransferBidModal
+        {...baseProps}
+        bidProjection={createProjection({ stepping_stone_available: false })}
+      />,
+    );
+    expect(screen.queryByLabelText("transfers.promise.label")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("transfers.terms.sellOn"), { target: { value: "15" } });
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({ ...baseProps.bidTerms, sellOnPct: "15" });
+    fireEvent.change(screen.getByLabelText("transfers.terms.signingBonus"), {
+      target: { value: "0.5" },
+    });
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({
+      ...baseProps.bidTerms,
+      signingBonusMillions: "0.5",
+    });
+    unmount();
+
+    render(
+      <TransferBidModal
+        {...baseProps}
+        bidProjection={createProjection({ stepping_stone_available: true })}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("transfers.promise.label"));
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({ ...baseProps.bidTerms, promise: true });
+  });
+
+  /**
+   * Given a player who is hesitant and has just asked for a better contract
+   * When the form is shown and the manager takes his terms
+   * Then his view of the move is shown, and one click puts his wage and length into the offer.
+   */
+  it("shows the player's view and lets the manager meet the terms he asks for", () => {
+    const onBidTermsChange = vi.fn();
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={onBidTermsChange}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection({
+          player_outlook: {
+            interest: "hesitant",
+            expected_wage: 12000,
+            expected_years: 3,
+            asks_wage: 14000,
+            asks_years: 3,
+          },
+        })}
+        bidFeedback={{
+          mood: "guarded",
+          headline_key: "transfers.transferFeedbackPlayerWantsMoreHeadline",
+          detail_key: "transfers.transferFeedbackPlayerWantsMoreDetail",
+          tension: 40,
+          patience: 60,
+          round: 1,
+          params: { fee: "3000000", wage: "14000", years: "3" },
+        }}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult="rejected"
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.playerTerms\.outlookHesitant/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "transfers.playerTerms.meetTerms" }));
+    expect(onBidTermsChange).toHaveBeenLastCalledWith({
+      ...DEFAULT_BID_TERMS,
+      playerWage: "14000",
+      playerYears: "3",
+    });
+  });
+
+  /**
+   * Given the clubs have agreed and the player's step is next
+   * When the form is shown
+   * Then it says the clubs agreed and the contract is next, the contract the player would sign is
+   * in the fields, and the button now puts that contract to him (it is not "accepted").
+   */
+  it("shows the player's step after the clubs agree and offers to put the contract to him", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={{ ...DEFAULT_BID_TERMS, playerWage: "13000", playerYears: "3" }}
+        onBidTermsChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection()}
+        bidFeedback={{
+          mood: "positive",
+          headline_key: "transfers.transferFeedbackPlayerTermsHeadline",
+          detail_key: "transfers.transferFeedbackPlayerTermsDetail",
+          tension: 20,
+          patience: 70,
+          round: 1,
+          params: { fee: "3000000", wage: "13000", years: "3" },
+        }}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult="player_talks"
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("transfers.bidPlayerTalks")).toBeInTheDocument();
+    expect(screen.queryByText("Bid accepted")).toBeNull();
+    expect(screen.getByRole("button", { name: "transfers.submitPlayerTerms" })).toBeEnabled();
+    expect(screen.getByLabelText("transfers.playerTerms.wage")).toHaveValue(13000);
+  });
+
+  /**
+   * Given a projection of a three-payment bid with a bonus
+   * When the form is shown
+   * Then it says what is paid now, what follows, and the bonus.
+   */
+  it("shows what is paid now, what follows and the bonus", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="3.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={3000000}
+        bidProjection={createProjection({
+          cash_due_on_completion: 1000002,
+          later_instalments: 2,
+          later_instalment_amount: 999999,
+          signing_bonus: 250000,
+        })}
+        bidFeedback={null}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult={null}
+        bidLoading={false}
+        bidSubmitDisabled={false}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/transfers\.terms\.projectionInstalments/)).toBeInTheDocument();
+    expect(screen.getByText(/transfers\.terms\.projectionBonus/)).toBeInTheDocument();
+  });
+
+  /**
+   * Given deal terms the backend would refuse (a clause of 99%)
+   * When the form is shown
+   * Then it says so in an alert tied to the offending fields, rather than leaving Submit dead.
+   */
+  it("explains invalid deal terms next to the fields", () => {
+    render(
+      <TransferBidModal
+        bidTarget={createPlayer()}
+        teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
+        bidAmount="1.0"
+        onBidAmountChange={vi.fn()}
+        bidTerms={{ ...DEFAULT_BID_TERMS, sellOnPct: "99" }}
+        onBidTermsChange={vi.fn()}
+        myTeam={createTeam()}
+        bidFee={1000000}
+        bidProjection={createProjection()}
+        bidFeedback={null}
+        activeBidOffer={null}
+        hasExistingOffer={false}
+        bidResult={null}
+        bidLoading={false}
+        bidSubmitDisabled={true}
+        onSubmit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("transfers.terms.invalid");
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("transfers.terms.sellOn")).toHaveAccessibleDescription(
+      /transfers\.terms\.invalid/,
+    );
+  });
+
   it("renders the active negotiation state for an existing offer", () => {
     render(
       <TransferBidModal
@@ -249,6 +482,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.5"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1500000}
         bidProjection={createProjection()}
@@ -299,6 +534,8 @@ describe("TransferBidModal", () => {
       teams: [createTeam(), createTeam({ id: "team-2", name: "Seller FC" })],
       bidAmount: "1.5",
       onBidAmountChange: vi.fn(),
+      bidTerms: DEFAULT_BID_TERMS,
+      onBidTermsChange: vi.fn(),
       myTeam: createTeam(),
       bidFee: 1500000,
       bidFeedback: null,
@@ -342,6 +579,8 @@ describe("TransferBidModal", () => {
           teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
           bidAmount="1.5"
           onBidAmountChange={vi.fn()}
+          bidTerms={DEFAULT_BID_TERMS}
+          onBidTermsChange={vi.fn()}
           myTeam={createTeam()}
           bidFee={1500000}
           bidProjection={createProjection()}
@@ -370,6 +609,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.5"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1500000}
         bidProjection={createProjection()}
@@ -401,6 +642,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.0"
         onBidAmountChange={onBidAmountChange}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1000000}
         bidProjection={createProjection()}
@@ -446,6 +689,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.0"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1000000}
         bidProjection={createProjection()}
@@ -487,6 +732,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.0"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1000000}
         bidProjection={createProjection()}
@@ -517,6 +764,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam(), createTeam({ id: "team-2", name: "Seller FC" })]}
         bidAmount="1.5"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1500000}
         bidProjection={createProjection()}
@@ -552,6 +801,8 @@ describe("TransferBidModal", () => {
         teams={[createTeam()]}
         bidAmount="1.0"
         onBidAmountChange={vi.fn()}
+        bidTerms={DEFAULT_BID_TERMS}
+        onBidTermsChange={vi.fn()}
         myTeam={createTeam()}
         bidFee={1000000}
         bidProjection={createProjection()}

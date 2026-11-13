@@ -1003,6 +1003,7 @@ mod tests {
         alpha.history.push(domain::team::TeamSeasonRecord {
             season: 2025,
             league_position: 1,
+            tier: None,
             played: 38,
             won: 25,
             drawn: 8,
@@ -1016,6 +1017,7 @@ mod tests {
         beta.history.push(domain::team::TeamSeasonRecord {
             season: 2025,
             league_position: 2,
+            tier: None,
             played: 38,
             won: 22,
             drawn: 9,
@@ -1044,6 +1046,7 @@ mod tests {
         alpha.history.push(domain::team::TeamSeasonRecord {
             season: 2025,
             league_position: 1,
+            tier: None,
             played: 20,
             won: 10,
             drawn: 5,

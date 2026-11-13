@@ -276,6 +276,33 @@ pub(crate) fn keep_squads_at_the_floor(game: &mut Game) {
     }
 }
 
+pub(crate) fn warn_user_after_rollover(game: &mut Game) {
+    let Some(team_id) = game.manager.team_id.clone() else {
+        return;
+    };
+    let shortfall = squad_shortfall(game, &team_id);
+    warn_user_when_not_playing(game, &team_id, &shortfall);
+}
+
+fn warn_user_when_not_playing(
+    game: &mut Game,
+    team_id: &str,
+    shortfall: &[(Shortage, usize)],
+) -> bool {
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let match_still_to_play = game.competitions_in_play().iter().any(|competition| {
+        competition.fixtures.iter().any(|fixture| {
+            fixture.date == today
+                && fixture.status != domain::league::FixtureStatus::Completed
+                && (fixture.home_team_id == team_id || fixture.away_team_id == team_id)
+        })
+    });
+    if match_still_to_play {
+        return false;
+    }
+    warn_user_club_is_short(game, team_id, shortfall)
+}
+
 /// Bring a loaded or freshly built world up to the floor.
 ///
 /// A save written before the floor was enforced, or a package whose author
@@ -285,11 +312,6 @@ pub(crate) fn keep_squads_at_the_floor(game: &mut Game) {
 /// kick-off gate and its own message instead. Returns whether anything
 /// changed, so a loaded save knows it needs writing back.
 pub fn repair_squads_on_load(game: &mut Game) -> bool {
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-    let user_club_plays_today =
-        game.manager.team_id.as_ref().is_some_and(|team_id| {
-            crate::training::teams_playing_on(game, &today).contains(team_id)
-        });
     // Only what changed the game counts: a save whose one short club is the
     // player's, already warned, must not be rewritten on every load.
     let users_club = game.manager.team_id.clone();
@@ -304,10 +326,8 @@ pub fn repair_squads_on_load(game: &mut Game) -> bool {
             report_unfilled_ai_club(&team_id, &top_up);
         }
     }
-    if let Some(team_id) = users_club
-        && !user_club_plays_today
-    {
-        changed |= warn_user_club_is_short(game, &team_id, &users_shortfall);
+    if let Some(team_id) = users_club {
+        changed |= warn_user_when_not_playing(game, &team_id, &users_shortfall);
     }
     changed
 }
@@ -676,6 +696,9 @@ pub(crate) struct SigningContext {
     free_agents: Option<[Vec<(usize, u32)>; 4]>,
     home_matches: Option<HashMap<String, i64>>,
     club: Option<ClubFacts>,
+    /// The squad of the club being planned, as the model reads it: found once, valid until the club
+    /// signs or promotes someone (an improving signing is judged by what it adds to this).
+    squad: Option<(String, Option<crate::squad_intelligence::ClubSquad>)>,
 }
 
 /// What a club's signing decisions need to know about the club, counted once: valid until the club
@@ -684,7 +707,6 @@ struct ClubFacts {
     team_id: String,
     weekly_bill: i64,
     seniors: [usize; 4],
-    median_senior_wage: i64,
 }
 
 impl SigningContext {
@@ -692,7 +714,7 @@ impl SigningContext {
         let by_group = self.free_agents.get_or_insert_with(|| {
             let mut by_group: [Vec<usize>; 4] = Default::default();
             for (index, player) in game.players.iter().enumerate() {
-                if player.team_id.is_none() && !player.retired {
+                if player.is_on_free_market() {
                     by_group[group_index(&player.position)].push(index);
                 }
             }
@@ -732,7 +754,6 @@ impl SigningContext {
                 team_id: team_id.to_string(),
                 weekly_bill: crate::finances::calc_wages(game, team_id),
                 seniors: senior_counts(game, team_id),
-                median_senior_wage: median_senior_wage(game, team_id),
             });
         }
         self.club.as_ref().expect("just set")
@@ -741,6 +762,27 @@ impl SigningContext {
     /// The club has a new player: what was counted is out of date.
     fn club_changed(&mut self) {
         self.club = None;
+        self.squad = None;
+    }
+
+    /// The squad of `team_id` as the model reads it today, found once per club between changes.
+    fn modelled_squad(
+        &mut self,
+        game: &Game,
+        team_id: &str,
+    ) -> Option<crate::squad_intelligence::ClubSquad> {
+        if let Some((club, squad)) = &self.squad
+            && club == team_id
+        {
+            return squad.clone();
+        }
+        let squad = crate::squad_intelligence::ClubSquad::of(
+            game,
+            team_id,
+            crate::squad_intelligence::appetite::Appetite::NEUTRAL,
+        );
+        self.squad = Some((team_id.to_string(), squad.clone()));
+        squad
     }
 
     fn home_matches(&mut self, game: &Game, team_id: &str) -> i64 {
@@ -782,17 +824,44 @@ pub(crate) fn bring_in_one(
     sign_free_agent_for(game, team, group, required, None, context)
 }
 
+/// The bar a signing made to improve a squad has to clear.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum BetterThan {
+    /// Rated above this today: the cover the club has behind its starters.
+    Today(u8),
+    /// Expected to be rated above this a year from now (`squad_outlook`): a successor, who may
+    /// be no better than the cover today.
+    InAYear(u8),
+}
+
+impl BetterThan {
+    fn is_cleared_by(self, player: &Player, current_date: chrono::NaiveDate) -> bool {
+        match self {
+            BetterThan::Today(ovr) => player.ovr > ovr,
+            BetterThan::InAYear(ovr) => {
+                crate::squad_outlook::expected_ovr_for(player, current_date) > ovr
+            }
+        }
+    }
+}
+
 /// Sign a free agent of `group` for `team` if one passes the club's tests ([`best_signing`]),
-/// rated above `better_than` when that is given: the signing of a club that wants to improve a
-/// squad that already meets the floor.
+/// who clears `better_than` when that is given: the signing of a club that wants to improve a
+/// squad that already meets the floor, or to plan its succession.
 pub(crate) fn sign_free_agent_for(
     game: &mut Game,
     team: &Team,
     group: &Position,
     required: bool,
-    better_than: Option<u8>,
+    better_than: Option<BetterThan>,
     context: &mut SigningContext,
 ) -> Option<BroughtIn> {
+    // A club with no senior place left cannot sign, however badly it wants the player: the places
+    // promised to purchases agreed and waiting to register are its players too. Checked before the
+    // market scan so a full club does not pay for it.
+    if crate::transfers::signing_place_refusal(game, &team.id, "").is_some() {
+        return None;
+    }
     let current_date = game.clock.current_date.date_naive();
     let (index, wage) = best_signing(
         game,
@@ -837,7 +906,7 @@ fn best_signing(
     team: &Team,
     group: &Position,
     required: bool,
-    better_than: Option<u8>,
+    better_than: Option<BetterThan>,
     current_date: chrono::NaiveDate,
     context: &mut SigningContext,
 ) -> Option<(usize, u32)> {
@@ -846,9 +915,9 @@ fn best_signing(
     // Neither changes while candidates are turned down: work them out once. Judging each of up to
     // thousands of free agents with a scan of every player was the daily cost of a world where a
     // club cannot find a goalkeeper.
-    let (current_bill, seniors, median_wage) = {
+    let (current_bill, seniors) = {
         let facts = context.club_facts(game, &team.id);
-        (facts.weekly_bill, facts.seniors, facts.median_senior_wage)
+        (facts.weekly_bill, facts.seniors)
     };
     // A free agent is not on the bill, so signing him is judged as a purchase is: his whole wage
     // is new to it.
@@ -858,24 +927,47 @@ fn best_signing(
         current_bill,
         context.home_matches(game, &team.id),
     );
-    let room = (team.wage_budget - current_bill).max(0);
-    let pay_scale = median_wage * 3 / 2;
-    let affordable_wage = room.max(pay_scale);
+    // What the club can carry: the room under its wage ceiling. It bids that, if the player would
+    // not take it as an insult (`free_agent_bid`), instead of passing over everyone who asks more.
+    let room = books.room_for_wages();
     // A club short of the floor now needs him whatever it was asked.
     let required = required || !shortfall_of(seniors).is_empty();
+    // A signing made to improve the squad has to add something to the side the club fields
+    // (Squad Intelligence), not merely be rated above the cover behind the starters: a keeper better
+    // than the third keeper adds nothing. The floor's signings are not asked this.
+    let squad = if required || better_than.is_none() {
+        None
+    } else {
+        context.modelled_squad(game, &team.id)
+    };
 
     let mut cheapest_allowed: Option<(usize, u32)> = None;
     for &(index, least_he_asks) in context.free_agents(game, group) {
         let player = &game.players[index];
-        if player.team_id.is_some() || better_than.is_some_and(|ovr| player.ovr <= ovr) {
+        if player.team_id.is_some()
+            || better_than.is_some_and(|bar| !bar.is_cleared_by(player, current_date))
+        {
             continue;
         }
-        // A club that has a choice passes over, unjudged, a player who cannot ask less than it can
-        // afford.
-        if !required && i64::from(least_he_asks) > affordable_wage {
+        // A club that has a choice passes over, unjudged, a player it cannot bid enough for.
+        if !required && i64::from(crate::contracts::insulting_floor(least_he_asks)) > room {
             continue;
         }
-        let wage = crate::contracts::expected_wage(player, team, current_date);
+        if squad.as_ref().is_some_and(|squad| {
+            squad
+                .signing(player, 0.0)
+                .is_none_or(|marginal| marginal.gain < crate::squad_intelligence::impact::MIN_GAIN)
+        }) {
+            continue;
+        }
+        // And one who would not come: an elite free agent does not drop to a far smaller club
+        // because its squad planning happened to look at him first. A club that must fill its
+        // floor takes who it can, as it always has.
+        if !required && crate::contracts::declines_on_standing(player, team, current_date) {
+            continue;
+        }
+        let ask = crate::contracts::expected_wage(player, team, current_date);
+        let wage = crate::contracts::free_agent_bid(ask, least_he_asks, room);
         if !wage_facts.purchase_verdict(team, player, wage).permits() {
             continue;
         }
@@ -883,10 +975,7 @@ fn best_signing(
         // to the policy's soft cap, is for the contracts it must make.
         let within_ambition =
             better_than.is_none() || current_bill + i64::from(wage) <= team.wage_budget;
-        if within_ambition
-            && i64::from(wage) <= affordable_wage
-            && books.can_add_wage(i64::from(wage))
-        {
+        if within_ambition && books.can_add_wage(i64::from(wage)) {
             return Some((index, wage));
         }
         if required && cheapest_allowed.is_none_or(|(_, cheapest)| wage < cheapest) {
@@ -896,19 +985,35 @@ fn best_signing(
     cheapest_allowed
 }
 
-/// The median weekly wage of the club's registered seniors: the pay scale a newcomer is judged
-/// against. 0 for a club with none.
-fn median_senior_wage(game: &Game, team_id: &str) -> i64 {
-    let mut wages: Vec<i64> = game
+/// Promotes the club's own academy player of `group` who is expected to be rated above `bar` a
+/// year from now — the best of them by that expectation, then the oldest, then the lowest id —
+/// and returns his id. The succession a club builds at home costs no fee and no free-agent wage.
+pub(crate) fn promote_successor(
+    game: &mut Game,
+    team_id: &str,
+    group: &Position,
+    bar: u8,
+    context: &mut SigningContext,
+) -> Option<String> {
+    let current_date = game.clock.current_date.date_naive();
+    let index = game
         .players
         .iter()
-        .filter(|player| {
-            player.team_id.as_deref() == Some(team_id) && player.squad_role == SquadRole::Senior
+        .enumerate()
+        .filter(|(_, player)| player.team_id.as_deref() == Some(team_id))
+        .filter(|(_, player)| player.squad_role == SquadRole::Youth)
+        .filter(|(_, player)| player.position.to_group_position() == *group)
+        .filter(|(_, player)| BetterThan::InAYear(bar).is_cleared_by(player, current_date))
+        .max_by(|(_, left), (_, right)| {
+            crate::squad_outlook::expected_ovr_for(left, current_date)
+                .cmp(&crate::squad_outlook::expected_ovr_for(right, current_date))
+                .then_with(|| right.date_of_birth.cmp(&left.date_of_birth))
+                .then_with(|| right.id.cmp(&left.id))
         })
-        .map(|player| i64::from(player.wage()))
-        .collect();
-    wages.sort_unstable();
-    wages.get(wages.len() / 2).copied().unwrap_or(0)
+        .map(|(index, _)| index)?;
+    game.players[index].squad_role = SquadRole::Senior;
+    context.club_changed();
+    Some(game.players[index].id.clone())
 }
 
 /// The club's academy player of this group it would promote first: the best
@@ -1276,6 +1381,114 @@ mod tests {
         game.teams[0].wage_budget = 10_000;
         game.teams[0].finance = 5_000_000;
         game
+    }
+
+    /// Given a club with one senior place left and an agreed purchase waiting to register
+    /// When its squad planning looks for a free agent
+    /// Then it signs nobody: the place is promised to the deal, not to a free agent.
+    #[test]
+    fn a_club_with_a_promised_place_signs_no_free_agent() {
+        let mut game = club_with([6, 9, 9, 5]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        game.players.push(promised_purchase("promised", "club"));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, None);
+        assert_eq!(team_of(&game, "keeper"), None);
+    }
+
+    /// Given a club already at its 30-senior limit and no promise
+    /// When its squad planning looks for a free agent
+    /// Then it signs nobody: the list is full with or without a purchase promised to it.
+    #[test]
+    fn a_full_club_signs_no_free_agent() {
+        let mut game = club_with([6, 9, 9, 6]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, None);
+        assert_eq!(team_of(&game, "keeper"), None);
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, &team.id).registered_seniors,
+            30
+        );
+    }
+
+    /// Given the same club with one senior place left and no promise
+    /// When its squad planning looks for a free agent
+    /// Then it signs him into the last place.
+    #[test]
+    fn a_club_with_a_free_place_signs_a_free_agent() {
+        let mut game = club_with([6, 9, 9, 5]);
+        for player in game.players.iter_mut() {
+            player.stage_wage(1_000);
+        }
+        game.teams[0].wage_budget = 100_000;
+        game.teams[0].finance = 5_000_000;
+        game.players
+            .push(free_agent_asking("keeper", Position::Goalkeeper, 60, 1_000));
+        let team = game.teams[0].clone();
+
+        let brought = bring_in_one(
+            &mut game,
+            &team,
+            &Position::Goalkeeper,
+            false,
+            &mut SigningContext::default(),
+        );
+
+        assert_eq!(brought, Some(BroughtIn::Signed("keeper".to_string())));
+    }
+
+    /// A player at another club whose transfer to `buyer_id` is agreed and waits to register.
+    fn promised_purchase(id: &str, buyer_id: &str) -> Player {
+        let mut promised = player(id, Some("elsewhere"), Position::Midfielder);
+        promised
+            .transfer_offers
+            .push(domain::player::TransferOffer {
+                id: format!("offer-{id}"),
+                from_team_id: buyer_id.to_string(),
+                fee: 1_000_000,
+                wage_offered: 0,
+                last_manager_fee: None,
+                negotiation_round: 1,
+                suggested_counter_fee: None,
+                status: domain::player::TransferOfferStatus::PendingRegistration,
+                date: "2026-08-01".to_string(),
+                registration_date: Some("2027-01-01".to_string()),
+                closed_on: None,
+                registration_failure_reason: None,
+                terms: Default::default(),
+            });
+        promised
     }
 
     /// Given a club that pays 1 000 a week with a little room under its budget, a star asking 17 000
@@ -1793,6 +2006,45 @@ mod tests {
         assert!(!repair_squads_on_load(&mut matchday), "nothing was changed");
         assert!(matchday.messages.is_empty());
         assert!(!squad_shortfall(&matchday, "club").is_empty());
+    }
+
+    /// Given a managed club short of its squad floor after rollover
+    /// When the rollover warning is emitted before loading the same state
+    /// Then load repair does not add a second warning or change the squad.
+    #[test]
+    fn a_rollover_warning_is_not_repeated_on_load() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        warn_user_after_rollover(&mut game);
+        assert_eq!(game.messages.len(), 1);
+        let players_before = game.players.len();
+        assert!(!repair_squads_on_load(&mut game));
+        assert_eq!(game.messages.len(), 1);
+        assert_eq!(game.players.len(), players_before);
+    }
+
+    /// Given a managed club short of its squad floor and playing today
+    /// When the rollover warning is checked
+    /// Then it waits for the matchday handling instead of sending an early warning.
+    #[test]
+    fn a_rollover_warning_waits_when_the_club_plays_today() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        with_fixture_on(&mut game, "2026-08-01");
+        warn_user_after_rollover(&mut game);
+        assert!(game.messages.is_empty());
+    }
+
+    /// Given a short managed squad whose match today has already finished
+    /// When the rollover warning is checked
+    /// Then the manager receives the warning rather than waiting for a past match.
+    #[test]
+    fn a_finished_match_does_not_suppress_a_rollover_warning() {
+        let mut game = users_club_with([1, 5, 5, 4]);
+        with_fixture_on(&mut game, "2026-08-01");
+        game.league.as_mut().unwrap().fixtures[0].status = domain::league::FixtureStatus::Completed;
+
+        warn_user_after_rollover(&mut game);
+
+        assert_eq!(game.messages.len(), 1);
     }
 
     /// Given a save whose only short club is the player's, already warned,

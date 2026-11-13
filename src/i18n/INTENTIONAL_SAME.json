@@ -32,6 +32,7 @@
     "apfmWorld.demo.badge"
   ],
   "de": [
+    "globalMarket.sort.name",
     "match.formationFit",
     "nations.eng",
     "nations.wal",
@@ -143,9 +144,13 @@
     "staff.posts.Scout",
     "staff.posts.Analyst",
     "staff.delegation.title",
-    "staff.delegation.duties.Training"
+    "staff.delegation.duties.Training",
+    "match.replayStats.fouls"
   ],
   "fr": [
+    "globalMarket.club",
+    "globalMarket.nationPlaceholder",
+    "globalMarket.sort.club",
     "match.formationFit",
     "nations.pt",
     "nations.ua",
@@ -268,9 +273,16 @@
     "packageBuild.patches",
     "staff.mgmt.vacant",
     "staff.assistant.severity.2",
-    "staff.assistant.severity.3"
+    "staff.assistant.severity.3",
+    "match.replayFeed.corner",
+    "match.replayStats.possession",
+    "match.replayStats.corners",
+    "staff.delegation.mode.approval",
+    "staff.delegation.mode.full"
   ],
   "it": [
+    "globalMarket.club",
+    "globalMarket.sort.club",
     "nations.ru",
     "nations.sn",
     "nations.gh",
@@ -340,6 +352,8 @@
     "teamSelect.regionLabels.africa"
   ],
   "es": [
+    "globalMarket.club",
+    "globalMarket.sort.club",
     "nations.pt",
     "nations.cn",
     "nations.sn",
@@ -399,7 +413,9 @@
     "worldEditor.staffClub",
     "worldEditor.staffSpecialization.Fitness",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual",
+    "staff.delegation.mode.full"
   ],
   "pt-BR": [
     "nations.pt",
@@ -444,7 +460,9 @@
     "squad.kitPatterns.Diagonal",
     "packageBuild.patches",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual",
+    "staff.delegation.mode.full"
   ],
   "pt": [
     "nations.pt",
@@ -487,7 +505,9 @@
     "squad.kitPatterns.Diagonal",
     "packageBuild.patches",
     "tournaments.history.final",
-    "tournaments.history.playoffs"
+    "tournaments.history.playoffs",
+    "staff.delegation.mode.manual",
+    "staff.delegation.mode.full"
   ],
   "ru": ["dashboard.recapTransferLine"],
   "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
@@ -730,6 +750,9 @@
     "youthAcademy.pos",
     "youthAcademy.traits",
     "tournaments.history.runnerUp",
-    "tournaments.history.final"
+    "tournaments.history.final",
+    "staff.delegation.mode.manual",
+    "match.replayFeed.kickoff",
+    "match.replayFeed.offside"
   ]
 }

@@ -15,6 +15,7 @@ use crate::repositories::{
     edition_archive_repo, journal_repo, league_repo, manager_repo, message_repo, meta_repo,
     national_team_repo, news_repo, objective_repo, player_repo, retired_manager_repo,
     retired_player_repo, scouting_repo, staff_repo, stats_repo, team_repo,
+    transfer_obligation_repo,
 };
 
 pub struct GamePersistenceWriter;
@@ -48,12 +49,27 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
+        Self::write_game_stats_and_match(db, game, stats, save_id, save_name, None)
+    }
+
+    /// The career, its stats and the interactive match in progress (or none), in one transaction:
+    /// a save never holds a finished fixture next to the checkpoint of the match that finished it.
+    pub fn write_game_stats_and_match(
+        db: &GameDatabase,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        save_name: &str,
+        interactive_match: Option<&crate::interactive_match_repo::StoredMatch>,
+    ) -> Result<(), String> {
         let transaction = db
             .conn()
             .unchecked_transaction()
             .map_err(|_| game_persistence_write_error())?;
         write_game_to_connection(&transaction, game, save_id, save_name)?;
         stats_repo::persist_stats_state(&transaction, stats)?;
+        crate::interactive_match_repo::replace(&transaction, interactive_match)
+            .map_err(|_| game_persistence_write_error())?;
         transaction
             .commit()
             .map_err(|_| game_persistence_write_error())?;
@@ -119,6 +135,7 @@ fn write_game_to_connection(
             seed: game.seed as i64,
             legacy_world_cup_draw: game.legacy_world_cup_draw,
             legacy_tactics_imported: game.legacy_tactics_imported,
+            days_since_last_job_offer: game.days_since_last_job_offer,
             available_staff_market_last_activity_date: game
                 .available_staff_market_last_activity_date
                 .clone(),
@@ -162,6 +179,7 @@ fn write_game_to_connection(
     edition_archive_repo::persist_new_editions(conn, &game.edition_archive)?;
     custom_tactic_repo::replace_custom_tactics(conn, &game.custom_tactics)?;
     delegation_repo::replace_delegation(conn, &game.delegation)?;
+    transfer_obligation_repo::replace_transfer_obligations(conn, &game.transfer_obligations)?;
     retired_player_repo::archive_retired_players(conn, &game.retired_players)?;
     retired_manager_repo::archive_retired_managers(conn, &game.retired_managers)?;
     national_team_repo::replace_national_teams(conn, &game.national_teams)?;
@@ -294,6 +312,7 @@ impl GamePersistenceReader {
         let edition_archive = edition_archive_repo::load_editions(conn)?;
         let custom_tactics = custom_tactic_repo::load_custom_tactics(conn)?;
         let delegation = delegation_repo::load_delegation(conn)?;
+        let transfer_obligations = transfer_obligation_repo::load_transfer_obligations(conn)?;
         let retired_players = retired_player_repo::load_retired_players(conn)?;
         let retired_managers = retired_manager_repo::load_retired_managers(conn)?;
         let national_teams = national_team_repo::load_national_teams(conn)?;
@@ -382,7 +401,7 @@ impl GamePersistenceReader {
             scouted_players,
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
-            days_since_last_job_offer: None,
+            days_since_last_job_offer: meta.days_since_last_job_offer,
             available_staff_market_last_activity_date: meta
                 .available_staff_market_last_activity_date,
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
@@ -391,6 +410,7 @@ impl GamePersistenceReader {
             delegation,
             retired_players,
             calendar_fingerprint: None,
+            calendar_repair_pending: false,
             day_start: None,
             retired_managers,
             archived_messages,
@@ -417,10 +437,12 @@ impl GamePersistenceReader {
                 serde_json::from_str(&meta.package_lockfile_json)
                     .map_err(|_| "be.error.gamePersistence.loadFailed".to_string())?
             },
+            transfer_obligations,
             cash_journal: domain::finance::CashJournal::from_vec(journal_repo::load_cash_journal(
                 conn,
             )?),
             cash_journal_dirty_ids: Vec::new(),
+            cash_journal_fold_pending: None,
             squad_floor_top_ups: Vec::new(),
         };
         game.promote_legacy_league();
@@ -449,6 +471,7 @@ impl GamePersistenceReader {
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use domain::player::Position;
     use domain::world_history::{
         HistoricalManagerAwardWinner, HistoricalPlayerAwardWinner, HistoricalSeasonAwardsRecord,
         WorldHistoryArchive,
@@ -543,6 +566,7 @@ mod tests {
             seed: 0,
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
+            days_since_last_job_offer: None,
         }
     }
 
@@ -965,6 +989,91 @@ mod tests {
         let result = parse_youth_objective("SuperProspect");
 
         assert_eq!(result.unwrap_err(), "be.error.gamePersistence.loadFailed");
+    }
+
+    /// Given an external free agent promoted into the career,
+    /// When the game is saved and read back,
+    /// Then he is still exactly one player under his source identity, with his club, contract and
+    /// movement entry, and promoting the same source record again is refused.
+    #[test]
+    fn a_promoted_external_player_survives_a_save_and_load() {
+        use domain::player::{Footedness, PlayerAttributes};
+        use ofm_core::external_registry::{ExternalPlayer, recruit_external_player};
+
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut game = sample_game_with_clock(2026, 1);
+        game.manager.hire("team-1".to_string());
+        game.teams[0].finance = 5_000_000;
+        game.teams[0].wage_budget = 500_000;
+        game.season_context.transfer_window.status = domain::season::TransferWindowStatus::Open;
+        let external = ExternalPlayer {
+            id: "fm-p-77".to_string(),
+            match_name: "E. Free".to_string(),
+            full_name: "External Free".to_string(),
+            date_of_birth: "2000-01-01".to_string(),
+            nationality: "GB".to_string(),
+            position: Position::Striker,
+            natural_position: Position::Striker,
+            alternate_positions: vec![Position::RightWinger],
+            footedness: Footedness::Right,
+            weak_foot: 3,
+            attributes: PlayerAttributes {
+                pace: 70,
+                stamina: 70,
+                strength: 70,
+                agility: 70,
+                passing: 70,
+                shooting: 70,
+                tackling: 60,
+                dribbling: 70,
+                defending: 55,
+                positioning: 68,
+                vision: 70,
+                decisions: 70,
+                composure: 68,
+                aggression: 55,
+                teamwork: 70,
+                leadership: 60,
+                handling: 20,
+                reflexes: 20,
+                aerial: 55,
+            },
+            ovr: 70,
+            potential: 80,
+            market_value: 2_000_000,
+            club: None,
+        };
+
+        let outcome = recruit_external_player(&mut game, &external).expect("promoted");
+        assert_eq!(outcome.fee, 0);
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+        let mut loaded = GamePersistenceReader::read_game(&db).unwrap();
+
+        let stored: Vec<_> = loaded
+            .players
+            .iter()
+            .filter(|player| player.id == "fm-p-77")
+            .collect();
+        assert_eq!(stored.len(), 1, "one source identity, one player");
+        let player = stored[0];
+        assert_eq!(player.full_name, "External Free");
+        assert_eq!(player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(player.natural_position, Position::Striker);
+        assert_eq!(player.alternate_positions, vec![Position::RightWinger]);
+        assert_eq!(
+            player.contract_club_id(),
+            Some("team-1"),
+            "contract survives the round trip"
+        );
+        assert!(player.movement_history.iter().any(|entry| {
+            entry.kind == domain::player::PlayerMovementKind::FreeAgentSigning
+                && entry.to_team_id.as_deref() == Some("team-1")
+        }));
+
+        assert_eq!(
+            recruit_external_player(&mut loaded, &external).unwrap_err(),
+            "be.error.registry.playerAlreadyInWorld"
+        );
     }
 }
 

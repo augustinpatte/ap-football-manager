@@ -1054,3 +1054,32 @@ fn penalties_occur_at_realistic_rate() {
         "Expected penalties/game in [0.15, 0.70], got {avg:.3}"
     );
 }
+
+/// Goals a match from the one-shot engine, over `matches` seeded matches between teams of one skill.
+fn one_shot_goals_a_match(skill: u8, matches: u64) -> f64 {
+    let home = make_team("home", "Home", skill, PlayStyle::Balanced);
+    let away = make_team("away", "Away", skill, PlayStyle::Balanced);
+    let mut goals = 0.0;
+    for seed in 0..matches {
+        let mut rng = seeded_rng(5_000 + seed);
+        let report = simulate_with_rng(&home, &away, &MatchConfig::default(), &mut rng);
+        goals += f64::from(report.home_goals) + f64::from(report.away_goals);
+    }
+    goals / matches as f64
+}
+
+/// Given the one-shot engine and two worlds that differ only in how good every player is
+/// When the same number of matches are played in each
+/// Then they have the same number of goals: its shot accuracy is measured against the defence
+///   as the live engine's is, not from a fixed 50.
+#[test]
+fn the_one_shot_engine_does_not_score_more_in_a_world_of_better_players() {
+    let modest = one_shot_goals_a_match(60, 400);
+    let strong = one_shot_goals_a_match(80, 400);
+
+    let ratio = strong / modest;
+    assert!(
+        (0.9..=1.1).contains(&ratio),
+        "{strong:.2} goals a match at 80 against {modest:.2} at 60 (ratio {ratio:.2})"
+    );
+}

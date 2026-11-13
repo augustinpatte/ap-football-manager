@@ -306,6 +306,7 @@ mod tests {
             team.history = vec![domain::team::TeamSeasonRecord {
                 season: 2031,
                 league_position: (index % 7 + 1) as u32,
+                tier: None,
                 played: 38,
                 won: 10 + index as u32 % 5,
                 drawn: 8,

@@ -19,6 +19,8 @@ export interface AppSettings {
   sidebar_behaviour: "normal" | "hover" | "click" | "icons";
   /** Whether the player folded the sidebar to its icon rail. */
   sidebar_collapsed: boolean;
+  /** Squad table columns the player hid, by column id; none by default, so new columns show. */
+  squad_hidden_columns: string[];
 }
 
 export interface CurrencyDefinition {
@@ -48,6 +50,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sidebar_width: "standard",
   sidebar_behaviour: "normal",
   sidebar_collapsed: false,
+  squad_hidden_columns: [],
 };
 
 const DEFAULT_CURRENCY: CurrencyDefinition = {

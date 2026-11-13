@@ -1,3 +1,4 @@
+import { getResumableMatch, takeMatchRestoreNotice } from "../services/interactiveMatchService";
 import { routeForActiveCareer } from "../services/careerService";
 import { useManagerDobError } from "../hooks/useManagerDobError";
 import { Suspense, lazy, useEffect, useState } from "react";
@@ -483,6 +484,23 @@ export default function MainMenu() {
       }
       setGameState(activeGame);
       setGameActive(true, managerName);
+      const restoreNotice = await takeMatchRestoreNotice().catch(() => null);
+      if (restoreNotice) {
+        await showError(t("errors.title"), resolveBackendError(restoreNotice));
+      }
+      const resumable = await getResumableMatch().catch(() => null);
+      if (resumable) {
+        navigate("/match", {
+          state: {
+            fixtureIndex: resumable.fixture_index,
+            competitionId: resumable.competition_id,
+            fixtureId: resumable.fixture_id,
+            mode: "live",
+            resume: true,
+          },
+        });
+        return;
+      }
       navigate(await routeForActiveCareer());
     } catch (error) {
       console.error("Failed to load game:", error);

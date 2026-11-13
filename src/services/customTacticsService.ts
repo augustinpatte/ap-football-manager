@@ -1,4 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { GameStateData } from "../store/gameStore";
+import type { TacticsPhaseSettings } from "../store/types";
 
 /** A tactic the player saved, as the save keeps it (camelCase on the wire). */
 export interface CustomTactic {
@@ -7,6 +9,8 @@ export interface CustomTactic {
   description: string;
   formation: string;
   playStyle: string;
+  outOfPossessionFormation?: string;
+  tacticsPhase?: TacticsPhaseSettings | null;
   sourcePresetName?: string | null;
 }
 
@@ -33,6 +37,11 @@ export async function saveCustomTactic(
 /** Removes the tactic with `id`; returns the list that is left. */
 export async function deleteCustomTactic(id: string, careerToken: number): Promise<CustomTactic[]> {
   return invoke<CustomTactic[]>("delete_custom_tactic", { id, careerToken });
+}
+
+/** Applies a saved tactic's formation, defensive shape, style and instruction blueprint atomically. */
+export async function applyCustomTactic(id: string): Promise<GameStateData> {
+  return invoke<GameStateData>("apply_custom_tactic", { id });
 }
 
 /**

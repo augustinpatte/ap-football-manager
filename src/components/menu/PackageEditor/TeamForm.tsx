@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CheckCircle, ImagePlus, Loader2, X } from "lucide-react";
 import { LabeledInput, LabeledSelect, labelClass } from "./primitives";
@@ -46,6 +46,7 @@ export function TeamForm({
   onAssetError,
 }: TeamFormProps) {
   const { t, i18n } = useTranslation();
+  const fieldIdPrefix = useId();
   const [idAutoMode, setIdAutoMode] = useState(editingTeamIndex === null && !editingTeam.id);
   const {
     dataUrl: logoDataUrl,
@@ -142,7 +143,7 @@ export function TeamForm({
 
           {projectDir && (
             <div className="flex flex-col gap-1">
-              <label className={labelClass}>{t("worldEditor.teamLogo")}</label>
+              <span className={labelClass}>{t("worldEditor.teamLogo")}</span>
               <div className="flex items-center gap-3">
                 {logoDataUrl ? (
                   <img
@@ -221,7 +222,10 @@ export function TeamForm({
 
           <div className="flex gap-3">
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              <label
+                htmlFor={`${fieldIdPrefix}-primary-color`}
+                className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
+              >
                 {t("worldEditor.teamPrimaryColor")}
               </label>
               <div className="flex items-center gap-2">
@@ -238,6 +242,7 @@ export function TeamForm({
                   className="w-9 h-9 rounded-lg border border-gray-200 dark:border-navy-600 cursor-pointer p-0.5 bg-white dark:bg-navy-700 flex-shrink-0"
                 />
                 <input
+                  id={`${fieldIdPrefix}-primary-color`}
                   type="text"
                   value={editingTeam.colors.primary}
                   onChange={(e) =>
@@ -249,7 +254,10 @@ export function TeamForm({
               </div>
             </div>
             <div className="flex flex-col gap-1 flex-1">
-              <label className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              <label
+                htmlFor={`${fieldIdPrefix}-secondary-color`}
+                className="text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
+              >
                 {t("worldEditor.teamSecondaryColor")}
               </label>
               <div className="flex items-center gap-2">
@@ -266,6 +274,7 @@ export function TeamForm({
                   className="w-9 h-9 rounded-lg border border-gray-200 dark:border-navy-600 cursor-pointer p-0.5 bg-white dark:bg-navy-700 flex-shrink-0"
                 />
                 <input
+                  id={`${fieldIdPrefix}-secondary-color`}
                   type="text"
                   value={editingTeam.colors.secondary}
                   onChange={(e) =>
@@ -280,7 +289,7 @@ export function TeamForm({
 
           {/* Kit pattern selector */}
           <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>{t("worldEditor.teamKitPattern")}</label>
+            <span className={labelClass}>{t("worldEditor.teamKitPattern")}</span>
             <div className="flex gap-2 flex-wrap">
               {KIT_PATTERNS.map((pattern) => {
                 const isSelected = (editingTeam.kitPattern ?? "Solid") === pattern;

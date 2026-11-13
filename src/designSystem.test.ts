@@ -16,6 +16,11 @@ const FINISHED_FOLDERS = [
   "./components/dashboard/DashboardSidebar.tsx",
   "./components/dashboard/DashboardWorkspaceContent.tsx",
   "./pages/Dashboard.tsx",
+  "./components/staff/",
+  // The Global Market screen and the model it reads, finished with I2.2's UX pass.
+  "./components/transfers/GlobalMarket",
+  "./components/transfers/globalMarketModel",
+  "./components/transfers/useGlobalMarket",
 ];
 
 /**

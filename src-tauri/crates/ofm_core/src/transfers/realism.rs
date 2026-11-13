@@ -486,7 +486,7 @@ pub(crate) fn foreign_visibility(value: u64) -> f64 {
 /// A buyer's ranking of a target it could sign: the club's own interest in him, plus what he adds
 /// to the squad, weighted by geography.
 pub(crate) fn target_rank(interest_score: i32, improvement: i32, affinity: f64) -> f64 {
-    (f64::from(interest_score) + 4.0 * f64::from(improvement.clamp(0, 15))) * affinity
+    f64::from(interest_score) * affinity + 4.0 * f64::from(improvement.clamp(0, 15))
 }
 
 /// Whether a club with no hole in its squad goes shopping today. In the first weeks of the window
@@ -508,7 +508,7 @@ pub(crate) fn whole_market_is_open(phase: WindowPhase) -> bool {
 /// A foreign player worth less than this is not worth a trip across the border for a squad filler.
 pub(crate) const CROSS_BORDER_FILLER_VALUE: u64 = 500_000;
 /// The rating gain that does justify one.
-pub(crate) const CROSS_BORDER_MIN_GAIN: i32 = 4;
+pub(crate) const CROSS_BORDER_MIN_GAIN: i32 = 7;
 
 /// Whether a buyer would look abroad for this player: not a cheap squad filler, unless he is a
 /// clear upgrade or the buyer has nobody in the position at all. A home player is never refused here.
@@ -522,14 +522,6 @@ pub(crate) fn worth_the_border(
         || thin
         || value >= CROSS_BORDER_FILLER_VALUE
         || improvement >= CROSS_BORDER_MIN_GAIN
-}
-
-/// Rating gain a target would bring over the buyer's first cover in his group (the player he
-/// would replace on the bench or in the eleven); a group with no cover yet counts as a clear gain.
-pub(crate) fn improvement_over_cover(levels: &[u8], group: usize, ovr: u8) -> i32 {
-    levels
-        .get(STARTERS_PER_GROUP[group])
-        .map_or(10, |cover| i32::from(ovr) - i32::from(*cover))
 }
 
 /// Whether a group is below the depth the floor plus the planning margin ask for.
@@ -925,7 +917,9 @@ mod mission12_tests {
     fn a_cheap_foreign_filler_is_not_worth_the_border_but_an_upgrade_or_a_hole_is() {
         assert!(worth_the_border(true, 100_000, 0, false));
         assert!(!worth_the_border(false, 100_000, 1, false));
-        assert!(worth_the_border(false, 100_000, 4, false));
+        assert!(!worth_the_border(false, 100_000, 4, false));
+        assert!(!worth_the_border(false, 100_000, 6, false));
+        assert!(worth_the_border(false, 100_000, 7, false));
         assert!(worth_the_border(false, 100_000, 0, true));
         assert!(worth_the_border(false, 500_000, 0, false));
     }

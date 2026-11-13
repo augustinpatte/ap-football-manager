@@ -17,10 +17,11 @@ describe("readHarnessLanguage", () => {
 });
 
 describe("readHarnessPage", () => {
-  /** Given ?page=squad or ?page=home among other options, then that page is mounted. */
+  /** Given a page the harness can mount among other options, then that page is mounted. */
   it("reads a page the harness can mount", () => {
     expect(readHarnessPage("?theme=dark&page=squad")).toBe("squad");
     expect(readHarnessPage("?page=home")).toBe("home");
+    expect(readHarnessPage("?page=globalMarket")).toBe("globalMarket");
   });
 
   /** Given no page, or one the harness doesn't know, then the style guide itself renders. */

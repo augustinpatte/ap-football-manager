@@ -21,16 +21,17 @@ function getAlertButtonClassName(severity: DashboardAlert["severity"]): string {
   return `${ALERT_BASE} bg-info-tint text-info hover:border-info-solid`;
 }
 
-export default function DashboardAlerts({
-  alerts,
-  onNavigate,
-}: DashboardAlertsProps): JSX.Element | null {
-  if (alerts.length === 0) {
-    return null;
-  }
-
+/**
+ * The status region stays on the page when there is nothing to say: a screen reader announces what
+ * is added to a live region that already existed, not one that appears together with its content.
+ */
+export default function DashboardAlerts({ alerts, onNavigate }: DashboardAlertsProps): JSX.Element {
   return (
-    <div className="mb-4 flex flex-col gap-1.5">
+    <div
+      role="status"
+      aria-live="polite"
+      className={alerts.length > 0 ? "mb-4 flex flex-col gap-1.5" : undefined}
+    >
       {alerts.map((alert) => (
         <button
           type="button"
@@ -38,9 +39,9 @@ export default function DashboardAlerts({
           onClick={() => onNavigate(alert.tab)}
           className={getAlertButtonClassName(alert.severity)}
         >
-          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span className="flex-1 text-left">{alert.text}</span>
-          <ChevronRight className="h-4 w-4 shrink-0" />
+          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0" />
         </button>
       ))}
     </div>

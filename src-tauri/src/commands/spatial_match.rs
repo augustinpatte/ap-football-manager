@@ -75,7 +75,7 @@ pub fn simulate_spatial_match(
             )
         })
         .ok_or("be.error.noActiveGameSession")?
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| error.translation_key())?;
     let finalized =
         crate::application::live_match::finish_spatial_match(&state, prepared.report.clone())?;
     persist_replay(
@@ -110,7 +110,7 @@ pub fn prepare_spatial_replay(
             )
         })
         .ok_or("be.error.noActiveGameSession")?
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| error.translation_key())?;
     let replay_json = prepared.replay_json.clone();
     state.set_spatial_replay(prepared);
     Ok(SpatialReplayResponse { replay_json })
@@ -170,7 +170,7 @@ pub fn load_spatial_replay(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::persist_replay;
     use crate::{
         application::live_match::{finish_spatial_match, start_live_match_with_identity},
@@ -276,7 +276,7 @@ mod tests {
         )
     }
 
-    fn game_with_spatial_fixture() -> Game {
+    pub(crate) fn game_with_spatial_fixture() -> Game {
         let mut manager = Manager::new(
             "manager".into(),
             "Test".into(),

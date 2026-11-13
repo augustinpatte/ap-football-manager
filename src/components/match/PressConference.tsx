@@ -132,7 +132,7 @@ function generateQuestions(
       ? userTeam.players.find((p) => p.id === goalEvents[0].player_id)
       : userTeam.players[Math.floor(Math.random() * Math.min(userTeam.players.length, 5))];
   if (focusPlayer) {
-    const scored = goalEvents.some((e) => e.player_id === focusPlayer!.id);
+    const scored = goalEvents.some((e) => e.player_id === focusPlayer.id);
     const playerName = focusPlayer.name;
     questions.push({
       id: "player_focus",

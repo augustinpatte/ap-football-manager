@@ -5,16 +5,16 @@
 //! state, persistence, Tauri command, or match-engine side effect.
 //!
 //! The mapping is the provisional I1 matrix.  Direct OFM attributes are copied;
-//! documented proxies are calculated in memory only.  The four phase settings
-//! without an M12 v1 equivalent are retained as adaptation metadata rather than
-//! silently folded into another slider.
+//! documented proxies are calculated in memory only. Phase settings without a
+//! one-to-one M12 v1 dial make bounded changes to the closest existing input.
 
 use domain::{
     league::Fixture,
     player::{Footedness, Player, Position as OfmPosition},
     team::{
-        BuildUpStyle, DefensiveLine, PitchWidth, PlayStyle, PlayerRole, PressingIntensity,
-        TacticsPhaseSettings, Tempo,
+        BreakSpeed, BuildUpStyle, CounterPressDuration, DefensiveLine, DefensiveShape,
+        MarkingStyle, PitchWidth, PlayStyle, PlayerRole, PressingIntensity, TacticsPhaseSettings,
+        Tempo,
     },
 };
 use serde::Serialize;
@@ -108,8 +108,12 @@ pub struct SpatialTeam {
     pub id: String,
     pub name: String,
     pub formation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_formation: Option<String>,
     pub tactics: Tactics,
     pub lineup: Vec<LineupSlot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_possession_lineup: Option<Vec<LineupSlot>>,
     pub players: Vec<SpatialPlayer>,
     pub bench: Vec<String>,
     pub captain: String,
@@ -247,7 +251,6 @@ pub enum AdaptationError {
     PlayerOnBothTeams(String),
     TeamDoesNotMatchFixture { expected: String, found: String },
     PlayerMissingFromTeam { player_id: String, team_id: String },
-    DuplicateShirtNumber { team_id: String, number: u8 },
     InvalidCaptainOrTaker { team_id: String, player_id: String },
     NoGoalkeeper { team_id: String },
     RatingOutOfBounds { player_id: String },
@@ -326,13 +329,48 @@ pub fn adapt(selection: MatchSelection<'_>) -> Result<AdaptedMatch, AdaptationEr
     })
 }
 
+/// A bench longer than the engine accepts is the *available* squad, not a sheet: the best-covering
+/// twelve are named and the others are reported as left out (they stay in the squad). The match is
+/// never refused for having more fit players than places.
+fn limit_bench<'a>(
+    bench: Vec<&'a Player>,
+    team_id: &str,
+    defaults: &mut Vec<AppliedDefault>,
+) -> Vec<&'a Player> {
+    if bench.len() <= crate::matchday_bench::M12_MAX_BENCH {
+        return bench;
+    }
+    let mut ranked = bench;
+    crate::matchday_bench::rank_for_bench(&mut ranked);
+    let named =
+        crate::matchday_bench::select_matchday_bench(&ranked, crate::matchday_bench::M12_MAX_BENCH);
+    for left_out in ranked
+        .iter()
+        .filter(|player| !named.iter().any(|kept| kept.id == player.id))
+    {
+        defaults.push(AppliedDefault {
+            field: "bench",
+            subject_id: Some(left_out.id.clone()),
+            provenance: "matchday bench limited to the engine maximum; the player stays in the squad",
+            value: format!("omitted from the {team_id} bench"),
+        });
+    }
+    named
+}
+
 fn adapt_team(
-    selection: TeamSelection<'_>,
+    mut selection: TeamSelection<'_>,
     defaults: &mut Vec<AppliedDefault>,
 ) -> Result<SpatialTeam, AdaptationError> {
     let team = selection.team;
+    selection.bench = limit_bench(std::mem::take(&mut selection.bench), &team.id, defaults);
     validate_id("team", &team.id)?;
     let layout = formation_geometry(&team.formation)?;
+    let defensive_formation = (!team.out_of_possession_formation.trim().is_empty())
+        .then(|| team.out_of_possession_formation.trim().to_string());
+    let defensive_layout = defensive_formation
+        .as_deref()
+        .and_then(|formation| formation_geometry(formation).ok());
     if selection.starters.len() != 11 {
         return Err(AdaptationError::WrongStarterCount {
             team_id: team.id.clone(),
@@ -352,7 +390,11 @@ fn adapt_team(
             return Err(AdaptationError::DuplicatePlayerId(player.id.clone()));
         }
     }
-    let shirts = shirt_numbers(&selection.starters, &selection.bench, &team.id, defaults)?;
+    let shirts = shirt_numbers(&selection.starters, &selection.bench, defaults);
+    // The eleven is slot-aligned to the five-zone engine's list of seats for the formation, which
+    // is not the order M12's geometry lists them in: seat each starter on the slot of his own seat.
+    let seats = crate::player_rating::formation_slots(&team.formation);
+    let layout = seat_in_geometry(&seats, layout);
     let mut lineup = Vec::with_capacity(11);
     for ((player, slot), shirt) in selection.starters.iter().zip(layout).zip(shirts.iter()) {
         let role = map_position(&slot.position)?;
@@ -368,6 +410,26 @@ fn adapt_team(
         });
         let _ = shirt;
     }
+    let out_of_possession_lineup = match defensive_layout {
+        Some(defensive_layout) => {
+            let mut defensive_lineup = Vec::with_capacity(defensive_layout.len());
+            let defensive_layout = seat_in_geometry(&seats, defensive_layout);
+            for (player, slot) in selection.starters.iter().zip(defensive_layout) {
+                defensive_lineup.push(LineupSlot {
+                    player: player.id.clone(),
+                    role: map_position(&slot.position)?,
+                    base: slot.base,
+                    instructions: role_instructions(
+                        team.player_roles
+                            .get(&player.id)
+                            .unwrap_or(&PlayerRole::Standard),
+                    ),
+                });
+            }
+            Some(defensive_lineup)
+        }
+        None => None,
+    };
     if lineup
         .iter()
         .filter(|slot| slot.role == SpatialPosition::Gk)
@@ -415,8 +477,10 @@ fn adapt_team(
         id: team.id.clone(),
         name: team.name.clone(),
         formation: team.formation.clone(),
+        out_of_possession_formation: defensive_formation,
         tactics: tactics(&team.play_style, &team.tactics_phase),
         lineup,
+        out_of_possession_lineup,
         players,
         bench: selection.bench.iter().map(|p| p.id.clone()).collect(),
         captain: choose(&team.match_roles.captain, auto_captain)?,
@@ -445,6 +509,9 @@ fn adapt_player(
     }
     let natural_position = map_position(&player.natural_position)?;
     let a = &player.attributes;
+    // A natural goalkeeper on the bench must be a goalkeeper to the engine too: M12 lets only a
+    // player with goalkeeping attributes replace an injured or dismissed keeper.
+    let is_goalkeeper = is_goalkeeper || natural_position == SpatialPosition::Gk;
     let goalkeeping = if is_goalkeeper {
         defaults.push(AppliedDefault {
             field: "goalkeeping.one_on_one",
@@ -569,39 +636,124 @@ fn spatial_seed(game_seed: u64, fixture_id: &str) -> u64 {
     stable_hash(fixture_id.as_bytes(), game_seed) % (MAX_SEED + 1)
 }
 
+/// One shirt per player, starters first.
+///
+/// Numbers the game assigned are honoured first, and only then are free numbers handed out. The
+/// reverse order broke on real squads: a world imported without shirts gives a signing the lowest
+/// free number (1), and handing out defaults in squad order took that number for an earlier player
+/// before the signing was reached, so the whole match failed as a "duplicate shirt". A number held
+/// by two players is the game's data being wrong, not a reason to refuse the match: the first
+/// holder keeps it, the other is renumbered, and every number made up is reported in `defaults`.
 fn shirt_numbers(
     starters: &[&Player],
     bench: &[&Player],
-    team_id: &str,
     defaults: &mut Vec<AppliedDefault>,
-) -> Result<Vec<u8>, AdaptationError> {
+) -> Vec<u8> {
+    let squad: Vec<&Player> = starters.iter().chain(bench).copied().collect();
     let mut used = HashSet::new();
-    let mut next = 1_u8;
-    let mut result = Vec::new();
-    for player in starters.iter().chain(bench) {
-        let number = if let Some(number) = player.jersey_number {
-            number
-        } else {
-            while used.contains(&next) {
-                next = next.saturating_add(1);
+    let mut shirts: Vec<Option<u8>> = Vec::with_capacity(squad.len());
+    let mut duplicated = HashSet::new();
+    for (index, player) in squad.iter().enumerate() {
+        match player.jersey_number {
+            Some(number) if used.insert(number) => shirts.push(Some(number)),
+            Some(_) => {
+                duplicated.insert(index);
+                shirts.push(None);
             }
-            defaults.push(AppliedDefault {
-                field: "shirt_number",
-                subject_id: Some(player.id.clone()),
-                provenance: "OFM jersey_number missing",
-                value: format!("{next} (deterministic generated number)"),
-            });
-            next
-        };
-        if !used.insert(number) {
-            return Err(AdaptationError::DuplicateShirtNumber {
-                team_id: team_id.to_string(),
-                number,
-            });
+            None => shirts.push(None),
         }
-        result.push(number);
     }
-    Ok(result)
+    let mut next = 1_u8;
+    let mut result = Vec::with_capacity(squad.len());
+    for (index, (player, shirt)) in squad.iter().zip(shirts).enumerate() {
+        if let Some(number) = shirt {
+            result.push(number);
+            continue;
+        }
+        while used.contains(&next) {
+            next = next.saturating_add(1);
+        }
+        used.insert(next);
+        defaults.push(AppliedDefault {
+            field: "shirt_number",
+            subject_id: Some(player.id.clone()),
+            provenance: if duplicated.contains(&index) {
+                "OFM jersey_number held by another player of the squad"
+            } else {
+                "OFM jersey_number missing"
+            },
+            value: format!("{next} (deterministic generated number)"),
+        });
+        result.push(next);
+    }
+    result
+}
+
+/// How far across the pitch a seat sits, on the team frame's width (right touchline at 0): the
+/// flank a player of that position keeps to, or the middle for any other.
+fn seat_flank_y(seat: &OfmPosition) -> f32 {
+    match seat {
+        OfmPosition::RightBack
+        | OfmPosition::RightWingBack
+        | OfmPosition::RightMidfielder
+        | OfmPosition::RightWinger => 10.0,
+        OfmPosition::LeftBack
+        | OfmPosition::LeftWingBack
+        | OfmPosition::LeftMidfielder
+        | OfmPosition::LeftWinger => 58.0,
+        _ => 34.0,
+    }
+}
+
+/// `layout` reordered so that slot `i` is the one of the player picked for `seats[i]`.
+///
+/// A seat takes the slot of its own name; when the formation has none (a five-zone left midfielder
+/// where M12 lays out a left wing back) a flank seat takes the nearest slot on its own flank and a
+/// central one the nearest of its group to the middle.
+/// Exact matches go first, in layout order, so that a seat without a slot of its name can never
+/// take one that belongs to another. Deterministic for a given formation.
+fn seat_in_geometry(seats: &[OfmPosition], layout: Vec<GeometrySlot>) -> Vec<GeometrySlot> {
+    if seats.len() != layout.len() {
+        return layout;
+    }
+    let mut free: Vec<Option<GeometrySlot>> = layout.into_iter().map(Some).collect();
+    let mut seated: Vec<Option<GeometrySlot>> = vec![None; seats.len()];
+    for (index, seat) in seats.iter().enumerate() {
+        if let Some(slot) = free
+            .iter()
+            .position(|slot| slot.as_ref().is_some_and(|slot| slot.position == *seat))
+        {
+            seated[index] = free[slot].take();
+        }
+    }
+    let unseated: Vec<usize> = (0..seats.len()).filter(|i| seated[*i].is_none()).collect();
+    for index in unseated {
+        let seat = &seats[index];
+        let wanted_y = seat_flank_y(seat);
+        // A flank seat looks along its touchline, whatever line the formation draws it on.
+        let is_flank = (wanted_y - 34.0).abs() > f32::EPSILON;
+        let nearest = |same_group: bool| {
+            free.iter()
+                .enumerate()
+                .filter_map(|(at, slot)| slot.as_ref().map(|slot| (at, slot)))
+                .filter(|(_, slot)| {
+                    slot.position != OfmPosition::Goalkeeper
+                        && (!same_group
+                            || is_flank
+                            || slot.position.to_group_position() == seat.to_group_position())
+                })
+                .min_by(|(_, a), (_, b)| {
+                    (a.base.y - wanted_y)
+                        .abs()
+                        .total_cmp(&(b.base.y - wanted_y).abs())
+                })
+                .map(|(at, _)| at)
+        };
+        if let Some(at) = nearest(true).or_else(|| nearest(false)) {
+            seated[index] = free[at].take();
+        }
+    }
+    seated.into_iter().flatten().collect()
 }
 
 fn map_position(position: &OfmPosition) -> Result<SpatialPosition, AdaptationError> {
@@ -664,6 +816,27 @@ pub fn role_instructions(role: &PlayerRole) -> PlayerInstructions {
 }
 
 pub fn tactics(style: &PlayStyle, phase: &TacticsPhaseSettings) -> Tactics {
+    let bounded = |value: i16| value.clamp(0, 100) as u8;
+    let transition_pressing = match phase.counter_press_duration {
+        CounterPressDuration::None => -8,
+        CounterPressDuration::Short => 0,
+        CounterPressDuration::Long => 8,
+    };
+    let marking_pressing = match phase.marking_style {
+        MarkingStyle::Zonal => 0,
+        MarkingStyle::Mixed => 3,
+        MarkingStyle::ManToMan => 6,
+    };
+    let shape_width = match phase.defensive_shape {
+        DefensiveShape::Stretched => 8,
+        DefensiveShape::Normal => 0,
+        DefensiveShape::Compact => -8,
+    };
+    let break_speed = match phase.break_speed {
+        BreakSpeed::Slow => -10,
+        BreakSpeed::Medium => 0,
+        BreakSpeed::Fast => 10,
+    };
     Tactics {
         mentality: match style {
             PlayStyle::Defensive => 30,
@@ -673,61 +846,46 @@ pub fn tactics(style: &PlayStyle, phase: &TacticsPhaseSettings) -> Tactics {
             PlayStyle::HighPress => 60,
             PlayStyle::Attacking => 70,
         },
-        pressing: match phase.pressing_intensity {
-            PressingIntensity::Passive => 25,
-            PressingIntensity::Medium => 55,
-            PressingIntensity::Aggressive => 85,
-        },
+        pressing: bounded(
+            match phase.pressing_intensity {
+                PressingIntensity::Passive => 25,
+                PressingIntensity::Medium => 55,
+                PressingIntensity::Aggressive => 85,
+            } + transition_pressing
+                + marking_pressing,
+        ),
         line_height: match phase.defensive_line {
             DefensiveLine::VeryLow => 10,
             DefensiveLine::Low => 35,
             DefensiveLine::Medium => 60,
             DefensiveLine::High => 85,
         },
-        width: match phase.width {
-            PitchWidth::Narrow => 25,
-            PitchWidth::Normal => 50,
-            PitchWidth::Wide => 75,
-        },
-        tempo: match phase.tempo {
-            Tempo::Patient => 30,
-            Tempo::Direct => 70,
-        },
-        directness: match phase.build_up_style {
-            BuildUpStyle::Short => 25,
-            BuildUpStyle::Mixed => 50,
-            BuildUpStyle::Long => 75,
-        },
+        width: bounded(
+            match phase.width {
+                PitchWidth::Narrow => 25,
+                PitchWidth::Normal => 50,
+                PitchWidth::Wide => 75,
+            } + shape_width,
+        ),
+        tempo: bounded(
+            match phase.tempo {
+                Tempo::Patient => 30,
+                Tempo::Direct => 70,
+            } + break_speed,
+        ),
+        directness: bounded(
+            match phase.build_up_style {
+                BuildUpStyle::Short => 25,
+                BuildUpStyle::Mixed => 50,
+                BuildUpStyle::Long => 75,
+            } + break_speed,
+        ),
     }
 }
 
 fn unrepresented_tactics(selection: &MatchSelection<'_>) -> Vec<UnrepresentedTactic> {
-    [
-        (&selection.home.team.tactics_phase),
-        (&selection.away.team.tactics_phase),
-    ]
-    .into_iter()
-    .flat_map(|phase| {
-        [
-            UnrepresentedTactic {
-                setting: "defensive_shape",
-                value: format!("{:#?}", phase.defensive_shape),
-            },
-            UnrepresentedTactic {
-                setting: "marking_style",
-                value: format!("{:#?}", phase.marking_style),
-            },
-            UnrepresentedTactic {
-                setting: "counter_press_duration",
-                value: format!("{:#?}", phase.counter_press_duration),
-            },
-            UnrepresentedTactic {
-                setting: "break_speed",
-                value: format!("{:#?}", phase.break_speed),
-            },
-        ]
-    })
-    .collect()
+    let _ = selection;
+    Vec::new()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -900,10 +1058,13 @@ pub fn formation_geometry(formation: &str) -> Result<Vec<GeometrySlot>, Adaptati
         position: OfmPosition::Goalkeeper,
         base: Point { x: 5.0, y: 34.0 },
     }];
+    // The depths M12's reference 4-4-2 was calibrated with (defence 24-28 m, midfield 46-50 m, attack
+    // 70 m from the own goal line). A formation laid out shallower than the reference changes how
+    // much space the engine's block leaves behind it, so these are not cosmetic.
     let x_rows: Vec<f32> = if lines.len() == 3 {
-        vec![20.0, 40.0, 60.0]
+        vec![26.0, 48.0, 70.0]
     } else {
-        vec![20.0, 34.0, 50.0, 64.0]
+        vec![26.0, 40.0, 54.0, 70.0]
     };
     for ((count, row), x) in lines.iter().zip(positions).zip(x_rows) {
         for (index, position) in row.iter().enumerate().take(*count) {
@@ -918,12 +1079,15 @@ pub fn formation_geometry(formation: &str) -> Result<Vec<GeometrySlot>, Adaptati
     }
     Ok(slots)
 }
+/// Lateral position of `index` among `count` players of one line: evenly spaced about the pitch centre,
+/// at most 16 m apart, so a pair of strikers stands at y = 26 and 42 and only a line of five or more
+/// reaches the flanks (y = 8 and 60).
 fn spread_y(count: usize, index: usize) -> f32 {
     if count == 1 {
-        34.0
-    } else {
-        8.0 + 52.0 * index as f32 / (count - 1) as f32
+        return 34.0;
     }
+    let pitch = (52.0 / (count - 1) as f32).min(16.0);
+    34.0 + (index as f32 - (count - 1) as f32 / 2.0) * pitch
 }
 
 #[cfg(test)]
@@ -1044,6 +1208,65 @@ mod tests {
         assert_eq!(result.input.home.players[0].id, "p0");
         assert!(result.input.config.seed <= MAX_SEED);
     }
+
+    /// Given a bench that holds a natural goalkeeper and an outfield player,
+    /// When the match is adapted for M12,
+    /// Then the spare goalkeeper carries goalkeeping attributes (so the engine can bring him on
+    /// for an injured or dismissed keeper) and the outfield player does not.
+    #[test]
+    fn a_goalkeeper_on_the_bench_is_adapted_as_a_goalkeeper() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        hp.push(player("p12", Position::Goalkeeper, 60));
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        let attributes = |id: &str| {
+            result
+                .input
+                .home
+                .players
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.attributes.goalkeeping.is_some())
+        };
+        assert_eq!(attributes("p0"), Some(true), "the starting keeper");
+        assert_eq!(
+            attributes("p12"),
+            Some(true),
+            "the spare keeper on the bench"
+        );
+        assert_eq!(attributes("p11"), Some(false), "an outfield substitute");
+    }
+
+    /// Given a club with distinct possession and defensive formations
+    /// When its final XI is adapted for M12
+    /// Then both shapes retain the same player order and expose different anchors.
+    #[test]
+    fn the_adapter_sends_a_slot_aligned_defensive_shape_to_m12() {
+        let (fixture, mut home, away, hp, ap) = selection();
+        home.out_of_possession_formation = "5-3-2".into();
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap).unwrap();
+        let defensive_lineup = result.input.home.out_of_possession_lineup.as_ref().unwrap();
+
+        assert_eq!(
+            result.input.home.out_of_possession_formation.as_deref(),
+            Some("5-3-2")
+        );
+        assert_eq!(defensive_lineup.len(), 11);
+        assert_eq!(
+            defensive_lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>(),
+            result
+                .input
+                .home
+                .lineup
+                .iter()
+                .map(|slot| &slot.player)
+                .collect::<Vec<_>>()
+        );
+        assert_ne!(defensive_lineup[4].base, result.input.home.lineup[4].base);
+    }
     /// Given I1 proxy inputs, when attributes are adapted, then the documented rounded formula is used.
     #[test]
     fn every_direct_and_proxy_attribute_is_bounded_and_uses_the_i1_formula() {
@@ -1160,17 +1383,17 @@ mod tests {
             result.input.home.tactics,
             Tactics {
                 mentality: 50,
-                pressing: 85,
+                pressing: 99,
                 line_height: 85,
-                width: 75,
-                tempo: 30,
-                directness: 75
+                width: 67,
+                tempo: 40,
+                directness: 85
             }
         );
-        assert_eq!(result.metadata.unrepresented_tactics.len(), 8);
+        assert!(result.metadata.unrepresented_tactics.is_empty());
     }
-    /// Given every value of each tactical setting, when adapted, then all five
-    /// representable dials have their contractual value and four remain metadata.
+    /// Given every value of each tactical setting, when adapted, then every
+    /// setting changes a bounded M12 team-tactics input.
     #[test]
     fn every_tactical_setting_variant_is_covered() {
         let phase = TacticsPhaseSettings::default();
@@ -1208,9 +1431,9 @@ mod tests {
             assert_eq!(tactics(&PlayStyle::Balanced, &phase).line_height, expected);
         }
         for (value, expected) in [
-            (PressingIntensity::Passive, 25),
-            (PressingIntensity::Medium, 55),
-            (PressingIntensity::Aggressive, 85),
+            (PressingIntensity::Passive, 17),
+            (PressingIntensity::Medium, 47),
+            (PressingIntensity::Aggressive, 77),
         ] {
             let mut phase = phase.clone();
             phase.pressing_intensity = value;
@@ -1225,6 +1448,87 @@ mod tests {
             (PlayStyle::Attacking, 70),
         ] {
             assert_eq!(tactics(&style, &phase).mentality, expected);
+        }
+        for (value, expected) in [
+            (DefensiveShape::Stretched, 58),
+            (DefensiveShape::Normal, 50),
+            (DefensiveShape::Compact, 42),
+        ] {
+            let mut phase = phase.clone();
+            phase.defensive_shape = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).width, expected);
+        }
+        for (value, expected) in [
+            (MarkingStyle::Zonal, 47),
+            (MarkingStyle::Mixed, 50),
+            (MarkingStyle::ManToMan, 53),
+        ] {
+            let mut phase = phase.clone();
+            phase.marking_style = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).pressing, expected);
+        }
+        for (value, expected) in [
+            (CounterPressDuration::None, 47),
+            (CounterPressDuration::Short, 55),
+            (CounterPressDuration::Long, 63),
+        ] {
+            let mut phase = phase.clone();
+            phase.counter_press_duration = value;
+            assert_eq!(tactics(&PlayStyle::Balanced, &phase).pressing, expected);
+        }
+        for (value, expected) in [
+            (BreakSpeed::Slow, (60, 40)),
+            (BreakSpeed::Medium, (70, 50)),
+            (BreakSpeed::Fast, (80, 60)),
+        ] {
+            let mut phase = phase.clone();
+            phase.break_speed = value;
+            let projected = tactics(&PlayStyle::Balanced, &phase);
+            assert_eq!((projected.tempo, projected.directness), expected);
+        }
+    }
+
+    /// Given two contrasting saved tactical blueprints, when adapted for M12,
+    /// then their bounded team-tactics inputs are materially distinct.
+    #[test]
+    fn contrasting_preset_blueprints_produce_distinct_bounded_m12_inputs() {
+        let park_the_bus = TacticsPhaseSettings {
+            width: PitchWidth::Narrow,
+            defensive_line: DefensiveLine::VeryLow,
+            pressing_intensity: PressingIntensity::Passive,
+            defensive_shape: DefensiveShape::Compact,
+            ..TacticsPhaseSettings::default()
+        };
+        let fast_transition = TacticsPhaseSettings {
+            pressing_intensity: PressingIntensity::Aggressive,
+            counter_press_duration: CounterPressDuration::Short,
+            break_speed: BreakSpeed::Fast,
+            ..TacticsPhaseSettings::default()
+        };
+
+        let defensive = tactics(&PlayStyle::Defensive, &park_the_bus);
+        let transition = tactics(&PlayStyle::Counter, &fast_transition);
+
+        assert_ne!(defensive, transition);
+        assert!(defensive.line_height < transition.line_height);
+        assert!(defensive.width < transition.width);
+        assert!(defensive.pressing < transition.pressing);
+        assert!(defensive.tempo < transition.tempo);
+        for value in [
+            defensive.mentality,
+            defensive.pressing,
+            defensive.line_height,
+            defensive.width,
+            defensive.tempo,
+            defensive.directness,
+            transition.mentality,
+            transition.pressing,
+            transition.line_height,
+            transition.width,
+            transition.tempo,
+            transition.directness,
+        ] {
+            assert!(value <= 100);
         }
     }
     /// Given generated adapter values, when defaults are reported, then every
@@ -1266,6 +1570,80 @@ mod tests {
             assert_eq!(slots, formation_geometry(formation).unwrap());
         }
     }
+    fn slots_of(formation: &str, position: Position) -> Vec<Point> {
+        formation_geometry(formation)
+            .unwrap()
+            .into_iter()
+            .filter(|slot| slot.position == position)
+            .map(|slot| slot.base)
+            .collect()
+    }
+
+    /// Given the 4-4-2, when laid out, then the pair of strikers stands centrally, not on the touchlines.
+    /// Run F4.4: the spread used to put two strikers at y = 8 and 60, which with the line depths below
+    /// moved a career match from 3.3 to about 5.9 goals.
+    #[test]
+    fn the_two_strikers_of_a_four_four_two_stand_centrally() {
+        let strikers = slots_of("4-4-2", Position::Striker);
+        assert_eq!(
+            strikers.iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
+            vec![(70.0, 26.0), (70.0, 42.0)]
+        );
+    }
+
+    /// Given the 4-4-2, when laid out, then the lines sit at the depths M12's reference 4-4-2 was
+    /// calibrated with (defence 26 m, midfield 48 m) and the back four at y = 10, 26, 42, 58.
+    #[test]
+    fn a_four_four_two_has_the_reference_line_depths() {
+        let slots = formation_geometry("4-4-2").unwrap();
+        let back: Vec<_> = slots
+            .iter()
+            .filter(|slot| {
+                matches!(
+                    slot.position,
+                    Position::RightBack | Position::CenterBack | Position::LeftBack
+                )
+            })
+            .collect();
+        assert_eq!(
+            back.iter()
+                .map(|s| (s.base.x, s.base.y))
+                .collect::<Vec<_>>(),
+            vec![(26.0, 10.0), (26.0, 26.0), (26.0, 42.0), (26.0, 58.0)]
+        );
+        let mids = slots_of("4-4-2", Position::CentralMidfielder);
+        assert_eq!(
+            mids.iter().map(|p| (p.x, p.y)).collect::<Vec<_>>(),
+            vec![(48.0, 26.0), (48.0, 42.0)]
+        );
+    }
+
+    /// Given formations with a line of three and of five, and one with four lines, when laid out, then
+    /// three stand at y = 18, 34, 50, five reach the flanks (8 and 60), and the four-line formations use
+    /// the depths 26 / 40 / 54 / 70.
+    #[test]
+    fn lines_of_three_and_five_and_four_line_formations_are_laid_out_symmetrically() {
+        let centre_backs = slots_of("3-5-2", Position::CenterBack);
+        assert_eq!(
+            centre_backs.iter().map(|p| p.y).collect::<Vec<_>>(),
+            vec![18.0, 34.0, 50.0]
+        );
+        let mids = formation_geometry("3-5-2").unwrap();
+        let midfield_y: Vec<f32> = mids[4..9].iter().map(|slot| slot.base.y).collect();
+        assert_eq!(midfield_y.first().copied(), Some(8.0));
+        assert_eq!(midfield_y.last().copied(), Some(60.0));
+        let slots = formation_geometry("4-2-3-1").unwrap();
+        let xs: Vec<f32> = [1usize, 5, 7, 10]
+            .iter()
+            .map(|&i| slots[i].base.x)
+            .collect();
+        assert_eq!(xs, vec![26.0, 40.0, 54.0, 70.0]);
+        for formation in ["3-4-3", "4-3-3"] {
+            let attack = formation_geometry(formation).unwrap();
+            assert_eq!(attack.last().map(|slot| slot.base.x), Some(70.0));
+        }
+    }
+
     /// Given identical OFM inputs, when adapted twice, then JSON and digest are reproducible.
     #[test]
     fn adaptation_json_and_digest_are_reproducible() {
@@ -1311,5 +1689,144 @@ mod tests {
             adapted(&fixture, &home, &away, &invalid_players, &ap),
             Err(AdaptationError::RatingOutOfBounds { .. })
         ));
+    }
+    fn shirts_of(team: &SpatialTeam) -> Vec<u8> {
+        team.players
+            .iter()
+            .map(|player| player.shirt_number)
+            .collect()
+    }
+
+    /// Given a squad imported without shirt numbers in which one player, signed later, was given
+    /// number 3 (the lowest free number of a squad that had none)
+    /// When the match is adapted
+    /// Then the unnumbered players are numbered around him instead of the whole match failing
+    /// with a duplicate number, and he keeps number 3.
+    #[test]
+    fn a_player_with_a_shirt_among_unnumbered_players_does_not_abort_the_match() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        for player in &mut hp {
+            player.jersey_number = None;
+        }
+        hp[11].jersey_number = Some(3);
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap)
+            .expect("explicit shirt numbers are reserved before defaults are handed out");
+
+        let shirts = shirts_of(&result.input.home);
+        assert_eq!(shirts[11], 3, "the explicit number is kept");
+        let unique: HashSet<_> = shirts.iter().collect();
+        assert_eq!(
+            unique.len(),
+            shirts.len(),
+            "every shirt is distinct: {shirts:?}"
+        );
+        assert!(
+            result
+                .metadata
+                .defaults
+                .iter()
+                .any(|default| default.field == "shirt_number"),
+            "the numbers made up are reported, not hidden"
+        );
+    }
+
+    /// Given two players of one squad holding the same shirt number
+    /// When the match is adapted
+    /// Then the first keeps it, the second is renumbered and the change is reported.
+    #[test]
+    fn two_players_with_the_same_shirt_are_renumbered_not_fatal() {
+        let (fixture, home, away, mut hp, ap) = selection();
+        hp[5].jersey_number = Some(7);
+        hp[6].jersey_number = Some(7);
+
+        let result = adapted(&fixture, &home, &away, &hp, &ap)
+            .expect("a duplicated shirt is repaired for the match, not fatal");
+
+        let shirts = shirts_of(&result.input.home);
+        assert_eq!(shirts[5], 7, "the first holder keeps the number");
+        assert_ne!(shirts[6], 7);
+        let unique: HashSet<_> = shirts.iter().collect();
+        assert_eq!(unique.len(), shirts.len(), "{shirts:?}");
+        assert!(result.metadata.defaults.iter().any(|default| {
+            default.field == "shirt_number" && default.subject_id.as_deref() == Some("p6")
+        }));
+    }
+
+    /// A home eleven seated by the five-zone engine's own list of slots for `formation` (entry `i`
+    /// is the player picked for slot `i`, with that slot's natural position), adapted for M12.
+    fn adapted_in(formation: &str) -> AdaptedMatch {
+        let (fixture, mut home, away, _, away_players) = selection();
+        home.formation = formation.to_string();
+        let seats = crate::player_rating::formation_slots(formation);
+        let mut home_players: Vec<Player> = seats
+            .iter()
+            .enumerate()
+            .map(|(i, seat)| player(&format!("p{i}"), seat.clone(), 60))
+            .collect();
+        home_players.push(player("p11", Position::Forward, 61));
+        adapted(&fixture, &home, &away, &home_players, &away_players).unwrap()
+    }
+
+    /// Given every formation the game offers, with a player picked for each slot of the list the
+    ///   five-zone engine and the squad model read
+    /// When the eleven is adapted for M12, whose geometry lists the same slots in its own order
+    /// Then each player stands on the slot of his own seat: a left back is not put on the right
+    ///      because M12 lays the right flank out first. The slots were once paired by index.
+    #[test]
+    fn every_starter_stands_on_the_geometry_slot_of_his_own_seat() {
+        for formation in crate::player_rating::FORMATIONS {
+            let geometry = formation_geometry(formation).unwrap();
+            let seats = crate::player_rating::formation_slots(formation);
+            let result = adapted_in(formation);
+            for (i, seat) in seats.iter().enumerate() {
+                let same_seat: Vec<&GeometrySlot> = geometry
+                    .iter()
+                    .filter(|slot| slot.position == *seat)
+                    .collect();
+                let lineup = &result.input.home.lineup[i];
+                assert_eq!(
+                    lineup.player,
+                    format!("p{i}"),
+                    "{formation} keeps the order named"
+                );
+                if let [only] = same_seat.as_slice() {
+                    assert_eq!(
+                        lineup.base, only.base,
+                        "{formation}: the player picked for {seat:?} is not on the {seat:?} slot"
+                    );
+                    assert_eq!(
+                        lineup.role,
+                        map_position(seat).unwrap(),
+                        "{formation} {seat:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Given a 3-5-2, whose five-zone seats name a left and a right midfielder where M12 lays out
+    ///   a left and a right wing back
+    /// When the eleven is adapted
+    /// Then the left midfielder takes the left wing back's slot and the right midfielder the
+    ///      right's: with no slot of his own name, a player takes the nearest of his group on his
+    ///      own flank.
+    #[test]
+    fn a_seat_with_no_slot_of_its_name_takes_the_nearest_on_its_own_flank() {
+        let geometry = formation_geometry("3-5-2").unwrap();
+        let slot_of = |position: Position| {
+            geometry
+                .iter()
+                .find(|slot| slot.position == position)
+                .unwrap()
+        };
+        let seats = crate::player_rating::formation_slots("3-5-2");
+        let result = adapted_in("3-5-2");
+        let seat_of = |wanted: Position| seats.iter().position(|seat| *seat == wanted).unwrap();
+
+        let left = &result.input.home.lineup[seat_of(Position::LeftMidfielder)];
+        let right = &result.input.home.lineup[seat_of(Position::RightMidfielder)];
+        assert_eq!(left.base, slot_of(Position::LeftWingBack).base);
+        assert_eq!(right.base, slot_of(Position::RightWingBack).base);
     }
 }

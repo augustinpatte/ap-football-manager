@@ -11,6 +11,7 @@ import {
   saveCustomTactic,
 } from "../../services/customTacticsService";
 import { getTacticsBlueprintStatus } from "../../services/squadService";
+import type { TacticsPhaseSettings } from "../../store/types";
 import {
   TACTICS_PRESETS,
   findTacticsPresetBySetup,
@@ -27,20 +28,31 @@ interface UseTacticsLibraryArgs {
   gameState: GameStateData | null;
   formation: string;
   activePlayStyle: string;
+  outOfPossessionFormation?: string;
+  tacticsPhase?: TacticsPhaseSettings;
   initialPreset: TacticsPresetDefinition | null;
   onFormationChange: (nextFormation: string) => Promise<boolean>;
   onPlayStyleChange: (playStyle: string) => Promise<boolean>;
-  onApplyPreset: (formation: string, playStyle: string) => Promise<boolean>;
+  onApplyPreset: (
+    formation: string,
+    playStyle: string,
+    tacticsPhase?: TacticsPhaseSettings,
+    outOfPossessionFormation?: string,
+  ) => Promise<boolean>;
+  onApplyCustomTactic?: (id: string) => Promise<boolean>;
 }
 
 export function useTacticsLibrary({
   gameState,
   formation,
   activePlayStyle,
+  outOfPossessionFormation,
+  tacticsPhase,
   initialPreset,
   onFormationChange,
   onPlayStyleChange,
   onApplyPreset,
+  onApplyCustomTactic,
 }: UseTacticsLibraryArgs) {
   const { t } = useTranslation();
   // The library is the career's, kept in the save: it follows a change of club and a reload. It
@@ -148,13 +160,22 @@ export function useTacticsLibrary({
     changeSave(() => saveCustomTactic(toCustomTactic(tactic), careerToken));
   }
 
-  const matchedPreset = findTacticsPresetBySetup(formation, activePlayStyle);
+  const matchedPreset = findTacticsPresetBySetup(
+    formation,
+    activePlayStyle,
+    tacticsPhase,
+    outOfPossessionFormation,
+  );
   const anchoredPreset = presetAnchorId
     ? (TACTICS_PRESETS.find((preset) => preset.id === presetAnchorId) ?? null)
     : null;
   const isPresetDirty = Boolean(
     anchoredPreset &&
-      (formation !== anchoredPreset.formation || activePlayStyle !== anchoredPreset.playStyle),
+      (formation !== anchoredPreset.formation ||
+        activePlayStyle !== anchoredPreset.playStyle ||
+        outOfPossessionFormation !== anchoredPreset.outOfPossessionFormation ||
+        (tacticsPhase != null &&
+          JSON.stringify(tacticsPhase) !== JSON.stringify(anchoredPreset.tacticsPhase))),
   );
   const translatedPresetLibrary = useMemo<TacticsLibraryEntry[]>(
     () =>
@@ -163,8 +184,10 @@ export function useTacticsLibrary({
         formation: preset.formation,
         id: `preset:${preset.id}`,
         name: t(`tactics.presetNames.${preset.id}`, preset.id),
+        outOfPossessionFormation: preset.outOfPossessionFormation,
         playStyle: preset.playStyle,
         sourcePresetName: null,
+        tacticsPhase: preset.tacticsPhase,
         type: "preset",
       })),
     [t],
@@ -179,11 +202,13 @@ export function useTacticsLibrary({
       formation,
       id: "current:setup",
       name: t("tactics.customTactic"),
+      outOfPossessionFormation,
       playStyle: activePlayStyle,
       sourcePresetName: null,
+      tacticsPhase,
       type: "custom",
     }),
-    [activePlayStyle, formation, t],
+    [activePlayStyle, formation, outOfPossessionFormation, t, tacticsPhase],
   );
   const activeTactic =
     tacticLibrary.find((entry) => entry.id === activeTacticId) ??
@@ -195,11 +220,13 @@ export function useTacticsLibrary({
       (formation !== activeTactic.formation ||
         activePlayStyle !== activeTactic.playStyle ||
         (isActiveCustomTactic &&
-          draftTacticName.trim().length > 0 &&
-          draftTacticName.trim() !== activeTactic.name)),
+          (outOfPossessionFormation !== (activeTactic.outOfPossessionFormation ?? formation) ||
+            JSON.stringify(tacticsPhase ?? null) !==
+              JSON.stringify(activeTactic.tacticsPhase ?? null) ||
+            (draftTacticName.trim().length > 0 && draftTacticName.trim() !== activeTactic.name)))),
   );
-  // A custom tactic saves formation, style and name only, so its dials are not part of what could
-  // be "unsaved"; a preset is also its blueprint, so tuned dials make it differ from the preset.
+  // A custom tactic saves the whole manager configuration, so every changed
+  // phase dial and defensive shape is an unsaved change.
   const isCommandBarDirty = isActiveCustomTactic
     ? isActiveTacticDirty
     : isActiveTacticDirty || isPresetDirty || blueprintModified;
@@ -247,10 +274,12 @@ export function useTacticsLibrary({
       formation: overrides.formation ?? formation,
       id: overrides.id ?? `custom:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: overrides.name ?? t("tactics.customTacticNumber", { count: customCount }),
+      outOfPossessionFormation: overrides.outOfPossessionFormation ?? outOfPossessionFormation,
       playStyle: overrides.playStyle ?? activePlayStyle,
       sourcePresetName:
         overrides.sourcePresetName === undefined ? sourcePresetName : overrides.sourcePresetName,
       type: "custom",
+      tacticsPhase: overrides.tacticsPhase ?? tacticsPhase,
     };
   }
 
@@ -264,13 +293,19 @@ export function useTacticsLibrary({
 
   async function applyTacticSelection(nextTactic: TacticsLibraryEntry): Promise<void> {
     const isPreset = nextTactic.type === "preset";
-
-    // A preset is a whole setup: the backend sets its formation, play style and
-    // phase blueprint together (#365). Custom tactics only carry a formation and
-    // style, so they keep the separate calls and leave the manager's dials alone.
+    // A custom tactic is also a whole setup: the backend restores its persisted
+    // defensive formation and phase blueprint in the same transaction.
     const didApply = isPreset
-      ? await onApplyPreset(nextTactic.formation, nextTactic.playStyle)
-      : await applyFormationAndStyle(nextTactic);
+      ? await onApplyPreset(
+          nextTactic.formation,
+          nextTactic.playStyle,
+          nextTactic.tacticsPhase ?? undefined,
+          nextTactic.outOfPossessionFormation,
+        )
+      : onApplyCustomTactic &&
+          (nextTactic.tacticsPhase != null || nextTactic.outOfPossessionFormation != null)
+        ? await onApplyCustomTactic(nextTactic.id)
+        : await applyFormationAndStyle(nextTactic);
     if (!didApply) {
       return;
     }
@@ -298,8 +333,10 @@ export function useTacticsLibrary({
       name: t("tactics.copyOfTactic", {
         name: draftTacticName.trim() || activeTactic?.name || t("tactics.customTactic"),
       }),
+      outOfPossessionFormation,
       playStyle: activePlayStyle,
       sourcePresetName: activeTactic?.sourcePresetName ?? activeTactic?.name ?? null,
+      tacticsPhase,
     });
 
     setCustomTactics((current) => [nextTactic, ...current]);
@@ -336,7 +373,9 @@ export function useTacticsLibrary({
         description: activeTactic.description,
         formation,
         name: nextName,
+        outOfPossessionFormation,
         playStyle: activePlayStyle,
+        tacticsPhase,
       };
       setCustomTactics((current) =>
         current.map((entry) => (entry.id === activeTactic.id ? updated : entry)),
@@ -349,8 +388,10 @@ export function useTacticsLibrary({
       description: activeTactic?.description,
       formation,
       name: nextName,
+      outOfPossessionFormation,
       playStyle: activePlayStyle,
       sourcePresetName: activeTactic?.name ?? null,
+      tacticsPhase,
     });
 
     setCustomTactics((current) => [nextTactic, ...current]);
@@ -359,9 +400,7 @@ export function useTacticsLibrary({
     setDraftTacticName(nextTactic.name);
   }
 
-  // What Reset goes back to: a preset applies as a whole (formation, style and phase blueprint, the
-  // backend's own preset); a saved custom tactic goes back to the formation and style it was
-  // saved with; an unsaved setup falls back to the preset it was started from, if any.
+  // Reset applies the full persisted preset or custom configuration.
   const anchoredPresetEntry =
     translatedPresetLibrary.find((entry) => entry.id === `preset:${presetAnchorId}`) ?? null;
   const resetTarget = isActiveCustomTactic

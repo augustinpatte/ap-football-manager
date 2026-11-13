@@ -5,7 +5,9 @@
 //! the negotiation itself.
 
 use super::*;
+use consent::ensure_player_agrees_to_loan;
 
+mod consent;
 mod incoming;
 pub use incoming::{counter_loan_offer, respond_to_loan_offer};
 
@@ -117,6 +119,14 @@ pub(crate) fn top_up_loan_listings(game: &mut Game, team_id: &str) -> usize {
 /// Most players a club has on the loan list at once.
 const MAX_LOAN_LISTINGS_PER_AI_TEAM: usize = 4;
 
+/// A young player with room to grow: the kind a club lends for his minutes, because a prospect
+/// who is not playing develops less than one who is. The lender lists him for that reason and the
+/// borrower must be able to give it (`market::try_ai_loan` asks whether he would start), so both
+/// read the one rule.
+pub(crate) fn is_a_loan_for_minutes(player: &domain::player::Player, age: i32) -> bool {
+    age <= 22 && i32::from(player.potential) >= i32::from(player.ovr) + 6
+}
+
 /// Loan listings by what a player is to his club, on top of the opening ones: a prospect who is
 /// not playing goes where he will; a spare nobody has bought is offered on loan as the window
 /// closes, because a loan saves part of his wage when a sale cannot; a costly player the club does
@@ -171,9 +181,8 @@ pub(crate) fn list_loans_by_status(game: &mut Game, team_id: &str) -> usize {
             continue;
         }
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
-        let needs_minutes = age <= 22
-            && matches!(status, PlayerStatus::Backup | PlayerStatus::Surplus)
-            && i32::from(player.potential) >= i32::from(player.ovr) + 6;
+        let needs_minutes = is_a_loan_for_minutes(player, age)
+            && matches!(status, PlayerStatus::Backup | PlayerStatus::Surplus);
         let hard_sale = matches!(status, PlayerStatus::Surplus | PlayerStatus::Unwanted)
             && phase >= WindowPhase::LastWeek;
         let costly_unwanted = status == PlayerStatus::Unwanted && phase >= WindowPhase::Mid;
@@ -605,12 +614,8 @@ pub fn make_loan_offer(
     }
 
     let current_date = game.clock.current_date.date_naive();
-    let registration_date = loan_registration_date(game)?;
-    let register_immediately = registration_date == current_date;
-    let end_date = parse_valid_loan_end_date(registration_date, end_date)?;
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-    let start_date_string = registration_date.format("%Y-%m-%d").to_string();
-    let end_date_string = end_date.format("%Y-%m-%d").to_string();
+    // The window must be open (or about to open) before anything else is asked.
+    loan_registration_date(game)?;
 
     let user_team_id = game
         .manager
@@ -623,6 +628,13 @@ pub fn make_loan_offer(
         .iter()
         .find(|player| player.id == player_id)
         .ok_or("be.error.playerNotFound")?;
+    let registration_date =
+        loan_deal_registration_date(game, player, &user_team_id, buy_option_fee.is_some())?;
+    let register_immediately = registration_date == current_date;
+    let end_date = parse_valid_loan_end_date(registration_date, end_date)?;
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let start_date_string = registration_date.format("%Y-%m-%d").to_string();
+    let end_date_string = end_date.format("%Y-%m-%d").to_string();
 
     if player.team_id.as_deref() == Some(&user_team_id) {
         return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.into());
@@ -666,6 +678,8 @@ pub fn make_loan_offer(
     let accepted = wage_contribution_pct >= adjusted_minimum_contribution && buy_option_accepted;
 
     if accepted {
+        // The clubs agree; the player still has to. Before the offer is marked agreed.
+        ensure_player_agrees_to_loan(game, player_id, &user_team_id)?;
         validate_loan_borrower_affordability(game, &user_team_id, player, wage_contribution_pct)?;
         // Before the offer is marked agreed, like every other refusal here.
         crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
@@ -810,40 +824,34 @@ pub(crate) fn complete_loan_buy_option_transfer(
     let date = game.clock.current_date.date_naive();
     // The buyer's terms, and the board's say on them, settled before any money moves.
     // The option names a fee and nothing else.
-    let (buying_club, new_wage, new_contract_end) =
-        buyers_contract_terms(game, &player_snapshot, buying_team_id)?;
-    crate::finances::post_all(
+    let (buying_club, new_wage, new_contract_end) = buyers_contract_terms(
         game,
-        &[
-            crate::finances::PostRequest::new(
-                buying_team_id,
-                -fee_i64,
-                crate::finances::CashKind::TransferFeeOut,
-                date,
-            ),
-            crate::finances::PostRequest::new(
-                parent_team_id,
-                fee_i64,
-                crate::finances::CashKind::TransferFeeIn,
-                date,
-            ),
-        ],
+        &player_snapshot,
+        buying_team_id,
+        &TransferTerms::default(),
     )?;
-
+    // The same settlement a permanent sale gets, so a sell-on clause the parent club holds is
+    // paid by this purchase too. An option names a fee and nothing else, hence plain terms.
+    let plain_terms = TransferTerms::default();
+    let deal = terms::Deal {
+        player_id,
+        to_team_id: buying_team_id,
+        from_team_id: parent_team_id,
+        fee,
+        terms: &plain_terms,
+        date,
+    };
+    let settlement = terms::settle_cash(game, &deal)?;
+    // Same rule as a permanent sale: the proceeds replenish this season's transfer envelope, not
+    // only the balance, so a club that sold through an option can spend what it has just earned.
+    terms::apply_budgets(game, &deal, &settlement);
+    crate::turn::squad::refill_saved_eleven_slot(game, parent_team_id, player_id);
     for team in &mut game.teams {
-        if team.id == buying_team_id {
-            team.transfer_budget -= fee_i64;
-        } else if team.id == parent_team_id {
-            // Same rule as a permanent sale: the proceeds replenish this season's transfer
-            // envelope, not only the balance. The cash reaches the parent through the journal
-            // post above; crediting one and not the other left a club that sold through an
-            // option unable to spend what it had just earned.
-            team.transfer_budget += fee_i64;
-            team.remove_player_references(player_id);
-        } else {
+        if team.id != buying_team_id {
             team.remove_player_references(player_id);
         }
     }
+    terms::record_obligations(game, &deal, &settlement);
 
     if let Some(player) = game
         .players
@@ -1272,6 +1280,7 @@ pub fn process_loan_returns(game: &mut Game) {
             _ => None,
         };
 
+        crate::turn::squad::refill_saved_eleven_slot_of(game, &player_id);
         for team in &mut game.teams {
             team.remove_player_references(&player_id);
         }

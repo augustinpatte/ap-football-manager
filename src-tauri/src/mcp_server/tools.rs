@@ -900,11 +900,21 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_make_bid
     custom_tool!(
         "transfer_make_bid",
-        "Make a transfer bid; includes negotiation feedback",
+        "Make a transfer bid; includes negotiation feedback. The player has his own say: when the clubs agree the answer is decision `player_talks` (nothing is completed) with the contract he would sign, or names the terms he wants instead; bid again with player_weekly_wage / player_contract_years to put a contract to him",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID to bid on"),
-                ("fee", "integer", "Transfer fee amount")
+                ("fee", "integer", "Transfer fee amount"),
+                (
+                    "player_weekly_wage",
+                    "integer",
+                    "Optional: weekly wage offered to the player (default: the club's standard terms)"
+                ),
+                (
+                    "player_contract_years",
+                    "integer",
+                    "Optional: contract length offered to the player, 1-5 years (default: standard)"
+                )
             ],
             &["player_id", "fee"]
         ),
@@ -919,7 +929,15 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
                 Ok(v) => v,
                 Err(e) => return Ok(e),
             };
-            match tools_impl::transfers::transfer_make_bid(ctx, pid, fee) {
+            let wage = match optional_integer_param(args, "player_weekly_wage") {
+                Ok(v) => v.and_then(|n| u32::try_from(n).ok()),
+                Err(e) => return Ok(e),
+            };
+            let years = match optional_integer_param(args, "player_contract_years") {
+                Ok(v) => v.and_then(|n| u8::try_from(n).ok()),
+                Err(e) => return Ok(e),
+            };
+            match tools_impl::transfers::transfer_make_bid(ctx, pid, fee, (wage, years)) {
                 Ok(value) => Ok(success(value)),
                 Err(e) => Ok(err_result(&e)),
             }
@@ -1055,7 +1073,7 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_free_agent_offer
     custom_tool!(
         "transfer_free_agent_offer",
-        "Offer contract to a free agent",
+        "Offer a contract to a free agent. He is not signed on the spot: the offer goes to him and he answers within 1-3 game days (pending / countered / refused), weighing his level against the club's, the wage, his role and rival bids. Read his answer with transfer_free_agent_preview; to take a counter, offer his asked terms or better",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID"),
@@ -1089,11 +1107,12 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
     // transfer_free_agent_preview
     custom_tool!(
         "transfer_free_agent_preview",
-        "Preview free agent contract financial impact",
+        "Preview a free agent signing: financial impact, how interested he is in these terms, your open talk with him (and his counter-offer), and rival clubs bidding",
         build_schema(
             &[
                 ("player_id", "string", "Player entity ID"),
-                ("weekly_wage", "integer", "Proposed weekly wage")
+                ("weekly_wage", "integer", "Proposed weekly wage"),
+                ("contract_years", "integer", "Proposed contract length in years (optional)")
             ],
             &["player_id", "weekly_wage"]
         ),
@@ -1108,7 +1127,8 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
                 Ok(v) => v,
                 Err(e) => return Ok(e),
             };
-            match tools_impl::transfers::transfer_free_agent_preview(ctx, pid, wage) {
+            let years = extract_u64_param(args, "contract_years").and_then(|v| u32::try_from(v).ok());
+            match tools_impl::transfers::transfer_free_agent_preview(ctx, pid, wage, years) {
                 Ok(value) => Ok(success(value)),
                 Err(e) => Ok(err_result(&e)),
             }
@@ -2061,7 +2081,7 @@ pub fn tool_catalog() -> Vec<(&'static str, &'static str, &'static str)> {
         ),
         (
             "transfer_free_agent_offer",
-            "Sign a free agent",
+            "Offer a contract to a free agent (answered within 1-3 days)",
             "Transfers",
         ),
         (

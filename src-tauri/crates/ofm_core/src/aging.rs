@@ -20,19 +20,26 @@ fn has_expired_contract(player: &Player, current_date: NaiveDate) -> bool {
         .is_some_and(|contract_end| contract_end < current_date)
 }
 
-fn retirement_chance(player: &Player, age: i32, current_date: NaiveDate) -> u32 {
-    if age < 33 {
-        return 0;
-    }
-
-    let mut chance: u32 = match age {
+/// The chance (percent) that a player of this age retires at a season's end, before anything
+/// about his own situation moves it. Squad planning reads the same table to see who is about to go.
+pub(crate) fn retirement_base_chance(age: i32) -> u32 {
+    match age {
+        ..=32 => 0,
         33 => 12,
         34 => 24,
         35 => 42,
         36 => 60,
         37 => 78,
         _ => 100,
-    };
+    }
+}
+
+fn retirement_chance(player: &Player, age: i32, current_date: NaiveDate) -> u32 {
+    if age < 33 {
+        return 0;
+    }
+
+    let mut chance = retirement_base_chance(age);
 
     if player.contract_end().is_none() || has_expired_contract(player, current_date) {
         chance += 18;
@@ -170,9 +177,55 @@ fn retire_player(player: &mut Player, current_date: NaiveDate) {
     player.transfer_offers.clear();
 }
 
+/// Matches a club's players must have recorded between them before their minutes say anything:
+/// a club that has played almost nothing (a league that was never simulated player by player, an
+/// off-season start) gives its players no verdict.
+const MIN_CLUB_MATCHES_FOR_MINUTES: u32 = 8;
+
+/// The most appearances any player of each club has recorded this season: how many matches the
+/// club has played with a squad that was tracked.
+fn matches_recorded_by_club(players: &[Player]) -> std::collections::HashMap<String, u32> {
+    let mut matches: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    for player in players {
+        if let Some(team_id) = player.team_id.as_deref() {
+            let most = matches.entry(team_id.to_string()).or_default();
+            *most = (*most).max(player.stats.appearances);
+        }
+    }
+    matches
+}
+
+/// What the season did to this player, for his development. Only a senior squad member is judged
+/// on his minutes, and only where his club's matches were recorded: an academy player is not
+/// expected to play senior football and a club whose matches left no record says nothing about its
+/// players. Injuries count for everyone.
+fn season_load(
+    player: &Player,
+    matches_recorded: &std::collections::HashMap<String, u32>,
+) -> crate::development::SeasonLoad {
+    let judged_on_minutes = player.squad_role == domain::player::SquadRole::Senior
+        && player
+            .team_id
+            .as_deref()
+            .and_then(|team_id| matches_recorded.get(team_id))
+            .is_some_and(|matches| *matches >= MIN_CLUB_MATCHES_FOR_MINUTES);
+    crate::development::SeasonLoad {
+        minutes: if judged_on_minutes {
+            player.stats.minutes_played
+        } else {
+            crate::development::TYPICAL_MINUTES
+        },
+        injured_days: player.stats.injured_days,
+    }
+}
+
 pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u32) {
     let world_seed = game.seed;
     let market = FreeAgentMarket::of(game);
+    let matches_recorded = matches_recorded_by_club(&game.players);
+    // (club, player) of everyone who retires, settled once the whole squad has aged: a retiring
+    // starter's slot in the saved eleven is refilled from the players who are left.
+    let mut retiring: Vec<(String, String)> = Vec::new();
     for player in game.players.iter_mut() {
         let age = domain::age::age_on_or_unknown(current_date, &player.date_of_birth);
         let mut stream = crate::seed::rng_for_seed(
@@ -180,7 +233,8 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
             &format!("development/{}", player.id),
             &iso(current_date),
         );
-        crate::development::develop_one_season(player, age, world_seed, &mut stream);
+        let load = season_load(player, &matches_recorded);
+        crate::development::develop_season(player, age, world_seed, &mut stream, load);
         crate::player_rating::refresh_player_derived(player, current_date);
 
         let drifts_out = {
@@ -188,12 +242,16 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
             chance > 0 && seeded_value(&player.id, season, "free-agent-drift") % 100 < chance
         };
         if drifts_out || should_retire(player, age, current_date, season) {
-            if let Some(team_id) = player.team_id.clone()
-                && let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id)
-            {
-                team.remove_player_references(&player.id);
+            if let Some(team_id) = player.team_id.clone() {
+                retiring.push((team_id, player.id.clone()));
             }
             retire_player(player, current_date);
+        }
+    }
+    for (team_id, player_id) in retiring {
+        crate::turn::squad::refill_saved_eleven_slot(game, &team_id, &player_id);
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            team.remove_player_references(&player_id);
         }
     }
     crate::retirees::archive_retired_players(game, &iso(current_date), season);
@@ -420,6 +478,50 @@ mod tests {
         assert_eq!(game.teams[0].match_roles.captain, None);
     }
 
+    /// Given a user's saved eleven in which a veteran starts at slot 3 and a healthy reserve waits
+    /// When the veteran retires at the season's end
+    /// Then the saved eleven is still eleven, the others keep their slots, and the reserve has
+    ///      taken the veteran's.
+    #[test]
+    fn a_retiring_starter_is_replaced_in_his_own_slot_of_the_saved_eleven() {
+        let mut squad: Vec<Player> = (0..12)
+            .map(|i| make_player(&format!("young-{i:02}"), "2000-01-01"))
+            .collect();
+        // The best fit outside the eleven, so the choice of replacement is not a tie.
+        squad[11].attributes = PlayerAttributes {
+            handling: 20,
+            reflexes: 20,
+            ..crate::test_support::uniform_attributes(95)
+        };
+        let mut veteran = make_player("older-pro", "1988-01-01");
+        veteran.stage_contract_start(Some("2023-07-01".to_string()));
+        veteran.stage_contract_end(Some("2026-05-01".to_string()));
+        veteran.stats = PlayerSeasonStats {
+            appearances: 6,
+            avg_rating: 6.1,
+            ..PlayerSeasonStats::default()
+        };
+        squad.push(veteran);
+        let mut game = make_game(squad);
+        let mut saved: Vec<String> = (0..11).map(|i| format!("young-{i:02}")).collect();
+        saved[3] = "older-pro".to_string();
+        game.teams[0].starting_xi_ids = saved.clone();
+        let current_date = game.clock.current_date.date_naive();
+
+        apply_seasonal_aging(&mut game, current_date, 1);
+
+        assert!(
+            game.retired_players.iter().any(|p| p.id == "older-pro"),
+            "the veteran retired"
+        );
+        let xi = &game.teams[0].starting_xi_ids;
+        assert_eq!(xi.len(), 11, "the saved eleven is still eleven");
+        for (slot, id) in saved.iter().enumerate().filter(|(slot, _)| *slot != 3) {
+            assert_eq!(&xi[slot], id, "slot {slot} kept its starter");
+        }
+        assert_eq!(xi[3], "young-11", "the reserve took the vacated slot");
+    }
+
     /// Retirement ends the contract like any other exit: it is in the history, and
     /// the wage goes with it instead of being left on a player who will never play.
     #[test]
@@ -579,5 +681,85 @@ mod tests {
         let at_30 = mean_change_after_a_season(30, 85, 120);
         assert!(at_26 > 0.0, "26-year-olds changed by {at_26}");
         assert!(at_26 > at_30, "26: {at_26}, 30: {at_30}");
+    }
+
+    /// Given two identical 19-year-olds with room to grow, one who started every match and
+    /// one who never played
+    /// When the season turns over many worlds
+    /// Then the one who played ends clearly higher: the rollover reads the season's own record.
+    #[test]
+    fn the_rollover_reads_the_minutes_and_the_injuries_of_the_season() {
+        let rating_after = |minutes: u32, injured_days: u32| {
+            (0..80_u64)
+                .map(|seed| {
+                    let mut prospect = make_player("prospect", "2007-03-01");
+                    prospect.potential = 90;
+                    prospect.stats.minutes_played = minutes;
+                    prospect.stats.injured_days = injured_days;
+                    prospect.stats.appearances = 30;
+                    let mut game = make_game(vec![prospect]);
+                    game.seed = seed;
+                    let date = NaiveDate::from_ymd_opt(2026, 5, 31).unwrap();
+                    apply_seasonal_aging(&mut game, date, 1);
+                    f64::from(game.players[0].ovr)
+                })
+                .sum::<f64>()
+                / 80.0
+        };
+        let regular = rating_after(crate::development::STARTER_MINUTES, 0);
+        assert!(regular > rating_after(0, 0) + 0.5, "minutes");
+        assert!(
+            rating_after(crate::development::TYPICAL_MINUTES, 0)
+                > rating_after(crate::development::TYPICAL_MINUTES, 200) + 0.3,
+            "injuries"
+        );
+    }
+
+    /// The rating of a 19-year-old with room to grow after one rollover, averaged over many worlds.
+    fn prospect_after(configure: impl Fn(&mut Player)) -> f64 {
+        (0..80_u64)
+            .map(|seed| {
+                let mut prospect = make_player("prospect", "2007-03-01");
+                prospect.potential = 90;
+                configure(&mut prospect);
+                let mut game = make_game(vec![prospect]);
+                game.seed = seed;
+                let date = NaiveDate::from_ymd_opt(2026, 5, 31).unwrap();
+                apply_seasonal_aging(&mut game, date, 1);
+                f64::from(game.players[0].ovr)
+            })
+            .sum::<f64>()
+            / 80.0
+    }
+
+    /// Given an academy player who has played no senior football
+    /// When the season turns
+    /// Then he develops exactly as a player with a typical season does: he was never expected to
+    /// play.
+    #[test]
+    fn an_academy_player_is_not_held_back_for_not_playing_senior_minutes() {
+        let academy = prospect_after(|p| {
+            p.squad_role = domain::player::SquadRole::Youth;
+            p.stats.appearances = 30;
+            p.stats.minutes_played = 0;
+        });
+        let typical = prospect_after(|p| {
+            p.squad_role = domain::player::SquadRole::Youth;
+            p.stats.appearances = 30;
+            p.stats.minutes_played = crate::development::TYPICAL_MINUTES;
+        });
+        assert_eq!(academy, typical);
+    }
+
+    /// Given a senior whose club has no matches on record (a league never simulated player by
+    /// player)
+    /// When the season turns
+    /// Then his zero minutes say nothing: he develops as a typical season would.
+    #[test]
+    fn a_club_with_no_recorded_matches_leaves_its_players_neutral() {
+        let unrecorded = prospect_after(|p| p.stats.minutes_played = 0);
+        let typical =
+            prospect_after(|p| p.stats.minutes_played = crate::development::TYPICAL_MINUTES);
+        assert_eq!(unrecorded, typical);
     }
 }

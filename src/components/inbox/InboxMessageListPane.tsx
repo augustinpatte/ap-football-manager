@@ -2,6 +2,7 @@ import { Mail, MailOpen } from "lucide-react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ACTIVATABLE_FOCUS_CLASS } from "../../lib/activatable";
 import { formatDateShort } from "../../lib/helpers";
 import type { MessageData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
@@ -81,15 +82,11 @@ export default function InboxMessageListPane({
             return (
               <ContextMenu items={contextItems} key={message.id}>
                 <div
-                  onClick={() => onSelectMessage(message.id)}
                   className={getMessageRowClassName(isSelected, message.read)}
                   data-testid={`inbox-row-${message.id}`}
                 >
                   {bulkSelectionEnabled ? (
-                    <div
-                      className="mt-1 flex shrink-0 items-center"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                    <div className="mt-1 flex shrink-0 items-center">
                       <Checkbox
                         checked={selectedMessageIds.includes(message.id)}
                         onChange={() => onToggleMessageSelection(message.id)}
@@ -100,25 +97,33 @@ export default function InboxMessageListPane({
                       />
                     </div>
                   ) : null}
-                  <div className={getMessageIconClassName(categoryColor, isSelected, message.read)}>
-                    {categoryIcon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className={getMessageSubjectClassName(message.read)}>
-                        {message.subject}
-                      </h4>
-                      {!message.read ? (
-                        <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
-                      ) : null}
+                  <button
+                    type="button"
+                    className={`flex min-w-0 flex-1 items-start gap-3 border-0 bg-transparent p-0 text-left ${ACTIVATABLE_FOCUS_CLASS}`}
+                    onClick={() => onSelectMessage(message.id)}
+                  >
+                    <div
+                      className={getMessageIconClassName(categoryColor, isSelected, message.read)}
+                    >
+                      {categoryIcon}
                     </div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                      {message.sender}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {formatDateShort(message.date, language)}
-                    </p>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className={getMessageSubjectClassName(message.read)}>
+                          {message.subject}
+                        </h4>
+                        {!message.read ? (
+                          <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                        {message.sender}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {formatDateShort(message.date, language)}
+                      </p>
+                    </div>
+                  </button>
                 </div>
               </ContextMenu>
             );

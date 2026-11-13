@@ -89,6 +89,7 @@ export function usePlayerProfileData({
     player.team_id,
     currentDate,
     player.stats.minutes_played,
+    player.stats.detail_minutes_played,
     player.stats.shots,
     player.stats.shots_on_target,
     player.stats.passes_completed,

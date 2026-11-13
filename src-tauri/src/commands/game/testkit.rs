@@ -210,6 +210,7 @@ pub(super) fn sample_stats_state() -> domain::stats::StatsState {
             yellow_cards: 1,
             red_cards: 0,
         }],
+        ..Default::default()
     }
 }
 

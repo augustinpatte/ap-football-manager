@@ -1,6 +1,6 @@
 import { useRatingTiers } from "../../hooks/useRatingTiers";
 import { ratingTierClass } from "../../lib/ratingTier";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { FixtureData, GameStateData } from "../../store/gameStore";
@@ -36,6 +36,8 @@ interface PreMatchSetupProps {
   userSide: "Home" | "Away";
   onStart: () => void;
   onUpdateSnapshot: (snap: MatchSnapshot) => void;
+  /** Rendered between the header and the tabs: the other ways to play this match. */
+  viewModeSlot?: ReactNode;
 }
 
 export default function PreMatchSetup({
@@ -45,6 +47,7 @@ export default function PreMatchSetup({
   userSide,
   onStart,
   onUpdateSnapshot,
+  viewModeSlot,
 }: PreMatchSetupProps) {
   const tierOf = useRatingTiers();
   const { t } = useTranslation();
@@ -167,6 +170,7 @@ export default function PreMatchSetup({
             number: sp?.jersey_number,
           }}
         >
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: not a control; it only keeps the select's mouse and key events from starting a drag or a slot click on the parent. */}
           <div
             draggable={false}
             onClick={(e) => e.stopPropagation()}
@@ -399,16 +403,19 @@ export default function PreMatchSetup({
       <div className="grid grid-cols-2 gap-3">
         {setPieceItems.map(({ role, label, Icon, current }) => (
           <div key={role}>
-            <label className="mb-1.5 flex items-center gap-1 text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            <label
+              htmlFor={`set-piece-taker-${role}`}
+              className="mb-1.5 flex items-center gap-1 text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400"
+            >
               <Icon className="h-3 w-3" />
               {label}
             </label>
             <Select
+              id={`set-piece-taker-${role}`}
               value={current ?? ""}
               onChange={(e) => handleSetPieceTaker(role, e.target.value)}
               selectSize="xs"
               fullWidth
-              aria-label={label}
             >
               <option value="">—</option>
               {sortedForRole(role).map((p) => (
@@ -692,6 +699,8 @@ export default function PreMatchSetup({
           </div>
         </div>
       </header>
+
+      {viewModeSlot}
 
       {/* Your Team / Opponent tabs */}
       <div className="shrink-0 flex items-center gap-1 border-b border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/50 px-4">

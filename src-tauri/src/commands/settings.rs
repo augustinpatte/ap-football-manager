@@ -37,6 +37,10 @@ pub struct AppSettings {
     /// Whether the player folded the sidebar to its icon rail, remembered across launches.
     #[serde(default)]
     pub sidebar_collapsed: bool,
+    /// Columns the player hid in the squad table, by the screen's own column id. It lists what is
+    /// hidden, not what is shown, so an older file (no list) and a column added later both show.
+    #[serde(default)]
+    pub squad_hidden_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -65,6 +69,23 @@ fn default_sidebar_behaviour() -> String {
 
 /// A sidebar value this build doesn't know (one written by a newer build) falls back to its
 /// default, so the setting is lost rather than the whole settings file failing to load.
+/// The longest column id and the most ids the file keeps. The ids are the screen's to define, so an
+/// id this build does not know is kept (a newer build may), but a damaged or hostile file cannot
+/// grow the setting without bound.
+const MAX_HIDDEN_COLUMN_ID_LEN: usize = 32;
+const MAX_HIDDEN_COLUMNS: usize = 32;
+
+fn normalize_squad_columns(settings: &mut AppSettings) {
+    let mut kept: Vec<String> = Vec::new();
+    for id in settings.squad_hidden_columns.drain(..) {
+        let usable = !id.is_empty() && id.len() <= MAX_HIDDEN_COLUMN_ID_LEN;
+        if usable && !kept.contains(&id) && kept.len() < MAX_HIDDEN_COLUMNS {
+            kept.push(id);
+        }
+    }
+    settings.squad_hidden_columns = kept;
+}
+
 fn normalize_sidebar(settings: &mut AppSettings) {
     if !SIDEBAR_WIDTHS.contains(&settings.sidebar_width.as_str()) {
         settings.sidebar_width = default_sidebar_width();
@@ -91,6 +112,7 @@ impl Default for AppSettings {
             sidebar_width: default_sidebar_width(),
             sidebar_behaviour: default_sidebar_behaviour(),
             sidebar_collapsed: false,
+            squad_hidden_columns: Vec::new(),
         }
     }
 }
@@ -111,6 +133,7 @@ fn normalize_loaded_settings(mut settings: AppSettings) -> AppSettings {
         .unwrap_or(currency::DEFAULT_CURRENCY_CODE)
         .to_string();
     normalize_sidebar(&mut settings);
+    normalize_squad_columns(&mut settings);
     settings
 }
 
@@ -119,6 +142,7 @@ fn validate_settings(mut settings: AppSettings) -> Result<AppSettings, String> {
         .ok_or("be.error.settings.invalidCurrency".to_string())?
         .to_string();
     normalize_sidebar(&mut settings);
+    normalize_squad_columns(&mut settings);
     Ok(settings)
 }
 
@@ -264,6 +288,76 @@ mod tests {
         assert_eq!(read.sidebar_width, "compact");
         assert_eq!(read.sidebar_behaviour, "click");
         assert!(read.sidebar_collapsed);
+    }
+
+    /// Given a settings file written before the squad column chooser existed
+    /// When it is loaded
+    /// Then no column is hidden: the squad table looks as it always did.
+    #[test]
+    fn a_settings_file_from_before_the_column_chooser_hides_no_column() {
+        let json = r#"{"theme":"dark","language":"en","currency":"EUR","default_match_mode":"live",
+            "auto_save":true,"match_speed":"normal","show_match_commentary":true,
+            "confirm_advance":false,"ui_scale":"normal","high_contrast":false,
+            "sidebar_collapsed":true}"#;
+
+        let settings: AppSettings = serde_json::from_str(json).expect("an older settings file");
+
+        assert!(settings.squad_hidden_columns.is_empty());
+        assert!(
+            settings.sidebar_collapsed,
+            "the neighbouring setting is read as before"
+        );
+    }
+
+    /// Given a player who hid the age and morale columns
+    /// When the settings are written and read back
+    /// Then those two are still hidden, in the order they were hidden.
+    #[test]
+    fn the_hidden_squad_columns_survive_a_save_and_a_load() {
+        let chosen = AppSettings {
+            squad_hidden_columns: vec!["age".to_string(), "morale".to_string()],
+            ..AppSettings::default()
+        };
+
+        let json = serde_json::to_string(&validate_settings(chosen).expect("valid")).expect("json");
+        let read: AppSettings = serde_json::from_str(&json).expect("read back");
+        let read = normalize_loaded_settings(read);
+
+        assert_eq!(read.squad_hidden_columns, vec!["age", "morale"]);
+    }
+
+    /// Given a file whose hidden-column list repeats an id, holds an empty one, an overlong one
+    ///       and far more entries than the table has columns
+    /// When it is loaded, or saved
+    /// Then the repeats, the empty and the overlong ids are dropped and the list is capped, while
+    ///      an id this build does not know is kept (a newer build may have written it).
+    #[test]
+    fn the_hidden_column_list_is_bounded_and_cleaned() {
+        let mut ids = vec![
+            "age".to_string(),
+            "age".to_string(),
+            String::new(),
+            "x".repeat(33),
+            "column-from-a-newer-build".to_string(),
+        ];
+        ids.extend((0..40).map(|n| format!("c{n}")));
+        let messy = AppSettings {
+            squad_hidden_columns: ids,
+            ..AppSettings::default()
+        };
+
+        for cleaned in [
+            normalize_loaded_settings(messy.clone()).squad_hidden_columns,
+            validate_settings(messy)
+                .expect("valid")
+                .squad_hidden_columns,
+        ] {
+            assert_eq!(cleaned.len(), 32);
+            assert_eq!(cleaned[0], "age");
+            assert_eq!(cleaned[1], "column-from-a-newer-build");
+            assert_eq!(cleaned.iter().filter(|id| id.as_str() == "age").count(), 1);
+            assert!(cleaned.iter().all(|id| !id.is_empty() && id.len() <= 32));
+        }
     }
 
     #[test]

@@ -191,6 +191,8 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `advance_time` | — | `Game` | Advance one day |
 | `advance_time_with_mode` | mode | `{action, game?, snapshot?}` | Advance with match mode preference |
 | `skip_to_match_day` | — | `Game` | Fast-forward to next fixture |
+| `fast_forward_to_date` | `request: { target_date, policy }` | `FastForwardResponse` | Play every day up to a date; emits `fast-forward-progress`. See [`FAST_FORWARD.md`](FAST_FORWARD.md) |
+| `cancel_fast_forward` | — | `bool` | Stop the running fast-forward at the next day boundary |
 | `save_game` | — | — | Persist current game |
 | `load_game` | save_id | — | Load a saved game |
 | `exit_to_menu` | — | — | Save and clear active game |
@@ -204,6 +206,15 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `apply_match_command` | command | `MatchSnapshot` | Send a tactical command |
 | `get_match_snapshot` | — | `MatchSnapshot` | Get current match state |
 | `finish_live_match` | — | `Game` | Apply results and clean up |
+| `start_interactive_match` | — | `InteractiveSnapshot` | Start an M12 session for the live session's fixture (idempotent) |
+| `get_interactive_match_state` | event_cursor | `InteractiveSnapshot` | The session as the engine has it, and the key events from the cursor |
+| `advance_interactive_match` | request, event_cursor | `AdvanceSnapshot` | Play on to a target, a stop (break, goal, dismissal, injury) or full time; the computer managers act inside |
+| `submit_match_command` | command, event_cursor | `OrderSnapshot` | An order from the manager (tactics, formation, substitution, cancel), idempotent by command id and checked against a revision |
+| `set_interactive_pause` | paused, event_cursor | `InteractiveSnapshot` | Pause or resume the engine clock; a paused match still takes orders |
+| `set_interactive_assistant` | active, event_cursor | `InteractiveSnapshot` | Hand the player's side to the assistant (needs the tactics duty delegated) or take it back |
+| `finish_interactive_match` | — | `FinishLiveMatchResponse` | Apply a match that reached full time through the one finalisation (`finish_spatial_match`); refused before full time |
+| `get_resumable_match` | — | `FixtureIdentity?` | The match restored from the save, if the career was saved in the middle of one (the menu then opens it) |
+| `take_match_restore_notice` | — | `string?` | One-time translation key: a match saved in progress could not be resumed and will start again from kick-off |
 
 ### Team Management Commands
 
@@ -214,6 +225,7 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `get_player_knowledge` | player_ids | Per player: `own`, `known` (a club in the manager's division), `scouted` (with `scouted_on` and `current`) or `unknown` (a player the club has not scouted); an id that matches no player is omitted from the answer | The one rule for what the manager's club knows about a player (`ofm_core::player_knowledge`); screens hide what it does not know. The serialized `Game` still carries every value |
 | `get_squad` | team_id | Player rows with `match_day_eligible` | Complete club roster with computed match-day eligibility; youth call-ups retain their academy role |
 | `set_formation` | formation | `Game` | Change team formation |
+| `set_out_of_possession_formation` | formation | `Game` | Change the defensive shape M12 uses while the team is without the ball; the same slot-aligned XI transitions between both shapes |
 | `set_play_style` | play_style | `Game` | Change play style |
 | `apply_tactic_preset` | formation, play_style | `Game` | Pick a tactic preset: formation + play style, and reset the phase blueprint to that style's default |
 | `list_custom_tactics` | - | `CustomTactic[]` | The tactics the player saved (career-scoped, in the save) |

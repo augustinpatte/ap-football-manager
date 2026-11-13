@@ -42,16 +42,32 @@ impl LiveMatchState {
         }
     }
 
-    /// Adjust a skill value based on the player's current in-match condition.
-    pub(super) fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
+    /// How well `side` defends a shot right now: its defenders on the pitch, as good as their
+    /// condition lets them be. See [`crate::shared::defensive_quality`].
+    pub(super) fn defensive_quality(&self, side: Side) -> f64 {
+        crate::shared::defensive_quality(
+            self.team_ref(side)
+                .players
+                .iter()
+                .filter(|player| !self.sent_off.contains(&player.id))
+                .map(|player| (player, self.condition_factor(&player.id))),
+        )
+    }
+
+    /// How much of his skill a player has in him right now.
+    /// At 100% condition: all of it. At 50%: ~80%. At 0%: ~60%.
+    fn condition_factor(&self, player_id: &str) -> f64 {
         let condition = self
             .player_conditions
             .get(player_id)
             .copied()
             .unwrap_or(50.0);
-        // At 100% condition: full skill. At 50%: ~80% skill. At 0%: ~60% skill.
-        let factor = 0.6 + 0.4 * (condition / 100.0);
-        base_skill * factor
+        0.6 + 0.4 * (condition / 100.0)
+    }
+
+    /// Adjust a skill value based on the player's current in-match condition.
+    pub(super) fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
+        base_skill * self.condition_factor(player_id)
     }
 
     // -----------------------------------------------------------------------
@@ -131,6 +147,53 @@ impl LiveMatchState {
     // Rating helpers
     // -----------------------------------------------------------------------
 
+    /// Players of `position` `side` has on the pitch: a player sent off is gone, an injured one plays
+    /// on (the engine has no rule for a hurt player's reduced play).
+    pub(super) fn on_the_pitch(&self, side: Side, position: Position) -> usize {
+        self.team_ref(side)
+            .players
+            .iter()
+            .filter(|player| player.position == position && !self.sent_off.contains(&player.id))
+            .count()
+    }
+
+    /// What `side`'s midfielders on the pitch, against the other side's, are worth in a contest in
+    /// the middle of the park: 1.0 when level or when the football prices no numbers.
+    pub(super) fn midfield_numbers_edge(&self, side: Side) -> f64 {
+        crate::shared::numbers_edge(
+            self.on_the_pitch(side, Position::Midfielder),
+            self.on_the_pitch(side.opposite(), Position::Midfielder),
+            1.0,
+            self.config.midfield_numbers_weight,
+        )
+    }
+
+    /// What `side`'s forwards per defender facing them are worth in the attacking third, against the
+    /// two forwards to four defenders of a 4-4-2: 1.0 there or when the football prices no numbers.
+    pub(super) fn attack_numbers_edge(&self, side: Side) -> f64 {
+        crate::shared::numbers_edge(
+            self.on_the_pitch(side, Position::Forward),
+            self.on_the_pitch(side.opposite(), Position::Defender),
+            0.5,
+            self.config.attack_numbers_weight,
+        )
+    }
+
+    /// What `side`'s roles that are not drawn into this contest put on it: 1.0 when the football
+    /// prices no role support or no one on the pitch holds a role that reaches `phase`. `drawn` is
+    /// the group the resolver draws the contest's players from.
+    pub(super) fn role_support(&self, side: Side, phase: PlayStylePhase, drawn: Position) -> f64 {
+        crate::shared::role_support_multiplier(
+            self.team_ref(side)
+                .players
+                .iter()
+                .filter(|player| !self.sent_off.contains(&player.id)),
+            phase,
+            self.config.role_support_weight,
+            self.on_the_pitch(side, drawn),
+        )
+    }
+
     pub(super) fn effective_midfield(&self, side: Side) -> f64 {
         let base = self.team_ref(side).midfield_rating();
         let modifier = play_style_modifier(
@@ -150,6 +213,7 @@ impl LiveMatchState {
         base * modifier
             * tactics_pressing_press(&team.tactics)
             * home_mod(pressing_side, &self.config)
+            * self.role_support(pressing_side, PlayStylePhase::Press, Position::Midfielder)
     }
 
     // -----------------------------------------------------------------------

@@ -81,7 +81,7 @@ pub(crate) fn eligible_among<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
     let (mut eligible, mut youth): (Vec<_>, Vec<_>) = club
         .iter()
         .copied()
-        .filter(|p| p.injury.is_none())
+        .filter(|p| p.can_play())
         .partition(|p| p.squad_role == SquadRole::Senior);
     youth.sort_by(|left, right| {
         natural_ovr(right)
@@ -100,9 +100,14 @@ pub(crate) fn eligible_among<'a>(club: &[&'a Player]) -> Vec<&'a Player> {
     let youth_needed = MATCH_DAY_POOL_TARGET.saturating_sub(eligible.len());
     eligible.extend(youth.into_iter().take(youth_needed));
     // The builder can field injured youth only when a healthy eleven is impossible.
-    // Projecting them too ensures that no emergency call-up is invisible in training.
+    // Projecting them too ensures that no emergency call-up is invisible in training. A player who
+    // is also serving a ban is never one of them: suspension has no emergency exception.
     if eligible.len() < 11 {
-        eligible.extend(club.iter().copied().filter(|p| p.injury.is_some()));
+        eligible.extend(
+            club.iter()
+                .copied()
+                .filter(|p| p.injury.is_some() && p.suspended_matches == 0),
+        );
     }
     eligible
 }
@@ -227,5 +232,46 @@ mod tests {
         players[before[0]].team_id = Some("blue".to_string());
 
         debug_assert_group_is_current(&players, "red", &before);
+    }
+
+    /// A club whose healthy players cannot make an eleven: four are injured, three of the injured
+    /// are also serving a ban, and the rest are youth who do not count towards the pool.
+    fn a_club_that_cannot_name_a_healthy_eleven() -> Vec<Player> {
+        let mut players: Vec<Player> = (0..14)
+            .map(|index| player_at(&format!("red-{index}"), "red", "2035-06-30"))
+            .collect();
+        for (index, player) in players.iter_mut().enumerate() {
+            if index < 8 {
+                player.injury = Some(Injury {
+                    name: "knock".to_string(),
+                    days_remaining: 5,
+                });
+            }
+            if index < 3 {
+                player.suspended_matches = 1;
+            }
+        }
+        players
+    }
+
+    /// Given a club with too few healthy players for an eleven, some injured and some of those
+    /// also suspended
+    /// When the match-day pool is read
+    /// Then the injured are called up to make the numbers, but a player who is also serving a ban
+    /// is not: suspension is the one availability rule with no emergency exception.
+    #[test]
+    fn an_injured_player_who_is_also_suspended_is_not_called_up() {
+        let players = a_club_that_cannot_name_a_healthy_eleven();
+        let club: Vec<&Player> = players.iter().collect();
+        let pool = eligible_among(&club);
+        assert!(
+            pool.iter().all(|player| player.suspended_matches == 0),
+            "a suspended player is in the match-day pool: {:?}",
+            ids(&pool)
+        );
+        assert!(
+            pool.iter().any(|player| player.injury.is_some()),
+            "the injured were not called up to make the numbers"
+        );
     }
 }

@@ -12,6 +12,7 @@ use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRec
 
 mod berths;
 pub(crate) mod season_calendar;
+mod summary;
 use berths::{
     apply_domestic_berth_promotion_relegation, apply_pyramid_promotion_relegation_with,
     resolve_domestic_berth_fields,
@@ -20,6 +21,8 @@ pub use berths::{
     berth_qualified_entrants, competition_has_incoming_berths, continental_qualified_entrants,
     resolve_continental_fields,
 };
+use summary::{DivisionChange, describe_the_renewed_world, division_change_of};
+pub use summary::{EndOfSeasonSummary, UserCupResult, UserDivisionMove};
 
 pub fn expected_fixture_count(team_count: usize) -> Option<usize> {
     if team_count >= 2 {
@@ -373,19 +376,31 @@ struct FinishedDivision {
 /// record with the *user's* season, which mislabels a foreign league running on
 /// another calendar: its 2034 results were recorded as 2035.
 fn division_standings_with_tiers(game: &Game) -> Vec<FinishedDivision> {
-    use std::collections::BTreeMap;
-
+    let finished = |league: &League, tier: u32| FinishedDivision {
+        standings: league.sorted_standings(),
+        tier,
+        season: league.season,
+    };
     if game.competitions.is_empty() {
         return game
             .league
             .iter()
-            .map(|league| FinishedDivision {
-                standings: league.sorted_standings(),
-                tier: 0,
-                season: league.season,
-            })
+            .map(|league| finished(league, 0))
             .collect();
     }
+    ranked_divisions(game)
+        .into_iter()
+        .filter(|(league, _)| is_league_season_ended(league))
+        .map(|(league, tier)| finished(league, tier))
+        .collect()
+}
+
+/// Every league-table division of the world with how far down its own pyramid it sits (0 the top
+/// flight), finished or not: the ranking [`division_standings_with_tiers`] pays out by, and the one
+/// a club's earlier finish is read against ([`division_tiers`]), so there is one answer to "which
+/// tier is this".
+fn ranked_divisions(game: &Game) -> Vec<(&League, u32)> {
+    use std::collections::BTreeMap;
 
     let mut by_country: BTreeMap<&str, Vec<&League>> = BTreeMap::new();
     let mut standalone: Vec<&League> = Vec::new();
@@ -406,32 +421,35 @@ fn division_standings_with_tiers(game: &Game) -> Vec<FinishedDivision> {
         }
     }
 
-    let mut divisions: Vec<FinishedDivision> = Vec::new();
+    let mut divisions: Vec<(&League, u32)> = Vec::new();
     for mut group in by_country.into_values() {
         group.sort_by_key(|league| league.priority);
         collapse_repeated_divisions(&mut group);
-        for (tier, league) in group.into_iter().enumerate() {
-            if !is_league_season_ended(league) {
-                continue; // ranked, but nothing to pay out or record yet
-            }
-            divisions.push(FinishedDivision {
-                standings: league.sorted_standings(),
-                tier: tier as u32,
-                season: league.season,
-            });
-        }
+        divisions.extend(
+            group
+                .into_iter()
+                .enumerate()
+                .map(|(tier, league)| (league, tier as u32)),
+        );
     }
-    for league in standalone {
-        if !is_league_season_ended(league) {
-            continue;
-        }
-        divisions.push(FinishedDivision {
-            standings: league.sorted_standings(),
-            tier: 0,
-            season: league.season,
-        });
-    }
+    divisions.extend(standalone.into_iter().map(|league| (league, 0)));
     divisions
+}
+
+/// The tier of each division of the world by its id (0 the top flight). A division the pyramid does
+/// not rank (a cup, a repeated edition) is absent, and a reader takes that as "no answer".
+pub(crate) fn division_tiers(game: &Game) -> std::collections::HashMap<String, u32> {
+    if game.competitions.is_empty() {
+        return game
+            .league
+            .iter()
+            .map(|league| (league.id.clone(), 0))
+            .collect();
+    }
+    ranked_divisions(game)
+        .into_iter()
+        .map(|(league, tier)| (league.id.clone(), tier))
+        .collect()
 }
 
 /// Roll every competition over to the next season: apply promotion/relegation
@@ -809,51 +827,23 @@ pub fn club_league_table<'a>(game: &'a Game, club_id: &str) -> Option<&'a League
 /// Send a board message when the user's club starts the new season in a
 /// different division of its pyramid (promoted when the new division ranks
 /// higher, relegated when it ranks lower).
-fn notify_user_division_change(
-    game: &mut Game,
-    division_before: Option<(String, u32)>,
-    user_team_id: &str,
-    date: &str,
-) {
-    let Some((old_division_id, old_priority)) = division_before else {
+fn notify_user_division_change(game: &mut Game, change: Option<&DivisionChange>, date: &str) {
+    let Some(change) = change else {
         return;
     };
-    let Some(new_division) = user_division(game, user_team_id) else {
-        return;
+    let kind = if change.promoted {
+        "promotion"
+    } else {
+        "relegation"
     };
-    if new_division.id == old_division_id {
-        return;
-    }
-
-    // Rank decides direction, but two divisions can share a rank — a berth
-    // moves clubs into its target, and nothing makes a target outrank its
-    // feeder. Treat a move along a berth as the promotion it is, rather than
-    // telling a champion they have been relegated.
-    let new_division_id = new_division.id.clone();
-    let promoted_by_berth = game
-        .competitions
-        .iter()
-        .find(|competition| competition.id == old_division_id)
-        .is_some_and(|old_division| {
-            old_division.berths.iter().any(|berth| {
-                berth.target == new_division_id
-                    && matches!(berth.rule, domain::league::BerthRule::PositionRange { .. })
-            })
-        });
-    let promoted = new_division.priority < old_priority || promoted_by_berth;
-    let division_name = new_division.name.clone();
-    // The renewed edition's own label: a delayed edition renews to the calendar year, which is not
-    // always last season plus one.
-    let renewed_season = new_division.season;
-    let kind = if promoted { "promotion" } else { "relegation" };
-    let msg_id = format!("{kind}_{renewed_season}");
+    let msg_id = format!("{kind}_{}", change.renewed_season);
     if crate::inbox::already_emitted(game, &msg_id) {
         return;
     }
 
     let mut params = std::collections::HashMap::new();
-    params.insert("division".to_string(), division_name);
-    params.insert("season".to_string(), renewed_season.to_string());
+    params.insert("division".to_string(), change.division_name.clone());
+    params.insert("season".to_string(), change.renewed_season.to_string());
 
     let message = InboxMessage::new(
         msg_id,
@@ -940,7 +930,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         .map(|t| t.name.clone())
         .unwrap_or_default();
 
-    let summary = EndOfSeasonSummary {
+    let mut summary = EndOfSeasonSummary {
         season,
         league_name: league_name.clone(),
         champion_id: champion_id.clone(),
@@ -974,6 +964,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
             .unwrap_or(0.0),
         total_teams: final_standings.len() as u32,
         season_awards: awards.clone(),
+        ..EndOfSeasonSummary::default()
     };
 
     // 4. Record team season history, pay prize money, and update reputation for
@@ -1024,6 +1015,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 team.history.push(TeamSeasonRecord {
                     season,
                     league_position: position,
+                    tier: Some(tier),
                     played: standing.played,
                     won: standing.won,
                     drawn: standing.drawn,
@@ -1067,6 +1059,8 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     // 4b. The boards of the AI clubs reset their wage budgets from a year of income.
     crate::ai_budget_review::review_wage_budgets(game);
+    // The budget review has read its year of income; older months are folded now.
+    crate::finances::journal::fold_old_posts(game);
 
     // 5. Record player career entries and reset stats
     for player in game.players.iter_mut() {
@@ -1086,6 +1080,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 appearances: player.stats.appearances,
                 goals: player.stats.goals,
                 assists: player.stats.assists,
+                synthetic: false,
             });
         }
     }
@@ -1183,12 +1178,10 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     regenerate_competitions_for_new_season(game, next_season, rollover_anchor);
     // 7b. The boards of promoted and relegated AI clubs re-base their wage budgets.
     crate::division_move::rebase_wage_budgets(game);
-    notify_user_division_change(
-        game,
-        user_division_before,
-        &user_team_id,
-        &last_fixture_date,
-    );
+    let division_change = division_change_of(game, user_division_before.as_ref(), &user_team_id);
+    notify_user_division_change(game, division_change.as_ref(), &last_fixture_date);
+
+    describe_the_renewed_world(&mut summary, game, division_change.as_ref(), &user_team_id);
 
     let preview_date = game.clock.current_date.to_rfc3339();
     let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
@@ -1325,6 +1318,7 @@ pub fn advance_to_next_season(game: &mut Game) -> Result<EndOfSeasonSummary, Str
 
     let summary = process_end_of_season(game);
     crate::firing::check_manager_firing(game);
+    crate::squad_floor::warn_user_after_rollover(game);
     crate::inbox_archive::archive_old_mail(game);
     Ok(summary)
 }
@@ -1448,27 +1442,6 @@ fn convert_retired_players_to_candidates(game: &mut Game, season: u32) {
 
     game.managers.extend(new_managers);
     game.staff.extend(new_scouts);
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
-pub struct EndOfSeasonSummary {
-    pub season: u32,
-    pub league_name: String,
-    pub champion_id: String,
-    pub champion_name: String,
-    pub user_position: u32,
-    pub user_points: u32,
-    pub user_won: u32,
-    pub user_drawn: u32,
-    pub user_lost: u32,
-    pub user_goals_for: u32,
-    pub user_goals_against: u32,
-    pub golden_boot_player: String,
-    pub golden_boot_goals: u32,
-    pub poty_player: String,
-    pub poty_rating: f64,
-    pub total_teams: u32,
-    pub season_awards: crate::season_awards::SeasonAwards,
 }
 
 #[cfg(test)]
@@ -1803,12 +1776,8 @@ mod tests {
         game.competitions[0].season = 2036;
         game.manager.hire("eng-d2-0".to_string());
 
-        notify_user_division_change(
-            &mut game,
-            Some(("eng-d3".to_string(), 2)),
-            "eng-d2-0",
-            "2035-07-01",
-        );
+        let change = division_change_of(&game, Some(&("eng-d3".to_string(), 2)), "eng-d2-0");
+        notify_user_division_change(&mut game, change.as_ref(), "2035-07-01");
 
         let message = game
             .messages

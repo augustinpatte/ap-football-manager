@@ -19,4 +19,12 @@ fn embed_source_revision() {
             println!("cargo:rerun-if-changed={path}");
         }
     }
+    // Cargo does not recursively watch a directory. Register each linked source file so the
+    // revision is recalculated after an edit instead of letting a stale build-script value make a
+    // later binary look current to the GUI isolation harness.
+    if let Some(files) = source_files(&manifest_dir) {
+        for file in files {
+            println!("cargo:rerun-if-changed={}", String::from_utf8_lossy(&file));
+        }
+    }
 }

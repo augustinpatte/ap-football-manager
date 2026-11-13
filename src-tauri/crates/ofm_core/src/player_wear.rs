@@ -4,7 +4,7 @@
 //! carries fatigue, fitness sharpening, and injury risk back to the player's
 //! club (the same [`Player`] record is mutated in either context).
 
-use domain::player::{Injury, Player};
+use domain::player::{Injury, Player, Position};
 use rand::{Rng, RngExt};
 
 /// One severity band of match injuries: how often it occurs, how long it keeps a player out, and
@@ -86,8 +86,73 @@ pub fn roll_injury(rng: &mut impl Rng) -> Injury {
 /// Deplete a player's short-term condition based on minutes played and stamina,
 /// and gradually sharpen match fitness for players with significant minutes.
 ///
-/// A no-op for players who did not feature (`minutes == 0`).
+/// A no-op for players who did not feature (`minutes == 0`). This is the minutes-and-stamina model on
+/// its own, used where no match engine measured the physical load (friendlies, the legacy engine).
 pub fn apply_match_wear(player: &mut Player, minutes: u8, rng: &mut impl Rng) {
+    apply_match_wear_with_load(player, minutes, None, rng);
+}
+
+/// Whether the engine's load says anything about a position: a goalkeeper has no reference.
+fn is_outfield(position: &Position) -> bool {
+    !matches!(position, Position::Goalkeeper)
+}
+
+/// Share of the aerobic reserve the match engine spends per minute on an outfield player of
+/// reference stamina in a match played with balanced tactics, by line.
+///
+/// Measured in Run F4.3 (the F4.3 football: walking no longer counts as rest) on real club pairs of the
+/// FM24 world (120 matches, 300 defenders, 221 midfielders and 94 forwards who played 85 minutes or
+/// more, stamina-normalised, default pressing): 0.00147 for a defender, 0.00391 for a midfielder,
+/// 0.00486 for a forward. Run F4.2 had 0.00068 / 0.00327 / 0.00422 under the old recovery rule, which
+/// credited a walking player with rest and so made a defender five times cheaper than a forward in the
+/// engine (6.2x between a forward and a defender; 3.3x now); the lines still differ, because the engine's movement volume does
+/// (see the F4.3 report, section 9). These are *in-sample* (no held-out matches were run). A single rate
+/// would charge every defender the 0.6x floor and every forward the 1.5x ceiling whatever the match.
+/// The rate is the *reference* a player's match is compared with, never the amount charged. Re-measure
+/// with `fm24_workload_reference_study` (ignored; needs the world file) when the engine's movement or
+/// condition model changes.
+fn reference_load_per_minute(position: &Position) -> f64 {
+    match position.to_group_position() {
+        Position::Defender => 0.00147,
+        Position::Midfielder => 0.00391,
+        Position::Forward => 0.00486,
+        _ => 0.0025,
+    }
+}
+/// Reference stamina and the relative change of the engine's expenditure per point above it.
+const REFERENCE_STAMINA: f64 = 64.0;
+const LOAD_PER_STAMINA_POINT: f64 = 0.0125;
+/// A match can cost a player this much less or more than the minutes-and-stamina model charges.
+const LOAD_RATIO_BOUNDS: (f64, f64) = (0.6, 1.5);
+
+/// How hard this match was for a player compared with a neutral one at his position, minutes and
+/// stamina: `1.0` is the neutral workload, a high press or a hectic game is above it, a low block
+/// below. Bounded; a short appearance counts for less (a quarter of an hour says little about load).
+/// `delta_l` is the share of the aerobic reserve the engine spent on him in the match (0..1).
+pub fn load_ratio(position: &Position, stamina: u8, minutes: u8, delta_l: f32) -> f64 {
+    if !is_outfield(position) || minutes == 0 {
+        return 1.0;
+    }
+    let stamina_effect = 1.0 - LOAD_PER_STAMINA_POINT * (f64::from(stamina) - REFERENCE_STAMINA);
+    let expected =
+        reference_load_per_minute(position) * f64::from(minutes) * stamina_effect.max(0.5);
+    let raw =
+        (f64::from(delta_l.max(0.0)) / expected).clamp(LOAD_RATIO_BOUNDS.0, LOAD_RATIO_BOUNDS.1);
+    let weight = (f64::from(minutes) / 45.0).min(1.0);
+    1.0 + (raw - 1.0) * weight
+}
+
+/// [`apply_match_wear`] with the physical load the match engine measured (`delta_l`, see
+/// [`load_ratio`]). The minutes-and-stamina depletion stays the baseline, so the recovery, rotation and
+/// training models calibrated around it still hold; the engine decides only whether this match was
+/// harder or easier than a neutral one. It is the one place a match charges condition: the engine's
+/// own end-of-match fatigue is never written to the player as well.
+pub fn apply_match_wear_with_load(
+    player: &mut Player,
+    minutes: u8,
+    delta_l: Option<f32>,
+    rng: &mut impl Rng,
+) {
     if minutes == 0 {
         return; // Did not play, no wear.
     }
@@ -95,7 +160,10 @@ pub fn apply_match_wear(player: &mut Player, minutes: u8, rng: &mut impl Rng) {
     let minutes_factor = minutes as f64 / 90.0;
     let stamina_factor = player.attributes.stamina as f64 / 100.0;
     let base_depletion = 40.0 * (1.0 - stamina_factor * 0.4);
-    let depletion = (base_depletion * minutes_factor) as u8;
+    let ratio = delta_l.map_or(1.0, |load| {
+        load_ratio(&player.position, player.attributes.stamina, minutes, load)
+    });
+    let depletion = (base_depletion * minutes_factor * ratio) as u8;
     player.condition = player.condition.saturating_sub(depletion);
 
     // 60+ minutes builds sharpness; probabilistic to keep changes gradual.
@@ -120,6 +188,15 @@ fn injury_multiplier_from_fitness(fitness: u8) -> f64 {
     }
 }
 
+/// The chance a match injures `player`: the match-day base risk, scaled by how fit he is. What
+/// [`roll_match_injury`] rolls, and what the lightweight tier draws its injury events from.
+pub fn match_injury_probability(player: &Player) -> f64 {
+    // Base match-day risk, slightly higher than the training-ground rate to
+    // reflect competitive intensity.
+    let base_prob = 1.0_f64 / 40.0;
+    (base_prob * injury_multiplier_from_fitness(player.fitness)).min(1.0)
+}
+
 /// Roll for a match-day injury. On a hit, sets the player's injury and returns
 /// `true`. Already-injured players are skipped (returns `false`).
 pub fn roll_match_injury(player: &mut Player, rng: &mut impl Rng) -> bool {
@@ -127,11 +204,7 @@ pub fn roll_match_injury(player: &mut Player, rng: &mut impl Rng) -> bool {
         return false;
     }
 
-    // Base match-day risk, slightly higher than the training-ground rate to
-    // reflect competitive intensity.
-    let base_prob = 1.0_f64 / 40.0;
-    let prob = (base_prob * injury_multiplier_from_fitness(player.fitness)).min(1.0);
-    if !rng.random_bool(prob) {
+    if !rng.random_bool(match_injury_probability(player)) {
         return false;
     }
 
@@ -215,6 +288,100 @@ mod tests {
         apply_match_wear(&mut player, 90, &mut rng);
 
         assert!(player.fitness >= 80);
+    }
+
+    fn depletion_with(position: Position, minutes: u8, load: Option<f32>) -> u8 {
+        let mut player = make_player(64);
+        player.position = position;
+        player.condition = 100;
+        let mut rng = StdRng::seed_from_u64(5);
+        apply_match_wear_with_load(&mut player, minutes, load, &mut rng);
+        100 - player.condition
+    }
+
+    /// Given no measured load (friendlies, the legacy engine),
+    /// Then the wear is exactly the minutes-and-stamina model it always was.
+    #[test]
+    fn without_a_measured_load_the_wear_is_unchanged() {
+        assert_eq!(depletion_with(Position::Midfielder, 90, None), 29);
+    }
+
+    /// Given a midfielder whose match cost what a neutral one does,
+    /// Then he is charged the baseline.
+    #[test]
+    fn a_neutral_load_is_charged_the_baseline() {
+        let neutral = (reference_load_per_minute(&Position::Midfielder) * 90.0) as f32;
+        assert_eq!(
+            depletion_with(Position::Midfielder, 90, Some(neutral)),
+            depletion_with(Position::Midfielder, 90, None)
+        );
+    }
+
+    /// Given the same player in a match that wore him out more, and one that wore him out less,
+    /// Then the harder match costs more condition and the easier one less (pressing is not free).
+    #[test]
+    fn a_harder_match_costs_more_and_an_easier_one_less() {
+        let neutral = (reference_load_per_minute(&Position::Midfielder) * 90.0) as f32;
+        let base = depletion_with(Position::Midfielder, 90, Some(neutral));
+        assert!(depletion_with(Position::Midfielder, 90, Some(neutral * 1.17)) > base);
+        assert!(depletion_with(Position::Midfielder, 90, Some(neutral * 0.7)) < base);
+    }
+
+    /// Given an absurd load,
+    /// Then the charge is bounded: no single match can spiral a player (at most 1.5x the baseline).
+    #[test]
+    fn the_charge_is_bounded() {
+        let base = depletion_with(Position::Midfielder, 90, None);
+        let extreme = depletion_with(Position::Midfielder, 90, Some(5.0));
+        assert!(
+            f64::from(extreme) <= f64::from(base) * 1.5 + 1.0,
+            "{extreme} vs {base}"
+        );
+        assert!(
+            depletion_with(Position::Midfielder, 90, Some(0.0)) as f64
+                >= f64::from(base) * 0.6 - 1.0
+        );
+    }
+
+    /// Given a goalkeeper,
+    /// Then the engine's load does not move his charge (no reference exists for a keeper).
+    #[test]
+    fn a_goalkeepers_charge_ignores_the_load() {
+        assert_eq!(
+            depletion_with(Position::Goalkeeper, 90, Some(0.9)),
+            depletion_with(Position::Goalkeeper, 90, None)
+        );
+    }
+
+    /// Given a ten-minute cameo with an extreme load,
+    /// Then it moves the charge far less than the same load over a full match.
+    #[test]
+    fn a_short_appearance_counts_for_less() {
+        let cameo = load_ratio(&Position::Midfielder, 64, 10, 0.5);
+        let full = load_ratio(&Position::Midfielder, 64, 90, 0.5);
+        assert!((cameo - 1.0).abs() < (full - 1.0).abs());
+    }
+
+    /// Given a defender, a midfielder and a forward whose match cost exactly what a neutral match
+    /// costs the players of their own line (measured on FM24 club pairs, Run F4.2),
+    /// Then each is charged the baseline: a line is compared with its own neutral, because the engine
+    /// spends about five times more of the reserve on a forward than on a defender in the same match.
+    #[test]
+    fn each_line_is_compared_with_its_own_neutral() {
+        for position in [
+            Position::CenterBack,
+            Position::CentralMidfielder,
+            Position::Striker,
+        ] {
+            let neutral = (reference_load_per_minute(&position) * 90.0) as f32;
+            let ratio = load_ratio(&position, 64, 90, neutral);
+            assert!((ratio - 1.0).abs() < 0.01, "{position:?}: {ratio}");
+        }
+        // and the same share of the reserve is a hard match for a defender, an easy one for a forward
+        assert!(
+            load_ratio(&Position::CenterBack, 64, 90, 0.1)
+                > load_ratio(&Position::Striker, 64, 90, 0.1)
+        );
     }
 
     /// Given many rolled injuries

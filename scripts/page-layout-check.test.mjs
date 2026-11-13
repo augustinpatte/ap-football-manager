@@ -1,12 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { CASES, judge, nodeProblem } from "./page-layout-check.mjs";
+import { CASES, chromeCommand, judge, nodeProblem } from "./page-layout-check.mjs";
 
 describe("the Node check", () => {
   /** Given a Node without the built-in WebSocket (before 22), then the check says why it can't run. */
   it("names the Node version it needs", () => {
     expect(nodeProblem(undefined, "v18.19.0")).toBe(
-      "page-layout-check needs Node 22 or later for the built-in WebSocket; you have v18.19.0",
+      "the browser checks need Node 22 or later for the built-in WebSocket; you have v18.19.0",
     );
   });
 
@@ -55,9 +55,37 @@ describe("page layout check", () => {
       (c) => c.lang === "de" && c.scale === "xlarge" && c.width === 960 && c.height === 640,
     );
     expect(worst.map((c) => c.page ?? "style guide").sort()).toEqual([
+      "globalMarket",
       "home",
       "squad",
       "style guide",
     ]);
+  });
+
+  /** Given the Global Market, then the review windows and a narrow column are all measured. */
+  it("measures the Global Market at the review widths", () => {
+    const market = CASES.filter((c) => c.page === "globalMarket");
+    expect(market.map((c) => `${c.width}×${c.height}`).sort()).toEqual([
+      "1024×768",
+      "1024×768",
+      "1280×800",
+      "1440×900",
+      "640×800",
+      "900×650",
+      "960×640",
+    ]);
+  });
+});
+
+describe("the Chrome to launch", () => {
+  /** Given CHROME_PATH, then that binary is used, whatever is installed. */
+  it("honours CHROME_PATH", () => {
+    expect(chromeCommand({ CHROME_PATH: "/opt/chrome" }, () => false)).toBe("/opt/chrome");
+  });
+
+  /** Given no override, then the first installed candidate is used, including on macOS. */
+  it("finds an installed Chrome", () => {
+    const mac = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+    expect(chromeCommand({}, (path) => path === mac)).toBe(mac);
   });
 });

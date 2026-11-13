@@ -12,7 +12,9 @@ export type EventDetail =
   | { Shot: { danger: DangerBand } }
   | { Save: { quality: SaveQuality } }
   | { Foul: { severity: FoulSeverity } }
-  | { Goal: { context: GoalContext } };
+  | { Goal: { context: GoalContext } }
+  // A goal put into his own net by `by`; the timeline entry has no scorer.
+  | { OwnGoal: { by: string } };
 
 export interface MatchEvent {
   minute: number;

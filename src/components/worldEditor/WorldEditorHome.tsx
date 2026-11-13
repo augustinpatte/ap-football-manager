@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
@@ -66,6 +66,7 @@ export function WorldEditorHome({
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const formFieldPrefix = useId();
   const [view, setView] = useState<HomeView>("home");
   const [formName, setFormName] = useState("");
   const [formAuthor, setFormAuthor] = useState("");
@@ -153,10 +154,14 @@ export function WorldEditorHome({
 
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <label
+                  htmlFor={`${formFieldPrefix}-name`}
+                  className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
+                >
                   {t("worldEditor.worldName")} *
                 </label>
                 <input
+                  id={`${formFieldPrefix}-name`}
                   type="text"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
@@ -168,9 +173,9 @@ export function WorldEditorHome({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <span className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                   {t("worldEditor.worldId")}
-                </label>
+                </span>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 px-3 py-2 rounded-lg border border-gray-100 dark:border-navy-700 bg-gray-50 dark:bg-navy-800 text-gray-500 dark:text-gray-400 text-sm font-mono truncate">
                     {derivedSlug || "—"}
@@ -182,10 +187,14 @@ export function WorldEditorHome({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <label
+                  htmlFor={`${formFieldPrefix}-author`}
+                  className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
+                >
                   {t("worldEditor.worldAuthor")}
                 </label>
                 <input
+                  id={`${formFieldPrefix}-author`}
                   type="text"
                   value={formAuthor}
                   onChange={(e) => setFormAuthor(e.target.value)}
@@ -194,10 +203,14 @@ export function WorldEditorHome({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <label
+                  htmlFor={`${formFieldPrefix}-description`}
+                  className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1"
+                >
                   {t("worldEditor.worldDesc")}
                 </label>
                 <textarea
+                  id={`${formFieldPrefix}-description`}
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   rows={3}

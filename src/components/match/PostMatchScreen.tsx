@@ -9,7 +9,7 @@ import {
   type TeamTalkTone,
 } from "./types";
 import MatchEventSideBadge from "./MatchEventSideBadge";
-import { getEventDisplay, getPlayerName, makeTeamFallback } from "./helpers";
+import { getEventDisplay, getPlayerName, goalPlayerLabel, makeTeamFallback } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
 import { Badge, TeamLogo, ThemeToggle } from "../ui";
 import { QuickStat, renderScorers, PlayerRatingsPanel } from "./PostMatchHelpers";
@@ -40,6 +40,8 @@ interface PostMatchScreenProps {
   } | null;
   onContinue: () => void;
   onFinish: () => void;
+  /** Present only when a 2D replay of this match was stored; opens it read-only. */
+  onWatchReplay?: () => void;
 }
 
 type PostMatchTab = "teamTalk" | "matchReport" | "playerRatings" | "tactics";
@@ -99,6 +101,7 @@ export default function PostMatchScreen({
   spatialResult,
   onContinue,
   onFinish,
+  onWatchReplay,
 }: PostMatchScreenProps) {
   const { t } = useTranslation();
   const teamTalkOptions = getTeamTalkOptions(t);
@@ -345,6 +348,15 @@ export default function PostMatchScreen({
       {/* Sticky Action Bar */}
       <div className="sticky top-0 z-10 bg-white dark:bg-navy-800 border-b border-gray-200 dark:border-navy-700 shadow-sm transition-colors duration-300">
         <div className="px-6 py-3 flex items-center justify-center gap-3">
+          {onWatchReplay && (
+            <button
+              type="button"
+              onClick={onWatchReplay}
+              className="flex items-center gap-2 px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-navy-700 dark:hover:bg-navy-600 rounded-lg font-heading font-bold uppercase tracking-wider text-sm text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              {t("match.reviewMatch")}
+            </button>
+          )}
           {isSpectator ? (
             <button
               type="button"
@@ -570,8 +582,8 @@ export default function PostMatchScreen({
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                 {t("match.scorers")}
               </h3>
-              {renderScorers(snapshot, importantEvents, "Home")}
-              {renderScorers(snapshot, importantEvents, "Away")}
+              {renderScorers(snapshot, importantEvents, "Home", t)}
+              {renderScorers(snapshot, importantEvents, "Away", t)}
               {keyEvents.filter((e) => e.event_type === "Goal" || e.event_type === "PenaltyGoal")
                 .length === 0 && (
                 <p className="text-xs text-gray-600 dark:text-gray-500">{t("match.noGoals")}</p>
@@ -628,7 +640,7 @@ export default function PostMatchScreen({
                         </span>
                         <span>{display.icon}</span>
                         <span className={`${display.color} font-medium truncate flex-1`}>
-                          {getPlayerName(snapshot, evt.player_id)}
+                          {goalPlayerLabel(snapshot, evt, t)}
                         </span>
                         <MatchEventSideBadge
                           side={evt.side}

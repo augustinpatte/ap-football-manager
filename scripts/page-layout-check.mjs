@@ -11,11 +11,20 @@
 // needs Node 22 or later, for the built-in WebSocket (the project otherwise runs on Node 18+); on an
 // older Node it says so and exits rather than adding a dependency for a dev-only tool.
 
-import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  chromeCommand,
+  connect,
+  devtools,
+  launchChrome,
+  nodeProblem,
+  stopChrome,
+} from "./lib/chrome-cdp.mjs";
+
+export { chromeCommand, nodeProblem };
 
 const WINDOWS = [
   { width: 1280, height: 800, scale: "normal", lang: "en" },
@@ -24,17 +33,25 @@ const WINDOWS = [
   { width: 960, height: 640, scale: "xlarge", lang: "de" },
 ];
 
-/** Every page at every window; `page: undefined` is the style guide itself. */
-export const CASES = [undefined, "home", "squad"].flatMap((page) =>
-  WINDOWS.map((window) => ({ page, ...window })),
-);
+/**
+ * The Global Market's own review windows: the review sizes, a narrow column where the profile card
+ * stacks under the table, and the longest labels (German) at the two narrowest widths.
+ */
+const GLOBAL_MARKET_WINDOWS = [
+  { width: 1440, height: 900, scale: "normal", lang: "en" },
+  { width: 1280, height: 800, scale: "normal", lang: "en" },
+  { width: 1024, height: 768, scale: "normal", lang: "en" },
+  { width: 900, height: 650, scale: "normal", lang: "en" },
+  { width: 640, height: 800, scale: "normal", lang: "en" },
+  { width: 1024, height: 768, scale: "normal", lang: "de" },
+  { width: 960, height: 640, scale: "xlarge", lang: "de" },
+];
 
-/** Why this Node can't run the check, or null when it can. */
-export function nodeProblem(webSocket, version) {
-  return typeof webSocket === "function"
-    ? null
-    : `page-layout-check needs Node 22 or later for the built-in WebSocket; you have ${version}`;
-}
+/** Every page at every base window; `page: undefined` is the style guide itself. */
+export const CASES = [
+  ...[undefined, "home", "squad"].flatMap((page) => WINDOWS.map((window) => ({ page, ...window }))),
+  ...GLOBAL_MARKET_WINDOWS.map((window) => ({ page: "globalMarket", ...window })),
+];
 
 /** What is wrong with one measured case; empty when it passes. */
 export function judge({ scrollWidth, innerWidth, unanswered, pastEdge, rendered }) {
@@ -66,58 +83,6 @@ function caseUrl(base, { page, scale, lang }) {
   return `${base}/style-guide.html?${query}`;
 }
 
-/**
- * The page's DevTools socket. Chrome was asked for any free port (0) and writes the one it took to
- * DevToolsActivePort in its profile, so two runs at once never collide on a fixed port.
- */
-async function devtools(profile, chrome) {
-  const portFile = join(profile, "DevToolsActivePort");
-  for (let attempt = 0; attempt < 75; attempt += 1) {
-    if (chrome.startError) throw chrome.startError;
-    if (chrome.exitCode !== null) throw new Error(`Chrome exited (${chrome.exitCode}) on start`);
-    if (existsSync(portFile)) {
-      const [port] = readFileSync(portFile, "utf-8").split("\n");
-      try {
-        const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-        const page = targets.find((target) => target.type === "page");
-        if (page) return page.webSocketDebuggerUrl;
-      } catch (error) {
-        // The port file can appear a moment before the endpoint answers: say so, then retry.
-        console.error(`waiting for Chrome's DevTools: ${error.message}`);
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error("Chrome's DevTools endpoint never came up");
-}
-
-/** Stops Chrome's whole process group; one that has already gone is not an error. */
-function stopChrome(chrome) {
-  try {
-    process.kill(-chrome.pid);
-  } catch (error) {
-    if (error.code !== "ESRCH") throw error;
-  }
-}
-
-function connect(url) {
-  const socket = new WebSocket(url);
-  let nextId = 0;
-  const pending = new Map();
-  socket.addEventListener("message", (event) => {
-    const reply = JSON.parse(event.data);
-    pending.get(reply.id)?.(reply);
-    pending.delete(reply.id);
-  });
-  const call = (method, params = {}) =>
-    new Promise((resolve) => {
-      nextId += 1;
-      pending.set(nextId, resolve);
-      socket.send(JSON.stringify({ id: nextId, method, params }));
-    });
-  return new Promise((resolve) => socket.addEventListener("open", () => resolve({ socket, call })));
-}
-
 async function measure(call, base, testCase) {
   await call("Emulation.setDeviceMetricsOverride", {
     width: testCase.width,
@@ -137,24 +102,9 @@ async function measure(call, base, testCase) {
 
 async function main(base) {
   const profile = mkdtempSync(join(tmpdir(), "page-layout-check-"));
-  const chrome = spawn(
-    "google-chrome",
-    [
-      "--headless=new",
-      "--disable-gpu",
-      "--no-sandbox",
-      "--remote-debugging-port=0",
-      `--user-data-dir=${profile}`,
-      "about:blank",
-    ],
-    // Its own process group, so stopping it also stops the helper processes that write the profile.
-    { stdio: "ignore", detached: true },
-  );
-  // Listen at once: a failed start (no google-chrome on PATH) is reported, not thrown unhandled.
+  const chrome = launchChrome(profile);
+  // Listen at once: a failed start (no Chrome on PATH) is reported, not thrown unhandled.
   const exited = new Promise((resolve) => chrome.once("exit", resolve));
-  chrome.once("error", (error) => {
-    chrome.startError = error;
-  });
   let failed = 0;
   try {
     const { socket, call } = await connect(await devtools(profile, chrome));

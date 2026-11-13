@@ -164,7 +164,7 @@ function seedSavedTactics(
 
 function fakeBackend(failPreset = false) {
   mockedInvoke.mockImplementation(async (command: string, args?: unknown) => {
-    const params = (args ?? {}) as Record<string, string>;
+    const params = (args ?? {}) as Record<string, unknown>;
     if (command === "get_squad") return backend.players;
     if (command === "list_custom_tactics") return structuredClone(savedTactics);
     if (command === "save_custom_tactic") {
@@ -179,20 +179,23 @@ function fakeBackend(failPreset = false) {
     if (command === "set_tactics_phase") {
       team.tactics_phase = {
         ...(team.tactics_phase as object),
-        width: params.width,
+        width: params.width as string,
       } as TeamData["tactics_phase"];
       blueprintModified = true;
     }
     if (command === "apply_tactic_preset") {
       if (failPreset) throw new Error("boom");
-      team.formation = params.formation;
-      team.play_style = params.playStyle;
-      // The real command puts the dials back to the style's blueprint.
-      team.tactics_phase = {} as TeamData["tactics_phase"];
+      team.formation = params.formation as string;
+      team.play_style = params.playStyle as string;
+      team.out_of_possession_formation = params.outOfPossessionFormation as string;
+      team.tactics_phase = params.tacticsPhase as TeamData["tactics_phase"];
       blueprintModified = false;
     }
-    if (command === "set_formation") team.formation = params.formation;
-    if (command === "set_play_style") team.play_style = params.playStyle;
+    if (command === "set_out_of_possession_formation") {
+      team.out_of_possession_formation = params.formation as string;
+    }
+    if (command === "set_formation") team.formation = params.formation as string;
+    if (command === "set_play_style") team.play_style = params.playStyle as string;
     return structuredClone(backend);
   });
 }
@@ -246,6 +249,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "3-4-3",
         playStyle: "HighPress",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       });
     });
     expect(commandsCalled()).not.toContain("set_formation");
@@ -266,6 +271,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
   });
@@ -373,6 +380,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
     expect(screen.getByRole("button", { name: "Choose tactic" })).toHaveTextContent(
@@ -416,6 +425,8 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
       expect(mockedInvoke).toHaveBeenCalledWith("apply_tactic_preset", {
         formation: "4-4-2",
         playStyle: "Balanced",
+        outOfPossessionFormation: "4-4-2",
+        tacticsPhase: expect.any(Object),
       }),
     );
     await waitFor(() => expect(screen.getByText("Synced")).toBeInTheDocument());
@@ -498,5 +509,91 @@ describe("TacticsTab preset selection", { timeout: TACTICS_TAB_CASE_TIMEOUT_MS }
     fireEvent.click(screen.getByRole("option", { name: /Balanced Control/ }));
 
     await waitFor(() => expect(screen.getByText("Synced")).toBeInTheDocument());
+  });
+
+  /**
+   * Given a manager on a 4-4-2 who wants a 5-3-2 when the ball is lost
+   * When they choose that defensive shape
+   * Then one set_out_of_possession_formation command goes out, the attacking formation and the
+   *      preset are not touched, and the control shows the shape the backend now holds.
+   */
+  it("changes only the defensive shape when the out-of-possession formation is chosen", async () => {
+    fakeBackend();
+    render(<ControlledTacticsTab />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Out of possession" }));
+    fireEvent.click(screen.getByRole("option", { name: "5-3-2" }));
+
+    await waitFor(() =>
+      expect(mockedInvoke).toHaveBeenCalledWith("set_out_of_possession_formation", {
+        formation: "5-3-2",
+      }),
+    );
+    expect(commandsCalled()).not.toContain("set_formation");
+    expect(commandsCalled()).not.toContain("apply_tactic_preset");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Out of possession" })).toHaveTextContent(
+        "5-3-2",
+      ),
+    );
+    expect(screen.getByRole("combobox", { name: "Formation" })).toHaveTextContent("4-4-2");
+    expect(backend.teams[0].formation).toBe("4-4-2");
+  });
+
+  /**
+   * Given the phase blueprint is open
+   * When the manager changes one dial
+   * Then set_tactics_phase carries that dial and no other, so no other dial is overwritten
+   */
+  it("sends only the dial that was changed", async () => {
+    fakeBackend();
+    render(<ControlledTacticsTab />);
+    openPhaseBlueprint();
+
+    const widthRow = screen.getByText("Width").parentElement as HTMLElement;
+    fireEvent.click(within(widthRow).getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "Wide" }));
+
+    await waitFor(() => expect(commandsCalled()).toContain("set_tactics_phase"));
+    const [, payload] =
+      mockedInvoke.mock.calls.find(([name]) => name === "set_tactics_phase") ?? [];
+    const sent = Object.entries(payload as Record<string, unknown>).filter(
+      ([, value]) => value !== undefined,
+    );
+    expect(sent).toEqual([["width", "Wide"]]);
+  });
+
+  /**
+   * Given a dial changed in the advanced section
+   * When the tactics screen is left and opened again from the saved game
+   * Then the dial still shows the new value, and opening the screen sends no command that could
+   *      overwrite it: the dial is the backend's, not the screen's.
+   */
+  it("shows a changed dial again after the screen is reopened, without re-sending anything", async () => {
+    fakeBackend();
+    const first = render(<ControlledTacticsTab />);
+    openPhaseBlueprint();
+    const widthRow = screen.getByText("Width").parentElement as HTMLElement;
+    fireEvent.click(within(widthRow).getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "Wide" }));
+    await waitFor(() => expect(screen.getByText("Unsaved changes")).toBeInTheDocument());
+    first.unmount();
+    mockedInvoke.mockClear();
+
+    render(<ControlledTacticsTab />);
+    openPhaseBlueprint();
+
+    const reopenedRow = screen.getByText("Width").parentElement as HTMLElement;
+    expect(within(reopenedRow).getByRole("combobox")).toHaveTextContent("Wide");
+    await waitFor(() => expect(commandsCalled()).toContain("get_tactics_blueprint_status"));
+    for (const writer of [
+      "set_tactics_phase",
+      "apply_tactic_preset",
+      "set_formation",
+      "set_play_style",
+      "set_out_of_possession_formation",
+    ]) {
+      expect(commandsCalled()).not.toContain(writer);
+    }
   });
 });

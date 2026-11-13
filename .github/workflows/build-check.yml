@@ -118,6 +118,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       # Pinned exactly, and for the same reason the compiler is: cargo-deny's built-in
       # defaults and advisory handling change between releases, so an unpinned tool turns
@@ -268,6 +272,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       - name: Install Linux build dependencies
         run: |

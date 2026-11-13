@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 61;
+const EXPECTED_MIGRATION_COUNT: usize = 69;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -172,6 +172,26 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("v060_staff_system.sql", include_str!("sql/v060_staff_system.sql")),
     // V61: Versioned M12 replays, keyed by the stable competition fixture identity
     ("v061_match_replays.sql", include_str!("sql/v061_match_replays.sql")),
+    // V62: what completed transfers still owe (fee instalments, sell-on clauses)
+    ("v062_transfer_obligations.sql", include_str!("sql/v062_transfer_obligations.sql")),
+    // V63: Separate defensive shape for possession-driven M12 positioning. Numbered after the
+    // transfer obligations: both branches first called their migration v062 before either shipped.
+    ("v063_out_of_possession_formation.sql", include_str!("sql/v063_out_of_possession_formation.sql")),
+    // V64: the interactive match a career has in progress (a singleton checkpoint row)
+    (
+        "v064_interactive_match_checkpoint.sql",
+        include_str!("sql/v064_interactive_match_checkpoint.sql"),
+    ),
+    // V65: matches a player must still miss after a sending-off
+    ("v065_player_suspensions.sql", include_str!("sql/v065_player_suspensions.sql")),
+    // V66: compact match history (interned ids, one row per match for the match's own facts)
+    ("v066_compact_match_history.sql", include_str!("sql/v066_compact_match_history.sql")),
+    // V67: edition archive records and replays are stored deflated
+    ("v067_compressed_archive_and_replays.sql", include_str!("sql/v067_compressed_archive_and_replays.sql")),
+    // V68: retired players and managers are stored deflated
+    ("v068_compressed_retiree_archives.sql", include_str!("sql/v068_compressed_retiree_archives.sql")),
+    // V69: the job-offer clock, so a reloaded career gets its next offer on the same day
+    ("v069_job_offer_clock.sql", include_str!("sql/v069_job_offer_clock.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -256,6 +276,46 @@ pub(crate) fn first_layout_difference(
         .keys()
         .find(|table| !expected.contains_key(*table) && migration_owned.contains(*table))
         .map(|table| format!("unexpected table {table}"))
+}
+
+/// Run 2 development saves are the one population written with a different meaning of schema
+/// version 62. Before the two feature branches were integrated, Run 2 called its migration
+/// `v062_out_of_possession_formation`; it is now `v063`, and `v062` creates `transfer_obligations`.
+/// Such a save claims `user_version = 62`, holds the column the new `v063` would add, and lacks the
+/// table `v062` would add, so opening it unchanged either fails on a duplicate column or is
+/// refused as a layout contradiction.
+///
+/// Recognised by exactly that signature, repaired by running only the missing, purely additive
+/// `v062` statement and moving the version to 63. Nothing is dropped or rewritten. Returns whether
+/// a repair was needed so the caller can take a backup copy first (see `needs_run2_dev_repair`).
+///
+/// Removal condition: once no Run 2 development save is expected to exist.
+pub(crate) fn needs_run2_dev_repair(conn: &rusqlite::Connection) -> Result<bool, String> {
+    let version: i64 = conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    if version != RUN2_DEV_SCHEMA_VERSION {
+        return Ok(false);
+    }
+    let layout = layout_of(conn)?;
+    let has_column = layout
+        .get("teams")
+        .is_some_and(|columns| columns.contains("out_of_possession_formation"));
+    Ok(has_column && !layout.contains_key("transfer_obligations"))
+}
+
+/// The `user_version` Run 2 development saves carry (see [`needs_run2_dev_repair`]).
+const RUN2_DEV_SCHEMA_VERSION: i64 = 62;
+
+/// Applies the repair described on [`needs_run2_dev_repair`], atomically.
+pub(crate) fn repair_run2_dev_save(conn: &mut rusqlite::Connection) -> Result<(), String> {
+    let transfer_obligations_sql = MIGRATIONS[RUN2_DEV_SCHEMA_VERSION as usize - 1].1;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute_batch(transfer_obligations_sql)
+        .map_err(|e| e.to_string())?;
+    tx.pragma_update(None, "user_version", RUN2_DEV_SCHEMA_VERSION + 1)
+        .map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())
 }
 
 pub fn all_migrations() -> Migrations<'static> {
@@ -459,13 +519,13 @@ mod tests {
         assert!(tables.contains(&"teams".to_string()), "missing teams");
         assert!(tables.contains(&"players".to_string()), "missing players");
         assert!(
-            tables.contains(&"player_match_stats".to_string()),
-            "missing player_match_stats"
+            tables.contains(&"player_match_lines".to_string()),
+            "missing player_match_lines"
         );
         assert!(tables.contains(&"staff".to_string()), "missing staff");
         assert!(
-            tables.contains(&"team_match_stats".to_string()),
-            "missing team_match_stats"
+            tables.contains(&"team_match_lines".to_string()),
+            "missing team_match_lines"
         );
         assert!(tables.contains(&"league".to_string()), "missing league");
         assert!(tables.contains(&"fixtures".to_string()), "missing fixtures");
@@ -676,6 +736,53 @@ mod tests {
                 .expect("v059 must add the column to a real v058 save");
             assert_eq!(row, ("Old career".to_string(), 0));
         }
+    }
+
+    /// Given a real v068 save (written before the job-offer clock was kept), with its game date
+    /// When it is migrated, twice
+    /// Then the row keeps its contents and gains the clock column empty, which a load reads as "no
+    ///      clock running": exactly how that save has always behaved.
+    #[test]
+    fn job_offer_clock_v069_upgrades_a_v068_save_without_changing_it() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(
+            MIGRATIONS
+                .iter()
+                .take(68)
+                .map(|(_, sql)| M::up(sql))
+                .collect(),
+        )
+        .to_latest(&mut conn)
+        .unwrap();
+        conn.execute(
+            "INSERT INTO game_meta (save_id, save_name, manager_id, start_date, game_date) VALUES ('save', 'Old career', 'manager', '2033-02-01', '2033-06-30')",
+            [],
+        )
+        .unwrap();
+        assert!(
+            conn.prepare("SELECT days_since_last_job_offer FROM game_meta")
+                .is_err(),
+            "a v068 save must not have the column yet"
+        );
+
+        for _ in 0..2 {
+            all_migrations().to_latest(&mut conn).unwrap();
+            let row: (String, String, Option<i64>) = conn
+                .query_row(
+                    "SELECT save_name, game_date, days_since_last_job_offer FROM game_meta",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .expect("v069 must add the column to a real v068 save");
+            assert_eq!(
+                row,
+                ("Old career".to_string(), "2033-06-30".to_string(), None)
+            );
+        }
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, MIGRATION_COUNT as i64);
     }
 
     /// Given a real v048 save, when migrated twice, then the archive table exists and is empty.
@@ -981,7 +1088,33 @@ mod tests {
     ("v059_legacy_tactics_imported.sql", 0xf2fdbc95bf5fdc99),
     ("v060_staff_system.sql", 0xc2e0d1de48bab8cb),
     ("v061_match_replays.sql", 0x4c69229a4e657439),
+    ("v062_transfer_obligations.sql", 0x4872609c01a5715f),
+    ("v063_out_of_possession_formation.sql", 0xb952826f9fdd84dc),
+    ("v064_interactive_match_checkpoint.sql", 0xdf5f9d9a2445c22a),
+    ("v065_player_suspensions.sql", 0x8c7c919985762945),
+    ("v066_compact_match_history.sql", 0x615221a4621a6474),
+    ("v067_compressed_archive_and_replays.sql", 0x3e6ec1017c142503),
+    ("v068_compressed_retiree_archives.sql", 0xbd67d52ff2973a0e),
+    ("v069_job_offer_clock.sql", 0x4b824d0d58b44e84),
     ];
+
+    /// Given the two feature branches that both first called their migration `v062`
+    /// When the registration list is read
+    /// Then each owns a distinct version, in the agreed order, with its own statement.
+    #[test]
+    fn transfer_obligations_and_out_of_possession_formation_have_distinct_consecutive_versions() {
+        assert_eq!(MIGRATIONS[61].0, "v062_transfer_obligations.sql");
+        assert!(MIGRATIONS[61].1.contains("transfer_obligations"));
+        assert_eq!(MIGRATIONS[62].0, "v063_out_of_possession_formation.sql");
+        assert!(MIGRATIONS[62].1.contains("out_of_possession_formation"));
+        let names: std::collections::BTreeSet<_> =
+            MIGRATIONS.iter().map(|(n, _)| &n[..4]).collect();
+        assert_eq!(
+            names.len(),
+            MIGRATIONS.len(),
+            "a version prefix is used twice"
+        );
+    }
 
     /// Given the migrations already shipped
     /// When their SQL is compared with the pinned fingerprints

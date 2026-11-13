@@ -149,6 +149,12 @@ pub struct Game {
     /// always sweeps.
     #[serde(skip)]
     pub calendar_fingerprint: Option<u64>,
+    /// Set by a load: the calendar this save was written with has not been checked against
+    /// today's calendar rules (rest between matches, international windows). The check moves
+    /// matches, so it belongs to the first day played from the loaded state, not to the load:
+    /// `turn::begin_day` and `process_day` run it once and clear this.
+    #[serde(skip)]
+    pub calendar_repair_pending: bool,
     /// The bracket fixtures that existed when the current day began, taken before anything is
     /// played. A round drawn during the day is not among them, however it came to be drawn (the
     /// player's own result, another match): its dates were never shown to the player. Dropped at
@@ -215,11 +221,23 @@ pub struct Game {
     /// Skipped on IPC serde. Persistence is incremental SQL, not Game JSON.
     #[serde(skip)]
     pub cash_journal: CashJournal,
+    /// What completed transfers still owe: later instalments of a fee, clauses on the next sale.
+    /// Persisted in its own table (`transfer_obligations`), not in a player's record, so it
+    /// outlives the offer it came from.
+    #[serde(default)]
+    pub transfer_obligations: Vec<domain::transfer_terms::TransferObligation>,
     /// Ids `post` added since the last successful flush of the live Game.
     /// `SaveManager::save_game` takes `&Game` and cannot clear this; see
     /// `persist_active_game`.
     #[serde(skip)]
     pub cash_journal_dirty_ids: Vec<String>,
+    /// Set when the journal was folded (`CashJournal::fold_before`) and the file has not been told:
+    /// the first day, `YYYY-MM-DD`, from which posts were kept in full. The next save removes the
+    /// stored posts before it that are not folds, and the save that did so clears it
+    /// (`application::saving`). Never saved or sent over IPC: it is the pending half of an
+    /// operation, and a loaded game has nothing pending.
+    #[serde(skip)]
+    pub cash_journal_fold_pending: Option<String>,
     /// Every emergency squad top-up this session made
     /// ([`crate::squad_floor::restore_minimum_squad`]). A diagnostic, not game
     /// state: never saved or sent over IPC, so a loaded game starts it empty.
@@ -291,6 +309,7 @@ impl Game {
             edition_archive: Vec::new(),
             retired_players: Vec::new(),
             calendar_fingerprint: None,
+            calendar_repair_pending: false,
             day_start: None,
             retired_managers: Vec::new(),
             custom_tactics: Vec::new(),
@@ -303,7 +322,9 @@ impl Game {
             seed: 0,
             legacy_world_cup_draw: false,
             cash_journal: CashJournal::default(),
+            transfer_obligations: Vec::new(),
             cash_journal_dirty_ids: Vec::new(),
+            cash_journal_fold_pending: None,
             squad_floor_top_ups: Vec::new(),
         };
         game.promote_legacy_league();

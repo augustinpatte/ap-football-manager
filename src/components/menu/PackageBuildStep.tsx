@@ -66,110 +66,106 @@ interface PackageCardProps {
 function PackageCard({ pkg, isActive, onToggle, onUninstall }: PackageCardProps) {
   const { t } = useTranslation();
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`flex items-start gap-3 w-full p-3 rounded-xl border transition-all duration-200 text-left ${
+    <div
+      className={`relative flex items-start gap-3 w-full p-3 rounded-xl border transition-all duration-200 ${
         isActive
           ? "bg-accent-50 dark:bg-accent-500/10 border-accent-400 dark:border-accent-500 ring-1 ring-accent-400/30"
           : "bg-white dark:bg-navy-700 border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
       }`}
     >
-      {/* Toggle indicator */}
-      <span
-        className={`w-5 h-5 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors pointer-events-none ${
-          isActive ? "bg-accent-500 border-accent-500" : "border-gray-300 dark:border-navy-500"
-        }`}
-        aria-hidden
+      {/* The toggle is the button; its ::after stretches over the whole card so the card stays one
+          click target while Remove (z-10, below) is a separate, real button. */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex min-w-0 flex-1 items-start gap-3 text-left after:absolute after:inset-0 after:rounded-xl focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-focus"
       >
-        {isActive && <span className="w-2 h-2 rounded-sm bg-white" />}
-      </span>
+        {/* Toggle indicator */}
+        <span
+          className={`w-5 h-5 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-colors pointer-events-none ${
+            isActive ? "bg-accent-500 border-accent-500" : "border-gray-300 dark:border-navy-500"
+          }`}
+          aria-hidden
+        >
+          {isActive && <span className="w-2 h-2 rounded-sm bg-white" />}
+        </span>
 
-      {/* Logo or icon */}
-      {pkg.logoDataUrl ? (
-        <img
-          src={pkg.logoDataUrl}
-          alt=""
-          className="w-8 h-8 rounded object-contain flex-shrink-0 mt-0.5 border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800"
-        />
-      ) : (
-        <div className="w-8 h-8 rounded bg-primary-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <Package className="w-4 h-4 text-primary-500" />
-        </div>
-      )}
+        {/* Logo or icon */}
+        {pkg.logoDataUrl ? (
+          <img
+            src={pkg.logoDataUrl}
+            alt=""
+            className="w-8 h-8 rounded object-contain flex-shrink-0 mt-0.5 border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded bg-primary-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Package className="w-4 h-4 text-primary-500" />
+          </div>
+        )}
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="font-heading font-bold text-sm uppercase tracking-wide text-gray-800 dark:text-gray-200 truncate">
-            {pkg.name || pkg.id}
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-heading font-bold text-sm uppercase tracking-wide text-gray-800 dark:text-gray-200 truncate">
+              {pkg.name || pkg.id}
+            </p>
+          </div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+            {pkg.author && t("worldSelect.packageAuthor", { author: pkg.author })}
+            {pkg.author && pkg.version && " · "}
+            {pkg.version && t("worldSelect.packageVersion", { version: pkg.version })}
+            {pkg.license && ` · ${pkg.license}`}
           </p>
-        </div>
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-          {pkg.author && t("worldSelect.packageAuthor", { author: pkg.author })}
-          {pkg.author && pkg.version && " · "}
-          {pkg.version && t("worldSelect.packageVersion", { version: pkg.version })}
-          {pkg.license && ` · ${pkg.license}`}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
-          <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <Globe className="w-3 h-3" />
-            {t("worldSelect.teams", { count: pkg.teamCount })}
-          </span>
-          <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            {t("worldSelect.players", { count: pkg.playerCount })}
-          </span>
-          <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            <Trophy className="w-3 h-3" />
-            {t("worldSelect.competitions", { count: pkg.competitionCount })}
-          </span>
-          {/* Shown only when the package actually supplies them. A stack is
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              {t("worldSelect.teams", { count: pkg.teamCount })}
+            </span>
+            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              {t("worldSelect.players", { count: pkg.playerCount })}
+            </span>
+            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <Trophy className="w-3 h-3" />
+              {t("worldSelect.competitions", { count: pkg.competitionCount })}
+            </span>
+            {/* Shown only when the package actually supplies them. A stack is
               usually clubs and competitions, and six badges on every card would
               bury the three that always matter — while a package that ships
               name pools still stops looking identical to one that does not. */}
-          {pkg.namePoolCount > 0 && (
-            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-              <Type className="w-3 h-3" />
-              {t("worldSelect.namePools", { count: pkg.namePoolCount })}
-            </span>
-          )}
-          {pkg.countryCount > 0 && (
-            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-              <Flag className="w-3 h-3" />
-              {t("worldSelect.countries", { count: pkg.countryCount })}
-            </span>
-          )}
-          {pkg.confederationCount > 0 && (
-            <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-              <Layers className="w-3 h-3" />
-              {t("worldSelect.confederations", { count: pkg.confederationCount })}
-            </span>
-          )}
+            {pkg.namePoolCount > 0 && (
+              <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <Type className="w-3 h-3" />
+                {t("worldSelect.namePools", { count: pkg.namePoolCount })}
+              </span>
+            )}
+            {pkg.countryCount > 0 && (
+              <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <Flag className="w-3 h-3" />
+                {t("worldSelect.countries", { count: pkg.countryCount })}
+              </span>
+            )}
+            {pkg.confederationCount > 0 && (
+              <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <Layers className="w-3 h-3" />
+                {t("worldSelect.confederations", { count: pkg.confederationCount })}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      </button>
 
       {/* Uninstall */}
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={(e) => {
-          e.stopPropagation();
-          onUninstall();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.stopPropagation();
-            onUninstall();
-          }
-        }}
-        className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 mt-0.5 p-0.5 rounded"
+      <button
+        type="button"
+        onClick={onUninstall}
+        className="relative z-10 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0 mt-0.5 p-0.5 rounded"
         title={t("worldSelect.removePackage")}
         aria-label={t("worldSelect.removePackage")}
       >
         <Trash2 className="w-4 h-4" />
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

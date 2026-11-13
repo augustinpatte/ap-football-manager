@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ACTIVATABLE_FOCUS_CLASS, activatable } from "../../lib/activatable";
 import { formatDateShort } from "../../lib/helpers";
 import type { MessageData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
@@ -52,8 +53,10 @@ export default function HomeRecentMessagesCard({
               return (
                 <ContextMenu items={contextItems} key={message.id}>
                   <div
-                    onClick={() => onNavigate?.("Inbox", { messageId: message.id })}
-                    className={`flex gap-4 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${
+                    {...activatable(
+                      onNavigate ? () => onNavigate("Inbox", { messageId: message.id }) : undefined,
+                    )}
+                    className={`flex gap-4 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${ACTIVATABLE_FOCUS_CLASS} ${
                       !message.read
                         ? "border-l-4 border-l-primary-500"
                         : "border-l-4 border-l-transparent"

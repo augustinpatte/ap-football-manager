@@ -5,6 +5,7 @@ import {
   GraduationCap,
   Repeat,
   ScanSearch,
+  ShieldCheck,
   ShoppingCart,
   User,
   UserPlus,
@@ -49,6 +50,19 @@ export function buildToggleTransferListMenuItem(
   return {
     label: transferListed ? t("squad.removeFromTransferList") : t("squad.addToTransferList"),
     icon: <ShoppingCart className="w-4 h-4" />,
+    onClick,
+  };
+}
+
+/** Tells the assistant a player is not to be sold, or that he may be again. */
+export function buildToggleSaleProtectionMenuItem(
+  t: MenuTranslateFn,
+  protectedFromSale: boolean,
+  onClick: () => void,
+): ContextMenuItem {
+  return {
+    label: protectedFromSale ? t("squad.removeSaleProtection") : t("squad.protectFromSale"),
+    icon: <ShieldCheck className="w-4 h-4" />,
     onClick,
   };
 }

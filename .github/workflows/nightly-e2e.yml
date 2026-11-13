@@ -82,6 +82,10 @@ jobs:
         with:
           ref: ${{ needs.revision.outputs.sha }}
           persist-credentials: false
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       - name: Install Linux build dependencies
         run: |
@@ -127,6 +131,10 @@ jobs:
         with:
           ref: ${{ needs.revision.outputs.sha }}
           persist-credentials: false
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       - name: Install Linux build dependencies
         run: |
@@ -180,6 +188,10 @@ jobs:
         with:
           ref: ${{ needs.revision.outputs.sha }}
           persist-credentials: false
+      - name: Allow fetching the private match engine
+        uses: ./.github/actions/private-engine-access
+        with:
+          token: ${{ secrets.APFM_ENGINE_READ_TOKEN }}
 
       - name: Install Linux dependencies and a virtual display
         run: |

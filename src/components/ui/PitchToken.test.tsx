@@ -117,7 +117,7 @@ describe("PitchToken summary reachability", () => {
   it("dismisses the summary on Escape pressed inside a keydown-swallowing child", () => {
     render(
       <PitchToken name="Rossi" positionAbbr="ST" ovr={74} condition={74} focused>
-        <div onKeyDown={(e) => e.stopPropagation()}>
+        <div role="toolbar" aria-label="Roles" onKeyDown={(e) => e.stopPropagation()}>
           <button type="button">Role</button>
         </div>
       </PitchToken>,

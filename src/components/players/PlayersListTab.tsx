@@ -104,6 +104,8 @@ export default function PlayersListTab({
     bidTarget,
     bidAmount,
     setBidAmount,
+    bidTerms,
+    setBidTerms,
     bidResult,
     bidLoading,
     bidFeedback,
@@ -127,12 +129,11 @@ export default function PlayersListTab({
     setContractWage,
     contractLength,
     setContractLength,
-    contractFeedback,
+    talkPanel,
     contractProjection,
     contractSubmitting,
     contractSubmitDisabled,
-    contractStatusMessage,
-    contractStatusClassName,
+    contractError,
     openFreeAgentContract,
     closeFreeAgentContract,
     submitFreeAgentContract,
@@ -299,12 +300,13 @@ export default function PlayersListTab({
                       : availableScouts.length === 0
                         ? "unavailable"
                         : "ready";
+                  const teamId = summary.team_id;
                   const contextItems = [
                     buildViewProfileMenuItem(t, () => onSelectPlayer(summary.id)),
-                    ...(summary.team_id
+                    ...(teamId
                       ? [
                           buildViewTeamMenuItem(t, () => {
-                            onSelectTeam(summary.team_id!);
+                            onSelectTeam(teamId);
                           }),
                         ]
                       : []),
@@ -391,12 +393,12 @@ export default function PlayersListTab({
                         <CountryFlag code={summary.nationality} className="text-lg leading-none" />
                       </td>
                       <td className="py-2.5 px-4">
-                        {summary.team_id ? (
+                        {teamId ? (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onSelectTeam(summary.team_id!);
+                              onSelectTeam(teamId);
                             }}
                             className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
                           >
@@ -508,6 +510,8 @@ export default function PlayersListTab({
           teams={gameState.teams}
           bidAmount={bidAmount}
           onBidAmountChange={setBidAmount}
+          bidTerms={bidTerms}
+          onBidTermsChange={setBidTerms}
           myTeam={myTeam}
           bidFee={bidFee}
           bidProjection={bidProjection}
@@ -531,9 +535,8 @@ export default function PlayersListTab({
           contractLength={contractLength}
           onContractLengthChange={setContractLength}
           projection={contractProjection}
-          feedback={contractFeedback}
-          statusMessage={contractStatusMessage(t)}
-          statusClassName={contractStatusClassName}
+          talkPanel={talkPanel}
+          errorMessage={contractError}
           submitting={contractSubmitting}
           submitDisabled={contractSubmitDisabled}
           onSubmit={submitFreeAgentContract}

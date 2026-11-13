@@ -304,6 +304,36 @@ fn reconstructable_opening(
     Some(opening)
 }
 
+/// Days of the journal kept as single payments. The budget review reads the last 365; a club's
+/// recent weeks are what a player can still ask about. Older months are folded to one line per
+/// club and kind.
+const JOURNAL_DETAIL_DAYS: i64 = 730;
+
+/// Folds the journal's old months at a rollover (see `CashJournal::fold_before`): after thirty
+/// seasons of an 80-club world the journal was 54 % of the save (F5.1 storage study), and nothing
+/// reads a single payment from three years ago. No club's balance changes. The file is told on the
+/// next save (`Game::cash_journal_fold_pending`).
+pub(crate) fn fold_old_posts(game: &mut Game) {
+    use chrono::Datelike;
+    let horizon =
+        game.clock.current_date.date_naive() - chrono::Duration::days(JOURNAL_DETAIL_DAYS);
+    // A month at a time, so a fold never splits one.
+    let cutoff = format!("{:04}-{:02}-01", horizon.year(), horizon.month());
+    let created = game.cash_journal.fold_before(&cutoff);
+    if created.is_empty() {
+        return;
+    }
+    game.cash_journal_dirty_ids.extend(created);
+    // Cutoffs only move forward, so the later one covers the earlier.
+    if game
+        .cash_journal_fold_pending
+        .as_ref()
+        .is_none_or(|pending| pending.as_str() < cutoff.as_str())
+    {
+        game.cash_journal_fold_pending = Some(cutoff);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,6 +392,117 @@ mod tests {
         assert_eq!(game.teams[0].season_expenses, 1_000);
         assert_eq!(game.cash_journal_dirty_ids.len(), 2);
         assert!(journal_matches_cash(&game));
+    }
+
+    /// Given a club with weekly wages posted over four years and a clock three years on,
+    /// When the rollover folds the journal,
+    /// Then its balance still equals its posts' sum, the last two years are still single payments,
+    /// the folds are queued for the next save and the file is told where the detail now begins.
+    #[test]
+    fn folding_old_posts_keeps_the_balance_and_the_recent_detail_and_queues_the_file() {
+        let mut game = make_game(vec![make_team("alpha", 5_000_000)]);
+        let start = NaiveDate::from_ymd_opt(2030, 8, 5).unwrap();
+        for week in 0..(52 * 4) {
+            let date = start + chrono::Duration::days(7 * week);
+            post(&mut game, "alpha", -1_000, CashKind::PlayerWages, date).unwrap();
+        }
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(2034, 8, 1, 12, 0, 0).unwrap());
+        game.cash_journal_dirty_ids.clear();
+        let balance = game.teams[0].finance;
+        let recent_before = game
+            .cash_journal
+            .iter()
+            .filter(|p| p.date.as_str() >= "2032-08-01")
+            .count();
+        let length_before = game.cash_journal.len();
+
+        let old_posts = game
+            .cash_journal
+            .iter()
+            .filter(|p| p.date.as_str() < "2032-08-01" && p.kind != CashKind::OpeningBalance)
+            .count();
+
+        fold_old_posts(&mut game);
+
+        assert_eq!(game.cash_journal.cash_for("alpha"), balance);
+        assert!(journal_matches_cash(&game));
+        // The two oldest years (24 months of weekly wages) become 24 posts.
+        assert_eq!(game.cash_journal.len(), length_before - old_posts + 24);
+        assert_eq!(
+            game.cash_journal
+                .iter()
+                .filter(|p| p.date.as_str() >= "2032-08-01" && !p.id.starts_with("fold:"))
+                .count(),
+            recent_before,
+            "the last two years stay single payments"
+        );
+        assert_eq!(
+            game.cash_journal_fold_pending.as_deref(),
+            Some("2032-08-01")
+        );
+        assert!(
+            game.cash_journal_dirty_ids
+                .iter()
+                .all(|id| id.starts_with("fold:"))
+        );
+        assert!(!game.cash_journal_dirty_ids.is_empty());
+    }
+
+    /// Given a clock in the middle of a month, When the journal is folded, Then the cutoff is the
+    /// first of the month two years back, so that month's payments stay single and none is split.
+    #[test]
+    fn the_fold_cutoff_is_the_start_of_a_month() {
+        let mut game = make_game(vec![make_team("alpha", 5_000_000)]);
+        for day in [3, 10, 17, 24] {
+            let date = NaiveDate::from_ymd_opt(2032, 8, day).unwrap();
+            post(&mut game, "alpha", -1_000, CashKind::PlayerWages, date).unwrap();
+        }
+        post(
+            &mut game,
+            "alpha",
+            -1_000,
+            CashKind::PlayerWages,
+            NaiveDate::from_ymd_opt(2032, 7, 20).unwrap(),
+        )
+        .unwrap();
+        // 2034-08-15 minus 730 days is 2032-08-16, inside August: August is not folded whole.
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(2034, 8, 15, 12, 0, 0).unwrap());
+
+        fold_old_posts(&mut game);
+
+        assert_eq!(
+            game.cash_journal_fold_pending.as_deref(),
+            Some("2032-08-01")
+        );
+        let august_singles = game
+            .cash_journal
+            .iter()
+            .filter(|p| {
+                p.date.starts_with("2032-08")
+                    && !p.id.starts_with("fold:")
+                    && p.kind != CashKind::OpeningBalance
+            })
+            .count();
+        assert_eq!(august_singles, 4, "August's four payments stay single");
+        assert!(
+            game.cash_journal
+                .iter()
+                .any(|p| p.id == "fold:alpha:PlayerWages:2032-07")
+        );
+    }
+
+    /// Given a journal with nothing older than two years, when the rollover folds it, then the file
+    /// is told nothing: no pending cutoff, no queued posts.
+    #[test]
+    fn a_young_journal_is_not_folded_and_nothing_is_queued() {
+        let mut game = make_game(vec![make_team("alpha", 1_000_000)]);
+        post(&mut game, "alpha", -1_000, CashKind::PlayerWages, monday()).unwrap();
+        game.cash_journal_dirty_ids.clear();
+
+        fold_old_posts(&mut game);
+
+        assert!(game.cash_journal_fold_pending.is_none());
+        assert!(game.cash_journal_dirty_ids.is_empty());
     }
 
     #[test]

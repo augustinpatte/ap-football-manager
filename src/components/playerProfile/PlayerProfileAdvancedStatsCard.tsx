@@ -100,6 +100,11 @@ export default function PlayerProfileAdvancedStatsCard({
       "playerProfile.percentileUnavailable",
       "Percentile unavailable",
     ),
+    detailNotRecorded: resolveLabel(
+      t,
+      "playerProfile.detailNotRecorded",
+      "Detailed match statistics are not recorded for matches played in the background.",
+    ),
   };
 
   const rows = [
@@ -153,10 +158,30 @@ export default function PlayerProfileAdvancedStatsCard({
     },
   ];
 
+  // Nothing was measured, so nothing is shown as a number: a zero here would read as a player who
+  // never shot, when the game simply did not record his shots.
+  const shownRows = summary.detailRecorded
+    ? rows
+    : rows.map((row) => ({
+        ...row,
+        primaryValue: "-",
+        secondaryValue: "-",
+        percentile: null,
+      }));
+
   return (
     <Card>
       <CardHeader>{labels.title}</CardHeader>
       <CardBody>
+        {!summary.detailRecorded && (
+          <p
+            id="advanced-stats-not-recorded"
+            role="note"
+            className="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            {labels.detailNotRecorded}
+          </p>
+        )}
         {summary.peerGroup && (
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
             {t("playerProfile.percentileGroup", {
@@ -172,8 +197,11 @@ export default function PlayerProfileAdvancedStatsCard({
             })}
           </p>
         )}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:auto-rows-fr">
-          {rows.map((row) => (
+        <div
+          aria-describedby={summary.detailRecorded ? undefined : "advanced-stats-not-recorded"}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:auto-rows-fr"
+        >
+          {shownRows.map((row) => (
             <AdvancedStatCard
               key={row.id}
               label={row.label}

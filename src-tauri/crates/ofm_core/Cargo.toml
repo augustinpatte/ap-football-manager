@@ -21,7 +21,11 @@ zip = { version = "2", features = ["deflate"] }
 sha2 = "0.10"
 hex = "0.4"
 base64 = "0.22"
-apfm-match-lab = { path = "../../../../../apfm-match-lab" }
+# The M12 engine, pinned to the exact commit a build was verified with. The repository is private:
+# resolving this needs git access to it (a credential helper, `gh auth setup-git`, or a CI token);
+# nothing secret is stored here. For local development against a sibling checkout see
+# `.cargo/config.toml.example` (a `paths` override, which leaves Cargo.lock untouched).
+apfm-match-lab = { git = "https://github.com/augustinpatte/apfm-match-lab", rev = "28f34b10d4fe7cadacc0030acaaa0cd1aa9fdf5f" }
 
 [lints]
 workspace = true

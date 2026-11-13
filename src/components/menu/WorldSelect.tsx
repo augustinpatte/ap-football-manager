@@ -114,6 +114,7 @@ export default function GenerationStep({
 }: GenerationStepProps) {
   const { t } = useTranslation();
   const historyDepthLabelId = useId();
+  const historyDepthGroupName = useId();
 
   const hasActiveDatabases = activePackages.some((p) => p.packageType === "database");
 
@@ -240,18 +241,22 @@ export default function GenerationStep({
             {HISTORY_DEPTH_OPTIONS.map((value) => {
               const selected = historyDepthYears === value;
               return (
-                <button
+                <label
                   key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onChangeHistoryDepthYears(value)}
-                  className={`rounded-xl border px-3 py-3 text-left transition-all ${
+                  className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition-all has-focus-visible:ring-2 has-focus-visible:ring-focus ${
                     selected
                       ? "border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-400/30 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-300"
                       : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 dark:border-navy-600 dark:bg-navy-800 dark:text-gray-200 dark:hover:border-navy-500"
                   }`}
                 >
+                  <input
+                    type="radio"
+                    name={historyDepthGroupName}
+                    value={value}
+                    checked={selected}
+                    onChange={() => onChangeHistoryDepthYears(value)}
+                    className="sr-only"
+                  />
                   <span className="block font-heading font-bold uppercase tracking-wide">
                     {historyDepthOptionLabel(t, value)}
                   </span>
@@ -260,7 +265,7 @@ export default function GenerationStep({
                       {t("worldSelect.historyDepth.recommended")}
                     </span>
                   )}
-                </button>
+                </label>
               );
             })}
           </div>

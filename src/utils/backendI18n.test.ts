@@ -4,6 +4,7 @@ import { useSettingsStore } from "../store/settingsStore";
 import {
   resolveBackendText,
   resolveBackendError,
+  resolveBackendKeyError,
   resolveMessage,
   resolveAction,
   resolveNewsArticle,
@@ -1253,6 +1254,31 @@ describe("resolveBackendText", () => {
     const result = resolveBackendText("test.kickoff?start=soon", "fallback");
 
     expect(result).toBe("Kicks off on soon");
+  });
+});
+
+describe("resolveBackendKeyError", () => {
+  /**
+   * Given a backend failure that carries a translation key with a technical code
+   * When it is shown to the player
+   * Then the specific, translated reason is shown rather than the generic fallback.
+   */
+  it("shows the backend's own reason when it sent a key", () => {
+    const shown = resolveBackendKeyError(
+      "be.error.spatialReplay.inputRejected?code=WrongStarterCount",
+      "generic",
+    );
+    expect(shown).toContain("WrongStarterCount");
+    expect(shown).not.toBe("generic");
+  });
+
+  /**
+   * Given an unexpected failure with raw English text
+   * When it is shown to the player
+   * Then the generic fallback is shown, not the raw text.
+   */
+  it("falls back for anything that is not a backend key", () => {
+    expect(resolveBackendKeyError(new Error("engine failed"), "generic")).toBe("generic");
   });
 });
 

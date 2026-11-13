@@ -29,7 +29,11 @@ pub fn load_delegation(conn: &Connection) -> Result<DelegationState, String> {
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     match json {
         Some(json) => {
-            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
+            let mut state: DelegationState =
+                serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+            // A save from before a duty existed has no setting for it.
+            state.complete_settings();
+            Ok(state)
         }
         None => Ok(DelegationState::default()),
     }
@@ -40,6 +44,63 @@ mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
     use domain::delegation::{Duty, ProposalAction};
+
+    /// Given a delegation saved before F5.4 (no sales memory, no protected players, no Total
+    /// authority) in the database's own JSON
+    /// When it is loaded
+    /// Then it loads with none of them: nothing is granted that was not asked for.
+    #[test]
+    fn a_delegation_saved_before_total_authority_loads_without_it() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let old = r#"{"settings":[{"duty":"Offers","delegated":true,"confirm_major":false}],
+            "limits":{"max_staff_wage":5000,"max_player_wage":15000,"max_commitment":3000000,
+            "max_transfer_fee":0}}"#;
+        db.conn()
+            .execute(
+                "INSERT OR REPLACE INTO staff_delegation (id, state_json) VALUES (1, ?1)",
+                params![old],
+            )
+            .unwrap();
+        let loaded = load_delegation(db.conn()).unwrap();
+        assert!(!loaded.limits.finance_bound);
+        assert!(loaded.protected_players.is_empty());
+        assert!(loaded.sales.offers.is_empty() && loaded.sales.listed.is_empty());
+    }
+
+    /// Given a "Full" delegation saved before the tactical duty existed
+    /// When the save is loaded
+    /// Then it is still "Full" and the new duty is delegated like the others.
+    #[test]
+    fn a_full_delegation_saved_before_the_tactics_duty_loads_as_full() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut state = DelegationState::default();
+        state.apply_mode(domain::delegation::DelegationMode::Full);
+        state.settings.retain(|s| s.duty != Duty::Tactics);
+        replace_delegation(db.conn(), &state).unwrap();
+
+        let loaded = load_delegation(db.conn()).unwrap();
+
+        assert_eq!(loaded.mode(), domain::delegation::DelegationMode::Full);
+        assert!(loaded.is_delegated(Duty::Tactics));
+    }
+
+    /// Given an override in force and a fingerprint of what the assistant last wrote
+    /// When the game is saved and loaded
+    /// Then both are kept: the assistant still stands back after a reload.
+    #[test]
+    fn an_override_survives_a_reload() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut state = DelegationState::default();
+        state.set(Duty::Lineup, true, false);
+        state.record_applied(Duty::Lineup, "a,b,c");
+        state.stand_back(Duty::Lineup, "2026-08-12");
+        replace_delegation(db.conn(), &state).unwrap();
+
+        let loaded = load_delegation(db.conn()).unwrap();
+
+        assert_eq!(loaded.applied(Duty::Lineup), Some("a,b,c"));
+        assert!(loaded.is_standing_back(Duty::Lineup, "2026-08-11"));
+    }
 
     #[test]
     fn delegation_round_trips_and_a_missing_row_means_nothing_delegated() {
@@ -64,6 +125,62 @@ mod tests {
             vec![("name".into(), "X".into())],
             "r",
         );
+        // The assistant coach's additions, at values that are not their defaults.
+        state.apply_mode(domain::delegation::DelegationMode::Full);
+        state.limits = domain::delegation::DelegationLimits {
+            max_staff_wage: 1_111,
+            max_player_wage: 2_222,
+            max_commitment: 3_333_333,
+            max_transfer_fee: 444_444,
+            finance_bound: true,
+        };
+        // F5.4: the manager's protected players, and what the assistant has in hand on the selling
+        // side, all at values that are not their defaults.
+        state.set_protected("keeper-1", true);
+        state.sales.record_mut("offer-7", "2026-08-05").counters = 2;
+        state.sales.listed.push("surplus-3".into());
+        state.sales.last_listing_review = Some("2026-08-05".into());
+        state.sales.shelve(
+            "star-2",
+            "2026-11-01",
+            domain::delegation::ShelveReason::ManagerDeclined,
+        );
+        state
+            .recruitment
+            .replace(domain::delegation::ActiveApproach {
+                player_id: "target-4".into(),
+                started: "2026-08-06".into(),
+                need: "Forward".into(),
+                max_fee: 9_000_000,
+                next_fee: 8_100_000,
+                wage: 20_000,
+                years: 3,
+                rounds: 2,
+                role: "Striker".into(),
+                gain: 14,
+                reason: "starter".into(),
+            });
+        state.last_digest = Some("2026-08-14".into());
+        state.last_proposal_notice = Some("2026-08-10".into());
+        state.propose(
+            Duty::PlayerRenewals,
+            "2026-08-03",
+            ProposalAction::RenewPlayer {
+                player_id: "p9".into(),
+                wage: 7_000,
+                years: 3,
+            },
+            "delegation.proposal.renewPlayer",
+            vec![],
+            "delegation.reason.aboveLimit",
+        );
+        state.push_log(domain::delegation::DelegationLogEntry {
+            date: "2026-08-04".into(),
+            duty: Duty::Lineup,
+            title_key: "delegation.log.lineupChosen".into(),
+            params: vec![("changes".into(), "2".into())],
+            outcome: domain::delegation::DecisionOutcome::Declined,
+        });
         replace_delegation(db.conn(), &state).unwrap();
         replace_delegation(db.conn(), &state).unwrap();
         assert_eq!(load_delegation(db.conn()).unwrap(), state);

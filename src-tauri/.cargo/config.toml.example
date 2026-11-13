@@ -1,0 +1,8 @@
+# Copy to `.cargo/config.toml` (which is git-ignored) to build against a local checkout of the M12
+# engine instead of the pinned Git revision, e.g. while changing both repositories together.
+#
+# `paths` is used rather than `[patch]` on purpose: it does not change Cargo.lock, so a local
+# override can never be committed by accident as a different lockfile. The local checkout must be at
+# a version whose dependencies are already in Cargo.lock; otherwise Cargo says so and you should
+# commit and re-pin M12 instead.
+paths = ["/absolute/path/to/apfm-match-lab"]

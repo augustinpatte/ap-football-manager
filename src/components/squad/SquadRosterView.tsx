@@ -8,7 +8,16 @@ import type {
   PlayerSelectionOptions,
   TeamData,
 } from "../../store/gameStore";
-import { Badge, Card, ProgressBar, Select, CountryFlag, PlayerAvatar, InjuryBadge } from "../ui";
+import {
+  Badge,
+  Card,
+  ProgressBar,
+  Select,
+  CountryFlag,
+  PlayerAvatar,
+  InjuryBadge,
+  SuspensionBadge,
+} from "../ui";
 import {
   AlertTriangle,
   MoreVertical,
@@ -19,7 +28,6 @@ import {
   Users,
 } from "lucide-react";
 import { TraitList } from "../TraitBadge";
-import { SquadSortHeader } from "./SquadSortHeader";
 import {
   calcAge,
   contractExpiryLabel,
@@ -69,10 +77,22 @@ import {
   buildToggleTransferListMenuItem,
   buildViewProfileMenuItem,
 } from "../playerActions/playerContextMenuItems";
+import { useSettingsStore } from "../../store/settingsStore";
+import { SquadColumnChooser } from "./SquadColumnChooser";
+import { SquadTableHeader } from "./SquadTableHeader";
 import {
+  type HideableSquadColumnId,
+  hiddenSquadColumns,
+  sortKeyAfterHiding,
+  toggleHiddenSquadColumn,
+} from "./squadColumns";
+import {
+  DEFAULT_SQUAD_LIST_FILTERS,
   DEFAULT_SQUAD_LIST_SORT_STATE,
+  type SquadListFilters,
   type SquadListSortKey,
   type SquadListSortState,
+  type SquadStatusFilter,
 } from "./SquadRosterView.state";
 
 interface SquadRosterViewProps {
@@ -83,16 +103,10 @@ interface SquadRosterViewProps {
   onMutationComplete?: (g: GameStateData) => void;
   sortState?: SquadListSortState;
   onSortStateChange?: (sortState: SquadListSortState) => void;
+  /** Held by the dashboard so they survive a visit to a profile; local when absent. */
+  filters?: SquadListFilters;
+  onFiltersChange?: (filters: SquadListFilters) => void;
 }
-
-type FilterScope =
-  | "all"
-  | "xi"
-  | "bench"
-  | "naturalFit"
-  | "needsCover"
-  | "outOfPosition"
-  | "injured";
 
 export default function SquadRosterView({
   players,
@@ -102,16 +116,23 @@ export default function SquadRosterView({
   onMutationComplete,
   sortState,
   onSortStateChange,
+  filters,
+  onFiltersChange,
 }: SquadRosterViewProps) {
   const tierOf = useRatingTiers();
   const { t, i18n } = useTranslation();
-  const [playerSearch, setPlayerSearch] = useState("");
   // Ties each visible filter label to its control, so the control is announced by that label.
   const searchInputId = useId();
   const positionFilterId = useId();
   const statusFilterId = useId();
-  const [positionFilter, setPositionFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState<FilterScope>("all");
+  const [localFilters, setLocalFilters] = useState<SquadListFilters>(DEFAULT_SQUAD_LIST_FILTERS);
+  const activeFilters = filters ?? localFilters;
+  const { search: playerSearch, position: positionFilter, status: statusFilter } = activeFilters;
+  const updateFilters = (changes: Partial<SquadListFilters>) => {
+    const next = { ...activeFilters, ...changes };
+    if (onFiltersChange) onFiltersChange(next);
+    else setLocalFilters(next);
+  };
   const [localSortState, setLocalSortState] = useState<SquadListSortState>(
     DEFAULT_SQUAD_LIST_SORT_STATE,
   );
@@ -166,6 +187,20 @@ export default function SquadRosterView({
     }
 
     setLocalSortState(nextSortState);
+  };
+
+  // The columns the player hid, kept in the settings so they stay hidden across launches.
+  const hiddenStored = useSettingsStore((state) => state.settings.squad_hidden_columns);
+  const updateSettings = useSettingsStore((state) => state.updateSettings);
+  const hidden = useMemo(() => hiddenSquadColumns(hiddenStored ?? []), [hiddenStored]);
+  const shows = (column: HideableSquadColumnId) => !hidden.has(column);
+
+  const saveHiddenColumns = (next: string[]) => {
+    void updateSettings({ squad_hidden_columns: next });
+    // Rows must not stay ordered by a column the player can no longer see.
+    if (sortKeyAfterHiding(sortKey, hiddenSquadColumns(next)) !== sortKey) {
+      updateSortState(DEFAULT_SQUAD_LIST_SORT_STATE);
+    }
   };
 
   const toggleSort = (key: SquadListSortKey) => {
@@ -392,7 +427,7 @@ export default function SquadRosterView({
               id={searchInputId}
               type="text"
               value={playerSearch}
-              onChange={(event) => setPlayerSearch(event.target.value)}
+              onChange={(event) => updateFilters({ search: event.target.value })}
               placeholder={t("squad.filterPlayers")}
               className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             />
@@ -407,7 +442,7 @@ export default function SquadRosterView({
             <Select
               id={positionFilterId}
               value={positionFilter}
-              onChange={(event) => setPositionFilter(event.target.value)}
+              onChange={(event) => updateFilters({ position: event.target.value })}
               fullWidth
             >
               <option value="All">{t("common.all")}</option>
@@ -428,7 +463,9 @@ export default function SquadRosterView({
             <Select
               id={statusFilterId}
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as FilterScope)}
+              onChange={(event) =>
+                updateFilters({ status: event.target.value as SquadStatusFilter })
+              }
               fullWidth
             >
               <option value="all">{t("common.allPlayers")}</option>
@@ -440,22 +477,27 @@ export default function SquadRosterView({
               <option value="injured">{t("common.injured")}</option>
             </Select>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setPlayerSearch("");
-              setPositionFilter("All");
-              setStatusFilter("all");
-            }}
-            disabled={!hasActiveFilters}
-            className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-              hasActiveFilters
-                ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
-                : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {t("common.clear")}
-          </button>
+          <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                updateFilters(DEFAULT_SQUAD_LIST_FILTERS);
+              }}
+              disabled={!hasActiveFilters}
+              className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                hasActiveFilters
+                  ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
+                  : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {t("common.clear")}
+            </button>
+            <SquadColumnChooser
+              hidden={hidden}
+              onToggle={(id) => saveHiddenColumns(toggleHiddenSquadColumn(hiddenStored ?? [], id))}
+              onShowAll={() => saveHiddenColumns([])}
+            />
+          </div>
         </div>
         <div className="px-4 pb-4 flex flex-wrap gap-2">
           <Badge variant="primary" size="sm">
@@ -540,78 +582,12 @@ export default function SquadRosterView({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
-                <SquadSortHeader
-                  col="jersey"
-                  label={t("squad.jerseyNumber")}
-                  ariaLabel={t("squad.jerseyNumberFull")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="name"
-                  label={t("common.name")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="pos"
-                  label={t("squad.pos")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="fit"
-                  label={t("squad.formationFit")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {t("squad.traits")}
-                </th>
-                <SquadSortHeader
-                  col="age"
-                  label={t("common.age")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="condition"
-                  label={t("common.condition")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="morale"
-                  label={t("common.morale")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="ovr"
-                  label={t("common.ovr")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <SquadSortHeader
-                  col="contract"
-                  label={t("common.contract")}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={toggleSort}
-                />
-                <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-right">
-                  <span className="sr-only">{t("common.actions")}</span>
-                </th>
-              </tr>
+              <SquadTableHeader
+                hidden={hidden}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
               {filteredRoster.map((player) => {
@@ -775,9 +751,11 @@ export default function SquadRosterView({
                       title={inXI ? t("squad.startingXi") : undefined}
                       className={`hover:bg-primary-500/5 dark:hover:bg-navy-700 transition-colors group cursor-pointer ${inXI ? "border-l-4 border-l-primary-500" : rowBorderClass}`}
                     >
-                      <td className="py-2.5 px-4 tabular-nums text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {player.jersey_number ?? "—"}
-                      </td>
+                      {shows("jersey") && (
+                        <td className="py-2.5 px-4 tabular-nums text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {player.jersey_number ?? "—"}
+                        </td>
+                      )}
                       {/* Name: avatar + injury dot + name + country flag */}
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-3">
@@ -793,9 +771,18 @@ export default function SquadRosterView({
                                 }
                               />
                             )}
-                            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors truncate">
+                            {/* The row is clickable for the mouse; this button is the same action for the
+                                keyboard and screen readers, so it stops the click reaching the row. */}
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onSelectPlayer(player.id);
+                              }}
+                              className="truncate rounded text-left font-semibold text-body text-fg group-hover:text-positive transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+                            >
                               {player.match_name}
-                            </span>
+                            </button>
                             <CountryFlag
                               code={player.nationality}
                               className="text-sm leading-none shrink-0"
@@ -804,101 +791,129 @@ export default function SquadRosterView({
                         </div>
                       </td>
                       {/* Position badges: natural + alternates */}
-                      <td className="py-2.5 px-4">{renderPreferredPositionMeta(player)}</td>
+                      {shows("pos") && (
+                        <td className="py-2.5 px-4">{renderPreferredPositionMeta(player)}</td>
+                      )}
                       {/* Formation fit: colored badge for XI (green/amber/red),
                           neutral badge showing best-role for non-XI. */}
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-1.5">
-                          {inXI ? (
-                            <Badge
-                              variant={
-                                tacticalFit === "natural"
-                                  ? "success"
-                                  : tacticalFit === "adapted"
-                                    ? "accent"
-                                    : "danger"
-                              }
-                              size="sm"
-                            >
-                              {translatePositionAbbreviation(t, currentPos)}
-                            </Badge>
-                          ) : (
-                            <Badge variant="neutral" size="sm">
-                              {translatePositionAbbreviation(
-                                t,
-                                getBestRoleForFormation(player, formation),
-                              )}
-                            </Badge>
-                          )}
-                          {wrongPos ? (
-                            <span
-                              className="text-amber-500"
-                              title={t("squad.outOfPositionTooltip")}
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      {/* Traits — all of them, wraps as needed */}
-                      <td className="py-2.5 px-4">
-                        <TraitList traits={player.traits || []} size="xs" />
-                      </td>
-                      <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                        {age}
-                      </td>
-                      <td className="py-2.5 px-4 w-28">
-                        <ProgressBar value={player.condition} variant="auto" size="sm" showLabel />
-                      </td>
-                      <td className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400 tabular-nums">
-                        {player.morale}
-                      </td>
-                      {/* OVR (moved next to identity block) */}
-                      <td className="py-2.5 px-4">
-                        <span
-                          className={`font-heading font-bold text-sm ${ratingTierClass(tierOf(ovr), "text")}`}
-                        >
-                          {ovr}
-                        </span>
-                      </td>
-                      {/* Contract: years + risk + expires_on + market pills */}
-                      <td className="py-2.5 px-4 text-xs text-gray-600 dark:text-gray-400">
-                        <div className="space-y-1">
+                      {shows("fit") && (
+                        <td className="py-2.5 px-4">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-medium text-gray-700 dark:text-gray-300">
-                              {getContractYearsRemaining(player.contract_end, clockDate)}
-                            </span>
-                            <Badge
-                              variant={getContractRiskBadgeVariant(contractRiskLevel)}
-                              size="sm"
-                            >
-                              {contractRiskLabel}
-                            </Badge>
+                            {inXI ? (
+                              <Badge
+                                variant={
+                                  tacticalFit === "natural"
+                                    ? "success"
+                                    : tacticalFit === "adapted"
+                                      ? "accent"
+                                      : "danger"
+                                }
+                                size="sm"
+                              >
+                                {translatePositionAbbreviation(t, currentPos)}
+                              </Badge>
+                            ) : (
+                              <Badge variant="neutral" size="sm">
+                                {translatePositionAbbreviation(
+                                  t,
+                                  getBestRoleForFormation(player, formation),
+                                )}
+                              </Badge>
+                            )}
+                            {wrongPos ? (
+                              <span
+                                className="text-amber-500"
+                                title={t("squad.outOfPositionTooltip")}
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="text-gray-500 dark:text-gray-400">
-                            {player.contract_end
-                              ? contractExpiryLabel(player.contract_end, i18n.language, t)
-                              : "—"}
-                          </div>
-                          {player.transfer_listed || player.loan_listed || player.injury ? (
-                            <div className="flex flex-wrap gap-1">
-                              {player.transfer_listed ? (
-                                <Badge variant="accent" size="sm">
-                                  {t("transfers.transfer")}
-                                </Badge>
-                              ) : null}
-                              {player.loan_listed ? (
-                                <Badge variant="primary" size="sm">
-                                  {t("transfers.loan")}
-                                </Badge>
-                              ) : null}
-                              {player.injury ? <InjuryBadge injury={player.injury} /> : null}
+                        </td>
+                      )}
+                      {/* Traits — all of them, wraps as needed */}
+                      {shows("traits") && (
+                        <td className="py-2.5 px-4">
+                          <TraitList traits={player.traits || []} size="xs" />
+                        </td>
+                      )}
+                      {shows("age") && (
+                        <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
+                          {age}
+                        </td>
+                      )}
+                      {shows("condition") && (
+                        <td className="py-2.5 px-4 w-28">
+                          <ProgressBar
+                            value={player.condition}
+                            variant="auto"
+                            size="sm"
+                            showLabel
+                          />
+                        </td>
+                      )}
+                      {shows("morale") && (
+                        <td className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+                          {player.morale}
+                        </td>
+                      )}
+                      {/* OVR (moved next to identity block) */}
+                      {shows("ovr") && (
+                        <td className="py-2.5 px-4">
+                          <span
+                            className={`font-heading font-bold text-sm ${ratingTierClass(tierOf(ovr), "text")}`}
+                          >
+                            {ovr}
+                          </span>
+                        </td>
+                      )}
+                      {/* Contract: years + risk + expires_on + market pills */}
+                      {shows("contract") && (
+                        <td className="py-2.5 px-4 text-xs text-gray-600 dark:text-gray-400">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">
+                                {getContractYearsRemaining(player.contract_end, clockDate)}
+                              </span>
+                              <Badge
+                                variant={getContractRiskBadgeVariant(contractRiskLevel)}
+                                size="sm"
+                              >
+                                {contractRiskLabel}
+                              </Badge>
                             </div>
-                          ) : null}
-                        </div>
-                      </td>
+                            <div className="text-gray-500 dark:text-gray-400">
+                              {player.contract_end
+                                ? contractExpiryLabel(player.contract_end, i18n.language, t)
+                                : "—"}
+                            </div>
+                            {player.transfer_listed || player.loan_listed || player.injury ? (
+                              <div className="flex flex-wrap gap-1">
+                                {player.transfer_listed ? (
+                                  <Badge variant="accent" size="sm">
+                                    {t("transfers.transfer")}
+                                  </Badge>
+                                ) : null}
+                                {player.loan_listed ? (
+                                  <Badge variant="primary" size="sm">
+                                    {t("transfers.loan")}
+                                  </Badge>
+                                ) : null}
+                                {player.injury ? <InjuryBadge injury={player.injury} /> : null}
+                                {player.suspended_matches ? (
+                                  <SuspensionBadge matches={player.suspended_matches} />
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
+                      )}
                       {/* Actions (last column) */}
-                      <td className="py-2.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="py-2.5 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={(e) => {
