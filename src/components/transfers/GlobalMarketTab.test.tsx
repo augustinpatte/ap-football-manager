@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameStateData } from "../../store/gameStore";
@@ -127,10 +127,10 @@ const refused: ExternalNegotiationOutcome = {
   mainObstacle: "ClubBelowHisLevel",
 };
 
-const page = (items: RegistrySummary[], total = items.length): RegistryPage => ({
+const page = (items: RegistrySummary[], total = items.length, pageNumber = 1): RegistryPage => ({
   items,
   total,
-  page: 1,
+  page: pageNumber,
   pageSize: 25,
   counts: { all: total, freeAgent: 0, contracted: total, incomplete: 0 },
 });
@@ -157,9 +157,8 @@ describe("GlobalMarketTab", () => {
       expect.objectContaining({ sort: "ovr", descending: true, page: 1, pageSize: 25 }),
     );
 
-    fireEvent.change(screen.getByLabelText("globalMarket.sortBy"), {
-      target: { value: "value" },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: "globalMarket.sortBy" }));
+    fireEvent.click(screen.getByRole("option", { name: "globalMarket.sort.value" }));
     await waitFor(() =>
       expect(mockedSearch).toHaveBeenLastCalledWith(
         expect.objectContaining({ sort: "value", descending: true, page: 1 }),
@@ -173,9 +172,8 @@ describe("GlobalMarketTab", () => {
       ),
     );
 
-    fireEvent.change(screen.getByLabelText("globalMarket.availabilityLabel"), {
-      target: { value: "free_agent" },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: "globalMarket.availabilityLabel" }));
+    fireEvent.click(screen.getByRole("option", { name: "globalMarket.availability.free_agent" }));
     await waitFor(() =>
       expect(mockedSearch).toHaveBeenLastCalledWith(
         expect.objectContaining({ availability: "free_agent", page: 1 }),
@@ -275,5 +273,159 @@ describe("GlobalMarketTab", () => {
     await screen.findByText("globalMarket.status.player_refused");
     expect(screen.getByText(/freeAgents\.reason\.ClubBelowHisLevel/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "globalMarket.sign" })).toBeDisabled();
+  });
+
+  it("names the table, marks the selected row by more than its tint, and keeps the caption current", async () => {
+    mockedSearch.mockResolvedValue(page([summary], 60));
+    mockedDetail.mockResolvedValue(detail);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    const table = await screen.findByRole("table", { name: /globalMarket\.tableCaption/ });
+    expect(table).toHaveAccessibleName(/globalMarket\.tableCaption/);
+
+    const row = screen.getByRole("row", { name: /Alex Striker/ });
+    expect(row).not.toHaveAttribute("aria-current");
+
+    fireEvent.click(screen.getByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+
+    expect(row).toHaveAttribute("aria-current", "true");
+    expect(within(row).getByText(/globalMarket\.selected/)).toBeInTheDocument();
+  });
+
+  it("moves focus to the profile on selection and back to the row when the profile closes", async () => {
+    mockedDetail.mockResolvedValue(detail);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    const opener = await screen.findByRole("button", { name: /globalMarket\.openProfile/ });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const profile = await screen.findByRole("region", { name: "globalMarket.profile" });
+    await waitFor(() => expect(profile).toHaveFocus());
+
+    fireEvent.click(screen.getByRole("button", { name: "common.close" }));
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("has the negotiation live region in the page before an answer is put into it", async () => {
+    mockedDetail.mockResolvedValue(detail);
+    mockedNegotiate.mockResolvedValue(agreed);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+
+    const status = screen.getByRole("status", { name: "globalMarket.negotiation" });
+    expect(status).toBeEmptyDOMElement();
+
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
+    await screen.findByText("globalMarket.status.agreed");
+    expect(status).not.toBeEmptyDOMElement();
+    expect(status).toHaveTextContent(/globalMarket\.checkFee/);
+  });
+
+  it("explains why the signing control is closed until the terms are agreed", async () => {
+    mockedDetail.mockResolvedValue(detail);
+    mockedNegotiate.mockResolvedValueOnce(countered).mockResolvedValueOnce(agreed);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.signHintCheck");
+
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
+    await screen.findByText("globalMarket.status.club_countered");
+    expect(screen.getByText("globalMarket.signHintCounter")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.useTheirTerms" }));
+    await screen.findByText("globalMarket.status.agreed");
+    expect(screen.queryByText("globalMarket.signHintCounter")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "globalMarket.sign" })).toBeEnabled();
+  });
+
+  it("keeps keyboard focus on a usable page control when the clicked one is disabled at the end", async () => {
+    mockedSearch.mockImplementation(async (request) => page([summary], 26, request.page));
+    mockedDetail.mockResolvedValue(detail);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    await screen.findByRole("button", { name: /globalMarket\.openProfile/ });
+
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.nextPage" }));
+    const previous = await screen.findByRole("button", { name: "globalMarket.previousPage" });
+    await waitFor(() => expect(previous).toHaveFocus());
+
+    fireEvent.click(previous);
+    const next = screen.getByRole("button", { name: "globalMarket.nextPage" });
+    await waitFor(() => expect(next).toHaveFocus());
+  });
+
+  it("moves focus to the confirmation after the backend confirms a signing", async () => {
+    mockedDetail.mockResolvedValue(detail);
+    mockedNegotiate.mockResolvedValue(agreed);
+    mockedFinalize.mockResolvedValue({ game: signedGame, outcome: agreed });
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
+    await screen.findByText("globalMarket.status.agreed");
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.sign" }));
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.confirm" }));
+
+    const notice = screen.getByRole("status", { name: "globalMarket.title" });
+    await screen.findByText(/globalMarket\.signed/);
+    await waitFor(() => expect(notice).toHaveFocus());
+  });
+
+  it("does not announce success while the backend is still answering", async () => {
+    let release!: (value: { game: GameStateData; outcome: ExternalNegotiationOutcome }) => void;
+    mockedDetail.mockResolvedValue(detail);
+    mockedNegotiate.mockResolvedValue(agreed);
+    mockedFinalize.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
+    await screen.findByText("globalMarket.status.agreed");
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.sign" }));
+    fireEvent.click(screen.getByRole("button", { name: "globalMarket.confirm" }));
+
+    expect(screen.queryByText(/globalMarket\.signed/)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "globalMarket.signing" }),
+    ).toBeDisabled();
+
+    await act(async () => {
+      release({ game: signedGame, outcome: agreed });
+    });
+    await screen.findByText(/globalMarket\.signed/);
+  });
+
+  it("replaces an unknown backend key with a readable market error", async () => {
+    mockedSearch.mockRejectedValue(new Error("be.error.not.a.real.key"));
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    const alert = await screen.findByRole("alert", { name: "globalMarket.title" });
+    await waitFor(() => expect(alert).toHaveTextContent("globalMarket.errorGeneric"));
+    expect(alert).not.toHaveTextContent("be.error");
+  });
+
+  it("keeps a long player name in the table and the profile without dropping it", async () => {
+    const longName =
+      "Alexandros Maximilian Konstantinos van der Berg-Whittington-Striker the Third";
+    mockedSearch.mockResolvedValue(page([{ ...summary, name: longName }], 1));
+    mockedDetail.mockResolvedValue({ ...detail, name: longName });
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    expect(await screen.findByText(longName)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+    expect(screen.getAllByText(longName).length).toBeGreaterThan(1);
   });
 });

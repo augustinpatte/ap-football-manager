@@ -6,11 +6,13 @@ import {
   canSign,
   formFromOutcome,
   isCounterOffer,
+  marketErrorMessage,
   negotiationTone,
   optionalAmount,
   pageRange,
   requestFromForm,
   searchRequest,
+  signHintKey,
   totalPages,
   withQueryChange,
 } from "./globalMarketModel";
@@ -159,6 +161,48 @@ describe("globalMarketModel", () => {
       expect(pageRange(1, 0)).toEqual({ from: 0, to: 0 });
       expect(pageRange(1, 26)).toEqual({ from: 1, to: 25 });
       expect(pageRange(2, 26)).toEqual({ from: 26, to: 26 });
+    });
+  });
+
+  describe("marketErrorMessage", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      params ? `${key} ${JSON.stringify(params)}` : key;
+
+    it("translates a backend refusal and keeps its parameters", () => {
+      expect(marketErrorMessage("be.error.freeAgents.squadFull?count=30&max=30", t)).toBe(
+        'be.error.freeAgents.squadFull {"count":"30","max":"30"}',
+      );
+    });
+
+    it("never shows a key no locale knows", () => {
+      expect(marketErrorMessage(new Error("be.error.not.a.real.key"), t)).toBe(
+        "globalMarket.errorGeneric",
+      );
+    });
+
+    it("turns a transport failure into the readable market sentence", () => {
+      expect(marketErrorMessage(new Error("Failed to fetch"), t)).toBe("globalMarket.errorGeneric");
+    });
+
+    it("returns the translation when the locale resolves the key", () => {
+      const translated = (key: string) =>
+        key === "be.error.freeAgents.playerRefusesMove" ? "No" : key;
+      expect(marketErrorMessage("be.error.freeAgents.playerRefusesMove", translated)).toBe("No");
+    });
+  });
+
+  describe("signHintKey", () => {
+    it("names the reason the signing control is closed", () => {
+      expect(signHintKey(null)).toBe("globalMarket.signHintCheck");
+      expect(signHintKey({ ...outcome, status: "club_countered" })).toBe(
+        "globalMarket.signHintCounter",
+      );
+      expect(signHintKey({ ...outcome, status: "player_refused" })).toBe(
+        "globalMarket.signHintRefused",
+      );
+      expect(signHintKey({ ...outcome, blocker: "be.error.freeAgents.squadFull" })).toBe(
+        "globalMarket.signHintRefused",
+      );
     });
   });
 });

@@ -5178,6 +5178,12 @@
     "checkWindow": "Jendela transfer terbuka",
     "checkPassed": "lolos",
     "checkFailed": "tidak lolos",
-    "openProfile": "Buka {{player}}"
+    "openProfile": "Buka {{player}}",
+    "tableCaption": "Pemain pasar global, halaman {{page}} dari {{pages}}",
+    "selected": "Dipilih",
+    "signHintCheck": "Periksa ketentuannya untuk melihat apakah klub dan pemain setuju.",
+    "signHintCounter": "Terima ketentuan mereka dulu; tawaran balik tidak bisa ditandatangani.",
+    "signHintRefused": "Transfer ini tidak bisa ditandatangani sebagaimana adanya.",
+    "errorGeneric": "Pasar tidak dapat menyelesaikan permintaan itu. Coba lagi."
   }
 }

@@ -5178,6 +5178,12 @@
     "checkWindow": "Le marché des transferts est ouvert",
     "checkPassed": "validé",
     "checkFailed": "non validé",
-    "openProfile": "Ouvrir {{player}}"
+    "openProfile": "Ouvrir {{player}}",
+    "tableCaption": "Joueurs du marché mondial, page {{page}} sur {{pages}}",
+    "selected": "Sélectionné",
+    "signHintCheck": "Vérifiez les conditions pour savoir si le club et le joueur acceptent.",
+    "signHintCounter": "Acceptez d'abord leurs conditions ; une contre-offre ne peut pas être signée.",
+    "signHintRefused": "Ce transfert ne peut pas être signé en l'état.",
+    "errorGeneric": "Le marché n'a pas pu terminer cette demande. Réessayez."
   }
 }

@@ -5178,6 +5178,12 @@
     "checkWindow": "Transferfenster ist geöffnet",
     "checkPassed": "erfüllt",
     "checkFailed": "nicht erfüllt",
-    "openProfile": "{{player}} öffnen"
+    "openProfile": "{{player}} öffnen",
+    "tableCaption": "Spieler auf dem Weltmarkt, Seite {{page}} von {{pages}}",
+    "selected": "Ausgewählt",
+    "signHintCheck": "Prüfe die Bedingungen, um zu sehen, ob Verein und Spieler zustimmen.",
+    "signHintCounter": "Übernimm zuerst ihre Bedingungen; ein Gegenangebot kann nicht unterschrieben werden.",
+    "signHintRefused": "Dieser Wechsel kann so nicht unterschrieben werden.",
+    "errorGeneric": "Der Markt konnte diese Anfrage nicht abschließen. Versuche es erneut."
   }
 }

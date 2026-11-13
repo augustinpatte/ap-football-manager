@@ -7,6 +7,7 @@ import type {
   RegistrySearchRequest,
   RegistrySortKey,
 } from "../../services/registryService";
+import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 
 /** What the screen edits; the backend owns the search contract it is sent as. */
 export interface GlobalMarketQuery {
@@ -152,4 +153,34 @@ export function pageRange(
   if (total === 0) return { from: 0, to: 0 };
   const from = (page - 1) * pageSize + 1;
   return { from, to: Math.min(total, from + pageSize - 1) };
+}
+
+export type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+/** A backend message shaped like a translation key, with any encoded parameters removed. */
+const TRANSLATION_KEY = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$/i;
+
+/**
+ * What the player reads when a market call fails.
+ *
+ * Backend refusals arrive as translation keys, so a resolved key is shown translated. A key no
+ * locale knows, and a transport failure such as a rejected Tauri invoke, become the same readable
+ * sentence: the player never sees a raw key, a URL-encoded parameter list, or an English exception.
+ */
+export function marketErrorMessage(error: unknown, t: Translate): string {
+  const message = getErrorMessage(error).trim();
+  const key = message.split("?")[0] ?? "";
+  if (!TRANSLATION_KEY.test(key)) return t("globalMarket.errorGeneric");
+
+  const resolved = resolveTranslatedErrorMessage(error, t);
+  return resolved === message ? t("globalMarket.errorGeneric") : resolved;
+}
+
+/** Which sentence explains why the signing button is closed. */
+export function signHintKey(
+  outcome: ExternalNegotiationOutcome | null,
+): "globalMarket.signHintCheck" | "globalMarket.signHintCounter" | "globalMarket.signHintRefused" {
+  if (outcome === null) return "globalMarket.signHintCheck";
+  if (isCounterOffer(outcome.status)) return "globalMarket.signHintCounter";
+  return "globalMarket.signHintRefused";
 }
