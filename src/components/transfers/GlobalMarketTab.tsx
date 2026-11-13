@@ -105,10 +105,7 @@ function ConfirmSigningDialog({ controller }: { controller: GlobalMarketControll
       <p className="mt-3 text-body text-fg-muted">{body}</p>
       <dl className="mt-4 space-y-1 text-caption text-fg-muted">
         <Term label={t("globalMarket.feeOffer")} value={formatVal(outcome.fee)} />
-        <Term
-          label={t("globalMarket.wageOffer")}
-          value={formatWeeklyWage(outcome.weeklyWage)}
-        />
+        <Term label={t("globalMarket.wageOffer")} value={formatWeeklyWage(outcome.weeklyWage)} />
         <Term
           label={t("globalMarket.yearsOffer")}
           value={t("globalMarket.years", { count: outcome.contractYears })}
