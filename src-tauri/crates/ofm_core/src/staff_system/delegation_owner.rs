@@ -21,6 +21,7 @@ use crate::game::Game;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Owner {
     pub id: String,
+    pub name: String,
     pub post: StaffPost,
     /// The member's overall, 0-100: the competence the duty is carried out with.
     pub rating: f64,
@@ -56,6 +57,7 @@ pub fn eligible_posts(duty: Duty) -> &'static [StaffPost] {
 fn owner_of(member: &Staff) -> Owner {
     Owner {
         id: member.id.clone(),
+        name: member.display_name.clone(),
         post: member.post(),
         rating: f64::from(member.overall()),
     }

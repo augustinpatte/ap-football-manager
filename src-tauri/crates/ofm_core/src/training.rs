@@ -1,5 +1,6 @@
 mod fitness_warnings;
 mod focus_attributes;
+mod outlook;
 pub use fitness_warnings::{
     FitnessStatus, SquadFitness, check_squad_fitness_warnings, fitness_status, squad_fitness,
 };
@@ -13,6 +14,7 @@ use rand::Rng;
 
 use focus_attributes::focus_gains;
 pub use focus_attributes::{TrainingFocusAttributes, training_focus_attributes};
+pub use outlook::{TrainingOutlook, training_outlook};
 
 /// Computed coaching quality for a team's staff.
 pub struct TeamCoachingBonus {

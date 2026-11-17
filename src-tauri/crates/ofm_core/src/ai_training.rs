@@ -143,7 +143,7 @@ fn style_weekly_cycle(play_style: &PlayStyle) -> [TrainingFocus; 5] {
 /// the spare one — who never plays, so is always fresh — would otherwise count
 /// as a starter. A club with nothing to read is reported fully fit rather than
 /// in crisis: there is nobody for a lighter session to protect.
-fn likely_starters_condition(formation: &str, club: &[&Player]) -> f64 {
+pub(crate) fn likely_starters_condition(formation: &str, club: &[&Player]) -> f64 {
     let available: Vec<_> = crate::match_day_eligibility::eligible_among(club)
         .into_iter()
         .filter(|p| p.injury.is_none())

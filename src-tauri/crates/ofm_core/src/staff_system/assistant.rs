@@ -98,7 +98,7 @@ pub struct Recommendation {
 }
 
 /// What the assistant can see of the next match.
-pub(super) struct NextMatch {
+pub(crate) struct NextMatch {
     days: i64,
     opponent_id: String,
     away: bool,
@@ -116,7 +116,7 @@ fn p(key: &str, value: impl ToString) -> (String, String) {
     (key.to_string(), value.to_string())
 }
 
-pub(super) fn next_match_and_load(game: &Game, team_id: &str) -> (Option<NextMatch>, usize) {
+pub(crate) fn next_match_and_load(game: &Game, team_id: &str) -> (Option<NextMatch>, usize) {
     let today = game.clock.current_date.date_naive();
     let mut next: Option<(NaiveDate, NextMatch)> = None;
     let mut week = 0;

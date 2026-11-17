@@ -44,6 +44,7 @@ pub struct StaffBudgetView {
 #[derive(Debug, Clone, Serialize)]
 pub struct OwnerView {
     pub id: String,
+    pub name: String,
     pub post: StaffPost,
     pub overall: u8,
 }
@@ -52,6 +53,7 @@ impl From<delegation_owner::Owner> for OwnerView {
     fn from(owner: delegation_owner::Owner) -> Self {
         Self {
             id: owner.id,
+            name: owner.name,
             post: owner.post,
             overall: owner.rating.round() as u8,
         }
