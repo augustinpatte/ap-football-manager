@@ -86,6 +86,11 @@ pub struct DutySetting {
     pub delegated: bool,
     /// The staff only proposes; the manager decides each major step.
     pub confirm_major: bool,
+    /// The staff member the manager has put in charge of this duty. `None`: the assistant manager,
+    /// which is what every state saved before duties had owners means. One setting per duty, so a
+    /// duty has at most one owner by construction.
+    #[serde(default)]
+    pub owner: Option<String>,
 }
 
 /// One concrete step the staff wants to take.
@@ -543,6 +548,7 @@ impl Default for DelegationState {
                     duty: *duty,
                     delegated: false,
                     confirm_major: true,
+                    owner: None,
                 })
                 .collect(),
             suspended_settings: None,
@@ -630,7 +636,26 @@ impl DelegationState {
                 duty,
                 delegated,
                 confirm_major,
+                owner: None,
             }),
+        }
+    }
+
+    /// The staff member the manager put in charge of `duty`, if not the assistant.
+    pub fn owner(&self, duty: Duty) -> Option<&str> {
+        self.setting(duty).and_then(|s| s.owner.as_deref())
+    }
+
+    /// Puts a staff member in charge of `duty` (`None`: the assistant). Whoever the duty ran
+    /// under before is forgotten, and so is what the previous owner last wrote: the new owner
+    /// starts from the club's settings as they stand.
+    pub fn set_owner(&mut self, duty: Duty, owner: Option<String>) {
+        if self.owner(duty) == owner.as_deref() {
+            return;
+        }
+        self.applied.retain(|(d, _)| *d != duty);
+        if let Some(setting) = self.settings.iter_mut().find(|s| s.duty == duty) {
+            setting.owner = owner;
         }
     }
 

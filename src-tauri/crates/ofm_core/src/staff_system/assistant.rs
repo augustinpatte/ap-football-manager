@@ -92,7 +92,7 @@ pub struct Recommendation {
 }
 
 /// What the assistant can see of the next match.
-struct NextMatch {
+pub(super) struct NextMatch {
     days: i64,
     opponent_id: String,
     away: bool,
@@ -110,7 +110,7 @@ fn p(key: &str, value: impl ToString) -> (String, String) {
     (key.to_string(), value.to_string())
 }
 
-fn next_match_and_load(game: &Game, team_id: &str) -> (Option<NextMatch>, usize) {
+pub(super) fn next_match_and_load(game: &Game, team_id: &str) -> (Option<NextMatch>, usize) {
     let today = game.clock.current_date.date_naive();
     let mut next: Option<(NaiveDate, NextMatch)> = None;
     let mut week = 0;
@@ -174,11 +174,25 @@ fn best_eleven_strength(game: &Game, team_id: &str) -> Option<f64> {
 
 /// The recommendations for `team_id`, most pressing first. Nothing is changed.
 pub fn recommendations(game: &Game, team_id: &str) -> Vec<Recommendation> {
+    recommendations_read_by(game, team_id, None)
+}
+
+/// The recommendations as read by a member of staff rated `reader`: what a duty handed to
+/// someone other than the assistant notices is limited by that person's eye, not the assistant's.
+/// `None` is the assistant manager himself.
+pub(super) fn recommendations_read_by(
+    game: &Game,
+    team_id: &str,
+    reader: Option<f64>,
+) -> Vec<Recommendation> {
     let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
         return Vec::new();
     };
     let staff = team_staff(game, team_id);
-    let profile = StaffProfile::from_staff(&staff);
+    let mut profile = StaffProfile::from_staff(&staff);
+    if let Some(rating) = reader {
+        profile.assistant = rating;
+    }
     let has_assistant = staff
         .iter()
         .any(|s| s.post() == StaffPost::AssistantManager);

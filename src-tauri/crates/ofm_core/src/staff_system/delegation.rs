@@ -10,16 +10,17 @@
 use chrono::NaiveDate;
 use domain::delegation::{DecisionOutcome, DelegationLogEntry, Duty, ProposalAction};
 use domain::staff::{Staff, StaffPost};
-use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::{self, RecAction, RecKind};
 use super::delegation_control as control;
 use super::delegation_listing as listing;
 use super::delegation_offers as offers;
+use super::delegation_owner as owner;
 use super::delegation_policy::{Authorization, Books, Reason, Spend, authorize_in_books};
 use super::delegation_recruitment::{self as recruiting, Eye};
 use super::delegation_report as report;
 use super::delegation_squad as squad;
+use super::delegation_training as training;
 use super::market::{self, OfferResponse};
 use super::profile::{StaffProfile, team_staff};
 use crate::game::Game;
@@ -140,70 +141,9 @@ pub(super) fn assistant_of(game: &Game, team_id: &str) -> Option<(String, f64)> 
     Some((a.id.clone(), StaffProfile::from_staff(&staff).assistant))
 }
 
-/// Before the day's training: a delegated training plan.
-///
-/// Written only if the manager has not set the training himself since (see
-/// [`control::manager_is_in_control`]); the history records a change of intensity and a recovery
-/// order, the decisions, not the daily rotation of the focus.
+/// Before the day's training: a delegated training plan (see `delegation_training`).
 pub fn run_training(game: &mut Game, weekday_num: u32) {
-    let Some(team_id) = user_team(game) else {
-        return;
-    };
-    if !game.delegation.is_delegated(Duty::Training) || assistant_of(game, &team_id).is_none() {
-        return;
-    }
-    let Some(current) = game
-        .teams
-        .iter()
-        .find(|t| t.id == team_id)
-        .map(control::training_print)
-    else {
-        return;
-    };
-    let changed = game
-        .delegation
-        .applied(Duty::Training)
-        .is_some_and(|applied| applied != current);
-    if control::manager_is_in_control(game, Duty::Training, changed) {
-        return;
-    }
-    let by_club = crate::match_day_eligibility::players_by_club(&game.players);
-    let club = by_club.get(team_id.as_str()).map_or(&[][..], Vec::as_slice);
-    let Some((focus, intensity)) =
-        crate::ai_training::plan_for_team(&game.teams, club, &team_id, weekday_num)
-    else {
-        return;
-    };
-    drop(by_club);
-    let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) else {
-        return;
-    };
-    let eased_to_recovery = focus == TrainingFocus::Recovery
-        && intensity == TrainingIntensity::Low
-        && team.training_focus != TrainingFocus::Recovery;
-    let intensity_changed = team.training_intensity != intensity;
-    team.training_focus = focus.clone();
-    team.training_intensity = intensity.clone();
-    let print = control::training_print(team);
-    game.delegation.record_applied(Duty::Training, &print);
-    if eased_to_recovery {
-        log(
-            game,
-            Duty::Training,
-            "delegation.log.recoveryOrdered",
-            vec![],
-        );
-    } else if intensity_changed {
-        log(
-            game,
-            Duty::Training,
-            "delegation.log.trainingIntensity",
-            vec![
-                param("focus", format!("{focus:?}")),
-                param("intensity", format!("{intensity:?}")),
-            ],
-        );
-    }
+    training::run(game, weekday_num);
 }
 
 /// After the day: everything else that is delegated and due.
@@ -211,10 +151,11 @@ pub fn run_after_day(game: &mut Game) {
     let Some(team_id) = user_team(game) else {
         return;
     };
-    let Some((assistant_id, rating)) = assistant_of(game, &team_id) else {
+    let assistant = assistant_of(game, &team_id);
+    if assistant.is_none() {
         report::note_missing_assistant(game, &team_id);
-        return;
-    };
+    }
+    owner::reconcile(game, &team_id);
     let today = stamp(game);
     // The eleven is named before the preparation reads it.
     for duty in [
@@ -232,12 +173,19 @@ pub fn run_after_day(game: &mut Game) {
         if !due(game, duty) {
             continue;
         }
+        // The member in charge of this duty: the one the manager named, else the assistant. A
+        // duty nobody can run today is left for the day somebody can, without being marked run.
+        let Some(in_charge) = owner::resolve(game, &team_id, duty) else {
+            continue;
+        };
+        let rating = in_charge.rating;
+        let assistant_id = in_charge.id.clone();
         game.delegation.mark_run(duty, &today);
         match duty {
             Duty::Lineup => squad::lineup(game, &team_id, rating),
-            Duty::MatchPreparation => match_preparation(game, &team_id),
+            Duty::MatchPreparation => match_preparation(game, &team_id, rating),
             Duty::Scouting => scouting(game, &team_id, rating),
-            Duty::Youth => youth(game, &team_id),
+            Duty::Youth => youth(game, &team_id, rating),
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
@@ -267,8 +215,8 @@ pub fn run_after_day(game: &mut Game) {
 
 /// Rests tired starters and covers injured ones when a match is a day away, and sets the
 /// style the opponent calls for.
-fn match_preparation(game: &mut Game, team_id: &str) {
-    let recs = assistant::recommendations(game, team_id);
+fn match_preparation(game: &mut Game, team_id: &str, rating: f64) {
+    let recs = assistant::recommendations_read_by(game, team_id, Some(rating));
     // Only when the match is imminent: the recommendation set already looks three days ahead,
     // the preparation acts when it is tomorrow or today.
     let imminent = matches_within(game, team_id, 1);
@@ -308,7 +256,7 @@ pub(super) fn matches_within(game: &Game, team_id: &str, days: i64) -> bool {
 
 /// Sends idle scouts to look at players for the positions the squad is short in; with no gap,
 /// at the best young talent the club could afford.
-fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
+fn scouting(game: &mut Game, team_id: &str, rating: f64) {
     let scouts: Vec<String> = team_staff(game, team_id)
         .iter()
         .filter(|s| s.role == domain::staff::StaffRole::Scout && s.post() != StaffPost::Analyst)
@@ -331,18 +279,19 @@ fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
     if idle.is_empty() {
         return;
     }
-    let weak_groups: Vec<domain::player::Position> = assistant::recommendations(game, team_id)
-        .iter()
-        .filter(|r| r.kind == RecKind::WeakPosition)
-        .filter_map(|r| r.params.iter().find(|(k, _)| k == "position"))
-        .filter_map(|(_, v)| match v.as_str() {
-            "Goalkeeper" => Some(domain::player::Position::Goalkeeper),
-            "Defender" => Some(domain::player::Position::Defender),
-            "Midfielder" => Some(domain::player::Position::Midfielder),
-            "Forward" => Some(domain::player::Position::Forward),
-            _ => None,
-        })
-        .collect();
+    let weak_groups: Vec<domain::player::Position> =
+        assistant::recommendations_read_by(game, team_id, Some(rating))
+            .iter()
+            .filter(|r| r.kind == RecKind::WeakPosition)
+            .filter_map(|r| r.params.iter().find(|(k, _)| k == "position"))
+            .filter_map(|(_, v)| match v.as_str() {
+                "Goalkeeper" => Some(domain::player::Position::Goalkeeper),
+                "Defender" => Some(domain::player::Position::Defender),
+                "Midfielder" => Some(domain::player::Position::Midfielder),
+                "Forward" => Some(domain::player::Position::Forward),
+                _ => None,
+            })
+            .collect();
     let budget = game
         .teams
         .iter()
@@ -398,8 +347,8 @@ fn scouting(game: &mut Game, team_id: &str, _rating: f64) {
 }
 
 /// Brings academy players who have reached the first team's level into it.
-fn youth(game: &mut Game, team_id: &str) {
-    let recs = assistant::recommendations(game, team_id);
+fn youth(game: &mut Game, team_id: &str, rating: f64) {
+    let recs = assistant::recommendations_read_by(game, team_id, Some(rating));
     let confirm = game.delegation.needs_confirmation(Duty::Youth);
     let date = stamp(game);
     for rec in recs.into_iter().filter(|r| r.kind == RecKind::PromoteYouth) {
@@ -645,6 +594,7 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
             | ProposalAction::ListForSale { player_id } => {
                 offers::on_declined(game, player_id);
             }
+            ProposalAction::SetTraining { .. } => training::on_load_declined(game),
             _ => {}
         }
         record(
@@ -720,6 +670,9 @@ pub fn resolve_proposal(game: &mut Game, proposal_id: &str, accept: bool) -> Res
         ProposalAction::ListForSale { player_id } => listing::list_approved(game, player_id),
     };
     if result.is_ok() {
+        if matches!(proposal.action, ProposalAction::SetTraining { .. }) {
+            training::on_load_approved(game, &team_id);
+        }
         record(
             game,
             proposal.duty,
@@ -737,6 +690,7 @@ mod tests {
     use super::*;
     use domain::delegation::DelegationMode;
     use domain::player::SquadRole;
+    use domain::team::{TrainingFocus, TrainingIntensity};
 
     fn delegate(g: &mut Game, duty: Duty, confirm: bool) {
         g.delegation.set(duty, true, confirm);

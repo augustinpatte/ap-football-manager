@@ -31,7 +31,7 @@ pub struct TeamCoachingBonus {
 /// by the assistant and the first-team coaches (and the fitness coaches in a physical or
 /// recovery session); youth and goalkeeping coaches have their own effects, and each coach is
 /// rated on the attribute of the session being run.
-fn compute_coaching_bonus(
+pub(crate) fn compute_coaching_bonus(
     team_staff: &[&domain::staff::Staff],
     focus: &TrainingFocus,
 ) -> TeamCoachingBonus {
@@ -143,7 +143,7 @@ const FATIGUE_GUARD_CONDITION: u8 = 40;
 const MATCH_TAPER_DAYS: i64 = 2;
 
 /// This many fixtures inside a week is a congested run.
-const CONGESTION_FIXTURE_THRESHOLD: usize = 2;
+pub(crate) const CONGESTION_FIXTURE_THRESHOLD: usize = 2;
 
 /// Why a club's sessions are lighter today.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
