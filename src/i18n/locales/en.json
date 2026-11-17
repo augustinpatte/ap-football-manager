@@ -1060,6 +1060,20 @@
         "3": "Youth",
         "4": "Recovery"
       }
+    },
+    "outlook": {
+      "title": "Training outlook",
+      "restDay": "Rest day: no session today.",
+      "session": "Today's session runs at {{intensity}} intensity.",
+      "taperNearMatch": "A match is close, so today's session is eased from {{planned}}.",
+      "taperCongested": "{{count}} matches this week: recovery work only.",
+      "fixtures": "Matches in the next 7 days",
+      "coaching": "Coaching effect",
+      "recovery": "Recovery effect",
+      "starters": "Likely starters' condition",
+      "setByYou": "You set the plan yourself.",
+      "setByStaff": "The plan is set by {{name}} ({{post}}, rated {{rating}}).",
+      "proposalWaiting": "A proposed change is waiting for your answer under Staff."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "approved",
         "declined": "declined",
         "leftToManager": "left to you"
+      },
+      "owner": {
+        "label": "In charge",
+        "aria": "Who is in charge of {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Nobody in post can run this yet",
+        "fixed": "{{name}} ({{post}}, rated {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Spending limits cannot be negative.",
         "wagePolicy": "The board's wage policy no longer allows these terms.",
         "signingRefusedByClub": "The selling club would not agree to that signing.",
-        "signingRefusedByPlayer": "The player would not join on any terms you could offer."
+        "signingRefusedByPlayer": "The player would not join on any terms you could offer.",
+        "ownerNotFound": "That staff member is not on your staff.",
+        "ownerNotEligible": "That post cannot run this duty."
       },
       "freeAgents": {
         "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "Promote {{player}} from the academy",
         "reason": "Aged {{age}}, rated {{ovr}} against a senior median of {{median}}. He is ready."
+      },
+      "trainingLoad": {
+        "title": "Training is too hard for the squad",
+        "reason": "Your likely starters are at {{condition}}% condition with {{intensity}} sessions on a {{schedule}} schedule. Ease the load so they can recover."
+      },
+      "coachingStrength": {
+        "title": "Your coaches teach {{focus}} best",
+        "reason": "{{focus}} sessions are about {{gain}}% more effective with this staff than {{currentFocus}}. Consider it for the midweek session."
+      },
+      "injuryRecovery": {
+        "title": "The injury list needs attention",
+        "reason": "{{count}} players are injured, the longest for {{days}} more days. Your medical department (rated {{medical}}) changes injury length by {{duration}}% compared with an average one."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "Sign {{player}} ({{position}}) for {{fee}}, at {{wage}} a week for {{years}} years",
       "sellPlayer": "Sell {{player}} to {{club}} for {{fee}}",
       "counterOffer": "Ask {{club}} for {{fee}} for {{player}} (they offered {{offered}})",
-      "listPlayer": "Put {{player}} on the transfer list"
+      "listPlayer": "Put {{player}} on the transfer list",
+      "trainingLoad": {
+        "title": "Raise training to {{intensity}} intensity ({{focus}})",
+        "reason": "The squad is fresh enough to take a harder session, but you asked to approve any increase in load. It currently runs at {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "A required seat is empty.",
@@ -4984,7 +5023,8 @@
       "delisted": "Took {{player}} off the transfer list: the side needs him",
       "released": "Paid off {{player}}'s contract: nobody bought him and the wage bill is over budget",
       "listedApproved": "Put {{player}} on the transfer list, as you approved",
-      "recruitNoLongerNeeded": "Stopped chasing {{player}} ({{position}}): the squad no longer needs him"
+      "recruitNoLongerNeeded": "Stopped chasing {{player}} ({{position}}): the squad no longer needs him",
+      "ownerLeft": "The staff member in charge has left, so the assistant manager has taken this duty back."
     }
   },
   "freeAgents": {

@@ -1060,6 +1060,20 @@
         "3": "Jovens",
         "4": "Recuperação"
       }
+    },
+    "outlook": {
+      "title": "Perspetiva do treino",
+      "restDay": "Dia de descanso: hoje não há sessão.",
+      "session": "A sessão de hoje decorre com intensidade {{intensity}}.",
+      "taperNearMatch": "Há um jogo próximo, por isso a sessão de hoje é aliviada em relação a {{planned}}.",
+      "taperCongested": "{{count}} jogos esta semana: apenas trabalho de recuperação.",
+      "fixtures": "Jogos nos próximos 7 dias",
+      "coaching": "Efeito do treino",
+      "recovery": "Efeito na recuperação",
+      "starters": "Condição dos titulares prováveis",
+      "setByYou": "Define o plano tu próprio.",
+      "setByStaff": "O plano é definido por {{name}} ({{post}}, nível {{rating}}).",
+      "proposalWaiting": "Há uma alteração proposta à espera da tua resposta em Equipa técnica."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "aprovado",
         "declined": "recusado",
         "leftToManager": "deixado contigo"
+      },
+      "owner": {
+        "label": "Responsável",
+        "aria": "Quem é responsável por: {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Ninguém em funções pode encarregar-se disto ainda",
+        "fixed": "{{name}} ({{post}}, nível {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Os limites de despesa não podem ser negativos.",
         "wagePolicy": "A política salarial da direção já não permite estas condições.",
         "signingRefusedByClub": "O clube vendedor não aceitaria esta contratação.",
-        "signingRefusedByPlayer": "O jogador não viria com nenhuma condição que possa oferecer."
+        "signingRefusedByPlayer": "O jogador não viria com nenhuma condição que possa oferecer.",
+        "ownerNotFound": "Esse membro não está na tua equipa técnica.",
+        "ownerNotEligible": "Esse cargo não pode assumir esta tarefa."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Já tens uma proposta com este jogador. Espera pela resposta dele ou retira-a.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "Promover {{player}} da formação",
         "reason": "{{age}} anos, nível {{ovr}} contra uma mediana de {{median}} na equipa principal. Está pronto."
+      },
+      "trainingLoad": {
+        "title": "O treino é demasiado duro para o plantel",
+        "reason": "Os teus titulares prováveis estão com {{condition}}% de condição, com sessões de intensidade {{intensity}} num calendário {{schedule}}. Alivia a carga para que recuperem."
+      },
+      "coachingStrength": {
+        "title": "Os teus treinadores ensinam melhor: {{focus}}",
+        "reason": "As sessões de {{focus}} são cerca de {{gain}}% mais eficazes com esta equipa do que as de {{currentFocus}}. Pondera-o para a sessão a meio da semana."
+      },
+      "injuryRecovery": {
+        "title": "A lista de lesionados precisa de atenção",
+        "reason": "{{count}} jogadores estão lesionados, o mais demorado por mais {{days}} dias. O teu departamento médico (nível {{medical}}) altera a duração das lesões em {{duration}}% face a um departamento médio."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "Contratar {{player}} ({{position}}) por {{fee}}, com {{wage}} por semana durante {{years}} anos",
       "sellPlayer": "Vender {{player}} ao {{club}} por {{fee}}",
       "counterOffer": "Pedir ao {{club}} {{fee}} por {{player}} (ofereceram {{offered}})",
-      "listPlayer": "Colocar {{player}} na lista de transferências"
+      "listPlayer": "Colocar {{player}} na lista de transferências",
+      "trainingLoad": {
+        "title": "Aumentar o treino para intensidade {{intensity}} ({{focus}})",
+        "reason": "O plantel está fresco o suficiente para uma sessão mais dura, mas pediste para aprovar qualquer aumento de carga. Neste momento está em {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Um lugar obrigatório está vazio.",
@@ -4984,7 +5023,8 @@
       "delisted": "Retirou {{player}} da lista de transferências: a equipa precisa dele",
       "released": "Rescindiu o contrato de {{player}}: ninguém o comprou e a folha salarial excede o orçamento",
       "listedApproved": "Colocou {{player}} na lista de transferências, como aprovaste",
-      "recruitNoLongerNeeded": "Deixou de perseguir {{player}} ({{position}}): o plantel já não precisa dele"
+      "recruitNoLongerNeeded": "Deixou de perseguir {{player}} ({{position}}): o plantel já não precisa dele",
+      "ownerLeft": "O membro da equipa técnica responsável saiu, por isso o treinador adjunto retomou esta tarefa."
     }
   },
   "freeAgents": {

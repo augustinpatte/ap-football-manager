@@ -1060,6 +1060,20 @@
         "3": "Jeunes",
         "4": "Récupération"
       }
+    },
+    "outlook": {
+      "title": "Perspectives d'entraînement",
+      "restDay": "Jour de repos : pas de séance aujourd'hui.",
+      "session": "La séance du jour se déroule à intensité {{intensity}}.",
+      "taperNearMatch": "Un match approche : la séance du jour est allégée par rapport à {{planned}}.",
+      "taperCongested": "{{count}} matchs cette semaine : récupération uniquement.",
+      "fixtures": "Matchs dans les 7 prochains jours",
+      "coaching": "Effet du coaching",
+      "recovery": "Effet sur la récupération",
+      "starters": "Forme des titulaires probables",
+      "setByYou": "Vous fixez vous-même le plan.",
+      "setByStaff": "Le plan est fixé par {{name}} ({{post}}, niveau {{rating}}).",
+      "proposalWaiting": "Une modification proposée attend votre réponse dans Staff."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "approuvé",
         "declined": "refusé",
         "leftToManager": "laissé à vous"
+      },
+      "owner": {
+        "label": "Responsable",
+        "aria": "Qui est responsable de : {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Personne en poste ne peut encore s'en charger",
+        "fixed": "{{name}} ({{post}}, niveau {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Les plafonds de dépense ne peuvent pas être négatifs.",
         "wagePolicy": "La politique salariale du conseil n'autorise plus ces conditions.",
         "signingRefusedByClub": "Le club vendeur n'accepterait pas cette signature.",
-        "signingRefusedByPlayer": "Le joueur ne rejoindrait pas le club, quelles que soient les conditions que vous proposeriez."
+        "signingRefusedByPlayer": "Le joueur ne rejoindrait pas le club, quelles que soient les conditions que vous proposeriez.",
+        "ownerNotFound": "Ce membre du staff n'est pas dans votre staff.",
+        "ownerNotEligible": "Ce poste ne peut pas assurer cette tâche."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Vous avez déjà une offre en cours avec ce joueur. Attendez sa réponse ou retirez-la.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "Promouvoir {{player}} depuis la formation",
         "reason": "{{age}} ans, niveau {{ovr}} pour une médiane de {{median}} chez les pros. Il est prêt."
+      },
+      "trainingLoad": {
+        "title": "L'entraînement est trop dur pour l'effectif",
+        "reason": "Vos titulaires probables sont à {{condition}} % de forme avec des séances d'intensité {{intensity}} sur un programme {{schedule}}. Allégez la charge pour qu'ils récupèrent."
+      },
+      "coachingStrength": {
+        "title": "Vos entraîneurs enseignent mieux : {{focus}}",
+        "reason": "Les séances de {{focus}} sont environ {{gain}} % plus efficaces avec ce staff que celles de {{currentFocus}}. Pensez-y pour la séance du milieu de semaine."
+      },
+      "injuryRecovery": {
+        "title": "La liste des blessés demande de l'attention",
+        "reason": "{{count}} joueurs sont blessés, le plus long pour encore {{days}} jours. Votre service médical (niveau {{medical}}) modifie la durée des blessures de {{duration}} % par rapport à un service moyen."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "Recruter {{player}} ({{position}}) pour {{fee}}, à {{wage}} par semaine sur {{years}} ans",
       "sellPlayer": "Vendre {{player}} à {{club}} pour {{fee}}",
       "counterOffer": "Demander {{fee}} à {{club}} pour {{player}} (ils ont offert {{offered}})",
-      "listPlayer": "Mettre {{player}} sur la liste des transferts"
+      "listPlayer": "Mettre {{player}} sur la liste des transferts",
+      "trainingLoad": {
+        "title": "Passer l'entraînement à l'intensité {{intensity}} ({{focus}})",
+        "reason": "L'effectif est assez frais pour une séance plus dure, mais vous avez demandé à valider toute hausse de charge. Elle est actuellement à {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Un poste obligatoire est vide.",
@@ -4984,7 +5023,8 @@
       "delisted": "A retiré {{player}} de la liste des transferts : l'équipe a besoin de lui",
       "released": "A résilié le contrat de {{player}} : personne ne l'a acheté et la masse salariale dépasse le budget",
       "listedApproved": "A mis {{player}} sur la liste des transferts, comme vous l'avez approuvé",
-      "recruitNoLongerNeeded": "A cessé de viser {{player}} ({{position}}) : l'effectif n'a plus besoin de lui"
+      "recruitNoLongerNeeded": "A cessé de viser {{player}} ({{position}}) : l'effectif n'a plus besoin de lui",
+      "ownerLeft": "Le membre du staff responsable est parti : l'entraîneur adjoint reprend cette tâche."
     }
   },
   "freeAgents": {

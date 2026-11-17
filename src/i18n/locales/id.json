@@ -1060,6 +1060,20 @@
         "3": "Pemain Muda",
         "4": "Pemulihan"
       }
+    },
+    "outlook": {
+      "title": "Prospek latihan",
+      "restDay": "Hari libur: tidak ada sesi hari ini.",
+      "session": "Sesi hari ini berjalan dengan intensitas {{intensity}}.",
+      "taperNearMatch": "Pertandingan sudah dekat, jadi sesi hari ini diperingan dari {{planned}}.",
+      "taperCongested": "{{count}} pertandingan minggu ini: hanya latihan pemulihan.",
+      "fixtures": "Pertandingan dalam 7 hari ke depan",
+      "coaching": "Efek kepelatihan",
+      "recovery": "Efek pemulihan",
+      "starters": "Kondisi calon pemain inti",
+      "setByYou": "Anda menentukan rencananya sendiri.",
+      "setByStaff": "Rencana ditentukan oleh {{name}} ({{post}}, peringkat {{rating}}).",
+      "proposalWaiting": "Ada perubahan usulan yang menunggu jawaban Anda di Staf."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "disetujui",
         "declined": "ditolak",
         "leftToManager": "diserahkan kepada Anda"
+      },
+      "owner": {
+        "label": "Penanggung jawab",
+        "aria": "Siapa yang bertanggung jawab atas: {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Belum ada staf yang bisa menangani ini",
+        "fixed": "{{name}} ({{post}}, peringkat {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Batas pengeluaran tidak boleh negatif.",
         "wagePolicy": "Kebijakan gaji dewan tidak lagi mengizinkan persyaratan ini.",
         "signingRefusedByClub": "Klub penjual tidak akan menyetujui perekrutan itu.",
-        "signingRefusedByPlayer": "Pemain tidak akan bergabung dengan persyaratan apa pun yang dapat Anda tawarkan."
+        "signingRefusedByPlayer": "Pemain tidak akan bergabung dengan persyaratan apa pun yang dapat Anda tawarkan.",
+        "ownerNotFound": "Anggota staf itu tidak ada di staf Anda.",
+        "ownerNotEligible": "Posisi itu tidak bisa menangani tugas ini."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "Promosikan {{player}} dari akademi",
         "reason": "Usia {{age}}, level {{ovr}} dibanding median tim utama {{median}}. Ia siap."
+      },
+      "trainingLoad": {
+        "title": "Latihan terlalu berat untuk skuad",
+        "reason": "Calon pemain inti Anda berada di kondisi {{condition}}% dengan sesi intensitas {{intensity}} pada jadwal {{schedule}}. Kurangi beban agar mereka bisa pulih."
+      },
+      "coachingStrength": {
+        "title": "Pelatih Anda paling jago mengajarkan: {{focus}}",
+        "reason": "Sesi {{focus}} sekitar {{gain}}% lebih efektif dengan staf ini dibanding {{currentFocus}}. Pertimbangkan untuk sesi tengah pekan."
+      },
+      "injuryRecovery": {
+        "title": "Daftar cedera perlu perhatian",
+        "reason": "{{count}} pemain cedera, yang terlama masih {{days}} hari. Departemen medis Anda (peringkat {{medical}}) mengubah lama cedera sebesar {{duration}}% dibanding departemen rata-rata."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "Rekrut {{player}} ({{position}}) seharga {{fee}}, dengan gaji {{wage}} per minggu selama {{years}} tahun",
       "sellPlayer": "Jual {{player}} ke {{club}} seharga {{fee}}",
       "counterOffer": "Minta {{fee}} dari {{club}} untuk {{player}} (mereka menawar {{offered}})",
-      "listPlayer": "Masukkan {{player}} ke daftar transfer"
+      "listPlayer": "Masukkan {{player}} ke daftar transfer",
+      "trainingLoad": {
+        "title": "Naikkan latihan ke intensitas {{intensity}} ({{focus}})",
+        "reason": "Skuad cukup segar untuk sesi yang lebih berat, tetapi Anda meminta persetujuan untuk setiap kenaikan beban. Saat ini {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Posisi wajib masih kosong.",
@@ -4984,7 +5023,8 @@
       "delisted": "Menghapus {{player}} dari daftar transfer: tim membutuhkannya",
       "released": "Mengakhiri kontrak {{player}} dengan pesangon: tidak ada yang membelinya dan total gaji melebihi anggaran",
       "listedApproved": "Memasukkan {{player}} ke daftar transfer, sesuai persetujuan Anda",
-      "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya"
+      "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya",
+      "ownerLeft": "Anggota staf penanggung jawab telah pergi, jadi asisten pelatih mengambil alih tugas ini."
     }
   },
   "freeAgents": {

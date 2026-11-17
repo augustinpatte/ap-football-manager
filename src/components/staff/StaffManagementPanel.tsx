@@ -13,11 +13,12 @@ import {
   setDelegationLimits,
   setDelegationMode,
   setDutyDelegation,
+  setDutyOwner,
 } from "../../services/staffService";
 import { getActiveGame } from "../../services/sessionService";
 import { resolveBackendError } from "../../utils/backendI18n";
 import { formatDate, formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
-import { Badge, Button, Card, CardBody, Checkbox, ProgressBar } from "../ui";
+import { Badge, Button, Card, CardBody, Checkbox, ProgressBar, Select } from "../ui";
 import DelegationModeCard from "./DelegationModeCard";
 
 interface StaffManagementPanelProps {
@@ -50,15 +51,17 @@ function useParams() {
           ? t(`staff.posts.${value}`, { defaultValue: value })
           : key === "position"
             ? t(`common.positions.${value}`, { defaultValue: value })
-            : key === "focus"
+            : key === "focus" || key === "currentFocus"
               ? t(`training.focuses.${value}.label`, { defaultValue: value })
-              : key === "intensity"
+              : key === "intensity" || key === "currentIntensity"
                 ? t(`training.intensities.${value}.label`, { defaultValue: value })
-                : key === "style"
-                  ? t(`common.playStyles.${value}`, { defaultValue: value })
-                  : key === "fee" && Number.isFinite(Number(value))
-                    ? formatExactMoney(Number(value))
-                    : value,
+                : key === "schedule"
+                  ? t(`training.schedules.${value}.label`, { defaultValue: value })
+                  : key === "style"
+                    ? t(`common.playStyles.${value}`, { defaultValue: value })
+                    : key === "fee" && Number.isFinite(Number(value))
+                      ? formatExactMoney(Number(value))
+                      : value,
       ]),
     );
 }
@@ -182,8 +185,14 @@ export default function StaffManagementPanel({
           <ul className="mt-3 grid gap-2">
             {DUTIES.map((duty) => {
               const setting = delegation.settings.find((s) => s.duty === duty);
+              const view = overview.duties.find((d) => d.duty === duty);
               const delegated = setting?.delegated ?? false;
               const confirm = setting?.confirm_major ?? true;
+              // "Ask me" only means something where the staff has a step to put to the manager.
+              const asks = view?.supports_approval ?? true;
+              const canRun = view ? view.in_charge !== null : overview.has_assistant;
+              const dutyName = t(`staff.delegation.duties.${duty}`);
+              const owner = view?.in_charge ?? null;
               return (
                 <li
                   key={duty}
@@ -191,10 +200,47 @@ export default function StaffManagementPanel({
                   className="flex flex-wrap items-center justify-between gap-2"
                 >
                   <span id={`${describeId}-duty-${duty}`} className="text-body">
-                    {t(`staff.delegation.duties.${duty}`)}
+                    {dutyName}
                   </span>
-                  <span className="flex items-center gap-3">
-                    {delegated ? (
+                  <span className="flex flex-wrap items-center gap-3">
+                    {view && view.candidates.length > 1 ? (
+                      <Select
+                        selectSize="sm"
+                        value={owner?.id ?? ""}
+                        disabled={busy !== null}
+                        aria-label={t("staff.delegation.owner.aria", { duty: dutyName })}
+                        onChange={(event) => {
+                          const chosen = view.candidates.find((c) => c.id === event.target.value);
+                          void run(`owner-${duty}`, () =>
+                            setDutyOwner(
+                              duty,
+                              chosen && chosen.post !== "AssistantManager" ? chosen.id : null,
+                            ),
+                          );
+                        }}
+                      >
+                        {view.candidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {t("staff.delegation.owner.option", {
+                              name: candidate.name,
+                              post: t(`staff.posts.${candidate.post}`),
+                              rating: candidate.overall,
+                            })}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : view ? (
+                      <span className="text-caption text-fg-muted">
+                        {owner
+                          ? t("staff.delegation.owner.fixed", {
+                              name: owner.name,
+                              post: t(`staff.posts.${owner.post}`),
+                              rating: owner.overall,
+                            })
+                          : t("staff.delegation.owner.nobody")}
+                      </span>
+                    ) : null}
+                    {delegated && asks ? (
                       <span className="flex items-center gap-2 text-caption text-fg-muted">
                         <Checkbox
                           checked={confirm}
@@ -212,7 +258,7 @@ export default function StaffManagementPanel({
                       size="sm"
                       variant={delegated ? "outline" : "primary"}
                       aria-describedby={`${describeId}-duty-${duty}`}
-                      disabled={busy !== null || (!delegated && !overview.has_assistant)}
+                      disabled={busy !== null || (!delegated && !canRun)}
                       onClick={() =>
                         void run(`duty-${duty}`, () => setDutyDelegation(duty, !delegated, confirm))
                       }

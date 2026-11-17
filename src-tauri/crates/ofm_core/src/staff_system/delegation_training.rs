@@ -193,7 +193,7 @@ pub(super) fn run(game: &mut Game, weekday_num: u32) {
                 vec![
                     param("focus", format!("{focus:?}")),
                     param("intensity", format!("{wanted:?}")),
-                    param("current", format!("{standing:?}")),
+                    param("currentIntensity", format!("{standing:?}")),
                 ],
                 &format!("{LOAD_PROPOSAL_KEY}.reason"),
             );

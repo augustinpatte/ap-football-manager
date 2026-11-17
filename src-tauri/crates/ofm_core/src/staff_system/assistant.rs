@@ -694,7 +694,7 @@ fn training_advice(
                 reason_key: "assistant.rec.coachingStrength.reason".into(),
                 params: vec![
                     p("focus", format!("{best:?}")),
-                    p("current", format!("{:?}", team.training_focus)),
+                    p("currentFocus", format!("{:?}", team.training_focus)),
                     p(
                         "gain",
                         format!("{:.0}", (best_effect / current - 1.0) * 100.0),

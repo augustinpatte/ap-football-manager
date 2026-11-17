@@ -1060,6 +1060,20 @@
         "3": "Gençler",
         "4": "Toparlanma"
       }
+    },
+    "outlook": {
+      "title": "Antrenman görünümü",
+      "restDay": "Dinlenme günü: bugün idman yok.",
+      "session": "Bugünkü idman {{intensity}} yoğunlukta yapılıyor.",
+      "taperNearMatch": "Maç yaklaştığı için bugünkü idman {{planned}} düzeyinden hafifletildi.",
+      "taperCongested": "Bu hafta {{count}} maç var: yalnızca toparlanma çalışması.",
+      "fixtures": "Önümüzdeki 7 gündeki maçlar",
+      "coaching": "Antrenörlük etkisi",
+      "recovery": "Toparlanma etkisi",
+      "starters": "Muhtemel ilk 11'in kondisyonu",
+      "setByYou": "Planı kendiniz belirliyorsunuz.",
+      "setByStaff": "Planı {{name}} ({{post}}, seviye {{rating}}) belirliyor.",
+      "proposalWaiting": "Önerilen bir değişiklik, Ekip bölümünde cevabınızı bekliyor."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "onaylandı",
         "declined": "reddedildi",
         "leftToManager": "size bırakıldı"
+      },
+      "owner": {
+        "label": "Sorumlu",
+        "aria": "{{duty}} görevinden kim sorumlu",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Kadrodaki hiç kimse bunu henüz üstlenemiyor",
+        "fixed": "{{name}} ({{post}}, seviye {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Harcama sınırları negatif olamaz.",
         "wagePolicy": "Yönetim kurulunun maaş politikası artık bu şartlara izin vermiyor.",
         "signingRefusedByClub": "Satan kulüp bu transfere razı olmaz.",
-        "signingRefusedByPlayer": "Oyuncu sunabileceğiniz hiçbir şartla gelmez."
+        "signingRefusedByPlayer": "Oyuncu sunabileceğiniz hiçbir şartla gelmez.",
+        "ownerNotFound": "Bu üye ekibinizde değil.",
+        "ownerNotEligible": "Bu görev bu pozisyon tarafından yürütülemez."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "{{player}} oyuncusunu altyapıdan yükselt",
         "reason": "{{age}} yaşında, seviye {{ovr}}; A takım medyanı {{median}}. Hazır."
+      },
+      "trainingLoad": {
+        "title": "Antrenman kadro için fazla sert",
+        "reason": "Muhtemel ilk 11'iniz %{{condition}} kondisyonda ve {{schedule}} programında {{intensity}} yoğunlukta idman yapıyor. Toparlanabilmeleri için yükü hafifletin."
+      },
+      "coachingStrength": {
+        "title": "Antrenörleriniz en iyi şunu öğretiyor: {{focus}}",
+        "reason": "{{focus}} idmanları bu ekiple {{currentFocus}} idmanlarından yaklaşık %{{gain}} daha etkili. Hafta ortası idmanı için düşünün."
+      },
+      "injuryRecovery": {
+        "title": "Sakatlık listesi ilgi bekliyor",
+        "reason": "{{count}} oyuncu sakat, en uzunu {{days}} gün daha. Sağlık bölümünüz (seviye {{medical}}) sakatlık süresini ortalamaya göre %{{duration}} değiştiriyor."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "{{player}} ({{position}}) {{fee}} karşılığında transfer et, haftada {{wage}} ile {{years}} yıl",
       "sellPlayer": "{{player}} oyuncusunu {{club}} kulübüne {{fee}} karşılığında sat",
       "counterOffer": "{{club}} kulübünden {{player}} için {{fee}} iste (teklifleri {{offered}})",
-      "listPlayer": "{{player}} oyuncusunu transfer listesine ekle"
+      "listPlayer": "{{player}} oyuncusunu transfer listesine ekle",
+      "trainingLoad": {
+        "title": "Antrenmanı {{intensity}} yoğunluğa çıkar ({{focus}})",
+        "reason": "Kadro daha sert bir idman için yeterince dinç, ancak yükteki her artışı onaylamak istediniz. Şu anda {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Zorunlu bir kadro boş.",
@@ -4984,7 +5023,8 @@
       "delisted": "{{player}} oyuncusunu transfer listesinden çıkardı: takımın ona ihtiyacı var",
       "released": "{{player}} oyuncusunun sözleşmesini tazminatla feshetti: kimse almadı ve maaş yükü bütçeyi aşıyor",
       "listedApproved": "{{player}} oyuncusunu onayınız doğrultusunda transfer listesine ekledi",
-      "recruitNoLongerNeeded": "{{player}} ({{position}}) takibini bıraktı: kadronun artık ona ihtiyacı yok"
+      "recruitNoLongerNeeded": "{{player}} ({{position}}) takibini bıraktı: kadronun artık ona ihtiyacı yok",
+      "ownerLeft": "Sorumlu ekip üyesi ayrıldı, bu yüzden yardımcı antrenör bu görevi geri aldı."
     }
   },
   "freeAgents": {

@@ -31,6 +31,7 @@ const overviewFixture = {
   },
   delegation_mode: "manual",
   has_assistant: false,
+  duties: [],
 };
 
 /** How the next get_staff_overview calls answer; a test sets it and the fake reads it each time. */

@@ -29,7 +29,8 @@
     "common.ratingTier.A",
     "common.ratingTier.B",
     "apfmWorld.fm24.name",
-    "apfmWorld.demo.badge"
+    "apfmWorld.demo.badge",
+    "staff.delegation.owner.option"
   ],
   "de": [
     "globalMarket.sort.name",

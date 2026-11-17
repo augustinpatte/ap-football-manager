@@ -40,6 +40,7 @@ const overviewFixture = {
   },
   delegation_mode: "manual",
   has_assistant: false,
+  duties: [],
 };
 
 function createStaff(overrides: Partial<StaffData> = {}): StaffData {
