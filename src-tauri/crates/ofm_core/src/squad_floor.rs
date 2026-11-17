@@ -816,7 +816,13 @@ pub(crate) fn bring_in_one(
     required: bool,
     context: &mut SigningContext,
 ) -> Option<BroughtIn> {
-    if let Some(index) = best_academy_player(game, &team.id, group) {
+    // A promotion takes a senior place as any signing does. A club with none — at its limit, or
+    // with its last places promised to deals waiting to register or to seniors out on loan — keeps
+    // the youngster in the academy and looks to the free agents instead (who are refused too when
+    // there is no place). Before this guard the depth pass could register a 31st senior.
+    if crate::transfers::signing_place_refusal(game, &team.id, "").is_none()
+        && let Some(index) = best_academy_player(game, &team.id, group)
+    {
         game.players[index].squad_role = SquadRole::Senior;
         context.club_changed();
         return Some(BroughtIn::Promoted(game.players[index].id.clone()));
@@ -995,6 +1001,12 @@ pub(crate) fn promote_successor(
     bar: u8,
     context: &mut SigningContext,
 ) -> Option<String> {
+    // A promotion takes a senior place as any signing does: a club at its limit, or with its last
+    // places promised to deals waiting to register or to seniors out on loan, keeps the youngster
+    // in the academy. Checked before the scan so a full club pays for none.
+    if crate::transfers::signing_place_refusal(game, team_id, "").is_some() {
+        return None;
+    }
     let current_date = game.clock.current_date.date_naive();
     let index = game
         .players
@@ -1002,6 +1014,10 @@ pub(crate) fn promote_successor(
         .enumerate()
         .filter(|(_, player)| player.team_id.as_deref() == Some(team_id))
         .filter(|(_, player)| player.squad_role == SquadRole::Youth)
+        // A loaned-in youngster belongs to the club that holds his contract: promoting him would
+        // make him a senior of this club for the rest of the loan and a senior of the other club
+        // when it ends.
+        .filter(|(_, player)| player.active_loan.is_none())
         .filter(|(_, player)| player.position.to_group_position() == *group)
         .filter(|(_, player)| BetterThan::InAYear(bar).is_cleared_by(player, current_date))
         .max_by(|(_, left), (_, right)| {
@@ -1025,6 +1041,10 @@ fn best_academy_player(game: &Game, team_id: &str, group: &Position) -> Option<u
         .enumerate()
         .filter(|(_, player)| player.team_id.as_deref() == Some(team_id))
         .filter(|(_, player)| player.squad_role == SquadRole::Youth)
+        // A youngster on loan at the club is not its to promote: he goes back to the club that
+        // holds his contract, and promoting him would leave the club fielding a senior it does not
+        // own, then lose the place when the loan ends.
+        .filter(|(_, player)| player.active_loan.is_none())
         .filter(|(_, player)| player.position.to_group_position() == *group)
         .max_by(|(_, left), (_, right)| {
             left.ovr
@@ -1313,6 +1333,96 @@ mod tests {
             "club",
             &free_agent("forward", Position::Forward, 60)
         ));
+    }
+
+    /// Given a club at its senior limit with an academy keeper who would be its successor
+    /// When the succession review asks for him
+    /// Then nobody is promoted, and with one place free the same call promotes him: a promotion
+    ///   takes a senior place like any signing.
+    #[test]
+    fn a_club_at_its_senior_limit_promotes_no_successor() {
+        let mut game = club_with([3, 9, 12, 6]);
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, "club").registered_seniors,
+            30
+        );
+        game.players
+            .push(academy_player("academy_keeper", Position::Goalkeeper));
+        let mut context = SigningContext::default();
+
+        assert!(
+            promote_successor(&mut game, "club", &Position::Goalkeeper, 0, &mut context).is_none(),
+            "the club has no senior place"
+        );
+        assert_eq!(role_of(&game, "academy_keeper"), SquadRole::Youth);
+
+        game.players.retain(|player| player.id != "Forward5");
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, "club").registered_seniors,
+            29
+        );
+        assert!(
+            promote_successor(&mut game, "club", &Position::Goalkeeper, 0, &mut context).is_some(),
+            "the fixture promotes him once a place frees"
+        );
+    }
+
+    /// Given a club at its senior limit with an academy keeper the depth pass would promote
+    /// When the pass asks for a keeper
+    /// Then nobody is promoted, and with one place free the same call promotes him: the depth
+    ///   pass takes a senior place through the one gate.
+    #[test]
+    fn a_club_at_its_senior_limit_promotes_no_one_for_depth() {
+        let mut game = club_with([3, 9, 12, 6]);
+        game.players
+            .push(academy_player("academy_keeper", Position::Goalkeeper));
+        let team = game.teams[0].clone();
+        let mut context = SigningContext::default();
+
+        assert!(
+            bring_in_one(&mut game, &team, &Position::Goalkeeper, false, &mut context).is_none(),
+            "the club has no senior place"
+        );
+        assert_eq!(role_of(&game, "academy_keeper"), SquadRole::Youth);
+
+        game.players.retain(|player| player.id != "Forward5");
+        assert!(
+            bring_in_one(&mut game, &team, &Position::Goalkeeper, false, &mut context).is_some(),
+            "the fixture promotes him once a place frees"
+        );
+        assert_eq!(role_of(&game, "academy_keeper"), SquadRole::Senior);
+    }
+
+    /// Given a club with a place free and a keeper on loan from another club as its only academy
+    ///   keeper
+    /// When the depth pass asks for a keeper
+    /// Then it does not promote him: he is not the club's to graduate, and the place stays free.
+    #[test]
+    fn a_loaned_in_youngster_is_not_promoted_as_the_clubs_own() {
+        let mut game = club_with([3, 9, 12, 5]);
+        let mut borrowed = academy_player("borrowed_keeper", Position::Goalkeeper);
+        borrowed.active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: "other".to_string(),
+            loan_team_id: "club".to_string(),
+            loan_team_name: None,
+            start_date: "2026-07-01".to_string(),
+            end_date: "2027-06-30".to_string(),
+            wage_contribution_pct: 100,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+        });
+        game.players.push(borrowed);
+        let team = game.teams[0].clone();
+        let mut context = SigningContext::default();
+
+        assert!(
+            bring_in_one(&mut game, &team, &Position::Goalkeeper, false, &mut context).is_none(),
+            "a borrowed youngster is not a promotion the club may make"
+        );
+        assert_eq!(role_of(&game, "borrowed_keeper"), SquadRole::Youth);
     }
 
     // --- The emergency top-up ----------------------------------------------------

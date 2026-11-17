@@ -562,3 +562,150 @@ fn a_club_does_not_buy_a_prospect_who_has_no_room_to_grow_past_its_cover() {
         Some("c")
     );
 }
+
+/// Makes `team_id` a club of `count` senior players, with room left for the deals a test adds.
+fn register_seniors(game: &mut Game, team_id: &str, count: usize) {
+    for index in 0..count {
+        let mut player = Player::new(
+            format!("{team_id}-senior-{index}"),
+            "Squad".into(),
+            "Player".into(),
+            "1998-01-01".into(),
+            "England".into(),
+            Position::Midfielder,
+            sample_attributes(),
+        );
+        player.team_id = Some(team_id.to_string());
+        player.squad_role = domain::player::SquadRole::Senior;
+        game.players.push(player);
+    }
+}
+
+fn promise_the_loan(game: &mut Game) {
+    incoming_loan(game);
+    let offer = game.players[0]
+        .loan_offers
+        .last_mut()
+        .expect("a loan offer");
+    offer.status = domain::player::LoanOfferStatus::PendingRegistration;
+}
+
+fn promise_the_purchase(game: &mut Game) {
+    incoming_transfer(game);
+    let offer = game.players[0]
+        .transfer_offers
+        .last_mut()
+        .expect("a transfer offer");
+    offer.status = TransferOfferStatus::PendingRegistration;
+}
+
+/// Given a club with twenty-eight seniors and a loan agreed and waiting to register
+/// When the gate counts its places and then another senior joins
+/// Then the promised loan takes the last place: a loan that waits reserves one exactly as a
+/// purchase does, and a deal registering itself is not blocked by its own promise.
+#[test]
+fn a_pending_loan_in_reserves_a_senior_place_as_a_purchase_does() {
+    use super::registration::{
+        pending_incoming_loans, pending_incoming_purchases, signing_place_refusal,
+    };
+
+    let mut game = acceptance_game("team1", false);
+    register_seniors(&mut game, "team2", 28);
+    promise_the_loan(&mut game);
+    assert_eq!(pending_incoming_loans(&game, "team2", ""), 1);
+    assert_eq!(pending_incoming_purchases(&game, "team2", ""), 0);
+    assert!(signing_place_refusal(&game, "team2", "").is_none());
+
+    register_seniors(&mut game, "team2", 1);
+
+    assert!(signing_place_refusal(&game, "team2", "").is_some());
+    let loaned = game.players[0].id.clone();
+    assert!(
+        signing_place_refusal(&game, "team2", &loaned).is_none(),
+        "the loan registering does not block itself"
+    );
+}
+
+/// Given a club with twenty-eight seniors, a purchase and a loan both agreed and waiting
+/// When the gate counts its places
+/// Then the two promises are counted together: there is no room for a third deal.
+#[test]
+fn a_pending_purchase_and_a_pending_loan_are_counted_together() {
+    use super::registration::signing_place_refusal;
+
+    let mut game = acceptance_game("team1", false);
+    register_seniors(&mut game, "team2", 28);
+    promise_the_purchase(&mut game);
+    promise_the_loan(&mut game);
+
+    assert!(signing_place_refusal(&game, "team2", "").is_some());
+}
+
+/// Given a club with twenty-eight seniors and one of its own seniors out on loan elsewhere
+/// When the gate counts its places
+/// Then the loanee's place is reserved: the club may fill only the place it actually has, and the
+/// loan ending is not blocked by the place it is resuming.
+#[test]
+fn a_senior_out_on_loan_reserves_the_place_he_returns_to() {
+    use super::registration::{loaned_out_seniors, signing_place_refusal};
+
+    let mut game = acceptance_game("team1", false);
+    register_seniors(&mut game, "team2", 28);
+    let loanee = lend_a_senior_out(&mut game, "team2", "team1");
+    assert_eq!(loaned_out_seniors(&game, "team2", ""), 1);
+
+    // Twenty-eight registered, one away: two free places, one of them reserved for his return.
+    assert_eq!(
+        crate::contracts::squad_capacity(&game, "team2").free_places,
+        2,
+        "the fixture has two places free"
+    );
+    assert!(
+        signing_place_refusal(&game, "team2", "").is_none(),
+        "one place is still free after the return"
+    );
+
+    register_seniors(&mut game, "team2", 1);
+
+    assert!(
+        signing_place_refusal(&game, "team2", "").is_some(),
+        "the only remaining place belongs to the player coming back"
+    );
+    assert!(
+        signing_place_refusal(&game, "team2", &loanee).is_none(),
+        "his own return takes the place it reserved, it does not need a second"
+    );
+}
+
+/// A senior of `parent` playing at `borrower` on an active loan; returns his id.
+fn lend_a_senior_out(game: &mut Game, parent: &str, borrower: &str) -> String {
+    use domain::player::{ActiveLoan, SquadRole};
+
+    let mut player = Player::new(
+        format!("{parent}-loanee"),
+        "Loaned".into(),
+        "Player".into(),
+        "1999-01-01".into(),
+        "England".into(),
+        Position::Defender,
+        sample_attributes(),
+    );
+    player.team_id = Some(borrower.to_string());
+    player.squad_role = SquadRole::Senior;
+    player.active_loan = Some(ActiveLoan {
+        parent_team_id: parent.to_string(),
+        loan_team_id: borrower.to_string(),
+        loan_team_name: None,
+        start_date: "2026-07-01".to_string(),
+        end_date: "2027-06-30".to_string(),
+        wage_contribution_pct: 100,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    let id = player.id.clone();
+    game.players.push(player);
+    id
+}

@@ -632,6 +632,12 @@ pub fn apply_action(game: &mut Game, team_id: &str, action: &RecAction) -> Resul
             Ok(())
         }
         RecAction::PromoteYouth { player_id } => {
+            // A promotion takes a senior place as any signing does. The manager's own club can no
+            // more field a 31st senior than an AI club: the action is refused with the same
+            // translated squad-full sentence a signing gets, so the list never goes above the limit.
+            if let Some(refusal) = crate::transfers::signing_place_refusal(game, team_id, "") {
+                return Err(refusal);
+            }
             let player = game
                 .players
                 .iter_mut()
@@ -934,6 +940,49 @@ pub(crate) mod tests {
         assert_eq!(
             g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
             SquadRole::Senior
+        );
+    }
+
+    /// Given a club at its senior limit with an academy player the manager asks to promote
+    /// When the recommendation is applied
+    /// Then it is refused with the translated squad-full sentence and the player stays a youth;
+    ///   with one senior gone the same action promotes him.
+    #[test]
+    fn a_club_at_its_senior_limit_refuses_a_delegated_promotion() {
+        let mut g = game(Some(80), 6);
+        let mut kid = player_at("kid", "team1", "2030-06-30");
+        kid.squad_role = SquadRole::Youth;
+        kid.date_of_birth = "2007-01-01".into();
+        kid.ovr = 70;
+        g.players.push(kid);
+        let mut filled = 0;
+        while crate::contracts::squad_capacity(&g, "team1").registered_seniors < 30 {
+            let mut extra = player_at(&format!("filler{filled}"), "team1", "2030-06-30");
+            extra.squad_role = SquadRole::Senior;
+            g.players.push(extra);
+            filled += 1;
+        }
+        let action = RecAction::PromoteYouth {
+            player_id: "kid".into(),
+        };
+
+        let refusal = apply_action(&mut g, "team1", &action).unwrap_err();
+        assert!(
+            refusal.starts_with("be.error.freeAgents.squadFull"),
+            "{refusal}"
+        );
+        assert_eq!(
+            g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
+            SquadRole::Youth,
+            "a full club cannot promote the youngster"
+        );
+
+        g.players.retain(|p| p.id != "filler0");
+        apply_action(&mut g, "team1", &action).unwrap();
+        assert_eq!(
+            g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
+            SquadRole::Senior,
+            "the same action promotes him once a place frees"
         );
     }
 }
