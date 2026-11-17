@@ -15,7 +15,8 @@ mod test_support;
 pub(super) use domestic::{
     apply_domestic_berth_promotion_relegation, resolve_domestic_berth_fields,
 };
-pub(super) use pyramid::{apply_pyramid_promotion_relegation_with, is_ladder_tier};
+pub(super) use pyramid::apply_pyramid_promotion_relegation_with;
+pub(crate) use pyramid::{apply_pyramid_promotion_relegation_in_country_with, is_ladder_tier};
 
 pub use continental::{
     berth_qualified_entrants, competition_has_incoming_berths, continental_qualified_entrants,

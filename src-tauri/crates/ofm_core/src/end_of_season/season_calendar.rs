@@ -8,6 +8,17 @@ pub(crate) struct NextEdition {
     pub start: DateTime<Utc>,
 }
 
+/// How far ahead of a renewal the next edition may start. The daily hook renews a competition when
+/// its next authored opener is inside this window.
+pub(crate) const RENEWAL_LEAD_DAYS: i64 = 28;
+
+/// How long a competition may sit idle before a missed opener is recovered with a short season
+/// rather than waited out until the following authored one.
+const MAX_IDLE_DAYS: i64 = 270;
+
+/// How soon a recovered edition starts when the authored opener has just gone by.
+const RECOVERY_LEAD_DAYS: i64 = 21;
+
 /// A completed calendar edition advances once, regardless of how late the
 /// user's rollover runs. Delayed fixtures must not redefine its season label.
 pub(crate) fn next_edition(
@@ -43,6 +54,60 @@ pub(crate) fn next_edition(
     NextEdition {
         season: next_season,
         start: configured_start.max(earliest_start),
+    }
+}
+
+/// The authored opener of `season`, clamped into a real date.
+fn authored_opener(competition: &League, season: u32) -> Option<DateTime<Utc>> {
+    let year = i32::try_from(season).ok()?;
+    let year_start = NaiveDate::from_ymd_opt(year, 1, 1)?
+        .and_hms_opt(0, 0, 0)?
+        .and_utc();
+    Some(crate::generator::next_season_start(
+        year_start,
+        competition.season_start_month,
+        competition.season_start_day,
+    ))
+}
+
+/// The edition a finished competition renews into when its own calendar, not the user's rollover,
+/// decides it.
+///
+/// A country's daily hook asks this the day its next opener comes within
+/// [`RENEWAL_LEAD_DAYS`]. The authored opener is kept whenever it is still ahead. When it has
+/// already gone by — a save written before the hook existed, or a season that finished after its
+/// opener — the edition is not silently stretched from today: the following authored opener is
+/// used when waiting for it would not idle the competition for most of a year, and a short recovery
+/// edition is played otherwise. Either way the new edition never starts today: the day's football
+/// is already over, and the calendar sweep only settles from tomorrow.
+pub(crate) fn renewal_edition(
+    competition: &League,
+    clock: &GameClock,
+    today: DateTime<Utc>,
+) -> NextEdition {
+    let next = next_edition(competition, clock, today);
+    let tomorrow = today + chrono::Duration::days(1);
+    if competition.season_start_month == 0 || next.start >= tomorrow {
+        return next;
+    }
+
+    // The authored opener for `next.season` is today or in the past. Wait for the following one
+    // when that is close enough to be the better calendar; recover soon when it is not.
+    let following_season = next.season.saturating_add(1);
+    let following = authored_opener(competition, following_season);
+    if let Some(following) = following
+        && (following - today).num_days() <= MAX_IDLE_DAYS
+    {
+        return NextEdition {
+            season: following_season,
+            start: following,
+        };
+    }
+
+    let start = today + chrono::Duration::days(RECOVERY_LEAD_DAYS);
+    NextEdition {
+        season: next.season.max(start.year().max(0) as u32),
+        start,
     }
 }
 
@@ -379,5 +444,72 @@ mod tests {
         game.competitions[0].season = 5;
         advance_to_next_season(&mut game).unwrap();
         assert_renewed(&game, "user", 2030, at(2030, 8, 1));
+    }
+
+    /// Given a finished league whose next authored opener is still ahead, when the hook asks for its
+    /// renewal edition, then it keeps that opener and advances exactly one season.
+    #[test]
+    fn renewal_keeps_the_authored_opener_when_it_is_ahead() {
+        let game = english_game(at(2034, 1, 4));
+        let league = division("ar-d1-apertura", "AR", at(2033, 2, 1), 2);
+
+        let edition = super::renewal_edition(&league, &game.clock, at(2034, 1, 4));
+
+        assert_eq!((edition.season, edition.start), (2034, at(2034, 2, 1)));
+    }
+
+    /// Given a finished league whose authored opener has long gone by, when the hook asks, then it
+    /// waits for the following authored opener rather than playing a season out of calendar.
+    #[test]
+    fn renewal_skips_a_long_passed_opener_to_the_following_one() {
+        let game = english_game(at(2034, 6, 1));
+        let league = division("ar-d1-apertura", "AR", at(2033, 2, 1), 2);
+
+        let edition = super::renewal_edition(&league, &game.clock, at(2034, 6, 1));
+
+        assert_eq!((edition.season, edition.start), (2035, at(2035, 2, 1)));
+    }
+
+    /// Given a finished league whose opener passed only days ago, when the hook asks, then it plays
+    /// a short recovery edition soon instead of idling the competition for most of a year.
+    #[test]
+    fn renewal_recovers_soon_when_waiting_would_idle_the_competition() {
+        let game = english_game(at(2034, 2, 2));
+        let league = division("ar-d1-apertura", "AR", at(2033, 2, 1), 2);
+
+        let edition = super::renewal_edition(&league, &game.clock, at(2034, 2, 2));
+
+        assert_eq!(
+            (edition.season, edition.start),
+            (
+                2034,
+                at(2034, 2, 2) + Duration::days(super::RECOVERY_LEAD_DAYS)
+            )
+        );
+    }
+
+    /// Given an authored February 29 opener, when the edition renews into a non-leap year, then the
+    /// existing calendar clamping is used.
+    #[test]
+    fn renewal_clamps_a_leap_day_opener() {
+        let game = english_game(at(2035, 1, 1));
+        let mut league = division("leap", "AR", at(2034, 2, 28), 2);
+        league.season_start_day = 29;
+
+        let edition = super::renewal_edition(&league, &game.clock, at(2035, 1, 1));
+
+        assert_eq!((edition.season, edition.start), (2035, at(2035, 2, 28)));
+    }
+
+    /// Given the authored opener is today, when the hook asks, then the new edition does not start
+    /// today: the day's football has already been settled.
+    #[test]
+    fn renewal_never_starts_on_the_day_it_runs() {
+        let game = english_game(at(2034, 2, 1));
+        let league = division("ar-d1-apertura", "AR", at(2033, 2, 1), 2);
+
+        let edition = super::renewal_edition(&league, &game.clock, at(2034, 2, 1));
+
+        assert!(edition.start > at(2034, 2, 1));
     }
 }

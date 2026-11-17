@@ -1,4 +1,5 @@
 mod calendar_sweep;
+pub(crate) mod country_renewal;
 pub(crate) mod cup_renewal;
 mod cup_round_summary;
 mod dormant;
@@ -279,6 +280,7 @@ where
 
     // A cup whose last tie was played today starts its next edition, so the sweep below settles
     // the new ties too.
+    country_renewal::renew_due_countries(game, today);
     cup_renewal::renew_finished_cups(game, today);
 
     // Last, so a round drawn or a postponement caused by today's results is settled before the
