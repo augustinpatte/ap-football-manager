@@ -73,6 +73,45 @@ pub(crate) fn pending_incoming_purchases(
         .count()
 }
 
+/// The players `team_id` has agreed to take on loan that wait to register, other than
+/// `except_player_id`: each will take a place on its senior list exactly as a purchase does. A
+/// player already registered at the club (a loan that has started) is counted by the squad
+/// capacity itself, not here.
+pub(crate) fn pending_incoming_loans(game: &Game, team_id: &str, except_player_id: &str) -> usize {
+    game.players
+        .iter()
+        .filter(|player| {
+            player.id != except_player_id && player.team_id.as_deref() != Some(team_id)
+        })
+        .filter(|player| {
+            player.loan_offers.iter().any(|offer| {
+                offer.status == LoanOfferStatus::PendingRegistration
+                    && offer.from_team_id == team_id
+            })
+        })
+        .count()
+}
+
+/// The club's own seniors who are out on loan elsewhere, other than `except_player_id`. Each
+/// returns to the club's list and takes a place there, so the club cannot promise that place to a
+/// signing while he is away: a club that lent a senior out and signed his replacement would be over
+/// 30 when the loan ended. `except_player_id` is the player whose own registration is being
+/// checked — a loan ending resumes the place it left, it does not take a second one.
+pub(crate) fn loaned_out_seniors(game: &Game, team_id: &str, except_player_id: &str) -> usize {
+    game.players
+        .iter()
+        .filter(|player| !player.retired && player.id != except_player_id)
+        .filter(|player| player.squad_role == domain::player::SquadRole::Senior)
+        .filter(|player| player.team_id.as_deref() != Some(team_id))
+        .filter(|player| {
+            player
+                .active_loan
+                .as_ref()
+                .is_some_and(|loan| loan.parent_team_id == team_id)
+        })
+        .count()
+}
+
 /// The refusal when `team_id` has no place left on its senior list once `promised` places, taken
 /// by purchases agreed and waiting to register, are set aside; `None` when there is room. The one
 /// place the limit is applied to a purchase, shared by the in-game market and the global market.
@@ -82,19 +121,28 @@ pub(crate) fn senior_place_refusal(game: &Game, team_id: &str, promised: usize) 
 }
 
 /// The refusal when `team_id` has no place left on its senior list for `incoming_player_id` once
-/// the places taken by purchases agreed and waiting to register are set aside; `None` when he can
-/// be registered. `incoming_player_id` is excepted from the reservation, so a deal that is
-/// registering does not block itself through its own `PendingRegistration` offer.
+/// the places taken by purchases and loans agreed and waiting to register, and the places its own
+/// seniors out on loan will return to, are set aside; `None` when he can be registered.
+/// `incoming_player_id` is excepted from the reservation, so a deal that is registering does not
+/// block itself through its own `PendingRegistration` offer.
 ///
 /// Every senior signing route — an in-game purchase, a free-agent talk, a global-market signing,
-/// an AI club filling its squad — asks this, so a promised place is respected everywhere a
-/// permanent signing is made. Loans and academy promotions are separate paths.
+/// an AI club filling its squad, an academy promotion and an AI loan — asks this, so a promised
+/// place is respected everywhere a senior place is taken. A loan that waits to register reserves
+/// its place as a purchase does: before that, two loans could each be promised the last one.
+///
+/// A senior out on loan reserves his place too. He is not registered today, so the list shows a
+/// free place, but he returns to it when the loan ends; a club that filled the place meanwhile
+/// would be over the limit on the day he comes back. The same rule is what keeps the ten-season
+/// study's squads at or under 30.
 pub(crate) fn signing_place_refusal(
     game: &Game,
     team_id: &str,
     incoming_player_id: &str,
 ) -> Option<String> {
-    let promised = pending_incoming_purchases(game, team_id, incoming_player_id);
+    let promised = pending_incoming_purchases(game, team_id, incoming_player_id)
+        + pending_incoming_loans(game, team_id, incoming_player_id)
+        + loaned_out_seniors(game, team_id, incoming_player_id);
     senior_place_refusal(game, team_id, promised)
 }
 

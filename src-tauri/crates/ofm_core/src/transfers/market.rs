@@ -524,6 +524,12 @@ fn collect_loan_targets(
 /// player's own club can ask for (`make_loan_offer`): the owner's terms, the squad floor, the
 /// borrower's wage policy, all unchanged. Returns the player borrowed.
 fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
+    // A loan takes a senior place like any signing. A club at its senior limit, or with its last
+    // places already promised to deals waiting to register, cannot borrow another player: without
+    // this check an AI club could field a 31st senior through the loan path.
+    if crate::transfers::signing_place_refusal(game, &search.borrower.id, "").is_some() {
+        return None;
+    }
     let today = search.current_date.format("%Y-%m-%d").to_string();
     for target in search.targets {
         let Some(player) = game.players.get(target.player_index) else {

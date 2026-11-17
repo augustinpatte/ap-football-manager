@@ -117,7 +117,7 @@ fn plan_squads(game: &mut Game, clubs: &[String], academy_look: AcademyLook) {
         };
         let club = positions.entry(team_id.clone()).or_default();
         crate::match_day_eligibility::debug_assert_group_is_current(&game.players, team_id, club);
-        graduate_overage_academy_players(game, club, current_date);
+        graduate_overage_academy_players(game, club, &team.id, current_date);
         if matches!(academy_look, AcademyLook::Always)
             || crate::youth_pathway::is_academy_week(&team.id, current_date)
         {
@@ -127,12 +127,25 @@ fn plan_squads(game: &mut Game, clubs: &[String], academy_look: AcademyLook) {
     }
 }
 
-/// An academy player past the academy's age limit joins the senior squad. `club` is where the
-/// club's players stand in `game.players`.
-fn graduate_overage_academy_players(game: &mut Game, club: &[usize], current_date: NaiveDate) {
+/// An academy player past the academy's age limit joins the senior squad, while the club has a
+/// place for him. `club` is where the club's players stand in `game.players`.
+///
+/// A graduation takes a senior place as any signing does: a club already at its senior limit keeps
+/// the overage youngster in the academy until one of its seniors leaves. Before this guard the
+/// graduation path could register a 31st senior, which the squad list does not allow.
+fn graduate_overage_academy_players(
+    game: &mut Game,
+    club: &[usize],
+    team_id: &str,
+    current_date: NaiveDate,
+) {
     for &position in club {
+        if crate::transfers::signing_place_refusal(game, team_id, "").is_some() {
+            return;
+        }
         let player = &mut game.players[position];
         if player.squad_role == domain::player::SquadRole::Youth
+            && player.active_loan.is_none()
             && domain::age::age_on_or_unknown(current_date, &player.date_of_birth)
                 > crate::roster::YOUTH_ACADEMY_MAX_AGE
         {
@@ -258,21 +271,30 @@ fn plan_succession(
     false
 }
 
-/// A club that meets its planning target and has room to spare signs a free agent who would be
-/// better than the cover it has behind its starters — one a review, so the market is absorbed at
-/// the pace clubs review their squads, not in a burst. It stops at [`IMPROVEMENT_SQUAD_LIMIT`]
-/// seniors: a lean full squad, not a hoard. Nothing here is required of the club: the signing is
-/// subject to the same tests as any other (the room under its wage budget, its pay scale, the
-/// board's policy) and is made only if it passes.
+/// A club that meets its planning target and has room to spare signs a free agent where its plan
+/// says it is short — one a review, so the market is absorbed at the pace clubs review their
+/// squads, not in a burst. It stops at [`IMPROVEMENT_SQUAD_LIMIT`] seniors: a lean full squad, not
+/// a hoard. Nothing here is required of the club: the signing is subject to the same tests as any
+/// other (the room under its wage budget, its pay scale, the board's policy) and is made only if it
+/// passes.
+///
+/// The plan's most pressing place is tried first: a weak starter, or the deputy behind a first
+/// choice who is out for long, at the position the plan names and with a bar a signing has to
+/// clear. A squad with no pressing need falls back to its weakest cover, so a clearly better free
+/// agent still improves a side that is merely ordinary everywhere.
 fn improve_squad(
     game: &mut Game,
     team: &Team,
     club: &mut Vec<usize>,
     context: &mut SigningContext,
 ) {
-    use crate::squad_floor::{STARTERS_PER_GROUP, sign_free_agent_for};
+    use crate::squad_floor::{BetterThan, STARTERS_PER_GROUP, sign_free_agent_for};
 
     if seniors_in(game, club, None) >= IMPROVEMENT_SQUAD_LIMIT {
+        return;
+    }
+    if sign_for_the_plan(game, team, context) {
+        *club = crate::match_day_eligibility::club_positions(&game.players, &team.id);
         return;
     }
     // Where the club's cover is weakest: the lowest rated first-cover player, group by group.
@@ -300,7 +322,7 @@ fn improve_squad(
             team,
             &position,
             false,
-            Some(crate::squad_floor::BetterThan::Today(cover)),
+            Some(BetterThan::Today(cover)),
             context,
         )
         .is_some()
@@ -309,6 +331,33 @@ fn improve_squad(
             return;
         }
     }
+}
+
+/// Sign for the most pressing place in the club's plan, most pressing first, until one signing
+/// succeeds or the plan's pressing places are exhausted. Returns whether anyone signed.
+fn sign_for_the_plan(game: &mut Game, team: &Team, context: &mut SigningContext) -> bool {
+    use crate::squad_floor::{BetterThan, sign_free_agent_for};
+    use crate::squad_intelligence::appetite::Appetite;
+    use crate::squad_intelligence::needs::NeedKind;
+
+    let profile = crate::transfers::profile_of(game, &team.id);
+    let Some(squad) = crate::squad_intelligence::ClubSquad::of_for_planning(
+        game,
+        &team.id,
+        Appetite::of(&profile),
+    ) else {
+        return false;
+    };
+    let plan = squad.strategic_plan();
+    for need in plan.iter().filter(|need| {
+        need.kind != NeedKind::Succession && need.urgency.is_pressing() && need.short_term
+    }) {
+        let bar = need.incumbent.map(BetterThan::Today);
+        if sign_free_agent_for(game, team, &need.position, false, bar, context).is_some() {
+            return true;
+        }
+    }
+    false
 }
 
 /// Seniors among the club's players (`club`: where they stand in `game.players`) who will still
@@ -467,7 +516,21 @@ impl SquadFacts {
 /// Does the club want this player for another contract? `facts` is the squad as the club's review
 /// counted it, once.
 pub(crate) fn keeps_given(facts: &SquadFacts, player: &Player, current_date: NaiveDate) -> bool {
-    needed_for_depth(facts, player) || worth_keeping(facts, player, current_date)
+    needed_for_depth(facts, player)
+        || worth_keeping(facts, player, current_date)
+        || holds_a_planned_place(facts, player)
+}
+
+/// Whether the club's plan counts the place `player` holds as one it must keep filled: the best
+/// deputy behind a first choice it cannot field, when the gap is urgent. The renewal and the sales
+/// reviews share this so an essential player is not let go while the plan still names his place.
+fn holds_a_planned_place(facts: &SquadFacts, player: &Player) -> bool {
+    facts.squad().is_some_and(|squad| {
+        squad
+            .strategic_plan()
+            .iter()
+            .any(|need| need.protects_the_incumbent() && need.holds_the_place(&player.id))
+    })
 }
 
 /// Letting him go would leave the club under what its squad planning aims for
@@ -943,6 +1006,39 @@ mod tests {
         );
     }
 
+    /// Given a club exactly at its wage budget and an unhappy player asking more than it can pay
+    /// When the club offers him a renewal he refuses
+    /// Then nothing about him changes: the failed negotiation leaves his contract, wage and club
+    ///      as they were, so the plan still sees the place he holds.
+    #[test]
+    fn a_renewal_the_player_refuses_changes_nothing() {
+        let mut game = world();
+        game.active_competition_ids = vec!["league".to_string()];
+        let mut star = player("star", "ai", Position::Midfielder, 75, 27, 90);
+        star.morale = 40;
+        game.players.push(star);
+        game.teams[1].wage_budget = crate::finances::calc_wages(&game, "ai");
+        let before_end = contract_end(&game, "star");
+        let before_wage = wage_of(&game, "star");
+
+        apply_ai_contract_decisions(&mut game, review_day());
+
+        assert_eq!(
+            contract_end(&game, "star"),
+            before_end,
+            "the contract moved"
+        );
+        assert_eq!(wage_of(&game, "star"), before_wage, "the wage moved");
+        assert_eq!(
+            game.players
+                .iter()
+                .find(|player| player.id == "star")
+                .and_then(|player| player.team_id.as_deref()),
+            Some("ai"),
+            "a refused renewal does not move the player"
+        );
+    }
+
     /// Given a club in debt with room under its wage budget and an unhappy player asking a raise
     /// When the club reviews its contracts
     /// Then he is not raised: a club with cash below zero takes on no new weekly cost, whatever its
@@ -1258,6 +1354,58 @@ mod tests {
         assert!(keeps_given(&youthful, &prospect, today));
     }
 
+    /// Given an AI club whose best forward is out for long and whose other forwards are far below
+    /// him
+    /// When a financially constrained club decides on the deputy's contract
+    /// Then it keeps him: he holds a place the plan calls urgent, so the club does not let its only
+    /// cover go for want of a wage it would not otherwise pay.
+    #[test]
+    fn a_constrained_club_keeps_the_only_cover_for_an_urgent_place() {
+        let mut game = world();
+        for other in game.players.iter_mut() {
+            if other.team_id.as_deref() == Some("ai") {
+                other.stage_wage(500);
+            }
+        }
+        set_rating(&mut game, "ai_Forward0", 85, 85);
+        for index in 1..4 {
+            set_rating(&mut game, &format!("ai_Forward{index}"), 50, 50);
+        }
+        let injured = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "ai_Forward0")
+            .expect("the first choice");
+        injured.injury = Some(domain::player::Injury {
+            name: "Hamstring".to_string(),
+            days_remaining: crate::transfers::LONG_INJURY_DAYS + 5,
+        });
+
+        let facts = facts_with(&game, Ambition::Established, Means::Constrained, 0.0);
+        let plan = facts
+            .squad()
+            .expect("the club is modelled")
+            .strategic_plan();
+        let absence = plan
+            .iter()
+            .find(|need| need.reason == crate::squad_intelligence::plan::NeedReason::LongTermInjury)
+            .expect("the absence is a plan need");
+        assert!(absence.protects_the_incumbent(), "{absence:?}");
+        let cover_id = absence
+            .incumbent_id
+            .as_deref()
+            .expect("the deputy holds the place");
+        let cover = game
+            .players
+            .iter()
+            .find(|player| player.id == cover_id)
+            .expect("a real deputy");
+        assert!(
+            keeps_given(&facts, cover, today()),
+            "the only cover for an urgent place was let go: {absence:?}"
+        );
+    }
+
     /// Given a deep squad and a player at its standard whom the side would not miss
     /// When a comfortable club and a financially constrained one decide on his contract
     /// Then the comfortable one renews him to keep its numbers up and the constrained one lets
@@ -1490,6 +1638,38 @@ mod tests {
             .and_then(|p| p.team_id.as_deref())
     }
 
+    /// Given a club already at its senior limit and an academy player past the academy age
+    /// When it plans its squad
+    /// Then he stays a youth: a graduation cannot register a 31st senior.
+    #[test]
+    fn a_club_at_its_senior_limit_does_not_graduate_an_overage_youth() {
+        let mut game = world();
+        for index in 0..11 {
+            game.players.push(player(
+                &format!("extra{index}"),
+                "ai",
+                Position::Midfielder,
+                60,
+                26,
+                1_000,
+            ));
+        }
+        game.players
+            .push(academy("overage", "ai", Position::Midfielder, 22));
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, "ai").registered_seniors,
+            30
+        );
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(role(&game, "overage"), domain::player::SquadRole::Youth);
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, "ai").registered_seniors,
+            30
+        );
+    }
+
     /// Given an AI club with a 22-year-old academy player, on its review day he
     /// graduates to the senior squad — the same age limit that stops a manager
     /// putting a player over 21 into the academy.
@@ -1668,6 +1848,88 @@ mod tests {
         assert_eq!(club_of(&game, "worse"), None);
     }
 
+    /// Given a club whose whole forward line is far below the rest of the side, whose defence has
+    /// the weakest cover, and two affordable free agents — a striker who fixes the eleven and a
+    /// defender who would only deepen the bench
+    /// When it plans its squad
+    /// Then it signs the striker: the plan sends the club to the place that costs it points now,
+    /// not to the lowest-rated deputy in a group.
+    #[test]
+    fn a_club_signs_for_the_weak_starting_place_before_the_weakest_bench() {
+        let mut game = world();
+        for other in game.players.iter_mut() {
+            if other.team_id.as_deref() == Some("ai") {
+                other.stage_wage(500);
+            }
+        }
+        // A side that plays its positions: four natural defenders and four natural midfielders.
+        for (id, position) in [
+            ("ai_Defender0", Position::LeftBack),
+            ("ai_Defender1", Position::CenterBack),
+            ("ai_Defender2", Position::CenterBack),
+            ("ai_Defender3", Position::RightBack),
+            ("ai_Midfielder0", Position::LeftMidfielder),
+            ("ai_Midfielder1", Position::CentralMidfielder),
+            ("ai_Midfielder2", Position::CentralMidfielder),
+            ("ai_Midfielder3", Position::RightMidfielder),
+        ] {
+            set_position(&mut game, id, position);
+        }
+        // The forward line is far below the rest of the eleven; the defence has the weakest bench.
+        for index in 0..4 {
+            set_rating(&mut game, &format!("ai_Forward{index}"), 50, 50);
+        }
+        for index in 4..6 {
+            set_rating(&mut game, &format!("ai_Defender{index}"), 25, 25);
+        }
+        game.players
+            .push(free_agent("striker", Position::Striker, 65));
+        game.players
+            .push(free_agent("defender", Position::Defender, 70));
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(club_of(&game, "striker"), Some("ai"), "the weak eleven");
+        assert_eq!(club_of(&game, "defender"), None, "the weak bench");
+    }
+
+    /// Given a club whose only weak place is a starting striker
+    /// When the only free-agent striker is no better than the man in the place, and then when he
+    ///   is better
+    /// Then the club signs nobody in the first case and the striker in the second: the plan's
+    /// incumbent is a bar for a signing, not a hole to be filled with any body.
+    #[test]
+    fn a_weak_starting_place_is_not_filled_by_a_player_no_better_than_the_man_there() {
+        fn signs_a_striker_of(ovr: u8) -> bool {
+            let mut game = world();
+            for other in game.players.iter_mut() {
+                if other.team_id.as_deref() == Some("ai") {
+                    other.stage_wage(500);
+                }
+            }
+            // The whole forward line is far below the rest of the eleven, so the place the plan
+            // wants filled is a starting one.
+            for index in 0..4 {
+                set_rating(&mut game, &format!("ai_Forward{index}"), 45, 45);
+            }
+            game.players
+                .push(free_agent("candidate", Position::Striker, ovr));
+
+            apply_ai_squad_planning(&mut game, review_day());
+
+            club_of(&game, "candidate") == Some("ai")
+        }
+
+        assert!(
+            !signs_a_striker_of(40),
+            "forty against a striker of forty-five is not value for the place"
+        );
+        assert!(
+            signs_a_striker_of(55),
+            "the fixture can sign a striker who does clear the bar"
+        );
+    }
+
     fn set_age(game: &mut Game, id: &str, age: i32) {
         let player = game.players.iter_mut().find(|p| p.id == id).unwrap();
         player.date_of_birth = format!("{}-01-01", TODAY.0 - age);
@@ -1677,6 +1939,12 @@ mod tests {
         let player = game.players.iter_mut().find(|p| p.id == id).unwrap();
         player.ovr = ovr;
         player.potential = potential;
+    }
+
+    fn set_position(game: &mut Game, id: &str, position: Position) {
+        let player = game.players.iter_mut().find(|p| p.id == id).unwrap();
+        player.position = position.clone();
+        player.natural_position = position;
     }
 
     /// A club whose first-choice keeper is 35 (rated 80) with two keepers of 60 and 58 behind him,

@@ -131,6 +131,12 @@ pub(crate) fn promote_ready_academy_players(
     let youth_trust = ManagerIdentity::for_club(game, Some(team)).youth_trust;
     let mut promoted = Vec::new();
     while promoted.len() < MAX_PROMOTIONS_PER_REVIEW {
+        // A promotion takes a senior place like any signing. A club already at its senior limit
+        // cannot register another player, however ready the youngster: the academy keeps him until
+        // a place frees. Without this, an AI club could field a 31st senior through its academy.
+        if crate::transfers::signing_place_refusal(game, &team.id, "").is_some() {
+            break;
+        }
         let Some(next) = most_ready(game, team, club, today, youth_trust) else {
             break;
         };
@@ -155,6 +161,8 @@ fn most_ready(
         .copied()
         .filter(|&index| game.players[index].squad_role == SquadRole::Youth)
         .filter(|&index| !game.players[index].retired && game.players[index].can_play())
+        // A loaned-in youngster is not the club's to promote.
+        .filter(|&index| game.players[index].active_loan.is_none())
         .filter(|&index| {
             let player = &game.players[index];
             let a_year_on = crate::squad_outlook::expected_ovr_for(player, today);
@@ -320,6 +328,26 @@ mod tests {
         assert_eq!(
             promote_ready_academy_players(&mut game, &team, &club).len(),
             MAX_PROMOTIONS_PER_REVIEW
+        );
+    }
+
+    /// Given a club already at its senior limit and a ready academy striker
+    /// When the club reviews its academy
+    /// Then nobody is promoted: he stays a youth until a senior place frees.
+    #[test]
+    fn a_club_at_its_senior_limit_promotes_nobody() {
+        let squad = Squad::balanced().add(Position::CentralMidfielder, &[60; 9]);
+        assert_eq!(squad.players.len(), 30);
+        let ready = player("ready-striker", Position::Striker, 85, 19);
+        let mut game = game_with(&squad, vec![ready], None);
+        let team = game.teams[0].clone();
+        let club = club_of(&game);
+        assert!(promote_ready_academy_players(&mut game, &team, &club).is_empty());
+        let role = |id: &str| game.players.iter().find(|p| p.id == id).unwrap().squad_role;
+        assert_eq!(role("ready-striker"), SquadRole::Youth);
+        assert_eq!(
+            crate::contracts::squad_capacity(&game, "club").registered_seniors,
+            30
         );
     }
 

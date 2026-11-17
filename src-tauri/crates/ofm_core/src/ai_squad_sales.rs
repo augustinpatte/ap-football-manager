@@ -360,6 +360,15 @@ fn funds_a_bigger_need(
     case: &SaleCase,
     ambition: crate::transfers::Ambition,
 ) -> bool {
+    // The club does not sell the answer to one of its pressing places to fund another: the deputy
+    // behind a weak or absent first choice is depth the plan asks for, not spare money.
+    if squad.strategic_plan().iter().any(|need| {
+        need.kind == NeedKind::Cover
+            && need.protects_the_incumbent()
+            && need.holds_the_place(&player.id)
+    }) {
+        return false;
+    }
     !case.critical
         && player.market_value.saturating_mul(10)
             >= u64::try_from(team.transfer_budget).unwrap_or(0)
@@ -598,6 +607,66 @@ mod tests {
         assert!(takes(Fighter), "a small developing club takes it");
         assert!(takes(Established), "an established club takes it");
         assert!(!takes(Contender), "a contender asks for more");
+    }
+
+    /// Given a club whose best forward is out for long and whose only cover behind his place is a
+    ///   squad player the club would otherwise happily sell
+    /// When the reinvestment rule is asked whether selling that cover funds a bigger need
+    /// Then it refuses: he holds a place the plan calls urgent, and selling him would reopen the
+    ///   hole the club is already trying to fill.
+    #[test]
+    fn a_club_does_not_sell_the_only_cover_for_an_urgent_place() {
+        use crate::squad_intelligence::plan::NeedReason;
+        use crate::transfers::Ambition;
+
+        let mut game = world([3, 7, 7, 5]);
+        let rate = |game: &mut Game, id: &str, ovr: u8| {
+            let player = game
+                .players
+                .iter_mut()
+                .find(|player| player.id == id)
+                .expect("a fixture player");
+            player.ovr = ovr;
+            player.potential = ovr;
+            player.attributes = attrs(ovr);
+        };
+        rate(&mut game, "Forward0", 84);
+        rate(&mut game, "Forward1", 78);
+        rate(&mut game, "Forward2", 77);
+        let injured = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "Forward0")
+            .expect("the first choice");
+        injured.injury = Some(domain::player::Injury {
+            name: "Hamstring".to_string(),
+            days_remaining: crate::transfers::LONG_INJURY_DAYS + 5,
+        });
+
+        let team = game.teams[0].clone();
+        let facts = SquadFacts::of_club(&game, &team.id, crate::transfers::ClubProfile::NEUTRAL);
+        let squad = facts.squad().expect("the squad model reads the club");
+        let absence = squad
+            .strategic_plan()
+            .into_iter()
+            .find(|need| need.reason == NeedReason::LongTermInjury)
+            .expect("the absence is a plan need");
+        assert!(absence.protects_the_incumbent(), "{absence:?}");
+        let cover_id = absence
+            .incumbent_id
+            .clone()
+            .expect("the deputy holds the place");
+        let player = game
+            .players
+            .iter()
+            .find(|player| player.id == cover_id)
+            .expect("a real deputy");
+        let case = facts.sale_case(&cover_id).expect("the sale can be costed");
+        assert!(!case.critical, "the fixture's sale is ordinary");
+        assert!(
+            !funds_a_bigger_need(squad, &team, player, &case, Ambition::Fighter),
+            "even the club that lives on its fees keeps the only cover for an urgent place"
+        );
     }
 
     /// Given the three ambitions
