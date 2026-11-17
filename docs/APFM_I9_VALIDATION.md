@@ -7,7 +7,7 @@ engine, formation evaluation, M12) is in the diff.
 
 ## 1. Gates
 
-Run from the repository root on the final tree (`2c0dfb7f`).
+Run from the repository root on `2c0dfb7f`, the last code commit (the commit after it is documentation only).
 
 | Gate | Command | Result |
 |---|---|---|
