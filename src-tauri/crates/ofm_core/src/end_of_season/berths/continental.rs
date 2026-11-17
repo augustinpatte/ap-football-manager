@@ -8,7 +8,7 @@
 //! exercise it through the public re-exports rather than against its internals.
 
 use crate::game::Game;
-use domain::league::{Berth, BerthRule, CompetitionScope, CompetitionType, League};
+use domain::league::{Berth, BerthRule, CompetitionScope, CompetitionType, League, StandingEntry};
 
 /// Domestic league finishes that earn a continental berth — the top N of each
 /// first division. Cup winners qualify on top of these.
@@ -72,8 +72,7 @@ pub fn continental_qualified_entrants(game: &Game, competition: &League) -> Vec<
             .or_insert(competition);
     }
     for league in first_division.values() {
-        for entry in league
-            .sorted_standings()
+        for entry in standings_for_berth(game, league)
             .into_iter()
             .take(CONTINENTAL_LEAGUE_SLOTS)
         {
@@ -115,14 +114,27 @@ pub fn competition_has_incoming_berths(game: &Game, target_id: &str) -> bool {
 ///
 /// A cup is renewed before the rollover reads its winner, so by then its live bracket is the next,
 /// unplayed one and the finished edition is only in the archive. An undecided bracket is not by
-/// itself a renewed cup: a cup kept at the rollover because its final was postponed also has no
-/// winner yet, and its archived edition is last season's, already credited. So the archive is read
-/// only when the cup's season is past the season of its country's top division, which is the
-/// edition the rollover is settling.
+/// itself a renewed cup: a kept cup whose final was postponed also has no winner yet, and its
+/// archived edition is last season's, already credited. So the archive is read only when the live
+/// edition is ahead of the edition its country is settling:
+///
+/// - The cup's season is past the top division's: the cup was renewed ahead of its league (its
+///   opener comes first) and the archived edition is the one being settled.
+/// - The seasons are equal but the top division's own season has not ended: the country was renewed
+///   early, so the live cup is the new, unplayed edition and the archive holds the settled one.
+///   This is also a country running ahead of the rollover, whose latest completed edition is the
+///   archived one.
+///
+/// A cup whose season equals an *ended* top division is the edition being settled (kept because a
+/// tie is still to play). Its archived edition is the previous one, already credited, so it
+/// contributes nobody this season rather than crediting the same champion twice.
 pub(crate) fn cup_champion(game: &Game, cup: &League) -> Option<String> {
     crate::world_cup::world_cup_champion(cup).or_else(|| {
         let settling = top_division_season(game, cup)?;
-        if cup.season <= settling {
+        let edition_is_ahead = cup.season > settling
+            || (cup.season == settling
+                && !crate::end_of_season::is_league_season_ended(top_division(game, cup)?));
+        if !edition_is_ahead {
             return None;
         }
         crate::edition_archive::champion_of_latest_edition_before(
@@ -134,8 +146,8 @@ pub(crate) fn cup_champion(game: &Game, cup: &League) -> Option<String> {
     })
 }
 
-/// The season of the first division of the cup's country: the edition being settled.
-fn top_division_season(game: &Game, cup: &League) -> Option<u32> {
+/// The first division of the cup's country: the competition whose season the rollover is settling.
+fn top_division<'a>(game: &'a Game, cup: &League) -> Option<&'a League> {
     let country = cup.country_id.as_deref()?;
     game.competitions
         .iter()
@@ -145,7 +157,28 @@ fn top_division_season(game: &Game, cup: &League) -> Option<u32> {
                 && competition.country_id.as_deref() == Some(country)
         })
         .min_by_key(|competition| competition.priority)
-        .map(|competition| competition.season)
+}
+
+/// The season of the first division of the cup's country: the edition being settled.
+fn top_division_season(game: &Game, cup: &League) -> Option<u32> {
+    top_division(game, cup).map(|competition| competition.season)
+}
+
+/// The final table a berth reads.
+///
+/// A live table is the edition being settled only when its own season has ended. A country the
+/// daily hook renewed early keeps a live table for a season now in progress while the finished one
+/// sits in the archive: reading the live table then would hand a continental cup a partial new
+/// table, whose early leader is not the club that finished high last season. So a live table still
+/// playing (or not yet kicked off) defers to the most recent archived edition, and only a world
+/// with no archived edition at all falls back to the live order — the old behaviour at its opening.
+fn standings_for_berth(game: &Game, source: &League) -> Vec<StandingEntry> {
+    if crate::end_of_season::is_league_season_ended(source) {
+        return source.sorted_standings();
+    }
+    crate::edition_archive::latest_edition_before(&game.edition_archive, &source.id, source.season)
+        .map(|edition| edition.standings.clone())
+        .unwrap_or_else(|| source.sorted_standings())
 }
 
 /// Teams a single berth rule selects from a competition's finished results.
@@ -155,8 +188,7 @@ pub(super) fn evaluate_berth_rule(game: &Game, source: &League, rule: &BerthRule
         BerthRule::PositionRange { from, to } => {
             let start = (*from as usize).saturating_sub(1);
             let count = (*to).saturating_sub(*from).saturating_add(1) as usize;
-            source
-                .sorted_standings()
+            standings_for_berth(game, source)
                 .into_iter()
                 .skip(start)
                 .take(count)

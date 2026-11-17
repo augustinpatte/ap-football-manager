@@ -36,11 +36,37 @@ pub(crate) fn apply_pyramid_promotion_relegation_with(
     competitions: &mut [League],
     resolver: &mut dyn crate::ladder_rules::TieResolver,
 ) -> Vec<domain::competition_rules::BoundaryMovements> {
+    apply_pyramid_promotion_relegation_where(competitions, resolver, |_| true)
+}
+
+/// [`apply_pyramid_promotion_relegation_with`] restricted to one country's ladder.
+///
+/// The daily country hook renews a whole country on its own calendar, long before the user's
+/// rollover, so that country's promotion and relegation has to run on its own too. Restricting the
+/// pass also keeps the berth sets it consults inside the country: a berth from anywhere else
+/// cannot name one of this country's competitions, so the result is the same ladder this country
+/// would have climbed at the rollover.
+pub(crate) fn apply_pyramid_promotion_relegation_in_country_with(
+    competitions: &mut [League],
+    country: &str,
+    resolver: &mut dyn crate::ladder_rules::TieResolver,
+) -> Vec<domain::competition_rules::BoundaryMovements> {
+    apply_pyramid_promotion_relegation_where(competitions, resolver, |competition| {
+        competition.country_id.as_deref() == Some(country)
+    })
+}
+
+fn apply_pyramid_promotion_relegation_where(
+    competitions: &mut [League],
+    resolver: &mut dyn crate::ladder_rules::TieResolver,
+    include: impl Fn(&League) -> bool,
+) -> Vec<domain::competition_rules::BoundaryMovements> {
     use std::collections::{BTreeMap, HashMap, HashSet};
     let mut movements = Vec::new();
 
     let berth_targets: HashSet<&str> = competitions
         .iter()
+        .filter(|competition| include(competition))
         .flat_map(|competition| &competition.berths)
         .filter(|berth| matches!(berth.rule, BerthRule::PositionRange { .. }))
         .map(|berth| berth.target.as_str())
@@ -64,12 +90,15 @@ pub(crate) fn apply_pyramid_promotion_relegation_with(
     // into that target on its behalf.
     let promotion_destinations: HashSet<&str> = competitions
         .iter()
-        .filter(|competition| is_ladder_tier(competition))
+        .filter(|competition| include(competition) && is_ladder_tier(competition))
         .map(|competition| competition.id.as_str())
         .collect();
 
     let mut feeders_by_target: HashMap<&str, Vec<&str>> = HashMap::new();
-    for competition in competitions.iter() {
+    for competition in competitions
+        .iter()
+        .filter(|competition| include(competition))
+    {
         if competition.rules.format != CompetitionFormat::LeagueTable {
             continue;
         }
@@ -98,7 +127,7 @@ pub(crate) fn apply_pyramid_promotion_relegation_with(
     // tiers on either side close up and become neighbours.
     let mut tiers_by_country: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (index, competition) in competitions.iter().enumerate() {
-        if !is_ladder_tier(competition) {
+        if !include(competition) || !is_ladder_tier(competition) {
             continue;
         }
         if let Some(country) = &competition.country_id {
@@ -154,17 +183,34 @@ pub(crate) fn apply_pyramid_promotion_relegation_with(
         //
         // Say so. Every one of these refusals looks identical from the outside
         // — nobody is promoted, nobody is relegated, no message is sent — which
-        // is exactly how a dead ladder went unnoticed in the first place.
-        let refusal = if !every_tier_has_finished(competitions, &run) {
-            Some("a tier has not finished its season")
-        } else if !tiers_are_ranked_distinctly(competitions, &run) {
-            Some("two tiers share a priority, so their order is arbitrary")
-        } else {
-            None
-        };
-        if let Some(reason) = refusal {
+        // is exactly how a dead ladder went unnoticed in the first place. A run
+        // whose tiers have not kicked off at all is the exception: the daily
+        // country hook has already renewed that country for its next edition,
+        // so there is nothing to climb until it plays, and saying so at every
+        // rollover would drown the warnings that mean something.
+        if !every_tier_has_finished(competitions, &run) {
+            let named = run
+                .iter()
+                .map(|&index| competitions[index].id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            if run
+                .iter()
+                .all(|&index| !crate::end_of_season::season_has_started(&competitions[index]))
+            {
+                log::debug!(
+                    "[end-of-season] no promotion or relegation for {named}: the next edition has not started"
+                );
+            } else {
+                log::warn!(
+                    "[end-of-season] no promotion or relegation for {named}: a tier has not finished its season"
+                );
+            }
+            continue;
+        }
+        if !tiers_are_ranked_distinctly(competitions, &run) {
             log::warn!(
-                "[end-of-season] no promotion or relegation for {}: {reason}",
+                "[end-of-season] no promotion or relegation for {}: two tiers share a priority, so their order is arbitrary",
                 run.iter()
                     .map(|&index| competitions[index].id.as_str())
                     .collect::<Vec<_>>()

@@ -1,10 +1,13 @@
-use super::super::continental::{continental_qualified_entrants, resolve_continental_fields};
+use super::super::continental::{
+    continental_qualified_entrants, evaluate_berth_rule, resolve_continental_fields,
+};
 use super::super::pyramid::apply_pyramid_promotion_relegation;
 use super::super::test_support::*;
 use super::*;
+use domain::edition_archive::CompletedEdition;
 use domain::league::{
     Berth, BerthRule, CompetitionScope, CompetitionType, Fixture, FixtureCompetition,
-    FixtureStatus, League,
+    FixtureStatus, League, StandingEntry,
 };
 use std::collections::HashSet;
 
@@ -758,5 +761,110 @@ fn an_undeclared_feeder_region_includes_every_region_in_the_competition_set() {
     assert!(
         !field.contains(&"es-filler".to_string()),
         "the lower-reputation filler loses the spare place: {field:?}"
+    );
+}
+
+/// A completed edition whose final table is given best-first.
+fn archived_edition(competition_id: &str, season: u32, clubs: &[&str]) -> CompletedEdition {
+    let standings: Vec<StandingEntry> = clubs
+        .iter()
+        .enumerate()
+        .map(|(index, club)| {
+            let mut entry = StandingEntry::new((*club).to_string());
+            entry.played = 30;
+            entry.points = 90 - index as u32 * 3;
+            entry
+        })
+        .collect();
+    CompletedEdition {
+        competition_id: competition_id.to_string(),
+        season,
+        completed_on: format!("{season}-05-01"),
+        champion_id: clubs.first().unwrap_or(&"").to_string(),
+        participant_ids: clubs.iter().map(|club| (*club).to_string()).collect(),
+        standings,
+        groups: Vec::new(),
+        knockout_rounds: Vec::new(),
+        fixtures: Vec::new(),
+        movements: None,
+    }
+}
+
+/// Given a country the daily hook renewed early, whose next edition has already kicked off,
+/// When a continental berth reads its table,
+/// Then it reads the archived completed season, not the partial new one.
+#[test]
+fn a_berth_reads_the_archived_table_of_a_country_renewed_early() {
+    let mut game = empty_game();
+    let mut league = division(
+        "pt-d1",
+        0,
+        "PT",
+        &[
+            ("new-leader", 30),
+            ("new-second", 20),
+            ("new-third", 10),
+            ("new-fourth", 5),
+        ],
+    );
+    league.season = 2034;
+    // The renewed edition is underway: a played table and a tie still to come.
+    league.fixtures.push(Fixture {
+        competition: FixtureCompetition::League,
+        status: FixtureStatus::Scheduled,
+        ..Default::default()
+    });
+    game.edition_archive.push(archived_edition(
+        "pt-d1",
+        2033,
+        &["old-champion", "old-second", "old-third", "old-fourth"],
+    ));
+    game.competitions = vec![league];
+
+    let field = evaluate_berth_rule(
+        &game,
+        &game.competitions[0],
+        &BerthRule::PositionRange { from: 1, to: 1 },
+    );
+
+    assert_eq!(
+        field,
+        vec!["old-champion".to_string()],
+        "the berth rewards last season's finish, not the new table's early leader"
+    );
+}
+
+/// Given a league whose own season has just ended and an older archived edition,
+/// When a continental berth reads its table,
+/// Then it reads the live final table being settled.
+#[test]
+fn a_berth_reads_the_live_final_table_of_the_season_being_settled() {
+    let mut game = empty_game();
+    let mut league = division(
+        "pt-d1",
+        0,
+        "PT",
+        &[
+            ("just-finished", 40),
+            ("runner-up", 30),
+            ("third", 20),
+            ("fourth", 10),
+        ],
+    );
+    league.season = 2034;
+    game.edition_archive
+        .push(archived_edition("pt-d1", 2032, &["older-champion"]));
+    game.competitions = vec![league];
+
+    let field = evaluate_berth_rule(
+        &game,
+        &game.competitions[0],
+        &BerthRule::PositionRange { from: 1, to: 1 },
+    );
+
+    assert_eq!(
+        field,
+        vec!["just-finished".to_string()],
+        "the season just played is the one the rollover is rewarding"
     );
 }
