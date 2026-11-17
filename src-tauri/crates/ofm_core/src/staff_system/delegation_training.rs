@@ -16,9 +16,10 @@
 //!   planner develops the squad less, he does not wear it out.
 //!
 //! Easing the load is always done at once. Raising it is the decision that costs fitness, so
-//! under "ask me" it is a proposal (and a refused one is not repeated for a week).
+//! under "ask me" it is a proposal. A refusal holds for a month, and an approval covers further
+//! raises for a month, so the manager is asked once per decision, not once per day the squad is fresh.
 
-use domain::delegation::{Duty, ProposalAction};
+use domain::delegation::{DecisionOutcome, Duty, ProposalAction};
 use domain::team::{TrainingFocus, TrainingIntensity};
 
 use super::assistant::next_match_and_load;
@@ -36,8 +37,11 @@ pub const CAUTIOUS_BELOW: f64 = 35.0;
 const TAILORED_SLOT: usize = 2;
 /// How much better a session must be taught than the style's own to replace it.
 const TAILOR_MARGIN: f64 = 1.05;
-/// Days a raised load is not asked about again after the manager answered.
-const ASK_AGAIN_AFTER_DAYS: i64 = 7;
+/// Days a raised load is not asked about again after the manager answered. A "no" is a no for a
+/// month; a "yes" lets the owner raise the load again, unasked, for the same month. The condition
+/// band a plan reads from crosses the High threshold many times a season, so without this the
+/// manager is asked about every crossing (about 23 questions a season in the ten-season study).
+const ASK_AGAIN_AFTER_DAYS: i64 = 28;
 const LOAD_PROPOSAL_KEY: &str = "delegation.proposal.trainingLoad";
 
 /// The sessions a coaching staff can be asked to lean on: the four outfield skills. Physical is
@@ -112,23 +116,35 @@ pub fn plan(
     Some((focus, intensity))
 }
 
-/// Whether the owner may put a raised load to the manager today: nothing of the kind is waiting,
-/// and he has not answered one this past week.
-fn may_ask(game: &Game) -> bool {
-    let since = (date(game) - chrono::Duration::days(ASK_AGAIN_AFTER_DAYS))
+/// The date a month ago, as the history stamps it.
+fn since_the_window(game: &Game) -> String {
+    (date(game) - chrono::Duration::days(ASK_AGAIN_AFTER_DAYS))
         .format("%Y-%m-%d")
-        .to_string();
+        .to_string()
+}
+
+/// Whether the manager answered a raised-load proposal inside the window, and how.
+fn answered_in_the_window(game: &Game, outcome: DecisionOutcome) -> bool {
+    let since = since_the_window(game);
+    game.delegation.log.iter().any(|e| {
+        e.duty == Duty::Training
+            && e.outcome == outcome
+            && e.title_key.starts_with(LOAD_PROPOSAL_KEY)
+            && e.date.as_str() >= since.as_str()
+    })
+}
+
+/// Whether the owner may put a raised load to the manager today: nothing of the kind is waiting,
+/// and he has not been answered either way inside the window.
+fn may_ask(game: &Game) -> bool {
     let waiting = game
         .delegation
         .proposals
         .iter()
         .any(|p| p.duty == Duty::Training);
-    let answered = game.delegation.log.iter().any(|e| {
-        e.duty == Duty::Training
-            && e.title_key.starts_with(LOAD_PROPOSAL_KEY)
-            && e.date.as_str() >= since.as_str()
-    });
-    !waiting && !answered
+    !waiting
+        && !answered_in_the_window(game, DecisionOutcome::Approved)
+        && !answered_in_the_window(game, DecisionOutcome::Declined)
 }
 
 /// Before the day's training: a delegated training plan.
@@ -176,8 +192,11 @@ pub(super) fn run(game: &mut Game, weekday_num: u32) {
     // Raising the load is the step that costs fitness: under "ask me" it waits for the manager,
     // and until he answers the session runs at the standing intensity.
     let mut intensity = wanted.clone();
+    // A "yes" inside the window already covers the raise: he has said he is content for the owner
+    // to work the squad harder.
     if load_rank(&wanted) > load_rank(&standing)
         && game.delegation.needs_confirmation(Duty::Training)
+        && !answered_in_the_window(game, DecisionOutcome::Approved)
     {
         intensity = standing.clone();
         if may_ask(game) {
@@ -231,7 +250,7 @@ pub(super) fn run(game: &mut Game, weekday_num: u32) {
 }
 
 /// A refused raise of the load is the manager's word: the duty keeps the standing load for a
-/// week. Called by the proposal resolution.
+/// month. Called by the proposal resolution.
 pub(super) fn on_load_declined(game: &mut Game) {
     let until = (date(game) + chrono::Duration::days(ASK_AGAIN_AFTER_DAYS))
         .format("%Y-%m-%d")
@@ -379,10 +398,10 @@ mod tests {
 
     /// Given a refused raise
     /// When the next days are planned
-    /// Then the duty stands back for the week: the standing plan is kept and nothing is asked
+    /// Then the duty stands back for the month: the standing plan is kept and nothing is asked
     ///      again.
     #[test]
-    fn a_refused_raise_is_not_asked_again_for_a_week() {
+    fn a_refused_raise_is_not_asked_again_for_a_month() {
         let mut g = rested_club(80, true);
         run(&mut g, WEDNESDAY);
         let id = g.delegation.proposals[0].id.clone();
@@ -495,5 +514,56 @@ mod tests {
         run(&mut g, WEDNESDAY + 1);
         assert_eq!(g.teams[0].training_focus, TrainingFocus::Attacking);
         assert_eq!(g.teams[0].training_intensity, TrainingIntensity::Low);
+    }
+
+    /// Given a raise the manager approved, and the squad then tired so the owner eased the load
+    /// When the squad is fresh again inside the month
+    /// Then the owner raises it again without a second question: one answer covers the window.
+    #[test]
+    fn an_approved_raise_covers_the_next_raise_in_the_same_month() {
+        let mut g = rested_club(80, true);
+        run(&mut g, WEDNESDAY);
+        let id = g.delegation.proposals[0].id.clone();
+        resolve_proposal(&mut g, &id, true).expect("accepted");
+        assert_eq!(g.teams[0].training_intensity, TrainingIntensity::High);
+
+        // The squad wears down and the owner eases the load...
+        set_condition_of_team1(&mut g, 5);
+        run(&mut g, WEDNESDAY + 1);
+        assert_eq!(g.teams[0].training_intensity, TrainingIntensity::Low);
+        // ...and recovers: the raise back to High is made without asking.
+        set_condition_of_team1(&mut g, 95);
+        g.clock.current_date += chrono::Duration::days(3);
+        run(&mut g, WEDNESDAY);
+        assert_eq!(g.teams[0].training_intensity, TrainingIntensity::High);
+        assert_eq!(training_proposals(&g), 0, "the manager was not asked again");
+    }
+
+    /// Given an approval more than a month old
+    /// When the owner wants to raise the load again
+    /// Then he asks again.
+    #[test]
+    fn an_old_approval_does_not_cover_a_new_raise() {
+        let mut g = rested_club(80, true);
+        run(&mut g, WEDNESDAY);
+        let id = g.delegation.proposals[0].id.clone();
+        resolve_proposal(&mut g, &id, true).expect("accepted");
+        g.teams[0].training_intensity = TrainingIntensity::Medium;
+        g.delegation
+            .record_applied(Duty::Training, &super::control::training_print(&g.teams[0]));
+        g.clock.current_date += chrono::Duration::days(40);
+        set_condition_of_team1(&mut g, 95);
+        run(&mut g, WEDNESDAY);
+        assert_eq!(training_proposals(&g), 1);
+    }
+
+    fn set_condition_of_team1(g: &mut Game, condition: u8) {
+        for p in g
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("team1"))
+        {
+            p.condition = condition;
+        }
     }
 }
