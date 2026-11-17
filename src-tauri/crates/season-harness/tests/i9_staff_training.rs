@@ -1,0 +1,814 @@
+//! I9: staff, delegation and training over long careers.
+//!
+//! Two things live here.
+//!
+//! * `i9_staff_training_study` (ignored; run it explicitly) plays the same generated world under
+//!   seven arms and prints what each did to the user's club: the staff quality arms (no staff,
+//!   weak, average, strong) with the manager's own default plan, and the delegation arms
+//!   (training handed over and acting alone, training handed over under "ask me" with a
+//!   deterministic policy that accepts every other proposal, and Total delegation). It measures
+//!   squad fitness, injuries, points, staff cost, attribute progression by age band (the user's
+//!   club against the AI clubs), the decisions taken and the rules that must never break (the
+//!   30-senior hold, the squad floor, an overdrawn club). Its assertions are the safety
+//!   properties, never a margin of improvement.
+//!
+//!   ```text
+//!   I9_SEASONS=10 I9_SEEDS=1 cargo test --release -p season-harness --test i9_staff_training \
+//!     -- --ignored --nocapture i9_staff_training_study
+//!   ```
+//!
+//! * `a_reloaded_delegated_career_does_not_repeat_what_it_did` (always run) proves that a save and
+//!   reload in the middle of a delegated season changes nothing: the same days played from the
+//!   reloaded game and from the game that was never saved leave identical delegation state, and
+//!   the named owner of training survives the reload and the rollover.
+
+use std::collections::BTreeMap;
+
+use db::save_manager::SaveManager;
+use domain::delegation::{DecisionOutcome, DelegationMode, Duty};
+use domain::player::{Player, SquadRole};
+use domain::staff::{Staff, StaffPost};
+use domain::stats::StatsState;
+use ofm_core::end_of_season::{EndOfSeasonSummary, is_season_complete};
+use ofm_core::game::Game;
+use ofm_core::staff_system::delegation::resolve_proposal;
+use ofm_core::staff_system::{delegation_owner, market, profile};
+use season_harness::ageing::{AGE_BANDS, Snapshot, snapshot_of};
+use season_harness::driver::{RunOptions, SeasonObserver, play_day, roll_season_over};
+use season_harness::invariants::Invariants;
+use season_harness::worlds::WorldSpec;
+
+/// Most seniors a club may register (I4A).
+const SENIOR_LIMIT: usize = 30;
+/// Fewest seniors a club must keep (the squad floor).
+const SENIOR_FLOOR: usize = 15;
+
+fn user_team(game: &Game) -> String {
+    game.manager
+        .team_id
+        .clone()
+        .expect("the manager has a club")
+}
+
+fn seniors<'a>(game: &'a Game, team_id: &str) -> Vec<&'a Player> {
+    game.players
+        .iter()
+        .filter(|p| {
+            p.team_id.as_deref() == Some(team_id) && p.squad_role == SquadRole::Senior && !p.retired
+        })
+        .collect()
+}
+
+/// Mean condition of the eleven best healthy seniors: the starters' reading the planners use.
+fn starters_condition(game: &Game, team_id: &str) -> Option<f64> {
+    let mut healthy: Vec<&Player> = seniors(game, team_id)
+        .into_iter()
+        .filter(|p| p.injury.is_none())
+        .collect();
+    if healthy.len() < 11 {
+        return None;
+    }
+    healthy.sort_by(|a, b| b.ovr.cmp(&a.ovr).then(a.id.cmp(&b.id)));
+    Some(
+        healthy[..11]
+            .iter()
+            .map(|p| f64::from(p.condition))
+            .sum::<f64>()
+            / 11.0,
+    )
+}
+
+fn ensure_assistant(game: &mut Game) {
+    let team = user_team(game);
+    if profile::team_staff(game, &team)
+        .iter()
+        .any(|s| s.post() == StaffPost::AssistantManager)
+    {
+        return;
+    }
+    let reputation = game
+        .teams
+        .iter()
+        .find(|t| t.id == team)
+        .map_or(0, |t| t.reputation);
+    let (id, wage) = game
+        .staff
+        .iter()
+        .filter(|s| s.team_id.is_none() && s.post() == StaffPost::AssistantManager)
+        .max_by_key(|s| (s.overall(), s.id.clone()))
+        .map(|s| (s.id.clone(), market::asking_wage(s, reputation)))
+        .expect("a free assistant manager exists in the world");
+    market::hire(game, &team, &id, wage, 3).expect("the assistant can be hired");
+}
+
+/// Sets every attribute of the user's staff to `level` and keeps them for the whole study: a
+/// contract running out in season four would otherwise end the experiment on its own.
+fn set_user_staff(game: &mut Game, level: u8) {
+    let team = user_team(game);
+    for member in game
+        .staff
+        .iter_mut()
+        .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
+    {
+        member.attributes.coaching = level;
+        member.attributes.judging_ability = level;
+        member.attributes.judging_potential = level;
+        member.attributes.physiotherapy = level;
+        member.contract_end = Some("2099-01-01".to_string());
+    }
+}
+
+/// Removes every member of the user's staff (the "no staff" arm).
+fn dismiss_user_staff(game: &mut Game) {
+    let team = user_team(game);
+    for member in game
+        .staff
+        .iter_mut()
+        .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
+    {
+        member.team_id = None;
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Policy {
+    /// Proposals are never answered by the study (nothing is delegated under "ask me").
+    None,
+    /// Every other proposal is accepted, the rest declined, by the proposal's number.
+    EveryOther,
+}
+
+struct Arm {
+    name: &'static str,
+    setup: fn(&mut Game),
+    policy: Policy,
+}
+
+fn average_staff(game: &mut Game) {
+    ensure_assistant(game);
+    set_user_staff(game, 50);
+}
+
+fn arms() -> Vec<Arm> {
+    vec![
+        Arm {
+            name: "manual, average staff",
+            setup: average_staff,
+            policy: Policy::None,
+        },
+        Arm {
+            name: "manual, no staff",
+            setup: dismiss_user_staff,
+            policy: Policy::None,
+        },
+        Arm {
+            name: "manual, weak staff (30)",
+            setup: |g| {
+                ensure_assistant(g);
+                set_user_staff(g, 30);
+            },
+            policy: Policy::None,
+        },
+        Arm {
+            name: "manual, strong staff (90)",
+            setup: |g| {
+                ensure_assistant(g);
+                set_user_staff(g, 90);
+            },
+            policy: Policy::None,
+        },
+        Arm {
+            name: "training delegated, acts alone",
+            setup: |g| {
+                average_staff(g);
+                g.delegation.set(Duty::Training, true, false);
+            },
+            policy: Policy::None,
+        },
+        Arm {
+            name: "training delegated, ask me",
+            setup: |g| {
+                average_staff(g);
+                g.delegation.set(Duty::Training, true, true);
+            },
+            policy: Policy::EveryOther,
+        },
+        Arm {
+            name: "Total delegation",
+            setup: |g| {
+                average_staff(g);
+                g.delegation.apply_mode(DelegationMode::Full);
+            },
+            policy: Policy::EveryOther,
+        },
+        Arm {
+            name: "Total delegation without the tactical duty",
+            setup: |g| {
+                average_staff(g);
+                g.delegation.apply_mode(DelegationMode::Full);
+                g.delegation.set(Duty::Tactics, false, false);
+            },
+            policy: Policy::EveryOther,
+        },
+        Arm {
+            name: "Total delegation without tactics, lineup and match preparation",
+            setup: |g| {
+                average_staff(g);
+                g.delegation.apply_mode(DelegationMode::Full);
+                for duty in [Duty::Tactics, Duty::Lineup, Duty::MatchPreparation] {
+                    g.delegation.set(duty, false, false);
+                }
+            },
+            policy: Policy::EveryOther,
+        },
+    ]
+}
+
+#[derive(Default)]
+struct Season {
+    points: u32,
+    rank: usize,
+    staff_bill: i64,
+    staff_budget: i64,
+}
+
+#[derive(Default)]
+struct Band {
+    user_sum: f64,
+    user_n: usize,
+    ai_sum: f64,
+    ai_n: usize,
+}
+
+/// Everything one arm's run is measured by.
+struct Recorder {
+    team_id: String,
+    starters: Vec<f64>,
+    /// The starters' condition the day before each of the club's matches: what is fielded.
+    eve: Vec<f64>,
+    ai_starters: Vec<f64>,
+    squad: Vec<f64>,
+    injured_before: std::collections::HashSet<String>,
+    injuries: usize,
+    injury_days: u64,
+    senior_breaches: usize,
+    floor_breaches: usize,
+    min_finance: i64,
+    seasons: Vec<Season>,
+    bands: Vec<Band>,
+    previous: Snapshot,
+    user_players_at_start: std::collections::HashSet<String>,
+}
+
+impl Recorder {
+    fn new(game: &Game) -> Self {
+        let team_id = user_team(game);
+        Self {
+            user_players_at_start: seniors(game, &team_id)
+                .iter()
+                .map(|p| p.id.clone())
+                .collect(),
+            previous: snapshot_of(game),
+            team_id,
+            starters: Vec::new(),
+            eve: Vec::new(),
+            ai_starters: Vec::new(),
+            squad: Vec::new(),
+            injured_before: Default::default(),
+            injuries: 0,
+            injury_days: 0,
+            senior_breaches: 0,
+            floor_breaches: 0,
+            min_finance: i64::MAX,
+            seasons: Vec::new(),
+            bands: AGE_BANDS.iter().map(|_| Band::default()).collect(),
+        }
+    }
+}
+
+impl SeasonObserver for Recorder {
+    fn on_day_end(&mut self, game: &Game, _season: u32, day: u32) {
+        let squad = seniors(game, &self.team_id);
+        if squad.len() > SENIOR_LIMIT {
+            self.senior_breaches += 1;
+        }
+        if squad.len() < SENIOR_FLOOR {
+            self.floor_breaches += 1;
+        }
+        let now: std::collections::HashSet<String> = squad
+            .iter()
+            .filter(|p| p.injury.is_some())
+            .map(|p| p.id.clone())
+            .collect();
+        for player in squad.iter().filter(|p| p.injury.is_some()) {
+            if !self.injured_before.contains(&player.id) {
+                self.injuries += 1;
+                self.injury_days += u64::from(
+                    player
+                        .injury
+                        .as_ref()
+                        .map_or(0, |injury| injury.days_remaining),
+                );
+            }
+        }
+        self.injured_before = now;
+        if let Some(team) = game.teams.iter().find(|t| t.id == self.team_id) {
+            self.min_finance = self.min_finance.min(team.finance);
+        }
+        let tomorrow = (game.clock.current_date + chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
+        let plays_tomorrow = game.competitions.iter().any(|c| {
+            c.fixtures.iter().any(|f| {
+                f.date == tomorrow
+                    && (f.home_team_id == self.team_id || f.away_team_id == self.team_id)
+            })
+        });
+        if plays_tomorrow && let Some(c) = starters_condition(game, &self.team_id) {
+            self.eve.push(c);
+        }
+        if day.is_multiple_of(7) {
+            if let Some(c) = starters_condition(game, &self.team_id) {
+                self.starters.push(c);
+            }
+            if !squad.is_empty() {
+                self.squad.push(
+                    squad.iter().map(|p| f64::from(p.condition)).sum::<f64>() / squad.len() as f64,
+                );
+            }
+            let ai: Vec<f64> = game
+                .teams
+                .iter()
+                .filter(|t| t.id != self.team_id)
+                .filter_map(|t| starters_condition(game, &t.id))
+                .collect();
+            if !ai.is_empty() {
+                self.ai_starters
+                    .push(ai.iter().sum::<f64>() / ai.len() as f64);
+            }
+        }
+    }
+
+    fn on_before_rollover(&mut self, game: &Game, _season: u32) {
+        let mut row = Season {
+            staff_bill: market::weekly_staff_bill(game, &self.team_id),
+            staff_budget: market::staff_budget(game, &self.team_id),
+            ..Default::default()
+        };
+        if let Some(league) = game
+            .competitions
+            .iter()
+            .filter(|l| l.standings.iter().any(|s| s.team_id == self.team_id))
+            .max_by_key(|l| l.standings.len())
+        {
+            let mut table: Vec<_> = league.standings.iter().collect();
+            table.sort_by(|a, b| {
+                b.points
+                    .cmp(&a.points)
+                    .then(
+                        (i64::from(b.goals_for) - i64::from(b.goals_against))
+                            .cmp(&(i64::from(a.goals_for) - i64::from(a.goals_against))),
+                    )
+                    .then(a.team_id.cmp(&b.team_id))
+            });
+            if let Some(position) = table.iter().position(|s| s.team_id == self.team_id) {
+                row.rank = position + 1;
+                row.points = table[position].points;
+            }
+        }
+        self.seasons.push(row);
+    }
+
+    fn on_season_end(&mut self, game: &Game, _summary: &EndOfSeasonSummary, _season: u32) {
+        let after = snapshot_of(game);
+        for (id, (ovr_before, age)) in &self.previous {
+            let Some((ovr_after, _)) = after.get(id) else {
+                continue;
+            };
+            let Some(index) = AGE_BANDS
+                .iter()
+                .position(|(_, low, high)| *age >= *low && *age <= *high)
+            else {
+                continue;
+            };
+            let change = f64::from(*ovr_after) - f64::from(*ovr_before);
+            let band = &mut self.bands[index];
+            if self.user_players_at_start.contains(id) {
+                band.user_sum += change;
+                band.user_n += 1;
+            } else {
+                band.ai_sum += change;
+                band.ai_n += 1;
+            }
+        }
+        self.previous = after;
+        self.user_players_at_start = seniors(game, &self.team_id)
+            .iter()
+            .map(|p| p.id.clone())
+            .collect();
+    }
+}
+
+/// Answers the waiting proposals by the arm's policy. Returns (accepted, declined).
+fn answer_proposals(game: &mut Game, policy: Policy) -> (usize, usize) {
+    if policy == Policy::None {
+        return (0, 0);
+    }
+    let waiting: Vec<String> = game
+        .delegation
+        .proposals
+        .iter()
+        .map(|p| p.id.clone())
+        .collect();
+    let (mut accepted, mut declined) = (0, 0);
+    for id in waiting {
+        let number: u64 = id.trim_start_matches("prop-").parse().unwrap_or(0);
+        let accept = number.is_multiple_of(2);
+        // A proposal the game can no longer carry out is dropped by the game; that is fine.
+        let _ = resolve_proposal(game, &id, accept);
+        if accept {
+            accepted += 1;
+        } else {
+            declined += 1;
+        }
+    }
+    (accepted, declined)
+}
+
+struct ArmResult {
+    name: &'static str,
+    recorder: Recorder,
+    outcomes: BTreeMap<&'static str, usize>,
+    training_decisions: usize,
+    proposals_raised: u64,
+    invariants_clean: bool,
+    invariants_report: String,
+}
+
+fn outcome_name(outcome: DecisionOutcome) -> &'static str {
+    match outcome {
+        DecisionOutcome::Executed => "executed",
+        DecisionOutcome::Approved => "approved",
+        DecisionOutcome::Declined => "declined",
+        DecisionOutcome::LeftToManager => "leftToManager",
+    }
+}
+
+fn play_arm(arm: &Arm, seed: u64, seasons: u32) -> ArmResult {
+    let mut game = WorldSpec::gate(seed).build().expect("the world builds");
+    (arm.setup)(&mut game);
+    let options = RunOptions::seasons(seasons);
+    let mut recorder = Recorder::new(&game);
+    let mut invariants = Invariants::new(&game);
+    let mut outcomes: BTreeMap<&'static str, usize> = BTreeMap::new();
+    let mut training_decisions = 0;
+    for season in 1..=seasons {
+        let mut day = 0;
+        while !is_season_complete(&game) {
+            day += 1;
+            assert!(day < 470, "{}: season {season} did not complete", arm.name);
+            play_day(
+                &mut game,
+                options,
+                season,
+                day,
+                &mut (&mut recorder, &mut invariants),
+            )
+            .unwrap_or_else(|e| panic!("{}: {e}", arm.name));
+            answer_proposals(&mut game, arm.policy);
+        }
+        roll_season_over(
+            &mut game,
+            options,
+            season,
+            &mut (&mut recorder, &mut invariants),
+        )
+        .unwrap_or_else(|e| panic!("{}: {e}", arm.name));
+    }
+    // The history keeps the last 120 decisions, so the totals below read it season by season
+    // would be better; the arm reports what is left at the end plus the proposal counter.
+    for entry in &game.delegation.log {
+        *outcomes.entry(outcome_name(entry.outcome)).or_default() += 1;
+        if entry.duty == Duty::Training {
+            training_decisions += 1;
+        }
+    }
+    ArmResult {
+        name: arm.name,
+        recorder,
+        outcomes,
+        training_decisions,
+        proposals_raised: game.delegation.next_proposal,
+        invariants_clean: invariants.is_clean(),
+        invariants_report: invariants.report(),
+    }
+}
+
+fn mean(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+}
+
+fn share_below(values: &[f64], limit: f64) -> f64 {
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().filter(|v| **v < limit).count() as f64 / values.len() as f64 * 100.0
+    }
+}
+
+fn print_arm(result: &ArmResult, seasons: u32) {
+    let r = &result.recorder;
+    let per_season = f64::from(seasons);
+    println!("\n== {} ==", result.name);
+    println!(
+        "  starters' condition: mean {:.1}, min {:.1}, weeks below 70: {:.0}% (AI clubs mean {:.1}); squad mean {:.1}",
+        mean(&r.starters),
+        r.starters.iter().copied().fold(f64::MAX, f64::min),
+        share_below(&r.starters, 70.0),
+        mean(&r.ai_starters),
+        mean(&r.squad),
+    );
+    println!(
+        "  on the eve of a match ({} matches): mean {:.1}, min {:.1}, below 70: {:.0}%, below 60: {:.0}%",
+        r.eve.len(),
+        mean(&r.eve),
+        r.eve.iter().copied().fold(f64::MAX, f64::min),
+        share_below(&r.eve, 70.0),
+        share_below(&r.eve, 60.0),
+    );
+    println!(
+        "  injuries/season {:.1}, days lost/season {:.0}",
+        r.injuries as f64 / per_season,
+        r.injury_days as f64 / per_season
+    );
+    println!(
+        "  points by season: {:?}; finish: {:?}; mean {:.1}",
+        r.seasons.iter().map(|s| s.points).collect::<Vec<_>>(),
+        r.seasons.iter().map(|s| s.rank).collect::<Vec<_>>(),
+        mean(
+            &r.seasons
+                .iter()
+                .map(|s| f64::from(s.points))
+                .collect::<Vec<_>>()
+        ),
+    );
+    println!(
+        "  staff bill/week at the end {} of budget {}",
+        r.seasons.last().map_or(0, |s| s.staff_bill),
+        r.seasons.last().map_or(0, |s| s.staff_budget)
+    );
+    let bands: Vec<String> = AGE_BANDS
+        .iter()
+        .zip(&r.bands)
+        .map(|((label, _, _), b)| {
+            format!(
+                "{label}: club {:+.2} (n={}) / AI {:+.2}",
+                if b.user_n > 0 {
+                    b.user_sum / b.user_n as f64
+                } else {
+                    0.0
+                },
+                b.user_n,
+                if b.ai_n > 0 {
+                    b.ai_sum / b.ai_n as f64
+                } else {
+                    0.0
+                },
+            )
+        })
+        .collect();
+    println!("  ovr change per season by age: {}", bands.join(" | "));
+    println!(
+        "  decisions in the history: {:?} ({} on training); proposals raised in all: {}",
+        result.outcomes, result.training_decisions, result.proposals_raised
+    );
+    println!(
+        "  breaches: seniors>30 on {} days, below the floor on {} days; lowest cash {}; invariants clean: {}",
+        r.senior_breaches, r.floor_breaches, r.min_finance, result.invariants_clean
+    );
+}
+
+/// Given the same world under seven arms
+/// When each plays the configured seasons
+/// Then no arm ever breaks the senior limit or the squad floor or runs the club's cash below what
+///      it started with by more than the arms' own spending allows, no invariant fails, and a
+///      club whose training is delegated fields starters within five points of the manager's own
+///      condition on the eve of a match, with at most one match in ten below 60 (the safety, not
+///      the margin: the numbers are printed for reading).
+#[test]
+#[ignore = "long: set I9_SEASONS and I9_SEEDS, run with --nocapture"]
+fn i9_staff_training_study() {
+    let seasons: u32 = std::env::var("I9_SEASONS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3);
+    let seeds: Vec<u64> = std::env::var("I9_SEEDS")
+        .unwrap_or_else(|_| "1".to_string())
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+    for seed in seeds {
+        let mut baseline_eve: Option<f64> = None;
+        println!("\n######## seed {seed}, {seasons} seasons ########");
+        let only: Vec<String> = std::env::var("I9_ARMS")
+            .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
+            .unwrap_or_default();
+        for arm in arms() {
+            if !only.is_empty() && !only.iter().any(|name| arm.name.contains(name.as_str())) {
+                continue;
+            }
+            let started = std::time::Instant::now();
+            let result = play_arm(&arm, seed, seasons);
+            print_arm(&result, seasons);
+            println!("  ({:.0}s)", started.elapsed().as_secs_f64());
+            assert_eq!(
+                result.recorder.senior_breaches, 0,
+                "{}: the 30-senior hold was broken",
+                arm.name
+            );
+            assert_eq!(
+                result.recorder.floor_breaches, 0,
+                "{}: the squad floor was broken",
+                arm.name
+            );
+            assert!(
+                result.invariants_clean,
+                "{}: {}",
+                arm.name, result.invariants_report
+            );
+            if arm.name == "manual, average staff" {
+                baseline_eve = Some(mean(&result.recorder.eve));
+            }
+            // The training arms are held to the baseline. Total delegation (and its diagnostic
+            // variants) is reported: what it costs is a finding for the duties that cause it.
+            if arm.name.starts_with("training delegated")
+                && let Some(baseline) = baseline_eve
+            {
+                let eve = mean(&result.recorder.eve);
+                assert!(
+                    eve >= baseline - 5.0,
+                    "{}: starters reached matches at {eve:.1} against {baseline:.1} when the manager plays by hand",
+                    arm.name
+                );
+                assert!(
+                    share_below(&result.recorder.eve, 60.0) <= 10.0,
+                    "{}: more than one match in ten was played by starters below 60",
+                    arm.name
+                );
+            }
+        }
+    }
+}
+
+/// The user's first-team (or fitness) coach, kept on a contract that outlasts the test so the
+/// rollover cannot be blamed for losing him. The generated club staff has one first-team coach.
+fn keep_a_coach(game: &mut Game) -> String {
+    let team = user_team(game);
+    let member = game
+        .staff
+        .iter_mut()
+        .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
+        .find(|s| {
+            matches!(
+                s.post(),
+                StaffPost::FirstTeamCoach | StaffPost::FitnessCoach
+            )
+        })
+        .expect("the generated club staff has a coach");
+    member.contract_end = Some("2099-01-01".to_string());
+    member.id.clone()
+}
+
+struct Quiet;
+impl SeasonObserver for Quiet {}
+
+/// Given a delegated career whose training is run by a hired coach under "ask me"
+/// When it is saved and reloaded mid-season, and the same following days are played from the
+///      reloaded game and from the game that was never saved
+/// Then both end with identical delegation state (nothing was repeated or lost by the reload),
+///      the named owner is still in charge after the reload and after the rollover, and no two
+///      proposals share an id.
+#[test]
+fn a_reloaded_delegated_career_does_not_repeat_what_it_did() {
+    let mut game = WorldSpec::gate(1).build().expect("the world builds");
+    ensure_assistant(&mut game);
+    let coach = keep_a_coach(&mut game);
+    game.delegation.apply_mode(DelegationMode::Approval);
+    let team = user_team(&game);
+    delegation_owner::assign(&mut game, &team, Duty::Training, Some(&coach))
+        .expect("a coach can run training");
+    let options = RunOptions::seasons(1);
+    let mut invariants = Invariants::new(&game);
+
+    for day in 1..=60 {
+        play_day(
+            &mut game,
+            options,
+            1,
+            day,
+            &mut (&mut Quiet, &mut invariants),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        answer_proposals(&mut game, Policy::EveryOther);
+    }
+    assert_eq!(game.delegation.owner(Duty::Training), Some(coach.as_str()));
+    // The comparison below only means something if the delegation has been doing things.
+    assert!(
+        game.delegation.next_proposal > 0 || !game.delegation.log.is_empty(),
+        "sixty days of delegation left no proposal and no history"
+    );
+    assert!(
+        game.delegation.applied(Duty::Training).is_some(),
+        "the coach never wrote a training plan"
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut saves = SaveManager::init(dir.path()).unwrap();
+    let save_id = saves
+        .create_save_with_stats(&game, &StatsState::default(), "i9")
+        .unwrap();
+    saves
+        .save_game_with_stats(&game, &StatsState::default(), &save_id)
+        .unwrap();
+    let mut reloaded = SaveManager::init(dir.path())
+        .unwrap()
+        .load_game(&save_id)
+        .unwrap();
+    assert_eq!(
+        reloaded.delegation, game.delegation,
+        "the round trip changed the state"
+    );
+    assert_eq!(
+        reloaded.delegation.owner(Duty::Training),
+        Some(coach.as_str())
+    );
+
+    let mut inv_b = Invariants::new(&reloaded);
+    for day in 61..=90 {
+        play_day(
+            &mut game,
+            options,
+            1,
+            day,
+            &mut (&mut Quiet, &mut invariants),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        answer_proposals(&mut game, Policy::EveryOther);
+        play_day(
+            &mut reloaded,
+            options,
+            1,
+            day,
+            &mut (&mut Quiet, &mut inv_b),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        answer_proposals(&mut reloaded, Policy::EveryOther);
+    }
+    assert_eq!(
+        reloaded.delegation, game.delegation,
+        "a reloaded game does not follow the game that was never saved"
+    );
+    let ids: Vec<&str> = game
+        .delegation
+        .proposals
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    let distinct: std::collections::HashSet<&&str> = ids.iter().collect();
+    assert_eq!(distinct.len(), ids.len(), "two proposals share an id");
+
+    // The season to its end and across the rollover: the owner and the mode are still set.
+    let mut day = 90;
+    while !is_season_complete(&game) {
+        day += 1;
+        assert!(day < 470, "the season did not complete");
+        play_day(
+            &mut game,
+            options,
+            1,
+            day,
+            &mut (&mut Quiet, &mut invariants),
+        )
+        .unwrap_or_else(|e| panic!("{e}"));
+        answer_proposals(&mut game, Policy::EveryOther);
+    }
+    roll_season_over(&mut game, options, 1, &mut (&mut Quiet, &mut invariants))
+        .unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(game.delegation.mode(), DelegationMode::Approval);
+    let still_employed = game
+        .staff
+        .iter()
+        .any(|s: &Staff| s.id == coach && s.team_id.as_deref() == Some(team.as_str()));
+    if still_employed {
+        assert_eq!(
+            game.delegation.owner(Duty::Training),
+            Some(coach.as_str()),
+            "the rollover dropped the owner of training"
+        );
+    }
+    assert!(invariants.is_clean(), "{}", invariants.report());
+}
