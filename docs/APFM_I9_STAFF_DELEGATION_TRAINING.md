@@ -66,10 +66,12 @@ what the club's staff and calendar really are:
 4. **Raising the load asks.** Easing is done at once (a recovery order is logged). Raising the intensity is
    the step that costs fitness, so with "ask me" on training it is a proposal
    (`delegation.proposal.trainingLoad`, a `SetTraining` action); until the manager answers the session
-   runs at the standing intensity. At most one is waiting, and none is raised within a week of the last
-   answer. A refusal stands the duty back for a week. An approval is written as what the staff last
-   wrote, so the next day does not read it as a manager override. Acting alone (no "ask me") raises it
-   at once.
+   runs at the standing intensity. At most one is waiting. **One answer covers a month**: a refusal
+   stands the duty back for 28 days, and an approval lets the owner raise the load again, unasked, for
+   28 days. (The first version asked a week after each answer and raised about 23 questions a season in
+   the ten-season study, because the condition band the plan reads crosses the High threshold many times
+   a year; with the window it is about ten.) An approval is written as what the staff last wrote, so
+   the next day does not read it as a manager override. Acting alone (no "ask me") raises it at once.
 
 What is preserved: the fatigue guard (40), the near-match taper, the congested-week rule, and the
 manager-override stand-back (`delegation_control`). The planner never writes the club's stored
@@ -98,6 +100,20 @@ Advice is still deterministic, still filtered by the reader's eye and capped by 
 poor assistant raises less and a duty owned by a better reader notices more. Accepting a
 recommendation is the existing `apply_assistant_recommendation`; refusing it changes nothing.
 
+### 4b. The squad floor under Total authority
+
+The game never fills the human's club to the floor of 15 seniors (it warns him once a season): a human
+manager is expected to sign players. A manager who has handed the squad to the assistant has no one
+doing it, and the ten-season study found a Total-delegated club that sat 70 million in credit with the
+squad at 14 and, in a first version of the study where proposals went unanswered, at 10. Under **Total
+authority with "ask me" off on player recruitment** the assistant now runs
+`squad_floor::restore_minimum_squad` every day the duty is delegated (`delegation_squad::keep_the_floor`):
+the academy first, then the free agents the club can pay, under the board's wage policy and the
+senior-place limit, which yield only where the club would otherwise be below the floor; nobody is
+created, each player brought in is in the history (`delegation.log.floorPromoted` / `floorSigned`), and a
+second run does nothing. Under Prudent and when the duty is not handed over it is the manager's, as
+before. It is the AI clubs' own routine called for the user's club, not a second decision path.
+
 ## 5. Staff effects
 
 Unchanged in size (see `APFM_TRAINING_VALIDATION.md`): coaching 0.85 to 1.35 and +25 % for a specialist,
@@ -116,7 +132,7 @@ and the order none <= weak <= average <= excellent now holds for every effect
   both intensities by name.
 * **Training tab**: the outlook card.
 * Everything is wired: `set_duty_owner`, `get_training_outlook`, `get_staff_overview.duties`. New text is
-  in all 12 locales (28 keys); the i18n gates pass.
+  in all 12 locales (30 keys); the i18n gates pass.
 
 ## 7. Existing systems reused
 
@@ -136,20 +152,23 @@ shared with other work that I did touch, all additively:
 | `domain/src/delegation.rs` | `DutySetting::owner` (`serde(default)`), `Duty::supports_approval`, `set_owner` |
 | `ofm_core/src/training.rs` | `compute_coaching_bonus` and `CONGESTION_FIXTURE_THRESHOLD` are `pub(crate)`; youth and goalkeeping multipliers floored at 1.0; `mod outlook` |
 | `ofm_core/src/ai_training.rs` | `likely_starters_condition` is `pub(crate)` (visibility only) |
+| `ofm_core/src/staff_system/delegation_squad.rs` | `keep_the_floor` (calls `squad_floor::restore_minimum_squad`) |
 | `ofm_core/src/staff_system/{assistant,delegation}.rs` | `recommendations_read_by`, the duty loop resolves owners, three advice kinds; `NextMatch` and `next_match_and_load` are `pub(crate)` |
 | `src/commands/{staff,squad}.rs`, `src/lib.rs` | `set_duty_owner`, `get_training_outlook`, `StaffOverview::duties` |
-| `src/i18n/locales/*.json`, `INTENTIONAL_SAME.json` | 28 keys |
+| `src/i18n/locales/*.json`, `INTENTIONAL_SAME.json` | 30 keys |
 
 If I5 changes `ai_training::plan_for_team` or the tactical duty, the contracts to keep are: the planner
 returns `Option<(TrainingFocus, TrainingIntensity)>` and is the single planner for every club; the
 tactics duty is `delegation_control::tactics` calling `ai_tactics::plan_for_club`.
 
-**An I5 finding, with evidence** (`APFM_I9_VALIDATION.md` §4): under Total delegation the tactics duty
-costs the club about seven points of starters' condition on the eve of a match (80.1 with it, 88.0
-without, same seed and every other duty identical). `ai_tactics` reads the squad's *stamina attribute*
-(`SquadReading::legs`) to decide whether a side can press, not its current condition, so a tired side
-can still be given an aggressive press. The same planner sets every AI club's tactics. I did not touch it
-(it is I5's); the fix belongs there.
+**An I5 observation that is not a finding.** `ai_tactics` decides whether a side can press from the
+squad's *stamina attribute* (`SquadReading::legs`), not its current condition. A two-season probe suggested
+that the delegated tactics duty cost about seven points of starters' condition on the eve of a match
+(80.1 against 88.0 without it). **That did not reproduce** in the controlled ten-season study
+(`APFM_I9_VALIDATION.md` §3: 86.2 with the tactics duty delegated, 86.8 without, inside the noise of one
+seed), and the probe's two arms differed in more than the duty. I record the code observation, not a
+fitness cost: if I5 reworks the planner, reading condition as well as stamina would be a natural
+refinement, and the study can be re-run on the tactics arm to check it.
 
 ## 9. Remaining limitations
 

@@ -638,7 +638,7 @@ stored plan recovery work (the session `training` would run anyway), the Wednesd
 the coaching staff teach best (by the same `coaching_mult x specialization_mult` `training` applies; the
 other four sessions keep the club's style, so development does not become one-dimensional), and an
 owner rated below 35 never asks for a High session. Easing the load is done at once; raising it is
-the step that costs fitness, so under "ask me" it is a proposal (refused: not asked again for a week,
+the step that costs fitness, so under "ask me" it is a proposal (refused: not asked again for a month, and an approval covers further raises for a month,
 and the plan stands back). `Duty::supports_approval` says which duties have a step to ask about; the
 lineup, tactics, match preparation and scouting act at once in every mode.
 
