@@ -53,6 +53,12 @@ pub enum RecKind {
     PoorForm,
     PromoteYouth,
     StaffVacancy,
+    /// The manager's training plan is harder than the squad's condition can carry.
+    TrainingLoad,
+    /// The coaches teach one session clearly better than the one being run.
+    CoachingStrength,
+    /// Injured players, how long they are out and what the medical department makes of it.
+    InjuryRecovery,
 }
 
 /// What accepting a recommendation does.
@@ -558,6 +564,11 @@ pub(super) fn recommendations_read_by(
         }
     }
 
+    training_advice(
+        game, team_id, &staff, &profile, &starters, week_load, &mut out,
+    );
+    injury_advice(&squad, &profile, &mut out);
+
     // Academy players ready for the first team.
     let today = game.clock.current_date.date_naive();
     let senior_median = {
@@ -594,6 +605,141 @@ pub(super) fn recommendations_read_by(
     out.sort_by(|a, b| b.severity.cmp(&a.severity).then(a.id.cmp(&b.id)));
     out.truncate(max_items);
     out
+}
+
+/// Starters this far below full condition, on average, are not ready for a hard session.
+const LOAD_ADVICE_BELOW: f64 = 65.0;
+/// Below this average the advice is a recovery session, not just a lighter one.
+const LOAD_ADVICE_CRISIS: f64 = 45.0;
+/// A session must be taught this much better than the one run (ratio) to be worth suggesting.
+const STRENGTH_ADVICE_RATIO: f64 = 1.07;
+/// An injury this long (days) is a long-term absence.
+const LONG_INJURY_DAYS: u32 = 21;
+
+/// Advice on the manager's training plan: too hard for the squad as it stands, or leaving the
+/// coaches' best session unused. Read from the starters' condition and the coaches' real
+/// teaching figures, the same ones `training` applies.
+fn training_advice(
+    game: &Game,
+    team_id: &str,
+    staff: &[&domain::staff::Staff],
+    profile: &StaffProfile,
+    starters: &[&Player],
+    week_load: usize,
+    out: &mut Vec<Recommendation>,
+) {
+    let Some(team) = game.teams.iter().find(|t| t.id == team_id) else {
+        return;
+    };
+    let fit: Vec<&&Player> = starters.iter().filter(|pl| pl.injury.is_none()).collect();
+    if fit.is_empty() || team.training_focus == TrainingFocus::Recovery {
+        return;
+    }
+    let mean = fit.iter().map(|pl| f64::from(pl.condition)).sum::<f64>() / fit.len() as f64;
+    let hard = team.training_intensity == TrainingIntensity::High;
+    // A congested week has its own advice (and `training` already runs recovery in it).
+    if week_load < BUSY_WEEK && hard && mean < LOAD_ADVICE_BELOW {
+        let crisis = mean < LOAD_ADVICE_CRISIS;
+        out.push(Recommendation {
+            id: "training-load".into(),
+            kind: RecKind::TrainingLoad,
+            severity: if crisis { 3 } else { 2 },
+            player_id: None,
+            title_key: "assistant.rec.trainingLoad.title".into(),
+            reason_key: "assistant.rec.trainingLoad.reason".into(),
+            params: vec![
+                p("condition", format!("{mean:.0}")),
+                p("intensity", format!("{:?}", team.training_intensity)),
+                p("schedule", format!("{:?}", team.training_schedule)),
+            ],
+            action: if crisis {
+                RecAction::SetTraining {
+                    focus: TrainingFocus::Recovery,
+                    intensity: TrainingIntensity::Low,
+                }
+            } else {
+                RecAction::SetTraining {
+                    focus: team.training_focus.clone(),
+                    intensity: TrainingIntensity::Medium,
+                }
+            },
+        });
+    }
+    // The coaches' strengths: only worth saying when the club is not in a heavy spell.
+    if !hard || mean >= LOAD_ADVICE_BELOW {
+        let coaches = staff
+            .iter()
+            .filter(|s| {
+                matches!(
+                    s.post(),
+                    StaffPost::AssistantManager | StaffPost::FirstTeamCoach
+                )
+            })
+            .count();
+        let (best, best_effect) = super::delegation_training::best_taught(game, team_id);
+        let current =
+            super::delegation_training::teaching_effect(game, team_id, &team.training_focus);
+        if coaches > 0
+            && profile.coaching >= 40.0
+            && best != team.training_focus
+            && team.training_focus != TrainingFocus::Physical
+            && best_effect >= current * STRENGTH_ADVICE_RATIO
+        {
+            out.push(Recommendation {
+                id: "coaching-strength".into(),
+                kind: RecKind::CoachingStrength,
+                severity: 1,
+                player_id: None,
+                title_key: "assistant.rec.coachingStrength.title".into(),
+                reason_key: "assistant.rec.coachingStrength.reason".into(),
+                params: vec![
+                    p("focus", format!("{best:?}")),
+                    p("current", format!("{:?}", team.training_focus)),
+                    p(
+                        "gain",
+                        format!("{:.0}", (best_effect / current - 1.0) * 100.0),
+                    ),
+                ],
+                action: RecAction::SetTraining {
+                    focus: best,
+                    intensity: team.training_intensity.clone(),
+                },
+            });
+        }
+    }
+}
+
+/// One note on the injury list when it matters: several players out, or somebody out for weeks.
+/// It names the medical department because that is what the club can change.
+fn injury_advice(squad: &[&Player], profile: &StaffProfile, out: &mut Vec<Recommendation>) {
+    let injured: Vec<&&Player> = squad.iter().filter(|pl| pl.injury.is_some()).collect();
+    let longest = injured
+        .iter()
+        .filter_map(|pl| pl.injury.as_ref().map(|i| i.days_remaining))
+        .max()
+        .unwrap_or(0);
+    if injured.len() < 2 && longest < LONG_INJURY_DAYS {
+        return;
+    }
+    let weak = profile.medical < 40.0;
+    out.push(Recommendation {
+        id: "injury-recovery".into(),
+        kind: RecKind::InjuryRecovery,
+        severity: if weak { 2 } else { 1 },
+        player_id: None,
+        title_key: "assistant.rec.injuryRecovery.title".into(),
+        reason_key: "assistant.rec.injuryRecovery.reason".into(),
+        params: vec![
+            p("count", injured.len()),
+            p("days", longest),
+            p("medical", format!("{:.0}", profile.medical)),
+            p(
+                "duration",
+                format!("{:+.0}", (profile.injury_duration_mult() - 1.0) * 100.0),
+            ),
+        ],
+        action: RecAction::None,
+    });
 }
 
 /// Carries out a recommendation's action for `team_id`. The one path for the manager's click
@@ -998,5 +1144,158 @@ pub(crate) mod tests {
             SquadRole::Senior,
             "the same action promotes him once a place frees"
         );
+    }
+
+    fn set_condition(g: &mut Game, condition: u8) {
+        for pl in g
+            .players
+            .iter_mut()
+            .filter(|pl| pl.team_id.as_deref() == Some("team1"))
+        {
+            pl.condition = condition;
+        }
+    }
+
+    /// Given the manager runs High sessions and his starters are at 50
+    /// When the assistant advises
+    /// Then he says the plan is too hard and offers Medium on the same focus; at 30 it is a
+    ///      recovery session; at 90 there is nothing to say.
+    #[test]
+    fn a_plan_too_hard_for_the_squad_is_flagged_with_the_condition_that_shows_it() {
+        let mut g = game(Some(80), 6);
+        g.teams[0].training_intensity = TrainingIntensity::High;
+        g.teams[0].training_focus = TrainingFocus::Technical;
+        set_condition(&mut g, 50);
+        let recs = recommendations(&g, "team1");
+        let rec = of_kind(&recs, RecKind::TrainingLoad)[0];
+        assert_eq!(rec.severity, 2);
+        assert_eq!(
+            rec.action,
+            RecAction::SetTraining {
+                focus: TrainingFocus::Technical,
+                intensity: TrainingIntensity::Medium
+            }
+        );
+        assert!(rec.params.contains(&p("condition", "50")));
+
+        set_condition(&mut g, 30);
+        let rec = recommendations(&g, "team1")
+            .into_iter()
+            .find(|r| r.kind == RecKind::TrainingLoad)
+            .expect("a crisis is flagged");
+        assert_eq!(rec.severity, 3);
+        assert_eq!(
+            rec.action,
+            RecAction::SetTraining {
+                focus: TrainingFocus::Recovery,
+                intensity: TrainingIntensity::Low
+            }
+        );
+
+        set_condition(&mut g, 90);
+        assert!(of_kind(&recommendations(&g, "team1"), RecKind::TrainingLoad).is_empty());
+    }
+
+    /// Given a tired squad on High in a week of three matches
+    /// When the assistant advises
+    /// Then the heavy-week advice is given, not a second note about the same problem.
+    #[test]
+    fn a_congested_week_is_not_advised_twice() {
+        let mut g = game(Some(80), 1);
+        for day in [3, 5] {
+            let date = (g.clock.current_date + chrono::Duration::days(day))
+                .format("%Y-%m-%d")
+                .to_string();
+            g.competitions[0].fixtures.push(Fixture {
+                id: format!("x{day}"),
+                competition_id: "l".into(),
+                date,
+                home_team_id: "team1".into(),
+                away_team_id: "team2".into(),
+                ..Default::default()
+            });
+        }
+        g.teams[0].training_intensity = TrainingIntensity::High;
+        set_condition(&mut g, 50);
+        let recs = recommendations(&g, "team1");
+        assert!(!of_kind(&recs, RecKind::BusySchedule).is_empty());
+        assert!(of_kind(&recs, RecKind::TrainingLoad).is_empty());
+    }
+
+    fn with_defending_specialist(g: &mut Game) {
+        g.staff.retain(|s| !s.id.starts_with("have-First"));
+        let mut coach = staff_member("def", StaffPost::FirstTeamCoach, 60, "team1");
+        coach.specialization = Some(domain::staff::CoachingSpecialization::Defending);
+        g.staff.push(coach);
+    }
+
+    /// Given coaches who teach Defending best and a squad running Technical
+    /// When the assistant advises
+    /// Then he suggests Defending, naming the gain; if Defending is already the plan, or the
+    ///      assistant is too weak to read the coaches, he says nothing.
+    #[test]
+    fn the_coaches_strongest_session_is_suggested_when_it_is_not_the_one_run() {
+        let mut g = game(Some(80), 6);
+        with_defending_specialist(&mut g);
+        g.teams[0].training_focus = TrainingFocus::Technical;
+        g.teams[0].training_intensity = TrainingIntensity::Medium;
+        let recs = recommendations(&g, "team1");
+        let rec = of_kind(&recs, RecKind::CoachingStrength)[0];
+        assert_eq!(
+            rec.action,
+            RecAction::SetTraining {
+                focus: TrainingFocus::Defending,
+                intensity: TrainingIntensity::Medium
+            }
+        );
+        assert!(rec.params.contains(&p("focus", "Defending")));
+
+        g.teams[0].training_focus = TrainingFocus::Defending;
+        assert!(of_kind(&recommendations(&g, "team1"), RecKind::CoachingStrength).is_empty());
+
+        let mut weak = game(Some(25), 6);
+        with_defending_specialist(&mut weak);
+        weak.staff.iter_mut().for_each(|s| {
+            if s.id == "def" {
+                s.attributes.coaching = 25;
+            }
+        });
+        assert!(of_kind(&recommendations(&weak, "team1"), RecKind::CoachingStrength).is_empty());
+    }
+
+    fn injure(g: &mut Game, id: &str, days: u32) {
+        g.players
+            .iter_mut()
+            .find(|pl| pl.id == id)
+            .expect("a player of team1")
+            .injury = Some(domain::player::Injury {
+            name: "Strain".into(),
+            days_remaining: days,
+        });
+    }
+
+    /// Given one short injury, then two, then one long one
+    /// When the assistant advises
+    /// Then a single short injury is not worth a note; two injured or one long absence is, and a
+    ///      club with no medical department is told it matters more.
+    #[test]
+    fn injuries_are_flagged_when_there_are_several_or_one_is_long() {
+        let mut g = game(Some(80), 6);
+        injure(&mut g, "s14", 5);
+        assert!(of_kind(&recommendations(&g, "team1"), RecKind::InjuryRecovery).is_empty());
+        injure(&mut g, "s15", 9);
+        let recs = recommendations(&g, "team1");
+        let rec = of_kind(&recs, RecKind::InjuryRecovery)[0];
+        assert_eq!(rec.severity, 1);
+        assert!(rec.params.contains(&p("count", 2)));
+
+        let mut long = game(Some(80), 6);
+        injure(&mut long, "s14", 30);
+        long.staff
+            .retain(|s| !matches!(s.post(), StaffPost::Physio | StaffPost::HeadOfMedical));
+        let recs = recommendations(&long, "team1");
+        let rec = of_kind(&recs, RecKind::InjuryRecovery)[0];
+        assert_eq!(rec.severity, 2, "no medical department");
+        assert!(rec.params.contains(&p("days", 30)));
     }
 }

@@ -354,6 +354,7 @@ pub fn run() {
             renew_staff_contract,
             release_staff,
             set_duty_delegation,
+            set_duty_owner,
             set_delegation_mode,
             set_delegation_limits,
             set_player_protected,

@@ -68,6 +68,16 @@ impl Duty {
 }
 
 impl Duty {
+    /// Whether "ask me" (`confirm_major`) means anything for this duty: it has a step the staff
+    /// can put to the manager instead of taking. The lineup, the tactical plan, match preparation
+    /// and scouting are reversible and free, so they act at once and offer no such choice.
+    pub fn supports_approval(self) -> bool {
+        !matches!(
+            self,
+            Duty::Lineup | Duty::Tactics | Duty::MatchPreparation | Duty::Scouting
+        )
+    }
+
     /// Days the assistant leaves a duty alone after the manager changed what he had set: a match
     /// is a day or two away for the match duties, and a training week is seven days.
     pub fn stand_back_days(self) -> i64 {
