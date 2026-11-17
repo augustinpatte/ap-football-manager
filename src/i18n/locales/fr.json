@@ -5024,7 +5024,9 @@
       "released": "A résilié le contrat de {{player}} : personne ne l'a acheté et la masse salariale dépasse le budget",
       "listedApproved": "A mis {{player}} sur la liste des transferts, comme vous l'avez approuvé",
       "recruitNoLongerNeeded": "A cessé de viser {{player}} ({{position}}) : l'effectif n'a plus besoin de lui",
-      "ownerLeft": "Le membre du staff responsable est parti : l'entraîneur adjoint reprend cette tâche."
+      "ownerLeft": "Le membre du staff responsable est parti : l'entraîneur adjoint reprend cette tâche.",
+      "floorPromoted": "L'effectif était sous le minimum : {{player}} a été promu depuis l'académie",
+      "floorSigned": "L'effectif était sous le minimum : {{player}} a été recruté libre de tout contrat"
     }
   },
   "freeAgents": {

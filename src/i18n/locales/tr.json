@@ -5024,7 +5024,9 @@
       "released": "{{player}} oyuncusunun sözleşmesini tazminatla feshetti: kimse almadı ve maaş yükü bütçeyi aşıyor",
       "listedApproved": "{{player}} oyuncusunu onayınız doğrultusunda transfer listesine ekledi",
       "recruitNoLongerNeeded": "{{player}} ({{position}}) takibini bıraktı: kadronun artık ona ihtiyacı yok",
-      "ownerLeft": "Sorumlu ekip üyesi ayrıldı, bu yüzden yardımcı antrenör bu görevi geri aldı."
+      "ownerLeft": "Sorumlu ekip üyesi ayrıldı, bu yüzden yardımcı antrenör bu görevi geri aldı.",
+      "floorPromoted": "Kadro asgari sayının altındaydı, bu yüzden {{player}} akademiden yükseltildi",
+      "floorSigned": "Kadro asgari sayının altındaydı, bu yüzden serbest oyuncu {{player}} transfer edildi"
     }
   },
   "freeAgents": {

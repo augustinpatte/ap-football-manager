@@ -3,12 +3,16 @@
 //! Two things live here.
 //!
 //! * `i9_staff_training_study` (ignored; run it explicitly) plays the same generated world under
-//!   seven arms and prints what each did to the user's club: the staff quality arms (no staff,
-//!   weak, average, strong) with the manager's own default plan, and the delegation arms
-//!   (training handed over and acting alone, training handed over under "ask me" with a
-//!   deterministic policy that accepts every other proposal, and Total delegation). It measures
-//!   squad fitness, injuries, points, staff cost, attribute progression by age band (the user's
-//!   club against the AI clubs), the decisions taken and the rules that must never break (the
+//!   seven arms and prints what each did to the user's club. In every arm the club's
+//!   administration is handed to the assistant (renewals, recruitment, the academy, offers, the
+//!   lineup and match preparation), because a club in which nothing is ever signed or renewed
+//!   simply decays over ten seasons and would drown the effect being measured. The arms then vary
+//!   the staff (none, weak, average, strong coaching and medical departments, with the manager's
+//!   own default training plan) and who plans the training and the tactics (the manager; the
+//!   assistant acting alone; the assistant asking before raising the load, answered by a policy
+//!   that accepts every other proposal; and the assistant on tactics as well). It measures squad
+//!   fitness, injuries, points, staff cost, attribute progression by age band (the user's club
+//!   against the AI clubs), the decisions taken and the rules that must never break (the
 //!   30-senior hold, the squad floor, an overdrawn club). Its assertions are the safety
 //!   properties, never a margin of improvement.
 //!
@@ -101,8 +105,10 @@ fn ensure_assistant(game: &mut Game) {
     market::hire(game, &team, &id, wage, 3).expect("the assistant can be hired");
 }
 
-/// Sets every attribute of the user's staff to `level` and keeps them for the whole study: a
-/// contract running out in season four would otherwise end the experiment on its own.
+/// Sets every attribute of the user's staff to `level`, keeping the assistant manager at a
+/// constant 50 so the club's administration is the same in every arm and only the coaching and
+/// medical departments differ. Contracts are kept for the whole study: one running out in season
+/// four would otherwise end the experiment on its own.
 fn set_user_staff(game: &mut Game, level: u8) {
     let team = user_team(game);
     for member in game
@@ -110,21 +116,28 @@ fn set_user_staff(game: &mut Game, level: u8) {
         .iter_mut()
         .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
     {
-        member.attributes.coaching = level;
-        member.attributes.judging_ability = level;
-        member.attributes.judging_potential = level;
-        member.attributes.physiotherapy = level;
+        let rating = if member.post() == StaffPost::AssistantManager {
+            50
+        } else {
+            level
+        };
+        member.attributes.coaching = rating;
+        member.attributes.judging_ability = rating;
+        member.attributes.judging_potential = rating;
+        member.attributes.physiotherapy = rating;
         member.contract_end = Some("2099-01-01".to_string());
     }
 }
 
-/// Removes every member of the user's staff (the "no staff" arm).
-fn dismiss_user_staff(game: &mut Game) {
+/// Removes everyone from the user's staff except the assistant manager (the "no staff" arm: no
+/// coaches, no physios, no analysts; the administration still has its assistant).
+fn dismiss_coaching_and_medical_staff(game: &mut Game) {
     let team = user_team(game);
     for member in game
         .staff
         .iter_mut()
         .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
+        .filter(|s| s.post() != StaffPost::AssistantManager)
     {
         member.team_id = None;
     }
@@ -134,7 +147,9 @@ fn dismiss_user_staff(game: &mut Game) {
 enum Policy {
     /// Proposals are never answered by the study (nothing is delegated under "ask me").
     None,
-    /// Every other proposal is accepted, the rest declined, by the proposal's number.
+    /// A manager who accepts every administrative proposal (a renewal, a signing, a promotion) and
+    /// answers the training-load proposals every other time, by the proposal's number, so both
+    /// the approved and the declined path are measured.
     EveryOther,
 }
 
@@ -144,80 +159,69 @@ struct Arm {
     policy: Policy,
 }
 
-fn average_staff(game: &mut Game) {
+/// The club every arm shares: an assistant, and the whole administration handed over (renewals,
+/// recruitment, the academy, offers, the lineup, match preparation) so the squad does not simply
+/// decay over ten seasons of a harness that never signs anybody. Training and tactics are left to
+/// the manager; each arm decides what happens to them.
+fn administered(game: &mut Game) {
     ensure_assistant(game);
-    set_user_staff(game, 50);
+    game.delegation.apply_mode(DelegationMode::Full);
+    game.delegation.set(Duty::Training, false, false);
+    game.delegation.set(Duty::Tactics, false, false);
+}
+
+fn with_staff(game: &mut Game, level: u8) {
+    administered(game);
+    set_user_staff(game, level);
 }
 
 fn arms() -> Vec<Arm> {
     vec![
         Arm {
-            name: "manual, average staff",
-            setup: average_staff,
-            policy: Policy::None,
+            name: "manual training, average staff",
+            setup: |g| with_staff(g, 50),
+            policy: Policy::EveryOther,
         },
         Arm {
-            name: "manual, no staff",
-            setup: dismiss_user_staff,
-            policy: Policy::None,
-        },
-        Arm {
-            name: "manual, weak staff (30)",
+            name: "manual training, no coaching or medical staff",
             setup: |g| {
-                ensure_assistant(g);
-                set_user_staff(g, 30);
+                with_staff(g, 50);
+                dismiss_coaching_and_medical_staff(g);
             },
-            policy: Policy::None,
+            policy: Policy::EveryOther,
         },
         Arm {
-            name: "manual, strong staff (90)",
-            setup: |g| {
-                ensure_assistant(g);
-                set_user_staff(g, 90);
-            },
-            policy: Policy::None,
+            name: "manual training, weak staff (30)",
+            setup: |g| with_staff(g, 30),
+            policy: Policy::EveryOther,
+        },
+        Arm {
+            name: "manual training, strong staff (90)",
+            setup: |g| with_staff(g, 90),
+            policy: Policy::EveryOther,
         },
         Arm {
             name: "training delegated, acts alone",
             setup: |g| {
-                average_staff(g);
+                with_staff(g, 50);
                 g.delegation.set(Duty::Training, true, false);
             },
-            policy: Policy::None,
+            policy: Policy::EveryOther,
         },
         Arm {
             name: "training delegated, ask me",
             setup: |g| {
-                average_staff(g);
+                with_staff(g, 50);
                 g.delegation.set(Duty::Training, true, true);
             },
             policy: Policy::EveryOther,
         },
         Arm {
-            name: "Total delegation",
+            name: "training and tactics delegated (everything handed over)",
             setup: |g| {
-                average_staff(g);
-                g.delegation.apply_mode(DelegationMode::Full);
-            },
-            policy: Policy::EveryOther,
-        },
-        Arm {
-            name: "Total delegation without the tactical duty",
-            setup: |g| {
-                average_staff(g);
-                g.delegation.apply_mode(DelegationMode::Full);
-                g.delegation.set(Duty::Tactics, false, false);
-            },
-            policy: Policy::EveryOther,
-        },
-        Arm {
-            name: "Total delegation without tactics, lineup and match preparation",
-            setup: |g| {
-                average_staff(g);
-                g.delegation.apply_mode(DelegationMode::Full);
-                for duty in [Duty::Tactics, Duty::Lineup, Duty::MatchPreparation] {
-                    g.delegation.set(duty, false, false);
-                }
+                with_staff(g, 50);
+                g.delegation.set(Duty::Training, true, false);
+                g.delegation.set(Duty::Tactics, true, false);
             },
             policy: Policy::EveryOther,
         },
@@ -423,7 +427,12 @@ fn answer_proposals(game: &mut Game, policy: Policy) -> (usize, usize) {
     let (mut accepted, mut declined) = (0, 0);
     for id in waiting {
         let number: u64 = id.trim_start_matches("prop-").parse().unwrap_or(0);
-        let accept = number.is_multiple_of(2);
+        let proposal_is_training = game
+            .delegation
+            .proposals
+            .iter()
+            .any(|p| p.id == id && p.duty == Duty::Training);
+        let accept = !proposal_is_training || number.is_multiple_of(2);
         // A proposal the game can no longer carry out is dropped by the game; that is fine.
         let _ = resolve_proposal(game, &id, accept);
         if accept {
@@ -592,7 +601,7 @@ fn print_arm(result: &ArmResult, seasons: u32) {
     );
 }
 
-/// Given the same world under seven arms
+/// Given the same world and the same delegated administration under seven arms
 /// When each plays the configured seasons
 /// Then no arm ever breaks the senior limit or the squad floor or runs the club's cash below what
 ///      it started with by more than the arms' own spending allows, no invariant fails, and a
@@ -640,11 +649,12 @@ fn i9_staff_training_study() {
                 "{}: {}",
                 arm.name, result.invariants_report
             );
-            if arm.name == "manual, average staff" {
+            if arm.name == "manual training, average staff" {
                 baseline_eve = Some(mean(&result.recorder.eve));
             }
-            // The training arms are held to the baseline. Total delegation (and its diagnostic
-            // variants) is reported: what it costs is a finding for the duties that cause it.
+            // The training arms are held to the baseline. The arm that also hands over the
+            // tactics is reported, not asserted: what it costs is a finding for the tactical
+            // planner (APFM_I9_VALIDATION.md section 4).
             if arm.name.starts_with("training delegated")
                 && let Some(baseline) = baseline_eve
             {

@@ -5024,7 +5024,9 @@
       "released": "Rescindiu o contrato de {{player}}: ninguém o comprou e a folha salarial excede o orçamento",
       "listedApproved": "Colocou {{player}} na lista de transferências, como aprovaste",
       "recruitNoLongerNeeded": "Deixou de perseguir {{player}} ({{position}}): o plantel já não precisa dele",
-      "ownerLeft": "O membro da equipa técnica responsável saiu, por isso o treinador adjunto retomou esta tarefa."
+      "ownerLeft": "O membro da equipa técnica responsável saiu, por isso o treinador adjunto retomou esta tarefa.",
+      "floorPromoted": "O plantel estava abaixo do mínimo, por isso {{player}} foi promovido da academia",
+      "floorSigned": "O plantel estava abaixo do mínimo, por isso {{player}} foi contratado como jogador livre"
     }
   },
   "freeAgents": {

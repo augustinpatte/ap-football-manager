@@ -5024,7 +5024,9 @@
       "released": "Rescindió el contrato de {{player}}: nadie lo compró y la masa salarial supera el presupuesto",
       "listedApproved": "Puso a {{player}} en la lista de transferencias, como aprobaste",
       "recruitNoLongerNeeded": "Dejó de perseguir a {{player}} ({{position}}): la plantilla ya no lo necesita",
-      "ownerLeft": "El miembro del cuerpo técnico responsable se ha marchado, así que el entrenador asistente retoma esta tarea."
+      "ownerLeft": "El miembro del cuerpo técnico responsable se ha marchado, así que el entrenador asistente retoma esta tarea.",
+      "floorPromoted": "La plantilla estaba por debajo del mínimo, así que {{player}} subió de la cantera",
+      "floorSigned": "La plantilla estaba por debajo del mínimo, así que se fichó a {{player}} como agente libre"
     }
   },
   "freeAgents": {

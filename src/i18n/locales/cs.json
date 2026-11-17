@@ -5024,7 +5024,9 @@
       "released": "Vyplatil a ukončil smlouvu hráče {{player}}: nikdo ho nekoupil a mzdový účet překračuje rozpočet",
       "listedApproved": "Dal hráče {{player}} na přestupovou listinu, jak jsi schválil",
       "recruitNoLongerNeeded": "Přestal sledovat hráče {{player}} ({{position}}): kádr ho už nepotřebuje",
-      "ownerLeft": "Odpovědný člen týmu odešel, proto tuto povinnost převzal asistent trenéra."
+      "ownerLeft": "Odpovědný člen týmu odešel, proto tuto povinnost převzal asistent trenéra.",
+      "floorPromoted": "Kádr byl pod minimem, proto byl {{player}} povýšen z akademie",
+      "floorSigned": "Kádr byl pod minimem, proto byl jako volný hráč angažován {{player}}"
     }
   },
   "freeAgents": {

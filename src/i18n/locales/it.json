@@ -5024,7 +5024,9 @@
       "released": "Ha risolto il contratto di {{player}}: nessuno lo ha comprato e il monte stipendi supera il budget",
       "listedApproved": "Ha messo {{player}} nella lista trasferimenti, come hai approvato",
       "recruitNoLongerNeeded": "Ha smesso di inseguire {{player}} ({{position}}): la rosa non ha più bisogno di lui",
-      "ownerLeft": "Il membro dello staff responsabile se n'è andato, quindi il vice allenatore ha ripreso questo compito."
+      "ownerLeft": "Il membro dello staff responsabile se n'è andato, quindi il vice allenatore ha ripreso questo compito.",
+      "floorPromoted": "La rosa era sotto il minimo, quindi {{player}} è stato promosso dall'academy",
+      "floorSigned": "La rosa era sotto il minimo, quindi {{player}} è stato ingaggiato come svincolato"
     }
   },
   "freeAgents": {

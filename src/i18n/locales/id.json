@@ -5024,7 +5024,9 @@
       "released": "Mengakhiri kontrak {{player}} dengan pesangon: tidak ada yang membelinya dan total gaji melebihi anggaran",
       "listedApproved": "Memasukkan {{player}} ke daftar transfer, sesuai persetujuan Anda",
       "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya",
-      "ownerLeft": "Anggota staf penanggung jawab telah pergi, jadi asisten pelatih mengambil alih tugas ini."
+      "ownerLeft": "Anggota staf penanggung jawab telah pergi, jadi asisten pelatih mengambil alih tugas ini.",
+      "floorPromoted": "Skuad di bawah jumlah minimum, jadi {{player}} dipromosikan dari akademi",
+      "floorSigned": "Skuad di bawah jumlah minimum, jadi {{player}} direkrut sebagai pemain bebas kontrak"
     }
   },
   "freeAgents": {

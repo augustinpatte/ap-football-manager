@@ -5024,7 +5024,9 @@
       "released": "已解除 {{player}} 的合同：无人接手，且薪资总额超出预算",
       "listedApproved": "已按你的批准将 {{player}} 加入转会名单",
       "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他",
-      "ownerLeft": "负责的教练组成员已离队，助理教练已重新接管此项职责。"
+      "ownerLeft": "负责的教练组成员已离队，助理教练已重新接管此项职责。",
+      "floorPromoted": "球队人数低于最低要求，因此{{player}}从青训营提拔入队",
+      "floorSigned": "球队人数低于最低要求，因此签下了自由球员{{player}}"
     }
   },
   "freeAgents": {

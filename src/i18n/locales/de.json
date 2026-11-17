@@ -5024,7 +5024,9 @@
       "released": "Vertrag von {{player}} aufgelöst: niemand hat ihn gekauft und die Gehaltssumme liegt über dem Budget",
       "listedApproved": "{{player}} wie von dir genehmigt auf die Transferliste gesetzt",
       "recruitNoLongerNeeded": "Verfolgung von {{player}} ({{position}}) eingestellt: der Kader braucht ihn nicht mehr",
-      "ownerLeft": "Das zuständige Teammitglied hat den Verein verlassen, daher hat der Co-Trainer diese Aufgabe zurückübernommen."
+      "ownerLeft": "Das zuständige Teammitglied hat den Verein verlassen, daher hat der Co-Trainer diese Aufgabe zurückübernommen.",
+      "floorPromoted": "Der Kader lag unter dem Minimum, daher wurde {{player}} aus der Akademie befördert",
+      "floorSigned": "Der Kader lag unter dem Minimum, daher wurde {{player}} als vereinsloser Spieler verpflichtet"
     }
   },
   "freeAgents": {

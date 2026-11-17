@@ -5024,7 +5024,9 @@
       "released": "Paid off {{player}}'s contract: nobody bought him and the wage bill is over budget",
       "listedApproved": "Put {{player}} on the transfer list, as you approved",
       "recruitNoLongerNeeded": "Stopped chasing {{player}} ({{position}}): the squad no longer needs him",
-      "ownerLeft": "The staff member in charge has left, so the assistant manager has taken this duty back."
+      "ownerLeft": "The staff member in charge has left, so the assistant manager has taken this duty back.",
+      "floorPromoted": "The squad was below the minimum, so {{player}} was promoted from the academy",
+      "floorSigned": "The squad was below the minimum, so {{player}} was signed as a free agent"
     }
   },
   "freeAgents": {

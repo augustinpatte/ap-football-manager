@@ -5024,7 +5024,9 @@
       "released": "Rescindiu o contrato de {{player}}: ninguém o comprou e a folha salarial está acima do orçamento",
       "listedApproved": "Colocou {{player}} na lista de transferências, como você aprovou",
       "recruitNoLongerNeeded": "Deixou de buscar {{player}} ({{position}}): o elenco não precisa mais dele",
-      "ownerLeft": "O membro da comissão responsável saiu, então o auxiliar técnico reassumiu esta tarefa."
+      "ownerLeft": "O membro da comissão responsável saiu, então o auxiliar técnico reassumiu esta tarefa.",
+      "floorPromoted": "O elenco estava abaixo do mínimo, então {{player}} foi promovido da base",
+      "floorSigned": "O elenco estava abaixo do mínimo, então {{player}} foi contratado como jogador livre"
     }
   },
   "freeAgents": {

@@ -189,14 +189,17 @@ pub fn run_after_day(game: &mut Game) {
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
-            Duty::PlayerRecruitment => recruiting::player_recruitment(
-                game,
-                &team_id,
-                Eye {
-                    id: &assistant_id,
-                    rating,
-                },
-            ),
+            Duty::PlayerRecruitment => {
+                squad::keep_the_floor(game, &team_id);
+                recruiting::player_recruitment(
+                    game,
+                    &team_id,
+                    Eye {
+                        id: &assistant_id,
+                        rating,
+                    },
+                );
+            }
             Duty::Tactics => control::tactics(game, &team_id, rating),
             Duty::Offers => {
                 let eye = Eye {
