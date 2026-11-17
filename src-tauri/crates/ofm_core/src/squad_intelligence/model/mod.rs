@@ -81,6 +81,14 @@ pub(crate) struct Member {
     /// starts and covers for the club like anyone, for as long as the loan lasts, but is not the
     /// club's to sell or renew.
     pub loaned_in: bool,
+    /// His natural position group, 0 goalkeeper to 3 forward: what the tactical plan reads to see
+    /// a player fielded out of his group.
+    pub natural_group: usize,
+    /// Days left on his contract, `None` when it never ends. Planning reads an expiring first
+    /// choice as a place that will have to be filled.
+    pub contract_days: Option<i64>,
+    /// He is out for long enough that the club cannot field him now (the market's own line).
+    pub long_injured: bool,
     /// His rating in each slot of the formation today, before any horizon shift.
     pub fit: [f32; SLOTS],
     /// Chance he is not available for a given match.
@@ -124,6 +132,9 @@ impl Member {
             ovr: player.ovr,
             potential: player.potential,
             loaned_in: player.active_loan.is_some(),
+            natural_group: group_of(&player.natural_position),
+            contract_days: crate::contracts::contract_days_remaining(player.contract_end(), today),
+            long_injured: out_now,
             fit: fits(player, slots),
             absence: match availability {
                 Availability::Today => absence_of(player),
@@ -169,6 +180,12 @@ impl Member {
             ovr: player.ovr,
             potential: player.potential,
             loaned_in: false,
+            natural_group: group_of(&player.natural_position),
+            contract_days: Some(NEW_CONTRACT_DAYS),
+            long_injured: player
+                .injury
+                .as_ref()
+                .is_some_and(|injury| injury.days_remaining >= LONG_INJURY_DAYS),
             fit: fits(player, slots),
             absence: absence_of(player),
             shift,
@@ -248,6 +265,18 @@ pub(crate) fn fits(player: &Player, slots: &[Position]) -> [f32; SLOTS] {
             });
     }
     fit
+}
+
+/// The four position groups, 0 goalkeeper to 3 forward: the same broad order as the squad floor.
+pub(crate) fn group_of(position: &Position) -> usize {
+    match position.to_group_position() {
+        Position::Goalkeeper => 0,
+        Position::Defender => 1,
+        Position::Midfielder => 2,
+        Position::Forward => 3,
+        // `to_group_position` maps every variant into the four above.
+        _ => 3,
+    }
 }
 
 /// How likely a player is to miss a given match, from what the club knows about him today.

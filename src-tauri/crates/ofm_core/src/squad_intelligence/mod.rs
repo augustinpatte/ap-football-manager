@@ -29,6 +29,7 @@ pub(crate) mod lineup_gap;
 pub(crate) mod model;
 pub(crate) mod needs;
 pub(crate) mod perception;
+pub(crate) mod plan;
 
 #[cfg(test)]
 mod scenarios;
@@ -161,6 +162,12 @@ impl ClubSquad {
     /// What the squad is short of, most severe first.
     pub(crate) fn needs(&self) -> Vec<Need> {
         needs::needs(&self.model, &self.base)
+    }
+
+    /// The same needs, ranked and classified for the club: what to fix now, what to fix later and
+    /// why, read against its appetite and its books.
+    pub(crate) fn strategic_plan(&self) -> Vec<plan::PlanNeed> {
+        plan::plan(&self.model, &self.base, &self.appetite)
     }
 
     /// What signing `player` would add, as this club reads him (`perceived_error` rating points

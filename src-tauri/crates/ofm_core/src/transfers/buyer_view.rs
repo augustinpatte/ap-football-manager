@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
-use domain::player::{Player, Position};
+use domain::player::Player;
 use domain::team::Team;
 
 use super::ClubProfile;
@@ -21,6 +21,8 @@ use crate::game::Game;
 use crate::squad_intelligence::ClubSquad;
 use crate::squad_intelligence::appetite::Appetite;
 use crate::squad_intelligence::impact::{MIN_GAIN, Marginal, Price, SigningCase};
+use crate::squad_intelligence::needs::NeedKind;
+use crate::squad_intelligence::plan::PlanNeed;
 
 /// What a loan has to add to the side this season, in the squad model's rating points: twice the
 /// floor under any transfer. A loan is a playing role, and the model's reading of one is exact
@@ -49,8 +51,8 @@ pub(super) fn squad_indices_by_club(game: &Game) -> HashMap<String, Vec<usize>> 
 /// One buyer's reading of the targets in front of it.
 pub(super) struct BuyerView {
     squad: ClubSquad,
-    /// Each weak starting slot, with the rating points the model expects it to cost.
-    starter_needs: Vec<(Position, f32)>,
+    /// The club's ranked plan: the places it is short in, how pressing each is and why.
+    plan: Vec<PlanNeed>,
     /// What each target would add, by player id. `None`: he is not a senior the model can place.
     memo: RefCell<HashMap<String, Option<Marginal>>>,
 }
@@ -72,15 +74,10 @@ impl BuyerView {
             today,
             Appetite::of(&profile),
         );
-        let starter_needs = squad
-            .needs()
-            .into_iter()
-            .filter(|need| need.kind == crate::squad_intelligence::needs::NeedKind::Starter)
-            .map(|need| (need.position, need.severity))
-            .collect();
+        let plan = squad.strategic_plan();
         Self {
             squad,
-            starter_needs,
+            plan,
             memo: RefCell::new(HashMap::new()),
         }
     }
@@ -88,29 +85,37 @@ impl BuyerView {
     /// A broad-group depth check cannot rule out a specialist for a weak starting slot. Both his
     /// natural position and any position he is trained to cover count.
     pub(super) fn has_starter_need_for(&self, player: &Player) -> bool {
-        self.starter_need_severity_for(player).is_some()
+        self.starter_need_for(player).is_some()
     }
 
-    /// The rating points the weak starting slot he would fill is expected to cost, if any.
-    fn starter_need_severity_for(&self, player: &Player) -> Option<f32> {
-        self.starter_needs
+    /// The plan's place `player` would fill: a weak starting slot, or the deputy's place behind a
+    /// first choice who is out for long. A succession is not a purchase now; it is planned by the
+    /// free-agent review. The most pressing place wins when a player could fill two.
+    fn starter_need_for(&self, player: &Player) -> Option<&PlanNeed> {
+        self.plan
             .iter()
-            .filter(|(position, _)| {
-                *position == player.natural_position
-                    || player.alternate_positions.contains(position)
+            .filter(|need| {
+                matches!(need.kind, NeedKind::Starter | NeedKind::Cover)
+                    && need.short_term
+                    && (need.position == player.natural_position
+                        || player.alternate_positions.contains(&need.position))
             })
-            .map(|(_, severity)| *severity)
-            .max_by(f32::total_cmp)
+            .max_by(|left, right| {
+                left.urgency
+                    .cmp(&right.urgency)
+                    .then(left.severity.total_cmp(&right.severity))
+            })
     }
 
     /// What the club values a signing at, in rating points: the expected gain to the side, or the
-    /// size of the weak starting slot he fixes. Expected points divide a specialist's contribution
+    /// size of the place in the plan he fills. Expected points divide a specialist's contribution
     /// across the eleven, so a deep group can hide a hole in the side that is actually fielded;
-    /// the slot's own severity keeps that improvement visible.
+    /// the plan's own severity keeps that improvement visible, including the deputy's place behind
+    /// a first choice who is out for long.
     pub(super) fn improvement(&self, player: &Player) -> i32 {
         let severity = self
-            .starter_need_severity_for(player)
-            .map_or(0, |severity| severity.round() as i32);
+            .starter_need_for(player)
+            .map_or(0, |need| need.severity.round() as i32);
         self.points(player).max(severity)
     }
 
@@ -182,6 +187,48 @@ impl BuyerView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use domain::player::Position;
+
+    /// Given a first-choice striker out for longer than the market's long-injury line
+    /// When the club reads a striker who is better than its deputy but not its starter
+    /// Then he fills a place in the plan: the absence is a need of its own, not invisible until the
+    /// deputy is far below the eleven.
+    #[test]
+    fn a_striker_covers_a_first_choice_who_is_out_for_long() {
+        use domain::player::Injury;
+
+        let (mut game, team, squad, prospect) = borrower_and_prospect(70);
+        let striker = game
+            .players
+            .iter_mut()
+            .filter(|player| {
+                player.team_id.as_deref() == Some("club")
+                    && player.natural_position == Position::Striker
+            })
+            .max_by_key(|player| player.ovr)
+            .expect("a first-choice striker");
+        striker.injury = Some(Injury {
+            name: "Hamstring".to_string(),
+            days_remaining: crate::transfers::LONG_INJURY_DAYS + 5,
+        });
+        let view = BuyerView::new(&game, &squad, &team, ClubProfile::NEUTRAL, today());
+        assert!(view.has_starter_need_for(&prospect), "{:?}", view.plan);
+        assert!(
+            view.improvement(&prospect) >= 4,
+            "{}",
+            view.improvement(&prospect)
+        );
+    }
+
+    /// Given the same striker fit and a target worse than the first choice
+    /// When the club reads the target
+    /// Then he fills no place: the case above is about the absence.
+    #[test]
+    fn a_striker_below_the_first_choice_is_not_a_need_when_the_line_is_fit() {
+        let (game, team, squad, prospect) = borrower_and_prospect(70);
+        let view = BuyerView::new(&game, &squad, &team, ClubProfile::NEUTRAL, today());
+        assert!(!view.has_starter_need_for(&prospect), "{:?}", view.plan);
+    }
 
     /// Given a squad index captured before a player leaves the club
     /// When the buyer's view is rebuilt after the move
