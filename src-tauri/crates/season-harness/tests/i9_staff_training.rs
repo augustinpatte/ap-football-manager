@@ -160,7 +160,7 @@ struct Arm {
 }
 
 /// The club every arm shares: an assistant, and the whole administration handed over (renewals,
-/// recruitment, the academy, offers, the lineup, match preparation) so the squad does not simply
+/// recruitment, the academy, offers, the lineup, match preparation; not the staff themselves) so the squad does not simply
 /// decay over ten seasons of a harness that never signs anybody. Training and tactics are left to
 /// the manager; each arm decides what happens to them.
 fn administered(game: &mut Game) {
@@ -168,6 +168,10 @@ fn administered(game: &mut Game) {
     game.delegation.apply_mode(DelegationMode::Full);
     game.delegation.set(Duty::Training, false, false);
     game.delegation.set(Duty::Tactics, false, false);
+    // The staff are the variable under study: left to the assistant he would re-hire whoever an
+    // arm has dismissed and replace whoever it has made weak, and the arms would converge.
+    game.delegation.set(Duty::StaffRecruitment, false, false);
+    game.delegation.set(Duty::StaffRenewals, false, false);
 }
 
 fn with_staff(game: &mut Game, level: u8) {

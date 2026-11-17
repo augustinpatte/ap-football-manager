@@ -156,6 +156,13 @@ pub fn run_after_day(game: &mut Game) {
         report::note_missing_assistant(game, &team_id);
     }
     owner::reconcile(game, &team_id);
+    // The squad floor is kept every day, not on the recruiter's three-day rhythm: a retirement or
+    // an expiry that takes the club under it is a matter of days, and the check costs a count.
+    if game.delegation.is_delegated(Duty::PlayerRecruitment)
+        && owner::resolve(game, &team_id, Duty::PlayerRecruitment).is_some()
+    {
+        squad::keep_the_floor(game, &team_id);
+    }
     let today = stamp(game);
     // The eleven is named before the preparation reads it.
     for duty in [
@@ -189,17 +196,14 @@ pub fn run_after_day(game: &mut Game) {
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
             Duty::PlayerRenewals => squad::player_renewals(game, &team_id),
-            Duty::PlayerRecruitment => {
-                squad::keep_the_floor(game, &team_id);
-                recruiting::player_recruitment(
-                    game,
-                    &team_id,
-                    Eye {
-                        id: &assistant_id,
-                        rating,
-                    },
-                );
-            }
+            Duty::PlayerRecruitment => recruiting::player_recruitment(
+                game,
+                &team_id,
+                Eye {
+                    id: &assistant_id,
+                    rating,
+                },
+            ),
             Duty::Tactics => control::tactics(game, &team_id, rating),
             Duty::Offers => {
                 let eye = Eye {

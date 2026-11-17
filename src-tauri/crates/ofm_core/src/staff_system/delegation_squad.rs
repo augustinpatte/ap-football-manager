@@ -634,4 +634,19 @@ mod tests {
         assert_eq!(g.players.len(), players);
         assert_eq!(floor_entries(&g), 0);
     }
+
+    /// Given a short club under Total authority and a recruitment duty that ran earlier today, so
+    ///   it is not due again for three days
+    /// When the day's delegated duties run
+    /// Then the floor is still restored: it is checked every day, not on the recruiter's rhythm.
+    #[test]
+    fn the_floor_is_kept_on_a_day_the_recruiter_is_not_due() {
+        let mut g = game(Some(80), 6);
+        with_free_agents(&mut g);
+        g.delegation.apply_mode(DelegationMode::Full);
+        let today = super::stamp(&g);
+        g.delegation.mark_run(Duty::PlayerRecruitment, &today);
+        super::super::delegation::run_after_day(&mut g);
+        assert!(crate::squad_floor::squad_shortfall(&g, "team1").is_empty());
+    }
 }
