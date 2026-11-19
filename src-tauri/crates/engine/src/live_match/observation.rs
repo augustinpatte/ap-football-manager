@@ -57,6 +57,11 @@ pub(crate) struct AiObservation<'a> {
     /// Whether this side still has a goalkeeper on the pitch — see
     /// `LiveMatchState::keeper_on_the_pitch`, which is what answers it.
     pub(crate) keeper_on_pitch: bool,
+    /// How many of this side's players are still on the pitch, and how many of the opponent's.
+    /// A sending-off is the one thing that changes both at once, and from I5 the manager answers it
+    /// directly: a side a man down stops trying to press with ten.
+    pub(crate) men_on_pitch: usize,
+    pub(crate) opponent_men_on_pitch: usize,
     /// Live per-minute condition, which is not what `TeamData` carries: the
     /// stored value is what the player started with.
     conditions: &'a std::collections::HashMap<String, f64>,
@@ -162,6 +167,8 @@ impl LiveMatchState {
             injured: &self.injured,
             substitutions: &self.substitutions,
             keeper_on_pitch: self.keeper_on_the_pitch(side).is_some(),
+            men_on_pitch: self.men_on_pitch(side),
+            opponent_men_on_pitch: self.men_on_pitch(side.opposite()),
             pressure_ticks: self
                 .recent_zones
                 .iter()

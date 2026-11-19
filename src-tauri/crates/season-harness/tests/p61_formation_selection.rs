@@ -12,8 +12,9 @@
 //! Uncertainty is over clubs (the units that differ), never over matches. Every number a candidate
 //! is judged by is a within-club contrast, so what a club is worth overall cancels out.
 
-use ofm_core::ai_formation::{freeze_reviews_for_study, read_all_clubs};
-use ofm_core::player_rating::FORMATIONS;
+use ofm_core::ai_formation::{freeze_reviews_for_study, read_all_clubs, squads_by_ai_club};
+use ofm_core::formation_fit::{GroupReadings, group_readings};
+use ofm_core::player_rating::{FORMATIONS, formation_slots};
 use season_harness::driver::{RunOptions, SeasonObserver, play_day};
 use season_harness::env;
 use season_harness::match_study::{
@@ -22,6 +23,34 @@ use season_harness::match_study::{
 
 struct Quiet;
 impl SeasonObserver for Quiet {}
+
+/// How many of a shape's slots a club has no *natural* player for, counting only players who could
+/// play. The engine reads a player by attributes wherever he stands, so this is a measure of cover
+/// and not of who takes the field: it is the "substitutes" part of a formation decision, and whether
+/// it predicts anything is what the study asks.
+fn shortfall(squad: &[&domain::player::Player], formation: &str) -> f64 {
+    let slots = formation_slots(formation);
+    [
+        domain::player::Position::Defender,
+        domain::player::Position::Midfielder,
+        domain::player::Position::Forward,
+    ]
+    .into_iter()
+    .map(|group| {
+        let needed = slots
+            .iter()
+            .filter(|slot| slot.to_group_position() == group)
+            .count();
+        let have = squad
+            .iter()
+            .filter(|player| {
+                player.can_play() && player.natural_position.to_group_position() == group
+            })
+            .count();
+        needed.saturating_sub(have) as f64
+    })
+    .sum()
+}
 
 /// One club in one formation: what it is worth to the squad model, what the engine fielded, and what
 /// it did against the club's panel.
@@ -34,11 +63,22 @@ struct Row {
     /// What the game's formation review reads now (`FormationScore::fit`).
     engine_fit: f64,
     lineup: LineupFeatures,
+    /// The same eleven as `ofm_core::formation_fit` reads it for the AI's rule: the depth-aware
+    /// engine reading of the back line, the midfield and the finishing, at full strength. The
+    /// `lineup` features are the fielded eleven's plain means, kept for the P6.1 candidates.
+    depth: GroupReadings,
     /// The panel's own lineups, averaged: the reference opponent this club's contests are read against.
     opposition: LineupFeatures,
     /// What the formation's lineup averages over every club of the study: the level a typical squad
     /// reaches in it, so `lineup - typical` is how much better this squad suits the shape than most.
     typical: LineupFeatures,
+    /// The same mean over `depth`: what a typical squad reads in the shape, so `depth - typical_depth`
+    /// is the suitability form of the AI's rule.
+    typical_depth: GroupReadings,
+    /// How many of the shape's slots the club has no natural player for: the cover a change to it
+    /// would need, and the second half of a formation decision (the first is what the eleven is
+    /// worth).
+    cover: f64,
     /// Points and goal difference a match, over all panel matches, and over the even and odd
     /// repetitions separately (their agreement is the ceiling of any prediction).
     points: f64,
@@ -77,6 +117,43 @@ fn collect(seeds: &[u64], clubs_per_world: usize, reps: u64) -> Vec<Row> {
         }
         let _frozen = freeze_reviews_for_study();
         let readings = read_all_clubs(&game);
+        // The depth-aware readings of every club's eight shapes, taken before the study starts
+        // moving clubs around: the squad a club has does not change, its formation does.
+        let depth_by_club: Vec<(String, Vec<GroupReadings>)> = squads_by_ai_club(&game)
+            .into_iter()
+            .map(|(club, squad)| {
+                let of_shape = FORMATIONS
+                    .iter()
+                    .map(|formation| group_readings(&squad, formation))
+                    .collect();
+                (club, of_shape)
+            })
+            .collect();
+        // And the cover of every shape: how many slots the club has no natural player for.
+        let cover_by_club: Vec<(String, Vec<f64>)> = squads_by_ai_club(&game)
+            .into_iter()
+            .map(|(club, squad)| {
+                let of_shape = FORMATIONS
+                    .iter()
+                    .map(|formation| shortfall(&squad, formation))
+                    .collect();
+                (club, of_shape)
+            })
+            .collect();
+        let depth_of = |club: &str, formation: usize| -> GroupReadings {
+            depth_by_club
+                .iter()
+                .find(|(id, _)| id == club)
+                .map(|(_, of_shape)| of_shape[formation])
+                .expect("every subject is an AI club with a squad")
+        };
+        let cover_of = |club: &str, formation: usize| -> f64 {
+            cover_by_club
+                .iter()
+                .find(|(id, _)| id == club)
+                .map(|(_, of_shape)| of_shape[formation])
+                .expect("every subject is an AI club with a squad")
+        };
         let user = game.manager.team_id.clone();
         let league = game
             .competitions
@@ -151,8 +228,15 @@ fn collect(seeds: &[u64], clubs_per_world: usize, reps: u64) -> Vec<Row> {
                     squad_score,
                     engine_fit,
                     lineup,
+                    depth: depth_of(subject, index),
+                    cover: cover_of(subject, index),
                     opposition,
                     typical: LineupFeatures::default(),
+                    typical_depth: GroupReadings {
+                        back_line: 0.0,
+                        midfield: 0.0,
+                        finishing: 0.0,
+                    },
                     points: mean(&points),
                     goal_difference: mean(&goal_difference),
                     points_even: mean(&even),
@@ -166,8 +250,9 @@ fn collect(seeds: &[u64], clubs_per_world: usize, reps: u64) -> Vec<Row> {
     rows
 }
 
-/// Sets each row's `typical` to the mean lineup of its formation over `rows`. (Computed over every
-/// world, a few constants a model might as well know; it is not a fitted weight.)
+/// Sets each row's `typical` (and `typical_depth`) to the mean of its formation over `rows`.
+/// (Computed over every world, a few constants a model might as well know; it is not a fitted
+/// weight.) The depth-aware mean is what the AI's suitability form compares a squad against.
 fn fill_typical(rows: &mut [Row]) {
     let typicals: Vec<LineupFeatures> = (0..FORMATIONS.len())
         .map(|f| {
@@ -179,8 +264,24 @@ fn fill_typical(rows: &mut [Row]) {
             mean_features(&of_shape)
         })
         .collect();
+    let typical_depths: Vec<GroupReadings> = (0..FORMATIONS.len())
+        .map(|f| {
+            let of_shape: Vec<GroupReadings> = rows
+                .iter()
+                .filter(|r| r.formation == f)
+                .map(|r| r.depth)
+                .collect();
+            let n = of_shape.len() as f64;
+            GroupReadings {
+                back_line: of_shape.iter().map(|d| d.back_line).sum::<f64>() / n,
+                midfield: of_shape.iter().map(|d| d.midfield).sum::<f64>() / n,
+                finishing: of_shape.iter().map(|d| d.finishing).sum::<f64>() / n,
+            }
+        })
+        .collect();
     for row in rows.iter_mut() {
         row.typical = typicals[row.formation];
+        row.typical_depth = typical_depths[row.formation];
     }
 }
 
@@ -267,11 +368,50 @@ fn suitability_to_the_shape(row: &Row) -> Vec<f64> {
     ]
 }
 
+/// The AI's rule: the engine's depth-aware reading of the back line, the midfield and the
+/// finishing, as they are. The level of a shape is the engine's own, so it is read.
+fn depth_readings(row: &Row) -> Vec<f64> {
+    vec![row.depth.back_line, row.depth.midfield, row.depth.finishing]
+}
+
+/// The same three readings less what a typical squad reaches in the shape: P6.1's suitability form,
+/// which carried no price for a shape itself.
+fn depth_suitability(row: &Row) -> Vec<f64> {
+    vec![
+        row.depth.back_line - row.typical_depth.back_line,
+        row.depth.midfield - row.typical_depth.midfield,
+        row.depth.finishing - row.typical_depth.finishing,
+    ]
+}
+
+/// The two groups P6.1's evaluator was built on, read at the engine's depth.
+fn depth_readings_two(row: &Row) -> Vec<f64> {
+    vec![row.depth.back_line, row.depth.finishing]
+}
+
+/// P6.1's two-group evaluator in its suitability form.
+fn depth_suitability_two(row: &Row) -> Vec<f64> {
+    vec![
+        row.depth.back_line - row.typical_depth.back_line,
+        row.depth.finishing - row.typical_depth.finishing,
+    ]
+}
+
+/// The cover a shape would need, alone: how many of its slots the club has no natural player for.
+fn cover_alone(row: &Row) -> Vec<f64> {
+    vec![row.cover]
+}
+
+/// The engine's reading less the cover: worth the eleven, charged for the slots it cannot fill.
+fn depth_and_cover(row: &Row) -> Vec<f64> {
+    vec![row.depth.back_line, row.depth.finishing, row.cover]
+}
+
 fn joined(parts: &[fn(&Row) -> Vec<f64>], row: &Row) -> Vec<f64> {
     parts.iter().flat_map(|part| part(row)).collect()
 }
 
-const CANDIDATES: [Candidate; 14] = [
+const CANDIDATES: [Candidate; 20] = [
     Candidate {
         name: "squad model's score (today's)",
         predictors: |r| vec![r.squad_score],
@@ -291,6 +431,30 @@ const CANDIDATES: [Candidate; 14] = [
     Candidate {
         name: "back line + finishing only (2)",
         predictors: back_line_and_finishing,
+    },
+    Candidate {
+        name: "I5: depth, back/mid/finishing (3)",
+        predictors: depth_readings,
+    },
+    Candidate {
+        name: "I5: depth suitability (3)",
+        predictors: depth_suitability,
+    },
+    Candidate {
+        name: "I5: depth, back/finishing (2)",
+        predictors: depth_readings_two,
+    },
+    Candidate {
+        name: "I5: depth suitability (2)",
+        predictors: depth_suitability_two,
+    },
+    Candidate {
+        name: "I5: cover alone (1)",
+        predictors: cover_alone,
+    },
+    Candidate {
+        name: "I5: depth, back/finishing + cover (3)",
+        predictors: depth_and_cover,
     },
     Candidate {
         name: "shape + back line + finishing (9)",

@@ -51,6 +51,7 @@ impl LiveMatchState {
                 .iter()
                 .filter(|player| !self.sent_off.contains(&player.id))
                 .map(|player| (player, self.condition_factor(&player.id))),
+            self.config.group_depth_weight,
         )
     }
 
@@ -157,6 +158,15 @@ impl LiveMatchState {
             .count()
     }
 
+    /// How many of `side`'s players are still on the pitch, all positions.
+    pub(super) fn men_on_pitch(&self, side: Side) -> usize {
+        self.team_ref(side)
+            .players
+            .iter()
+            .filter(|player| !self.sent_off.contains(&player.id))
+            .count()
+    }
+
     /// What `side`'s midfielders on the pitch, against the other side's, are worth in a contest in
     /// the middle of the park: 1.0 when level or when the football prices no numbers.
     pub(super) fn midfield_numbers_edge(&self, side: Side) -> f64 {
@@ -191,6 +201,43 @@ impl LiveMatchState {
             phase,
             self.config.role_support_weight,
             self.on_the_pitch(side, drawn),
+        )
+    }
+
+    /// What a group short of a full one is worth as a factor on the player the resolver drew from
+    /// it. A side that leaves a slot of its back four or front two empty is read as if an average
+    /// outfield player of the same side stood there. Exactly 1.0 for a full group, and exactly 1.0
+    /// at a weight of 0. See [`crate::group_depth`].
+    pub(super) fn group_depth_factor(
+        &self,
+        side: Side,
+        group: Position,
+        read: fn(&PlayerData) -> f64,
+    ) -> f64 {
+        // A configuration written before this existed (weight 0) does no work at all: the reading is
+        // exactly 1.0, and the engine it was calibrated on is unchanged.
+        if self.config.group_depth_weight <= 0.0 {
+            return 1.0;
+        }
+        let players = || {
+            self.team_ref(side)
+                .players
+                .iter()
+                .filter(|player| !self.sent_off.contains(&player.id))
+        };
+        let group_values: Vec<f64> = players()
+            .filter(|player| player.position == group)
+            .map(read)
+            .collect();
+        let outfield_values: Vec<f64> = players()
+            .filter(|player| player.position != Position::Goalkeeper)
+            .map(read)
+            .collect();
+        crate::group_depth::depth_factor(
+            &group_values,
+            &outfield_values,
+            crate::group_depth::full_group(group),
+            self.config.group_depth_weight,
         )
     }
 
@@ -287,6 +334,52 @@ impl LiveMatchState {
             Side::Away => self.away_score += 1,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// What each contest reads of a group, for the depth-aware reading
+// ---------------------------------------------------------------------------
+
+/// The shot: shooting, composure, decisions — the attributes [`crate::live_match::zone_resolution`]
+/// averages for a shooter.
+pub(super) fn finishing_read(player: &PlayerData) -> f64 {
+    (f64::from(player.shooting) + f64::from(player.composure) + f64::from(player.decisions)) / 3.0
+}
+
+/// The attacking third: dribbling, pace, agility, composure — the forward's own contest.
+pub(super) fn run_read(player: &PlayerData) -> f64 {
+    (f64::from(player.dribbling)
+        + f64::from(player.pace)
+        + f64::from(player.agility)
+        + f64::from(player.composure))
+        / 4.0
+}
+
+/// The attacking third, defending it: defending, tackling, positioning, aerial.
+pub(super) fn defender_hold_read(player: &PlayerData) -> f64 {
+    (f64::from(player.defending)
+        + f64::from(player.tackling)
+        + f64::from(player.positioning)
+        + f64::from(player.aerial))
+        / 4.0
+}
+
+/// The midfield contest, on the ball: dribbling, passing, vision, teamwork.
+pub(super) fn midfield_carry_read(player: &PlayerData) -> f64 {
+    (f64::from(player.dribbling)
+        + f64::from(player.passing)
+        + f64::from(player.vision)
+        + f64::from(player.teamwork))
+        / 4.0
+}
+
+/// The midfield contest, winning it back: tackling, positioning, decisions, teamwork.
+pub(super) fn midfield_tackle_read(player: &PlayerData) -> f64 {
+    (f64::from(player.tackling)
+        + f64::from(player.positioning)
+        + f64::from(player.decisions)
+        + f64::from(player.teamwork))
+        / 4.0
 }
 
 /// Map a shooter's effective rating to a danger band for shot commentary.
@@ -422,6 +515,41 @@ mod commentary_detail_tests {
             vec![],
             false,
         )
+    }
+
+    /// Given a side whose two forwards finish far better than the rest of it
+    /// When its forwards are read with both on the pitch, with one sent off, and with the rule
+    ///      switched off
+    /// Then the full front two is worth its plain mean, the lone forward is worth less than his own
+    ///      finishing (the empty slot is an average outfield player of the same side), and a
+    ///      configuration that predates the rule reads the plain mean exactly.
+    #[test]
+    fn a_lone_forward_is_read_at_the_depth_of_his_front_two() {
+        use crate::types::PlayerData;
+        let mut state = make_test_state();
+        for player in state
+            .team_mut(Side::Home)
+            .players
+            .iter_mut()
+            .filter(|player| player.position == Position::Forward)
+        {
+            player.shooting = 90;
+        }
+        let shooting = |player: &PlayerData| f64::from(player.shooting);
+
+        let full = state.group_depth_factor(Side::Home, Position::Forward, shooting);
+        assert_eq!(full, 1.0, "a full front two was priced at {full}");
+
+        state.test_send_off("home_f2");
+        let lone = state.group_depth_factor(Side::Home, Position::Forward, shooting);
+        assert!(
+            lone < 0.95,
+            "a lone 90-rated forward was read at {lone} of his own finishing"
+        );
+
+        state.config.group_depth_weight = 0.0;
+        let plain = state.group_depth_factor(Side::Home, Position::Forward, shooting);
+        assert_eq!(plain, 1.0, "weight 0 read the depth rule at {plain}");
     }
 
     #[test]

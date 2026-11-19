@@ -22,7 +22,7 @@ use domain::team::MatchRoles;
 use engine::ai::{self, AiPersonality, AiProfile};
 use engine::{
     LiveMatchState, MatchCommand, MatchConfig, MatchPhase, MatchReport, MatchSnapshot,
-    MinuteResult, Side, TeamData,
+    MinuteResult, Side, TacticalDial, TeamData,
 };
 
 const LIVE_MATCH_NO_LEAGUE_ERROR: &str = "be.error.liveMatch.noLeague";
@@ -500,6 +500,29 @@ fn create_live_match_with(
         }
     });
 
+    // The AI's match-day response to the side in front of it. A club's plan is built from its own
+    // squad and its manager's identity and is persisted; it is not a plan for this opponent. Both
+    // dugouts read each other before a ball is kicked, so the two answers are computed from the two
+    // plans as they were named and only then applied: neither side answers a plan the other side
+    // just changed. The player's own dugout is his to set, and nothing here is saved — see
+    // [`crate::matchday_tactics`].
+    let mut responses = Vec::new();
+    for side in [Side::Home, Side::Away] {
+        if Some(side) == user_side {
+            continue;
+        }
+        let own = match_state.tactics(side).clone();
+        let opponent_style = match_state.play_style(side.opposite());
+        let opponent = match_state.tactics(side.opposite()).clone();
+        responses.push((
+            side,
+            crate::matchday_tactics::opponent_response(&own, opponent_style, &opponent),
+        ));
+    }
+    for (side, moves) in responses {
+        turn_the_dials(&mut match_state, side, moves)?;
+    }
+
     let team_reputation = |team_id: &str| {
         game.teams
             .iter()
@@ -587,6 +610,23 @@ pub(crate) fn play_unwatched_fixture_with(
         report: session.match_state.into_report(),
         league_round_context,
     })
+}
+
+/// Turn `side`'s dials as its match-day response names them, before a ball is kicked.
+///
+/// Read-only on the game: the adjustments land on the live match's copy of the side, so a club's
+/// saved plan is the same after the match as before it. Errors are the engine refusing a dial,
+/// which it does not do for [`MatchCommand::ChangeTacticalDial`], and are propagated rather than
+/// dropped so a future refusal cannot be silent.
+fn turn_the_dials(
+    match_state: &mut LiveMatchState,
+    side: Side,
+    dials: Vec<TacticalDial>,
+) -> Result<(), String> {
+    for dial in dials {
+        match_state.apply_command(MatchCommand::ChangeTacticalDial { side, dial })?;
+    }
+    Ok(())
 }
 
 fn manager_for_team<'a>(game: &'a Game, team_id: &str) -> Option<&'a Manager> {

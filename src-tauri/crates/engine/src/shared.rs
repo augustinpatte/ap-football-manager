@@ -123,23 +123,39 @@ pub(crate) fn shot_accuracy(base: f64, shoot_rating: f64, defence_rating: f64) -
 /// good as his condition lets him be, on the scale a shooter is rated on. Falls back to the whole
 /// outfield and then to the midpoint of the scale, so a side with no defender left on the pitch
 /// is defended by whoever is there.
+///
+/// A back line short of four is read at [`depth_weight`](crate::group_depth): three outstanding
+/// centre backs are not the mean of three, because the fourth slot is filled by an average outfield
+/// player of the same side. At weight 0 this is the plain mean, as it always was.
 pub(crate) fn defensive_quality<'a>(
     outfield: impl Iterator<Item = (&'a PlayerData, f64)> + Clone,
+    depth_weight: f64,
 ) -> f64 {
     const MIDPOINT: f64 = 50.0;
-    let mean_of = |pick: &dyn Fn(&PlayerData) -> bool| {
+    let skill_of =
+        |player: &PlayerData| (f64::from(player.defending) + f64::from(player.positioning)) / 2.0;
+    let mean_skill = |pick: &dyn Fn(&PlayerData) -> bool| {
         let (sum, count) = outfield.clone().filter(|(player, _)| pick(player)).fold(
             (0.0, 0u32),
             |(sum, count), (player, condition_factor)| {
-                let skill = (f64::from(player.defending) + f64::from(player.positioning)) / 2.0;
-                (sum + skill * condition_factor, count + 1)
+                (sum + skill_of(player) * condition_factor, count + 1)
             },
         );
         (count > 0).then(|| sum / f64::from(count))
     };
-    mean_of(&|player| player.position == Position::Defender)
-        .or_else(|| mean_of(&|player| player.position != Position::Goalkeeper))
-        .unwrap_or(MIDPOINT)
+    // The standard the missing slots are filled at: this side's whole outfield, on the same scale.
+    let baseline =
+        mean_skill(&|player| player.position != Position::Goalkeeper).unwrap_or(MIDPOINT);
+    let defenders: Vec<f64> = outfield
+        .filter(|(player, _)| player.position == Position::Defender)
+        .map(|(player, condition_factor)| skill_of(player) * condition_factor)
+        .collect();
+    crate::group_depth::depth_filled_mean(
+        &defenders,
+        crate::group_depth::FULL_GROUP_DEFENDERS,
+        baseline,
+        depth_weight,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1204,11 +1220,60 @@ mod shot_accuracy_tests {
             defender("gk", Position::Goalkeeper, 99, 99),
         ];
 
-        let rested = defensive_quality(players.iter().map(|p| (p, 1.0)));
-        let tired = defensive_quality(players.iter().map(|p| (p, 0.8)));
+        let rested = defensive_quality(players.iter().map(|p| (p, 1.0)), 0.0);
+        let tired = defensive_quality(players.iter().map(|p| (p, 0.8)), 0.0);
 
         assert!((rested - 65.0).abs() < 1e-12, "{rested}");
         assert!((tired - 52.0).abs() < 1e-12, "{tired}");
+    }
+
+    /// Given a side whose back line is three outstanding centre backs and one ordinary midfielder
+    /// When the quality of its defence is read with and without the depth-aware reading
+    /// Then the depth-aware reading is lower: a back three is not the mean of three internationals,
+    ///      because the fourth slot of a back four is filled by the side's own standard.
+    #[test]
+    fn a_back_three_of_internationals_is_read_lower_than_the_mean_of_three() {
+        let players = [
+            defender("cb-1", Position::Defender, 88, 88),
+            defender("cb-2", Position::Defender, 86, 86),
+            defender("cb-3", Position::Defender, 84, 84),
+            defender("cm", Position::Midfielder, 60, 60),
+            defender("gk", Position::Goalkeeper, 70, 70),
+        ];
+        let plain = defensive_quality(players.iter().map(|p| (p, 1.0)), 0.0);
+        let read = defensive_quality(
+            players.iter().map(|p| (p, 1.0)),
+            crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT,
+        );
+
+        assert!((plain - 86.0).abs() < 1e-12, "{plain}");
+        // The outfield mean is (88 + 86 + 84 + 60) / 4 = 79.5, so the fourth slot is filled at 79.5.
+        assert!(
+            (read - (88.0 + 86.0 + 84.0 + 79.5) / 4.0).abs() < 1e-12,
+            "{read}"
+        );
+        assert!(read < plain);
+    }
+
+    /// Given a back four
+    /// When it is read with the depth-aware reading
+    /// Then it is the plain mean: the reading only speaks about the slots a side leaves empty.
+    #[test]
+    fn a_back_four_is_unaffected_by_the_depth_aware_reading() {
+        let players = [
+            defender("cb-1", Position::Defender, 88, 88),
+            defender("cb-2", Position::Defender, 60, 60),
+            defender("cb-3", Position::Defender, 40, 40),
+            defender("cb-4", Position::Defender, 30, 30),
+            defender("gk", Position::Goalkeeper, 70, 70),
+        ];
+        assert_eq!(
+            defensive_quality(players.iter().map(|p| (p, 1.0)), 0.0),
+            defensive_quality(
+                players.iter().map(|p| (p, 1.0)),
+                crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT
+            )
+        );
     }
 
     /// Given a side with no defender on the pitch, then one with nobody outfield
@@ -1222,8 +1287,16 @@ mod shot_accuracy_tests {
         ];
         let only_a_keeper = [defender("gk", Position::Goalkeeper, 99, 99)];
 
-        assert!((defensive_quality(no_defenders.iter().map(|p| (p, 1.0))) - 40.0).abs() < 1e-12);
-        assert!((defensive_quality(only_a_keeper.iter().map(|p| (p, 1.0))) - 50.0).abs() < 1e-12);
+        for weight in [0.0, crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT] {
+            assert!(
+                (defensive_quality(no_defenders.iter().map(|p| (p, 1.0)), weight) - 40.0).abs()
+                    < 1e-12
+            );
+            assert!(
+                (defensive_quality(only_a_keeper.iter().map(|p| (p, 1.0)), weight) - 50.0).abs()
+                    < 1e-12
+            );
+        }
     }
 }
 
