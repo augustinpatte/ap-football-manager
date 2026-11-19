@@ -251,6 +251,8 @@ struct SeasonLine {
     intake_ai_ovr: f64,
     intake_ai_pot: f64,
     intake_ai_n: usize,
+    /// Of the AI clubs' intake this season, how many were given a potential of 80 or more.
+    intake_ai_elite: usize,
     promotions_user: usize,
     promotions_ai: usize,
     reports_delivered: usize,
@@ -371,6 +373,7 @@ impl SeasonObserver for Recorder {
         let mut ai_ovr = 0.0;
         let mut ai_pot = 0.0;
         let mut ai_n = 0usize;
+        let mut ai_elite = 0usize;
         for player in game.players.iter().filter(|p| !self.seen.contains(&p.id)) {
             if player.squad_role != SquadRole::Youth {
                 continue;
@@ -388,12 +391,14 @@ impl SeasonObserver for Recorder {
                 ai_ovr += f64::from(player.ovr);
                 ai_pot += f64::from(player.potential);
                 ai_n += 1;
+                ai_elite += usize::from(player.potential >= 80);
             }
         }
         if ai_n > 0 {
             self.current.intake_ai_ovr = ai_ovr / ai_n as f64;
             self.current.intake_ai_pot = ai_pot / ai_n as f64;
             self.current.intake_ai_n = ai_n;
+            self.current.intake_ai_elite = ai_elite;
         }
         self.seen = game.players.iter().map(|p| p.id.clone()).collect();
         self.seasons.push(std::mem::take(&mut self.current));
@@ -510,6 +515,16 @@ fn print_arm(result: &Result, seasons: u32) {
             .collect::<Vec<_>>()
     );
     println!(
+        "  AI intake given a potential of 80 or more, share by season: {:?}",
+        r.seasons
+            .iter()
+            .map(
+                |s| (s.intake_ai_elite as f64 / s.intake_ai_n.max(1) as f64 * 1000.0).round()
+                    / 10.0
+            )
+            .collect::<Vec<_>>()
+    );
+    println!(
         "  promotions to the senior squad, user {:?}; all AI clubs {:?}",
         r.seasons
             .iter()
@@ -603,6 +618,23 @@ fn development_report(result: &Result) {
             grown.iter().filter(|r| r.3 + 5 >= r.2).count() as f64 / grown.len() as f64 * 100.0
         },
     );
+    let mut gaps: Vec<f64> = grown
+        .iter()
+        .map(|r| f64::from(r.3) - f64::from(r.2))
+        .collect();
+    gaps.sort_by(f64::total_cmp);
+    if !gaps.is_empty() {
+        let at = |q: f64| gaps[((gaps.len() - 1) as f64 * q).round() as usize];
+        let mean = gaps.iter().sum::<f64>() / gaps.len() as f64;
+        let sd = (gaps.iter().map(|g| (g - mean).powi(2)).sum::<f64>() / gaps.len() as f64).sqrt();
+        println!(
+            "  rating now minus the potential given at intake, 24+ cohort: mean {mean:+.1}, sd {sd:.1}, p10 {:+.0}, median {:+.0}, p90 {:+.0}; worst {:+.0}",
+            at(0.1),
+            at(0.5),
+            at(0.9),
+            gaps[0]
+        );
+    }
     println!(
         "  of the 24+ cohort, those whose potential at intake was 75 or more: {} (now {:.1} on average)",
         grown.iter().filter(|r| r.2 >= 75).count(),

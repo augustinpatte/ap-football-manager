@@ -1,9 +1,11 @@
 //! MCP tool implementations: scouting
 
 use mcp_results::scouting::{
-    ScoutDispatched, ScoutReport, ScoutReports, ScoutingAssignment, YouthScoutingCancelled,
+    AcademyReviewResult, AcademyRowResult, DossierRow, ScoutDispatched, ScoutDossier, ScoutReport,
+    ScoutReports, ScoutingAssignment, ScoutingCancelled, ShortlistChanged, YouthScoutingCancelled,
     YouthScoutingReassigned, YouthScoutingStarted,
 };
+use ofm_core::scouting_view::ScoutingTargetView;
 
 use crate::mcp_server::context::McpContext;
 use crate::mcp_server::tools_impl::helpers::require_game;
@@ -233,5 +235,132 @@ pub fn scout_youth_reassign(
     Ok(YouthScoutingReassigned {
         assignment_id,
         scout_id,
+    })
+}
+
+// ─── scout_get_dossier ──────────────────────────────────────────────────────
+
+fn dossier_row(view: ScoutingTargetView) -> DossierRow {
+    let range = |r: ofm_core::scouting_dossier::Range| {
+        if r.low == r.high {
+            r.low.to_string()
+        } else {
+            format!("{}-{}", r.low, r.high)
+        }
+    };
+    let report = view.report;
+    DossierRow {
+        player_id: view.player_id,
+        player_name: view.full_name,
+        position: format!("{:?}", view.natural_position),
+        age: view.age,
+        team: view.team_name,
+        public_rating: view.ovr,
+        ability_range: report.as_ref().map(|r| range(r.ability)),
+        potential_range: report.as_ref().and_then(|r| r.potential).map(range),
+        confidence: report
+            .as_ref()
+            .map(|r| format!("{:?}", r.confidence).to_lowercase()),
+        outlook: format!("{:?}", view.outlook),
+        squad_impact: view.squad_impact.map(|i| format!("{i:?}")),
+        fee_affordable: view.fee_affordable,
+        wage_permitted: view.wage_permitted,
+        risks: view.risks,
+    }
+}
+
+pub fn scout_get_dossier(ctx: Arc<McpContext>) -> Result<ScoutDossier, String> {
+    let view = crate::commands::scouting::get_scouting_dossier_internal(&ctx.state_manager)?;
+    Ok(ScoutDossier {
+        shortlist: view.shortlist.into_iter().map(dossier_row).collect(),
+        reports: view.reports.into_iter().map(dossier_row).collect(),
+    })
+}
+
+// ─── scout_shortlist_add / scout_shortlist_remove ───────────────────────────
+
+fn shortlist_change(
+    ctx: &Arc<McpContext>,
+    player_id: &str,
+    add: bool,
+) -> Result<ShortlistChanged, String> {
+    if add {
+        crate::commands::scouting::shortlist_player_internal(&ctx.state_manager, player_id)?;
+    } else {
+        crate::commands::scouting::unshortlist_player_internal(&ctx.state_manager, player_id)?;
+    }
+    {
+        use tauri::Emitter;
+        let _ = ctx.app_handle.emit("game-state-changed", ());
+    }
+    let player_name = ctx
+        .state_manager
+        .get_game(|g| {
+            g.players
+                .iter()
+                .find(|p| p.id == player_id)
+                .map(|p| p.full_name.clone())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+    Ok(ShortlistChanged {
+        player_name,
+        shortlisted: add,
+    })
+}
+
+pub fn scout_shortlist_add(
+    ctx: Arc<McpContext>,
+    player_id: String,
+) -> Result<ShortlistChanged, String> {
+    shortlist_change(&ctx, &player_id, true)
+}
+
+pub fn scout_shortlist_remove(
+    ctx: Arc<McpContext>,
+    player_id: String,
+) -> Result<ShortlistChanged, String> {
+    shortlist_change(&ctx, &player_id, false)
+}
+
+// ─── scout_cancel ───────────────────────────────────────────────────────────
+
+pub fn scout_cancel(
+    ctx: Arc<McpContext>,
+    assignment_id: String,
+) -> Result<ScoutingCancelled, String> {
+    crate::commands::scouting::cancel_scouting_internal(&ctx.state_manager, &assignment_id)?;
+    {
+        use tauri::Emitter;
+        let _ = ctx.app_handle.emit("game-state-changed", ());
+    }
+    Ok(ScoutingCancelled { assignment_id })
+}
+
+// ─── academy_get_review ─────────────────────────────────────────────────────
+
+pub fn academy_get_review(ctx: Arc<McpContext>) -> Result<AcademyReviewResult, String> {
+    let review = crate::commands::scouting::get_academy_review_internal(&ctx.state_manager)?
+        .ok_or_else(|| "be.error.noTeamAssigned".to_string())?;
+    Ok(AcademyReviewResult {
+        seniors: review.seniors,
+        senior_limit: review.senior_limit,
+        next_intake: review.next_intake,
+        rows: review
+            .rows
+            .into_iter()
+            .map(|row| AcademyRowResult {
+                player_id: row.player_id,
+                player_name: row.full_name,
+                age: row.age,
+                position: format!("{:?}", row.natural_position),
+                rating: row.ovr,
+                potential_ceiling: row.potential,
+                expected_rating_next_year: row.expected_ovr_next_year,
+                verdict: format!("{:?}", row.verdict),
+                reasons: row.reasons,
+                promotion_blocked: row.promotion_blocked.is_some(),
+            })
+            .collect(),
     })
 }

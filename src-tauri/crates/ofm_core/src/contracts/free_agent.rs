@@ -211,7 +211,10 @@ mod tests {
 
         sign_free_agent(&mut game, 0, &team, 1_000, 2, today).expect("he is free");
 
-        assert_eq!(game.players[0].squad_role, domain::player::SquadRole::Senior);
+        assert_eq!(
+            game.players[0].squad_role,
+            domain::player::SquadRole::Senior
+        );
         assert_eq!(game.players[0].team_id.as_deref(), Some("club"));
     }
 

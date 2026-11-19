@@ -91,7 +91,7 @@ setup tools above; `--mcp-disable-tools` can still disable individual tools expl
 
 ## Tool Reference
 
-90 tools are available across 15 categories. Use the built-in `help_list_categories` and `help_find_tool` tools to discover tools at runtime.
+95 tools are available across 15 categories. Use the built-in `help_list_categories` and `help_find_tool` tools to discover tools at runtime.
 
 > **Adding a new tool?** Follow the checklist in `src-tauri/src/mcp_server/tools.rs` at `tool_catalog()` — register the route, add to the catalog, add the implementation, emit `game-state-changed` if it mutates state, update competition-mode disabled list if needed, and update this document.
 
@@ -206,7 +206,7 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | `staff_hire` | Hire an unattached staff member (triggers staff market rotation) |
 | `staff_release` | Release a staff member from your team |
 
-### Scouting (5 tools)
+### Scouting (10 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -215,6 +215,11 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | `scout_youth_start` | Start a youth scouting assignment (region, objective, target position) |
 | `scout_youth_cancel` | Cancel an active youth scouting assignment |
 | `scout_youth_reassign` | Reassign a youth scouting assignment to a different scout |
+| `scout_get_dossier` | Your shortlist and scouting reports as ranges (never exact hidden values) with confidence, outlook, squad impact and recruitment risks |
+| `scout_shortlist_add` | Add a player to your shortlist (at most 30; not your own players) |
+| `scout_shortlist_remove` | Remove a player from your shortlist |
+| `scout_cancel` | Cancel a scouting assignment on a player; no report is written |
+| `academy_get_review` | Review your academy: ready for the senior squad, keep developing, loan candidate or unlikely to progress, with the reasons |
 
 ### Season (3 tools)
 
