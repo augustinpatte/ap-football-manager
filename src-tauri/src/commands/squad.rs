@@ -521,6 +521,16 @@ pub fn set_player_squad_role_internal(
             }
         }
 
+        // A promotion takes a senior place like any signing: a manager at the 30-player limit
+        // cannot register a 31st through the academy, whatever the screen offered.
+        if target_role == domain::player::SquadRole::Senior
+            && game.players[player_index].squad_role == domain::player::SquadRole::Youth
+        {
+            if let Some(refusal) = ofm_core::academy_review::promotion_place_refusal(game, &team_id) {
+                return Err(refusal);
+            }
+        }
+
         // Drop the player from the XI first. It is the only step here that can
         // fail, and mutate_active_game mutates the live game, so doing it after
         // the squad-role write would leave that write in place on an error.
@@ -1667,6 +1677,38 @@ mod tests {
         let error = set_player_squad_role_internal(&state, "player-1", "Youth").expect_err("error");
 
         assert_eq!(error, "be.error.youthAcademyOverage");
+    }
+
+    /// Given a club with thirty seniors and a youngster in its academy
+    /// When the manager promotes the youngster
+    /// Then the promotion is refused with the squad-full key and he stays in the academy; with a
+    ///      place free the same promotion goes through.
+    #[test]
+    fn promoting_an_academy_player_respects_the_senior_limit() {
+        let state = StateManager::new();
+        let mut game = make_game(make_player("2008-01-01"));
+        game.players[0].squad_role = SquadRole::Youth;
+        let team_id = game.players[0].team_id.clone().expect("club");
+        for n in 0..30 {
+            let mut senior = make_player("1998-01-01");
+            senior.id = format!("senior-{n}");
+            senior.squad_role = SquadRole::Senior;
+            senior.team_id = Some(team_id.clone());
+            game.players.push(senior);
+        }
+        state.set_game(game);
+
+        let error = set_player_squad_role_internal(&state, "player-1", "Senior").expect_err("full");
+        assert!(error.starts_with("be.error"), "{error}");
+        let stored = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(stored.players[0].squad_role, SquadRole::Youth);
+
+        state
+            .update_game(|game| {
+                game.players.retain(|p| p.id != "senior-0");
+            })
+            .expect("game");
+        set_player_squad_role_internal(&state, "player-1", "Senior").expect("a place is free");
     }
 
     #[test]

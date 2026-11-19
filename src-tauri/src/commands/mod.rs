@@ -16,6 +16,7 @@ pub mod profiles;
 pub mod registry;
 pub mod report;
 pub mod retirees;
+pub mod scouting;
 pub mod round_summary;
 pub mod season;
 pub mod settings;

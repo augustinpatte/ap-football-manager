@@ -791,6 +791,7 @@ impl SaveManager {
         game.scouting_assignments.clear();
         game.youth_scouting_assignments.clear();
         game.scouted_players.clear();
+        game.scouting_dossier = Default::default();
         game.board_objectives.clear();
 
         // The job-offer clock is the old career's session: a load used to restart it, but it is
@@ -4040,6 +4041,48 @@ mod tests {
         assert_eq!(loaded.scouted_players[0].scouted_on, "2026-08-10");
         assert_eq!(loaded.scouted_players[0].attributes.pace, 91);
         assert_eq!(loaded.scouted_players[0].attributes.composure, 33);
+    }
+
+    /// Given a dossier holding a report with ranges and a shortlisted player
+    /// When the game is saved and loaded from the .db
+    /// Then the report (ranges, confidence inputs, strengths) and the shortlist come back exactly,
+    ///      and a new career from the save starts with an empty dossier.
+    #[test]
+    fn the_scouting_dossier_survives_save_and_load() {
+        use ofm_core::scouting_dossier::{Range, ScoutReport, ShortlistEntry};
+        let dir = tempfile::tempdir().unwrap();
+        let mut sm = SaveManager::init(&dir.path().join("saves")).unwrap();
+        let mut game = sample_game();
+        let player_id = game.players[0].id.clone();
+        let report = ScoutReport {
+            player_id: player_id.clone(),
+            scout_id: "scout-1".into(),
+            scout_name: "Alex Scout".into(),
+            scouted_on: "2026-08-10".into(),
+            judging_ability: 71,
+            judging_potential: 64,
+            reports: 2,
+            ability: Range { low: 61, high: 69 },
+            potential: Some(Range { low: 70, high: 84 }),
+            age: 19,
+            strengths: vec!["pace".into(), "vision".into()],
+            weaknesses: vec!["aerial".into()],
+        };
+        game.scouting_dossier.reports.push(report.clone());
+        game.scouting_dossier.shortlist.push(ShortlistEntry {
+            player_id,
+            added_on: "2026-08-11".into(),
+        });
+
+        let save_id = sm.create_save(&game, "Dossier").unwrap();
+        let loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(loaded.scouting_dossier, game.scouting_dossier);
+        assert_eq!(loaded.scouting_dossier.reports[0], report);
+
+        let fresh = sm.new_game_from_save(&save_id).unwrap();
+        assert!(fresh.scouting_dossier.reports.is_empty());
+        assert!(fresh.scouting_dossier.shortlist.is_empty());
     }
 
     /// Given a save with scouted players

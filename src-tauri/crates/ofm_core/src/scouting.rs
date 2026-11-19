@@ -1,6 +1,5 @@
 use crate::game::{
-    Game, ScoutedPlayer, ScoutingAssignment, YouthScoutingAssignment, YouthScoutingObjective,
-    YouthScoutingRegion,
+    Game, ScoutingAssignment, YouthScoutingAssignment, YouthScoutingObjective, YouthScoutingRegion,
 };
 use domain::contract_ledger::ContractSource;
 use domain::message::*;
@@ -15,6 +14,7 @@ const ERR_SCOUT_NOT_IN_TEAM: &str = "be.error.scouting.scoutNotInTeam";
 const ERR_CANNOT_SCOUT_OWN_PLAYER: &str = "be.error.scouting.cannotScoutOwnPlayer";
 const ERR_PLAYER_ALREADY_SCOUTED: &str = "be.error.scouting.playerAlreadyScouted";
 const ERR_YOUTH_SEARCH_ALREADY_ACTIVE: &str = "be.error.scouting.youthSearchAlreadyActive";
+const ERR_ASSIGNMENT_NOT_FOUND: &str = "be.error.scouting.assignmentNotFound";
 const ERR_YOUTH_ASSIGNMENT_NOT_FOUND: &str = "be.error.scouting.youthAssignmentNotFound";
 const ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH: &str = "be.error.scouting.scoutAlreadyAssignedToSearch";
 
@@ -81,6 +81,9 @@ fn resolve_user_scout<'a>(
 
     Ok(scout)
 }
+
+/// Days a scout adds to a job on a player outside the manager's own division.
+const DAYS_TO_TRAVEL: u32 = 2;
 
 fn assignment_days_for_player_scouting(judging_ability: u8) -> u32 {
     if judging_ability >= 80 {
@@ -163,10 +166,17 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
         return Err(ERR_PLAYER_ALREADY_SCOUTED.to_string());
     }
 
-    // Create assignment (2-5 days depending on scout quality)
+    // 2-5 days by scout quality, two more for a player the club only hears about: watching a
+    // rival in the manager's own division is part of the staff's week, travelling to see anyone
+    // else is not.
+    let known = matches!(
+        crate::player_knowledge::player_knowledge(game, player),
+        crate::player_knowledge::PlayerKnowledge::Own
+            | crate::player_knowledge::PlayerKnowledge::Known
+    );
     let days = assignment_days_for_player_scouting(
         crate::staff_system::profile::effective_judging(game, scout).0,
-    );
+    ) + if known { 0 } else { DAYS_TO_TRAVEL };
 
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     game.scouting_assignments.push(ScoutingAssignment {
@@ -275,6 +285,47 @@ pub fn reassign_youth_scouting(
     Ok(())
 }
 
+pub fn cancel_scouting(game: &mut Game, assignment_id: &str) -> Result<(), String> {
+    let before = game.scouting_assignments.len();
+    game.scouting_assignments
+        .retain(|assignment| assignment.id != assignment_id);
+    if game.scouting_assignments.len() == before {
+        return Err(ERR_ASSIGNMENT_NOT_FOUND.to_string());
+    }
+    Ok(())
+}
+
+/// Hands a running job to another scout. The days already spent stay spent: the job is the
+/// same, only who is on it changes.
+pub fn reassign_scouting(
+    game: &mut Game,
+    assignment_id: &str,
+    scout_id: &str,
+) -> Result<(), String> {
+    let index = game
+        .scouting_assignments
+        .iter()
+        .position(|assignment| assignment.id == assignment_id)
+        .ok_or(ERR_ASSIGNMENT_NOT_FOUND)?;
+    if game.scouting_assignments[index].scout_id == scout_id {
+        return Err(ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH.to_string());
+    }
+    let scout = resolve_user_scout(game, scout_id)?;
+    let max_slots = scout_max_assignments(scout.attributes.judging_ability);
+    let current_count = scout_assignment_count(game, scout_id);
+    if current_count >= max_slots {
+        return Err(scouting_error_with_params(
+            "be.error.scouting.scoutAssignmentFull",
+            &[
+                ("currentCount", current_count.to_string()),
+                ("maxSlots", max_slots.to_string()),
+            ],
+        ));
+    }
+    game.scouting_assignments[index].scout_id = scout_id.to_string();
+    Ok(())
+}
+
 /// Process scouting assignments daily. Called from process_day().
 /// Decrements days, delivers reports when complete.
 pub fn process_scouting(game: &mut Game) {
@@ -307,58 +358,44 @@ pub fn process_scouting(game: &mut Game) {
 
     // Generate reports for completed assignments
     for assignment in &completed {
-        let scout = game.staff.iter().find(|s| s.id == assignment.scout_id);
-        let player = game.players.iter().find(|p| p.id == assignment.player_id);
-
-        if let (Some(scout), Some(player)) = (scout, player) {
-            let scout_name = format!("{} {}", scout.first_name, scout.last_name);
-            let (judging_ability, judging_potential) =
-                crate::staff_system::profile::effective_judging(game, scout);
-            let team_name = player
-                .team_id
-                .as_ref()
-                .and_then(|tid| game.teams.iter().find(|t| &t.id == tid))
-                .map(|t| t.name.clone());
-
-            let msg = build_scout_report(
-                &assignment.id,
-                &scout_name,
-                &player.id,
-                &player.match_name,
-                &player.nationality,
-                &player.date_of_birth,
-                &format!("{:?}", player.natural_position),
-                &player.attributes,
-                player.morale,
-                player.condition,
-                player.ovr,
-                player.potential,
-                judging_ability,
-                judging_potential,
-                team_name.as_deref(),
-                &today,
-            );
-            game.messages.push(msg);
-            record_scouted_player(game, &assignment.player_id, &today);
-        }
+        deliver_player_report(game, assignment, &today);
     }
+
+    crate::scouting_dossier::prune_shortlist(game);
 
     for assignment in &completed_youth {
         complete_youth_scouting_assignment(game, assignment, &today);
     }
 }
 
-fn record_scouted_player(game: &mut Game, player_id: &str, scouted_on: &str) {
-    let Some(player) = game.players.iter().find(|p| p.id == player_id) else {
+/// Writes the dossier entry for a finished job and sends the scout's report to the inbox. The
+/// inbox message and the dossier show the same estimates.
+fn deliver_player_report(game: &mut Game, assignment: &ScoutingAssignment, today: &str) {
+    let Some((report, read)) = crate::scouting_dossier::record_report(
+        game,
+        &assignment.id,
+        &assignment.scout_id,
+        &assignment.player_id,
+    ) else {
         return;
     };
-    let scouted = ScoutedPlayer {
-        player_id: player_id.to_string(),
-        scouted_on: scouted_on.to_string(),
-        attributes: player.attributes.clone(),
+    let Some(player) = game.players.iter().find(|p| p.id == assignment.player_id) else {
+        return;
     };
-    game.scouted_players.retain(|s| s.player_id != player_id);
-    game.scouted_players.push(scouted);
+    let team_name = player
+        .team_id
+        .as_ref()
+        .and_then(|tid| game.teams.iter().find(|t| &t.id == tid))
+        .map(|t| t.name.clone());
+    let msg = build_scout_report(
+        &assignment.id,
+        player,
+        &report,
+        &read,
+        team_name.as_deref(),
+        today,
+    );
+    game.messages.push(msg);
 }
 
 fn complete_youth_scouting_assignment(
@@ -796,70 +833,41 @@ fn youth_target_position_i18n_key(position: &Position) -> &'static str {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+/// The scout's report as the inbox shows it, from the estimates already written to the dossier
+/// (`read` is the attributes as he read them).
 fn build_scout_report(
     assignment_id: &str,
-    scout_name: &str,
-    player_id: &str,
-    player_name: &str,
-    nationality: &str,
-    dob: &str,
-    position: &str,
-    attrs: &domain::player::PlayerAttributes,
-    morale: u8,
-    condition: u8,
-    player_ovr: u8,
-    player_potential: u8,
-    judging_ability: u8,
-    judging_potential: u8,
+    player: &Player,
+    report: &crate::scouting_dossier::ScoutReport,
+    read: &domain::player::PlayerAttributes,
     team_name: Option<&str>,
     date: &str,
 ) -> InboxMessage {
-    // What the scout sees is part of the assignment, so two replays of the day agree.
+    // Which of the six headline attributes the scout got to see is part of the assignment, so two
+    // replays of the day agree.
     let mut rng = crate::seed::rng_from_key(&format!("scout-report/{assignment_id}/{date}"));
+    let judging_ability = report.judging_ability;
+    let scout_name = report.scout_name.as_str();
 
-    // Accuracy: higher judging = less noise on reported attributes
-    let noise_range = if judging_ability >= 80 {
-        2
-    } else if judging_ability >= 60 {
-        5
-    } else if judging_ability >= 40 {
-        8
-    } else {
-        12
-    };
-
-    let mut fuzz = |val: u8| -> u8 {
-        let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
-        ((val as i16) + delta).clamp(1, 99) as u8
-    };
-
-    // Build fuzzed attribute values
-    let all_fuzzed: [(u8, &str); 6] = [
-        (fuzz(attrs.pace), "Pace"),
-        (fuzz(attrs.shooting), "Shooting"),
-        (fuzz(attrs.passing), "Passing"),
-        (fuzz(attrs.dribbling), "Dribbling"),
-        (fuzz(attrs.defending), "Defending"),
-        (fuzz(attrs.strength), "Physical"),
+    let headline: [(u8, &str); 6] = [
+        (read.pace, "Pace"),
+        (read.shooting, "Shooting"),
+        (read.passing, "Passing"),
+        (read.dribbling, "Dribbling"),
+        (read.defending, "Defending"),
+        (read.strength, "Physical"),
     ];
-
     // Discovery mechanic: scout ability determines how many attrs are revealed
     // 80+: all 6 attrs + condition + morale
     // 60-79: 5 attrs + condition
     // 40-59: 3 attrs
     // <40: 2 attrs
-    let reveal_count: usize = if judging_ability >= 80 {
-        6
-    } else if judging_ability >= 60 {
-        5
-    } else if judging_ability >= 40 {
-        3
-    } else {
-        2
+    let reveal_count: usize = match judging_ability {
+        80.. => 6,
+        60..=79 => 5,
+        40..=59 => 3,
+        _ => 2,
     };
-
-    // Shuffle indices to determine which attrs are hidden
     let mut indices: Vec<usize> = (0..6).collect();
     for i in (1..indices.len()).rev() {
         let j = rng.random_range(0..=i);
@@ -867,47 +875,12 @@ fn build_scout_report(
     }
     let revealed: std::collections::HashSet<usize> =
         indices[..reveal_count].iter().cloned().collect();
+    let to_opt = |idx: usize| -> Option<u8> { revealed.contains(&idx).then_some(headline[idx].0) };
 
-    let to_opt = |idx: usize| -> Option<u8> {
-        if revealed.contains(&idx) {
-            Some(all_fuzzed[idx].0)
-        } else {
-            None
-        }
-    };
+    let reported_condition = (judging_ability >= 60).then_some(player.condition);
+    let reported_morale = (judging_ability >= 80).then_some(player.morale);
 
-    let pace = to_opt(0);
-    let shooting = to_opt(1);
-    let passing = to_opt(2);
-    let dribbling = to_opt(3);
-    let defending = to_opt(4);
-    let physical = to_opt(5);
-
-    let reported_condition = if judging_ability >= 60 {
-        Some(condition)
-    } else {
-        None
-    };
-    let reported_morale = if judging_ability >= 80 {
-        Some(morale)
-    } else {
-        None
-    };
-
-    // Overall rating assessment based on the player's position-weighted OVR (fuzzed by scout ability).
-    // Fall back to attribute average if OVR is unavailable (legacy players).
-    let rating_base = if player_ovr > 0 {
-        let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
-        ((player_ovr as i16) + delta).clamp(1, 99) as u32
-    } else {
-        let revealed_vals: Vec<u32> = (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
-        if revealed_vals.is_empty() {
-            0
-        } else {
-            revealed_vals.iter().sum::<u32>() / revealed_vals.len() as u32
-        }
-    };
-
+    let rating_base = u32::from(report.ability.mid());
     let rating_key = if rating_base >= 80 {
         "common.scoutRatings.excellent"
     } else if rating_base >= 70 {
@@ -919,51 +892,31 @@ fn build_scout_report(
     } else {
         "common.scoutRatings.belowAverage"
     };
-
-    // Potential assessment: use the player's actual potential (fuzzed) when the scout
-    // has sufficient judging_potential skill.  High-potential scouts can also spot
-    // Wonderkid-level talent accurately.
-    let potential_key = if judging_potential >= 70 {
-        let fuzzed_potential = if player_potential > 0 {
-            let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
-            ((player_potential as i16) + delta).clamp(1, 99) as u32
-        } else {
-            rating_base // fallback to fuzzed OVR if no potential stored
-        };
-        if fuzzed_potential >= 85 {
-            "common.scoutPotential.worldClass"
-        } else if fuzzed_potential >= 70 {
-            "common.scoutPotential.strong"
-        } else {
-            "common.scoutPotential.moderate"
-        }
-    } else {
-        "common.scoutPotential.unclear"
+    let potential_key = match report.potential.map(|range| range.mid()) {
+        Some(85..) => "common.scoutPotential.worldClass",
+        Some(70..=84) => "common.scoutPotential.strong",
+        Some(_) => "common.scoutPotential.moderate",
+        None => "common.scoutPotential.unclear",
+    };
+    let confidence_key = match report.confidence() {
+        crate::scouting_dossier::Confidence::High => "common.scoutConfidence.high",
+        crate::scouting_dossier::Confidence::Moderate => "common.scoutConfidence.moderate",
+        crate::scouting_dossier::Confidence::Low => "common.scoutConfidence.low",
     };
 
-    // Confidence level
-    let confidence_key = if judging_ability >= 80 {
-        "common.scoutConfidence.high"
-    } else if judging_ability >= 60 {
-        "common.scoutConfidence.moderate"
-    } else {
-        "common.scoutConfidence.low"
-    };
-
-    // Build structured report data for the player card
     let report_data = ScoutReportData {
-        player_id: player_id.to_string(),
-        player_name: player_name.to_string(),
-        position: position.to_string(),
-        nationality: nationality.to_string(),
-        dob: dob.to_string(),
+        player_id: player.id.clone(),
+        player_name: player.match_name.clone(),
+        position: format!("{:?}", player.natural_position),
+        nationality: player.nationality.clone(),
+        dob: player.date_of_birth.clone(),
         team_name: team_name.map(|s| s.to_string()),
-        pace,
-        shooting,
-        passing,
-        dribbling,
-        defending,
-        physical,
+        pace: to_opt(0),
+        shooting: to_opt(1),
+        passing: to_opt(2),
+        dribbling: to_opt(3),
+        defending: to_opt(4),
+        physical: to_opt(5),
         condition: reported_condition,
         morale: reported_morale,
         avg_rating: Some(rating_base),
@@ -973,7 +926,6 @@ fn build_scout_report(
     };
 
     let msg_id = format!("scout_report_{}", assignment_id);
-
     InboxMessage::new(
         msg_id,
         String::new(),
@@ -992,12 +944,12 @@ fn build_scout_report(
         label_key: Some("be.msg.event.ack".to_string()),
     })
     .with_context(MessageContext {
-        player_id: Some(player_id.to_string()),
+        player_id: Some(player.id.clone()),
         scout_report: Some(report_data),
         ..Default::default()
     })
     .with_i18n("be.msg.scoutReport.subject", "be.msg.scoutReport.body", {
-        let mut p = params(&[("player", player_name), ("scout", scout_name)]);
+        let mut p = params(&[("player", &player.match_name), ("scout", scout_name)]);
         p.insert("ratingDesc".to_string(), rating_key.to_string());
         p.insert("potentialDesc".to_string(), potential_key.to_string());
         p.insert("confidence".to_string(), confidence_key.to_string());
@@ -1009,8 +961,9 @@ fn build_scout_report(
 #[cfg(test)]
 mod tests {
     use super::build_scout_report;
+    use crate::scouting_dossier::{Range, ScoutReport};
     use domain::message::{ActionType, MessageCategory, MessagePriority};
-    use domain::player::PlayerAttributes;
+    use domain::player::{Player, PlayerAttributes, Position};
 
     fn sample_attrs() -> PlayerAttributes {
         PlayerAttributes {
@@ -1036,22 +989,44 @@ mod tests {
         }
     }
 
-    fn report_for(assignment: &str) -> String {
+    fn sample_player() -> Player {
+        let mut player = Player::new(
+            "player-1".to_string(),
+            "Jamie Prospect".to_string(),
+            "Jamie Prospect".to_string(),
+            "2004-03-12".to_string(),
+            "ENG".to_string(),
+            Position::Midfielder,
+            sample_attrs(),
+        );
+        player.condition = 89;
+        player.morale = 74;
+        player
+    }
+
+    fn sample_report(judging: u8, potential: Option<Range>) -> ScoutReport {
+        ScoutReport {
+            player_id: "player-1".into(),
+            scout_id: "scout-1".into(),
+            scout_name: "Alex Scout".into(),
+            scouted_on: "2026-08-01".into(),
+            judging_ability: judging,
+            judging_potential: judging,
+            reports: 1,
+            ability: Range { low: 64, high: 70 },
+            potential,
+            age: 22,
+            strengths: vec![],
+            weaknesses: vec![],
+        }
+    }
+
+    fn message_json(assignment: &str, judging: u8) -> String {
         let message = build_scout_report(
             assignment,
-            "Alex Scout",
-            "player-1",
-            "Jamie Prospect",
-            "ENG",
-            "2004-03-12",
-            "Midfielder",
+            &sample_player(),
+            &sample_report(judging, Some(Range { low: 74, high: 84 })),
             &sample_attrs(),
-            74,
-            89,
-            67,
-            79,
-            50,
-            50,
             Some("London FC"),
             "2026-08-01",
         );
@@ -1060,43 +1035,81 @@ mod tests {
 
     /// Given a scout assigned to a player,
     /// When the report is written twice, for each of thirty assignments,
-    /// Then it reads the same both times — the scout's noise is part of the report, so a
-    ///      replayed day must not see different numbers — and the noise is not the same
-    ///      for every assignment.
+    /// Then it reads the same both times — a replayed day must not see different numbers — and
+    ///      which attributes the scout got to see is not the same for every assignment.
     #[test]
     fn a_scout_report_reads_the_same_each_time() {
         let ids: Vec<String> = (0..30).map(|n| format!("assignment-{n}")).collect();
         for id in &ids {
-            assert_eq!(report_for(id), report_for(id), "{id}");
+            assert_eq!(message_json(id, 50), message_json(id, 50), "{id}");
         }
         let distinct: std::collections::BTreeSet<String> = ids
             .iter()
-            .map(|id| report_for(id).replace(id.as_str(), ""))
+            .map(|id| message_json(id, 50).replace(id.as_str(), ""))
             .collect();
-        assert!(distinct.len() > 1, "the scout's noise never varied");
+        assert!(distinct.len() > 1, "the revealed attributes never varied");
+    }
+
+    /// Given reports from a weak scout and a strong one
+    /// When the number of attributes each shows is counted
+    /// Then the strong scout shows all six and the weak one only two.
+    #[test]
+    fn a_better_scout_shows_more_of_the_player() {
+        let count = |judging: u8| {
+            let message = build_scout_report(
+                "a",
+                &sample_player(),
+                &sample_report(judging, None),
+                &sample_attrs(),
+                None,
+                "2026-08-01",
+            );
+            let data = message.context.scout_report.unwrap();
+            [
+                data.pace,
+                data.shooting,
+                data.passing,
+                data.dribbling,
+                data.defending,
+                data.physical,
+            ]
+            .iter()
+            .flatten()
+            .count()
+        };
+        assert_eq!(count(85), 6);
+        assert_eq!(count(30), 2);
+    }
+
+    /// Given a report whose potential the scout could not judge
+    /// When the message is built
+    /// Then it says the potential is unclear rather than inventing a grade.
+    #[test]
+    fn a_scout_who_cannot_judge_potential_says_so() {
+        let message = build_scout_report(
+            "a",
+            &sample_player(),
+            &sample_report(50, None),
+            &sample_attrs(),
+            None,
+            "2026-08-01",
+        );
+        assert_eq!(
+            message.i18n_params.get("potentialDesc").map(String::as_str),
+            Some("common.scoutPotential.unclear")
+        );
     }
 
     #[test]
     fn build_scout_report_uses_i18n_keys_without_raw_fallbacks() {
         let message = build_scout_report(
             "assignment-1",
-            "Alex Scout",
-            "player-1",
-            "Jamie Prospect",
-            "ENG",
-            "2004-03-12",
-            "Midfielder",
+            &sample_player(),
+            &sample_report(85, Some(Range { low: 74, high: 84 })),
             &sample_attrs(),
-            74,
-            89,
-            67,
-            79,
-            85,
-            83,
             Some("London FC"),
             "2026-08-01",
         );
-
         assert_eq!(message.subject, "");
         assert_eq!(message.body, "");
         assert_eq!(message.sender, "Alex Scout");

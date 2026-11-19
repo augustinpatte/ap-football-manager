@@ -40,7 +40,8 @@ pub struct ScoutingAssignment {
 }
 
 /// What a finished scouting job revealed about a player, as of `scouted_on`.
-/// The attributes are a snapshot: they do not follow the player's later changes.
+/// The attributes are a snapshot *as the scout read them* (each off by up to his error, see
+/// `scouting_dossier`), and they do not follow the player's later changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoutedPlayer {
     pub player_id: String,
@@ -120,6 +121,9 @@ pub struct Game {
     pub youth_scouting_assignments: Vec<YouthScoutingAssignment>,
     #[serde(default)]
     pub scouted_players: Vec<ScoutedPlayer>,
+    /// The reports the club holds on players (as ranges, never true values) and its shortlist.
+    #[serde(default)]
+    pub scouting_dossier: crate::scouting_dossier::ScoutingDossier,
     #[serde(default)]
     pub board_objectives: Vec<BoardObjective>,
     #[serde(default)]
@@ -299,6 +303,7 @@ impl Game {
             scouting_assignments: vec![],
             youth_scouting_assignments: vec![],
             scouted_players: vec![],
+            scouting_dossier: Default::default(),
             board_objectives: vec![],
             season_context: SeasonContext::default(),
             days_since_last_job_offer: None,
