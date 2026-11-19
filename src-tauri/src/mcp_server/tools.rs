@@ -528,6 +528,16 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
         tools_impl::scouting::scout_get_reports
     );
     real_tool!(
+        "scout_get_dossier",
+        "Get your shortlist and scouting reports as ranges with confidence, outlook, squad impact and risks",
+        tools_impl::scouting::scout_get_dossier
+    );
+    real_tool!(
+        "academy_get_review",
+        "Review your academy: ready for the senior squad, keep developing, loan candidate or unlikely to progress, with reasons",
+        tools_impl::scouting::academy_get_review
+    );
+    real_tool!(
         "season_get_awards",
         "Get end-of-season awards",
         tools_impl::season::season_get_awards
@@ -633,6 +643,27 @@ pub fn build_tool_router(context: &Arc<McpContext>, disabled: &[String]) -> OfmT
         tools_impl::game::game_load_save
     );
     id_tool!("jobs_apply", "Apply for a job. Employed managers can only apply to better clubs; applying to your own team or a worse club returns an error.", team_id_schema(), team_id, tools_impl::season::jobs_apply);
+    id_tool!(
+        "scout_shortlist_add",
+        "Add a player to your shortlist",
+        player_id_schema(),
+        player_id,
+        tools_impl::scouting::scout_shortlist_add
+    );
+    id_tool!(
+        "scout_shortlist_remove",
+        "Remove a player from your shortlist",
+        player_id_schema(),
+        player_id,
+        tools_impl::scouting::scout_shortlist_remove
+    );
+    id_tool!(
+        "scout_cancel",
+        "Cancel a scouting assignment on a player (no report is written)",
+        assignment_id_schema(),
+        assignment_id,
+        tools_impl::scouting::scout_cancel
+    );
     id_tool!(
         "scout_youth_cancel",
         "Cancel youth scouting",
@@ -2187,6 +2218,31 @@ pub fn tool_catalog() -> Vec<(&'static str, &'static str, &'static str)> {
             "Scouting",
         ),
         ("scout_send", "Send scout to report on a player", "Scouting"),
+        (
+            "scout_get_dossier",
+            "Get your shortlist and scouting reports as ranges with confidence, outlook, squad impact and risks",
+            "Scouting",
+        ),
+        (
+            "scout_shortlist_add",
+            "Add a player to your shortlist",
+            "Scouting",
+        ),
+        (
+            "scout_shortlist_remove",
+            "Remove a player from your shortlist",
+            "Scouting",
+        ),
+        (
+            "scout_cancel",
+            "Cancel a scouting assignment on a player (no report is written)",
+            "Scouting",
+        ),
+        (
+            "academy_get_review",
+            "Review your academy: ready for the senior squad, keep developing, loan candidate or unlikely to progress, with reasons",
+            "Scouting",
+        ),
         // Season
         (
             "season_check_complete",

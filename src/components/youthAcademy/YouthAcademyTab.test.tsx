@@ -263,6 +263,7 @@ describe("YouthAcademyTab", () => {
     });
     const state = createGameState([player]);
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return state;
@@ -293,6 +294,7 @@ describe("YouthAcademyTab", () => {
     };
     const onGameUpdate = vi.fn();
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return gameState.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return updatedGameState;
@@ -336,6 +338,7 @@ describe("YouthAcademyTab", () => {
     });
     const state = createGameState([player]);
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return state;
@@ -364,6 +367,7 @@ describe("YouthAcademyTab", () => {
     const gameState = { ...baseState, staff: [scout] };
     const onGameUpdate = vi.fn();
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return gameState.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff")
         return {
@@ -415,6 +419,7 @@ describe("YouthAcademyTab", () => {
     });
     const state = createGameState([youthPlayer, seniorPlayer]);
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return state;
@@ -461,6 +466,7 @@ describe("YouthAcademyTab", () => {
       prospect("r", 60),
     ]);
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return state;
@@ -493,6 +499,7 @@ describe("YouthAcademyTab", () => {
       ),
     };
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       // get_squad keeps serving the pre-promotion roster: no refetch happens
       // while the tab stays mounted, so the component must apply the
       // set_player_squad_role response itself.
@@ -535,6 +542,7 @@ describe("YouthAcademyTab", () => {
     };
     const onGameUpdate = vi.fn();
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return gameState.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return updatedGameState;
@@ -581,6 +589,7 @@ describe("YouthAcademyTab", () => {
     });
     const state = { ...createGameState([createPlayer({ squad_role: "Youth" })]), staff: [coach] };
     mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff")
         return {

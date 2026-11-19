@@ -95,7 +95,7 @@ const SCREEN_MARGIN: u8 = 3;
 
 /// For each position group, the rating of the first senior behind its starters (0 where the group
 /// has no cover at all: any youngster fills that).
-fn cover_levels(game: &Game, club: &[usize]) -> [u8; 4] {
+pub(crate) fn cover_levels(game: &Game, club: &[usize]) -> [u8; 4] {
     use crate::squad_floor::{STARTERS_PER_GROUP, group_index};
     let mut seniors: [Vec<u8>; 4] = Default::default();
     for &index in club {
@@ -114,7 +114,7 @@ fn cover_levels(game: &Game, club: &[usize]) -> [u8; 4] {
 
 /// The player as the market would see him if he were a senior: the model values only seniors, and
 /// the question here is what he would add to the side.
-fn as_senior(player: &Player) -> Player {
+pub(crate) fn as_senior(player: &Player) -> Player {
     let mut senior = player.clone();
     senior.squad_role = SquadRole::Senior;
     senior

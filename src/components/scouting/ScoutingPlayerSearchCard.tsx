@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ScanSearch } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScanSearch, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { countryName } from "../../lib/countries";
@@ -18,6 +18,9 @@ import {
 } from "../playerActions/playerContextMenuItems";
 import { Badge, Card, CardBody, CardHeader, CountryFlag, PlayerAvatar } from "../ui";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
+import type { ScoutingTargetView } from "../../services/scoutingService";
+import ScoutingExtraFilters from "./dossier/ScoutingExtraFilters";
+import { formatRange } from "./dossier/dossierFormat";
 
 interface ScoutingPlayerSearchCardProps {
   players: PlayerData[];
@@ -25,6 +28,8 @@ interface ScoutingPlayerSearchCardProps {
   query: PlayersPageQuery;
   errorMessage?: string | null;
   alreadyScoutingIds: Set<string>;
+  /** What the club already knows of players it has reports on or follows, by player id. */
+  knownTargets?: Map<string, ScoutingTargetView>;
   availableScoutCount: number;
   sendingPlayerId: string | null;
   safePage: number;
@@ -37,6 +42,8 @@ interface ScoutingPlayerSearchCardProps {
   onSelectPlayer?: (id: string) => void;
   onSelectTeam?: (id: string) => void;
   onSendScout: (playerId: string) => void;
+  /** Follows or stops following a player; omit to hide the control. */
+  onToggleShortlist?: (playerId: string, shortlisted: boolean) => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
 }
@@ -47,6 +54,7 @@ export default function ScoutingPlayerSearchCard({
   query,
   errorMessage,
   alreadyScoutingIds,
+  knownTargets,
   availableScoutCount,
   sendingPlayerId,
   safePage,
@@ -59,6 +67,7 @@ export default function ScoutingPlayerSearchCard({
   onSelectPlayer,
   onSelectTeam,
   onSendScout,
+  onToggleShortlist,
   onPreviousPage,
   onNextPage,
 }: ScoutingPlayerSearchCardProps) {
@@ -79,6 +88,8 @@ export default function ScoutingPlayerSearchCard({
           searchPlaceholder={t("scouting.searchPlaceholder")}
         />
 
+        <ScoutingExtraFilters query={query} onChange={onFilterChange} />
+
         {errorMessage ? (
           <p
             role="alert"
@@ -97,6 +108,12 @@ export default function ScoutingPlayerSearchCard({
                 <th className="text-center py-2 px-1">{t("scouting.age")}</th>
                 <th className="text-left py-2 px-1">{t("scouting.team")}</th>
                 <th className="text-center py-2 px-1">{t("scouting.value")}</th>
+                <th scope="col" className="text-center py-2 px-1">
+                  {t("scouting.dossier.colAbility")}
+                </th>
+                <th scope="col" className="text-center py-2 px-1">
+                  {t("scouting.dossier.colPotential")}
+                </th>
                 <th className="text-right py-2 px-2">{t("scouting.action")}</th>
               </tr>
             </thead>
@@ -190,24 +207,56 @@ export default function ScoutingPlayerSearchCard({
                     <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400 text-xs">
                       {formatVal(player.market_value)}
                     </td>
+                    <td className="text-center py-2 px-1 text-caption tabular-nums text-fg-muted">
+                      {formatRange(knownTargets?.get(player.id)?.report?.ability) ?? "—"}
+                    </td>
+                    <td className="text-center py-2 px-1 text-caption tabular-nums text-fg-muted">
+                      {formatRange(knownTargets?.get(player.id)?.report?.potential) ?? "—"}
+                    </td>
                     <td className="text-right py-2 px-2">
-                      {isScouting ? (
-                        <span className="text-xs text-primary-400 font-heading font-bold">
-                          {t("scouting.scoutingInProgress")}
-                        </span>
-                      ) : availableScoutCount === 0 ? (
-                        <span className="text-xs text-gray-400">{t("scouting.noScoutsFree")}</span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={sendingPlayerId === player.id}
-                          onClick={() => onSendScout(player.id)}
-                          className="flex items-center gap-1 ml-auto px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
-                        >
-                          <ScanSearch className="w-3 h-3" />
-                          {sendingPlayerId === player.id ? "..." : t("scouting.scoutBtn")}
-                        </button>
-                      )}
+                      <div className="flex items-center justify-end gap-2">
+                        {onToggleShortlist && (
+                          <button
+                            type="button"
+                            aria-label={t(
+                              knownTargets?.get(player.id)?.shortlisted
+                                ? "scouting.dossier.removeShortlistFor"
+                                : "scouting.dossier.addShortlistFor",
+                              { player: player.full_name },
+                            )}
+                            onClick={() =>
+                              onToggleShortlist(
+                                player.id,
+                                knownTargets?.get(player.id)?.shortlisted ?? false,
+                              )
+                            }
+                            className="rounded-lg p-1.5 text-fg-muted hover:bg-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page"
+                          >
+                            <Star
+                              className={`h-4 w-4 ${knownTargets?.get(player.id)?.shortlisted ? "fill-current text-warning" : ""}`}
+                            />
+                          </button>
+                        )}
+                        {isScouting ? (
+                          <span className="text-xs text-primary-400 font-heading font-bold">
+                            {t("scouting.scoutingInProgress")}
+                          </span>
+                        ) : availableScoutCount === 0 ? (
+                          <span className="text-xs text-gray-400">
+                            {t("scouting.noScoutsFree")}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={sendingPlayerId === player.id}
+                            onClick={() => onSendScout(player.id)}
+                            className="flex items-center gap-1 ml-auto px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
+                          >
+                            <ScanSearch className="w-3 h-3" />
+                            {sendingPlayerId === player.id ? "..." : t("scouting.scoutBtn")}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

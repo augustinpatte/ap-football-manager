@@ -25,7 +25,7 @@ use std::collections::HashMap;
 /// Academy players a club aims to hold in each position group, in the squad
 /// floor's `[GK, DEF, MID, FWD]` order. Shaped like a squad, a keeper included,
 /// so the players who graduate from it can replace the ones who retire.
-const ACADEMY_TARGET_PER_GROUP: [usize; 4] = [1, 2, 2, 1];
+pub(crate) const ACADEMY_TARGET_PER_GROUP: [usize; 4] = [1, 2, 2, 1];
 
 /// Youngsters every club takes in a season, however full its academy is. A
 /// club always renews itself a little; the minimum is what keeps one whose

@@ -2197,7 +2197,93 @@
     "morale": "士气",
     "estimatedAttributes": "预估属性",
     "undiscovered": "尚未发掘",
-    "confidence": "置信度"
+    "confidence": "置信度",
+    "dossier": {
+      "compareColumn": "对比",
+      "colRating": "评分",
+      "colAbility": "能力(区间)",
+      "colPotential": "潜力(估计)",
+      "colImpact": "对你的阵容",
+      "colWage": "周薪",
+      "colContract": "合同到期",
+      "unknown": "未知",
+      "notJudged": "未评估",
+      "onShortlist": "在你的关注名单中",
+      "selectToCompare": "对比 {{player}}",
+      "impact": {
+        "starter": "会成为首发",
+        "cover": "可补充轮换",
+        "no_gain": "目前没有帮助"
+      },
+      "addShortlist": "加入名单",
+      "removeShortlist": "移除",
+      "ratingPublic": "评分 {{value}}",
+      "reportSection": "球探报告",
+      "outlookTitle": "成长前景",
+      "outlook": {
+        "high_growth": "高成长",
+        "growing": "成长中",
+        "near_peak": "接近巅峰",
+        "declining": "走下坡",
+        "unclear": "不明确"
+      },
+      "scoutedBy": "{{scout}} 于 {{date}} 提交的报告。",
+      "reportsCombined": "已合并 {{count}} 份报告。",
+      "estimateNote": "真实数值位于每个区间之内,但不一定在中间。",
+      "strengths": "优势",
+      "weaknesses": "劣势",
+      "noneStoodOut": "没有明显项",
+      "noReportYet": "尚未有人考察过他,只知道公开评分。",
+      "financeTitle": "财务匹配",
+      "freeNoFee": "自由球员:无转会费。",
+      "feeFits": "转会费({{fee}})在预算之内。",
+      "feeOver": "转会费({{fee}})超出预算。",
+      "wageFits": "其周薪符合你的薪资政策。",
+      "wageOver": "其周薪将违反你的薪资政策。",
+      "contractUntil": "合同至 {{date}}",
+      "noContract": "无合同",
+      "risksTitle": "签约风险",
+      "noRisks": "无明显风险",
+      "makeBid": "提交转会报价",
+      "offerContract": "提出合同",
+      "scoutAgain": "再次考察",
+      "openProfile": "打开档案",
+      "compareTitle": "对比目标",
+      "compareMeasure": "项目",
+      "fitsBudget": "符合预算",
+      "compare": "对比({{count}})",
+      "shortlistTitle": "关注名单",
+      "shortlistHint": "你关注的球员。选择 2 到 {{max}} 名进行对比。",
+      "loading": "正在加载报告…",
+      "noShortlist": "名单中还没有球员。",
+      "reportsTitle": "球探报告",
+      "reportsHint": "球探的发现。区间包含真实数值;更好的球探或再次考察会让区间更窄。",
+      "noReports": "暂无报告。派球探去考察球员即可开始。",
+      "addShortlistFor": "将 {{player}} 加入名单",
+      "removeShortlistFor": "将 {{player}} 移出名单"
+    },
+    "risk": {
+      "contractExpiring": "合同一年内到期",
+      "injured": "目前受伤",
+      "ageing": "30 岁以后:有下滑风险",
+      "unscouted": "无人考察过他",
+      "staleReport": "报告来自往季",
+      "uncertainEstimate": "估计区间大:可信度低",
+      "feeOverBudget": "转会费超出预算",
+      "wageOverPolicy": "周薪超出你的政策"
+    },
+    "filters": {
+      "status": "球探状态",
+      "any": "全部",
+      "unscouted": "未考察",
+      "scouted": "已考察",
+      "shortlisted": "已在名单中",
+      "potentialMin": "估计潜力至少",
+      "potentialHint": "仅限已考察球员",
+      "contractExpiring": "合同一年内到期"
+    },
+    "cancelSearchFor": "取消对 {{player}} 的考察",
+    "reassignSearchFor": "将对 {{player}} 的考察交给另一名球探"
   },
   "match": {
     "simulateWithM12": "快速模拟",
@@ -3320,7 +3406,12 @@
         "playerAlreadyScouted": "这名球员已经在被考察",
         "youthSearchAlreadyActive": "已有相同的青训招募搜索在进行中",
         "youthAssignmentNotFound": "未找到青训招募任务",
-        "scoutAlreadyAssignedToSearch": "该球探已经分配给这项搜索"
+        "scoutAlreadyAssignedToSearch": "该球探已经分配给这项搜索",
+        "shortlistOwnPlayer": "无法将自己的球员加入名单",
+        "shortlistAlready": "该球员已在名单中",
+        "shortlistFull": "名单已满",
+        "shortlistNotListed": "该球员不在名单中",
+        "assignmentNotFound": "未找到考察任务"
       },
       "invalidPath": "路径无效。",
       "conflict": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他",
       "ownerLeft": "负责的教练组成员已离队，助理教练已重新接管此项职责。",
       "floorPromoted": "球队人数低于最低要求，因此{{player}}从青训营提拔入队",
-      "floorSigned": "球队人数低于最低要求，因此签下了自由球员{{player}}"
+      "floorSigned": "球队人数低于最低要求，因此签下了自由球员{{player}}",
+      "scoutShortlisted": "根据球探报告将 {{player}} 加入名单"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "请先接受他们的条款；还价不能直接签约。",
     "signHintRefused": "这笔转会目前无法签约。",
     "errorGeneric": "市场未能完成该请求，请重试。"
+  },
+  "academy": {
+    "promotionBlocked": "一线队没有空位",
+    "unlistLoan": "移出租借名单",
+    "listLoan": "列入租借名单",
+    "release": "解约",
+    "reviewTitle": "培养评估",
+    "reviewHint": "每项评价都将球员与一线队在其位置上已有的人员深度比较。这里的内容不会改变球员。",
+    "loading": "正在加载评估…",
+    "capacity": "一线队 {{seniors}} / {{limit}}",
+    "nextIntake": "下次青训入队:{{count}}",
+    "ceiling": "上限",
+    "expectedNext": "预计明年",
+    "squadCover": "阵容深度",
+    "verdict": "结论",
+    "verdicts": {
+      "ready_for_senior": "可进入一线队",
+      "keep_developing": "继续培养",
+      "loan_candidate": "适合租借",
+      "unlikely_to_progress": "难有进步"
+    },
+    "reason": {
+      "wouldStart": "会进入一线队首发",
+      "addsCover": "可补充阵容所需的深度",
+      "succession": "几个赛季内会被需要",
+      "injured": "受伤",
+      "tooYoungToJudge": "年纪太小,难以判断",
+      "ceilingBelowCover": "即便达到上限也低于你的阵容水平",
+      "closeToSeniorLevel": "接近一线队水平",
+      "needsMatchMinutes": "需要青训无法提供的稳定比赛机会",
+      "stillImproving": "仍在进步",
+      "nearCeiling": "接近上限"
+    },
+    "ceilingNote": "潜力只是上限而非承诺:预计评分显示培养通常能达到的水平。",
+    "promoteFor": "提拔 {{player}}",
+    "listLoanFor": "将 {{player}} 列入租借名单",
+    "unlistLoanFor": "将 {{player}} 移出租借名单",
+    "releaseFor": "解约 {{player}}"
   }
 }

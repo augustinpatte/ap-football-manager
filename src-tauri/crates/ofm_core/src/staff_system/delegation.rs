@@ -19,6 +19,7 @@ use super::delegation_owner as owner;
 use super::delegation_policy::{Authorization, Books, Reason, Spend, authorize_in_books};
 use super::delegation_recruitment::{self as recruiting, Eye};
 use super::delegation_report as report;
+use super::delegation_scouting as scouting;
 use super::delegation_squad as squad;
 use super::delegation_training as training;
 use super::market::{self, OfferResponse};
@@ -191,7 +192,7 @@ pub fn run_after_day(game: &mut Game) {
         match duty {
             Duty::Lineup => squad::lineup(game, &team_id, rating),
             Duty::MatchPreparation => match_preparation(game, &team_id, rating),
-            Duty::Scouting => scouting(game, &team_id, rating),
+            Duty::Scouting => scouting::run(game, &team_id, rating),
             Duty::Youth => youth(game, &team_id, rating),
             Duty::StaffRecruitment => recruitment(game, &team_id, &assistant_id, rating),
             Duty::StaffRenewals => renewals(game, &team_id, &assistant_id, rating),
@@ -259,98 +260,6 @@ pub(super) fn matches_within(game: &Game, team_id: &str, days: i64) -> bool {
         .filter(|f| f.home_team_id == team_id || f.away_team_id == team_id)
         .filter_map(|f| NaiveDate::parse_from_str(&f.date, "%Y-%m-%d").ok())
         .any(|d| (0..=days).contains(&(d - today).num_days()))
-}
-
-/// Sends idle scouts to look at players for the positions the squad is short in; with no gap,
-/// at the best young talent the club could afford.
-fn scouting(game: &mut Game, team_id: &str, rating: f64) {
-    let scouts: Vec<String> = team_staff(game, team_id)
-        .iter()
-        .filter(|s| s.role == domain::staff::StaffRole::Scout && s.post() != StaffPost::Analyst)
-        .map(|s| s.id.clone())
-        .collect();
-    let busy: std::collections::HashSet<&str> = game
-        .scouting_assignments
-        .iter()
-        .map(|a| a.scout_id.as_str())
-        .chain(
-            game.youth_scouting_assignments
-                .iter()
-                .map(|a| a.scout_id.as_str()),
-        )
-        .collect();
-    let idle: Vec<String> = scouts
-        .into_iter()
-        .filter(|s| !busy.contains(s.as_str()))
-        .collect();
-    if idle.is_empty() {
-        return;
-    }
-    let weak_groups: Vec<domain::player::Position> =
-        assistant::recommendations_read_by(game, team_id, Some(rating))
-            .iter()
-            .filter(|r| r.kind == RecKind::WeakPosition)
-            .filter_map(|r| r.params.iter().find(|(k, _)| k == "position"))
-            .filter_map(|(_, v)| match v.as_str() {
-                "Goalkeeper" => Some(domain::player::Position::Goalkeeper),
-                "Defender" => Some(domain::player::Position::Defender),
-                "Midfielder" => Some(domain::player::Position::Midfielder),
-                "Forward" => Some(domain::player::Position::Forward),
-                _ => None,
-            })
-            .collect();
-    let budget = game
-        .teams
-        .iter()
-        .find(|t| t.id == team_id)
-        .map_or(0, |t| t.transfer_budget.max(0)) as u64;
-    let today = date(game);
-    let already: std::collections::HashSet<&str> = game
-        .scouted_players
-        .iter()
-        .map(|s| s.player_id.as_str())
-        .collect();
-    let watched: std::collections::HashSet<&str> = game
-        .scouting_assignments
-        .iter()
-        .map(|a| a.player_id.as_str())
-        .collect();
-    let mut targets: Vec<(&domain::player::Player, f64)> = game
-        .players
-        .iter()
-        .filter(|p| p.team_id.as_deref().is_some_and(|t| t != team_id) && !p.retired)
-        .filter(|p| !already.contains(p.id.as_str()) && !watched.contains(p.id.as_str()))
-        .filter(|p| p.market_value <= budget.max(1))
-        .filter(|p| {
-            weak_groups.is_empty() || weak_groups.contains(&p.natural_position.to_group_position())
-        })
-        .filter(|p| {
-            domain::age::age_on(today, &p.date_of_birth).is_some_and(|a| {
-                if weak_groups.is_empty() {
-                    a <= 21
-                } else {
-                    a <= 30
-                }
-            })
-        })
-        .map(|p| (p, f64::from(p.ovr) * 0.6 + f64::from(p.potential) * 0.4))
-        .collect();
-    targets.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.id.cmp(&b.0.id)));
-    let picks: Vec<(String, String, String)> = idle
-        .iter()
-        .zip(targets.iter())
-        .map(|(scout, (p, _))| (scout.clone(), p.id.clone(), p.match_name.clone()))
-        .collect();
-    for (scout_id, player_id, name) in picks {
-        if crate::scouting::send_scout(game, &scout_id, &player_id).is_ok() {
-            log(
-                game,
-                Duty::Scouting,
-                "delegation.log.scoutSent",
-                vec![param("player", name)],
-            );
-        }
-    }
 }
 
 /// Brings academy players who have reached the first team's level into it.
@@ -928,6 +837,152 @@ mod tests {
         run_after_day(&mut g);
         assert_eq!(g.scouting_assignments.len(), 1);
         assert_eq!(g.scouting_assignments[0].scout_id, "scout1");
+    }
+
+    /// A club with one idle scout and two candidate targets of the same public standing, the one
+    /// with the far higher hidden potential listed first by id.
+    fn club_with_one_scout_and_two_prospects() -> (Game, String, String) {
+        let mut g = game(Some(80), 6);
+        let mut scout = staff_member("scout1", StaffPost::Scout, 70, "team1");
+        scout.wage = 500;
+        g.staff.retain(|s| s.post() != StaffPost::Scout);
+        g.staff.push(scout);
+        g.teams[0].transfer_budget = 10_000_000;
+        for p in g
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("team2"))
+        {
+            p.date_of_birth = "2006-01-01".into();
+            p.market_value = 1_000_000;
+            p.natural_position = domain::player::Position::Striker;
+            p.ovr = 50;
+            p.potential = 50;
+        }
+        let ids: Vec<String> = g
+            .players
+            .iter()
+            .filter(|p| p.team_id.as_deref() == Some("team2"))
+            .map(|p| p.id.clone())
+            .take(2)
+            .collect();
+        (g, ids[0].clone(), ids[1].clone())
+    }
+
+    /// Given two prospects, one rated 64 with a hidden ceiling of 99 and one rated 65 with none
+    ///   (close enough that a squad model reading the ceiling would prefer the first)
+    /// When the scouting duty picks whom to send the scout to
+    /// Then it goes by what the club can see, the 65: the in-charge does not read hidden potential.
+    #[test]
+    fn the_scouting_duty_ranks_by_the_public_rating_not_the_hidden_potential() {
+        let (mut g, hidden_gem, solid) = club_with_one_scout_and_two_prospects();
+        for (id, ovr, potential) in [(&hidden_gem, 64, 99), (&solid, 65, 65)] {
+            let p = g.players.iter_mut().find(|p| &p.id == id).unwrap();
+            p.ovr = ovr;
+            p.potential = potential;
+        }
+        delegate(&mut g, Duty::Scouting, false);
+        scouting::run(&mut g, "team1", 80.0);
+        assert_eq!(g.scouting_assignments.len(), 1);
+        assert_eq!(g.scouting_assignments[0].player_id, solid);
+    }
+
+    /// Given a player on the manager's shortlist with no report, and a better-rated candidate
+    /// When the scouting duty runs
+    /// Then the scout goes to the shortlisted player first: the manager asked for him.
+    #[test]
+    fn the_scouting_duty_follows_the_managers_shortlist_first() {
+        let (mut g, a, b) = club_with_one_scout_and_two_prospects();
+        g.players.iter_mut().find(|p| p.id == a).unwrap().ovr = 80;
+        g.players.iter_mut().find(|p| p.id == b).unwrap().ovr = 40;
+        crate::scouting_dossier::shortlist_add(&mut g, &b).unwrap();
+        delegate(&mut g, Duty::Scouting, false);
+        scouting::run(&mut g, "team1", 80.0);
+        assert_eq!(g.scouting_assignments[0].player_id, b);
+    }
+
+    /// Given reports the manager already has and a duty that has never reviewed any
+    /// When the scouting duty first runs
+    /// Then it shortlists nobody (they are not new to him) and starts reviewing from today.
+    #[test]
+    fn the_first_review_does_not_reach_back_over_reports_already_read() {
+        use crate::scouting_dossier::{Range, ScoutReport};
+        let (mut g, star, _) = club_with_one_scout_and_two_prospects();
+        {
+            let p = g.players.iter_mut().find(|p| p.id == star).unwrap();
+            p.ovr = 95;
+            p.market_value = 1_000;
+        }
+        g.scouting_dossier.reports.push(ScoutReport {
+            player_id: star.clone(),
+            scout_id: "scout1".into(),
+            scout_name: "S".into(),
+            scouted_on: "2026-08-01".into(),
+            judging_ability: 80,
+            judging_potential: 80,
+            reports: 1,
+            ability: Range { low: 92, high: 98 },
+            potential: None,
+            age: 20,
+            strengths: vec![],
+            weaknesses: vec![],
+        });
+        delegate(&mut g, Duty::Scouting, false);
+        scouting::run(&mut g, "team1", 80.0);
+        assert!(!g.scouting_dossier.is_shortlisted(&star));
+        assert!(!g.scouting_dossier.delegate_reviewed_through.is_empty());
+    }
+
+    /// Given a report on a player who would start for the side at a price the club can pay
+    /// When the scouting duty runs twice, with the manager taking him off the shortlist between
+    /// Then he is shortlisted once, with a log line, and not put back: a report is judged once.
+    #[test]
+    fn a_report_is_judged_once_and_a_removal_is_respected() {
+        use crate::scouting_dossier::{Range, ScoutReport};
+        let (mut g, star, _) = club_with_one_scout_and_two_prospects();
+        g.staff.retain(|s| {
+            s.role != domain::staff::StaffRole::Scout || s.team_id.as_deref() != Some("team1")
+        });
+        {
+            let p = g.players.iter_mut().find(|p| p.id == star).unwrap();
+            p.ovr = 95;
+            p.potential = 95;
+            p.market_value = 1_000;
+        }
+        g.scouting_dossier.reports.push(ScoutReport {
+            player_id: star.clone(),
+            scout_id: "scout1".into(),
+            scout_name: "S".into(),
+            scouted_on: "2026-08-01".into(),
+            judging_ability: 80,
+            judging_potential: 80,
+            reports: 1,
+            ability: Range { low: 92, high: 98 },
+            potential: Some(Range { low: 92, high: 98 }),
+            age: 20,
+            strengths: vec![],
+            weaknesses: vec![],
+        });
+        g.scouting_dossier.delegate_reviewed_through = "2026-07-31".into();
+        delegate(&mut g, Duty::Scouting, false);
+        scouting::run(&mut g, "team1", 80.0);
+        assert!(
+            g.scouting_dossier.is_shortlisted(&star),
+            "a star at a fair price is shortlisted"
+        );
+        assert!(
+            g.delegation
+                .log
+                .iter()
+                .any(|e| e.title_key == "delegation.log.scoutShortlisted")
+        );
+
+        crate::scouting_dossier::shortlist_remove(&mut g, &star).unwrap();
+        scouting::run(&mut g, "team1", 80.0);
+        assert!(
+            !g.scouting_dossier.is_shortlisted(&star),
+            "the manager's removal stands"
+        );
     }
 
     /// Given a duty that acts alone within the manager's ceilings (not Total authority) and a limit

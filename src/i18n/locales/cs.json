@@ -2197,7 +2197,93 @@
     "morale": "Morálka",
     "estimatedAttributes": "Odhadované atributy",
     "undiscovered": "Neobjeveno",
-    "confidence": "Spolehlivost odhadu"
+    "confidence": "Spolehlivost odhadu",
+    "dossier": {
+      "compareColumn": "Porovnat",
+      "colRating": "Hodnocení",
+      "colAbility": "Schopnost (rozpětí)",
+      "colPotential": "Potenciál (odhad)",
+      "colImpact": "Pro váš kádr",
+      "colWage": "Plat",
+      "colContract": "Konec smlouvy",
+      "unknown": "Neznámé",
+      "notJudged": "Neposouzeno",
+      "onShortlist": "Na vašem seznamu cílů",
+      "selectToCompare": "Porovnat: {{player}}",
+      "impact": {
+        "starter": "Byl by v základní sestavě",
+        "cover": "Přidal by hloubku",
+        "no_gain": "Zatím nic nepřidá"
+      },
+      "addShortlist": "Přidat do seznamu",
+      "removeShortlist": "Odebrat",
+      "ratingPublic": "Hodnocení {{value}}",
+      "reportSection": "Zpráva skauta",
+      "outlookTitle": "Výhled vývoje",
+      "outlook": {
+        "high_growth": "Velký růst",
+        "growing": "Roste",
+        "near_peak": "Blízko vrcholu",
+        "declining": "Upadá",
+        "unclear": "Nejasné"
+      },
+      "scoutedBy": "Zpráva od {{scout}} ze dne {{date}}.",
+      "reportsCombined": "Spojeno zpráv: {{count}}.",
+      "estimateNote": "Skutečná hodnota leží uvnitř každého rozpětí, ne však nutně uprostřed.",
+      "strengths": "Silné stránky",
+      "weaknesses": "Slabé stránky",
+      "noneStoodOut": "Nic nevynikalo",
+      "noReportYet": "Zatím ho nikdo neskautoval. Znáte jen jeho veřejné hodnocení.",
+      "financeTitle": "Finanční únosnost",
+      "freeNoFee": "Volný hráč: bez odstupného.",
+      "feeFits": "Odstupné ({{fee}}) se vejde do rozpočtu.",
+      "feeOver": "Odstupné ({{fee}}) překračuje rozpočet.",
+      "wageFits": "Jeho plat odpovídá vaší platové politice.",
+      "wageOver": "Jeho plat by porušil vaši platovou politiku.",
+      "contractUntil": "Smlouva do {{date}}",
+      "noContract": "Bez smlouvy",
+      "risksTitle": "Rizika náboru",
+      "noRisks": "Žádná výrazná rizika",
+      "makeBid": "Podat nabídku na transfer",
+      "offerContract": "Nabídnout smlouvu",
+      "scoutAgain": "Skautovat znovu",
+      "openProfile": "Otevřít profil",
+      "compareTitle": "Porovnání cílů",
+      "compareMeasure": "Ukazatel",
+      "fitsBudget": "Vejde se do rozpočtu",
+      "compare": "Porovnat ({{count}})",
+      "shortlistTitle": "Seznam cílů",
+      "shortlistHint": "Hráči, které sledujete. Vyberte dva až {{max}} pro porovnání.",
+      "loading": "Načítání zpráv…",
+      "noShortlist": "Na seznamu zatím nikdo není.",
+      "reportsTitle": "Skautské zprávy",
+      "reportsHint": "Co zjistili vaši skauti. Rozpětí obsahuje skutečnou hodnotu; lepší skaut nebo druhá návštěva ho zúží.",
+      "noReports": "Zatím žádné zprávy. Pošlete skauta za hráčem a začněte.",
+      "addShortlistFor": "Přidat hráče {{player}} na seznam",
+      "removeShortlistFor": "Odebrat hráče {{player}} ze seznamu"
+    },
+    "risk": {
+      "contractExpiring": "Smlouva končí do roka",
+      "injured": "Momentálně zraněn",
+      "ageing": "Po třicítce hrozí pokles výkonnosti",
+      "unscouted": "Nikdo ho neskautoval",
+      "staleReport": "Zpráva je z minulé sezony",
+      "uncertainEstimate": "Široký odhad: nízká jistota",
+      "feeOverBudget": "Odstupné překračuje rozpočet",
+      "wageOverPolicy": "Plat překračuje vaši politiku"
+    },
+    "filters": {
+      "status": "Skauting",
+      "any": "Libovolný",
+      "unscouted": "Neskautován",
+      "scouted": "Skautován",
+      "shortlisted": "Na seznamu",
+      "potentialMin": "Odhadovaný potenciál alespoň",
+      "potentialHint": "Jen skautovaní hráči",
+      "contractExpiring": "Smlouva končí do roka"
+    },
+    "cancelSearchFor": "Zrušit skauting hráče {{player}}",
+    "reassignSearchFor": "Předat skauting hráče {{player}} jinému skautovi"
   },
   "match": {
     "simulateWithM12": "Rychlá simulace",
@@ -3328,7 +3414,12 @@
         "playerAlreadyScouted": "Tento hráč již je skautován",
         "youthSearchAlreadyActive": "Odpovídající vyhledávání pro nábor mládeže je již aktivní",
         "youthAssignmentNotFound": "Úkol pro nábor mládeže nebyl nalezen",
-        "scoutAlreadyAssignedToSearch": "Skaut je již k tomuto vyhledávání přiřazen"
+        "scoutAlreadyAssignedToSearch": "Skaut je již k tomuto vyhledávání přiřazen",
+        "shortlistOwnPlayer": "Vlastní hráče nelze přidat na seznam",
+        "shortlistAlready": "Tento hráč už je na seznamu",
+        "shortlistFull": "Váš seznam je plný",
+        "shortlistNotListed": "Tento hráč na seznamu není",
+        "assignmentNotFound": "Skautský úkol nebyl nalezen"
       },
       "invalidPath": "Neplatná cesta.",
       "customTactic": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "Přestal sledovat hráče {{player}} ({{position}}): kádr ho už nepotřebuje",
       "ownerLeft": "Odpovědný člen týmu odešel, proto tuto povinnost převzal asistent trenéra.",
       "floorPromoted": "Kádr byl pod minimem, proto byl {{player}} povýšen z akademie",
-      "floorSigned": "Kádr byl pod minimem, proto byl jako volný hráč angažován {{player}}"
+      "floorSigned": "Kádr byl pod minimem, proto byl jako volný hráč angažován {{player}}",
+      "scoutShortlisted": "{{player}} přidán na seznam po zprávě skauta"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "Nejprve přijměte jejich podmínky; protinabídku nelze podepsat.",
     "signHintRefused": "Tento přestup v této podobě podepsat nelze.",
     "errorGeneric": "Trh nemohl požadavek dokončit. Zkuste to znovu."
+  },
+  "academy": {
+    "promotionBlocked": "V A-týmu není volné místo",
+    "unlistLoan": "Odebrat ze seznamu hostování",
+    "listLoan": "Zařadit na hostování",
+    "release": "Propustit",
+    "reviewTitle": "Přehled vývoje",
+    "reviewHint": "Každé hodnocení poměřuje hráče s hloubkou A-týmu na jeho postu. Nic z toho hráče nemění.",
+    "loading": "Načítání přehledu…",
+    "capacity": "A-tým: {{seniors}} z {{limit}}",
+    "nextIntake": "Příští nábor: {{count}}",
+    "ceiling": "Strop",
+    "expectedNext": "Očekáváno za rok",
+    "squadCover": "Hloubka kádru",
+    "verdict": "Posudek",
+    "verdicts": {
+      "ready_for_senior": "Připraven pro A-tým",
+      "keep_developing": "Dále rozvíjet",
+      "loan_candidate": "Kandidát na hostování",
+      "unlikely_to_progress": "Pravděpodobně se neprosadí"
+    },
+    "reason": {
+      "wouldStart": "Byl by v základní sestavě A-týmu",
+      "addsCover": "Přidá hloubku, kterou kádr potřebuje",
+      "succession": "Bude potřeba během několika sezon",
+      "injured": "Zraněn",
+      "tooYoungToJudge": "Příliš mladý na posouzení",
+      "ceilingBelowCover": "Ani jeho strop nedosahuje úrovně kádru",
+      "closeToSeniorLevel": "Blízko úrovni A-týmu",
+      "needsMatchMinutes": "Potřebuje pravidelné zápasy, které akademie nedá",
+      "stillImproving": "Stále se zlepšuje",
+      "nearCeiling": "Blízko svého stropu"
+    },
+    "ceilingNote": "Potenciál je strop, ne příslib: očekávané hodnocení ukazuje, co vývoj obvykle přinese.",
+    "promoteFor": "Povýšit hráče {{player}}",
+    "listLoanFor": "Zařadit hráče {{player}} na hostování",
+    "unlistLoanFor": "Odebrat hráče {{player}} ze seznamu hostování",
+    "releaseFor": "Propustit hráče {{player}}"
   }
 }

@@ -2197,7 +2197,93 @@
     "morale": "Moral",
     "estimatedAttributes": "Perkiraan Atribut",
     "undiscovered": "Belum terungkap",
-    "confidence": "Keyakinan"
+    "confidence": "Keyakinan",
+    "dossier": {
+      "compareColumn": "Bandingkan",
+      "colRating": "Peringkat",
+      "colAbility": "Kemampuan (kisaran)",
+      "colPotential": "Potensi (perkiraan)",
+      "colImpact": "Untuk skuad Anda",
+      "colWage": "Gaji",
+      "colContract": "Kontrak berakhir",
+      "unknown": "Tidak diketahui",
+      "notJudged": "Tidak dinilai",
+      "onShortlist": "Ada di daftar pantauan Anda",
+      "selectToCompare": "Bandingkan {{player}}",
+      "impact": {
+        "starter": "Akan jadi starter",
+        "cover": "Menambah cadangan",
+        "no_gain": "Belum menambah apa pun"
+      },
+      "addShortlist": "Tambah ke daftar",
+      "removeShortlist": "Hapus",
+      "ratingPublic": "Peringkat {{value}}",
+      "reportSection": "Laporan pemandu bakat",
+      "outlookTitle": "Prospek perkembangan",
+      "outlook": {
+        "high_growth": "Pertumbuhan tinggi",
+        "growing": "Berkembang",
+        "near_peak": "Mendekati puncak",
+        "declining": "Menurun",
+        "unclear": "Belum jelas"
+      },
+      "scoutedBy": "Dilaporkan oleh {{scout}} pada {{date}}.",
+      "reportsCombined": "{{count}} laporan digabungkan.",
+      "estimateNote": "Nilai sebenarnya berada di dalam setiap kisaran, tetapi belum tentu di tengah.",
+      "strengths": "Kekuatan",
+      "weaknesses": "Kelemahan",
+      "noneStoodOut": "Tidak ada yang menonjol",
+      "noReportYet": "Belum ada yang memantaunya. Hanya rating publiknya yang diketahui.",
+      "financeTitle": "Kesesuaian keuangan",
+      "freeNoFee": "Pemain bebas: tanpa biaya transfer.",
+      "feeFits": "Biaya ({{fee}}) sesuai anggaran Anda.",
+      "feeOver": "Biaya ({{fee}}) melebihi anggaran Anda.",
+      "wageFits": "Gajinya sesuai kebijakan gaji Anda.",
+      "wageOver": "Gajinya melanggar kebijakan gaji Anda.",
+      "contractUntil": "Kontrak hingga {{date}}",
+      "noContract": "Tanpa kontrak",
+      "risksTitle": "Risiko perekrutan",
+      "noRisks": "Tidak ada risiko berarti",
+      "makeBid": "Ajukan tawaran transfer",
+      "offerContract": "Tawarkan kontrak",
+      "scoutAgain": "Pantau lagi",
+      "openProfile": "Buka profil",
+      "compareTitle": "Bandingkan target",
+      "compareMeasure": "Ukuran",
+      "fitsBudget": "Sesuai anggaran",
+      "compare": "Bandingkan ({{count}})",
+      "shortlistTitle": "Daftar pantauan",
+      "shortlistHint": "Pemain yang Anda pantau. Pilih dua sampai {{max}} untuk dibandingkan.",
+      "loading": "Memuat laporan…",
+      "noShortlist": "Belum ada siapa pun di daftar Anda.",
+      "reportsTitle": "Laporan pemantauan",
+      "reportsHint": "Temuan pemandu bakat Anda. Kisaran memuat nilai sebenarnya; pemandu yang lebih baik atau pemantauan kedua mempersempitnya.",
+      "noReports": "Belum ada laporan. Kirim pemandu bakat ke seorang pemain untuk memulai.",
+      "addShortlistFor": "Tambahkan {{player}} ke daftar pantauan",
+      "removeShortlistFor": "Hapus {{player}} dari daftar pantauan"
+    },
+    "risk": {
+      "contractExpiring": "Kontrak berakhir dalam setahun",
+      "injured": "Sedang cedera",
+      "ageing": "Di atas 30: risiko penurunan",
+      "unscouted": "Belum ada yang memantaunya",
+      "staleReport": "Laporan berasal dari musim sebelumnya",
+      "uncertainEstimate": "Perkiraan lebar: keyakinan rendah",
+      "feeOverBudget": "Biaya melebihi anggaran",
+      "wageOverPolicy": "Gaji melebihi kebijakan Anda"
+    },
+    "filters": {
+      "status": "Pemantauan",
+      "any": "Semua",
+      "unscouted": "Belum dipantau",
+      "scouted": "Sudah dipantau",
+      "shortlisted": "Di daftar pantauan",
+      "potentialMin": "Potensi perkiraan minimal",
+      "potentialHint": "Hanya pemain yang dipantau",
+      "contractExpiring": "Kontrak berakhir dalam setahun"
+    },
+    "cancelSearchFor": "Batalkan pemantauan {{player}}",
+    "reassignSearchFor": "Alihkan pemantauan {{player}} ke pemandu lain"
   },
   "match": {
     "simulateWithM12": "Simulasi cepat",
@@ -3328,7 +3414,12 @@
         "playerAlreadyScouted": "Pemain ini sudah sedang discouting",
         "youthSearchAlreadyActive": "Pencarian rekrutmen pemuda yang cocok sudah aktif",
         "youthAssignmentNotFound": "Penugasan rekrutmen pemuda tidak ditemukan",
-        "scoutAlreadyAssignedToSearch": "Scout sudah ditugaskan ke pencarian ini"
+        "scoutAlreadyAssignedToSearch": "Scout sudah ditugaskan ke pencarian ini",
+        "shortlistOwnPlayer": "Pemain Anda sendiri tidak bisa masuk daftar pantauan",
+        "shortlistAlready": "Pemain ini sudah ada di daftar Anda",
+        "shortlistFull": "Daftar Anda penuh",
+        "shortlistNotListed": "Pemain ini tidak ada di daftar Anda",
+        "assignmentNotFound": "Tugas pemantauan tidak ditemukan"
       },
       "invalidPath": "Jalur tidak valid.",
       "customTactic": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "Berhenti mengejar {{player}} ({{position}}): skuad tidak lagi membutuhkannya",
       "ownerLeft": "Anggota staf penanggung jawab telah pergi, jadi asisten pelatih mengambil alih tugas ini.",
       "floorPromoted": "Skuad di bawah jumlah minimum, jadi {{player}} dipromosikan dari akademi",
-      "floorSigned": "Skuad di bawah jumlah minimum, jadi {{player}} direkrut sebagai pemain bebas kontrak"
+      "floorSigned": "Skuad di bawah jumlah minimum, jadi {{player}} direkrut sebagai pemain bebas kontrak",
+      "scoutShortlisted": "{{player}} masuk daftar setelah laporan pemandu bakat"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "Terima ketentuan mereka dulu; tawaran balik tidak bisa ditandatangani.",
     "signHintRefused": "Transfer ini tidak bisa ditandatangani sebagaimana adanya.",
     "errorGeneric": "Pasar tidak dapat menyelesaikan permintaan itu. Coba lagi."
+  },
+  "academy": {
+    "promotionBlocked": "Tidak ada slot skuad utama yang kosong",
+    "unlistLoan": "Hapus dari daftar pinjaman",
+    "listLoan": "Masukkan ke daftar pinjaman",
+    "release": "Lepaskan",
+    "reviewTitle": "Tinjauan perkembangan",
+    "reviewHint": "Setiap penilaian membandingkan pemain dengan cadangan yang sudah dimiliki skuad utama di posisinya. Tidak ada yang mengubah pemain di sini.",
+    "loading": "Memuat tinjauan…",
+    "capacity": "Skuad utama {{seniors}} dari {{limit}}",
+    "nextIntake": "Penerimaan berikutnya: {{count}}",
+    "ceiling": "Batas atas",
+    "expectedNext": "Perkiraan tahun depan",
+    "squadCover": "Cadangan skuad",
+    "verdict": "Penilaian",
+    "verdicts": {
+      "ready_for_senior": "Siap masuk skuad utama",
+      "keep_developing": "Terus dikembangkan",
+      "loan_candidate": "Kandidat dipinjamkan",
+      "unlikely_to_progress": "Kecil kemungkinan berkembang"
+    },
+    "reason": {
+      "wouldStart": "Akan jadi starter di skuad utama",
+      "addsCover": "Menambah cadangan yang dibutuhkan skuad",
+      "succession": "Akan dibutuhkan dalam beberapa musim",
+      "injured": "Cedera",
+      "tooYoungToJudge": "Terlalu muda untuk dinilai",
+      "ceilingBelowCover": "Bahkan batas atasnya di bawah cadangan skuad Anda",
+      "closeToSeniorLevel": "Mendekati level skuad utama",
+      "needsMatchMinutes": "Butuh pertandingan rutin yang tidak bisa diberikan akademi",
+      "stillImproving": "Masih berkembang",
+      "nearCeiling": "Mendekati batas atasnya"
+    },
+    "ceilingNote": "Potensi adalah batas atas, bukan janji: rating perkiraan menunjukkan hasil pembinaan yang lazim.",
+    "promoteFor": "Promosikan {{player}}",
+    "listLoanFor": "Masukkan {{player}} ke daftar pinjaman",
+    "unlistLoanFor": "Hapus {{player}} dari daftar pinjaman",
+    "releaseFor": "Lepaskan {{player}}"
   }
 }

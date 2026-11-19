@@ -2197,7 +2197,93 @@
     "morale": "Moral",
     "estimatedAttributes": "Attributs estimés",
     "undiscovered": "Non découvert",
-    "confidence": "Confiance"
+    "confidence": "Confiance",
+    "dossier": {
+      "compareColumn": "Comparer",
+      "colRating": "Note",
+      "colAbility": "Niveau (fourchette)",
+      "colPotential": "Potentiel (est.)",
+      "colImpact": "Pour votre effectif",
+      "colWage": "Salaire",
+      "colContract": "Fin du contrat",
+      "unknown": "Inconnu",
+      "notJudged": "Non évalué",
+      "onShortlist": "Dans votre liste de suivi",
+      "selectToCompare": "Comparer {{player}}",
+      "impact": {
+        "starter": "Serait titulaire",
+        "cover": "Apporterait de la profondeur",
+        "no_gain": "N'apporte rien pour l'instant"
+      },
+      "addShortlist": "Suivre",
+      "removeShortlist": "Retirer",
+      "ratingPublic": "Note {{value}}",
+      "reportSection": "Rapport du recruteur",
+      "outlookTitle": "Perspectives de progression",
+      "outlook": {
+        "high_growth": "Forte progression",
+        "growing": "En progression",
+        "near_peak": "Proche de son pic",
+        "declining": "En déclin",
+        "unclear": "Incertain"
+      },
+      "scoutedBy": "Rapport de {{scout}} le {{date}}.",
+      "reportsCombined": "{{count}} rapports combinés.",
+      "estimateNote": "La vraie valeur se situe dans chaque fourchette, mais pas forcément au milieu.",
+      "strengths": "Points forts",
+      "weaknesses": "Points faibles",
+      "noneStoodOut": "Rien de marquant",
+      "noReportYet": "Personne ne l'a encore observé. Seule sa note publique est connue.",
+      "financeTitle": "Adéquation financière",
+      "freeNoFee": "Joueur libre : pas d'indemnité.",
+      "feeFits": "L'indemnité ({{fee}}) rentre dans votre budget.",
+      "feeOver": "L'indemnité ({{fee}}) dépasse votre budget.",
+      "wageFits": "Son salaire respecte votre politique salariale.",
+      "wageOver": "Son salaire enfreindrait votre politique salariale.",
+      "contractUntil": "Contrat jusqu'au {{date}}",
+      "noContract": "Sans contrat",
+      "risksTitle": "Risques de recrutement",
+      "noRisks": "Aucun risque notable",
+      "makeBid": "Faire une offre de transfert",
+      "offerContract": "Proposer un contrat",
+      "scoutAgain": "Réobserver",
+      "openProfile": "Ouvrir le profil",
+      "compareTitle": "Comparer les cibles",
+      "compareMeasure": "Critère",
+      "fitsBudget": "Dans votre budget",
+      "compare": "Comparer ({{count}})",
+      "shortlistTitle": "Liste de suivi",
+      "shortlistHint": "Joueurs que vous suivez. Sélectionnez de deux à {{max}} pour les comparer.",
+      "loading": "Chargement des rapports…",
+      "noShortlist": "Personne dans votre liste pour l'instant.",
+      "reportsTitle": "Rapports de recrutement",
+      "reportsHint": "Ce que vos recruteurs ont trouvé. Les fourchettes contiennent la vraie note ; un meilleur recruteur, ou une seconde visite, la resserre.",
+      "noReports": "Aucun rapport pour l'instant. Envoyez un recruteur voir un joueur pour commencer.",
+      "addShortlistFor": "Ajouter {{player}} à votre liste",
+      "removeShortlistFor": "Retirer {{player}} de votre liste"
+    },
+    "risk": {
+      "contractExpiring": "Contrat à moins d'un an de son terme",
+      "injured": "Actuellement blessé",
+      "ageing": "Passé 30 ans : le déclin est un risque",
+      "unscouted": "Personne ne l'a observé",
+      "staleReport": "Le rapport date d'une saison précédente",
+      "uncertainEstimate": "Estimation large : faible confiance",
+      "feeOverBudget": "L'indemnité dépasse votre budget",
+      "wageOverPolicy": "Le salaire dépasse votre politique"
+    },
+    "filters": {
+      "status": "Observation",
+      "any": "Tous",
+      "unscouted": "Non observé",
+      "scouted": "Observé",
+      "shortlisted": "Dans la liste",
+      "potentialMin": "Potentiel estimé minimum",
+      "potentialHint": "Joueurs observés uniquement",
+      "contractExpiring": "Contrat à moins d'un an de son terme"
+    },
+    "cancelSearchFor": "Annuler l'observation de {{player}}",
+    "reassignSearchFor": "Confier l'observation de {{player}} à un autre recruteur"
   },
   "match": {
     "simulateWithM12": "Simulation rapide",
@@ -3320,7 +3406,12 @@
         "playerAlreadyScouted": "Ce joueur est déjà observé",
         "youthSearchAlreadyActive": "Une recherche de recrutement jeune identique est déjà active",
         "youthAssignmentNotFound": "Mission de recrutement jeune introuvable",
-        "scoutAlreadyAssignedToSearch": "Le recruteur est déjà affecté à cette recherche"
+        "scoutAlreadyAssignedToSearch": "Le recruteur est déjà affecté à cette recherche",
+        "shortlistOwnPlayer": "Vos propres joueurs ne peuvent pas être suivis",
+        "shortlistAlready": "Ce joueur est déjà dans votre liste",
+        "shortlistFull": "Votre liste est pleine",
+        "shortlistNotListed": "Ce joueur n'est pas dans votre liste",
+        "assignmentNotFound": "Mission d'observation introuvable"
       },
       "invalidPath": "Chemin invalide.",
       "conflict": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "A cessé de viser {{player}} ({{position}}) : l'effectif n'a plus besoin de lui",
       "ownerLeft": "Le membre du staff responsable est parti : l'entraîneur adjoint reprend cette tâche.",
       "floorPromoted": "L'effectif était sous le minimum : {{player}} a été promu depuis l'académie",
-      "floorSigned": "L'effectif était sous le minimum : {{player}} a été recruté libre de tout contrat"
+      "floorSigned": "L'effectif était sous le minimum : {{player}} a été recruté libre de tout contrat",
+      "scoutShortlisted": "{{player}} ajouté à la liste après le rapport du recruteur"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "Acceptez d'abord leurs conditions ; une contre-offre ne peut pas être signée.",
     "signHintRefused": "Ce transfert ne peut pas être signé en l'état.",
     "errorGeneric": "Le marché n'a pas pu terminer cette demande. Réessayez."
+  },
+  "academy": {
+    "promotionBlocked": "Aucune place libre en équipe première",
+    "unlistLoan": "Retirer de la liste de prêts",
+    "listLoan": "Mettre sur la liste de prêts",
+    "release": "Libérer",
+    "reviewTitle": "Bilan de progression",
+    "reviewHint": "Chaque avis compare le joueur à la profondeur que votre équipe première a déjà à son poste. Rien ici ne modifie un joueur.",
+    "loading": "Chargement du bilan…",
+    "capacity": "Équipe première : {{seniors}} sur {{limit}}",
+    "nextIntake": "Prochaine promotion : {{count}}",
+    "ceiling": "Plafond",
+    "expectedNext": "Attendu l'an prochain",
+    "squadCover": "Profondeur actuelle",
+    "verdict": "Avis",
+    "verdicts": {
+      "ready_for_senior": "Prêt pour l'équipe première",
+      "keep_developing": "Continuer à former",
+      "loan_candidate": "Candidat au prêt",
+      "unlikely_to_progress": "Peu susceptible de progresser"
+    },
+    "reason": {
+      "wouldStart": "Serait titulaire en équipe première",
+      "addsCover": "Apporte la profondeur dont l'effectif a besoin",
+      "succession": "Sera nécessaire d'ici quelques saisons",
+      "injured": "Blessé",
+      "tooYoungToJudge": "Trop jeune pour juger",
+      "ceilingBelowCover": "Même son plafond est sous le niveau de votre effectif",
+      "closeToSeniorLevel": "Proche du niveau de l'équipe première",
+      "needsMatchMinutes": "A besoin de matchs réguliers que l'académie ne peut offrir",
+      "stillImproving": "Progresse encore",
+      "nearCeiling": "Proche de son plafond"
+    },
+    "ceilingNote": "Le potentiel est un plafond, pas une promesse : la note attendue montre ce que la progression apporte d'ordinaire.",
+    "promoteFor": "Promouvoir {{player}}",
+    "listLoanFor": "Mettre {{player}} sur la liste de prêts",
+    "unlistLoanFor": "Retirer {{player}} de la liste de prêts",
+    "releaseFor": "Libérer {{player}}"
   }
 }

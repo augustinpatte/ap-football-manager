@@ -222,6 +222,7 @@ fn write_game_to_connection(
         })
         .collect::<Result<Vec<_>, String>>()?;
     scouting_repo::upsert_scouted_players_list(conn, &scouted_rows)?;
+    scouting_repo::replace_dossier(conn, &game.scouting_dossier)?;
 
     let youth_scouting_rows: Vec<scouting_repo::YouthScoutingAssignmentRow> = game
         .youth_scouting_assignments
@@ -357,6 +358,7 @@ impl GamePersistenceReader {
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
+        let scouting_dossier = scouting_repo::load_dossier(conn)?;
         let youth_scouting_rows = scouting_repo::load_all_youth_scouting(conn)?;
         let youth_scouting_assignments: Vec<YouthScoutingAssignment> = youth_scouting_rows
             .into_iter()
@@ -399,6 +401,7 @@ impl GamePersistenceReader {
             scouting_assignments,
             youth_scouting_assignments,
             scouted_players,
+            scouting_dossier,
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: meta.days_since_last_job_offer,

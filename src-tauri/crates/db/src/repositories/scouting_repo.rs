@@ -1,4 +1,5 @@
-use rusqlite::{Connection, params};
+use ofm_core::scouting_dossier::ScoutingDossier;
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
@@ -176,6 +177,37 @@ pub fn load_all_youth_scouting(
     Ok(assignments)
 }
 
+/// Stores the scouting dossier (reports and shortlist) as one JSON row. Runs in the caller's
+/// transaction.
+pub fn replace_dossier(conn: &Connection, dossier: &ScoutingDossier) -> Result<(), String> {
+    let json =
+        serde_json::to_string(dossier).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO scouting_dossier (id, state_json) VALUES (1, ?1)",
+        params![json],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
+/// The stored dossier; a save from before the table existed has none and gets an empty one.
+pub fn load_dossier(conn: &Connection) -> Result<ScoutingDossier, String> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT state_json FROM scouting_dossier WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+    match json {
+        Some(json) => {
+            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
+        }
+        None => Ok(ScoutingDossier::default()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,6 +216,24 @@ mod tests {
 
     fn test_db() -> GameDatabase {
         GameDatabase::open_in_memory().unwrap()
+    }
+
+    /// Given a save with no dossier row (one written before the table existed)
+    /// When the dossier is loaded
+    /// Then it is empty rather than an error, and a stored one round-trips.
+    #[test]
+    fn a_save_with_no_dossier_row_loads_an_empty_dossier() {
+        let db = test_db();
+        assert_eq!(load_dossier(db.conn()).unwrap(), ScoutingDossier::default());
+        let mut dossier = ScoutingDossier::default();
+        dossier
+            .shortlist
+            .push(ofm_core::scouting_dossier::ShortlistEntry {
+                player_id: "p".into(),
+                added_on: "2026-08-01".into(),
+            });
+        replace_dossier(db.conn(), &dossier).unwrap();
+        assert_eq!(load_dossier(db.conn()).unwrap(), dossier);
     }
 
     #[test]

@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 69;
+const EXPECTED_MIGRATION_COUNT: usize = 70;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -192,6 +192,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("v068_compressed_retiree_archives.sql", include_str!("sql/v068_compressed_retiree_archives.sql")),
     // V69: the job-offer clock, so a reloaded career gets its next offer on the same day
     ("v069_job_offer_clock.sql", include_str!("sql/v069_job_offer_clock.sql")),
+    // V70: The scouting dossier: reports as estimate ranges, and the shortlist
+    ("v070_scouting_dossier.sql", include_str!("sql/v070_scouting_dossier.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -1096,6 +1098,7 @@ mod tests {
     ("v067_compressed_archive_and_replays.sql", 0x3e6ec1017c142503),
     ("v068_compressed_retiree_archives.sql", 0xbd67d52ff2973a0e),
     ("v069_job_offer_clock.sql", 0x4b824d0d58b44e84),
+    ("v070_scouting_dossier.sql", 0x908f34894e0b47e8),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

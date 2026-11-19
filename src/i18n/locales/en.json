@@ -2197,7 +2197,93 @@
     "morale": "Morale",
     "estimatedAttributes": "Estimated Attributes",
     "undiscovered": "Not discovered",
-    "confidence": "Confidence"
+    "confidence": "Confidence",
+    "dossier": {
+      "compareColumn": "Compare",
+      "colRating": "Rating",
+      "colAbility": "Ability (range)",
+      "colPotential": "Potential (est.)",
+      "colImpact": "For your squad",
+      "colWage": "Wage",
+      "colContract": "Contract ends",
+      "unknown": "Unknown",
+      "notJudged": "Not judged",
+      "onShortlist": "On your shortlist",
+      "selectToCompare": "Compare {{player}}",
+      "impact": {
+        "starter": "Would start",
+        "cover": "Would add cover",
+        "no_gain": "Adds nothing now"
+      },
+      "addShortlist": "Shortlist",
+      "removeShortlist": "Remove",
+      "ratingPublic": "Rating {{value}}",
+      "reportSection": "Scout's report",
+      "outlookTitle": "Development outlook",
+      "outlook": {
+        "high_growth": "High growth",
+        "growing": "Growing",
+        "near_peak": "Near his peak",
+        "declining": "Declining",
+        "unclear": "Unclear"
+      },
+      "scoutedBy": "Reported by {{scout}} on {{date}}.",
+      "reportsCombined": "{{count}} reports combined.",
+      "estimateNote": "The true value lies inside each range, though not necessarily in the middle.",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "noneStoodOut": "None stood out",
+      "noReportYet": "Nobody has scouted him yet. Only his public rating is known.",
+      "financeTitle": "Financial fit",
+      "freeNoFee": "Free agent: no transfer fee.",
+      "feeFits": "The fee ({{fee}}) fits your budget.",
+      "feeOver": "The fee ({{fee}}) is beyond your budget.",
+      "wageFits": "His wage is within your wage policy.",
+      "wageOver": "His wage would break your wage policy.",
+      "contractUntil": "Contract until {{date}}",
+      "noContract": "No contract",
+      "risksTitle": "Recruitment risks",
+      "noRisks": "No notable risks",
+      "makeBid": "Make a transfer bid",
+      "offerContract": "Offer a contract",
+      "scoutAgain": "Scout again",
+      "openProfile": "Open profile",
+      "compareTitle": "Compare targets",
+      "compareMeasure": "Measure",
+      "fitsBudget": "Fits your budget",
+      "compare": "Compare ({{count}})",
+      "shortlistTitle": "Shortlist",
+      "shortlistHint": "Players you are following. Select two to {{max}} to compare them.",
+      "loading": "Loading reports…",
+      "noShortlist": "Nobody on your shortlist yet.",
+      "reportsTitle": "Scouting reports",
+      "reportsHint": "What your scouts found. Ranges hold the true rating; a better scout, or a second look, gives a tighter one.",
+      "noReports": "No reports yet. Send a scout to a player to start your dossier.",
+      "addShortlistFor": "Add {{player}} to your shortlist",
+      "removeShortlistFor": "Remove {{player}} from your shortlist"
+    },
+    "risk": {
+      "contractExpiring": "Contract ends within a year",
+      "injured": "Currently injured",
+      "ageing": "Past 30: decline is a risk",
+      "unscouted": "Nobody has scouted him",
+      "staleReport": "Report is from an earlier season",
+      "uncertainEstimate": "Wide estimate: low confidence",
+      "feeOverBudget": "Fee is beyond your budget",
+      "wageOverPolicy": "Wage is beyond your policy"
+    },
+    "filters": {
+      "status": "Scouting",
+      "any": "Any",
+      "unscouted": "Not scouted",
+      "scouted": "Scouted",
+      "shortlisted": "Shortlisted",
+      "potentialMin": "Estimated potential at least",
+      "potentialHint": "Scouted players only",
+      "contractExpiring": "Contract ends within a year"
+    },
+    "cancelSearchFor": "Cancel the search on {{player}}",
+    "reassignSearchFor": "Hand the search on {{player}} to another scout"
   },
   "match": {
     "simulateWithM12": "Quick simulation",
@@ -3328,7 +3414,12 @@
         "playerAlreadyScouted": "This player is already being scouted",
         "youthSearchAlreadyActive": "A matching youth recruitment search is already active",
         "youthAssignmentNotFound": "Youth recruitment assignment not found",
-        "scoutAlreadyAssignedToSearch": "Scout is already assigned to this search"
+        "scoutAlreadyAssignedToSearch": "Scout is already assigned to this search",
+        "shortlistOwnPlayer": "Your own players cannot be shortlisted",
+        "shortlistAlready": "This player is already on your shortlist",
+        "shortlistFull": "Your shortlist is full",
+        "shortlistNotListed": "This player is not on your shortlist",
+        "assignmentNotFound": "Scouting assignment not found"
       },
       "invalidPath": "Invalid path.",
       "customTactic": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "Stopped chasing {{player}} ({{position}}): the squad no longer needs him",
       "ownerLeft": "The staff member in charge has left, so the assistant manager has taken this duty back.",
       "floorPromoted": "The squad was below the minimum, so {{player}} was promoted from the academy",
-      "floorSigned": "The squad was below the minimum, so {{player}} was signed as a free agent"
+      "floorSigned": "The squad was below the minimum, so {{player}} was signed as a free agent",
+      "scoutShortlisted": "Shortlisted {{player}} after the scout's report"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "Use their terms first; a counter-offer cannot be signed.",
     "signHintRefused": "This move cannot be signed as it stands.",
     "errorGeneric": "The market could not complete that request. Try again."
+  },
+  "academy": {
+    "promotionBlocked": "No senior place is free",
+    "unlistLoan": "Remove from loan list",
+    "listLoan": "List for loan",
+    "release": "Release",
+    "reviewTitle": "Development review",
+    "reviewHint": "Each judgement weighs the player against the cover your senior squad already has in his position. Nothing here changes a player.",
+    "loading": "Loading the review…",
+    "capacity": "Senior squad {{seniors}} of {{limit}}",
+    "nextIntake": "Next intake: {{count}}",
+    "ceiling": "Ceiling",
+    "expectedNext": "Expected next year",
+    "squadCover": "Squad cover",
+    "verdict": "Verdict",
+    "verdicts": {
+      "ready_for_senior": "Ready for the senior squad",
+      "keep_developing": "Keep developing",
+      "loan_candidate": "Loan candidate",
+      "unlikely_to_progress": "Unlikely to progress"
+    },
+    "reason": {
+      "wouldStart": "Would start for your senior side",
+      "addsCover": "Adds cover your squad needs",
+      "succession": "Will be needed within a few seasons",
+      "injured": "Injured",
+      "tooYoungToJudge": "Too young to judge",
+      "ceilingBelowCover": "Even his ceiling is below your squad's cover",
+      "closeToSeniorLevel": "Close to senior level",
+      "needsMatchMinutes": "Needs regular matches the academy cannot give",
+      "stillImproving": "Still improving",
+      "nearCeiling": "Near his ceiling"
+    },
+    "ceilingNote": "Potential is a ceiling, not a promise: the expected rating shows what development usually delivers.",
+    "promoteFor": "Promote {{player}}",
+    "listLoanFor": "List {{player}} for loan",
+    "unlistLoanFor": "Remove {{player}} from the loan list",
+    "releaseFor": "Release {{player}}"
   }
 }

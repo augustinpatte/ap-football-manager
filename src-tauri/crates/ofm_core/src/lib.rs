@@ -1,3 +1,4 @@
+pub mod academy_review;
 pub mod advance_results;
 pub mod aging;
 pub mod ai_budget_review;
@@ -81,6 +82,8 @@ pub mod retirees;
 pub mod roster;
 pub mod schedule;
 pub mod scouting;
+pub mod scouting_dossier;
+pub mod scouting_view;
 pub mod season_awards;
 pub mod season_context;
 pub mod seed;

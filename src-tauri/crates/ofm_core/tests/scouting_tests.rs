@@ -929,7 +929,8 @@ fn high_judging_potential_gives_specific_assessment() {
 #[test]
 fn low_judging_potential_gives_unclear_assessment() {
     let mut game = make_game();
-    game.staff[0].attributes.judging_potential = 40;
+    // Below 30 a scout cannot read potential at all; above it he gives a range, however wide.
+    game.staff[0].attributes.judging_potential = 25;
     send_scout(&mut game, "scout1", "p2").unwrap();
     complete_scouting(&mut game);
 
@@ -1118,7 +1119,8 @@ fn a_scouting_assignment_has_an_id_made_from_what_it_is() {
 
 /// Given a scout sent to a player at another club
 /// When the assignment completes
-/// Then the game records that player as scouted, dated, with the attributes the scout saw
+/// Then the game records that player as scouted, dated, with the attributes as the scout read
+///      them: each within his error of the truth, so the snapshot cannot be more exact than he is
 #[test]
 fn a_completed_assignment_records_the_scouted_player() {
     let mut game = make_game();
@@ -1136,8 +1138,9 @@ fn a_completed_assignment_records_the_scouted_player() {
     let scouted = &game.scouted_players[0];
     assert_eq!(scouted.player_id, "p2");
     assert!(scouted.scouted_on.as_str() >= "2025-06-15");
-    assert_eq!(scouted.attributes.pace, seen.pace);
-    assert_eq!(scouted.attributes.passing, seen.passing);
+    // The scout is rated 80: every attribute is read to within two points.
+    assert!(scouted.attributes.pace.abs_diff(seen.pace) <= 2);
+    assert!(scouted.attributes.passing.abs_diff(seen.passing) <= 2);
 }
 
 /// Given a player scouted earlier
@@ -1179,6 +1182,48 @@ fn scouting_a_player_again_replaces_the_record() {
     complete_scouting(&mut game);
 
     assert_eq!(game.scouted_players.len(), 1);
-    assert_eq!(game.scouted_players[0].attributes.pace, 99);
+    assert!(
+        game.scouted_players[0].attributes.pace >= 97,
+        "the new reading follows him"
+    );
     assert!(game.scouted_players[0].scouted_on.as_str() > first_scouted_on.as_str());
+}
+
+/// Given a poor scout (judging 20) and an excellent one (judging 95) reporting on the same player
+/// When their attribute snapshots are compared with the truth
+/// Then the poor scout's snapshot differs from the truth in some attribute (by at most 12) and the
+///      excellent scout's never by more than 2: the snapshot can be no more exact than the scout.
+#[test]
+fn a_snapshot_is_only_as_exact_as_the_scout() {
+    let worst_error = |judging: u8| {
+        let mut game = make_game();
+        game.staff[0].attributes.judging_ability = judging;
+        let truth = game
+            .players
+            .iter()
+            .find(|p| p.id == "p2")
+            .unwrap()
+            .attributes
+            .clone();
+        send_scout(&mut game, "scout1", "p2").unwrap();
+        complete_scouting(&mut game);
+        let seen = &game.scouted_players[0].attributes;
+        [
+            (seen.pace, truth.pace),
+            (seen.stamina, truth.stamina),
+            (seen.passing, truth.passing),
+            (seen.shooting, truth.shooting),
+            (seen.defending, truth.defending),
+            (seen.vision, truth.vision),
+            (seen.composure, truth.composure),
+            (seen.aerial, truth.aerial),
+        ]
+        .iter()
+        .map(|(a, b)| a.abs_diff(*b))
+        .max()
+        .unwrap()
+    };
+    let poor = worst_error(20);
+    assert!(poor > 2 && poor <= 12, "poor scout's worst error {poor}");
+    assert!(worst_error(95) <= 2);
 }

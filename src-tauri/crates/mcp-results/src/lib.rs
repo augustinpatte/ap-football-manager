@@ -318,6 +318,69 @@ mod tests {
         assert!(text.contains("| a1 | S. Cout | A. Player | 5 |"));
     }
 
+    /// Given a dossier with one scouted and one unscouted shortlisted player, and an academy review
+    /// When they are rendered and sent over the wire
+    /// Then the scouted player shows ranges, the unscouted one shows dashes (never a number nobody
+    ///      earned), the academy says its potential is a ceiling, and every struct round-trips.
+    #[test]
+    fn the_dossier_and_the_academy_review_show_only_what_is_known() {
+        let row = |id: &str, known: bool| scouting::DossierRow {
+            player_id: id.to_string(),
+            player_name: format!("Player {id}"),
+            position: "Striker".to_string(),
+            age: 19,
+            team: None,
+            public_rating: 61,
+            ability_range: known.then(|| "58-66".to_string()),
+            potential_range: known.then(|| "70-84".to_string()),
+            confidence: known.then(|| "moderate".to_string()),
+            outlook: "HighGrowth".to_string(),
+            squad_impact: Some("Cover".to_string()),
+            fee_affordable: None,
+            wage_permitted: true,
+            risks: vec!["unscouted".to_string()],
+        };
+        let dossier = scouting::ScoutDossier {
+            shortlist: vec![row("p2", false)],
+            reports: vec![row("p1", true)],
+        };
+        let text = dossier.to_string();
+        assert!(text
+            .contains("| p1 | Player p1 | Striker | 19 | Free | 61 | 58-66 | 70-84 | moderate |"));
+        assert!(text.contains("| p2 | Player p2 | Striker | 19 | Free | 61 | - | - | - |"));
+        round_trips(dossier);
+
+        let review = scouting::AcademyReviewResult {
+            seniors: 24,
+            senior_limit: 30,
+            next_intake: 2,
+            rows: vec![scouting::AcademyRowResult {
+                player_id: "y1".to_string(),
+                player_name: "Kai Youth".to_string(),
+                age: 18,
+                position: "Midfielder".to_string(),
+                rating: 58,
+                potential_ceiling: 74,
+                expected_rating_next_year: 62,
+                verdict: "ReadyForSenior".to_string(),
+                reasons: vec!["addsCover".to_string()],
+                promotion_blocked: true,
+            }],
+        };
+        let text = review.to_string();
+        assert!(text.contains("Senior squad 24/30"));
+        assert!(text.contains("ReadyForSenior (no senior place)"));
+        assert!(text.contains("Potential is a ceiling, not a promise"));
+        round_trips(review);
+        round_trips(scouting::ShortlistChanged {
+            player_name: "A".to_string(),
+            shortlisted: true,
+        });
+        round_trips(scouting::ScoutingCancelled {
+            assignment_id: "a".to_string(),
+        });
+    }
+
     /// Given a match-roles update that sets only a captain
     /// When it is rendered
     /// Then the text names the captain and shows the other roles as none, instead of claiming all were set.

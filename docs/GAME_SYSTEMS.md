@@ -181,7 +181,7 @@ Each team can employ staff in 4 roles:
 |------|----------------|-------|
 | **Assistant Manager** | Coaching quality | Counts as coaching staff for training calculations |
 | **Coach** | Coaching quality + specialization bonus | Primary training contributor |
-| **Scout** | — | (Future: scouting reports) |
+| **Scout** | — | Scouting reports (see [Scouting](#scouting-and-the-academy-review)) |
 | **Physio** | Recovery multiplier | Boosts condition recovery for all training |
 
 ### Staff Attributes
@@ -335,7 +335,7 @@ The inbox system provides contextual communication from in-game characters. Mess
 | Transfer | (Future) | Transfer offers |
 | Injury | After a club match that injures one of your players | The head physio's report: the injury and the expected time out (`be.msg.matchInjury.*`) |
 | Contract | (Future) | Contract negotiations |
-| ScoutReport | (Future) | Player scouting |
+| ScoutReport | Scout | The scout's report on a player or a youth search; the report itself is kept in the scouting dossier |
 | Media | (Future) | Press stories |
 | System | System | Technical messages |
 
@@ -727,6 +727,33 @@ Measured on a seeded compact world with a league: the world opens below the inta
 grows for about a dozen seasons, and then holds at about a fifth above its opening size, with around
 six academy players and seven free agents per club. `tests/squad_floor_seasons.rs` asserts that
 band over twelve seasons on three seeds.
+
+## Scouting and the academy review
+
+Full design and measurements: [`APFM_I7_SCOUTING_YOUTH.md`](APFM_I7_SCOUTING_YOUTH.md).
+
+A scout sent to a player (2 to 5 days by his judging, 2 more for a player outside the manager's
+division) writes a **report of ranges**, not of hidden values: a range for current ability and, for a
+scout who can judge it, a wider one for potential. The truth is always inside a range but the centre
+is not the truth; a better scout gives a narrower range, and a second report in the same season is
+narrowed against the first (`ofm_core::scouting_dossier`). Reports and the manager's **shortlist**
+(at most 30) are the *scouting dossier*, saved with the game (migration v070). The profile's
+attribute snapshot is what the scout read, each attribute off by up to his error.
+
+The screens read one projection (`scouting_view`): the player's public facts, the club's report, a
+development outlook, what the I4A squad model says he would add *as the club believes him to be*
+(starter, cover, nothing), whether the fee fits the budget and the wage fits the board's policy, and
+the recruitment risks. Players are compared side by side from the shortlist or the reports; a bid or
+free-agent offer goes through the existing transfer flows.
+
+The delegated **scouting duty** sends idle scouts first to the manager's shortlisted players without a
+current report, then to players for the positions the squad model says are weak (ranked on public
+ratings, never on hidden potential), and shortlists each new report that would start or cover for the
+side at a price the club can pay, once.
+
+The **academy review** (`academy_review`) puts each academy player in one of four verdicts: ready for
+the senior squad (the same pathway question the AI clubs ask when they promote), a loan candidate,
+keep developing, or unlikely to progress, with the reasons. It never changes a player.
 
 ## Free-agent negotiations
 

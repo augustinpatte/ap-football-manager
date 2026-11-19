@@ -1,7 +1,7 @@
 import { useRatingTiers } from "../../hooks/useRatingTiers";
 import { isEliteTier, ratingTierClass, ratingTierLetterKey } from "../../lib/ratingTier";
 import { useEffect, useRef, useState } from "react";
-import type { GameStateData } from "../../store/gameStore";
+import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useGameStore } from "../../store/gameStore";
 import { useFetchedSquad } from "../../hooks/useFetchedSquad";
 import { getStaff, type StaffSlice } from "../../services/staffService";
@@ -46,10 +46,11 @@ import type { PlayerSquadRole } from "../../store/types";
 import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
 import ScoutingYouthRecruitmentCard from "../scouting/ScoutingYouthRecruitmentCard";
 import { naturalPositionOf } from "../../lib/positions";
+import AcademyReviewCard from "./review/AcademyReviewCard";
 
 interface YouthAcademyTabProps {
   gameState: GameStateData | null;
-  onSelectPlayer?: (id: string) => void;
+  onSelectPlayer?: (id: string, options?: PlayerSelectionOptions) => void;
   onGameUpdate?: (game: GameStateData) => void;
   onNavigate?: (tab: string, context?: DashboardNavigateContext) => void;
 }
@@ -279,6 +280,12 @@ export default function YouthAcademyTab({
           </CardBody>
         </Card>
       </div>
+
+      <AcademyReviewCard
+        gameState={gameState}
+        onGameUpdate={onGameUpdate}
+        onSelectPlayer={onSelectPlayer}
+      />
 
       <Card accent="primary">
         <CardHeader

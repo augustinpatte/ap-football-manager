@@ -2197,7 +2197,93 @@
     "morale": "Moral",
     "estimatedAttributes": "Atributos estimados",
     "undiscovered": "No descubierto",
-    "confidence": "Confianza"
+    "confidence": "Confianza",
+    "dossier": {
+      "compareColumn": "Comparar",
+      "colRating": "Valoración",
+      "colAbility": "Habilidad (rango)",
+      "colPotential": "Potencial (est.)",
+      "colImpact": "Para tu plantilla",
+      "colWage": "Salario",
+      "colContract": "Fin de contrato",
+      "unknown": "Desconocido",
+      "notJudged": "Sin valorar",
+      "onShortlist": "En tu lista de objetivos",
+      "selectToCompare": "Comparar a {{player}}",
+      "impact": {
+        "starter": "Sería titular",
+        "cover": "Aportaría profundidad",
+        "no_gain": "No aporta ahora"
+      },
+      "addShortlist": "Añadir a la lista",
+      "removeShortlist": "Quitar",
+      "ratingPublic": "Valoración {{value}}",
+      "reportSection": "Informe del ojeador",
+      "outlookTitle": "Perspectiva de desarrollo",
+      "outlook": {
+        "high_growth": "Gran crecimiento",
+        "growing": "En crecimiento",
+        "near_peak": "Cerca de su techo",
+        "declining": "En declive",
+        "unclear": "Poco claro"
+      },
+      "scoutedBy": "Informe de {{scout}} el {{date}}.",
+      "reportsCombined": "{{count}} informes combinados.",
+      "estimateNote": "El valor real está dentro de cada rango, aunque no necesariamente en el centro.",
+      "strengths": "Puntos fuertes",
+      "weaknesses": "Puntos débiles",
+      "noneStoodOut": "Ninguno destacó",
+      "noReportYet": "Nadie lo ha ojeado aún. Solo se conoce su valoración pública.",
+      "financeTitle": "Encaje financiero",
+      "freeNoFee": "Agente libre: sin traspaso.",
+      "feeFits": "El traspaso ({{fee}}) cabe en tu presupuesto.",
+      "feeOver": "El traspaso ({{fee}}) supera tu presupuesto.",
+      "wageFits": "Su salario respeta tu política salarial.",
+      "wageOver": "Su salario incumpliría tu política salarial.",
+      "contractUntil": "Contrato hasta {{date}}",
+      "noContract": "Sin contrato",
+      "risksTitle": "Riesgos de fichaje",
+      "noRisks": "Sin riesgos notables",
+      "makeBid": "Hacer una oferta de traspaso",
+      "offerContract": "Ofrecer un contrato",
+      "scoutAgain": "Ojear de nuevo",
+      "openProfile": "Abrir perfil",
+      "compareTitle": "Comparar objetivos",
+      "compareMeasure": "Medida",
+      "fitsBudget": "Encaja en tu presupuesto",
+      "compare": "Comparar ({{count}})",
+      "shortlistTitle": "Lista de objetivos",
+      "shortlistHint": "Jugadores a los que sigues. Elige de dos a {{max}} para compararlos.",
+      "loading": "Cargando informes…",
+      "noShortlist": "Aún no hay nadie en tu lista.",
+      "reportsTitle": "Informes de ojeo",
+      "reportsHint": "Lo que encontraron tus ojeadores. Los rangos contienen el valor real; un mejor ojeador, o una segunda visita, da uno más estrecho.",
+      "noReports": "Aún no hay informes. Envía un ojeador a un jugador para empezar.",
+      "addShortlistFor": "Añadir a {{player}} a tu lista",
+      "removeShortlistFor": "Quitar a {{player}} de tu lista"
+    },
+    "risk": {
+      "contractExpiring": "El contrato termina en menos de un año",
+      "injured": "Lesionado actualmente",
+      "ageing": "Pasados los 30: el declive es un riesgo",
+      "unscouted": "Nadie lo ha ojeado",
+      "staleReport": "El informe es de una temporada anterior",
+      "uncertainEstimate": "Estimación amplia: poca confianza",
+      "feeOverBudget": "El traspaso supera tu presupuesto",
+      "wageOverPolicy": "El salario supera tu política"
+    },
+    "filters": {
+      "status": "Ojeo",
+      "any": "Cualquiera",
+      "unscouted": "Sin ojear",
+      "scouted": "Ojeado",
+      "shortlisted": "En la lista",
+      "potentialMin": "Potencial estimado mínimo",
+      "potentialHint": "Solo jugadores ojeados",
+      "contractExpiring": "Contrato termina en menos de un año"
+    },
+    "cancelSearchFor": "Cancelar el ojeo de {{player}}",
+    "reassignSearchFor": "Pasar el ojeo de {{player}} a otro ojeador"
   },
   "match": {
     "simulateWithM12": "Simulación rápida",
@@ -3320,7 +3406,12 @@
         "playerAlreadyScouted": "Este jugador ya está siendo observado",
         "youthSearchAlreadyActive": "Ya hay una búsqueda de cantera igual activa",
         "youthAssignmentNotFound": "No se encontró la asignación de captación juvenil",
-        "scoutAlreadyAssignedToSearch": "El ojeador ya está asignado a esta búsqueda"
+        "scoutAlreadyAssignedToSearch": "El ojeador ya está asignado a esta búsqueda",
+        "shortlistOwnPlayer": "No puedes añadir a tus propios jugadores a la lista",
+        "shortlistAlready": "Este jugador ya está en tu lista",
+        "shortlistFull": "Tu lista está llena",
+        "shortlistNotListed": "Este jugador no está en tu lista",
+        "assignmentNotFound": "Misión de ojeo no encontrada"
       },
       "invalidPath": "Ruta no válida.",
       "conflict": {
@@ -5061,7 +5152,8 @@
       "recruitNoLongerNeeded": "Dejó de perseguir a {{player}} ({{position}}): la plantilla ya no lo necesita",
       "ownerLeft": "El miembro del cuerpo técnico responsable se ha marchado, así que el entrenador asistente retoma esta tarea.",
       "floorPromoted": "La plantilla estaba por debajo del mínimo, así que {{player}} subió de la cantera",
-      "floorSigned": "La plantilla estaba por debajo del mínimo, así que se fichó a {{player}} como agente libre"
+      "floorSigned": "La plantilla estaba por debajo del mínimo, así que se fichó a {{player}} como agente libre",
+      "scoutShortlisted": "{{player}} añadido a la lista tras el informe del ojeador"
     }
   },
   "freeAgents": {
@@ -5263,5 +5355,43 @@
     "signHintCounter": "Acepta primero sus condiciones; una contraoferta no se puede firmar.",
     "signHintRefused": "Este traspaso no se puede firmar tal como está.",
     "errorGeneric": "El mercado no pudo completar esa solicitud. Inténtalo de nuevo."
+  },
+  "academy": {
+    "promotionBlocked": "No hay plaza libre en el primer equipo",
+    "unlistLoan": "Quitar de la lista de cesiones",
+    "listLoan": "Poner en lista de cesiones",
+    "release": "Rescindir",
+    "reviewTitle": "Revisión de desarrollo",
+    "reviewHint": "Cada juicio compara al jugador con la profundidad que tu primer equipo ya tiene en su posición. Nada de aquí modifica a un jugador.",
+    "loading": "Cargando la revisión…",
+    "capacity": "Primer equipo: {{seniors}} de {{limit}}",
+    "nextIntake": "Próxima cantera: {{count}}",
+    "ceiling": "Techo",
+    "expectedNext": "Esperado el año próximo",
+    "squadCover": "Profundidad de plantilla",
+    "verdict": "Veredicto",
+    "verdicts": {
+      "ready_for_senior": "Listo para el primer equipo",
+      "keep_developing": "Seguir desarrollando",
+      "loan_candidate": "Candidato a cesión",
+      "unlikely_to_progress": "Poco probable que progrese"
+    },
+    "reason": {
+      "wouldStart": "Sería titular en tu primer equipo",
+      "addsCover": "Aporta la profundidad que necesita tu plantilla",
+      "succession": "Hará falta en pocas temporadas",
+      "injured": "Lesionado",
+      "tooYoungToJudge": "Demasiado joven para juzgar",
+      "ceilingBelowCover": "Incluso su techo está por debajo de la profundidad de tu plantilla",
+      "closeToSeniorLevel": "Cerca del nivel del primer equipo",
+      "needsMatchMinutes": "Necesita partidos regulares que la cantera no le da",
+      "stillImproving": "Sigue mejorando",
+      "nearCeiling": "Cerca de su techo"
+    },
+    "ceilingNote": "El potencial es un techo, no una promesa: la valoración esperada muestra lo que suele dar el desarrollo.",
+    "promoteFor": "Ascender a {{player}}",
+    "listLoanFor": "Poner a {{player}} en la lista de cesiones",
+    "unlistLoanFor": "Quitar a {{player}} de la lista de cesiones",
+    "releaseFor": "Rescindir a {{player}}"
   }
 }

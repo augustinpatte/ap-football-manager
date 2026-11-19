@@ -62,6 +62,22 @@ pub enum PositionFilter {
     Exact(Position),
 }
 
+/// What the manager's club has done about a player, for the scouting search.
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ScoutingFilter {
+    #[default]
+    Any,
+    /// Nobody from the club has reported on him.
+    Unscouted,
+    /// The club holds a report on him, of any age.
+    Scouted,
+    /// He is on the manager's shortlist.
+    Shortlisted,
+}
+
+use crate::scouting_view::EXPIRING_WITHIN_DAYS;
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct PlayersPageQuery {
     pub search: Option<String>,
@@ -88,6 +104,17 @@ pub struct PlayersPageQuery {
     #[serde(default)]
     pub scope: PlayerScope,
     pub team_id: Option<String>,
+    /// What the club has done about him: unscouted, scouted, shortlisted.
+    #[serde(default)]
+    pub scouting: ScoutingFilter,
+    /// The least *estimated* potential: the middle of the scout's range. A player nobody has
+    /// reported on, or whose potential the scout could not judge, never passes: the club does not
+    /// know, and the filter does not guess.
+    #[serde(default)]
+    pub potential_min: Option<u8>,
+    /// Only players whose contract ends within a year.
+    #[serde(default)]
+    pub contract_expiring: bool,
     pub status: PlayerStatusFilter,
     pub sort_key: PlayerSortKey,
     pub sort_asc: bool,
@@ -221,6 +248,7 @@ pub fn query_page(game: &Game, query: &PlayersPageQuery) -> PlayersPage {
 struct ListContext<'a> {
     today: NaiveDate,
     user_team: Option<&'a Team>,
+    dossier: &'a crate::scouting_dossier::ScoutingDossier,
 }
 
 impl<'a> ListContext<'a> {
@@ -233,6 +261,7 @@ impl<'a> ListContext<'a> {
         Self {
             today: game.clock.current_date.date_naive(),
             user_team,
+            dossier: &game.scouting_dossier,
         }
     }
 
@@ -332,6 +361,17 @@ fn matches_all_but_status(
         return false;
     }
 
+    if !matches_scouting(player, query, context) {
+        return false;
+    }
+
+    if query.contract_expiring
+        && crate::contracts::contract_days_remaining(player.contract_end(), context.today)
+            .is_none_or(|days| days > EXPIRING_WITHIN_DAYS)
+    {
+        return false;
+    }
+
     if let Some(filter_pos) = &query.position
         && player.natural_position.to_group_position() != filter_pos.to_group_position()
     {
@@ -345,6 +385,27 @@ fn matches_all_but_status(
     }
 
     true
+}
+
+/// The scouting-status and estimated-potential tests of the search.
+fn matches_scouting(player: &Player, query: &PlayersPageQuery, context: &ListContext) -> bool {
+    // Every list asks this of every player: with neither filter on, there is nothing to look up.
+    if query.scouting == ScoutingFilter::Any && query.potential_min.is_none() {
+        return true;
+    }
+    let report = context.dossier.report_on(&player.id);
+    let status_ok = match query.scouting {
+        ScoutingFilter::Any => true,
+        ScoutingFilter::Unscouted => report.is_none(),
+        ScoutingFilter::Scouted => report.is_some(),
+        ScoutingFilter::Shortlisted => context.dossier.is_shortlisted(&player.id),
+    };
+    status_ok
+        && query.potential_min.is_none_or(|min| {
+            report
+                .and_then(|r| r.potential)
+                .is_some_and(|range| range.mid() >= min)
+        })
 }
 
 fn matches_status(player: &Player, status: PlayerStatusFilter) -> bool {
