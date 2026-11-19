@@ -2964,6 +2964,41 @@
         "unauthorized": "Tento pokyn nelze zadat.",
         "other": "Zápasový engine tento pokyn odmítl."
       }
+    },
+    "liveView": {
+      "pitchLabel": "2D hřiště živě: {{home}} proti {{away}}",
+      "controls": "Ovládání zápasu",
+      "skip": "Přeskočit na další přestávku",
+      "mode": "Zvýraznění",
+      "modes": {
+        "key": "Klíčové momenty",
+        "extended": "Rozšířené",
+        "full": "Celý zápas"
+      },
+      "startSecondHalf": "Zahájit druhý poločas",
+      "addedTime": "+{{minutes}} min nastaveno",
+      "goalBanner": "Gól! {{player}} · {{minute}}",
+      "pauseToAct": "Pozastavte zápas, abyste mohli provést změny. Vaše pokyny platí od zobrazeného okamžiku.",
+      "incompleteData": "Některá polohová data z herního enginu byla neúplná a v obraze chybí.",
+      "attacks": "{{team}} útočí {{direction}}",
+      "directionRight": "doprava",
+      "directionLeft": "doleva",
+      "hasBall": "{{team}} má míč",
+      "looseBall": "Míč je volný",
+      "kickoffPending": "Čeká se na výkop",
+      "status": {
+        "loading": "Příprava zápasu…",
+        "pausing": "Dosahujeme okamžiku, kdy můžete zasáhnout…"
+      },
+      "stoppage": {
+        "ball_out": "Míč mimo hru",
+        "foul": "Faul",
+        "offside": "Ofsajd",
+        "goal": "Gól",
+        "injury": "Přerušení kvůli zranění",
+        "substitution": "Střídání",
+        "period_end": "Konec poločasu"
+      }
     }
   },
   "endOfSeason": {

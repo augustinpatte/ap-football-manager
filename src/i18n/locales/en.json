@@ -2964,6 +2964,41 @@
         "unauthorized": "You cannot give that order.",
         "other": "The engine refused that order."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Live 2D pitch: {{home}} against {{away}}",
+      "controls": "Match controls",
+      "skip": "Skip to the next break",
+      "mode": "Highlights",
+      "modes": {
+        "key": "Key moments",
+        "extended": "Extended",
+        "full": "Full match"
+      },
+      "startSecondHalf": "Start second half",
+      "addedTime": "+{{minutes}} min added",
+      "goalBanner": "Goal! {{player}} · {{minute}}",
+      "pauseToAct": "Pause the match to make changes. Your orders apply from the moment shown.",
+      "incompleteData": "Some position data from the match engine was incomplete and has been left out of the picture.",
+      "attacks": "{{team}} attacks {{direction}}",
+      "directionRight": "to the right",
+      "directionLeft": "to the left",
+      "hasBall": "{{team}} have the ball",
+      "looseBall": "The ball is loose",
+      "kickoffPending": "Waiting for kick-off",
+      "status": {
+        "loading": "Preparing the match…",
+        "pausing": "Reaching the moment you can act on…"
+      },
+      "stoppage": {
+        "ball_out": "Ball out of play",
+        "foul": "Foul",
+        "offside": "Offside",
+        "goal": "Goal",
+        "injury": "Injury stoppage",
+        "substitution": "Substitution",
+        "period_end": "End of the period"
+      }
     }
   },
   "endOfSeason": {

@@ -2907,6 +2907,41 @@
         "unauthorized": "Não é possível dar essa ordem.",
         "other": "O motor da partida recusou essa ordem."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Campo 2D ao vivo: {{home}} contra {{away}}",
+      "controls": "Controles da partida",
+      "skip": "Pular para o próximo intervalo",
+      "mode": "Melhores momentos",
+      "modes": {
+        "key": "Lances principais",
+        "extended": "Ampliado",
+        "full": "Partida completa"
+      },
+      "startSecondHalf": "Começar o segundo tempo",
+      "addedTime": "+{{minutes}} min de acréscimo",
+      "goalBanner": "Gol! {{player}} · {{minute}}",
+      "pauseToAct": "Pause a partida para fazer alterações. Suas ordens valem a partir do momento mostrado.",
+      "incompleteData": "Alguns dados de posição do motor da partida estavam incompletos e ficaram de fora da imagem.",
+      "attacks": "{{team}} ataca {{direction}}",
+      "directionRight": "para a direita",
+      "directionLeft": "para a esquerda",
+      "hasBall": "{{team}} está com a bola",
+      "looseBall": "A bola está livre",
+      "kickoffPending": "Aguardando o pontapé inicial",
+      "status": {
+        "loading": "Preparando a partida…",
+        "pausing": "Chegando ao momento em que você pode agir…"
+      },
+      "stoppage": {
+        "ball_out": "Bola fora",
+        "foul": "Falta",
+        "offside": "Impedimento",
+        "goal": "Gol",
+        "injury": "Paralisação por lesão",
+        "substitution": "Substituição",
+        "period_end": "Fim do tempo"
+      }
     }
   },
   "endOfSeason": {

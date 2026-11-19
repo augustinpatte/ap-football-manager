@@ -2964,6 +2964,41 @@
         "unauthorized": "Diese Anweisung ist nicht möglich.",
         "other": "Die Spiel-Engine hat diese Anweisung abgelehnt."
       }
+    },
+    "liveView": {
+      "pitchLabel": "2D-Spielfeld live: {{home}} gegen {{away}}",
+      "controls": "Steuerung des Spiels",
+      "skip": "Bis zur nächsten Pause vorspulen",
+      "mode": "Höhepunkte",
+      "modes": {
+        "key": "Schlüsselszenen",
+        "extended": "Erweitert",
+        "full": "Ganzes Spiel"
+      },
+      "startSecondHalf": "Zweite Halbzeit starten",
+      "addedTime": "+{{minutes}} Min. Nachspielzeit",
+      "goalBanner": "Tor! {{player}} · {{minute}}",
+      "pauseToAct": "Halte das Spiel an, um Änderungen vorzunehmen. Deine Anweisungen gelten ab dem gezeigten Moment.",
+      "incompleteData": "Einige Positionsdaten der Spiel-Engine waren unvollständig und wurden im Bild weggelassen.",
+      "attacks": "{{team}} greift {{direction}} an",
+      "directionRight": "nach rechts",
+      "directionLeft": "nach links",
+      "hasBall": "{{team}} hat den Ball",
+      "looseBall": "Der Ball ist frei",
+      "kickoffPending": "Warten auf den Anstoß",
+      "status": {
+        "loading": "Spiel wird vorbereitet…",
+        "pausing": "Der Moment, in dem du eingreifen kannst, wird erreicht…"
+      },
+      "stoppage": {
+        "ball_out": "Ball im Aus",
+        "foul": "Foulspiel",
+        "offside": "Abseits",
+        "goal": "Tor",
+        "injury": "Unterbrechung wegen Verletzung",
+        "substitution": "Auswechslung",
+        "period_end": "Ende des Spielabschnitts"
+      }
     }
   },
   "endOfSeason": {

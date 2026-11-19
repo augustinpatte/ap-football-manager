@@ -2964,6 +2964,41 @@
         "unauthorized": "Bu talimat verilemez.",
         "other": "Maç motoru bu talimatı reddetti."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Canlı 2D saha: {{home}} – {{away}}",
+      "controls": "Maç kontrolleri",
+      "skip": "Sonraki arayı atla",
+      "mode": "Özetler",
+      "modes": {
+        "key": "Kilit anlar",
+        "extended": "Genişletilmiş",
+        "full": "Tüm maç"
+      },
+      "startSecondHalf": "İkinci yarıyı başlat",
+      "addedTime": "+{{minutes}} dk uzatma",
+      "goalBanner": "Gol! {{player}} · {{minute}}",
+      "pauseToAct": "Değişiklik yapmak için maçı duraklatın. Emirleriniz gösterilen andan itibaren geçerlidir.",
+      "incompleteData": "Maç motorundan gelen bazı konum verileri eksikti ve görüntüde yer almıyor.",
+      "attacks": "{{team}} {{direction}} hücum ediyor",
+      "directionRight": "sağa doğru",
+      "directionLeft": "sola doğru",
+      "hasBall": "Top {{team}} takımında",
+      "looseBall": "Top boşta",
+      "kickoffPending": "Başlama vuruşu bekleniyor",
+      "status": {
+        "loading": "Maç hazırlanıyor…",
+        "pausing": "Müdahale edebileceğiniz ana ulaşılıyor…"
+      },
+      "stoppage": {
+        "ball_out": "Top dışarıda",
+        "foul": "Faul",
+        "offside": "Ofsayt",
+        "goal": "Gol",
+        "injury": "Sakatlık duraklaması",
+        "substitution": "Oyuncu değişikliği",
+        "period_end": "Devre sonu"
+      }
     }
   },
   "endOfSeason": {

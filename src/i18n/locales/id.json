@@ -2964,6 +2964,41 @@
         "unauthorized": "Instruksi itu tidak dapat diberikan.",
         "other": "Mesin pertandingan menolak instruksi itu."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Lapangan 2D langsung: {{home}} melawan {{away}}",
+      "controls": "Kontrol pertandingan",
+      "skip": "Lompat ke jeda berikutnya",
+      "mode": "Sorotan",
+      "modes": {
+        "key": "Momen penting",
+        "extended": "Diperluas",
+        "full": "Pertandingan penuh"
+      },
+      "startSecondHalf": "Mulai babak kedua",
+      "addedTime": "+{{minutes}} mnt tambahan",
+      "goalBanner": "Gol! {{player}} · {{minute}}",
+      "pauseToAct": "Jeda pertandingan untuk membuat perubahan. Perintah Anda berlaku mulai momen yang ditampilkan.",
+      "incompleteData": "Sebagian data posisi dari mesin pertandingan tidak lengkap dan tidak ditampilkan di gambar.",
+      "attacks": "{{team}} menyerang {{direction}}",
+      "directionRight": "ke kanan",
+      "directionLeft": "ke kiri",
+      "hasBall": "{{team}} menguasai bola",
+      "looseBall": "Bola bebas",
+      "kickoffPending": "Menunggu kick-off",
+      "status": {
+        "loading": "Menyiapkan pertandingan…",
+        "pausing": "Mencapai momen saat Anda dapat bertindak…"
+      },
+      "stoppage": {
+        "ball_out": "Bola keluar",
+        "foul": "Pelanggaran",
+        "offside": "Offside",
+        "goal": "Gol",
+        "injury": "Henti karena cedera",
+        "substitution": "Pergantian pemain",
+        "period_end": "Akhir babak"
+      }
     }
   },
   "endOfSeason": {

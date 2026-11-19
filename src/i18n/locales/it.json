@@ -2989,6 +2989,41 @@
         "unauthorized": "Non è possibile impartire quest'ordine.",
         "other": "Il motore di gioco ha rifiutato quest'ordine."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Campo 2D in diretta: {{home}} contro {{away}}",
+      "controls": "Controlli della partita",
+      "skip": "Salta alla prossima pausa",
+      "mode": "Momenti salienti",
+      "modes": {
+        "key": "Azioni chiave",
+        "extended": "Esteso",
+        "full": "Partita intera"
+      },
+      "startSecondHalf": "Inizia il secondo tempo",
+      "addedTime": "+{{minutes}} min di recupero",
+      "goalBanner": "Gol! {{player}} · {{minute}}",
+      "pauseToAct": "Metti in pausa la partita per fare modifiche. I tuoi ordini valgono dal momento mostrato.",
+      "incompleteData": "Alcuni dati di posizione del motore di gioco erano incompleti e sono stati lasciati fuori dall'immagine.",
+      "attacks": "{{team}} attacca {{direction}}",
+      "directionRight": "verso destra",
+      "directionLeft": "verso sinistra",
+      "hasBall": "{{team}} ha la palla",
+      "looseBall": "La palla è libera",
+      "kickoffPending": "In attesa del calcio d'inizio",
+      "status": {
+        "loading": "Preparazione della partita…",
+        "pausing": "Si raggiunge il momento in cui puoi intervenire…"
+      },
+      "stoppage": {
+        "ball_out": "Palla fuori",
+        "foul": "Fallo",
+        "offside": "Fuorigioco",
+        "goal": "Gol",
+        "injury": "Interruzione per infortunio",
+        "substitution": "Sostituzione",
+        "period_end": "Fine del tempo"
+      }
     }
   },
   "notifications": {

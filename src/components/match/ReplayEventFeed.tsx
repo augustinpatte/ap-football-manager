@@ -6,10 +6,17 @@ interface ReplayEventFeedProps {
   entries: FeedEntry[];
   teamNames: { home: string; away: string };
   nameOf: (playerId: string | undefined) => string;
+  /** The stopwatch reading of an instant (`45+2'`); the plain minute when absent. */
+  minuteLabel?: (t_ms: number) => string;
 }
 
 /** The match events a player reads, each in the language of the game and with real names. */
-export default function ReplayEventFeed({ entries, teamNames, nameOf }: ReplayEventFeedProps) {
+export default function ReplayEventFeed({
+  entries,
+  teamNames,
+  nameOf,
+  minuteLabel,
+}: ReplayEventFeedProps) {
   const { t } = useTranslation();
   return (
     <section aria-label={t("match.replayFeedTitle")}>
@@ -22,8 +29,8 @@ export default function ReplayEventFeed({ entries, teamNames, nameOf }: ReplayEv
             key={`${entry.t_ms}-${entry.kind}-${index}`}
             className="flex flex-wrap items-baseline gap-x-2 text-fg"
           >
-            <span className="w-10 shrink-0 text-right font-heading text-fg-muted">
-              {Math.floor(entry.t_ms / 60_000)}'
+            <span className="w-14 shrink-0 text-right font-heading text-fg-muted">
+              {minuteLabel ? minuteLabel(entry.t_ms) : `${Math.floor(entry.t_ms / 60_000)}'`}
             </span>
             <span>
               {t(`match.replayFeed.${entry.kind}`, {
