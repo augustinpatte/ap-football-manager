@@ -68,6 +68,7 @@ fn play_interactive(state: &StateManager) {
                 stop_at_key_events: false,
             },
             0,
+            false,
         )
         .expect("advance");
         if out.stop == StopReason::Finished {

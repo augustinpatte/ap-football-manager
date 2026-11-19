@@ -21,6 +21,17 @@ export function playerNames(view: InteractiveView): Record<string, string> {
   return names;
 }
 
+/** The shirt number of every player of both teams by id, from the engine's own lists. */
+export function playerShirts(view: InteractiveView): Record<string, number> {
+  const shirts: Record<string, number> = {};
+  for (const team of [view.session.home, view.session.away]) {
+    for (const list of [team.on_pitch, team.bench, team.used, team.sent_off]) {
+      for (const player of list) shirts[player.id] = player.shirt_number;
+    }
+  }
+  return shirts;
+}
+
 const REJECTION_CODES = new Set([
   "stale_revision",
   "no_substitutions_left",

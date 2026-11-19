@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Gestão do jogo",
       "manage": "Gerir o jogo",
-      "manageDesc": "As decisões táticas e as substituições são tomadas durante o jogo. O resultado conta quando o jogo for terminado.",
+      "manageDesc": "Vê o jogo em direto num campo 2D e toma as decisões táticas e de substituição. O resultado conta quando terminares.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até ao fim",
@@ -2964,6 +2964,41 @@
         "unauthorized": "Não é possível dar essa ordem.",
         "other": "O motor de jogo recusou essa ordem."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Campo 2D em direto: {{home}} contra {{away}}",
+      "controls": "Controlos do jogo",
+      "skip": "Saltar para o próximo intervalo",
+      "mode": "Resumos",
+      "modes": {
+        "key": "Lances-chave",
+        "extended": "Alargado",
+        "full": "Jogo completo"
+      },
+      "startSecondHalf": "Começar a segunda parte",
+      "addedTime": "+{{minutes}} min de compensação",
+      "goalBanner": "Golo! {{player}} · {{minute}}",
+      "pauseToAct": "Pausa o jogo para fazer alterações. As tuas ordens aplicam-se a partir do momento mostrado.",
+      "incompleteData": "Alguns dados de posição do motor de jogo estavam incompletos e foram deixados de fora da imagem.",
+      "hasBall": "{{team}} tem a bola",
+      "looseBall": "A bola está solta",
+      "kickoffPending": "À espera do pontapé de saída",
+      "status": {
+        "loading": "A preparar o jogo…",
+        "pausing": "A chegar ao momento em que podes agir…"
+      },
+      "stoppage": {
+        "ball_out": "Bola fora de jogo",
+        "foul": "Falta",
+        "offside": "Fora de jogo",
+        "goal": "Golo",
+        "injury": "Paragem por lesão",
+        "substitution": "Substituição",
+        "period_end": "Fim do período",
+        "other": "Jogo parado"
+      },
+      "attacksRight": "{{team}} ataca para a direita",
+      "attacksLeft": "{{team}} ataca para a esquerda"
     }
   },
   "endOfSeason": {

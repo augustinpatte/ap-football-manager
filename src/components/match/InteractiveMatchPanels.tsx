@@ -347,10 +347,12 @@ export function EventLog({
   entries,
   teamNames,
   nameOf,
+  minuteLabel,
 }: {
   entries: FeedEntry[];
   teamNames: { home: string; away: string };
   nameOf: (playerId: string | undefined) => string;
+  minuteLabel?: (t_ms: number) => string;
 }) {
   const { t } = useTranslation();
   return (
@@ -369,6 +371,8 @@ export function EventLog({
               entries={[...entries].reverse()}
               teamNames={teamNames}
               nameOf={nameOf}
+              minuteLabel={minuteLabel}
+              announce={false}
             />
           </section>
         )}

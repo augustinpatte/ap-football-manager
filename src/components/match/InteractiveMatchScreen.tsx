@@ -1,36 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Badge, Button, Checkbox, Select } from "../ui";
-import { resolveBackendKeyError } from "../../utils/backendI18n";
-import {
-  advanceInteractiveMatch,
-  finishInteractiveMatch,
-  getInteractiveMatchState,
-  setInteractiveAssistant,
-  setInteractivePause,
-  startInteractiveMatch,
-  submitMatchCommand,
-  type InteractiveSnapshot,
-  type MatchKeyEvent,
-  type OrderSnapshot,
-  type TacticalChange,
-  type UserOrder,
-} from "../../services/interactiveMatchService";
-import { matchMinute, playerNames, rejectionMessage } from "./interactiveMatch.helpers";
-import { feedEntryOf, type FeedEntry } from "./replayDerived";
-import {
-  EventLog,
-  Field,
-  SubstitutionPanel,
-  TacticsPanel,
-  TeamLineup,
-} from "./InteractiveMatchPanels";
+import { Card, CardBody } from "../ui";
+import type { MatchKeyEvent } from "../../services/interactiveMatchService";
+import { EventLog, SubstitutionPanel, TacticsPanel, TeamLineup } from "./InteractiveMatchPanels";
+import { LiveControls, LiveScoreboard } from "./LiveMatchChrome";
+import LivePitch from "./LivePitch";
+import { playerNames, playerShirts } from "./interactiveMatch.helpers";
+import type { DirectorSnapshot } from "./liveDirector";
+import { ReplayStatsPanel } from "./ReplayPanels";
+import { type FeedEntry, feedEntryOf, statsAt } from "./replayDerived";
+import { TEAM_COLOURS } from "./replayPitch";
+import { useLiveMatch } from "./useLiveMatch";
 
-/** Pause between two slices of play while the match is running by itself (screen time only). */
-const SLICE_PAUSE_MS = 350;
-/** Simulated minutes per slice at each speed; the match is the same at any of them. */
-const MINUTES_PER_SLICE = { slow: 1, normal: 3, fast: 6 } as const;
-type Speed = keyof typeof MINUTES_PER_SLICE;
+/** How long a goal stays announced above the pitch, in match time. */
+const GOAL_BANNER_MS = 8_000;
+const PITCH_MIDDLE_X = 52.5;
+/** The engine's stoppage reasons that have their own wording. */
+const STOPPAGE_REASONS = [
+  "ball_out",
+  "foul",
+  "offside",
+  "goal",
+  "injury",
+  "substitution",
+  "period_end",
+];
 
 interface InteractiveMatchScreenProps<TFinish> {
   homeName: string;
@@ -39,10 +33,18 @@ interface InteractiveMatchScreenProps<TFinish> {
   onFinished: (response: TFinish) => void;
 }
 
+/** The goal the picture has just shown, if it is still being announced. */
+function recentGoal(snapshot: DirectorSnapshot): MatchKeyEvent | null {
+  const goals = snapshot.events.filter((event) => event.type === "goal");
+  const last = goals[goals.length - 1];
+  return last && snapshot.playheadMs - last.t_ms <= GOAL_BANNER_MS ? last : null;
+}
+
 /**
- * Manage a real match. This screen shows what the match engine reports and sends the manager's
- * orders back; it holds no football state of its own and predicts nothing. The clock, the
- * score, the lineups and the conditions on it are the engine's, as of the last answer.
+ * Watch and manage a real match on a 2D pitch. The pitch, clock, score and feed are the engine's own
+ * data as of the instant the picture shows; this screen predicts nothing. The engine runs a little
+ * ahead of the picture, so orders are only possible once the picture has caught up with it (the
+ * Pause button does that), and an accepted order only ever changes what has not been produced yet.
  */
 export default function InteractiveMatchScreen<TFinish>({
   homeName,
@@ -50,150 +52,36 @@ export default function InteractiveMatchScreen<TFinish>({
   onFinished,
 }: InteractiveMatchScreenProps<TFinish>) {
   const { t } = useTranslation();
-  const [snapshot, setSnapshot] = useState<InteractiveSnapshot | null>(null);
-  const [events, setEvents] = useState<MatchKeyEvent[]>([]);
-  const [running, setRunning] = useState(false);
-  const [speed, setSpeed] = useState<Speed>("normal");
-  const [notice, setNotice] = useState<string | null>(null);
-  const busy = useRef(false);
-  const cursor = useRef(0);
-  const orderCount = useRef(0);
-
-  const failure = useCallback(
-    (error: unknown) =>
-      setNotice(resolveBackendKeyError(error, t("match.interactive.matchFailed"))),
-    [t],
-  );
-
-  const take = useCallback((next: InteractiveSnapshot) => {
-    cursor.current = next.next_event_cursor;
-    setSnapshot(next);
-    if (next.events.length > 0) setEvents((old) => [...old, ...next.events]);
-  }, []);
-
-  /** Runs one request at a time; a second click while one is in flight is ignored. */
-  const exclusive = useCallback(
-    async <T,>(call: () => Promise<T>): Promise<T | null> => {
-      if (busy.current) return null;
-      busy.current = true;
-      try {
-        return await call();
-      } catch (error) {
-        failure(error);
-        setRunning(false);
-        // Whatever went wrong, show the match as the engine has it now, not as it was.
-        await getInteractiveMatchState(cursor.current)
-          .then(take)
-          .catch(() => undefined);
-        return null;
-      } finally {
-        busy.current = false;
-      }
-    },
-    [failure, take],
-  );
-
-  useEffect(() => {
-    void exclusive(startInteractiveMatch).then((first) => first && take(first));
-  }, [exclusive, take]);
-
-  const view = snapshot?.view;
+  const live = useLiveMatch<TFinish>(onFinished);
+  const { director, snapshot, notice, drawRef } = live;
+  const view = snapshot.view;
   const session = view?.session;
 
-  // While running, ask for the next slice of play; stop at the break so orders can be given.
-  useEffect(() => {
-    if (!running || !session || session.finished) return;
-    const timer = window.setTimeout(() => {
-      void exclusive(() =>
-        advanceInteractiveMatch(
-          { kind: "for_minutes", value: MINUTES_PER_SLICE[speed] },
-          cursor.current,
-        ),
-      ).then((result) => {
-        if (!result) return;
-        take(result.snapshot);
-        if (["period_break", "finished", "paused"].includes(result.stop)) setRunning(false);
-      });
-    }, SLICE_PAUSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [running, session, speed, exclusive, take]);
-
-  const togglePlay = useCallback(async () => {
-    if (!session) return;
-    if (running) {
-      setRunning(false);
-      const paused = await exclusive(() => setInteractivePause(true, cursor.current));
-      if (paused) take(paused);
-      return;
-    }
-    if (session.paused) {
-      const resumed = await exclusive(() => setInteractivePause(false, cursor.current));
-      if (!resumed) return;
-      take(resumed);
-    }
-    setNotice(null);
-    setRunning(true);
-  }, [session, running, exclusive, take]);
-
-  const playToEnd = useCallback(async () => {
-    setRunning(false);
-    const result = await exclusive(() =>
-      advanceInteractiveMatch({ kind: "to_end" }, cursor.current),
-    );
-    if (result) take(result.snapshot);
-  }, [exclusive, take]);
-
-  const giveOrder = useCallback(
-    async (order: UserOrder) => {
-      if (!session) return;
-      orderCount.current += 1;
-      const id = `${session.session_id}:${orderCount.current}`;
-      const answer: OrderSnapshot | null = await exclusive(() =>
-        submitMatchCommand(id, session.revision, order, cursor.current),
-      );
-      if (!answer) return;
-      take(answer.snapshot);
-      setNotice(
-        answer.receipt.accepted
-          ? null
-          : t("match.interactive.orderRefused", {
-              reason: rejectionMessage(answer.receipt.rejection ?? "other", t),
-            }),
-      );
-    },
-    [session, exclusive, take, t],
-  );
-
-  const toggleAssistant = useCallback(
-    async (active: boolean) => {
-      const next = await exclusive(() => setInteractiveAssistant(active, cursor.current));
-      if (next) take(next);
-    },
-    [exclusive, take],
-  );
-
-  const finish = useCallback(async () => {
-    const response = await exclusive(() => finishInteractiveMatch<TFinish>());
-    if (response) onFinished(response);
-  }, [exclusive, onFinished]);
-
   const names = useMemo(() => (view ? playerNames(view) : {}), [view]);
-  const entries = useMemo(
-    () =>
-      events
-        .map((event) => feedEntryOf(event))
-        .filter((entry): entry is FeedEntry => entry !== null),
-    [events],
-  );
+  const shirts = useMemo(() => (view ? playerShirts(view) : {}), [view]);
   const nameOf = useCallback(
     (id: string | undefined) => (id ? (names[id] ?? t("match.replayUnknownPlayer")) : ""),
     [names, t],
   );
+  // The feed and the statistics are counted up to the picture's instant, so they never run ahead of it.
+  const entries = useMemo(
+    () =>
+      snapshot.events
+        .map((event) => feedEntryOf(event))
+        .filter((entry): entry is FeedEntry => entry !== null),
+    [snapshot.events],
+  );
+  const stats = useMemo(() => {
+    const { source, homeIds } = director.statsSource();
+    return statsAt(source, snapshot.playheadMs, { score: snapshot.score }, homeIds);
+  }, [director, snapshot.version, snapshot.playheadMs, snapshot.score]);
 
-  const finished = session?.finished ?? false;
+  const finished = snapshot.status === "finished";
   // When the match ends the Play button disables itself: move focus to the next useful control.
   useEffect(() => {
-    if (finished && document.activeElement === document.body) {
+    // A focused control that has just disabled itself no longer holds focus in every engine.
+    const active = document.activeElement;
+    if (finished && (active === document.body || (active as HTMLButtonElement | null)?.disabled)) {
       document.getElementById("interactive-finish")?.focus();
     }
   }, [finished]);
@@ -207,105 +95,47 @@ export default function InteractiveMatchScreen<TFinish>({
             {notice}
           </p>
         ) : (
-          <p className="text-body text-fg-muted">{t("dashboard.loading")}</p>
+          <p className="text-body text-fg-muted">{t("match.liveView.status.loading")}</p>
         )}
       </main>
     );
   }
 
+  const goal = recentGoal(snapshot);
+  const goalText = goal
+    ? t("match.liveView.goalBanner", {
+        player: nameOf(goal.scorer),
+        minute: director.labelAt(goal.t_ms),
+      })
+    : null;
+  const goalX = goal?.position ? (goal.position.x < PITCH_MIDDLE_X ? 0 : 105) : undefined;
   const mine = view.user_side === "away" ? session.away : session.home;
   const myPlan = view.user_side === "away" ? view.away_plan : view.home_plan;
-  const controllable = view.user_side !== null && !session.finished;
-  const phaseLabel = session.finished
-    ? t("match.fullTime")
-    : session.phase === "half_time"
-      ? t("match.halfTime")
-      : session.paused
-        ? t("match.paused")
-        : t("match.live");
-  const playLabel = running
-    ? t("match.pause")
-    : session.paused
-      ? t("match.interactive.resume")
-      : t("match.interactive.play");
+  const controllable = view.user_side !== null && !finished;
+  const homeAttacksRight =
+    snapshot.period === "first_half" || snapshot.period === "extra_time_first";
 
   return (
     <main className="min-h-screen bg-page text-fg">
-      <header className="bg-chrome px-6 py-4 text-on-brand">
-        <h1 className="sr-only">{t("match.interactive.heading")}</h1>
-        <div className="flex items-center justify-center gap-6 font-heading text-title uppercase tracking-label">
-          <span>{homeName}</span>
-          <span>
-            {session.score_home} – {session.score_away}
-          </span>
-          <span>{awayName}</span>
-        </div>
-        <p className="mt-1 text-center text-body">
-          {matchMinute(session.clock_ms)}&apos; <Badge variant="neutral">{phaseLabel}</Badge>
-        </p>
-        <p role="status" className="sr-only">
-          {`${homeName} ${session.score_home}, ${awayName} ${session.score_away}, ${phaseLabel}`}
-        </p>
-      </header>
+      <LiveScoreboard
+        homeName={homeName}
+        awayName={awayName}
+        snapshot={snapshot}
+        announcement={goalText}
+      />
+      <LiveControls
+        snapshot={snapshot}
+        view={view}
+        finishing={live.finishing}
+        onTogglePlay={live.togglePlay}
+        onSkip={() => void live.skipAhead()}
+        onSpeed={(speed) => director.setSpeed(speed)}
+        onMode={(mode) => director.setMode(mode)}
+        onAssistant={(active) => void live.toggleAssistant(active)}
+        onFinish={() => void live.finish()}
+      />
 
-      <section className="flex flex-wrap items-center gap-3 border-b border-line bg-sunken px-6 py-3">
-        <Button size="sm" onClick={() => void togglePlay()} disabled={session.finished}>
-          {playLabel}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void playToEnd()}
-          disabled={session.finished}
-        >
-          {t("match.interactive.toEnd")}
-        </Button>
-        <Field label={t("match.simSpeed")}>
-          {(id) => (
-            <Select
-              id={id}
-              selectSize="sm"
-              value={speed}
-              onChange={(e) => setSpeed(e.target.value as Speed)}
-            >
-              <option value="slow">{t("match.slow")}</option>
-              <option value="normal">{t("match.normal")}</option>
-              <option value="fast">{t("match.fast")}</option>
-            </Select>
-          )}
-        </Field>
-        {view.user_side !== null && (
-          <div className="flex items-center gap-2 text-body text-fg">
-            <Checkbox
-              id="interactive-assistant"
-              checked={view.assistant_active}
-              disabled={!view.assistant_available && !view.assistant_active}
-              onChange={(e) => void toggleAssistant(e.target.checked)}
-              aria-describedby="assistant-hint"
-            />
-            <label htmlFor="interactive-assistant">{t("match.interactive.assistant")}</label>
-          </div>
-        )}
-        {view.user_side !== null && (
-          <span id="assistant-hint" className="text-caption text-fg-muted">
-            {view.assistant_available
-              ? t("match.interactive.assistantHint")
-              : t("match.interactive.assistantUnavailable")}
-          </span>
-        )}
-        <div className="ml-auto">
-          <Button
-            id="interactive-finish"
-            size="sm"
-            onClick={() => void finish()}
-            disabled={!session.finished}
-          >
-            {t("match.interactive.finish")}
-          </Button>
-        </div>
-      </section>
-
-      {session.finished && (
+      {finished && (
         <p className="bg-positive-tint px-6 py-2 text-body text-positive">
           {t("match.interactive.fullTimeHint")}
         </p>
@@ -315,37 +145,144 @@ export default function InteractiveMatchScreen<TFinish>({
           {notice}
         </p>
       )}
+      {snapshot.rejectedFrames > 0 && (
+        <p className="bg-warning-tint px-6 py-2 text-body text-fg">
+          {t("match.liveView.incompleteData")}
+        </p>
+      )}
 
-      <div className="grid gap-4 p-6 lg:grid-cols-2">
-        <TeamLineup name={homeName} team={session.home} />
-        <TeamLineup name={awayName} team={session.away} />
-        {controllable && (
-          <TacticsPanel
-            plan={myPlan}
-            supportedFormations={view.supported_formations}
-            disabled={false}
-            onApply={(change: TacticalChange) => void giveOrder({ Tactics: change })}
+      <div className="grid gap-4 p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3">
+          {/* The banner's height is always reserved so the pitch does not jump when a goal comes. */}
+          <p
+            aria-hidden="true"
+            className="min-h-11 rounded bg-warning-tint px-3 py-2 text-center font-heading text-heading font-bold tracking-label data-[idle=true]:invisible"
+            data-idle={goalText === null}
+          >
+            {goalText ?? "\u00a0"}
+          </p>
+          <LivePitch
+            director={director}
+            roster={view.roster}
+            shirtOf={shirts}
+            homeName={homeName}
+            awayName={awayName}
+            flashGoalX={goalX}
+            drawRef={drawRef}
+            version={snapshot.version}
           />
-        )}
-        {controllable && (
-          <SubstitutionPanel
-            team={mine}
-            names={names}
-            disabled={false}
-            onSubstitute={(off, on) =>
-              void giveOrder({ Substitute: { player_off_id: off, player_on_id: on } })
-            }
-            onCancel={(off) => void giveOrder({ CancelSubstitution: { player_off_id: off } })}
+          <PitchCaption
+            snapshot={snapshot}
+            homeName={homeName}
+            awayName={awayName}
+            homeAttacksRight={homeAttacksRight}
           />
-        )}
-        <div className="lg:col-span-2">
-          <EventLog
-            entries={entries}
-            teamNames={{ home: homeName, away: awayName }}
-            nameOf={nameOf}
-          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <EventLog
+              entries={entries}
+              teamNames={{ home: homeName, away: awayName }}
+              nameOf={nameOf}
+              minuteLabel={(t_ms) => director.labelAt(t_ms)}
+            />
+            <Card>
+              <CardBody>
+                <ReplayStatsPanel
+                  stats={stats}
+                  teamNames={{ home: homeName, away: awayName }}
+                  minute={Math.floor(snapshot.playheadMs / 60_000)}
+                />
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {controllable && !snapshot.canOrder && (
+            <p className="rounded bg-sunken px-3 py-2 text-body text-fg-muted" role="note">
+              {snapshot.status === "pausing"
+                ? t("match.liveView.status.pausing")
+                : t("match.liveView.pauseToAct")}
+            </p>
+          )}
+          {controllable && (
+            <TacticsPanel
+              plan={myPlan}
+              supportedFormations={view.supported_formations}
+              disabled={!snapshot.canOrder}
+              onApply={(change) => void live.giveOrder({ Tactics: change })}
+            />
+          )}
+          {controllable && (
+            <SubstitutionPanel
+              team={mine}
+              names={names}
+              disabled={!snapshot.canOrder}
+              onSubstitute={(off, on) =>
+                void live.giveOrder({ Substitute: { player_off_id: off, player_on_id: on } })
+              }
+              onCancel={(off) =>
+                void live.giveOrder({ CancelSubstitution: { player_off_id: off } })
+              }
+            />
+          )}
+          <TeamLineup name={homeName} team={session.home} />
+          <TeamLineup name={awayName} team={session.away} />
         </div>
       </div>
     </main>
+  );
+}
+
+interface PitchCaptionProps {
+  snapshot: DirectorSnapshot;
+  homeName: string;
+  awayName: string;
+  homeAttacksRight: boolean;
+}
+
+/** Who has the ball and which way each team attacks, in words: colour and arrows are never the only signal. */
+function PitchCaption({ snapshot, homeName, awayName, homeAttacksRight }: PitchCaptionProps) {
+  const { t } = useTranslation();
+  const team = snapshot.possessionSide === "away" ? awayName : homeName;
+  let situation: string;
+  if (snapshot.frameState === "stoppage" && snapshot.stoppage) {
+    // A reason a newer engine adds is "play stopped", never a raw key.
+    const reason = STOPPAGE_REASONS.includes(snapshot.stoppage) ? snapshot.stoppage : "other";
+    situation = t(`match.liveView.stoppage.${reason}`);
+  } else if (snapshot.frameState === "kickoff_pending") {
+    situation = t("match.liveView.kickoffPending");
+  } else if (snapshot.frameState === "in_play" && snapshot.possessionSide) {
+    situation = t("match.liveView.hasBall", { team });
+  } else if (snapshot.frameState === "in_play") {
+    situation = t("match.liveView.looseBall");
+  } else {
+    situation = "";
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-caption text-fg-muted">
+      <ul className="flex flex-wrap gap-x-4">
+        <li className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="inline-block size-3 rounded-full"
+            style={{ backgroundColor: TEAM_COLOURS.home }}
+          />
+          {t(homeAttacksRight ? "match.liveView.attacksRight" : "match.liveView.attacksLeft", {
+            team: homeName,
+          })}
+        </li>
+        <li className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="inline-block size-3 rounded-full"
+            style={{ backgroundColor: TEAM_COLOURS.away }}
+          />
+          {t(homeAttacksRight ? "match.liveView.attacksLeft" : "match.liveView.attacksRight", {
+            team: awayName,
+          })}
+        </li>
+      </ul>
+      <span>{situation}</span>
+    </div>
   );
 }

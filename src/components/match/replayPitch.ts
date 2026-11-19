@@ -29,11 +29,17 @@ const COLOURS = {
   flash: "rgba(255, 225, 77, 0.55)",
 } as const;
 
+/** The two kit colours, for a legend drawn outside the canvas. */
+export const TEAM_COLOURS = { home: COLOURS.home, away: COLOURS.away } as const;
+
 export type PitchScene = {
-  frame: ReplayFrame;
+  /** What is drawn of a frame: the ball and who holds it (the players are `onPitch`). */
+  frame: Pick<ReplayFrame, "ball" | "possession">;
   onPitch: PitchPlayer[];
   /** The goal line a goal has just crossed (0 or 105), to highlight that goal. */
   flashGoalX?: number;
+  /** Which way the home side attacks right now (sides swap at half-time); draws the direction arrows. */
+  homeAttacksPositiveX?: boolean;
 };
 
 /** Pixel size of a player: readable at a glance, never smaller than a legible number. */
@@ -47,7 +53,7 @@ export function drawPitch(
   height: number,
   scene: PitchScene,
 ): void {
-  const { frame, onPitch, flashGoalX } = scene;
+  const { frame, onPitch, flashGoalX, homeAttacksPositiveX } = scene;
   const scale = Math.min(width / (PITCH_LENGTH + 2 * MARGIN), height / (PITCH_WIDTH + 2 * MARGIN));
   const originX = (width - PITCH_LENGTH * scale) / 2;
   const originY = (height - PITCH_WIDTH * scale) / 2;
@@ -64,6 +70,9 @@ export function drawPitch(
   drawMarkings(context, scale, x, y);
   drawGoal(context, scale, x, y, 0, -1, flashGoalX === 0);
   drawGoal(context, scale, x, y, PITCH_LENGTH, 1, flashGoalX === PITCH_LENGTH);
+
+  if (homeAttacksPositiveX !== undefined)
+    drawDirections(context, scale, x, y, homeAttacksPositiveX);
 
   const radius = playerRadius(scale);
   for (const player of onPitch) {
@@ -107,6 +116,33 @@ export function drawPitch(
 }
 
 type ToPixels = (value: number) => number;
+
+/** An arrow in each side's colour below the touchline, pointing the way that side attacks. */
+function drawDirections(
+  context: CanvasRenderingContext2D,
+  scale: number,
+  x: ToPixels,
+  y: ToPixels,
+  homeAttacksPositiveX: boolean,
+): void {
+  const arrow = (fromX: number, towardPositive: boolean, colour: string) => {
+    const tip = towardPositive ? fromX + 8 : fromX - 8;
+    const base = y(-1.6);
+    context.fillStyle = colour;
+    context.beginPath();
+    context.moveTo(x(fromX), base - scale * 0.45);
+    context.lineTo(x(tip) + (towardPositive ? -scale * 1.2 : scale * 1.2), base - scale * 0.45);
+    context.lineTo(x(tip) + (towardPositive ? -scale * 1.2 : scale * 1.2), base - scale * 1.1);
+    context.lineTo(x(tip), base);
+    context.lineTo(x(tip) + (towardPositive ? -scale * 1.2 : scale * 1.2), base + scale * 1.1);
+    context.lineTo(x(tip) + (towardPositive ? -scale * 1.2 : scale * 1.2), base + scale * 0.45);
+    context.lineTo(x(fromX), base + scale * 0.45);
+    context.closePath();
+    context.fill();
+  };
+  arrow(PITCH_LENGTH * 0.2, homeAttacksPositiveX, COLOURS.home);
+  arrow(PITCH_LENGTH * 0.8, !homeAttacksPositiveX, COLOURS.away);
+}
 
 function drawMarkings(
   context: CanvasRenderingContext2D,

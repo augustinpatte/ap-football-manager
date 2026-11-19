@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Řízení zápasu",
       "manage": "Řídit zápas",
-      "manageDesc": "Taktická rozhodnutí a střídání se provádějí během zápasu. Výsledek se započítá po skončení zápasu.",
+      "manageDesc": "Sledujte zápas živě na 2D hřišti a rozhodujte o taktice a střídání. Výsledek se započítá, až zápas dokončíte.",
       "play": "Hrát",
       "resume": "Pokračovat",
       "toEnd": "Hrát do konce",
@@ -2964,6 +2964,41 @@
         "unauthorized": "Tento pokyn nelze zadat.",
         "other": "Zápasový engine tento pokyn odmítl."
       }
+    },
+    "liveView": {
+      "pitchLabel": "2D hřiště živě: {{home}} proti {{away}}",
+      "controls": "Ovládání zápasu",
+      "skip": "Přeskočit na další přestávku",
+      "mode": "Zvýraznění",
+      "modes": {
+        "key": "Klíčové momenty",
+        "extended": "Rozšířené",
+        "full": "Celý zápas"
+      },
+      "startSecondHalf": "Zahájit druhý poločas",
+      "addedTime": "+{{minutes}} min nastaveno",
+      "goalBanner": "Gól! {{player}} · {{minute}}",
+      "pauseToAct": "Pozastavte zápas, abyste mohli provést změny. Vaše pokyny platí od zobrazeného okamžiku.",
+      "incompleteData": "Některá polohová data z herního enginu byla neúplná a v obraze chybí.",
+      "hasBall": "{{team}} má míč",
+      "looseBall": "Míč je volný",
+      "kickoffPending": "Čeká se na výkop",
+      "status": {
+        "loading": "Příprava zápasu…",
+        "pausing": "Dosahujeme okamžiku, kdy můžete zasáhnout…"
+      },
+      "stoppage": {
+        "ball_out": "Míč mimo hru",
+        "foul": "Faul",
+        "offside": "Ofsajd",
+        "goal": "Gól",
+        "injury": "Přerušení kvůli zranění",
+        "substitution": "Střídání",
+        "period_end": "Konec poločasu",
+        "other": "Hra je přerušena"
+      },
+      "attacksRight": "{{team}} útočí doprava",
+      "attacksLeft": "{{team}} útočí doleva"
     }
   },
   "endOfSeason": {

@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "比赛管理",
       "manage": "管理比赛",
-      "manageDesc": "比赛进行中由你做出战术决策和换人安排。比赛结束后结果才会生效。",
+      "manageDesc": "在 2D 球场上实时观看比赛，并亲自做出战术和换人决定。你结束比赛后，结果才会生效。",
       "play": "开始",
       "resume": "继续",
       "toEnd": "直接踢到终场",
@@ -2964,6 +2964,41 @@
         "unauthorized": "无法下达该指令。",
         "other": "比赛引擎拒绝了该指令。"
       }
+    },
+    "liveView": {
+      "pitchLabel": "2D 球场直播：{{home}} 对 {{away}}",
+      "controls": "比赛控制",
+      "skip": "跳到下一次休息",
+      "mode": "集锦",
+      "modes": {
+        "key": "关键时刻",
+        "extended": "扩展",
+        "full": "完整比赛"
+      },
+      "startSecondHalf": "开始下半场",
+      "addedTime": "补时 +{{minutes}} 分钟",
+      "goalBanner": "进球！{{player}} · {{minute}}",
+      "pauseToAct": "暂停比赛以进行调整。你的指令从所显示的时刻起生效。",
+      "incompleteData": "比赛引擎提供的部分位置数据不完整，已从画面中省略。",
+      "hasBall": "{{team}}控球",
+      "looseBall": "球处于无人控制状态",
+      "kickoffPending": "等待开球",
+      "status": {
+        "loading": "正在准备比赛…",
+        "pausing": "正在到达你可以下达指令的时刻…"
+      },
+      "stoppage": {
+        "ball_out": "球出界",
+        "foul": "犯规",
+        "offside": "越位",
+        "goal": "进球",
+        "injury": "因伤暂停",
+        "substitution": "换人",
+        "period_end": "阶段结束",
+        "other": "比赛暂停"
+      },
+      "attacksRight": "{{team}}向右进攻",
+      "attacksLeft": "{{team}}向左进攻"
     }
   },
   "endOfSeason": {

@@ -96,6 +96,41 @@ export interface InteractiveView {
   home_plan: PlanView;
   away_plan: PlanView;
   regulation_minutes: number;
+  /** Everyone in both squads, in the order a frame indexes them. Fixed for the match. */
+  roster: { id: string; side: MatchSide }[];
+  clock: ClockView;
+}
+
+/** Where the current period started and ends on the engine's clock, and its added time. */
+export interface ClockView {
+  period_start_ms: number;
+  /** Nominal ms played before this period (0, 45, 90, 105 minutes for a 45-minute half). */
+  period_base_ms: number;
+  period_nominal_ms: number;
+  nominal_end_ms: number;
+  /** `null` until nominal time is reached; `0` is "no added time". */
+  added_time_ms: number | null;
+}
+
+/** `[roster index, x, y, heading]`: one player on the pitch, in metres and radians. */
+export type PlayerSample = [number, number, number, number];
+
+/**
+ * The world as the engine had it at `t_ms`, copied out of the running simulation (never computed
+ * by the screen). Origin bottom-left of the 105 x 68 pitch; players on the pitch only.
+ */
+export interface LiveFrame {
+  t_ms: number;
+  period: MatchSessionView["period"];
+  state: MatchPhase;
+  stoppage: string | null;
+  /** `[x, y, height]` in metres. */
+  ball: [number, number, number];
+  /** Roster index of the player on the ball. */
+  holder: number | null;
+  possession_side: MatchSide | null;
+  score: [number, number];
+  players: PlayerSample[];
 }
 
 /**
@@ -115,6 +150,11 @@ export interface MatchKeyEvent {
   player_off?: string;
   player_on?: string;
   colour?: "yellow" | "second_yellow" | "red";
+  outcome?: string;
+  offender?: string;
+  victim?: string;
+  /** Where on the pitch it happened, in metres. */
+  position?: { x: number; y: number };
 }
 
 export interface InteractiveSnapshot {
@@ -128,6 +168,8 @@ export type StopReason = "reached" | "period_break" | "key_event" | "paused" | "
 export interface AdvanceSnapshot {
   stop: StopReason;
   snapshot: InteractiveSnapshot;
+  /** The frames of the stretch just played, oldest first; empty unless they were asked for. */
+  frames: LiveFrame[];
 }
 
 export interface TacticalChange {
@@ -160,6 +202,7 @@ export interface OrderSnapshot {
 
 export type AdvanceTarget =
   | { kind: "for_minutes"; value: number }
+  | { kind: "for_seconds"; value: number }
   | { kind: "to_minute"; value: number }
   | { kind: "to_end" };
 
@@ -191,10 +234,12 @@ export function advanceInteractiveMatch(
   target: AdvanceTarget,
   eventCursor: number,
   stopAtKeyEvents = true,
+  captureFrames = false,
 ): Promise<AdvanceSnapshot> {
   return invoke<AdvanceSnapshot>("advance_interactive_match", {
     request: { target, stop_at_key_events: stopAtKeyEvents },
     eventCursor,
+    captureFrames,
   });
 }
 
@@ -208,13 +253,6 @@ export function submitMatchCommand(
     command: { command_id: commandId, expected_revision: expectedRevision, order },
     eventCursor,
   });
-}
-
-export function setInteractivePause(
-  paused: boolean,
-  eventCursor: number,
-): Promise<InteractiveSnapshot> {
-  return invoke<InteractiveSnapshot>("set_interactive_pause", { paused, eventCursor });
 }
 
 export function setInteractiveAssistant(

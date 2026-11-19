@@ -754,6 +754,7 @@
     "tournaments.history.final",
     "staff.delegation.mode.manual",
     "match.replayFeed.kickoff",
-    "match.replayFeed.offside"
+    "match.replayFeed.offside",
+    "match.liveView.stoppage.offside"
   ]
 }

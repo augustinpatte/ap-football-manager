@@ -167,14 +167,19 @@ function tally(counts: SideCounts, event: ReplayEvent): void {
   }
 }
 
+/** What the counts are read from: the events, who holds the ball in each frame, and the roster. */
+export type StatsSource = Pick<Replay, "events" | "roster"> & {
+  frames: ReadonlyArray<Pick<ReplayFrame, "t_ms" | "possession">>;
+};
+
 /**
  * The counts for both sides up to `time`. At full time they equal the engine's own totals (a test
  * against a real M12 document asserts it), so the live numbers and the final ones are one thing.
  */
 export function statsAt(
-  replay: Replay,
+  replay: StatsSource,
   time: number,
-  frame: ReplayFrame,
+  frame: Pick<ReplayFrame, "score">,
   homePlayerIds?: ReadonlySet<string>,
 ): Record<Side, SideCounts> {
   const home = { ...EMPTY };

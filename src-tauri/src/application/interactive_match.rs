@@ -9,8 +9,8 @@
 
 use log::info;
 use ofm_core::interactive_match::{
-    self, AdvanceOutcome, AdvanceRequest, FixtureIdentity, InteractiveMatch, InteractiveView,
-    KeyEvent, OrderReceipt, StopReason, UserCommand,
+    self, live_frames::LiveFrame, AdvanceOutcome, AdvanceRequest, FixtureIdentity,
+    InteractiveMatch, InteractiveView, KeyEvent, OrderReceipt, StopReason, UserCommand,
 };
 use ofm_core::state::StateManager;
 use serde::Serialize;
@@ -32,6 +32,8 @@ pub struct InteractiveSnapshot {
 pub struct AdvanceSnapshot {
     pub stop: StopReason,
     pub snapshot: InteractiveSnapshot,
+    /// The frames of the stretch just played, read from the engine's world; empty unless asked for.
+    pub frames: Vec<LiveFrame>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,9 +80,12 @@ pub fn start_interactive_match_internal(
     let _operation = super::live_session::operation();
     info!("[cmd] start_interactive_match");
     let identity = live_identity(state).ok_or("be.error.noActiveLiveMatch")?;
-    if let Some(existing) =
-        state.with_interactive_match(|m| (m.identity() == &identity).then(|| snapshot_of(m, 0)))
-    {
+    if let Some(existing) = state.with_interactive_match(|m| {
+        (m.identity() == &identity).then(|| {
+            m.reset_frame_sampling();
+            snapshot_of(m, 0)
+        })
+    }) {
         if let Some(snapshot) = existing {
             return snapshot;
         }
@@ -105,17 +110,26 @@ pub fn get_interactive_match_state_internal(
 }
 
 /// Plays on. The computer-managed sides are consulted inside; the manager's own side is only
-/// ever changed by his orders (or the assistant's, if he has handed the match over).
+/// ever changed by his orders (or the assistant's, if he has handed the match over). With
+/// `capture_frames` the answer also carries the frames of the stretch (the 2D screen asks for
+/// them; the match played is the same either way).
 pub fn advance_interactive_match_internal(
     state: &StateManager,
     request: AdvanceRequest,
     event_cursor: usize,
+    capture_frames: bool,
 ) -> Result<AdvanceSnapshot, String> {
     with_match(state, |m| {
-        let AdvanceOutcome { stop, .. } = m.advance(request).map_err(|e| e.translation_key())?;
+        let AdvanceOutcome { stop, frames, .. } = if capture_frames {
+            m.advance_capturing(request)
+        } else {
+            m.advance(request)
+        }
+        .map_err(|e| e.translation_key())?;
         Ok(AdvanceSnapshot {
             stop,
             snapshot: snapshot_of(m, event_cursor)?,
+            frames,
         })
     })
 }
@@ -279,6 +293,7 @@ mod tests {
                 stop_at_key_events: false,
             },
             0,
+            false,
         )
         .expect("advance")
     }
@@ -1462,5 +1477,180 @@ mod tests {
             ofm_engine_consequences, interactive_consequences,
             "OFM engine"
         );
+    }
+
+    /// The 2D screen's way of playing: seconds at a time, frames captured.
+    fn watch(state: &StateManager, seconds: u32) -> AdvanceSnapshot {
+        advance_interactive_match_internal(
+            state,
+            AdvanceRequest {
+                target: AdvanceTarget::ForSeconds(seconds),
+                stop_at_key_events: false,
+            },
+            0,
+            true,
+        )
+        .expect("advance with frames")
+    }
+
+    /// Given a match watched on the 2D screen from kickoff, second by second, with an order at
+    /// the break,
+    /// When it reaches full time and is finalised,
+    /// Then the frames the screen drew form one unbroken timeline whose last score is the result
+    /// the career records, the career records it once, and a second finish (a double click, a
+    /// retry after a reload) is refused and changes nothing.
+    #[test]
+    fn a_match_watched_on_the_2d_screen_is_finalised_once_with_the_score_it_showed() {
+        let directory = TempDir::new().expect("saves directory");
+        let state = StateManager::new();
+        let game = game_with_spatial_fixture();
+        let mut saves = SaveManager::init(directory.path()).expect("save manager");
+        let save_id = saves.create_save(&game, "watched").expect("save");
+        state.set_save_id(save_id);
+        state.set_game(game);
+        begin(&state);
+
+        let mut frames = Vec::new();
+        frames.extend(watch(&state, 0).frames);
+        let mut order_given = false;
+        let last_frame = loop {
+            let out = watch(&state, 45);
+            frames.extend(out.frames);
+            match out.stop {
+                StopReason::PeriodBreak if !order_given => {
+                    let view = snapshot(&state).view;
+                    let (off, on) = legal_swap(&view);
+                    let swap = order(
+                        &state,
+                        "break-swap",
+                        UserOrder::Substitute {
+                            player_off_id: off,
+                            player_on_id: on,
+                        },
+                    );
+                    assert!(swap.receipt.accepted, "{:?}", swap.receipt);
+                    order_given = true;
+                }
+                StopReason::Finished => break frames.last().cloned().expect("frames"),
+                _ => {}
+            }
+        };
+        assert!(order_given, "the match went through the break");
+        assert!(
+            frames.windows(2).all(|w| w[1].t_ms > w[0].t_ms),
+            "one strictly increasing timeline"
+        );
+        assert!(
+            frames.windows(2).all(|w| w[1].t_ms - w[0].t_ms <= 1_000),
+            "no stretch of the match is missing from the picture"
+        );
+        assert_eq!(
+            serde_json::to_value(last_frame.state).expect("serialises"),
+            "full_time"
+        );
+        let shown = (last_frame.score[0], last_frame.score[1]);
+
+        let finalised = finish_interactive_match_internal(&state).expect("finalisation");
+        let result = finalised.game.competitions[0].fixtures[0]
+            .result
+            .as_ref()
+            .expect("a result");
+        assert_eq!(
+            (u64::from(result.home_goals), u64::from(result.away_goals)),
+            (u64::from(shown.0), u64::from(shown.1))
+        );
+        let played = state.get_game(standings_played).unwrap();
+        assert_eq!(played, 2);
+        assert!(finish_interactive_match_internal(&state).is_err());
+        assert_eq!(state.get_game(standings_played).unwrap(), played);
+    }
+
+    /// Given a match under way whose screen was closed and opened again,
+    /// When the new screen asks for the first frame,
+    /// Then it gets the match's current instant (a screen that was handed nothing would show a blank
+    /// pitch until the next kick-off) and the frames carry on from there without a gap.
+    #[test]
+    fn a_screen_that_takes_over_a_match_under_way_is_given_the_current_frame() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        let first = watch(&state, 20);
+        let seen_until = first.frames.last().expect("frames").t_ms;
+        // the screen is closed and opened again: start answers with the match already under way
+        start_interactive_match_internal(&state).expect("takes over");
+        let again = watch(&state, 0);
+        assert_eq!(again.frames.len(), 1, "exactly the current instant");
+        assert_eq!(again.frames[0].t_ms, seen_until);
+        let next = watch(&state, 5);
+        assert!(next.frames[0].t_ms > seen_until);
+    }
+
+    /// Given a captured advance,
+    /// Then its JSON has the exact shape the screen's types read: frames as arrays of numbers
+    /// indexed by roster, a roster with a side per player, and the clock of the period.
+    #[test]
+    fn the_wire_format_of_a_captured_advance_is_what_the_screen_reads() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        let out = watch(&state, 3);
+        let json = serde_json::to_value(&out).expect("serialises");
+        let frame = &json["frames"][0];
+        assert_eq!(frame["t_ms"], 0);
+        assert_eq!(frame["period"], "first_half");
+        assert_eq!(frame["state"], "kickoff_pending");
+        assert_eq!(frame["ball"].as_array().map(Vec::len), Some(3));
+        assert_eq!(frame["score"], serde_json::json!([0, 0]));
+        assert!(frame["holder"].is_null() && frame["possession_side"].is_null());
+        let players = frame["players"].as_array().expect("players");
+        assert_eq!(players.len(), 22);
+        for p in players {
+            let p = p.as_array().expect("[roster, x, y, heading]");
+            assert_eq!(p.len(), 4);
+            assert!(p[0].is_u64() && p[1].is_number() && p[2].is_number() && p[3].is_number());
+        }
+        let view = &json["snapshot"]["view"];
+        let roster = view["roster"].as_array().expect("roster");
+        assert!(roster.len() >= 22);
+        assert!(roster
+            .iter()
+            .all(|r| r["id"].is_string() && (r["side"] == "home" || r["side"] == "away")));
+        assert_eq!(view["clock"]["period_start_ms"], 0);
+        assert_eq!(view["clock"]["period_base_ms"], 0);
+        assert!(view["clock"]["added_time_ms"].is_null());
+        // every roster index a frame uses exists
+        assert!(players
+            .iter()
+            .all(|p| p[0].as_u64().unwrap() < roster.len() as u64));
+    }
+
+    /// Writes the real frames of the first minutes of a match for the screen's own tests, which
+    /// read them as the engine's real output instead of a hand-built stand-in:
+    /// `APFM_WRITE_LIVE_FIXTURE=1 cargo test --lib write_live_fixture -- --ignored`
+    #[test]
+    #[ignore = "writes src/components/match/liveMatch.real.generated.json; run on purpose"]
+    fn write_live_fixture() {
+        if std::env::var("APFM_WRITE_LIVE_FIXTURE").is_err() {
+            return;
+        }
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        let start = begin(&state);
+        // Serialised straight to text, as the IPC does: going through a `Value` would widen every
+        // f32 to f64 and print 21.83 as 21.829999923706055.
+        let mut replies = vec![serde_json::to_string(&watch(&state, 0)).unwrap()];
+        for _ in 0..6 {
+            replies.push(serde_json::to_string(&watch(&state, 30)).unwrap());
+        }
+        let fixture = format!(
+            "{{\"start\":{},\"replies\":[{}]}}",
+            serde_json::to_string(&start).unwrap(),
+            replies.join(",")
+        );
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../src/components/match/liveMatch.real.generated.json"
+        );
+        std::fs::write(path, fixture).expect("written");
     }
 }

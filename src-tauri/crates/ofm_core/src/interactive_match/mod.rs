@@ -26,6 +26,7 @@
 //! not reached full time is never completed.
 
 pub mod ai;
+pub mod live_frames;
 pub mod plan;
 pub mod saved;
 
@@ -47,6 +48,7 @@ use engine::MatchReport;
 use serde::{Deserialize, Serialize};
 
 use self::ai::{AiContext, AiOrder, Checkpoint, Group, REVIEW_EVERY_MS, Squad};
+use self::live_frames::{ClockView, FrameSampler, LiveFrame, LiveRoster, clock_view};
 use self::plan::{PlanError, TacticalChange, TacticalPlan, commands_between, supported_formations};
 use crate::game::Game;
 use crate::spatial_runner::{self, SpatialRunError};
@@ -162,6 +164,8 @@ pub struct OrderReceipt {
 pub enum AdvanceTarget {
     /// This many more simulated minutes.
     ForMinutes(u32),
+    /// This many more simulated seconds: the 2D screen plays a few seconds ahead of the picture.
+    ForSeconds(u32),
     ToMinute(u32),
     ToEnd,
 }
@@ -201,6 +205,9 @@ pub struct InteractiveView {
     pub home_plan: PlanView,
     pub away_plan: PlanView,
     pub regulation_minutes: u32,
+    /// Everyone in both squads, in the order the frames index them. Fixed for the match.
+    pub roster: LiveRoster,
+    pub clock: ClockView,
 }
 
 /// An event of the canonical stream, with its id (its index in the stream).
@@ -215,6 +222,9 @@ pub struct KeyEvent {
 pub struct AdvanceOutcome {
     pub stop: StopReason,
     pub view: InteractiveView,
+    /// The frames of the stretch just played, oldest first. Empty unless they were asked for
+    /// ([`InteractiveMatch::advance_capturing`]).
+    pub frames: Vec<LiveFrame>,
 }
 
 // ------------------------------------------------------------------------ the controller
@@ -251,11 +261,17 @@ pub struct InteractiveMatch {
     /// Next simulated time at which a review is due.
     next_review_ms: u32,
     regulation_ms: u32,
+    /// Reads frames out of the running engine; holds no football state.
+    sampler: FrameSampler,
 }
 
 /// A fresh identifier for a session: commands addressed to any other session are refused.
 pub fn new_session_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+fn frame_interval_ms(input: &MatchInput) -> u32 {
+    u32::from(input.config.frame_interval_ms)
 }
 
 fn side_index(side: Side) -> usize {
@@ -314,7 +330,9 @@ impl InteractiveMatch {
         .map_err(|e| InteractiveError::Engine(e.to_string()))?;
         let regulation_ms = u32::from(input.config.half_length_minutes) * 2 * 60_000;
         grant_actors(&mut session, user_side, false);
+        let sampler = FrameSampler::new(session.simulation().roster(), frame_interval_ms(&input));
         Ok(Self {
+            sampler,
             identity,
             squad: Squad::of(&input),
             input,
@@ -331,6 +349,12 @@ impl InteractiveMatch {
             next_review_ms: REVIEW_EVERY_MS,
             regulation_ms,
         })
+    }
+
+    /// A screen that takes over a match already under way has none of its earlier frames: the next
+    /// capture starts again from the current instant instead of assuming they were seen.
+    pub fn reset_frame_sampling(&mut self) {
+        self.sampler.forget();
     }
 
     pub fn identity(&self) -> &FixtureIdentity {
@@ -362,7 +386,14 @@ impl InteractiveMatch {
     // ---- reading
 
     pub fn view(&self) -> Option<InteractiveView> {
-        let session = self.session()?.view();
+        let live = self.session()?;
+        let roster = LiveRoster::of(&self.input, live.simulation().roster());
+        let clock = clock_view(
+            live.events(),
+            live.simulation().world().period,
+            self.regulation_ms / 2,
+        );
+        let session = live.view();
         let plan_view = |p: &TacticalPlan| PlanView {
             style: p.style.clone(),
             pressing: p.phase.pressing_intensity.clone(),
@@ -378,6 +409,8 @@ impl InteractiveMatch {
             home_plan: plan_view(&self.plans[0]),
             away_plan: plan_view(&self.plans[1]),
             regulation_minutes: self.regulation_ms / 60_000,
+            roster,
+            clock,
         })
     }
 
@@ -390,7 +423,7 @@ impl InteractiveMatch {
         let events = session.events()[start..]
             .iter()
             .enumerate()
-            .filter(|(_, e)| is_key_event(&e.kind))
+            .filter(|(_, e)| is_feed_event(&e.kind))
             .map(|(i, e)| KeyEvent {
                 id: start + i,
                 event: e.clone(),
@@ -555,14 +588,42 @@ impl InteractiveMatch {
     /// Plays on. Between stops the computer-managed sides are consulted at their checkpoints;
     /// the result says why play stopped.
     pub fn advance(&mut self, request: AdvanceRequest) -> Result<AdvanceOutcome, InteractiveError> {
+        self.advance_inner(request, false)
+    }
+
+    /// [`advance`](Self::advance) that also returns the frames of the stretch it played, read
+    /// from the engine's world on its frame grid. It plays exactly the same match: the stretch
+    /// is only cut into frame-sized steps, and the engine's segmented run equals its whole run.
+    pub fn advance_capturing(
+        &mut self,
+        request: AdvanceRequest,
+    ) -> Result<AdvanceOutcome, InteractiveError> {
+        self.advance_inner(request, true)
+    }
+
+    fn advance_inner(
+        &mut self,
+        request: AdvanceRequest,
+        capture: bool,
+    ) -> Result<AdvanceOutcome, InteractiveError> {
+        let mut frames = Vec::new();
+        if capture {
+            // The stretch starts from the frame the screen last saw (taken once per instant).
+            self.sample_into(&mut frames);
+        }
         let now = self.playing()?.now_ms();
         let target = match request.target {
             AdvanceTarget::ForMinutes(m) => now.saturating_add(m.saturating_mul(60_000)),
+            AdvanceTarget::ForSeconds(s) => now.saturating_add(s.saturating_mul(1_000)),
             AdvanceTarget::ToMinute(m) => m.saturating_mul(60_000),
             AdvanceTarget::ToEnd => u32::MAX,
         };
         let stop = loop {
-            let step_to = target.min(self.next_review_ms.max(now));
+            let mut step_to = target.min(self.next_review_ms.max(now));
+            if capture {
+                let at = self.playing()?.now_ms();
+                step_to = step_to.min(self.sampler.next_grid_ms(at));
+            }
             let options = AdvanceOptions {
                 stop_at_key_events: true,
                 stop_at_period_breaks: true,
@@ -572,6 +633,9 @@ impl InteractiveMatch {
                 .advance_to(step_to, options)
                 .map_err(|e| InteractiveError::Engine(e.to_string()))?;
             let at = self.playing()?.now_ms();
+            if capture {
+                self.sample_into(&mut frames);
+            }
             let review_due = at >= self.next_review_ms;
             if review_due {
                 self.next_review_ms = (at / REVIEW_EVERY_MS + 1) * REVIEW_EVERY_MS;
@@ -591,7 +655,13 @@ impl InteractiveMatch {
             }
         };
         let view = self.view().ok_or(InteractiveError::AlreadyCompleted)?;
-        Ok(AdvanceOutcome { stop, view })
+        Ok(AdvanceOutcome { stop, view, frames })
+    }
+
+    fn sample_into(&mut self, frames: &mut Vec<LiveFrame>) {
+        if let Stage::Playing(session) = &self.stage {
+            frames.extend(self.sampler.sample(session.simulation()));
+        }
     }
 
     /// Asks each computer-managed side what it wants to do, at the checkpoint the last stretch
@@ -738,7 +808,9 @@ impl InteractiveMatch {
         let session = MatchSession::restore(cp.session)
             .map_err(|e| InteractiveError::Engine(e.to_string()))?;
         let regulation_ms = u32::from(input.config.half_length_minutes) * 2 * 60_000;
+        let sampler = FrameSampler::new(session.simulation().roster(), frame_interval_ms(&input));
         Ok(Self {
+            sampler,
             identity: cp.identity,
             squad: Squad::of(&input),
             input,
@@ -834,5 +906,21 @@ fn is_key_event(kind: &EventKind) -> bool {
     )
 }
 
+/// What a match feed shows: the key events plus the football a viewer follows (shots with how
+/// they ended, fouls, corners, offsides) and the announcement of added time.
+fn is_feed_event(kind: &EventKind) -> bool {
+    is_key_event(kind)
+        || matches!(
+            kind,
+            EventKind::Shot { .. }
+                | EventKind::Foul { .. }
+                | EventKind::Corner
+                | EventKind::Offside { .. }
+                | EventKind::AddedTime { .. }
+        )
+}
+
+#[cfg(test)]
+mod frames_tests;
 #[cfg(test)]
 mod tests;

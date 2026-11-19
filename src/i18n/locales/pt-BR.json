@@ -2879,7 +2879,7 @@
     "interactive": {
       "heading": "Gestão da partida",
       "manage": "Gerenciar a partida",
-      "manageDesc": "As decisões táticas e as substituições são tomadas durante a partida. O resultado vale quando a partida for encerrada.",
+      "manageDesc": "Assista à partida ao vivo em um campo 2D e tome as decisões táticas e de substituição por conta própria. O resultado só vale quando terminar.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até o fim",
@@ -2907,6 +2907,41 @@
         "unauthorized": "Não é possível dar essa ordem.",
         "other": "O motor da partida recusou essa ordem."
       }
+    },
+    "liveView": {
+      "pitchLabel": "Campo 2D ao vivo: {{home}} contra {{away}}",
+      "controls": "Controles da partida",
+      "skip": "Pular para o próximo intervalo",
+      "mode": "Melhores momentos",
+      "modes": {
+        "key": "Lances principais",
+        "extended": "Ampliado",
+        "full": "Partida completa"
+      },
+      "startSecondHalf": "Começar o segundo tempo",
+      "addedTime": "+{{minutes}} min de acréscimo",
+      "goalBanner": "Gol! {{player}} · {{minute}}",
+      "pauseToAct": "Pause a partida para fazer alterações. Suas ordens valem a partir do momento mostrado.",
+      "incompleteData": "Alguns dados de posição do motor da partida estavam incompletos e ficaram de fora da imagem.",
+      "hasBall": "{{team}} está com a bola",
+      "looseBall": "A bola está livre",
+      "kickoffPending": "Aguardando o pontapé inicial",
+      "status": {
+        "loading": "Preparando a partida…",
+        "pausing": "Chegando ao momento em que você pode agir…"
+      },
+      "stoppage": {
+        "ball_out": "Bola fora",
+        "foul": "Falta",
+        "offside": "Impedimento",
+        "goal": "Gol",
+        "injury": "Paralisação por lesão",
+        "substitution": "Substituição",
+        "period_end": "Fim do tempo",
+        "other": "Jogo parado"
+      },
+      "attacksRight": "{{team}} ataca para a direita",
+      "attacksLeft": "{{team}} ataca para a esquerda"
     }
   },
   "endOfSeason": {
