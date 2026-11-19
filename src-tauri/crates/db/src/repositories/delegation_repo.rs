@@ -102,6 +102,46 @@ mod tests {
         assert!(loaded.is_standing_back(Duty::Lineup, "2026-08-11"));
     }
 
+    /// Given training owned by a named coach, with a proposal for a raised load waiting
+    /// When the game is saved and loaded
+    /// Then the owner and the proposal are kept: nothing reverts to the assistant on a reload.
+    #[test]
+    fn a_named_duty_owner_survives_a_reload() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut state = DelegationState::default();
+        state.set(Duty::Training, true, true);
+        state
+            .settings
+            .iter_mut()
+            .find(|s| s.duty == Duty::Training)
+            .unwrap()
+            .owner = Some("coach-7".into());
+        replace_delegation(db.conn(), &state).unwrap();
+
+        let loaded = load_delegation(db.conn()).unwrap();
+
+        assert_eq!(loaded.owner(Duty::Training), Some("coach-7"));
+        assert_eq!(loaded.owner(Duty::Youth), None);
+    }
+
+    /// Given a delegation saved before duties had owners
+    /// When it is loaded
+    /// Then every duty is the assistant's, which is what it always was.
+    #[test]
+    fn a_delegation_saved_before_owners_loads_with_the_assistant_in_charge() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let old = r#"{"settings":[{"duty":"Training","delegated":true,"confirm_major":true}]}"#;
+        db.conn()
+            .execute(
+                "INSERT OR REPLACE INTO staff_delegation (id, state_json) VALUES (1, ?1)",
+                params![old],
+            )
+            .unwrap();
+        let loaded = load_delegation(db.conn()).unwrap();
+        assert!(loaded.is_delegated(Duty::Training));
+        assert_eq!(loaded.owner(Duty::Training), None);
+    }
+
     #[test]
     fn delegation_round_trips_and_a_missing_row_means_nothing_delegated() {
         let db = GameDatabase::open_in_memory().unwrap();

@@ -68,6 +68,16 @@ impl Duty {
 }
 
 impl Duty {
+    /// Whether "ask me" (`confirm_major`) means anything for this duty: it has a step the staff
+    /// can put to the manager instead of taking. The lineup, the tactical plan, match preparation
+    /// and scouting are reversible and free, so they act at once and offer no such choice.
+    pub fn supports_approval(self) -> bool {
+        !matches!(
+            self,
+            Duty::Lineup | Duty::Tactics | Duty::MatchPreparation | Duty::Scouting
+        )
+    }
+
     /// Days the assistant leaves a duty alone after the manager changed what he had set: a match
     /// is a day or two away for the match duties, and a training week is seven days.
     pub fn stand_back_days(self) -> i64 {
@@ -86,6 +96,11 @@ pub struct DutySetting {
     pub delegated: bool,
     /// The staff only proposes; the manager decides each major step.
     pub confirm_major: bool,
+    /// The staff member the manager has put in charge of this duty. `None`: the assistant manager,
+    /// which is what every state saved before duties had owners means. One setting per duty, so a
+    /// duty has at most one owner by construction.
+    #[serde(default)]
+    pub owner: Option<String>,
 }
 
 /// One concrete step the staff wants to take.
@@ -543,6 +558,7 @@ impl Default for DelegationState {
                     duty: *duty,
                     delegated: false,
                     confirm_major: true,
+                    owner: None,
                 })
                 .collect(),
             suspended_settings: None,
@@ -630,7 +646,26 @@ impl DelegationState {
                 duty,
                 delegated,
                 confirm_major,
+                owner: None,
             }),
+        }
+    }
+
+    /// The staff member the manager put in charge of `duty`, if not the assistant.
+    pub fn owner(&self, duty: Duty) -> Option<&str> {
+        self.setting(duty).and_then(|s| s.owner.as_deref())
+    }
+
+    /// Puts a staff member in charge of `duty` (`None`: the assistant). Whoever the duty ran
+    /// under before is forgotten, and so is what the previous owner last wrote: the new owner
+    /// starts from the club's settings as they stand.
+    pub fn set_owner(&mut self, duty: Duty, owner: Option<String>) {
+        if self.owner(duty) == owner.as_deref() {
+            return;
+        }
+        self.applied.retain(|(d, _)| *d != duty);
+        if let Some(setting) = self.settings.iter_mut().find(|s| s.duty == duty) {
+            setting.owner = owner;
         }
     }
 

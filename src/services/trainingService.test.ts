@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import {
   getTrainingFocusAttributes,
+  getTrainingOutlook,
   setPlayerTrainingFocus,
   setTraining,
   setTrainingGroups,
@@ -18,6 +19,12 @@ const mockedInvoke = vi.mocked(invoke);
 describe("trainingService", () => {
   beforeEach(() => {
     mockedInvoke.mockReset();
+  });
+
+  it("reads the training outlook, which is null without a club", async () => {
+    mockedInvoke.mockResolvedValueOnce(null);
+    await expect(getTrainingOutlook()).resolves.toBeNull();
+    expect(mockedInvoke).toHaveBeenCalledWith("get_training_outlook");
   });
 
   it("calls the set training backend command", async () => {

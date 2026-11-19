@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameStateData } from "../../store/gameStore";
-import type { StaffOverview } from "../../services/staffService";
+import type { DutyOwnerView, DutyView, StaffOverview } from "../../services/staffService";
 import OfferDialog from "./OfferDialog";
 import StaffManagementPanel from "./StaffManagementPanel";
 
@@ -20,6 +20,43 @@ vi.mock("react-i18next", () => ({
     i18n: { language: "en" },
   }),
 }));
+
+const assistant: DutyOwnerView = {
+  id: "assist",
+  name: "Ada Lovelace",
+  post: "AssistantManager",
+  overall: 60,
+};
+const fitnessCoach: DutyOwnerView = {
+  id: "fit-1",
+  name: "Ana Pires",
+  post: "FitnessCoach",
+  overall: 80,
+};
+
+/** The backend's per-duty view: the assistant runs everything; training can go to a coach. */
+function dutyViews(): DutyView[] {
+  const duties = [
+    "Training",
+    "MatchPreparation",
+    "Scouting",
+    "Youth",
+    "StaffRecruitment",
+    "StaffRenewals",
+    "Lineup",
+    "PlayerRenewals",
+    "PlayerRecruitment",
+    "Tactics",
+    "Offers",
+  ] as const;
+  return duties.map((duty) => ({
+    duty,
+    supports_approval: !["Lineup", "Tactics", "MatchPreparation", "Scouting"].includes(duty),
+    in_charge: assistant,
+    named: false,
+    candidates: duty === "Training" ? [fitnessCoach, assistant] : [assistant],
+  }));
+}
 
 function overview(overrides: Partial<StaffOverview> = {}): StaffOverview {
   return {
@@ -78,6 +115,7 @@ function overview(overrides: Partial<StaffOverview> = {}): StaffOverview {
     },
     delegation_mode: "approval",
     has_assistant: true,
+    duties: dutyViews(),
     ...overrides,
   };
 }
@@ -219,7 +257,10 @@ describe("StaffManagementPanel", () => {
 
   it("cannot delegate without an assistant", () => {
     render(
-      <StaffManagementPanel overview={overview({ has_assistant: false })} onGameUpdate={vi.fn()} />,
+      <StaffManagementPanel
+        overview={overview({ has_assistant: false, duties: [] })}
+        onGameUpdate={vi.fn()}
+      />,
     );
     const button = screen.getByTestId("duty-Scouting").querySelector("button");
     expect(button).toBeDisabled();
@@ -386,5 +427,121 @@ describe("OfferDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "staff.offer.submit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("staff.offer.refused");
     expect(onClose).not.toHaveBeenCalled();
+  });
+  /**
+   * Given a club where training can be run by the assistant or a fitness coach
+   * When the manager picks the coach, then the assistant again
+   * Then each choice is sent to the backend: the coach by id, the assistant as "nobody named".
+   */
+  it("puts a staff member in charge of a duty, and hands it back to the assistant", async () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+    const select = screen.getByRole("combobox", { name: /staff\.delegation\.owner\.aria/ });
+
+    fireEvent.click(select);
+    fireEvent.click(screen.getByRole("option", { name: /Ana Pires/ }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_duty_owner", {
+        duty: "Training",
+        staffId: "fit-1",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: /staff\.delegation\.owner\.aria/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Ada Lovelace/ }));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_duty_owner", {
+        duty: "Training",
+        staffId: null,
+      }),
+    );
+  });
+
+  /**
+   * Given the lineup and training both handed over
+   * When the duty list renders
+   * Then "ask me" is offered for training, which has a step to put to the manager, and not for
+   *      the lineup, which acts at once in every mode.
+   */
+  it("offers 'ask me' only where the duty has something to ask", () => {
+    const base = overview();
+    render(
+      <StaffManagementPanel
+        overview={{
+          ...base,
+          delegation: {
+            ...base.delegation,
+            settings: [
+              { duty: "Training", delegated: true, confirm_major: true },
+              { duty: "Lineup", delegated: true, confirm_major: true },
+            ],
+          },
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+    expect(within(screen.getByTestId("duty-Training")).getByRole("checkbox")).toBeInTheDocument();
+    expect(within(screen.getByTestId("duty-Lineup")).queryByRole("checkbox")).toBeNull();
+  });
+
+  /**
+   * Given a duty nobody in post can run
+   * When the list renders
+   * Then it says so and the duty cannot be handed over.
+   */
+  it("says when nobody can run a duty and refuses to hand it over", () => {
+    const base = overview();
+    render(
+      <StaffManagementPanel
+        overview={{
+          ...base,
+          duties: base.duties.map((d) =>
+            d.duty === "Youth" ? { ...d, in_charge: null, candidates: [] } : d,
+          ),
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+    const row = screen.getByTestId("duty-Youth");
+    expect(within(row).getByText("staff.delegation.owner.nobody")).toBeInTheDocument();
+    expect(within(row).getByRole("button")).toBeDisabled();
+  });
+
+  /**
+   * Given a proposal to raise the training load
+   * When it renders
+   * Then the focus and both intensities are shown by their translated names, not as raw ids.
+   */
+  it("names the focus and intensities of a training-load proposal", () => {
+    const base = overview();
+    render(
+      <StaffManagementPanel
+        overview={{
+          ...base,
+          delegation: {
+            ...base.delegation,
+            proposals: [
+              {
+                id: "prop-9",
+                duty: "Training",
+                created: "2026-08-04",
+                action: { kind: "setTraining" },
+                title_key: "delegation.proposal.trainingLoad.title",
+                params: [
+                  ["focus", "Tactical"],
+                  ["intensity", "High"],
+                  ["currentIntensity", "Medium"],
+                ],
+                reason_key: "delegation.proposal.trainingLoad.reason",
+              },
+            ],
+          },
+        }}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+    const item = screen.getByTestId("proposal-prop-9");
+    expect(item).toHaveTextContent("training.intensities.High.label");
+    expect(item).toHaveTextContent("training.focuses.Tactical.label");
+    expect(item).toHaveTextContent("training.intensities.Medium.label");
   });
 });

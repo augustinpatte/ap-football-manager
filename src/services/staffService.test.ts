@@ -6,6 +6,7 @@ import {
   proposeStaffContract,
   releaseStaff,
   setDutyDelegation,
+  setDutyOwner,
   setPlayerProtected,
 } from "./staffService";
 
@@ -29,6 +30,20 @@ describe("staffService", () => {
       staffId: "staff-1",
       wage: 2000,
       years: 2,
+    });
+  });
+
+  it("names the owner of a duty, or hands it back with null", async () => {
+    mockedInvoke.mockResolvedValue({});
+    await setDutyOwner("Training", "fit-1");
+    expect(mockedInvoke).toHaveBeenCalledWith("set_duty_owner", {
+      duty: "Training",
+      staffId: "fit-1",
+    });
+    await setDutyOwner("Training", null);
+    expect(mockedInvoke).toHaveBeenLastCalledWith("set_duty_owner", {
+      duty: "Training",
+      staffId: null,
     });
   });
 

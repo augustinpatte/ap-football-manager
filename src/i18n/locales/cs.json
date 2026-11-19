@@ -1060,6 +1060,20 @@
         "3": "Mládež",
         "4": "Regenerace"
       }
+    },
+    "outlook": {
+      "title": "Výhled tréninku",
+      "restDay": "Den volna: dnes bez tréninku.",
+      "session": "Dnešní trénink probíhá s intenzitou {{intensity}}.",
+      "taperNearMatch": "Blíží se zápas, proto je dnešní trénink zmírněn oproti {{planned}}.",
+      "taperCongested": "Tento týden {{count}} zápasů: pouze regenerace.",
+      "fixtures": "Zápasy v příštích 7 dnech",
+      "coaching": "Vliv trenérů",
+      "recovery": "Vliv na regeneraci",
+      "starters": "Kondice pravděpodobné základní sestavy",
+      "setByYou": "Plán nastavujete sami.",
+      "setByStaff": "Plán nastavuje {{name}} ({{post}}, hodnocení {{rating}}).",
+      "proposalWaiting": "Navržená změna čeká na vaši odpověď v sekci Realizační tým."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "schváleno",
         "declined": "zamítnuto",
         "leftToManager": "ponecháno tobě"
+      },
+      "owner": {
+        "label": "Odpovědná osoba",
+        "aria": "Kdo je odpovědný za: {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Zatím to nemůže převzít nikdo z týmu",
+        "fixed": "{{name}} ({{post}}, hodnocení {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Limity výdajů nesmí být záporné.",
         "wagePolicy": "Mzdová politika vedení tyto podmínky už nepovoluje.",
         "signingRefusedByClub": "Prodávající klub by s tímto angažmá nesouhlasil.",
-        "signingRefusedByPlayer": "Hráč by nepřišel za žádných podmínek, které můžete nabídnout."
+        "signingRefusedByPlayer": "Hráč by nepřišel za žádných podmínek, které můžete nabídnout.",
+        "ownerNotFound": "Tento člen není ve vašem týmu.",
+        "ownerNotEligible": "Tato pozice nemůže tuto povinnost zastávat."
       },
       "freeAgents": {
         "talkAlreadyOpen": "S tímto hráčem už nabídku máš. Počkej na jeho odpověď, nebo ji stáhni.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "Povýšit {{player}} z akademie",
         "reason": "Věk {{age}}, úroveň {{ovr}} při mediánu A-týmu {{median}}. Je připravený."
+      },
+      "trainingLoad": {
+        "title": "Trénink je pro kádr příliš tvrdý",
+        "reason": "Pravděpodobná základní sestava má kondici {{condition}} % při tréninku s intenzitou {{intensity}} v režimu {{schedule}}. Zmírněte zátěž, ať se hráči zotaví."
+      },
+      "coachingStrength": {
+        "title": "Vaši trenéři nejlépe učí: {{focus}}",
+        "reason": "Tréninky zaměřené na {{focus}} jsou s tímto týmem asi o {{gain}} % účinnější než {{currentFocus}}. Zvažte je pro trénink uprostřed týdne."
+      },
+      "injuryRecovery": {
+        "title": "Seznam zraněných vyžaduje pozornost",
+        "reason": "Zraněných hráčů je {{count}}, nejdéle ještě {{days}} dní. Váš zdravotní tým (hodnocení {{medical}}) mění délku zranění o {{duration}} % oproti průměrnému."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "Angažovat {{player}} ({{position}}) za {{fee}}, s platem {{wage}} týdně na {{years}} let",
       "sellPlayer": "Prodat hráče {{player}} klubu {{club}} za {{fee}}",
       "counterOffer": "Požadovat od klubu {{club}} {{fee}} za hráče {{player}} (nabídli {{offered}})",
-      "listPlayer": "Dát hráče {{player}} na přestupovou listinu"
+      "listPlayer": "Dát hráče {{player}} na přestupovou listinu",
+      "trainingLoad": {
+        "title": "Zvýšit trénink na intenzitu {{intensity}} ({{focus}})",
+        "reason": "Kádr je dost svěží na tvrdší trénink, ale chtěli jste schvalovat každé zvýšení zátěže. Nyní je {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Povinné místo je prázdné.",
@@ -4984,7 +5023,10 @@
       "delisted": "Odebral hráče {{player}} z přestupové listiny: tým ho potřebuje",
       "released": "Vyplatil a ukončil smlouvu hráče {{player}}: nikdo ho nekoupil a mzdový účet překračuje rozpočet",
       "listedApproved": "Dal hráče {{player}} na přestupovou listinu, jak jsi schválil",
-      "recruitNoLongerNeeded": "Přestal sledovat hráče {{player}} ({{position}}): kádr ho už nepotřebuje"
+      "recruitNoLongerNeeded": "Přestal sledovat hráče {{player}} ({{position}}): kádr ho už nepotřebuje",
+      "ownerLeft": "Odpovědný člen týmu odešel, proto tuto povinnost převzal asistent trenéra.",
+      "floorPromoted": "Kádr byl pod minimem, proto byl {{player}} povýšen z akademie",
+      "floorSigned": "Kádr byl pod minimem, proto byl jako volný hráč angažován {{player}}"
     }
   },
   "freeAgents": {

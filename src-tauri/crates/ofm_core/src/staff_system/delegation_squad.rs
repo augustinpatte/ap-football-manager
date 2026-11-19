@@ -28,6 +28,50 @@ const RETRY_AFTER_DAYS: i64 = 21;
 /// Longest contract the assistant ever agrees on his own authority.
 const MAX_AUTO_YEARS: u32 = 5;
 
+/// Keeps the club at the squad floor when the whole squad is the assistant's to run.
+///
+/// The game does not fill the human's club (it warns him once a season), because a human manager
+/// is expected to sign players; but a manager who has handed the squad to the assistant under
+/// Total authority has no one else doing it, and retirements, expiries and a short academy can
+/// take a club below 15 seniors or empty a position group overnight. The assistant then does what
+/// the game does for every AI club: `squad_floor::restore_minimum_squad`, which promotes from the
+/// academy first and then signs the free agents the club can pay, under the board's wage policy and
+/// the senior-place limit, which yield only where the club would otherwise be below the floor.
+/// Nothing is created: when no source has anyone the club stays short and the manager's usual
+/// warning stands.
+///
+/// Under Prudent (every major step is asked) this is left to the manager and to the recruiter's
+/// proposals, and so it is whenever the duty is not delegated.
+pub(super) fn keep_the_floor(game: &mut Game, team_id: &str) {
+    if !game.delegation.limits.finance_bound
+        || game.delegation.needs_confirmation(Duty::PlayerRecruitment)
+        || crate::squad_floor::squad_shortfall(game, team_id).is_empty()
+    {
+        return;
+    }
+    let top_up = crate::squad_floor::restore_minimum_squad(game, team_id);
+    let name_of = |game: &Game, id: &str| {
+        game.players
+            .iter()
+            .find(|p| p.id == id)
+            .map_or_else(|| id.to_string(), |p| p.match_name.clone())
+    };
+    for (ids, key) in [
+        (&top_up.promoted, "delegation.log.floorPromoted"),
+        (&top_up.signed, "delegation.log.floorSigned"),
+    ] {
+        for id in ids {
+            let player = name_of(game, id);
+            log(
+                game,
+                Duty::PlayerRecruitment,
+                key,
+                vec![param("player", player)],
+            );
+        }
+    }
+}
+
 /// Names the eleven when a match is a day away: the strongest fit side, with spent starters
 /// rested, written to the club's saved line-up so the manager sees exactly what will play.
 pub(super) fn lineup(game: &mut Game, team_id: &str, assistant_rating: f64) {
@@ -503,5 +547,106 @@ mod tests {
             g.delegation.log.last().unwrap().outcome,
             DecisionOutcome::Approved
         );
+    }
+
+    /// The test club has sixteen midfielders and nobody else, so it is short of keepers,
+    /// defenders and forwards. These free agents fill the gaps.
+    fn with_free_agents(g: &mut Game) {
+        use domain::player::Position;
+        for (group, count) in [
+            (Position::Goalkeeper, 3),
+            (Position::Defender, 6),
+            (Position::Forward, 4),
+        ] {
+            for i in 0..count {
+                let mut agent = crate::world::test_fixtures::player_at(
+                    &format!("fa-{group:?}-{i}"),
+                    "x",
+                    "2030-06-30",
+                );
+                agent.team_id = None;
+                agent.position = group.clone();
+                agent.natural_position = group.clone();
+                agent.ovr = 60;
+                agent.stage_contract_end(None);
+                agent.stage_wage(0);
+                g.players.push(agent);
+            }
+        }
+    }
+
+    fn floor_entries(g: &Game) -> usize {
+        g.delegation
+            .log
+            .iter()
+            .filter(|e| e.title_key.starts_with("delegation.log.floor"))
+            .count()
+    }
+
+    /// Given a club below the squad floor and a Total-authority assistant who acts alone
+    /// When the recruitment duty runs
+    /// Then the club is back at the floor, each player brought in is in the history, and a
+    ///      second run changes nothing.
+    #[test]
+    fn total_authority_brings_a_short_club_back_to_the_floor_once() {
+        let mut g = game(Some(80), 6);
+        with_free_agents(&mut g);
+        g.delegation.apply_mode(DelegationMode::Full);
+        assert!(!crate::squad_floor::squad_shortfall(&g, "team1").is_empty());
+
+        keep_the_floor(&mut g, "team1");
+        assert!(crate::squad_floor::squad_shortfall(&g, "team1").is_empty());
+        let entries = floor_entries(&g);
+        assert!(entries > 0, "what was done is in the history");
+
+        keep_the_floor(&mut g, "team1");
+        assert_eq!(floor_entries(&g), entries, "nothing is done twice");
+    }
+
+    /// Given the same club under Prudent, then with the duty taken back
+    /// When the duty runs
+    /// Then the assistant signs nobody: the floor is the manager's under "ask me", and without
+    ///      Total authority.
+    #[test]
+    fn prudent_and_a_manual_club_are_left_to_the_manager() {
+        let mut prudent = game(Some(80), 6);
+        with_free_agents(&mut prudent);
+        prudent.delegation.apply_mode(DelegationMode::Approval);
+        keep_the_floor(&mut prudent, "team1");
+        assert_eq!(floor_entries(&prudent), 0);
+        assert!(!crate::squad_floor::squad_shortfall(&prudent, "team1").is_empty());
+
+        let mut manual = game(Some(80), 6);
+        with_free_agents(&mut manual);
+        keep_the_floor(&mut manual, "team1");
+        assert_eq!(floor_entries(&manual), 0);
+    }
+
+    /// Given a club below the floor and a market with nobody on it
+    /// When the Total-authority assistant runs the duty
+    /// Then nothing is created and nothing is logged: the gap stands for the manager's warning.
+    #[test]
+    fn the_assistant_creates_nobody_when_the_market_is_empty() {
+        let mut g = game(Some(80), 6);
+        g.delegation.apply_mode(DelegationMode::Full);
+        let players = g.players.len();
+        keep_the_floor(&mut g, "team1");
+        assert_eq!(g.players.len(), players);
+        assert_eq!(floor_entries(&g), 0);
+    }
+
+    /// Given a short club under Total authority and a recruitment duty that ran earlier today, so
+    ///   it is not due again for three days
+    /// When the day's delegated duties run
+    /// Then the floor is still restored: it is checked every day, not on the recruiter's rhythm.
+    #[test]
+    fn the_floor_is_kept_on_a_day_the_recruiter_is_not_due() {
+        let mut g = game(Some(80), 6);
+        with_free_agents(&mut g);
+        g.delegation.apply_mode(DelegationMode::Full);
+        let today = super::stamp(&g);
+        g.delegation.mark_run(Duty::PlayerRecruitment, &today);
+        super::super::delegation::run_after_day(&mut g);
+        assert!(crate::squad_floor::squad_shortfall(&g, "team1").is_empty());
     }
 }

@@ -1,5 +1,6 @@
 mod fitness_warnings;
 mod focus_attributes;
+mod outlook;
 pub use fitness_warnings::{
     FitnessStatus, SquadFitness, check_squad_fitness_warnings, fitness_status, squad_fitness,
 };
@@ -13,6 +14,7 @@ use rand::Rng;
 
 use focus_attributes::focus_gains;
 pub use focus_attributes::{TrainingFocusAttributes, training_focus_attributes};
+pub use outlook::{TrainingOutlook, training_outlook};
 
 /// Computed coaching quality for a team's staff.
 pub struct TeamCoachingBonus {
@@ -31,7 +33,7 @@ pub struct TeamCoachingBonus {
 /// by the assistant and the first-team coaches (and the fitness coaches in a physical or
 /// recovery session); youth and goalkeeping coaches have their own effects, and each coach is
 /// rated on the attribute of the session being run.
-fn compute_coaching_bonus(
+pub(crate) fn compute_coaching_bonus(
     team_staff: &[&domain::staff::Staff],
     focus: &TrainingFocus,
 ) -> TeamCoachingBonus {
@@ -100,13 +102,16 @@ fn compute_coaching_bonus(
         coaching_mult,
         specialization_mult,
         physio_mult: medical_mult * fitness_mult,
+        // Floored at neutral: an empty seat is x1.0, and a below-average coach who costs a wage
+        // must not slow the academy or the keepers more than nobody would. A good one still
+        // speeds them up; a weak one is simply no help.
         youth_mult: if has_post(StaffPost::YouthCoach) || has_post(StaffPost::HeadOfYouth) {
-            profile.youth_progression_mult()
+            profile.youth_progression_mult().max(1.0)
         } else {
             1.0
         },
         gk_mult: if has_post(StaffPost::GoalkeepingCoach) {
-            profile.goalkeeper_progression_mult()
+            profile.goalkeeper_progression_mult().max(1.0)
         } else {
             1.0
         },
@@ -143,7 +148,7 @@ const FATIGUE_GUARD_CONDITION: u8 = 40;
 const MATCH_TAPER_DAYS: i64 = 2;
 
 /// This many fixtures inside a week is a congested run.
-const CONGESTION_FIXTURE_THRESHOLD: usize = 2;
+pub(crate) const CONGESTION_FIXTURE_THRESHOLD: usize = 2;
 
 /// Why a club's sessions are lighter today.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -719,12 +724,10 @@ mod tests {
             let (lo, hi) = (&pair[0], &pair[1]);
             assert!(hi.1 >= lo.1, "coaching {} -> {}", lo.0, hi.0);
             assert!(hi.2 >= lo.2, "recovery {} -> {}", lo.0, hi.0);
-            // An empty youth or goalkeeping seat is neutral (x1.0), so a weak coach there is
-            // worse than none; the ordering holds from weak upwards (see APFM_STAFF_SYSTEM.md).
-            if lo.0 != "none" {
-                assert!(hi.3 >= lo.3, "youth {} -> {}", lo.0, hi.0);
-                assert!(hi.4 >= lo.4, "goalkeepers {} -> {}", lo.0, hi.0);
-            }
+            // An empty youth or goalkeeping seat is neutral (x1.0) and a weak coach is floored
+            // there, so the ordering holds all the way from none.
+            assert!(hi.3 >= lo.3, "youth {} -> {}", lo.0, hi.0);
+            assert!(hi.4 >= lo.4, "goalkeepers {} -> {}", lo.0, hi.0);
             assert!(hi.5 >= lo.5, "injury prevention {} -> {}", lo.0, hi.0);
             assert!(hi.6 <= lo.6, "injury length {} -> {}", lo.0, hi.0);
         }

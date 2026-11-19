@@ -104,6 +104,7 @@ function overviewFromBackend() {
     },
     delegation_mode: "approval",
     has_assistant: true,
+    duties: [],
   };
 }
 

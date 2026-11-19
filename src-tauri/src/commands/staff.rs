@@ -7,7 +7,7 @@ use domain::staff::{Staff, StaffPost};
 use ofm_core::game::Game;
 use ofm_core::staff_system::assistant::{self, Recommendation};
 use ofm_core::staff_system::market::{self, OfferResponse, PostStatus};
-use ofm_core::staff_system::{delegation, profile};
+use ofm_core::staff_system::{delegation, delegation_owner, profile};
 use ofm_core::state::StateManager;
 use serde::Serialize;
 
@@ -40,6 +40,40 @@ pub struct StaffBudgetView {
     pub severance_pct: i64,
 }
 
+/// A member of staff who runs, or could run, a duty.
+#[derive(Debug, Clone, Serialize)]
+pub struct OwnerView {
+    pub id: String,
+    pub name: String,
+    pub post: StaffPost,
+    pub overall: u8,
+}
+
+impl From<delegation_owner::Owner> for OwnerView {
+    fn from(owner: delegation_owner::Owner) -> Self {
+        Self {
+            id: owner.id,
+            name: owner.name,
+            post: owner.post,
+            overall: owner.rating.round() as u8,
+        }
+    }
+}
+
+/// Who is responsible for one duty, and what the manager can change about it.
+#[derive(Debug, Clone, Serialize)]
+pub struct DutyView {
+    pub duty: Duty,
+    /// Whether "ask me" changes anything for this duty.
+    pub supports_approval: bool,
+    /// Who runs it today (`None`: nobody can, so it does nothing until someone is hired).
+    pub in_charge: Option<OwnerView>,
+    /// Whether the manager named him, rather than the assistant being the default.
+    pub named: bool,
+    /// Everyone who could be put in charge, best first. One entry means there is no choice.
+    pub candidates: Vec<OwnerView>,
+}
+
 /// The staff of the managed club: seats, members' contract terms, budget and delegation.
 #[derive(Debug, Clone, Serialize)]
 pub struct StaffOverview {
@@ -51,6 +85,8 @@ pub struct StaffOverview {
     /// The preset the duty settings amount to (derived: it is not stored).
     pub delegation_mode: DelegationMode,
     pub has_assistant: bool,
+    /// One row per duty: who runs it and who could.
+    pub duties: Vec<DutyView>,
 }
 
 /// A free agent as a candidate for one of the club's seats.
@@ -110,6 +146,19 @@ pub fn staff_overview_of(game: &Game) -> Result<StaffOverview, String> {
             max_years: market::MAX_YEARS,
             severance_pct: market::SEVERANCE_PCT,
         },
+        duties: Duty::ALL
+            .iter()
+            .map(|duty| DutyView {
+                duty: *duty,
+                supports_approval: duty.supports_approval(),
+                in_charge: delegation_owner::resolve(game, &team_id, *duty).map(OwnerView::from),
+                named: game.delegation.owner(*duty).is_some(),
+                candidates: delegation_owner::candidates(game, &team_id, *duty)
+                    .into_iter()
+                    .map(OwnerView::from)
+                    .collect(),
+            })
+            .collect(),
         delegation: game.delegation.clone(),
         delegation_mode: game.delegation.mode(),
         has_assistant: members
@@ -284,14 +333,29 @@ pub fn set_duty(
     confirm_major: bool,
 ) -> Result<(), String> {
     let team_id = user_team_id(game)?;
-    let has_assistant = profile::team_staff(game, &team_id)
-        .iter()
-        .any(|s| s.post() == StaffPost::AssistantManager);
-    if delegated && !has_assistant {
+    // A duty can be handed over only to someone who can run it: the member the manager named, or
+    // else the assistant.
+    if delegated && delegation_owner::resolve(game, &team_id, duty).is_none() {
         return Err("be.error.delegation.noAssistant".to_string());
     }
     game.delegation.set(duty, delegated, confirm_major);
     Ok(())
+}
+
+/// Puts a member of staff in charge of a duty, or hands it back to the assistant (`None`).
+#[tauri::command]
+pub fn set_duty_owner(
+    state: State<'_, Arc<StateManager>>,
+    duty: Duty,
+    staff_id: Option<String>,
+) -> Result<Game, String> {
+    info!("[cmd] set_duty_owner: {duty:?} owner={staff_id:?}");
+    mutate_active_game(&state, |game| set_owner(game, duty, staff_id.as_deref()))
+}
+
+pub fn set_owner(game: &mut Game, duty: Duty, staff_id: Option<&str>) -> Result<(), String> {
+    let team_id = user_team_id(game)?;
+    delegation_owner::assign(game, &team_id, duty, staff_id)
 }
 
 /// Hands the whole job to the assistant (or takes it all back) in one of the three presets.
@@ -698,6 +762,50 @@ mod tests {
         game.staff.clear();
         set_duty(&mut game, Duty::Training, false, false).unwrap();
         assert!(!game.delegation.is_delegated(Duty::Training));
+    }
+
+    /// Given a club with an assistant and a fitness coach
+    /// When the fitness coach is put in charge of training, and a physio of the lineup
+    /// Then the first is stored and shown in the overview as named, the second is refused, and a
+    ///      club with only the coach (no assistant) can then delegate training but not the lineup.
+    #[test]
+    fn a_duty_owner_is_named_shown_and_makes_a_duty_delegable_without_the_assistant() {
+        let mut game = with_posts(
+            make_game(),
+            &[
+                ("a1", StaffPost::AssistantManager, 60, 3_000, true),
+                ("f1", StaffPost::FitnessCoach, 80, 3_000, true),
+                ("p1", StaffPost::Physio, 70, 2_000, true),
+            ],
+        );
+        set_owner(&mut game, Duty::Training, Some("f1")).unwrap();
+        assert_eq!(
+            set_owner(&mut game, Duty::Lineup, Some("p1")),
+            Err("be.error.delegation.ownerNotEligible".to_string())
+        );
+        let overview = staff_overview_of(&game).unwrap();
+        let training = overview
+            .duties
+            .iter()
+            .find(|d| d.duty == Duty::Training)
+            .unwrap();
+        assert!(training.named);
+        assert_eq!(training.in_charge.as_ref().unwrap().id, "f1");
+        assert_eq!(training.candidates.len(), 2);
+        let lineup = overview
+            .duties
+            .iter()
+            .find(|d| d.duty == Duty::Lineup)
+            .unwrap();
+        assert!(!lineup.named && !lineup.supports_approval);
+        assert_eq!(lineup.candidates.len(), 1);
+
+        game.staff.retain(|s| s.id != "a1");
+        set_duty(&mut game, Duty::Training, true, true).unwrap();
+        assert_eq!(
+            set_duty(&mut game, Duty::Lineup, true, true),
+            Err("be.error.delegation.noAssistant".to_string())
+        );
     }
 
     /// Given a club with no assistant, when the manager picks a preset, then delegating is

@@ -1060,6 +1060,20 @@
         "3": "Jugend",
         "4": "Erholung"
       }
+    },
+    "outlook": {
+      "title": "Trainingsausblick",
+      "restDay": "Ruhetag: heute keine Einheit.",
+      "session": "Die heutige Einheit läuft mit {{intensity}}er Intensität.",
+      "taperNearMatch": "Ein Spiel steht bevor, daher wird die heutige Einheit gegenüber {{planned}} reduziert.",
+      "taperCongested": "{{count}} Spiele diese Woche: nur Regeneration.",
+      "fixtures": "Spiele in den nächsten 7 Tagen",
+      "coaching": "Trainingswirkung",
+      "recovery": "Regenerationswirkung",
+      "starters": "Zustand der wahrscheinlichen Startelf",
+      "setByYou": "Du legst den Plan selbst fest.",
+      "setByStaff": "Der Plan wird von {{name}} ({{post}}, Stärke {{rating}}) festgelegt.",
+      "proposalWaiting": "Eine vorgeschlagene Änderung wartet unter Mitarbeiter auf deine Antwort."
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "genehmigt",
         "declined": "abgelehnt",
         "leftToManager": "dir überlassen"
+      },
+      "owner": {
+        "label": "Zuständig",
+        "aria": "Wer ist zuständig für: {{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "Niemand im Stab kann das bisher übernehmen",
+        "fixed": "{{name}} ({{post}}, Stärke {{rating}})"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "Ausgabengrenzen dürfen nicht negativ sein.",
         "wagePolicy": "Die Gehaltspolitik des Vorstands erlaubt diese Konditionen nicht mehr.",
         "signingRefusedByClub": "Der abgebende Verein würde dieser Verpflichtung nicht zustimmen.",
-        "signingRefusedByPlayer": "Der Spieler würde zu keinen Konditionen kommen, die du bieten könntest."
+        "signingRefusedByPlayer": "Der Spieler würde zu keinen Konditionen kommen, die du bieten könntest.",
+        "ownerNotFound": "Dieses Teammitglied gehört nicht zu deinem Stab.",
+        "ownerNotEligible": "Diese Position kann diese Aufgabe nicht übernehmen."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Du hast bereits ein Angebot bei diesem Spieler. Warte auf seine Antwort oder ziehe es zurück.",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "{{player}} aus der Jugend befördern",
         "reason": "{{age}} Jahre, Stärke {{ovr}} bei einem Profi-Median von {{median}}. Er ist bereit."
+      },
+      "trainingLoad": {
+        "title": "Das Training ist zu hart für den Kader",
+        "reason": "Deine wahrscheinliche Startelf liegt bei {{condition}} % Kondition, mit Einheiten der Intensität {{intensity}} im Plan {{schedule}}. Reduziere die Belastung, damit sie sich erholen kann."
+      },
+      "coachingStrength": {
+        "title": "Deine Trainer vermitteln {{focus}} am besten",
+        "reason": "{{focus}}-Einheiten sind mit diesem Stab etwa {{gain}} % wirksamer als {{currentFocus}}. Erwäge sie für die Einheit unter der Woche."
+      },
+      "injuryRecovery": {
+        "title": "Die Verletztenliste braucht Aufmerksamkeit",
+        "reason": "{{count}} Spieler sind verletzt, der längste noch {{days}} Tage. Deine medizinische Abteilung (Stärke {{medical}}) verändert die Verletzungsdauer um {{duration}} % gegenüber einer durchschnittlichen."
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "{{player}} ({{position}}) für {{fee}} verpflichten, mit {{wage}} pro Woche über {{years}} Jahre",
       "sellPlayer": "{{player}} für {{fee}} an {{club}} verkaufen",
       "counterOffer": "Von {{club}} {{fee}} für {{player}} verlangen (geboten: {{offered}})",
-      "listPlayer": "{{player}} auf die Transferliste setzen"
+      "listPlayer": "{{player}} auf die Transferliste setzen",
+      "trainingLoad": {
+        "title": "Training auf Intensität {{intensity}} erhöhen ({{focus}})",
+        "reason": "Der Kader ist frisch genug für eine härtere Einheit, aber du wolltest jede Erhöhung der Belastung freigeben. Aktuell: {{currentIntensity}}."
+      }
     },
     "reason": {
       "vacancy": "Eine Pflichtstelle ist unbesetzt.",
@@ -4984,7 +5023,10 @@
       "delisted": "{{player}} von der Transferliste genommen: die Elf braucht ihn",
       "released": "Vertrag von {{player}} aufgelöst: niemand hat ihn gekauft und die Gehaltssumme liegt über dem Budget",
       "listedApproved": "{{player}} wie von dir genehmigt auf die Transferliste gesetzt",
-      "recruitNoLongerNeeded": "Verfolgung von {{player}} ({{position}}) eingestellt: der Kader braucht ihn nicht mehr"
+      "recruitNoLongerNeeded": "Verfolgung von {{player}} ({{position}}) eingestellt: der Kader braucht ihn nicht mehr",
+      "ownerLeft": "Das zuständige Teammitglied hat den Verein verlassen, daher hat der Co-Trainer diese Aufgabe zurückübernommen.",
+      "floorPromoted": "Der Kader lag unter dem Minimum, daher wurde {{player}} aus der Akademie befördert",
+      "floorSigned": "Der Kader lag unter dem Minimum, daher wurde {{player}} als vereinsloser Spieler verpflichtet"
     }
   },
   "freeAgents": {

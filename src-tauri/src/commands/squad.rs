@@ -4,7 +4,7 @@ use tauri::State;
 
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
-use ofm_core::training::SquadFitness;
+use ofm_core::training::{SquadFitness, TrainingOutlook};
 
 use crate::commands::util::{mutate_active_game, user_team_id, user_team_mut};
 
@@ -289,6 +289,26 @@ pub fn set_team_match_roles_internal(
 
         Ok(())
     })
+}
+
+/// What the club's training will really do today and this week (the stored plan after the taper,
+/// the fixtures and the coaching staff); none when the user has no club.
+#[tauri::command]
+pub fn get_training_outlook(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<Option<TrainingOutlook>, String> {
+    get_training_outlook_internal(&state)
+}
+
+pub fn get_training_outlook_internal(
+    state: &StateManager,
+) -> Result<Option<TrainingOutlook>, String> {
+    state
+        .get_game(|game| {
+            let team_id = game.manager.team_id.as_deref()?;
+            ofm_core::training::training_outlook(game, team_id)
+        })
+        .ok_or_else(|| "be.error.noActiveGameSession".to_string())
 }
 
 #[tauri::command]
@@ -836,8 +856,8 @@ mod tests {
     use super::{
         apply_custom_tactic_internal, apply_tactic_preset_configuration_internal,
         apply_tactic_preset_internal, get_rating_tiers, get_squad_fitness_internal,
-        get_tactics_blueprint_status_internal, set_formation_internal,
-        set_out_of_possession_formation_internal, set_play_style_internal,
+        get_tactics_blueprint_status_internal, get_training_outlook_internal,
+        set_formation_internal, set_out_of_possession_formation_internal, set_play_style_internal,
         set_player_role_internal, set_player_squad_role_internal,
         set_player_training_focus_internal,
     };
@@ -941,6 +961,32 @@ mod tests {
         let mut game = make_game(player);
         game.teams[0].id = "team-elsewhere".to_string();
         game
+    }
+
+    /// Given no game, then a game whose club trains at High
+    /// When the outlook is asked for
+    /// Then without a game it says so, and with one it reports the club's own session and
+    ///      stored coaching effect.
+    #[test]
+    fn get_training_outlook_internal_answers_from_the_users_club() {
+        let state = StateManager::new();
+        assert_eq!(
+            get_training_outlook_internal(&state).err().as_deref(),
+            Some("be.error.noActiveGameSession")
+        );
+        let mut game = make_game(make_player("1998-01-01"));
+        game.teams[0].training_intensity = domain::team::TrainingIntensity::High;
+        state.set_game(game);
+
+        let outlook = get_training_outlook_internal(&state)
+            .expect("an outlook")
+            .expect("the user has a club");
+
+        assert_eq!(outlook.fixtures_this_week, 0);
+        assert_eq!(
+            outlook.session_intensity,
+            domain::team::TrainingIntensity::High
+        );
     }
 
     /// Given an active game whose club has one fit player on 30 and one injured player on 10

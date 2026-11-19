@@ -104,6 +104,29 @@ export interface DutySetting {
   duty: Duty;
   delegated: boolean;
   confirm_major: boolean;
+  /** The staff member the manager put in charge; absent or null means the assistant manager. */
+  owner?: string | null;
+}
+
+/** A member of staff who runs, or could run, a duty. */
+export interface DutyOwnerView {
+  id: string;
+  name: string;
+  post: StaffPost;
+  overall: number;
+}
+
+/** Who is responsible for one duty and what the manager can change about it (the backend's view). */
+export interface DutyView {
+  duty: Duty;
+  /** Whether "ask me" changes anything for this duty. */
+  supports_approval: boolean;
+  /** Who runs it today; null when nobody in post can. */
+  in_charge: DutyOwnerView | null;
+  /** Whether the manager named him, rather than the assistant being the default. */
+  named: boolean;
+  /** Everyone who could be put in charge, best first; one entry means there is no choice. */
+  candidates: DutyOwnerView[];
 }
 
 export type ProposalAction = { kind: string } & Record<string, unknown>;
@@ -143,6 +166,7 @@ export interface StaffOverview {
   delegation: DelegationState;
   delegation_mode: DelegationMode;
   has_assistant: boolean;
+  duties: DutyView[];
 }
 
 export interface CandidateView {
@@ -208,6 +232,11 @@ export async function setDutyDelegation(
   confirmMajor: boolean,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("set_duty_delegation", { duty, delegated, confirmMajor });
+}
+
+/** Puts a member of staff in charge of a duty; `null` hands it back to the assistant manager. */
+export async function setDutyOwner(duty: Duty, staffId: string | null): Promise<GameStateData> {
+  return invoke<GameStateData>("set_duty_owner", { duty, staffId });
 }
 
 export async function setDelegationMode(mode: DelegationMode): Promise<GameStateData> {

@@ -7,11 +7,13 @@ pub mod delegation;
 mod delegation_control;
 mod delegation_listing;
 mod delegation_offers;
+pub mod delegation_owner;
 pub mod delegation_policy;
 mod delegation_recruitment;
 mod delegation_report;
 #[cfg(test)]
 mod delegation_scenarios;
 mod delegation_squad;
+mod delegation_training;
 pub mod market;
 pub mod profile;

@@ -621,6 +621,32 @@ assistant does is in the history with the reason and the figures (and the `Appro
 manager approved), and nothing is done twice (`SalesMemory` records each offer it has acted on; it is
 saved with the career).
 
+### Duty owners and delegated training (I9)
+
+Every duty has one **owner**: the staff member whose rating the duty is judged with. The default is
+the assistant manager (what every saved game means by it); the manager can name another member whose
+post fits (`staff_system::delegation_owner::eligible_posts`: a first-team or fitness coach for
+training, the head of scouting for scouting, the head of youth or a youth coach for the academy). A
+duty has exactly one owner (one setting per duty), the owner leaves the duty to the assistant with one
+note in the history if he goes, and a duty nobody in post can run cannot be handed over. The owner's
+rating is the eye of the duty: how much of the squad's condition he reads for the training plan, which
+needs the advice and the academy he notices.
+
+Delegated training uses the plan every AI club uses (`ai_training::plan_for_team`) and adds what the
+staff really are (`staff_system/delegation_training.rs`): two matches in the coming week make the
+stored plan recovery work (the session `training` would run anyway), the Wednesday slot is the session
+the coaching staff teach best (by the same `coaching_mult x specialization_mult` `training` applies; the
+other four sessions keep the club's style, so development does not become one-dimensional), and an
+owner rated below 35 never asks for a High session. Easing the load is done at once; raising it is
+the step that costs fitness, so under "ask me" it is a proposal (refused: not asked again for a month, and an approval covers further raises for a month,
+and the plan stands back). `Duty::supports_approval` says which duties have a step to ask about; the
+lineup, tactics, match preparation and scouting act at once in every mode.
+
+The Training tab shows `training::training_outlook`: today's session after the near-match taper and
+the congested-week rule, the week's fixtures, the coaching and recovery effects of the staff, the
+likely starters' condition and who sets the plan. A youth or goalkeeping coach rated below average no
+longer slows the academy or the keepers more than an empty seat would (floored at neutral).
+
 How sharp the assistant is shows continuously: his foresight (the weight he gives the next two seasons,
 40 % to 100 % of the club's own), his reading of a player he has not signed (a bounded, deterministic error
 of up to 6 rating points, halved for a player a scout has reported on, none for his own), the share of the

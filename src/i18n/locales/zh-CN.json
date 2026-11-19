@@ -1060,6 +1060,20 @@
         "3": "青年",
         "4": "恢复"
       }
+    },
+    "outlook": {
+      "title": "训练展望",
+      "restDay": "休息日：今天没有训练课。",
+      "session": "今天的训练强度为{{intensity}}。",
+      "taperNearMatch": "比赛临近，今天的训练已从{{planned}}减轻。",
+      "taperCongested": "本周有{{count}}场比赛：只进行恢复训练。",
+      "fixtures": "未来7天的比赛",
+      "coaching": "教练效果",
+      "recovery": "恢复效果",
+      "starters": "预计首发球员状态",
+      "setByYou": "训练计划由你自己制定。",
+      "setByStaff": "训练计划由{{name}}（{{post}}，能力{{rating}}）制定。",
+      "proposalWaiting": "有一项建议的调整正等待你在“教练组”中回复。"
     }
   },
   "staff": {
@@ -1193,6 +1207,13 @@
         "approved": "已批准",
         "declined": "已拒绝",
         "leftToManager": "留给你"
+      },
+      "owner": {
+        "label": "负责人",
+        "aria": "谁负责：{{duty}}",
+        "option": "{{name}} · {{post}} · {{rating}}",
+        "nobody": "目前没有在职人员可以负责此事",
+        "fixed": "{{name}}（{{post}}，能力{{rating}}）"
       }
     },
     "assistant": {
@@ -3308,7 +3329,9 @@
         "invalidLimits": "支出限额不能为负数。",
         "wagePolicy": "董事会的薪资政策不再允许这些条件。",
         "signingRefusedByClub": "出售方俱乐部不会同意这笔签约。",
-        "signingRefusedByPlayer": "无论你能提供什么条件，球员都不会加盟。"
+        "signingRefusedByPlayer": "无论你能提供什么条件，球员都不会加盟。",
+        "ownerNotFound": "该成员不在你的教练组中。",
+        "ownerNotEligible": "该职位无法负责这项职责。"
       },
       "freeAgents": {
         "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
@@ -4916,6 +4939,18 @@
       "promote": {
         "title": "将 {{player}} 从青训提拔",
         "reason": "{{age}} 岁，能力 {{ovr}}，一线队中位数为 {{median}}。他已准备好。"
+      },
+      "trainingLoad": {
+        "title": "训练强度对球队来说过高",
+        "reason": "你的预计首发球员状态为{{condition}}%，当前为{{schedule}}安排下的{{intensity}}强度训练。请减轻负荷让他们恢复。"
+      },
+      "coachingStrength": {
+        "title": "你的教练最擅长教授：{{focus}}",
+        "reason": "在这套教练组下，{{focus}}训练的效果比{{currentFocus}}高出约{{gain}}%。可考虑安排在周中训练。"
+      },
+      "injuryRecovery": {
+        "title": "伤病名单需要关注",
+        "reason": "有{{count}}名球员受伤，最长还需{{days}}天。你的医疗部门（能力{{medical}}）使伤病时长比平均水平{{duration}}%。"
       }
     }
   },
@@ -4929,7 +4964,11 @@
       "signPlayer": "以 {{fee}} 签下 {{player}}（{{position}}），周薪 {{wage}}，合同 {{years}} 年",
       "sellPlayer": "以 {{fee}} 将 {{player}} 卖给{{club}}",
       "counterOffer": "向{{club}}要价 {{fee}} 出售 {{player}}（对方报价 {{offered}}）",
-      "listPlayer": "将 {{player}} 加入转会名单"
+      "listPlayer": "将 {{player}} 加入转会名单",
+      "trainingLoad": {
+        "title": "将训练强度提高到{{intensity}}（{{focus}}）",
+        "reason": "球队状态足以承受更高强度的训练，但你要求任何加大负荷的决定都需经你批准。当前强度为{{currentIntensity}}。"
+      }
     },
     "reason": {
       "vacancy": "必需职位空缺。",
@@ -4984,7 +5023,10 @@
       "delisted": "已将 {{player}} 从转会名单移除：球队需要他",
       "released": "已解除 {{player}} 的合同：无人接手，且薪资总额超出预算",
       "listedApproved": "已按你的批准将 {{player}} 加入转会名单",
-      "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他"
+      "recruitNoLongerNeeded": "已停止追逐 {{player}}（{{position}}）：球队不再需要他",
+      "ownerLeft": "负责的教练组成员已离队，助理教练已重新接管此项职责。",
+      "floorPromoted": "球队人数低于最低要求，因此{{player}}从青训营提拔入队",
+      "floorSigned": "球队人数低于最低要求，因此签下了自由球员{{player}}"
     }
   },
   "freeAgents": {

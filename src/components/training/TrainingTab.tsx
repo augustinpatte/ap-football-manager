@@ -1,4 +1,5 @@
 import { useSquadFitness } from "../../hooks/useSquadFitness";
+import { useTrainingOutlook } from "../../hooks/useTrainingOutlook";
 import { useState, type ReactNode } from "react";
 import {
   AlertTriangle,
@@ -24,6 +25,7 @@ import { setTraining, setTrainingSchedule } from "../../services/trainingService
 import type { FitnessStatus } from "../../services/squadService";
 import { Card, CardBody, CardHeader, ProgressBar } from "../ui";
 import TrainingGroupsCard from "./TrainingGroupsCard";
+import TrainingOutlookCard from "./TrainingOutlookCard";
 import TrainingSettingsPanel from "./TrainingSettingsPanel";
 import { getTrainingStaffAdvice } from "./trainingAdvice";
 
@@ -105,6 +107,7 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
   );
   const focusAttributes = useTrainingFocusAttributes();
   const fitness = useSquadFitness(sessionState ?? gameState);
+  const outlook = useTrainingOutlook(sessionState ?? gameState);
 
   const team = sessionState?.team ?? gameState?.teams.find((t) => t.id === teamId) ?? null;
 
@@ -251,6 +254,9 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
       </div>
 
       <div className="flex flex-col gap-5">
+        {outlook ? (
+          <TrainingOutlookCard outlook={outlook} plannedIntensity={currentIntensity} />
+        ) : null}
         <Card accent="accent">
           <CardHeader>{t("training.squadFitness")}</CardHeader>
           <CardBody>

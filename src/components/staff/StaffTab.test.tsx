@@ -31,6 +31,7 @@ const overviewFixture = {
   },
   delegation: { settings: [], proposals: [], log: [] },
   has_assistant: false,
+  duties: [],
 };
 
 vi.mock("@tauri-apps/api/core", () => ({
