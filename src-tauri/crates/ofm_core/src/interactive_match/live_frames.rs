@@ -78,6 +78,10 @@ impl LiveRoster {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct ClockView {
     pub period_start_ms: u32,
+    /// Nominal minutes played before this period began (0, 45, 90, 105 for a 45-minute half),
+    /// which is what a stopwatch shows at the period's first instant.
+    pub period_base_ms: u32,
+    pub period_nominal_ms: u32,
     pub nominal_end_ms: u32,
     /// `None` until nominal time is reached; `Some(0)` is "no added time".
     pub added_time_ms: Option<u32>,
@@ -95,24 +99,25 @@ pub fn clock_view(events: &[MatchEvent], period: Period, half_ms: u32) -> ClockV
         .iter()
         .rev()
         .find(|e| matches!(e.kind, EventKind::AddedTime { .. }) && e.period == period);
-    let nominal_ms = match period {
-        Period::FirstHalf | Period::SecondHalf => half_ms,
-        Period::ExtraTimeFirst | Period::ExtraTimeSecond => half_ms / 3,
+    let extra_ms = half_ms / 3;
+    let (period_base_ms, nominal_ms) = match period {
+        Period::FirstHalf => (0, half_ms),
+        Period::SecondHalf => (half_ms, half_ms),
+        Period::ExtraTimeFirst => (2 * half_ms, extra_ms),
+        Period::ExtraTimeSecond => (2 * half_ms + extra_ms, extra_ms),
     };
-    match announced {
-        Some(MatchEvent {
-            t_ms,
-            kind: EventKind::AddedTime { added_ms },
-            ..
-        }) => ClockView {
-            period_start_ms,
-            nominal_end_ms: *t_ms,
-            added_time_ms: Some(*added_ms),
-        },
-        _ => ClockView {
-            period_start_ms,
-            nominal_end_ms: period_start_ms + nominal_ms,
-            added_time_ms: None,
+    let nominal_end_ms = match announced {
+        Some(e) => e.t_ms,
+        None => period_start_ms + nominal_ms,
+    };
+    ClockView {
+        period_start_ms,
+        period_base_ms,
+        period_nominal_ms: nominal_ms,
+        nominal_end_ms,
+        added_time_ms: match announced.map(|e| &e.kind) {
+            Some(EventKind::AddedTime { added_ms }) => Some(*added_ms),
+            _ => None,
         },
     }
 }

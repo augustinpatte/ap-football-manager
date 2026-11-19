@@ -331,3 +331,62 @@ fn an_order_never_rewrites_frames_already_handed_out() {
         .frames;
     assert!(next[0].t_ms > seen.last().unwrap().t_ms);
 }
+
+/// Given a match played for a quarter of an hour,
+/// When the feed is read,
+/// Then it carries the football a viewer follows (shots with their outcome, fouls, corners)
+/// besides the key events, in the engine's order, each with its id in the canonical stream.
+#[test]
+fn the_feed_carries_shots_fouls_and_corners_as_well_as_the_key_events() {
+    let mut m = start(6);
+    m.advance(request(AdvanceTarget::ForMinutes(30))).unwrap();
+    let (events, cursor) = m.events_since(0);
+    let kinds: std::collections::BTreeSet<&str> =
+        events.iter().map(|e| e.event.kind.name()).collect();
+    for wanted in ["shot", "foul", "period_start"] {
+        assert!(kinds.contains(wanted), "no {wanted} in {kinds:?}");
+    }
+    assert!(
+        !kinds.contains("pass"),
+        "passes are football detail, not feed"
+    );
+    assert!(
+        events.windows(2).all(|w| w[0].id < w[1].id),
+        "feed is in stream order"
+    );
+    assert!(cursor >= events.last().unwrap().id + 1);
+}
+
+/// Given a match at kickoff,
+/// When it is advanced by ten simulated seconds,
+/// Then the clock moved by those ten seconds (one tick of tolerance) and no more: the 2D screen
+/// plays seconds ahead of its picture, not minutes.
+#[test]
+fn a_match_can_be_advanced_by_seconds() {
+    let mut m = start(2);
+    let out = m
+        .advance_capturing(request(AdvanceTarget::ForSeconds(10)))
+        .unwrap();
+    let clock = out.view.session.clock_ms;
+    assert!((10_000..10_200).contains(&clock), "{clock}");
+    let times: Vec<_> = out.frames.iter().map(|f| f.t_ms).collect();
+    assert_eq!(times.first(), Some(&0));
+    assert_eq!(times.last(), Some(&10_000));
+}
+
+/// Given the second half and extra-time clocks,
+/// Then each period reports the nominal minutes played before it, so a stopwatch can show 45:00
+/// (not 47:00) when the second half starts after two minutes of added time.
+#[test]
+fn a_period_clock_reports_the_minutes_played_before_it() {
+    use super::live_frames::clock_view;
+    use apfm_match_lab::output::Period;
+    let half = 45 * 60_000;
+    let c = clock_view(&[], Period::SecondHalf, half);
+    assert_eq!((c.period_base_ms, c.period_nominal_ms), (half, half));
+    let c = clock_view(&[], Period::ExtraTimeSecond, half);
+    assert_eq!(
+        (c.period_base_ms, c.period_nominal_ms),
+        (2 * half + 15 * 60_000, 15 * 60_000)
+    );
+}

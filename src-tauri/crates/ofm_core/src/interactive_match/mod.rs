@@ -164,6 +164,8 @@ pub struct OrderReceipt {
 pub enum AdvanceTarget {
     /// This many more simulated minutes.
     ForMinutes(u32),
+    /// This many more simulated seconds: the 2D screen plays a few seconds ahead of the picture.
+    ForSeconds(u32),
     ToMinute(u32),
     ToEnd,
 }
@@ -415,7 +417,7 @@ impl InteractiveMatch {
         let events = session.events()[start..]
             .iter()
             .enumerate()
-            .filter(|(_, e)| is_key_event(&e.kind))
+            .filter(|(_, e)| is_feed_event(&e.kind))
             .map(|(i, e)| KeyEvent {
                 id: start + i,
                 event: e.clone(),
@@ -606,6 +608,7 @@ impl InteractiveMatch {
         let now = self.playing()?.now_ms();
         let target = match request.target {
             AdvanceTarget::ForMinutes(m) => now.saturating_add(m.saturating_mul(60_000)),
+            AdvanceTarget::ForSeconds(s) => now.saturating_add(s.saturating_mul(1_000)),
             AdvanceTarget::ToMinute(m) => m.saturating_mul(60_000),
             AdvanceTarget::ToEnd => u32::MAX,
         };
@@ -895,6 +898,20 @@ fn is_key_event(kind: &EventKind) -> bool {
             | EventKind::PeriodEnd
             | EventKind::MatchEnd
     )
+}
+
+/// What a match feed shows: the key events plus the football a viewer follows (shots with how
+/// they ended, fouls, corners, offsides) and the announcement of added time.
+fn is_feed_event(kind: &EventKind) -> bool {
+    is_key_event(kind)
+        || matches!(
+            kind,
+            EventKind::Shot { .. }
+                | EventKind::Foul { .. }
+                | EventKind::Corner
+                | EventKind::Offside { .. }
+                | EventKind::AddedTime { .. }
+        )
 }
 
 #[cfg(test)]
