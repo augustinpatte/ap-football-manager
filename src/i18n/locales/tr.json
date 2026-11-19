@@ -1073,7 +1073,7 @@
       "starters": "Muhtemel ilk 11'in kondisyonu",
       "setByYou": "Planı kendiniz belirliyorsunuz.",
       "setByStaff": "Planı {{name}} ({{post}}, seviye {{rating}}) belirliyor.",
-      "proposalWaiting": "Önerilen bir değişiklik, Ekip bölümünde cevabınızı bekliyor."
+      "proposalWaiting": "Önerilen bir değişiklik, Personel bölümünde cevabınızı bekliyor."
     }
   },
   "staff": {

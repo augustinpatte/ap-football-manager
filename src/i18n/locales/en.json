@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "The injury list needs attention",
-        "reason": "{{count}} players are injured, the longest for {{days}} more days. Your medical department (rated {{medical}}) changes injury length by {{duration}}% compared with an average one."
+        "reason": "Injured players: {{count}}, the longest for {{days}} more days. Your medical department (rated {{medical}}) changes injury length by {{duration}}% compared with an average one."
       }
     }
   },

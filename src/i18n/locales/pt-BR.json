@@ -1071,7 +1071,7 @@
       "coaching": "Efeito do treino",
       "recovery": "Efeito na recuperação",
       "starters": "Condição dos prováveis titulares",
-      "setByYou": "Você mesmo define o plano.",
+      "setByYou": "O plano é definido por você.",
       "setByStaff": "O plano é definido por {{name}} ({{post}}, nível {{rating}}).",
       "proposalWaiting": "Há uma mudança proposta esperando sua resposta em Comissão técnica."
     }
@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "A lista de lesionados precisa de atenção",
-        "reason": "{{count}} jogadores estão lesionados, o mais longo por mais {{days}} dias. Seu departamento médico (nível {{medical}}) altera a duração das lesões em {{duration}}% em relação a um departamento médio."
+        "reason": "Jogadores lesionados: {{count}}, o mais longo por mais {{days}} dias. Seu departamento médico (nível {{medical}}) altera a duração das lesões em {{duration}}% em relação a um departamento médio."
       }
     }
   },

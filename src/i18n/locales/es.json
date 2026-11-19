@@ -1071,9 +1071,9 @@
       "coaching": "Efecto del entrenamiento",
       "recovery": "Efecto en la recuperación",
       "starters": "Estado de los titulares probables",
-      "setByYou": "Tú mismo fijas el plan.",
+      "setByYou": "El plan lo fijas tú.",
       "setByStaff": "El plan lo fija {{name}} ({{post}}, nivel {{rating}}).",
-      "proposalWaiting": "Hay un cambio propuesto esperando tu respuesta en Personal técnico."
+      "proposalWaiting": "Hay un cambio propuesto esperando tu respuesta en Cuerpo técnico."
     }
   },
   "staff": {
@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "La lista de lesionados requiere atención",
-        "reason": "Hay {{count}} jugadores lesionados, el que más, {{days}} días más. Tu departamento médico (nivel {{medical}}) cambia la duración de las lesiones un {{duration}} % respecto a uno medio."
+        "reason": "Jugadores lesionados: {{count}}, el que más, {{days}} días más. Tu departamento médico (nivel {{medical}}) cambia la duración de las lesiones un {{duration}} % respecto a uno medio."
       }
     }
   },

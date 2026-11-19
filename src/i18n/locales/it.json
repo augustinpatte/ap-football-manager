@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "L'elenco degli infortunati richiede attenzione",
-        "reason": "{{count}} giocatori sono infortunati, il più lungo per altri {{days}} giorni. Il tuo reparto medico (valore {{medical}}) cambia la durata degli infortuni del {{duration}}% rispetto a uno medio."
+        "reason": "Giocatori infortunati: {{count}}, il più lungo per altri {{days}} giorni. Il tuo reparto medico (valore {{medical}}) cambia la durata degli infortuni del {{duration}}% rispetto a uno medio."
       }
     }
   },

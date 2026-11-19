@@ -1073,7 +1073,7 @@
       "starters": "预计首发球员状态",
       "setByYou": "训练计划由你自己制定。",
       "setByStaff": "训练计划由{{name}}（{{post}}，能力{{rating}}）制定。",
-      "proposalWaiting": "有一项建议的调整正等待你在“教练组”中回复。"
+      "proposalWaiting": "有一项建议的调整正等待你在“员工”中回复。"
     }
   },
   "staff": {
@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "伤病名单需要关注",
-        "reason": "有{{count}}名球员受伤，最长还需{{days}}天。你的医疗部门（能力{{medical}}）使伤病时长比平均水平{{duration}}%。"
+        "reason": "有{{count}}名球员受伤，最长还需{{days}}天。你的医疗部门（能力{{medical}}）使伤病时长相对平均水平变化{{duration}}%。"
       }
     }
   },

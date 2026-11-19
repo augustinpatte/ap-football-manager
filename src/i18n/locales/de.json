@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "Die Verletztenliste braucht Aufmerksamkeit",
-        "reason": "{{count}} Spieler sind verletzt, der längste noch {{days}} Tage. Deine medizinische Abteilung (Stärke {{medical}}) verändert die Verletzungsdauer um {{duration}} % gegenüber einer durchschnittlichen."
+        "reason": "Verletzte Spieler: {{count}}, der längste noch {{days}} Tage. Deine medizinische Abteilung (Stärke {{medical}}) verändert die Verletzungsdauer um {{duration}} % gegenüber einer durchschnittlichen."
       }
     }
   },

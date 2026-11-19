@@ -4950,7 +4950,7 @@
       },
       "injuryRecovery": {
         "title": "La liste des blessés demande de l'attention",
-        "reason": "{{count}} joueurs sont blessés, le plus long pour encore {{days}} jours. Votre service médical (niveau {{medical}}) modifie la durée des blessures de {{duration}} % par rapport à un service moyen."
+        "reason": "Joueurs blessés : {{count}}, le plus long pour encore {{days}} jours. Votre service médical (niveau {{medical}}) modifie la durée des blessures de {{duration}} % par rapport à un service moyen."
       }
     }
   },
