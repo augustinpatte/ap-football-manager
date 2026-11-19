@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Řízení zápasu",
       "manage": "Řídit zápas",
-      "manageDesc": "Taktická rozhodnutí a střídání se provádějí během zápasu. Výsledek se započítá po skončení zápasu.",
+      "manageDesc": "Sledujte zápas živě na 2D hřišti a sami rozhodujte o taktice a střídání. Výsledek se započítá, až zápas dokončíte.",
       "play": "Hrát",
       "resume": "Pokračovat",
       "toEnd": "Hrát do konce",

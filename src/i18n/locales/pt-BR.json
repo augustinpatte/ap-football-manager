@@ -2879,7 +2879,7 @@
     "interactive": {
       "heading": "Gestão da partida",
       "manage": "Gerenciar a partida",
-      "manageDesc": "As decisões táticas e as substituições são tomadas durante a partida. O resultado vale quando a partida for encerrada.",
+      "manageDesc": "Assista à partida ao vivo em um campo 2D e tome você mesmo as decisões táticas e de substituição. O resultado só vale quando você terminar.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até o fim",

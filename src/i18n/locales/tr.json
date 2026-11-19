@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Maç yönetimi",
       "manage": "Maçı yönet",
-      "manageDesc": "Taktik kararlar ve oyuncu değişiklikleri maç oynanırken verilir. Sonuç, maç bitirildiğinde geçerli olur.",
+      "manageDesc": "Maçı 2D sahada canlı izleyin; taktik ve oyuncu değişikliği kararlarını kendiniz verin. Sonuç, maçı bitirdiğinizde geçerli olur.",
       "play": "Oyna",
       "resume": "Devam et",
       "toEnd": "Maç sonuna kadar oyna",

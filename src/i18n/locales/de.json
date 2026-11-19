@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Spielsteuerung",
       "manage": "Spiel steuern",
-      "manageDesc": "Taktische Entscheidungen und Wechsel werden während des Spiels getroffen. Das Ergebnis zählt, sobald das Spiel beendet ist.",
+      "manageDesc": "Verfolge das Spiel live auf einem 2D-Spielfeld und triff die taktischen Entscheidungen und Auswechslungen selbst. Das Ergebnis zählt, sobald du das Spiel beendest.",
       "play": "Spielen",
       "resume": "Fortsetzen",
       "toEnd": "Bis zum Abpfiff spielen",

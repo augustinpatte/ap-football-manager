@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Manajemen pertandingan",
       "manage": "Kelola pertandingan",
-      "manageDesc": "Keputusan taktik dan pergantian pemain dibuat selama pertandingan berlangsung. Hasilnya berlaku setelah pertandingan diselesaikan.",
+      "manageDesc": "Tonton pertandingan langsung di lapangan 2D dan buat sendiri keputusan taktik dan pergantian pemain. Hasil baru dihitung setelah Anda menyelesaikannya.",
       "play": "Main",
       "resume": "Lanjutkan",
       "toEnd": "Main sampai akhir",

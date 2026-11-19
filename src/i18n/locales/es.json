@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Gestión del partido",
       "manage": "Gestionar el partido",
-      "manageDesc": "Las decisiones tácticas y los cambios se toman durante el partido. El resultado cuenta al finalizarlo.",
+      "manageDesc": "Mira el partido en directo en un campo 2D y toma tú las decisiones tácticas y de sustitución. El resultado cuenta cuando termines.",
       "play": "Jugar",
       "resume": "Reanudar",
       "toEnd": "Jugar hasta el final",

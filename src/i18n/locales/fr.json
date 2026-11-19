@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Gestion du match",
       "manage": "Gérer le match",
-      "manageDesc": "Les décisions tactiques et les remplacements se prennent pendant le match. Le résultat compte une fois le match terminé.",
+      "manageDesc": "Suivez le match en direct sur un terrain 2D et prenez vous-même les décisions tactiques et de remplacement. Le résultat compte une fois le match terminé.",
       "play": "Jouer",
       "resume": "Reprendre",
       "toEnd": "Jouer jusqu'au coup de sifflet final",

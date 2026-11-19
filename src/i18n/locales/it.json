@@ -2961,7 +2961,7 @@
     "interactive": {
       "heading": "Gestione della partita",
       "manage": "Gestire la partita",
-      "manageDesc": "Le decisioni tattiche e le sostituzioni si prendono durante la partita. Il risultato vale al termine.",
+      "manageDesc": "Guarda la partita in diretta su un campo 2D e prendi tu le decisioni tattiche e le sostituzioni. Il risultato conta quando termini.",
       "play": "Gioca",
       "resume": "Riprendi",
       "toEnd": "Gioca fino al fischio finale",
