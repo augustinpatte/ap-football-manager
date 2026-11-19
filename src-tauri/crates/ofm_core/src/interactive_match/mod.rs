@@ -351,6 +351,12 @@ impl InteractiveMatch {
         })
     }
 
+    /// A screen that takes over a match already under way has none of its earlier frames: the next
+    /// capture starts again from the current instant instead of assuming they were seen.
+    pub fn reset_frame_sampling(&mut self) {
+        self.sampler.forget();
+    }
+
     pub fn identity(&self) -> &FixtureIdentity {
         &self.identity
     }

@@ -143,6 +143,11 @@ impl FrameSampler {
         }
     }
 
+    /// Forgets which instant was last handed out, so the next sample is the current one again.
+    pub fn forget(&mut self) {
+        self.last_t_ms = None;
+    }
+
     /// The first grid time strictly after the last frame taken.
     pub fn next_grid_ms(&self, now_ms: u32) -> u32 {
         let from = self.last_t_ms.map_or(now_ms, |t| t.max(now_ms));

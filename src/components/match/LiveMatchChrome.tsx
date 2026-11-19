@@ -10,6 +10,9 @@ export function phaseLabelKey(snapshot: DirectorSnapshot): string {
   if (snapshot.status === "finished") return "match.fullTime";
   if (snapshot.frameState === "half_time" || snapshot.status === "break") return "match.halfTime";
   if (snapshot.status === "loading") return "match.liveView.status.loading";
+  if (snapshot.status === "paused" && snapshot.playheadMs === 0) {
+    return "match.liveView.kickoffPending";
+  }
   if (snapshot.status === "paused" || snapshot.status === "pausing") return "match.paused";
   return "match.live";
 }

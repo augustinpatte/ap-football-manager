@@ -507,7 +507,9 @@ describe("InteractiveMatchScreen (live 2D)", () => {
   /** Given a match under way, then one polite status line carries the score and phase (not the ticking clock). */
   it("announces the score and phase once, not every slice", async () => {
     await opened();
-    expect(screen.getByRole("status")).toHaveTextContent(`Reds 0, Blues 0, ${tr("match.paused")}`);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `Reds 0, Blues 0, ${tr("match.liveView.kickoffPending")}`,
+    );
     expect(document.querySelectorAll("[aria-live]").length).toBeLessThanOrEqual(1);
   });
 

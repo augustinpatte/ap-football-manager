@@ -80,9 +80,12 @@ pub fn start_interactive_match_internal(
     let _operation = super::live_session::operation();
     info!("[cmd] start_interactive_match");
     let identity = live_identity(state).ok_or("be.error.noActiveLiveMatch")?;
-    if let Some(existing) =
-        state.with_interactive_match(|m| (m.identity() == &identity).then(|| snapshot_of(m, 0)))
-    {
+    if let Some(existing) = state.with_interactive_match(|m| {
+        (m.identity() == &identity).then(|| {
+            m.reset_frame_sampling();
+            snapshot_of(m, 0)
+        })
+    }) {
         if let Some(snapshot) = existing {
             return snapshot;
         }
@@ -1560,6 +1563,26 @@ mod tests {
         assert_eq!(played, 2);
         assert!(finish_interactive_match_internal(&state).is_err());
         assert_eq!(state.get_game(standings_played).unwrap(), played);
+    }
+
+    /// Given a match under way whose screen was closed and opened again,
+    /// When the new screen asks for the first frame,
+    /// Then it gets the match's current instant (a screen that was handed nothing would show a blank
+    /// pitch until the next kick-off) and the frames carry on from there without a gap.
+    #[test]
+    fn a_screen_that_takes_over_a_match_under_way_is_given_the_current_frame() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        let first = watch(&state, 20);
+        let seen_until = first.frames.last().expect("frames").t_ms;
+        // the screen is closed and opened again: start answers with the match already under way
+        start_interactive_match_internal(&state).expect("takes over");
+        let again = watch(&state, 0);
+        assert_eq!(again.frames.len(), 1, "exactly the current instant");
+        assert_eq!(again.frames[0].t_ms, seen_until);
+        let next = watch(&state, 5);
+        assert!(next.frames[0].t_ms > seen_until);
     }
 
     /// Given a captured advance,
