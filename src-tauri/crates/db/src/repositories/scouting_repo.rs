@@ -195,10 +195,12 @@ mod tests {
         let db = test_db();
         assert_eq!(load_dossier(db.conn()).unwrap(), ScoutingDossier::default());
         let mut dossier = ScoutingDossier::default();
-        dossier.shortlist.push(ofm_core::scouting_dossier::ShortlistEntry {
-            player_id: "p".into(),
-            added_on: "2026-08-01".into(),
-        });
+        dossier
+            .shortlist
+            .push(ofm_core::scouting_dossier::ShortlistEntry {
+                player_id: "p".into(),
+                added_on: "2026-08-01".into(),
+            });
         replace_dossier(db.conn(), &dossier).unwrap();
         assert_eq!(load_dossier(db.conn()).unwrap(), dossier);
     }

@@ -13,6 +13,7 @@ mod delegation_recruitment;
 mod delegation_report;
 #[cfg(test)]
 mod delegation_scenarios;
+mod delegation_scouting;
 mod delegation_squad;
 mod delegation_training;
 pub mod market;

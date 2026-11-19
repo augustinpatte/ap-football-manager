@@ -114,6 +114,9 @@ pub struct ShortlistEntry {
 pub struct ScoutingDossier {
     pub reports: Vec<ScoutReport>,
     pub shortlist: Vec<ShortlistEntry>,
+    /// The day through which the staff in charge of the scouting duty have read the reports, so a
+    /// report is judged once: a player the manager takes off the shortlist is not put back.
+    pub delegate_reviewed_through: String,
 }
 
 impl ScoutingDossier {

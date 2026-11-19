@@ -526,7 +526,8 @@ pub fn set_player_squad_role_internal(
         if target_role == domain::player::SquadRole::Senior
             && game.players[player_index].squad_role == domain::player::SquadRole::Youth
         {
-            if let Some(refusal) = ofm_core::academy_review::promotion_place_refusal(game, &team_id) {
+            if let Some(refusal) = ofm_core::academy_review::promotion_place_refusal(game, &team_id)
+            {
                 return Err(refusal);
             }
         }

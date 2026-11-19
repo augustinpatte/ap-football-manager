@@ -148,10 +148,18 @@ mod tests {
             attrs,
         );
         target.team_id = Some("other".into());
-        let mut manager = Manager::new("m".into(), "M".into(), "Gr".into(), "1980-01-01".into(), "GB".into());
+        let mut manager = Manager::new(
+            "m".into(),
+            "M".into(),
+            "Gr".into(),
+            "1980-01-01".into(),
+            "GB".into(),
+        );
         manager.team_id = Some("club".into());
         let game = Game::new(
-            ofm_core::clock::GameClock::new(chrono::Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap()),
+            ofm_core::clock::GameClock::new(
+                chrono::Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap(),
+            ),
             manager,
             vec![],
             vec![target],
@@ -169,9 +177,18 @@ mod tests {
     #[test]
     fn every_command_reports_a_missing_session() {
         let state = StateManager::new();
-        assert_eq!(get_scouting_dossier_internal(&state).unwrap_err(), NO_ACTIVE_GAME);
-        assert_eq!(get_academy_review_internal(&state).unwrap_err(), NO_ACTIVE_GAME);
-        assert_eq!(shortlist_player_internal(&state, "x").unwrap_err(), NO_ACTIVE_GAME);
+        assert_eq!(
+            get_scouting_dossier_internal(&state).unwrap_err(),
+            NO_ACTIVE_GAME
+        );
+        assert_eq!(
+            get_academy_review_internal(&state).unwrap_err(),
+            NO_ACTIVE_GAME
+        );
+        assert_eq!(
+            shortlist_player_internal(&state, "x").unwrap_err(),
+            NO_ACTIVE_GAME
+        );
     }
 
     /// Given a live game with one target

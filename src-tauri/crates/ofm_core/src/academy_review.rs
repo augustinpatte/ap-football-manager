@@ -98,7 +98,9 @@ pub fn academy_review(game: &Game) -> Option<AcademyReview> {
         .players
         .iter()
         .enumerate()
-        .filter(|(_, p)| p.team_id.as_deref() == Some(team_id) || p.contract_club_id() == Some(team_id))
+        .filter(|(_, p)| {
+            p.team_id.as_deref() == Some(team_id) || p.contract_club_id() == Some(team_id)
+        })
         .map(|(i, _)| i)
         .collect();
     let covers = cover_levels(game, &club);
@@ -110,11 +112,22 @@ pub fn academy_review(game: &Game) -> Option<AcademyReview> {
     let academy: Vec<&Player> = club
         .iter()
         .map(|&i| &game.players[i])
-        .filter(|p| p.squad_role == SquadRole::Youth && !p.retired && p.contract_club_id() == Some(team_id))
+        .filter(|p| {
+            p.squad_role == SquadRole::Youth && !p.retired && p.contract_club_id() == Some(team_id)
+        })
         .collect();
     let mut rows: Vec<AcademyRow> = academy
         .iter()
-        .map(|p| row_of(p, today, &covers, squad.as_ref(), youth_trust, place.as_deref()))
+        .map(|p| {
+            row_of(
+                p,
+                today,
+                &covers,
+                squad.as_ref(),
+                youth_trust,
+                place.as_deref(),
+            )
+        })
         .collect();
     rows.sort_by(|a, b| {
         verdict_rank(a.verdict)
@@ -133,7 +146,9 @@ pub fn academy_review(game: &Game) -> Option<AcademyReview> {
         senior_limit: capacity.senior_limit,
         by_group,
         target_by_group: crate::youth_intake::ACADEMY_TARGET_PER_GROUP,
-        next_intake: crate::youth_intake::plan_for(academy.iter().copied()).groups.len(),
+        next_intake: crate::youth_intake::plan_for(academy.iter().copied())
+            .groups
+            .len(),
     })
 }
 
