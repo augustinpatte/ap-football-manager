@@ -499,7 +499,8 @@ impl Default for MatchConfig {
             midfield_numbers_weight: 0.3,
             attack_numbers_weight: 0.3,
             role_support_weight: 1.0,
-            group_depth_weight: crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT,
+            // TEMPORARY (I6 study, never committed)
+            group_depth_weight: std::env::var("APFM_STUDY_GDW").ok().and_then(|v| v.parse().ok()).unwrap_or(crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT),
         }
     }
 }

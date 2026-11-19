@@ -220,6 +220,20 @@ fn arms() -> Vec<Arm> {
             },
             policy: Policy::EveryOther,
         },
+        // The plan the tactics duty settles on (see "plans:" in the study output), held by hand:
+        // separates what the dials do from what delegating does.
+        Arm {
+            name: "manual training, delegated plan held by hand",
+            setup: |g| {
+                with_staff(g, 50);
+                let id = user_team(g);
+                if let Some(team) = g.teams.iter_mut().find(|t| t.id == id) {
+                    team.tactics_phase.pressing_intensity = domain::team::PressingIntensity::Passive;
+                    team.tactics_phase.tempo = domain::team::Tempo::Patient;
+                }
+            },
+            policy: Policy::EveryOther,
+        },
         Arm {
             name: "training and tactics delegated (everything handed over)",
             setup: |g| {
@@ -259,6 +273,8 @@ struct Recorder {
     plans: Plans,
     previous_xi: Vec<String>,
     xi_changes: usize,
+    /// What the club's matches were like, read from the season's results (I6).
+    results: ResultsRead,
     ai_starters: Vec<f64>,
     squad: Vec<f64>,
     injured_before: std::collections::HashSet<String>,
@@ -289,6 +305,7 @@ impl Recorder {
             plans: Plans::default(),
             previous_xi: Vec::new(),
             xi_changes: 0,
+            results: ResultsRead::default(),
             ai_starters: Vec::new(),
             squad: Vec::new(),
             injured_before: Default::default(),
@@ -299,6 +316,65 @@ impl Recorder {
             min_finance: i64::MAX,
             seasons: Vec::new(),
             bands: AGE_BANDS.iter().map(|_| Band::default()).collect(),
+        }
+    }
+}
+
+/// Totals of the club's league and cup matches: how many, how they ended and how many
+/// substitutions the engine's own manager made (a starter taken off early is a starter who wears
+/// less, so this is where a tactical plan could reach a player's condition).
+#[derive(Default)]
+struct ResultsRead {
+    matches: usize,
+    wins: usize,
+    draws: usize,
+    goals_for: usize,
+    goals_against: usize,
+    substitutions: usize,
+    cards: usize,
+}
+
+impl ResultsRead {
+    fn read(&mut self, game: &Game, team_id: &str) {
+        for fixture in game
+            .competitions
+            .iter()
+            .flat_map(|c| &c.fixtures)
+            .filter(|f| f.home_team_id == team_id || f.away_team_id == team_id)
+        {
+            let (Some(result), true) = (
+                &fixture.result,
+                fixture.status == domain::league::FixtureStatus::Completed,
+            ) else {
+                continue;
+            };
+            let home = fixture.home_team_id == team_id;
+            let (gf, ga) = if home {
+                (result.home_goals, result.away_goals)
+            } else {
+                (result.away_goals, result.home_goals)
+            };
+            self.matches += 1;
+            self.goals_for += usize::from(gf);
+            self.goals_against += usize::from(ga);
+            match gf.cmp(&ga) {
+                std::cmp::Ordering::Greater => self.wins += 1,
+                std::cmp::Ordering::Equal => self.draws += 1,
+                std::cmp::Ordering::Less => {}
+            }
+            if let Some(report) = &result.report {
+                let side = if home { "Home" } else { "Away" };
+                self.substitutions += report
+                    .events
+                    .iter()
+                    .filter(|e| e.event_type == "Substitution" && e.side == side)
+                    .count();
+                self.cards += report
+                    .events
+                    .iter()
+                    .filter(|e| e.event_type.contains("Card") && e.side == side)
+                    .count();
+            }
         }
     }
 }
@@ -441,6 +517,7 @@ impl SeasonObserver for Recorder {
     }
 
     fn on_before_rollover(&mut self, game: &Game, _season: u32) {
+        self.results.read(game, &self.team_id);
         let mut row = Season {
             staff_bill: market::weekly_staff_bill(game, &self.team_id),
             staff_budget: market::staff_budget(game, &self.team_id),
@@ -650,6 +727,17 @@ fn print_arm(result: &ArmResult, seasons: u32) {
         r.xi_changes as f64 / r.xi_eve.len().max(1) as f64,
         r.plans.plan_changes,
         r.eve.len(),
+    );
+    let n = r.results.matches.max(1) as f64;
+    println!(
+        "  results ({} matches): W {:.0}% D {:.0}%, goals {:.2}-{:.2}, substitutions by the engine's manager {:.2} a match, cards {:.2} a match",
+        r.results.matches,
+        r.results.wins as f64 / n * 100.0,
+        r.results.draws as f64 / n * 100.0,
+        r.results.goals_for as f64 / n,
+        r.results.goals_against as f64 / n,
+        r.results.substitutions as f64 / n,
+        r.results.cards as f64 / n,
     );
     println!(
         "  plans: formation [{}]; style [{}]; pressing [{}]; tempo [{}]",
