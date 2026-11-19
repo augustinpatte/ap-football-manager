@@ -90,12 +90,13 @@ fn dials_at_kick_off(
     )
 }
 
-/// Given a world whose AI clubs have settled their plans, and the manager's club in a fixture
-/// When the match is prepared once with the manager at his own club and once with the manager
-///      elsewhere (so both sides are AI)
-/// Then the manager's side is answered by no opponent when human (its dials never vary with the
-///      opponent), and when AI it is answered for at least one opponent in the league: I5's
-///      response never touches the human dugout, and the comparison is not vacuous.
+/// Given a world whose AI clubs have settled their plans, and the manager's club in a fixture,
+///   at home or away, with his administration delegated or not
+/// When the match is prepared against every other club, with the manager at his own club and with
+///      the manager at a club in neither side (so both sides are AI)
+/// Then the same club is answered to its opponent when AI, and those answers differ between
+///      opponents; but when the manager is at the club its dials are the same for every opponent:
+///      I5's response never touches the human dugout, whoever runs his administration.
 #[test]
 fn the_pre_match_response_never_touches_the_managers_dugout() {
     let game = world_after_six_weeks();
@@ -107,32 +108,69 @@ fn the_pre_match_response_never_touches_the_managers_dugout() {
         .filter(|id| *id != user)
         .collect();
     let bystander = others.last().expect("a club to stand in").clone();
+    let opponents: Vec<&String> = others.iter().filter(|id| **id != bystander).collect();
+    let mut stand_in = game.clone();
+    stand_in.manager.team_id = Some(bystander.clone());
+    let mut delegated = game.clone();
+    delegated.delegation.apply_mode(DelegationMode::Full);
 
-    let mut manager_side_answered_when_ai = 0;
-    for opponent in others.iter().filter(|id| **id != bystander) {
-        // Manager's own club: home.
-        let (human_home, _) = dials_at_kick_off(&game, &user, opponent);
-        // The same fixture with the manager at a club that is in neither side.
-        let mut stand_in = game.clone();
-        stand_in.manager.team_id = Some(bystander.clone());
-        let (ai_home, _) = dials_at_kick_off(&stand_in, &user, opponent);
-
-        if human_home != ai_home {
-            manager_side_answered_when_ai += 1;
+    let mut answers_when_ai = Vec::new();
+    let mut human_dials = Vec::new();
+    for opponent in &opponents {
+        for user_is_home in [true, false] {
+            let dials_of = |game: &Game| {
+                let (home, away) = if user_is_home {
+                    (user.as_str(), opponent.as_str())
+                } else {
+                    (opponent.as_str(), user.as_str())
+                };
+                let (home_dials, away_dials) = dials_at_kick_off(game, home, away);
+                if user_is_home { home_dials } else { away_dials }
+            };
+            let human = dials_of(&game);
+            assert_eq!(
+                dials_of(&delegated),
+                human,
+                "delegating the administration changed the dugout the manager sets"
+            );
+            answers_when_ai.push(dials_of(&stand_in));
+            human_dials.push((user_is_home, human));
         }
     }
 
+    // The comparison means something only if the response does move this club's dials, and moves
+    // them differently for different opponents.
     assert!(
-        manager_side_answered_when_ai > 0,
-        "no opponent in the league ever drew an answer from the user's club: the comparison is vacuous"
+        answers_when_ai
+            .iter()
+            .zip(&human_dials)
+            .any(|(ai, (_, human))| ai != human),
+        "no opponent ever drew an answer from the user's club when AI: the comparison is vacuous"
     );
-    // The manager's side is the same plan every time it is human, whatever the opponent does
-    // to the stored plan: nothing was turned for him. (Its dials are the saved plan, not a reply.)
-    let first = dials_at_kick_off(&game, &user, &others[0]).0;
-    for opponent in others.iter().filter(|id| **id != bystander) {
-        assert_eq!(
-            dials_at_kick_off(&game, &user, opponent).0,
-            first,
+    let distinct_answers = answers_when_ai.iter().fold(
+        Vec::new(),
+        |mut seen: Vec<&engine::TacticsConfig>, dials| {
+            if !seen.contains(&dials) {
+                seen.push(dials);
+            }
+            seen
+        },
+    );
+    assert!(
+        distinct_answers.len() >= 2,
+        "the response was the same against every opponent"
+    );
+
+    // And as the manager's own club, the dials are the saved plan whichever side of the fixture he
+    // is on and whoever he plays.
+    for side_of_user in [true, false] {
+        let own: Vec<&engine::TacticsConfig> = human_dials
+            .iter()
+            .filter(|(is_home, _)| *is_home == side_of_user)
+            .map(|(_, dials)| dials)
+            .collect();
+        assert!(
+            own.windows(2).all(|pair| pair[0] == pair[1]),
             "the manager's dugout changed with the opponent: a response was applied to a human side"
         );
     }

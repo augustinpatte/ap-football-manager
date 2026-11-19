@@ -224,33 +224,49 @@ mod tests {
             ..neutral()
         };
         let moves = opponent_response(&neutral(), PlayStyle::Attacking, &opponent);
-        assert!(moves.len() <= MAX_MATCHDAY_MOVES, "{moves:?}");
-        assert!(!moves.is_empty());
+        assert_eq!(
+            moves,
+            vec![
+                TacticalDial::DefensiveLine(DefensiveLine::High),
+                TacticalDial::Width(TacticsPitchWidth::Wide),
+            ],
+            "the deep block is answered first and the cap stops the rest"
+        );
+        assert_eq!(moves.len(), MAX_MATCHDAY_MOVES);
     }
 
-    /// Given a side already holding two of the engine's under-priced dials
+    /// Given a side already holding two of the engine's under-priced dials (a low line and a
+    ///   narrow shape) and an opponent that spreads wide, whose answer would be a compact block,
+    ///   a third rationed dial
     /// When the match-day adjustment is read
-    /// Then it never adds a third: the ration the AI keeps between the whistles is the one it
-    ///      keeps before them.
+    /// Then the compact block is refused and nothing is named, while the same opponent does draw
+    ///      it from a side that holds none: the ration, not the opponent, is what stopped it.
     #[test]
     fn the_match_day_plan_never_breaks_the_under_priced_ration() {
-        let own = TacticsConfig {
-            defensive_line: DefensiveLine::Low,
-            defensive_shape: DefensiveShape::Compact,
-            ..neutral()
-        };
         let opponent = TacticsConfig {
             width: TacticsPitchWidth::Wide,
-            defensive_line: DefensiveLine::VeryLow,
             ..neutral()
         };
-        let mut planned = own.clone();
-        for dial in opponent_response(&own, PlayStyle::Defensive, &opponent) {
-            dial.set_on(&mut planned);
-            assert!(engine::ai::under_priced_dials(&planned) <= engine::ai::MAX_UNDER_PRICED_DIALS);
-        }
-        // A higher line is not one of the rationed dials, so the block is still answered.
-        assert!(planned.defensive_line == DefensiveLine::High);
+        assert_eq!(
+            opponent_response(&neutral(), PlayStyle::Defensive, &opponent),
+            vec![TacticalDial::DefensiveShape(DefensiveShape::Compact)],
+            "control: a side holding no rationed dial answers a wide opponent with a compact block"
+        );
+
+        let own = TacticsConfig {
+            defensive_line: DefensiveLine::Low,
+            width: TacticsPitchWidth::Narrow,
+            ..neutral()
+        };
+        assert_eq!(
+            engine::ai::under_priced_dials(&own),
+            engine::ai::MAX_UNDER_PRICED_DIALS,
+            "the fixture holds the whole ration"
+        );
+        assert_eq!(
+            opponent_response(&own, PlayStyle::Defensive, &opponent),
+            Vec::<TacticalDial>::new()
+        );
     }
 
     /// Given a side whose own plan already holds the answer
