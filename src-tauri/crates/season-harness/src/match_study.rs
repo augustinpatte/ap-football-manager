@@ -151,6 +151,21 @@ pub fn play(
     }
 }
 
+/// Plays `home` v `away` once with the five-zone engine and hands back the whole fixture, report
+/// included.
+///
+/// [`play`] keeps only the scoreline and the shot counts; a study of what a manager does *during* a
+/// match reads the report's events (substitutions, sending-offs) and needs the report itself. The
+/// game is mutated exactly as one applied career fixture mutates it.
+pub fn play_fixture(
+    game: &mut Game,
+    home: &str,
+    away: &str,
+) -> Result<ofm_core::live_match_manager::UnwatchedFixture, String> {
+    install_fixture(game, home, away);
+    play_unwatched_fixture(game, 0)
+}
+
 /// Mean and standard error of the mean of `values`.
 pub fn mean_se(values: &[f64]) -> (f64, f64) {
     let n = values.len() as f64;

@@ -6,9 +6,11 @@ use crate::shared::{
     tactics_counter_press_rewin, tactics_defensive_line_recovery, tactics_pressing_contest,
     tactics_tempo_retention,
 };
-use crate::types::{Side, Zone};
+use crate::types::{Position, Side, Zone};
 
-use super::{LiveMatchState, MatchPhase, MinuteResult};
+use super::LiveMatchState;
+use super::helpers::{midfield_carry_read, midfield_tackle_read};
+use super::{MatchPhase, MinuteResult};
 
 // ---------------------------------------------------------------------------
 // Phase transitions
@@ -189,9 +191,11 @@ impl LiveMatchState {
         let poss_tactics = self.team_ref(poss_side).tactics.clone();
         let def_tactics = self.team_ref(def_side).tactics.clone();
         let mid_att = self.effective_midfield(poss_side)
+            * self.group_depth_factor(poss_side, Position::Midfielder, midfield_carry_read)
             * tactics_tempo_retention(&poss_tactics)
             * self.midfield_numbers_edge(poss_side);
         let mid_def = self.effective_midfield(def_side)
+            * self.group_depth_factor(def_side, Position::Midfielder, midfield_tackle_read)
             * tactics_pressing_contest(&def_tactics)
             * tactics_defensive_line_recovery(&def_tactics);
         let retain = mid_att / (mid_att + mid_def);

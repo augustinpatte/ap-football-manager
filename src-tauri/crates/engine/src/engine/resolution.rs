@@ -406,6 +406,7 @@ fn defending_quality(ctx: &MatchContext, def_side: Side, condition_factor: f64) 
             .iter()
             .filter(|player| !ctx.sent_off.contains(&player.id))
             .map(|player| (player, condition_factor)),
+        ctx.config.group_depth_weight,
     )
 }
 

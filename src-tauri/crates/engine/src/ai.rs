@@ -556,6 +556,11 @@ fn find_best_bench_replacement<'a>(
 /// reading has to carry the decision by itself.
 const PINNED_BACK: usize = 7;
 
+/// A sending-off rewrites the match for both sides and waits for nothing. The reaction is named in
+/// [`target_play_style`]: from the hour, a side a man down that is not behind absorbs instead of
+/// pressing, and a side a man up that is not ahead pushes the advantage.
+const A_MAN_DOWN_FROM: u8 = 60;
+
 fn consider_tactic_change(obs: &AiObservation<'_>, profile: &AiProfile) -> Option<MatchCommand> {
     // A Visionary reaches for a different shape before a different label. The
     // chain of formations ends, so this fires at most twice in a match and then
@@ -671,6 +676,24 @@ fn target_play_style(obs: &AiObservation<'_>, profile: &AiProfile) -> Option<Pla
     // far up the pitch as this would take it.
     if obs.goal_diff == -1 && obs.minute >= profile.chase_one_goal_from() {
         return (obs.team.play_style != PlayStyle::HighPress).then_some(PlayStyle::Attacking);
+    }
+
+    // A man down is a man short wherever the press goes. A side that is not behind stops trying to
+    // win the ball high with ten and makes the opponent pass through a shape instead.
+    if obs.men_on_pitch < obs.opponent_men_on_pitch
+        && obs.goal_diff >= 0
+        && obs.minute >= A_MAN_DOWN_FROM
+    {
+        return Some(PlayStyle::Defensive);
+    }
+
+    // And the other way round: a side a man up and not ahead has an extra player for the whole of
+    // the rest of the match, and letting the clock run on it is how a advantage goes unused.
+    if obs.men_on_pitch > obs.opponent_men_on_pitch
+        && obs.goal_diff <= 0
+        && obs.minute >= A_MAN_DOWN_FROM
+    {
+        return Some(PlayStyle::Attacking);
     }
 
     if obs.goal_diff >= 1 && obs.minute >= profile.see_out_a_lead_from() {

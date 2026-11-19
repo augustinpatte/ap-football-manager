@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod engine;
 pub mod event;
+pub mod group_depth;
 pub mod live_match;
 pub mod rating;
 pub mod report;

@@ -474,6 +474,13 @@ pub struct MatchConfig {
     /// existed, which meant 0.
     #[serde(default)]
     pub role_support_weight: f64,
+    /// How far a group short of a full one is read as if the slots it leaves empty were filled by
+    /// an average outfield player of the same side: four defenders, four midfielders, two forwards.
+    /// 0 reads a group by the plain mean of the players in it, which makes concentrating a squad's
+    /// best players into a thin group free. Absent in a configuration written before this existed,
+    /// which meant 0.
+    #[serde(default)]
+    pub group_depth_weight: f64,
 }
 
 impl Default for MatchConfig {
@@ -492,6 +499,7 @@ impl Default for MatchConfig {
             midfield_numbers_weight: 0.3,
             attack_numbers_weight: 0.3,
             role_support_weight: 1.0,
+            group_depth_weight: crate::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT,
         }
     }
 }

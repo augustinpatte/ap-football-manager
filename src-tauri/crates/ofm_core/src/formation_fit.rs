@@ -1,36 +1,51 @@
 //! What a squad is worth in a formation, as the five-zone engine plays it.
 //!
 //! The squad model rates a formation by the mean of the squad's positional fit over its eleven
-//! slots. Across a club's own eight formations that number does not predict results (P6.1: 192
-//! clubs in 12 worlds, leave-one-world-out, correlation +0.14 with a *negative* fitted slope):
-//! almost all of its variation is a level per shape (a back line of three and three forwards rate
-//! about a point higher than a 4-4-2 and earn less), and once that is removed what is left of a
-//! club's squad has no relationship to its results (-0.02 +/- 0.03). The engine does not read slot
-//! ratings. It reads, per group of the eleven, the means of a handful of attributes.
+//! slots. Across a club's own eight formations that number does not predict results (I5: 192 clubs
+//! in 12 worlds, correlation -0.061 with points, and picking its favourite earns -0.025 points a
+//! match, less than a random shape). The engine does not read slot ratings: it reads, per group of
+//! the eleven, the means of a handful of attributes, and it reads a group short of a full one at its
+//! depth ([`engine::group_depth`]).
 //!
-//! **This measures; it does not decide.** The AI's formation review ranks by the squad model: ranked
-//! by this, every club picked the shape that suits its own back line and finishers and the league's
-//! goals a match rose from 3.18 to 3.65-3.81 (see `ai_formation`). It is carried on every
-//! `FormationScore` for the studies, and is the evaluator to use once the engine reads a thin group
-//! of a squad's best players as less than the best of them.
+//! This is that reading, and nothing else. The squad is put through the eleven the club's selection
+//! would field, each player counted in the group of the slot he stands in with his own attributes,
+//! and the groups the engine's contests draw from are read the way the engine reads them:
 //!
-//! This is the engine's own reading, with only the two group means that carry the formation-to-
-//! formation variation of a real squad: the back line's hold (defending, tackling, positioning,
-//! aerial: the defender in the attacking-third contest) and the forwards' finishing (shooting,
-//! composure, decisions: the shot). A squad is scored by how far those means are above what a
-//! typical squad reaches **in the same shape**, and not by their level. The level of a shape is not a
-//! reason to choose it: a thin group of a squad's best players has a higher mean than a full one, so
-//! a rule that took the level (the first version, with the shape's own price) sent half the league
-//! into a back three and raised the goals a match from 3.18 to 3.65, an equilibrium the clubs then
-//! moved. Out of sample (192 clubs, 12 worlds, leave one world out) the suitability rule ranks a
-//! club's formations at +0.45 against the squad model's +0.14 and earns +0.11 points a match over a
-//! random shape against +0.05 (`season-harness/tests/p61_formation_selection.rs`).
+//! - the **back line** — defending, tackling, positioning, aerial, the defender in the attacking
+//!   third and the screen in front of a shot;
+//! - the **midfield** — dribbling, passing, vision, teamwork, the group the possession and midfield
+//!   contests draw from;
+//! - the **finishing** — shooting, composure, decisions, the shooter.
 //!
-//! The weights are goals of goal difference a match per attribute point, fitted within club across
-//! its eight formations; the number returned is those goals expressed in the squad model's own unit,
-//! a mean rating point of the eleven, at what a rating point is worth in the engine
-//! (`p61_points_per_rating_point`: 0.136 goals a match). A formation the game does not offer is read
-//! as a 4-4-2.
+//! The score is those three means weighted by the goals of goal difference a match a point of each
+//! was worth in the engine (fitted out of sample by world: `+0.022`, `+0.010` and `+0.027`), converted
+//! to the unit the rest of the game scores formations in — a mean rating point of the eleven — at
+//! what a rating point is worth in the engine (0.136 goals a match).
+//!
+//! Measured out of sample, this ranks a club's own eight formations at `+0.210` (se 0.033) against a
+//! split-half ceiling of `+0.318`, where the squad model reaches `-0.061` and a shape's own average
+//! `+0.231`: two thirds of the predictable signal, from three numbers.
+//!
+//! # Why this is not normalised by a shape's own level
+//!
+//! P6.1 built this evaluator and measured it against what a *typical* squad reaches in the same
+//! shape, so that a shape itself carried no price. That was the right rule for the engine it was
+//! measuring: a group was read by its plain mean, so a squad's best players in a thin group (one
+//! striker, three centre backs) were worth the best of them, and the *level* of a shape was a
+//! measure of how thin it was. Ranking clubs by that level sent half the league into a back three
+//! and lifted the league's goals a match from 3.18 to 3.65-3.81, which is why it was designed,
+//! measured and not adopted.
+//!
+//! The engine now fills a short group to a full one at the side's own standard (I5), so the level
+//! of a shape is no longer a free lunch: a back three is read as three internationals *and a
+//! fourth slot filled by the side's own average*, and a lone forward as half of a front two. The
+//! evaluator therefore reads the level the engine reads, and the out-of-sample study that chose
+//! between the two forms is in `docs/APFM_I5_VALIDATION.md`.
+//!
+//! **What this is not.** It is not the whole of a club's formation decision: the manager's taste and
+//! the club's philosophy sit on top of it in `ai_formation`, the margin a change must clear is the
+//! cost of changing, and the opponent is answered before kick-off by `matchday_tactics`. This
+//! function is one thing: what the engine makes of the eleven in a shape.
 
 use domain::player::{Player, Position};
 
@@ -38,33 +53,47 @@ use crate::player_rating::formation_slots;
 use crate::turn::squad::first_choice_eleven;
 
 /// Goals of goal difference a match one mean rating point of a whole side is worth in the engine.
+///
+/// A **scale**, not a measurement: it converts the goals the weights below are in into the rating
+/// points the rest of the game scores formations in, so the margin a change must clear and a
+/// manager's taste (a few tenths) keep the meaning P6.1 gave them.
 const GOALS_PER_RATING_POINT: f64 = 0.136;
 
 /// Goals a match per point of the back line's mean hold.
-const BACK_LINE_GOALS: f64 = 0.026;
+///
+/// Fitted on 192 clubs in 12 worlds, every club in all eight shapes, out of sample by world
+/// (`season-harness/tests/p61_formation_selection`): `+0.022`; a repeat full run reads `+0.021`. The
+/// shipped number is the first; the two are within the study's own noise, and the ranking only reads
+/// their ratios.
+const BACK_LINE_GOALS: f64 = 0.022;
+
+/// Goals a match per point of the midfield's mean on the ball.
+///
+/// The same fit reads `+0.010` (`+0.014` on the repeat full run): small either way, but positive, and
+/// it is the group the possession and midfield contests draw from, so it is priced rather than
+/// dropped.
+const MIDFIELD_GOALS: f64 = 0.010;
 
 /// Goals a match per point of the forwards' mean finishing.
-const FINISHING_GOALS: f64 = 0.036;
-
-/// What a typical squad's eleven reaches in each shape, as `(formation, back-line hold, forwards'
-/// finishing)`: the mean over 192 clubs of 12 generated worlds. A squad is scored by how far it is
-/// from these in each shape, so a shape's own level (one forward is one forward of the best
-/// finishing, three are a mean of three) is not a reason to choose it. The levels are a property of
-/// a world's players, and a club is scored against its own other shapes only, so a world whose
-/// players are all better or worse moves every shape's score alike and changes no choice.
-const TYPICAL: [(&str, f64, f64); 8] = [
-    ("4-4-2", 67.295, 69.212),
-    ("4-3-3", 67.117, 66.593),
-    ("3-5-2", 67.792, 68.655),
-    ("4-5-1", 67.127, 70.151),
-    ("4-2-3-1", 67.127, 70.151),
-    ("3-4-3", 67.914, 66.560),
-    ("5-3-2", 66.649, 68.585),
-    ("4-1-4-1", 67.106, 68.693),
-];
+///
+/// The same fit reads `+0.027` (`+0.024` on the repeat); finishing is the most valuable of the three.
+const FINISHING_GOALS: f64 = 0.027;
 
 /// The engine reads a group nobody stands in as a flat 50.
 const EMPTY_GROUP_MEAN: f64 = 50.0;
+
+/// The three group means the engine's contests are built on, each read as the engine reads it.
+///
+/// The back line's hold, the midfield on the ball and the forwards' finishing. Public because the
+/// study that measures what a typical squad reaches in each shape reads them
+/// (`season-harness/tests/i5_typical_readings`): a reading of the engine's own rule, never a second
+/// copy of it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GroupReadings {
+    pub back_line: f64,
+    pub midfield: f64,
+    pub finishing: f64,
+}
 
 /// What the eleven a club would field in `formation` is worth there, in mean rating points of the
 /// side. Only differences between formations of one squad mean anything: the number has no zero.
@@ -73,14 +102,39 @@ const EMPTY_GROUP_MEAN: f64 = 50.0;
 /// player counts in the group of the slot he stands in, with his own attributes: the engine has no
 /// notion of a player out of position, only of whose attributes sit in which group.
 ///
+/// A group short of a full one is read exactly as the engine reads it
+/// ([`engine::group_depth`]): the slots it leaves empty are filled by an average outfield player of
+/// the same eleven, at the shipped weight. That is what stops the rule rewarding a squad's best
+/// players concentrated into a thin group — the reading that sent P6.1's clubs into back threes and
+/// one-man front lines.
+///
 /// The squad is taken at full strength: a player who is injured or suspended today still counts. A
-/// shape is a decision about the structure of a squad, and scored on who can play this week it
-/// followed the treatment room, which put every club through about 1.4 formation changes a season
-/// (the margin a change must clear is far smaller than an injury to the first-choice forward moves
-/// a shape's score).
+/// shape is a decision about the structure of a squad, and scored on who can play this week it would
+/// follow the treatment room: an injury to a first-choice forward moves a shape's score by more than
+/// the change margin, so the club would change shape because a player is out, not because the squad
+/// is better built another way.
 pub(crate) fn engine_fit(squad: &[&Player], formation: &str) -> f64 {
+    let readings = group_readings(squad, formation);
+    (BACK_LINE_GOALS * readings.back_line
+        + MIDFIELD_GOALS * readings.midfield
+        + FINISHING_GOALS * readings.finishing)
+        / GOALS_PER_RATING_POINT
+}
+
+/// The three group means the fit is built on, as the engine reads them, each at the depth-aware
+/// reading the engine ships.
+///
+/// Public for the study that measures what a typical squad reaches in each shape and for the study
+/// that sets the reading against results (`season-harness/tests/p61_formation_selection`).
+pub fn group_readings(squad: &[&Player], formation: &str) -> GroupReadings {
     let eleven = first_choice_eleven(squad, formation);
     let slots = formation_slots(formation);
+    let outfield: Vec<&Player> = slots
+        .iter()
+        .zip(&eleven)
+        .filter(|(slot, _)| slot.to_group_position() != Position::Goalkeeper)
+        .map(|(_, player)| *player)
+        .collect();
     let group_mean = |group: Position, read: fn(&Player) -> f64| -> f64 {
         let members: Vec<f64> = slots
             .iter()
@@ -89,37 +143,47 @@ pub(crate) fn engine_fit(squad: &[&Player], formation: &str) -> f64 {
             .map(|(_, player)| read(player))
             .collect();
         if members.is_empty() {
+            return EMPTY_GROUP_MEAN;
+        }
+        let outfield_values: Vec<f64> = outfield.iter().map(|player| read(player)).collect();
+        let baseline = if outfield_values.is_empty() {
             EMPTY_GROUP_MEAN
         } else {
-            members.iter().sum::<f64>() / members.len() as f64
-        }
+            outfield_values.iter().sum::<f64>() / outfield_values.len() as f64
+        };
+        engine::group_depth::depth_filled_mean(
+            &members,
+            match group {
+                Position::Defender => engine::group_depth::FULL_GROUP_DEFENDERS,
+                Position::Forward => engine::group_depth::FULL_GROUP_FORWARDS,
+                _ => engine::group_depth::FULL_GROUP_MIDFIELDERS,
+            },
+            baseline,
+            engine::group_depth::SHIPPED_GROUP_DEPTH_WEIGHT,
+        )
     };
-    let back_line = group_mean(Position::Defender, |p| {
-        let a = &p.attributes;
-        (f64::from(a.defending)
-            + f64::from(a.tackling)
-            + f64::from(a.positioning)
-            + f64::from(a.aerial))
-            / 4.0
-    });
-    let finishing = group_mean(Position::Forward, |p| {
-        let a = &p.attributes;
-        (f64::from(a.shooting) + f64::from(a.composure) + f64::from(a.decisions)) / 3.0
-    });
-    suitability_in(formation, back_line, finishing)
-}
-
-/// How much better than a typical squad the back line and the forwards suit `formation`, in mean
-/// rating points of the side. A formation the game does not offer is read as a 4-4-2.
-fn suitability_in(formation: &str, back_line: f64, finishing: f64) -> f64 {
-    let (_, typical_back_line, typical_finishing) = TYPICAL
-        .iter()
-        .find(|(name, _, _)| *name == formation)
-        .copied()
-        .unwrap_or(TYPICAL[0]);
-    (BACK_LINE_GOALS * (back_line - typical_back_line)
-        + FINISHING_GOALS * (finishing - typical_finishing))
-        / GOALS_PER_RATING_POINT
+    GroupReadings {
+        back_line: group_mean(Position::Defender, |p| {
+            let a = &p.attributes;
+            (f64::from(a.defending)
+                + f64::from(a.tackling)
+                + f64::from(a.positioning)
+                + f64::from(a.aerial))
+                / 4.0
+        }),
+        midfield: group_mean(Position::Midfielder, |p| {
+            let a = &p.attributes;
+            (f64::from(a.dribbling)
+                + f64::from(a.passing)
+                + f64::from(a.vision)
+                + f64::from(a.teamwork))
+                / 4.0
+        }),
+        finishing: group_mean(Position::Forward, |p| {
+            let a = &p.attributes;
+            (f64::from(a.shooting) + f64::from(a.composure) + f64::from(a.decisions)) / 3.0
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -140,36 +204,40 @@ mod tests {
         squad.players.iter().collect()
     }
 
-    /// Given a squad that is exactly what a typical squad is in each shape (the typical back line and
-    ///   forwards of every formation)
-    /// When its suitability is read in each of the eight shapes
-    /// Then it is the same in all of them: the rule carries no price for a shape itself. A price per
-    ///      shape (3-5-2 and 3-4-3 above 4-4-2) sent half the league into a back three and raised the
-    ///      goals a match from 3.18 to 3.65, because it described one equilibrium and the clubs
-    ///      moved it.
-    #[test]
-    fn a_typical_squad_is_worth_the_same_in_every_shape() {
-        for (formation, back_line, finishing) in TYPICAL {
-            let suitability = suitability_in(formation, back_line, finishing);
-            assert!(suitability.abs() < 1e-12, "{formation}: {suitability}");
-        }
+    /// A squad built for a back three: three outstanding centre backs, ordinary full backs.
+    fn back_three_squad() -> Squad {
+        Squad::new()
+            .add(Position::Goalkeeper, &[72, 60])
+            .add(Position::CenterBack, &[84, 83, 82, 60])
+            .add(Position::LeftBack, &[55, 50])
+            .add(Position::RightBack, &[55, 50])
+            .add(Position::LeftWingBack, &[70, 60])
+            .add(Position::RightWingBack, &[70, 60])
+            .add(Position::CentralMidfielder, &[72, 70, 68, 62])
+            .add(Position::LeftMidfielder, &[55])
+            .add(Position::RightMidfielder, &[55])
+            .add(Position::Striker, &[75, 73, 67])
     }
 
-    /// Given a squad better than a typical one by a back line and by finishing, in two shapes
-    /// When their suitability is read
-    /// Then it is the same gain in both: a point of finishing is worth the same wherever it stands.
+    /// Given a squad and a formation
+    /// When the fit is read
+    /// Then it is exactly the engine's own group reading in the weights the engine was measured at:
+    ///      one rule in one place, so the formation the AI ranks best is the one the engine plays
+    ///      best.
     #[test]
-    fn a_point_of_finishing_is_worth_the_same_in_every_shape() {
-        let gain = |formation: &str| {
-            let (_, back_line, finishing) = TYPICAL
-                .iter()
-                .find(|(f, _, _)| *f == formation)
-                .copied()
-                .unwrap();
-            suitability_in(formation, back_line, finishing + 4.0)
-        };
-        assert!((gain("4-4-2") - gain("3-4-3")).abs() < 1e-12);
-        assert!((gain("4-4-2") - 4.0 * FINISHING_GOALS / GOALS_PER_RATING_POINT).abs() < 1e-12);
+    fn the_fit_is_the_engines_own_reading_and_not_a_second_formula() {
+        let squad = squad();
+        let players = refs(&squad);
+        for formation in ["4-4-2", "4-3-3", "3-4-3", "4-5-1"] {
+            let r = group_readings(&players, formation);
+            assert_eq!(
+                engine_fit(&players, formation),
+                (BACK_LINE_GOALS * r.back_line
+                    + MIDFIELD_GOALS * r.midfield
+                    + FINISHING_GOALS * r.finishing)
+                    / GOALS_PER_RATING_POINT
+            );
+        }
     }
 
     /// Given two squads that differ only in how well their forwards finish
@@ -191,6 +259,43 @@ mod tests {
         }
         let gain = engine_fit(&refs(&sharp), "4-4-2") - engine_fit(&refs(&blunt), "4-4-2");
         let expected = 10.0 * FINISHING_GOALS / GOALS_PER_RATING_POINT;
+        assert!(
+            (gain - expected).abs() < 1e-9,
+            "gained {gain}, expected {expected}"
+        );
+    }
+
+    /// Given two squads that differ only in how well their midfielders keep the ball, in a shape
+    ///   that fields exactly the four midfielders that were changed
+    /// When the engine's fit is read in a four-man midfield
+    /// Then the better midfield is worth the weight of the midfield more, per point: the possession
+    ///      and midfield contests are a part of what a shape is worth, not an afterthought.
+    #[test]
+    fn a_side_whose_midfield_keeps_the_ball_better_is_worth_more_by_the_weight_of_the_midfield() {
+        let four_in_the_middle = || {
+            Squad::new()
+                .add(Position::Goalkeeper, &[70, 60])
+                .add(Position::CenterBack, &[70, 70, 68, 66])
+                .add(Position::LeftBack, &[68, 62])
+                .add(Position::RightBack, &[68, 62])
+                .add(Position::CentralMidfielder, &[72, 72, 70, 70, 62])
+                .add(Position::Striker, &[74, 72, 66])
+        };
+        let mut technical = four_in_the_middle();
+        let ordinary = four_in_the_middle();
+        for midfielder in technical
+            .players
+            .iter_mut()
+            .filter(|p| p.natural_position == Position::CentralMidfielder)
+        {
+            let a = &mut midfielder.attributes;
+            a.dribbling = a.dribbling.saturating_add(10);
+            a.passing = a.passing.saturating_add(10);
+            a.vision = a.vision.saturating_add(10);
+            a.teamwork = a.teamwork.saturating_add(10);
+        }
+        let gain = engine_fit(&refs(&technical), "4-4-2") - engine_fit(&refs(&ordinary), "4-4-2");
+        let expected = 10.0 * MIDFIELD_GOALS / GOALS_PER_RATING_POINT;
         assert!(
             (gain - expected).abs() < 1e-9,
             "gained {gain}, expected {expected}"
@@ -228,8 +333,8 @@ mod tests {
     /// Given a squad in which the best forward is injured and another suspended
     /// When the engine's fit is read
     /// Then it is what the squad would be worth at full strength: a club's shape answers to the
-    ///      structure of its squad, not to this week's treatment room. (Scored on who can play today,
-    ///      a club changed formation 110 times a season across 80 clubs, against 23 before.)
+    ///      structure of its squad, not to this week's treatment room. Scored on who can play
+    ///      today, a shape would follow an injury, which is not a decision about the squad.
     #[test]
     fn a_squads_shape_does_not_move_with_this_weeks_injuries() {
         let healthy = squad();
@@ -268,15 +373,88 @@ mod tests {
         );
     }
 
+    /// Given a squad whose two forwards are its best finishers by a distance, every other player
+    ///   ordinary
+    /// When the engine's reading of its finishing is taken in a shape with one forward and one with
+    ///   two
+    /// Then the lone forward is read below his own finishing, while the pair is read at theirs: the
+    ///      reading is of the group's depth, and a squad's best players concentrated into a thin
+    ///      group are not worth the best of them. That is the reading that made P6.1's evaluator
+    ///      lift the league's goals a match by 15 to 20 %.
+    #[test]
+    fn a_lone_forward_is_read_below_his_own_finishing() {
+        let squad = Squad::new()
+            .add(Position::Goalkeeper, &[60, 55])
+            .add(Position::CenterBack, &[60, 60, 60, 55, 55])
+            .add(Position::LeftBack, &[60, 55])
+            .add(Position::RightBack, &[60, 55])
+            .add(Position::CentralMidfielder, &[60, 60, 60, 60, 55])
+            .add(Position::LeftMidfielder, &[60, 55])
+            .add(Position::RightMidfielder, &[60, 55])
+            .add(Position::Striker, &[90, 90, 55]);
+        let players = refs(&squad);
+        let lone = group_readings(&players, "4-5-1").finishing;
+        let pair = group_readings(&players, "4-4-2").finishing;
+        let striker = |player: &&Player| {
+            let a = &player.attributes;
+            (f64::from(a.shooting) + f64::from(a.composure) + f64::from(a.decisions)) / 3.0
+        };
+        let eleven = first_choice_eleven(&players, "4-5-1");
+        let slots = formation_slots("4-5-1");
+        let lone_striker = eleven
+            .iter()
+            .zip(&slots)
+            .find(|(_, slot)| slot.to_group_position() == Position::Forward)
+            .map(|(player, _)| striker(player))
+            .expect("a forward");
+        assert!(
+            lone < lone_striker - 1.0,
+            "the lone forward is read as himself: {lone} against {lone_striker}"
+        );
+        assert!(pair > lone, "{pair} against {lone}");
+    }
+
+    /// Given a squad with three outstanding centre backs and ordinary defenders everywhere else
+    /// When the engine's reading of its back line is taken in a back three and in a back four
+    /// Then the back three is read below the plain mean of the three, filled to four at the side's
+    ///      own standard: three internationals are not the mean of three.
+    #[test]
+    fn a_back_three_of_internationals_is_read_at_its_depth() {
+        let squad = back_three_squad();
+        let players = refs(&squad);
+        let back_three = group_readings(&players, "3-4-3").back_line;
+        let eleven = first_choice_eleven(&players, "3-4-3");
+        let slots = formation_slots("3-4-3");
+        let hold = |player: &&Player| {
+            let a = &player.attributes;
+            (f64::from(a.defending)
+                + f64::from(a.tackling)
+                + f64::from(a.positioning)
+                + f64::from(a.aerial))
+                / 4.0
+        };
+        let defenders: Vec<f64> = eleven
+            .iter()
+            .zip(&slots)
+            .filter(|(_, slot)| slot.to_group_position() == Position::Defender)
+            .map(|(player, _)| hold(player))
+            .collect();
+        assert_eq!(defenders.len(), 3, "a back three");
+        let plain = defenders.iter().sum::<f64>() / 3.0;
+        assert!(
+            back_three < plain - 0.5,
+            "the back three is read as the mean of three: {back_three} against {plain}"
+        );
+    }
+
     /// Given a formation the game does not offer
     /// When it is read
-    /// Then it is priced as a 4-4-2 and nothing panics.
+    /// Then it is read as a 4-4-2 and nothing panics.
     #[test]
-    fn a_formation_the_game_does_not_offer_is_priced_as_a_four_four_two() {
+    fn a_formation_the_game_does_not_offer_is_read_as_a_four_four_two() {
         let squad = squad();
         let players = refs(&squad);
-        let odd = engine_fit(&players, "4-4-2");
-        assert!(odd.is_finite());
+        assert!(engine_fit(&players, "4-4-2").is_finite());
         assert!(engine_fit(&players, "9-9-9").is_finite());
     }
 

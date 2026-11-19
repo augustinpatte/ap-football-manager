@@ -943,3 +943,132 @@ fn a_manager_with_a_fit_side_makes_no_unforced_substitution() {
         "{commands:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// A sending-off changes what a side can do
+// ---------------------------------------------------------------------------
+
+/// The home side, `skill` everywhere, with `sent_off` of its defenders already off the pitch.
+fn a_side_a_man_down(sent_off: usize) -> LiveMatchState {
+    let mut state = LiveMatchState::new(
+        team("home", eleven("home", 60, 100)),
+        team("away", eleven("away", 60, 100)),
+        MatchConfig {
+            fatigue_per_minute: 0.0,
+            injury_probability: 0.0,
+            ..MatchConfig::default()
+        },
+        bench("home", 55),
+        bench("away", 55),
+        false,
+    );
+    for index in 0..sent_off {
+        state.test_send_off(&format!("home_def{index}"));
+    }
+    state
+}
+
+/// Given a side that has had a player sent off and is level with the hour gone
+/// When its manager takes stock
+/// Then it stops pressing and absorbs: with ten men the press is a player short everywhere it
+///      goes, and the shape is what is left to defend with.
+#[test]
+fn a_side_a_man_down_stops_pressing_and_absorbs() {
+    let mut state = a_side_a_man_down(1);
+    state.test_set_score(1, 1);
+    let minute = 60;
+    while state.minute() < minute {
+        let mut rng = StdRng::seed_from_u64(u64::from(state.minute()));
+        if state.step_minute(&mut rng).is_finished {
+            break;
+        }
+    }
+    state.test_set_score(1, 1);
+
+    let mut rng = StdRng::seed_from_u64(3);
+    let commands = ai_decide(
+        &state,
+        Side::Home,
+        &profile(70, AiPersonality::Pragmatist),
+        &mut rng,
+    );
+    assert!(
+        commands.iter().any(|command| matches!(
+            command,
+            MatchCommand::ChangePlayStyle {
+                play_style: PlayStyle::Defensive,
+                ..
+            }
+        )),
+        "a side a man down and level at the hour did not absorb: {commands:?}"
+    );
+}
+
+/// Given an eleven-a-side side that is level with the hour gone
+/// When its manager takes stock
+/// Then it is not told to absorb: the sending-off is what calls for that, not the clock.
+#[test]
+fn a_side_with_eleven_men_level_at_the_hour_does_not_absorb() {
+    let mut state = a_side_a_man_down(0);
+    let minute = 60;
+    while state.minute() < minute {
+        let mut rng = StdRng::seed_from_u64(u64::from(state.minute()));
+        if state.step_minute(&mut rng).is_finished {
+            break;
+        }
+    }
+    state.test_set_score(1, 1);
+
+    let mut rng = StdRng::seed_from_u64(3);
+    let commands = ai_decide(
+        &state,
+        Side::Home,
+        &profile(70, AiPersonality::Pragmatist),
+        &mut rng,
+    );
+    assert!(
+        !commands.iter().any(|command| matches!(
+            command,
+            MatchCommand::ChangePlayStyle {
+                play_style: PlayStyle::Defensive,
+                ..
+            }
+        )),
+        "an eleven-a-side side that was level at the hour was told to defend: {commands:?}"
+    );
+}
+
+/// Given a side whose opponent has had a player sent off, level with the hour gone
+/// When its manager takes stock
+/// Then it pushes the advantage: an extra man is worth more than holding a shape against ten.
+#[test]
+fn a_side_a_man_up_pushes_the_advantage() {
+    let mut state = a_side_a_man_down(0);
+    state.test_send_off("away_def0");
+    let minute = 60;
+    while state.minute() < minute {
+        let mut rng = StdRng::seed_from_u64(u64::from(state.minute()));
+        if state.step_minute(&mut rng).is_finished {
+            break;
+        }
+    }
+    state.test_set_score(1, 1);
+
+    let mut rng = StdRng::seed_from_u64(3);
+    let commands = ai_decide(
+        &state,
+        Side::Home,
+        &profile(70, AiPersonality::Pragmatist),
+        &mut rng,
+    );
+    assert!(
+        commands.iter().any(|command| matches!(
+            command,
+            MatchCommand::ChangePlayStyle {
+                play_style: PlayStyle::Attacking,
+                ..
+            }
+        )),
+        "a side a man up and level at the hour did not push: {commands:?}"
+    );
+}

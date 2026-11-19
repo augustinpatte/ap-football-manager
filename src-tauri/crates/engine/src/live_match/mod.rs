@@ -15,7 +15,8 @@ pub(crate) use observation::AiObservation;
 use crate::event::{EventType, MatchEvent};
 use crate::report::MatchReport;
 use crate::types::{
-    MatchConfig, PlayStyle, PlayerData, PlayerRole, Side, TacticalDial, TeamData, Zone,
+    MatchConfig, PlayStyle, PlayerData, PlayerRole, Side, TacticalDial, TacticsConfig, TeamData,
+    Zone,
 };
 
 // ---------------------------------------------------------------------------
@@ -453,6 +454,20 @@ impl LiveMatchState {
     /// Current minute
     pub fn minute(&self) -> u8 {
         self.current_minute
+    }
+
+    /// The nine dials `side` is playing to right now.
+    ///
+    /// A read accessor for callers that plan a match rather than play it: the AI's match-day
+    /// response (`ofm_core::matchday_tactics`) reads both plans before kick-off, and a snapshot
+    /// would copy the whole event log to answer a question about nine enums.
+    pub fn tactics(&self, side: Side) -> &TacticsConfig {
+        &self.team_ref(side).tactics
+    }
+
+    /// The way `side` is playing right now.
+    pub fn play_style(&self, side: Side) -> PlayStyle {
+        self.team_ref(side).play_style
     }
 
     /// Get the bench for a side

@@ -10,7 +10,10 @@ use crate::shared::{
 use crate::types::{Position, Side, Zone};
 
 use super::LiveMatchState;
-use super::helpers::{danger_band, foul_severity, save_quality};
+use super::helpers::{
+    danger_band, defender_hold_read, finishing_read, foul_severity, midfield_carry_read,
+    midfield_tackle_read, run_read, save_quality,
+};
 
 // ---------------------------------------------------------------------------
 // Action resolution
@@ -125,12 +128,16 @@ impl LiveMatchState {
             support,
         );
         let att_eff = att_rating
+            * self.group_depth_factor(att_side, Position::Midfielder, midfield_carry_read)
             * att_mod
             * crate::shared::home_mod(att_side, &self.config)
             * tactics_tempo_progression(&self.team_ref(att_side).tactics)
             * self.midfield_numbers_edge(att_side)
             * self.role_support(att_side, PlayStylePhase::Midfield, Position::Midfielder);
-        let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
+        let def_eff = def_rating
+            * self.group_depth_factor(def_side, Position::Midfielder, midfield_tackle_read)
+            * def_mod
+            * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
         if rng.random_range(0.0..1.0f64) < success {
@@ -229,11 +236,13 @@ impl LiveMatchState {
         // overlaps, a sweeper keeper covers behind the line, a striker who will not track back
         // leaves his side short.
         let att_eff = att_rating
+            * self.group_depth_factor(att_side, Position::Forward, run_read)
             * att_mod
             * crate::shared::home_mod(att_side, &self.config)
             * self.attack_numbers_edge(att_side)
             * self.role_support(att_side, PlayStylePhase::Attack, Position::Forward);
         let def_eff = def_rating
+            * self.group_depth_factor(def_side, Position::Defender, defender_hold_read)
             * def_mod
             * self.role_support(def_side, PlayStylePhase::Defense, Position::Defender)
             * crate::shared::home_mod(def_side, &self.config)
@@ -365,6 +374,7 @@ impl LiveMatchState {
         let shoot_raw =
             (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
         let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw)
+            * self.group_depth_factor(att_side, Position::Forward, finishing_read)
             * trait_bonus(&shooter, TraitContext::Shooting);
         let gk_raw = (goalkeeper.handling as f64
             + goalkeeper.reflexes as f64
