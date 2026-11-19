@@ -215,7 +215,10 @@ pub(super) fn recommendations_read_by(
     let max_items = 3 + (profile.assistant / 100.0 * 5.0).round() as usize;
     let mut out: Vec<Recommendation> = Vec::new();
 
-    if !has_assistant {
+    // With no assistant the club's own advice is only the gap. A member the manager named to read a
+    // duty (a head of youth, a coach) reads the squad regardless: a named owner does not depend on
+    // an assistant being in post.
+    if !has_assistant && reader.is_none() {
         out.push(Recommendation {
             id: "no-assistant".into(),
             kind: RecKind::StaffVacancy,
@@ -1100,6 +1103,47 @@ pub(crate) mod tests {
         assert_eq!(
             g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
             SquadRole::Senior
+        );
+    }
+
+    /// Given a club with no assistant manager, a head of youth named in charge of the Youth duty,
+    ///   and an academy player at the first team's level
+    /// When the duty is delegated and a day is played
+    /// Then the head of youth reads the squad himself and promotes the player: a named owner does
+    ///   not depend on an assistant being in post, and the duty is not marked run for nothing.
+    #[test]
+    fn a_named_head_of_youth_promotes_when_the_club_has_no_assistant() {
+        let mut g = game(None, 6);
+        let mut kid = player_at("kid", "team1", "2030-06-30");
+        kid.squad_role = SquadRole::Youth;
+        kid.date_of_birth = "2007-01-01".into();
+        kid.ovr = 70;
+        g.players.push(kid);
+        g.staff.retain(|s| {
+            s.post() != StaffPost::HeadOfYouth && s.post() != StaffPost::AssistantManager
+        });
+        g.staff
+            .push(staff_member("hoy", StaffPost::HeadOfYouth, 70, "team1"));
+        assert!(
+            of_kind(&recommendations(&g, "team1"), RecKind::PromoteYouth).is_empty(),
+            "with no assistant the club's own advice is only the vacancy"
+        );
+        super::super::delegation_owner::assign(
+            &mut g,
+            "team1",
+            domain::delegation::Duty::Youth,
+            Some("hoy"),
+        )
+        .expect("a head of youth can run the youth duty");
+        g.delegation
+            .set(domain::delegation::Duty::Youth, true, false);
+
+        super::super::delegation::run_after_day(&mut g);
+
+        assert_eq!(
+            g.players.iter().find(|p| p.id == "kid").unwrap().squad_role,
+            SquadRole::Senior,
+            "the named head of youth never read the academy"
         );
     }
 
