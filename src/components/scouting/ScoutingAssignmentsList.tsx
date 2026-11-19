@@ -110,7 +110,7 @@ export default function ScoutingAssignmentsList({
                         <Select
                           selectSize="sm"
                           value={reassignTargets[assignment.id] ?? idleScouts[0].id}
-                          aria-label={`${t("scouting.reassignSearch")} ${player.full_name}`}
+                          aria-label={t("scouting.reassignSearchFor", { player: player.full_name })}
                           onChange={(event) =>
                             setReassignTargets((current) => ({
                               ...current,
@@ -144,7 +144,7 @@ export default function ScoutingAssignmentsList({
                         size="sm"
                         variant="ghost"
                         icon={<XCircle />}
-                        aria-label={`${t("scouting.cancelSearch")} ${player.full_name}`}
+                        aria-label={t("scouting.cancelSearchFor", { player: player.full_name })}
                         onClick={() => onCancel(assignment.id)}
                       >
                         {t("scouting.cancelSearch")}

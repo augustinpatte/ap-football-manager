@@ -22,8 +22,9 @@ use serde::Serialize;
 /// Reports shown on the dossier screen, newest first. The dossier keeps more.
 const REPORTS_SHOWN: usize = 60;
 
-/// How far ahead a contract's end counts as expiring, in days.
-const EXPIRING_WITHIN_DAYS: i64 = 365;
+/// How far ahead a contract's end counts as expiring, in days: the search filter and the
+/// recruitment risk read the same figure.
+pub(crate) const EXPIRING_WITHIN_DAYS: i64 = 365;
 
 /// Age from which a player's decline is a risk the report names.
 const DECLINE_RISK_AGE: i32 = 31;
@@ -182,10 +183,12 @@ fn view_of(lens: &Lens, player: &Player) -> ScoutingTargetView {
         None => ReportStatus::Unscouted,
         Some(report)
             if game
-                .season_context
-                .season_start
-                .as_deref()
-                .is_some_and(|start| report.scouted_on.as_str() < start) =>
+                .scouting_dossier
+                .current_report_on(
+                    &report.player_id,
+                    game.season_context.season_start.as_deref(),
+                )
+                .is_none() =>
         {
             ReportStatus::Stale
         }
@@ -294,8 +297,7 @@ fn outlook_of(report: Option<&ScoutReport>, age: i32) -> Outlook {
 /// The squad model's verdict on the player as the club believes him to be.
 fn squad_impact(lens: &Lens, player: &Player, report: Option<&ScoutReport>) -> Option<SquadImpact> {
     let squad = lens.squad.as_ref()?;
-    let mut believed = player.clone();
-    believed.squad_role = domain::player::SquadRole::Senior;
+    let mut believed = crate::youth_pathway::as_senior(player);
     if let Some(report) = report {
         believed.ovr = report.ability.mid();
         believed.potential = report

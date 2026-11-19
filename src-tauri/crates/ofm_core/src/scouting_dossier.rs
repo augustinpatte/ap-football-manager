@@ -126,6 +126,18 @@ impl ScoutingDossier {
             .find(|report| report.player_id == player_id)
     }
 
+    /// The report on him if it is from the current season: not before `season_start` (an ISO date,
+    /// which orders like the days it names). With no season start every report is current. The one
+    /// statement of "current", read by the screens, the search and the delegated duty alike.
+    pub fn current_report_on(
+        &self,
+        player_id: &str,
+        season_start: Option<&str>,
+    ) -> Option<&ScoutReport> {
+        self.report_on(player_id)
+            .filter(|report| season_start.is_none_or(|start| report.scouted_on.as_str() >= start))
+    }
+
     pub fn is_shortlisted(&self, player_id: &str) -> bool {
         self.shortlist
             .iter()
@@ -340,8 +352,7 @@ pub(crate) fn record_report(
     let season_start = game.season_context.season_start.as_deref();
     let previous = game
         .scouting_dossier
-        .report_on(player_id)
-        .filter(|old| season_start.is_none_or(|start| old.scouted_on.as_str() >= start))
+        .current_report_on(player_id, season_start)
         .cloned();
     let mut reports = 1;
     if let Some(old) = &previous {

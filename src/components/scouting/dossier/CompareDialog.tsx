@@ -71,9 +71,7 @@ export default function CompareDialog({ targets, onClose }: CompareDialogProps) 
     {
       label: t("scouting.dossier.strengths"),
       cell: (v) =>
-        v.report?.strengths
-          .map((s) => t(`common.attributes.${s}`, { defaultValue: s }))
-          .join(", ") || unknown,
+        v.report?.strengths.map((s) => t(`common.attributes.${s}`)).join(", ") || unknown,
     },
     {
       label: t("scouting.dossier.risksTitle"),
@@ -87,7 +85,7 @@ export default function CompareDialog({ targets, onClose }: CompareDialogProps) 
       labelledBy={titleId}
       onClose={onClose}
       dismissOnBackdrop
-      className="w-full max-w-5xl max-h-[90vh] overflow-auto rounded-xl p-6"
+      className="w-full max-w-5xl max-h-screen overflow-auto rounded-xl p-6"
     >
       <div className="flex flex-col gap-4">
         <h3 id={titleId} className="font-heading text-heading font-bold text-fg">

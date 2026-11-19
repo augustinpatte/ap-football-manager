@@ -492,11 +492,14 @@ describe("ScoutingTab", () => {
       expect(invokeMock).toHaveBeenCalledWith("shortlist_player", { playerId: "player-1" });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
-    const pressed = await screen.findByRole("button", {
-      name: "scouting.dossier.removeShortlistFor",
-      pressed: true,
-    });
-    fireEvent.click(pressed);
+    // The dossier's shortlist table and the search row both offer it now; the search row is last.
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole("button", { name: "scouting.dossier.removeShortlistFor" }).length,
+      ).toBe(2),
+    );
+    const stars = screen.getAllByRole("button", { name: "scouting.dossier.removeShortlistFor" });
+    fireEvent.click(stars[stars.length - 1]);
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("unshortlist_player", { playerId: "player-1" }),
     );

@@ -18,6 +18,11 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+const named = (key: string) => `${key}:${JSON.stringify({ player: "Kai Youth" })}`;
+const PROMOTE = named("academy.promoteFor");
+const LIST_LOAN = named("academy.listLoanFor");
+const RELEASE = named("academy.releaseFor");
+
 function row(overrides: Partial<AcademyRow> = {}): AcademyRow {
   return {
     player_id: "y1",
@@ -119,9 +124,7 @@ describe("AcademyReviewCard", () => {
     const onGameUpdate = vi.fn();
 
     render(<AcademyReviewCard gameState={null} onGameUpdate={onGameUpdate} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "youthAcademy.promoteToSeniorSquad" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: PROMOTE }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("set_player_squad_role", {
@@ -145,9 +148,7 @@ describe("AcademyReviewCard", () => {
 
     render(<AcademyReviewCard gameState={null} />);
 
-    expect(
-      await screen.findByRole("button", { name: "youthAcademy.promoteToSeniorSquad" }),
-    ).toBeDisabled();
+    expect(await screen.findByRole("button", { name: PROMOTE })).toBeDisabled();
   });
 
   /**
@@ -163,9 +164,7 @@ describe("AcademyReviewCard", () => {
     const onGameUpdate = vi.fn();
 
     render(<AcademyReviewCard gameState={null} onGameUpdate={onGameUpdate} />);
-    fireEvent.click(
-      await screen.findByRole("button", { name: "youthAcademy.promoteToSeniorSquad" }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: PROMOTE }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(onGameUpdate).not.toHaveBeenCalled();
@@ -185,11 +184,11 @@ describe("AcademyReviewCard", () => {
 
     render(<AcademyReviewCard gameState={null} onSelectPlayer={onSelectPlayer} />);
     const table = await screen.findByRole("table");
-    fireEvent.click(within(table).getByRole("button", { name: "academy.listLoan" }));
+    fireEvent.click(within(table).getByRole("button", { name: LIST_LOAN }));
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("toggle_loan_list", { playerId: "y1" }),
     );
-    fireEvent.click(within(table).getByRole("button", { name: "academy.release Kai Youth" }));
+    fireEvent.click(within(table).getByRole("button", { name: RELEASE }));
     expect(onSelectPlayer).toHaveBeenCalledWith("y1", { openTermination: true });
   });
 

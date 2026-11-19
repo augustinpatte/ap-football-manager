@@ -76,10 +76,12 @@ function Harness({
   onGameUpdate = vi.fn(),
   canScout = true,
   onScoutAgain = vi.fn(),
+  onBid = vi.fn(),
 }: {
   onGameUpdate?: (game: GameStateData) => void;
   canScout?: boolean;
   onScoutAgain?: (id: string) => void;
+  onBid?: (id: string) => void;
 }) {
   const dossierState = useScoutingDossier(1);
   return (
@@ -88,7 +90,7 @@ function Harness({
       onGameUpdate={onGameUpdate}
       canScout={canScout}
       onScoutAgain={onScoutAgain}
-      onBid={vi.fn()}
+      onBid={onBid}
       onOfferContract={vi.fn()}
       onOpenProfile={vi.fn()}
     />
@@ -169,7 +171,9 @@ describe("ScoutingDossierSection", () => {
 
     render(<Harness onGameUpdate={onGameUpdate} />);
     fireEvent.click(
-      await screen.findByRole("button", { name: "scouting.dossier.removeShortlist" }),
+      await screen.findByRole("button", {
+        name: `scouting.dossier.removeShortlistFor:${JSON.stringify({ player: "Bo Unscouted" })}`,
+      }),
     );
 
     await waitFor(() => {
@@ -233,5 +237,75 @@ describe("ScoutingDossierSection", () => {
       within(dialog).getByRole("button", { name: "scouting.dossier.makeBid" }),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "scouting.noScoutsFree" })).toBeDisabled();
+  });
+
+  /**
+   * Given an open report with a bid action
+   * When the manager chooses to make a bid
+   * Then the report closes first (so two modals never stack and Escape closes only the bid) and the
+   *      bid flow is told which player.
+   */
+  it("closes the report before handing over to the bid flow", async () => {
+    answerDossier({ reports: [SCOUTED], shortlist: [] });
+    const onBid = vi.fn();
+
+    render(<Harness onBid={onBid} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Ada Prospect" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "scouting.dossier.makeBid" }));
+
+    expect(onBid).toHaveBeenCalledWith("p1");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  /**
+   * Given a report whose player is taken off the shortlist from inside his open report
+   * When the dossier refreshes without him
+   * Then the report stays open until the manager closes it.
+   */
+  it("keeps an open report open when its player drops off the lists", async () => {
+    const view: ScoutingDossierView = { reports: [], shortlist: [UNSCOUTED] };
+    answerDossier(view);
+
+    render(<Harness />);
+    fireEvent.click(await screen.findByRole("button", { name: "Bo Unscouted" }));
+    const dialog = await screen.findByRole("dialog");
+    answerDossier({ reports: [], shortlist: [] });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "scouting.dossier.removeShortlist" }),
+    );
+
+    await waitFor(() =>
+      expect(invokeMock.mock.calls.filter(([c]) => c === "get_scouting_dossier").length).toBe(2),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  /**
+   * Given four targets already chosen for the comparison
+   * When the list is read
+   * Then the unchosen ones cannot be ticked, so the limit is stated by the controls and not by a
+   *      click that does nothing.
+   */
+  it("disables further choices at the comparison limit", async () => {
+    const many = ["a", "b", "c", "d", "e"].map((id) =>
+      target({ player_id: id, full_name: `Player ${id}`, shortlisted: true }),
+    );
+    answerDossier({ reports: [], shortlist: many });
+
+    render(<Harness />);
+    for (const id of ["a", "b", "c", "d"]) {
+      fireEvent.click(
+        await screen.findByRole("checkbox", {
+          name: `scouting.dossier.selectToCompare:${JSON.stringify({ player: `Player ${id}` })}`,
+        }),
+      );
+    }
+
+    expect(
+      screen.getByRole("checkbox", {
+        name: `scouting.dossier.selectToCompare:${JSON.stringify({ player: "Player e" })}`,
+      }),
+    ).toBeDisabled();
   });
 });

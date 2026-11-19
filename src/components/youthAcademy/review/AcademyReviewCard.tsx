@@ -63,7 +63,8 @@ export default function AcademyReviewCard({
       <Button
         size="sm"
         disabled={busyId === row.player_id || row.promotion_blocked !== null || row.on_loan}
-        title={row.promotion_blocked ? t("academy.promotionBlocked") : undefined}
+        aria-describedby={row.promotion_blocked ? `blocked-${row.player_id}` : undefined}
+        aria-label={t("academy.promoteFor", { player: row.full_name })}
         onClick={() => void act(row.player_id, () => setPlayerSquadRole(row.player_id, "Senior"))}
       >
         {t("youthAcademy.promoteToSeniorSquad")}
@@ -72,15 +73,23 @@ export default function AcademyReviewCard({
         size="sm"
         variant="outline"
         disabled={busyId === row.player_id || row.on_loan}
+        aria-label={t(row.loan_listed ? "academy.unlistLoanFor" : "academy.listLoanFor", {
+          player: row.full_name,
+        })}
         onClick={() => void act(row.player_id, () => toggleLoanList(row.player_id))}
       >
         {row.loan_listed ? t("academy.unlistLoan") : t("academy.listLoan")}
       </Button>
+      {row.promotion_blocked && (
+        <span id={`blocked-${row.player_id}`} className="basis-full text-caption text-fg-muted">
+          {t("academy.promotionBlocked")}
+        </span>
+      )}
       {onSelectPlayer && (
         <Button
           size="sm"
           variant="ghost"
-          aria-label={`${t("academy.release")} ${row.full_name}`}
+          aria-label={t("academy.releaseFor", { player: row.full_name })}
           onClick={() => onSelectPlayer(row.player_id, { openTermination: true })}
         >
           {t("academy.release")}
@@ -95,10 +104,7 @@ export default function AcademyReviewCard({
       <CardBody className="flex flex-col gap-3">
         <p className="text-body text-fg-muted">{t("academy.reviewHint")}</p>
         {error || actionError ? (
-          <p
-            role="alert"
-            className="text-caption font-heading font-bold uppercase tracking-label text-danger"
-          >
+          <p role="alert" className="text-body font-bold text-danger">
             {actionError ?? error}
           </p>
         ) : null}

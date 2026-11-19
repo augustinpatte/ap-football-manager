@@ -2281,7 +2281,9 @@
       "potentialMin": "Potentiel estimé minimum",
       "potentialHint": "Joueurs observés uniquement",
       "contractExpiring": "Contrat à moins d'un an de son terme"
-    }
+    },
+    "cancelSearchFor": "Annuler l'observation de {{player}}",
+    "reassignSearchFor": "Confier l'observation de {{player}} à un autre recruteur"
   },
   "match": {
     "simulateWithM12": "Simulation rapide",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Progresse encore",
       "nearCeiling": "Proche de son plafond"
     },
-    "ceilingNote": "Le potentiel est un plafond, pas une promesse : la note attendue montre ce que la progression apporte d'ordinaire."
+    "ceilingNote": "Le potentiel est un plafond, pas une promesse : la note attendue montre ce que la progression apporte d'ordinaire.",
+    "promoteFor": "Promouvoir {{player}}",
+    "listLoanFor": "Mettre {{player}} sur la liste de prêts",
+    "unlistLoanFor": "Retirer {{player}} de la liste de prêts",
+    "releaseFor": "Libérer {{player}}"
   }
 }

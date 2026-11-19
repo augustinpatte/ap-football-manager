@@ -2281,7 +2281,9 @@
       "potentialMin": "En az tahmini potansiyel",
       "potentialHint": "Yalnızca izlenen oyuncular",
       "contractExpiring": "Sözleşme bir yıl içinde bitiyor"
-    }
+    },
+    "cancelSearchFor": "{{player}} izlemesini iptal et",
+    "reassignSearchFor": "{{player}} izlemesini başka bir gözlemciye ver"
   },
   "match": {
     "simulateWithM12": "Hızlı simülasyon",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Hâlâ gelişiyor",
       "nearCeiling": "Tavanına yakın"
     },
-    "ceilingNote": "Potansiyel bir tavandır, söz değil: beklenen reyting gelişimin genelde neyi getirdiğini gösterir."
+    "ceilingNote": "Potansiyel bir tavandır, söz değil: beklenen reyting gelişimin genelde neyi getirdiğini gösterir.",
+    "promoteFor": "{{player}} oyuncusunu terfi ettir",
+    "listLoanFor": "{{player}} oyuncusunu kiralık listesine ekle",
+    "unlistLoanFor": "{{player}} oyuncusunu kiralık listesinden çıkar",
+    "releaseFor": "{{player}} oyuncusunu serbest bırak"
   }
 }

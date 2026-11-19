@@ -15,7 +15,7 @@ use crate::manager_identity::ManagerIdentity;
 use crate::squad_floor::group_index;
 use crate::squad_intelligence::ClubSquad;
 use crate::squad_intelligence::appetite::Appetite;
-use crate::youth_pathway::{Pathway, cover_levels, pathway_of};
+use crate::youth_pathway::{Pathway, as_senior, cover_levels, pathway_of};
 use domain::player::{Player, Position, SquadRole};
 use serde::Serialize;
 
@@ -106,7 +106,7 @@ pub fn academy_review(game: &Game) -> Option<AcademyReview> {
     let covers = cover_levels(game, &club);
     let squad = ClubSquad::of_for_planning(game, team_id, Appetite::NEUTRAL);
     let youth_trust = ManagerIdentity::for_club(game, Some(team)).youth_trust;
-    let place = crate::transfers::signing_place_refusal(game, team_id, "");
+    let place = promotion_place_refusal(game, team_id);
     let capacity = crate::contracts::squad_capacity(game, team_id);
 
     let academy: Vec<&Player> = club
@@ -174,10 +174,8 @@ fn row_of(
     let cover = covers[group];
     let expected = crate::squad_outlook::expected_ovr_for(player, today);
     let pathway = squad.and_then(|squad| {
-        let mut senior = player.clone();
-        senior.squad_role = SquadRole::Senior;
         squad
-            .signing(&senior, 0.0)
+            .signing(&as_senior(player), 0.0)
             .map(|marginal| pathway_of(&marginal, age, youth_trust))
     });
     let (verdict, reasons) = judge(player, age, cover, expected, pathway);

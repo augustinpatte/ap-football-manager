@@ -2281,7 +2281,9 @@
       "potentialMin": "Geschätztes Potenzial mindestens",
       "potentialHint": "Nur beobachtete Spieler",
       "contractExpiring": "Vertrag endet innerhalb eines Jahres"
-    }
+    },
+    "cancelSearchFor": "Beobachtung von {{player}} abbrechen",
+    "reassignSearchFor": "Beobachtung von {{player}} an einen anderen Scout geben"
   },
   "match": {
     "simulateWithM12": "Schnellsimulation",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Verbessert sich noch",
       "nearCeiling": "Nahe an der Obergrenze"
     },
-    "ceilingNote": "Potenzial ist eine Obergrenze, kein Versprechen: Die erwartete Wertung zeigt, was die Entwicklung üblicherweise bringt."
+    "ceilingNote": "Potenzial ist eine Obergrenze, kein Versprechen: Die erwartete Wertung zeigt, was die Entwicklung üblicherweise bringt.",
+    "promoteFor": "{{player}} befördern",
+    "listLoanFor": "{{player}} auf die Leihliste setzen",
+    "unlistLoanFor": "{{player}} von der Leihliste nehmen",
+    "releaseFor": "{{player}} freigeben"
   }
 }

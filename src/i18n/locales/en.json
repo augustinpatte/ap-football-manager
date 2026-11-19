@@ -2281,7 +2281,9 @@
       "potentialMin": "Estimated potential at least",
       "potentialHint": "Scouted players only",
       "contractExpiring": "Contract ends within a year"
-    }
+    },
+    "cancelSearchFor": "Cancel the search on {{player}}",
+    "reassignSearchFor": "Hand the search on {{player}} to another scout"
   },
   "match": {
     "simulateWithM12": "Quick simulation",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Still improving",
       "nearCeiling": "Near his ceiling"
     },
-    "ceilingNote": "Potential is a ceiling, not a promise: the expected rating shows what development usually delivers."
+    "ceilingNote": "Potential is a ceiling, not a promise: the expected rating shows what development usually delivers.",
+    "promoteFor": "Promote {{player}}",
+    "listLoanFor": "List {{player}} for loan",
+    "unlistLoanFor": "Remove {{player}} from the loan list",
+    "releaseFor": "Release {{player}}"
   }
 }

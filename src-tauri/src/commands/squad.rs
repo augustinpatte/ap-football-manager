@@ -1700,7 +1700,10 @@ mod tests {
         state.set_game(game);
 
         let error = set_player_squad_role_internal(&state, "player-1", "Senior").expect_err("full");
-        assert!(error.starts_with("be.error"), "{error}");
+        assert!(
+            error.starts_with("be.error.freeAgents.squadFull"),
+            "{error}"
+        );
         let stored = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(stored.players[0].squad_role, SquadRole::Youth);
 

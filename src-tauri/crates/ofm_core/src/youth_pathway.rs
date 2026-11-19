@@ -114,7 +114,7 @@ pub(crate) fn cover_levels(game: &Game, club: &[usize]) -> [u8; 4] {
 
 /// The player as the market would see him if he were a senior: the model values only seniors, and
 /// the question here is what he would add to the side.
-fn as_senior(player: &Player) -> Player {
+pub(crate) fn as_senior(player: &Player) -> Player {
     let mut senior = player.clone();
     senior.squad_role = SquadRole::Senior;
     senior

@@ -2281,7 +2281,9 @@
       "potentialMin": "估计潜力至少",
       "potentialHint": "仅限已考察球员",
       "contractExpiring": "合同一年内到期"
-    }
+    },
+    "cancelSearchFor": "取消对 {{player}} 的考察",
+    "reassignSearchFor": "将对 {{player}} 的考察交给另一名球探"
   },
   "match": {
     "simulateWithM12": "快速模拟",
@@ -5351,6 +5353,10 @@
       "stillImproving": "仍在进步",
       "nearCeiling": "接近上限"
     },
-    "ceilingNote": "潜力只是上限而非承诺:预计评分显示培养通常能达到的水平。"
+    "ceilingNote": "潜力只是上限而非承诺:预计评分显示培养通常能达到的水平。",
+    "promoteFor": "提拔 {{player}}",
+    "listLoanFor": "将 {{player}} 列入租借名单",
+    "unlistLoanFor": "将 {{player}} 移出租借名单",
+    "releaseFor": "解约 {{player}}"
   }
 }

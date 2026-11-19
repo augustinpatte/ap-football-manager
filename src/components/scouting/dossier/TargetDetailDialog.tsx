@@ -28,7 +28,7 @@ function AttributeList({ names, empty }: { names: string[]; empty: string }) {
     <ul className="flex flex-wrap gap-2">
       {names.map((name) => (
         <li key={name}>
-          <Badge variant="neutral">{t(`common.attributes.${name}`, { defaultValue: name })}</Badge>
+          <Badge variant="neutral">{t(`common.attributes.${name}`)}</Badge>
         </li>
       ))}
     </ul>
@@ -57,7 +57,7 @@ export default function TargetDetailDialog({
       labelledBy={titleId}
       onClose={onClose}
       dismissOnBackdrop
-      className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl p-6"
+      className="w-full max-w-2xl max-h-screen overflow-y-auto rounded-xl p-6"
     >
       <div className="flex flex-col gap-4">
         <div>

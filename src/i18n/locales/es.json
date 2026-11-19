@@ -2212,7 +2212,7 @@
       "selectToCompare": "Comparar a {{player}}",
       "impact": {
         "starter": "Sería titular",
-        "cover": "Aportaría cobertura",
+        "cover": "Aportaría profundidad",
         "no_gain": "No aporta ahora"
       },
       "addShortlist": "Añadir a la lista",
@@ -2281,7 +2281,9 @@
       "potentialMin": "Potencial estimado mínimo",
       "potentialHint": "Solo jugadores ojeados",
       "contractExpiring": "Contrato termina en menos de un año"
-    }
+    },
+    "cancelSearchFor": "Cancelar el ojeo de {{player}}",
+    "reassignSearchFor": "Pasar el ojeo de {{player}} a otro ojeador"
   },
   "match": {
     "simulateWithM12": "Simulación rápida",
@@ -5325,13 +5327,13 @@
     "listLoan": "Poner en lista de cesiones",
     "release": "Rescindir",
     "reviewTitle": "Revisión de desarrollo",
-    "reviewHint": "Cada juicio compara al jugador con la cobertura que tu primer equipo ya tiene en su posición. Nada de aquí modifica a un jugador.",
+    "reviewHint": "Cada juicio compara al jugador con la profundidad que tu primer equipo ya tiene en su posición. Nada de aquí modifica a un jugador.",
     "loading": "Cargando la revisión…",
     "capacity": "Primer equipo: {{seniors}} de {{limit}}",
     "nextIntake": "Próxima cantera: {{count}}",
     "ceiling": "Techo",
     "expectedNext": "Esperado el año próximo",
-    "squadCover": "Cobertura del plantel",
+    "squadCover": "Profundidad de plantilla",
     "verdict": "Veredicto",
     "verdicts": {
       "ready_for_senior": "Listo para el primer equipo",
@@ -5341,16 +5343,20 @@
     },
     "reason": {
       "wouldStart": "Sería titular en tu primer equipo",
-      "addsCover": "Aporta la cobertura que necesita tu plantilla",
+      "addsCover": "Aporta la profundidad que necesita tu plantilla",
       "succession": "Hará falta en pocas temporadas",
       "injured": "Lesionado",
       "tooYoungToJudge": "Demasiado joven para juzgar",
-      "ceilingBelowCover": "Incluso su techo está por debajo de la cobertura de tu plantilla",
+      "ceilingBelowCover": "Incluso su techo está por debajo de la profundidad de tu plantilla",
       "closeToSeniorLevel": "Cerca del nivel del primer equipo",
       "needsMatchMinutes": "Necesita partidos regulares que la cantera no le da",
       "stillImproving": "Sigue mejorando",
       "nearCeiling": "Cerca de su techo"
     },
-    "ceilingNote": "El potencial es un techo, no una promesa: la valoración esperada muestra lo que suele dar el desarrollo."
+    "ceilingNote": "El potencial es un techo, no una promesa: la valoración esperada muestra lo que suele dar el desarrollo.",
+    "promoteFor": "Ascender a {{player}}",
+    "listLoanFor": "Poner a {{player}} en la lista de cesiones",
+    "unlistLoanFor": "Quitar a {{player}} de la lista de cesiones",
+    "releaseFor": "Rescindir a {{player}}"
   }
 }

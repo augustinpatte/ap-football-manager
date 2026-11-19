@@ -47,7 +47,7 @@ const NEED_MAX_AGE: i32 = 30;
 const SHORTLIST_PER_RUN: usize = 2;
 
 pub(super) fn run(game: &mut Game, team_id: &str, rating: f64) {
-    shortlist_fresh_fits(game, team_id);
+    shortlist_fresh_fits(game);
     send_idle_scouts(game, team_id, rating);
 }
 
@@ -113,9 +113,9 @@ fn pick_targets(game: &Game, team_id: &str, rating: f64, wanted: usize) -> Vec<(
         .collect();
     let season_start = game.season_context.season_start.as_deref();
     let has_current_report = |id: &str| {
-        game.scouting_dossier.report_on(id).is_some_and(|report| {
-            season_start.is_none_or(|start| report.scouted_on.as_str() >= start)
-        })
+        game.scouting_dossier
+            .current_report_on(id, season_start)
+            .is_some()
     };
     let eligible = |p: &Player| {
         p.team_id.as_deref().is_some_and(|t| t != team_id)
@@ -203,8 +203,7 @@ fn squad_candidates<'g>(
     let mut priced: Vec<(&Player, f32)> = pool
         .into_iter()
         .map(|(p, _)| {
-            let mut believed = p.clone();
-            believed.squad_role = domain::player::SquadRole::Senior;
+            let mut believed = crate::youth_pathway::as_senior(p);
             believed.potential = believed.ovr;
             let gain = squad.signing(&believed, 0.0).map_or(0.0, |m| m.gain);
             (p, gain)
@@ -220,8 +219,14 @@ fn squad_candidates<'g>(
 
 /// Looks at the reports delivered since the last review, once each, and shortlists the players
 /// who would help the side at a price the club can pay.
-fn shortlist_fresh_fits(game: &mut Game, _team_id: &str) {
+fn shortlist_fresh_fits(game: &mut Game) {
     let reviewed_through = game.scouting_dossier.delegate_reviewed_through.clone();
+    // The first review of a career, or of a save from before this duty kept a date, starts today:
+    // reports the manager has already read are not new to him.
+    if reviewed_through.is_empty() {
+        game.scouting_dossier.delegate_reviewed_through = stamp(game);
+        return;
+    }
     let fresh: Vec<String> = game
         .scouting_dossier
         .reports

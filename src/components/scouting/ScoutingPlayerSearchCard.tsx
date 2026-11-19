@@ -108,8 +108,12 @@ export default function ScoutingPlayerSearchCard({
                 <th className="text-center py-2 px-1">{t("scouting.age")}</th>
                 <th className="text-left py-2 px-1">{t("scouting.team")}</th>
                 <th className="text-center py-2 px-1">{t("scouting.value")}</th>
-                <th className="text-center py-2 px-1">{t("scouting.dossier.colAbility")}</th>
-                <th className="text-center py-2 px-1">{t("scouting.dossier.colPotential")}</th>
+                <th scope="col" className="text-center py-2 px-1">
+                  {t("scouting.dossier.colAbility")}
+                </th>
+                <th scope="col" className="text-center py-2 px-1">
+                  {t("scouting.dossier.colPotential")}
+                </th>
                 <th className="text-right py-2 px-2">{t("scouting.action")}</th>
               </tr>
             </thead>
@@ -203,10 +207,10 @@ export default function ScoutingPlayerSearchCard({
                     <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400 text-xs">
                       {formatVal(player.market_value)}
                     </td>
-                    <td className="text-center py-2 px-1 text-xs tabular-nums text-gray-600 dark:text-gray-400">
+                    <td className="text-center py-2 px-1 text-caption tabular-nums text-fg-muted">
                       {formatRange(knownTargets?.get(player.id)?.report?.ability) ?? "—"}
                     </td>
-                    <td className="text-center py-2 px-1 text-xs tabular-nums text-gray-600 dark:text-gray-400">
+                    <td className="text-center py-2 px-1 text-caption tabular-nums text-fg-muted">
                       {formatRange(knownTargets?.get(player.id)?.report?.potential) ?? "—"}
                     </td>
                     <td className="text-right py-2 px-2">
@@ -214,7 +218,6 @@ export default function ScoutingPlayerSearchCard({
                         {onToggleShortlist && (
                           <button
                             type="button"
-                            aria-pressed={knownTargets?.get(player.id)?.shortlisted ?? false}
                             aria-label={t(
                               knownTargets?.get(player.id)?.shortlisted
                                 ? "scouting.dossier.removeShortlistFor"

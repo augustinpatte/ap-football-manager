@@ -833,6 +833,37 @@ fn youth_target_position_i18n_key(position: &Position) -> &'static str {
     }
 }
 
+/// The graded words the inbox report uses, from the dossier's estimates: the middle of the ability
+/// range, then keys for rating, potential and confidence.
+fn report_keys(
+    report: &crate::scouting_dossier::ScoutReport,
+) -> (u32, &'static str, &'static str, &'static str) {
+    let rating_base = u32::from(report.ability.mid());
+    let rating_key = if rating_base >= 80 {
+        "common.scoutRatings.excellent"
+    } else if rating_base >= 70 {
+        "common.scoutRatings.veryGood"
+    } else if rating_base >= 60 {
+        "common.scoutRatings.good"
+    } else if rating_base >= 50 {
+        "common.scoutRatings.average"
+    } else {
+        "common.scoutRatings.belowAverage"
+    };
+    let potential_key = match report.potential.map(|range| range.mid()) {
+        Some(85..) => "common.scoutPotential.worldClass",
+        Some(70..=84) => "common.scoutPotential.strong",
+        Some(_) => "common.scoutPotential.moderate",
+        None => "common.scoutPotential.unclear",
+    };
+    let confidence_key = match report.confidence() {
+        crate::scouting_dossier::Confidence::High => "common.scoutConfidence.high",
+        crate::scouting_dossier::Confidence::Moderate => "common.scoutConfidence.moderate",
+        crate::scouting_dossier::Confidence::Low => "common.scoutConfidence.low",
+    };
+    (rating_base, rating_key, potential_key, confidence_key)
+}
+
 /// The scout's report as the inbox shows it, from the estimates already written to the dossier
 /// (`read` is the attributes as he read them).
 fn build_scout_report(
@@ -880,29 +911,7 @@ fn build_scout_report(
     let reported_condition = (judging_ability >= 60).then_some(player.condition);
     let reported_morale = (judging_ability >= 80).then_some(player.morale);
 
-    let rating_base = u32::from(report.ability.mid());
-    let rating_key = if rating_base >= 80 {
-        "common.scoutRatings.excellent"
-    } else if rating_base >= 70 {
-        "common.scoutRatings.veryGood"
-    } else if rating_base >= 60 {
-        "common.scoutRatings.good"
-    } else if rating_base >= 50 {
-        "common.scoutRatings.average"
-    } else {
-        "common.scoutRatings.belowAverage"
-    };
-    let potential_key = match report.potential.map(|range| range.mid()) {
-        Some(85..) => "common.scoutPotential.worldClass",
-        Some(70..=84) => "common.scoutPotential.strong",
-        Some(_) => "common.scoutPotential.moderate",
-        None => "common.scoutPotential.unclear",
-    };
-    let confidence_key = match report.confidence() {
-        crate::scouting_dossier::Confidence::High => "common.scoutConfidence.high",
-        crate::scouting_dossier::Confidence::Moderate => "common.scoutConfidence.moderate",
-        crate::scouting_dossier::Confidence::Low => "common.scoutConfidence.low",
-    };
+    let (rating_base, rating_key, potential_key, confidence_key) = report_keys(report);
 
     let report_data = ScoutReportData {
         player_id: player.id.clone(),

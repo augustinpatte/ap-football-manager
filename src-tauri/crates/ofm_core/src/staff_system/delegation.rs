@@ -901,6 +901,38 @@ mod tests {
         assert_eq!(g.scouting_assignments[0].player_id, b);
     }
 
+    /// Given reports the manager already has and a duty that has never reviewed any
+    /// When the scouting duty first runs
+    /// Then it shortlists nobody (they are not new to him) and starts reviewing from today.
+    #[test]
+    fn the_first_review_does_not_reach_back_over_reports_already_read() {
+        use crate::scouting_dossier::{Range, ScoutReport};
+        let (mut g, star, _) = club_with_one_scout_and_two_prospects();
+        {
+            let p = g.players.iter_mut().find(|p| p.id == star).unwrap();
+            p.ovr = 95;
+            p.market_value = 1_000;
+        }
+        g.scouting_dossier.reports.push(ScoutReport {
+            player_id: star.clone(),
+            scout_id: "scout1".into(),
+            scout_name: "S".into(),
+            scouted_on: "2026-08-01".into(),
+            judging_ability: 80,
+            judging_potential: 80,
+            reports: 1,
+            ability: Range { low: 92, high: 98 },
+            potential: None,
+            age: 20,
+            strengths: vec![],
+            weaknesses: vec![],
+        });
+        delegate(&mut g, Duty::Scouting, false);
+        scouting::run(&mut g, "team1", 80.0);
+        assert!(!g.scouting_dossier.is_shortlisted(&star));
+        assert!(!g.scouting_dossier.delegate_reviewed_through.is_empty());
+    }
+
     /// Given a report on a player who would start for the side at a price the club can pay
     /// When the scouting duty runs twice, with the manager taking him off the shortlist between
     /// Then he is shortlisted once, with a log line, and not put back: a report is judged once.
@@ -931,6 +963,7 @@ mod tests {
             strengths: vec![],
             weaknesses: vec![],
         });
+        g.scouting_dossier.delegate_reviewed_through = "2026-07-31".into();
         delegate(&mut g, Duty::Scouting, false);
         scouting::run(&mut g, "team1", 80.0);
         assert!(

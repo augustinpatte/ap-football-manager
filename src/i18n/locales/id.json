@@ -2281,7 +2281,9 @@
       "potentialMin": "Potensi perkiraan minimal",
       "potentialHint": "Hanya pemain yang dipantau",
       "contractExpiring": "Kontrak berakhir dalam setahun"
-    }
+    },
+    "cancelSearchFor": "Batalkan pemantauan {{player}}",
+    "reassignSearchFor": "Alihkan pemantauan {{player}} ke pemandu lain"
   },
   "match": {
     "simulateWithM12": "Simulasi cepat",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Masih berkembang",
       "nearCeiling": "Mendekati batas atasnya"
     },
-    "ceilingNote": "Potensi adalah batas atas, bukan janji: rating perkiraan menunjukkan hasil pembinaan yang lazim."
+    "ceilingNote": "Potensi adalah batas atas, bukan janji: rating perkiraan menunjukkan hasil pembinaan yang lazim.",
+    "promoteFor": "Promosikan {{player}}",
+    "listLoanFor": "Masukkan {{player}} ke daftar pinjaman",
+    "unlistLoanFor": "Hapus {{player}} dari daftar pinjaman",
+    "releaseFor": "Lepaskan {{player}}"
   }
 }

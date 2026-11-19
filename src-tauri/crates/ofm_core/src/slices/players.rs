@@ -76,8 +76,7 @@ pub enum ScoutingFilter {
     Shortlisted,
 }
 
-/// A contract this close to its end (in days) counts as expiring for the search.
-const EXPIRING_WITHIN_DAYS: i64 = 365;
+use crate::scouting_view::EXPIRING_WITHIN_DAYS;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PlayersPageQuery {
@@ -390,6 +389,10 @@ fn matches_all_but_status(
 
 /// The scouting-status and estimated-potential tests of the search.
 fn matches_scouting(player: &Player, query: &PlayersPageQuery, context: &ListContext) -> bool {
+    // Every list asks this of every player: with neither filter on, there is nothing to look up.
+    if query.scouting == ScoutingFilter::Any && query.potential_min.is_none() {
+        return true;
+    }
     let report = context.dossier.report_on(&player.id);
     let status_ok = match query.scouting {
         ScoutingFilter::Any => true,

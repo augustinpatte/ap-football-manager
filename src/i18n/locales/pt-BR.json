@@ -3023,7 +3023,7 @@
       "selectToCompare": "Comparar {{player}}",
       "impact": {
         "starter": "Seria titular",
-        "cover": "Daria cobertura",
+        "cover": "Daria profundidade ao elenco",
         "no_gain": "Não acrescenta agora"
       },
       "addShortlist": "Adicionar à lista",
@@ -3092,7 +3092,9 @@
       "potentialMin": "Potencial estimado mínimo",
       "potentialHint": "Só jogadores observados",
       "contractExpiring": "Contrato termina em menos de um ano"
-    }
+    },
+    "cancelSearchFor": "Cancelar a observação de {{player}}",
+    "reassignSearchFor": "Passar a observação de {{player}} para outro olheiro"
   },
   "be": {
     "error": {
@@ -5325,13 +5327,13 @@
     "listLoan": "Colocar na lista de empréstimos",
     "release": "Dispensar",
     "reviewTitle": "Revisão de desenvolvimento",
-    "reviewHint": "Cada avaliação compara o jogador com a cobertura que o elenco principal já tem na posição dele. Nada aqui altera um jogador.",
+    "reviewHint": "Cada avaliação compara o jogador com a profundidade que o elenco principal já tem na posição dele. Nada aqui altera um jogador.",
     "loading": "Carregando a revisão…",
     "capacity": "Elenco principal: {{seniors}} de {{limit}}",
     "nextIntake": "Próxima turma: {{count}}",
     "ceiling": "Teto",
     "expectedNext": "Esperado no próximo ano",
-    "squadCover": "Cobertura do elenco",
+    "squadCover": "Profundidade do elenco",
     "verdict": "Veredito",
     "verdicts": {
       "ready_for_senior": "Pronto para o elenco principal",
@@ -5341,16 +5343,20 @@
     },
     "reason": {
       "wouldStart": "Seria titular no elenco principal",
-      "addsCover": "Dá a cobertura de que o elenco precisa",
+      "addsCover": "Dá a profundidade de que o elenco precisa",
       "succession": "Será necessário em poucas temporadas",
       "injured": "Lesionado",
       "tooYoungToJudge": "Jovem demais para avaliar",
-      "ceilingBelowCover": "Mesmo o teto dele está abaixo da cobertura do elenco",
+      "ceilingBelowCover": "Mesmo o teto dele está abaixo da profundidade do elenco",
       "closeToSeniorLevel": "Perto do nível do elenco principal",
       "needsMatchMinutes": "Precisa de jogos regulares que a base não dá",
       "stillImproving": "Continua melhorando",
       "nearCeiling": "Perto do seu teto"
     },
-    "ceilingNote": "O potencial é um teto, não uma promessa: a avaliação esperada mostra o que o desenvolvimento costuma entregar."
+    "ceilingNote": "O potencial é um teto, não uma promessa: a avaliação esperada mostra o que o desenvolvimento costuma entregar.",
+    "promoteFor": "Promover {{player}}",
+    "listLoanFor": "Colocar {{player}} na lista de empréstimos",
+    "unlistLoanFor": "Remover {{player}} da lista de empréstimos",
+    "releaseFor": "Dispensar {{player}}"
   }
 }

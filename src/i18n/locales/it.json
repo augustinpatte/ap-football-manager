@@ -2237,7 +2237,7 @@
       "selectToCompare": "Confronta {{player}}",
       "impact": {
         "starter": "Sarebbe titolare",
-        "cover": "Darebbe copertura",
+        "cover": "Darebbe profondità alla rosa",
         "no_gain": "Per ora non aggiunge nulla"
       },
       "addShortlist": "Aggiungi alla lista",
@@ -2306,7 +2306,9 @@
       "potentialMin": "Potenziale stimato minimo",
       "potentialHint": "Solo giocatori osservati",
       "contractExpiring": "Contratto in scadenza entro un anno"
-    }
+    },
+    "cancelSearchFor": "Annulla l'osservazione di {{player}}",
+    "reassignSearchFor": "Passa l'osservazione di {{player}} a un altro scout"
   },
   "match": {
     "simulateWithM12": "Simulazione rapida",
@@ -5325,13 +5327,13 @@
     "listLoan": "Metti in lista prestiti",
     "release": "Svincola",
     "reviewTitle": "Revisione dello sviluppo",
-    "reviewHint": "Ogni giudizio confronta il giocatore con la copertura che la prima squadra ha già nel suo ruolo. Nulla qui modifica un giocatore.",
+    "reviewHint": "Ogni giudizio confronta il giocatore con la profondità che la prima squadra ha già nel suo ruolo. Nulla qui modifica un giocatore.",
     "loading": "Caricamento della revisione…",
     "capacity": "Prima squadra: {{seniors}} su {{limit}}",
     "nextIntake": "Prossimo ingresso: {{count}}",
     "ceiling": "Tetto",
     "expectedNext": "Atteso l'anno prossimo",
-    "squadCover": "Copertura rosa",
+    "squadCover": "Profondità della rosa",
     "verdict": "Giudizio",
     "verdicts": {
       "ready_for_senior": "Pronto per la prima squadra",
@@ -5341,16 +5343,20 @@
     },
     "reason": {
       "wouldStart": "Sarebbe titolare in prima squadra",
-      "addsCover": "Dà la copertura di cui la rosa ha bisogno",
+      "addsCover": "Dà la profondità di cui la rosa ha bisogno",
       "succession": "Servirà entro poche stagioni",
       "injured": "Infortunato",
       "tooYoungToJudge": "Troppo giovane per giudicare",
-      "ceilingBelowCover": "Anche il suo tetto è sotto la copertura della rosa",
+      "ceilingBelowCover": "Anche il suo tetto è sotto la profondità della rosa",
       "closeToSeniorLevel": "Vicino al livello della prima squadra",
       "needsMatchMinutes": "Ha bisogno di partite regolari che l'accademia non offre",
       "stillImproving": "Sta ancora migliorando",
       "nearCeiling": "Vicino al suo tetto"
     },
-    "ceilingNote": "Il potenziale è un tetto, non una promessa: la valutazione attesa mostra ciò che lo sviluppo di solito produce."
+    "ceilingNote": "Il potenziale è un tetto, non una promessa: la valutazione attesa mostra ciò che lo sviluppo di solito produce.",
+    "promoteFor": "Promuovi {{player}}",
+    "listLoanFor": "Metti {{player}} in lista prestiti",
+    "unlistLoanFor": "Rimuovi {{player}} dalla lista prestiti",
+    "releaseFor": "Svincola {{player}}"
   }
 }

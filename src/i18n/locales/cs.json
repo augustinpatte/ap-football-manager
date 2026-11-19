@@ -2265,7 +2265,7 @@
     "risk": {
       "contractExpiring": "Smlouva končí do roka",
       "injured": "Momentálně zraněn",
-      "ageing": "Po třicítce hrozí pokles formy",
+      "ageing": "Po třicítce hrozí pokles výkonnosti",
       "unscouted": "Nikdo ho neskautoval",
       "staleReport": "Zpráva je z minulé sezony",
       "uncertainEstimate": "Široký odhad: nízká jistota",
@@ -2281,7 +2281,9 @@
       "potentialMin": "Odhadovaný potenciál alespoň",
       "potentialHint": "Jen skautovaní hráči",
       "contractExpiring": "Smlouva končí do roka"
-    }
+    },
+    "cancelSearchFor": "Zrušit skauting hráče {{player}}",
+    "reassignSearchFor": "Předat skauting hráče {{player}} jinému skautovi"
   },
   "match": {
     "simulateWithM12": "Rychlá simulace",
@@ -5328,7 +5330,7 @@
     "reviewHint": "Každé hodnocení poměřuje hráče s hloubkou A-týmu na jeho postu. Nic z toho hráče nemění.",
     "loading": "Načítání přehledu…",
     "capacity": "A-tým: {{seniors}} z {{limit}}",
-    "nextIntake": "Příští příjem: {{count}}",
+    "nextIntake": "Příští nábor: {{count}}",
     "ceiling": "Strop",
     "expectedNext": "Očekáváno za rok",
     "squadCover": "Hloubka kádru",
@@ -5337,7 +5339,7 @@
       "ready_for_senior": "Připraven pro A-tým",
       "keep_developing": "Dále rozvíjet",
       "loan_candidate": "Kandidát na hostování",
-      "unlikely_to_progress": "Pravděpodobně se nepromítne"
+      "unlikely_to_progress": "Pravděpodobně se neprosadí"
     },
     "reason": {
       "wouldStart": "Byl by v základní sestavě A-týmu",
@@ -5351,6 +5353,10 @@
       "stillImproving": "Stále se zlepšuje",
       "nearCeiling": "Blízko svého stropu"
     },
-    "ceilingNote": "Potenciál je strop, ne příslib: očekávané hodnocení ukazuje, co vývoj obvykle přinese."
+    "ceilingNote": "Potenciál je strop, ne příslib: očekávané hodnocení ukazuje, co vývoj obvykle přinese.",
+    "promoteFor": "Povýšit hráče {{player}}",
+    "listLoanFor": "Zařadit hráče {{player}} na hostování",
+    "unlistLoanFor": "Odebrat hráče {{player}} ze seznamu hostování",
+    "releaseFor": "Propustit hráče {{player}}"
   }
 }

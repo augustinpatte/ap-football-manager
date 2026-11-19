@@ -5,7 +5,7 @@ import { formatVal, positionBadgeVariant } from "../../../lib/helpers";
 import type { ScoutingTargetView } from "../../../services/scoutingService";
 import { translatePositionAbbreviation } from "../../squad/SquadTab.helpers";
 import { Badge, Checkbox } from "../../ui";
-import { formatRange } from "./dossierFormat";
+import { COMPARE_MAX, formatRange } from "./dossierFormat";
 
 interface TargetTableProps {
   targets: ScoutingTargetView[];
@@ -67,6 +67,9 @@ export default function TargetTable({
                   <td className={CELL}>
                     <Checkbox
                       checked={compared.includes(target.player_id)}
+                      disabled={
+                        !compared.includes(target.player_id) && compared.length >= COMPARE_MAX
+                      }
                       onChange={() => onToggleCompared(target.player_id)}
                       aria-label={t("scouting.dossier.selectToCompare", {
                         player: target.full_name,
@@ -121,6 +124,12 @@ export default function TargetTable({
                   <button
                     type="button"
                     className={ACTION}
+                    aria-label={t(
+                      target.shortlisted
+                        ? "scouting.dossier.removeShortlistFor"
+                        : "scouting.dossier.addShortlistFor",
+                      { player: target.full_name },
+                    )}
                     disabled={busyId === target.player_id}
                     onClick={() => onToggleShortlist(target)}
                   >

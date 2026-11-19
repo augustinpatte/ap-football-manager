@@ -162,25 +162,41 @@ fn scout_quality_sets_the_width_and_the_confidence() {
     assert!(poor.potential.is_none());
 }
 
-/// Given a player scouted twice in the same season
+/// Given a player scouted twice in the same season, over many different assignment days
 /// When the second report lands
-/// Then the range is no wider than the first and still holds the truth, and the count is two;
-///      a report from a later season replaces the old one instead.
+/// Then the count is two and the range still holds the truth; it is never wider than the first and,
+///      for some pair of draws, strictly narrower (narrowing, not replacement: a replaced report
+///      would keep the same width); a report from a later season replaces the old one instead.
 #[test]
 fn a_second_report_narrows_in_the_same_season_and_replaces_across_seasons() {
+    let mut strictly_narrower = 0;
+    for offset in 0..30 {
+        let mut game = game_with(vec![scout("s1", 50, 50)], 1);
+        game.clock.advance_days(offset);
+        game.season_context.season_start = Some("2025-01-01".to_string());
+        send_scout(&mut game, "s1", "t0").unwrap();
+        finish(&mut game);
+        let first = game.scouting_dossier.report_on("t0").unwrap().clone();
+        send_scout(&mut game, "s1", "t0").unwrap();
+        finish(&mut game);
+        let second = game.scouting_dossier.report_on("t0").unwrap().clone();
+        assert_eq!(second.reports, 2);
+        assert!(second.ability.width() <= first.ability.width());
+        assert!(second.ability.contains(truth(&game, "t0").0));
+        assert_eq!(game.scouting_dossier.reports.len(), 1);
+        if second.ability.width() < first.ability.width() {
+            strictly_narrower += 1;
+        }
+    }
+    assert!(
+        strictly_narrower > 0,
+        "the second report never narrowed the first"
+    );
+
     let mut game = game_with(vec![scout("s1", 50, 50)], 1);
     game.season_context.season_start = Some("2025-06-01".to_string());
     send_scout(&mut game, "s1", "t0").unwrap();
     finish(&mut game);
-    let first = game.scouting_dossier.report_on("t0").unwrap().clone();
-    send_scout(&mut game, "s1", "t0").unwrap();
-    finish(&mut game);
-    let second = game.scouting_dossier.report_on("t0").unwrap().clone();
-    assert_eq!(second.reports, 2);
-    assert!(second.ability.width() <= first.ability.width());
-    assert!(second.ability.contains(truth(&game, "t0").0));
-    assert_eq!(game.scouting_dossier.reports.len(), 1);
-
     game.season_context.season_start = Some("2026-06-01".to_string());
     game.clock.advance_days(400);
     send_scout(&mut game, "s1", "t0").unwrap();
@@ -304,6 +320,19 @@ fn the_shortlist_drops_players_who_can_no_longer_be_pursued() {
         .map(|e| e.player_id.as_str())
         .collect();
     assert_eq!(left, vec!["t2"]);
+
+    // A player who has gone from the world leaves; a free agent (no club) stays pursuable.
+    game.players.push(player("free", None, 55, 60));
+    shortlist_add(&mut game, "free").unwrap();
+    game.players.retain(|p| p.id != "t2");
+    process_scouting(&mut game);
+    let left: Vec<&str> = game
+        .scouting_dossier
+        .shortlist
+        .iter()
+        .map(|e| e.player_id.as_str())
+        .collect();
+    assert_eq!(left, vec!["free"]);
 }
 
 /// Given one scouted and one unscouted target
@@ -327,8 +356,12 @@ fn the_view_separates_what_is_known_from_what_is_not() {
     assert!(unscouted.report.is_none());
     assert!(unscouted.risks.contains(&"unscouted".to_string()));
     assert!(unscouted.shortlisted);
-    // The true potential (78) is not a value the unscouted view can show.
+    // The true potential (78) is not a value the unscouted view can show, under any field name.
     let json = serde_json::to_value(unscouted).unwrap().to_string();
+    assert!(
+        !json.contains(":78,") && !json.contains(":78}") && !json.contains("[78"),
+        "{json}"
+    );
     assert!(!json.contains("\"potential\""));
 
     let dossier = dossier_view(&game);

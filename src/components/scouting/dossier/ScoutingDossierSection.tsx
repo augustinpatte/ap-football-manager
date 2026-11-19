@@ -38,7 +38,7 @@ export default function ScoutingDossierSection({
 }: ScoutingDossierSectionProps) {
   const { t } = useTranslation();
   const { dossier, loading, error, refresh } = dossierState;
-  const [opened, setOpened] = useState<string | null>(null);
+  const [opened, setOpened] = useState<ScoutingTargetView | null>(null);
   const [compared, setCompared] = useState<string[]>([]);
   const [comparing, setComparing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -51,7 +51,9 @@ export default function ScoutingDossierSection({
     }
     return byId;
   }, [dossier]);
-  const openedTarget = opened ? (everyTarget.get(opened) ?? null) : null;
+  // Kept as last seen when a refresh no longer lists him (he was just taken off the shortlist), so
+  // the dialog the manager is in does not vanish under them.
+  const openedTarget = opened ? (everyTarget.get(opened.player_id) ?? opened) : null;
   const comparedTargets = compared
     .map((id) => everyTarget.get(id))
     .filter((view): view is ScoutingTargetView => view !== undefined);
@@ -86,10 +88,7 @@ export default function ScoutingDossierSection({
   return (
     <>
       {actionError || error ? (
-        <p
-          role="alert"
-          className="text-caption font-heading font-bold uppercase tracking-label text-danger"
-        >
+        <p role="alert" className="text-body font-bold text-danger">
           {actionError ?? error}
         </p>
       ) : null}
@@ -111,7 +110,7 @@ export default function ScoutingDossierSection({
               targets={dossier?.shortlist ?? []}
               compared={compared}
               onToggleCompared={(id) => setCompared((current) => toggleCompared(current, id))}
-              onOpen={(target) => setOpened(target.player_id)}
+              onOpen={(target) => setOpened(target)}
               onToggleShortlist={(target) => void toggleShortlist(target)}
               busyId={busyId}
             />
@@ -130,7 +129,7 @@ export default function ScoutingDossierSection({
               targets={dossier?.reports ?? []}
               compared={compared}
               onToggleCompared={(id) => setCompared((current) => toggleCompared(current, id))}
-              onOpen={(target) => setOpened(target.player_id)}
+              onOpen={(target) => setOpened(target)}
               onToggleShortlist={(target) => void toggleShortlist(target)}
               busyId={busyId}
             />
@@ -145,8 +144,22 @@ export default function ScoutingDossierSection({
           onClose={() => setOpened(null)}
           onToggleShortlist={(target) => void toggleShortlist(target)}
           onScoutAgain={onScoutAgain}
-          onBid={onBid}
-          onOfferContract={onOfferContract}
+          onBid={
+            onBid
+              ? (playerId) => {
+                  setOpened(null);
+                  onBid(playerId);
+                }
+              : undefined
+          }
+          onOfferContract={
+            onOfferContract
+              ? (playerId) => {
+                  setOpened(null);
+                  onOfferContract(playerId);
+                }
+              : undefined
+          }
           onOpenProfile={onOpenProfile}
         />
       )}
