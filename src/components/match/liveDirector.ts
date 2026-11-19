@@ -161,6 +161,9 @@ export class LiveDirector {
     if (this.store.length > 0 && this.playhead < this.store.startMs) {
       this.playhead = this.store.startMs;
     }
+    // A stretch that lands after a pause pushes the head past the picture: run on to it so an
+    // order is never given at an instant the manager has not seen.
+    if (!this.wantPlaying && !this.atHead()) this.catchingUp = true;
     this.notify();
   }
 
@@ -326,6 +329,7 @@ export class LiveDirector {
     const sample = this.store.length > 0 ? sampleAt(this.store, this.playhead) : null;
     const floor = this.store.frames[this.store.indexAtOrBefore(this.playhead)]?.t_ms ?? -1;
     const status = this.status();
+    const atHead = this.atHead();
     const visible = this.events.filter((event) => event.t_ms <= floor);
     return {
       version: this.version,
@@ -346,6 +350,7 @@ export class LiveDirector {
         this.view !== null &&
         this.view.user_side !== null &&
         (status === "paused" || status === "break") &&
+        atHead &&
         !this.view.session.finished,
       buffering: this.wantPlaying && this.waiting && !this.streamEnded,
       rejectedFrames: this.store.rejected,

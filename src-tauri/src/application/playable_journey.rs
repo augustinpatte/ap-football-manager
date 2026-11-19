@@ -20,11 +20,12 @@ use tempfile::TempDir;
 
 use crate::application::career::install_career;
 use crate::application::interactive_match::{
-    advance_interactive_match_internal, finish_interactive_match_internal,
+    advance_interactive_match_internal, finish_interactive_match_internal, restore_saved_match,
     start_interactive_match_internal,
 };
 use crate::application::saving::persist_active_game;
 use crate::application::time_advancement::advance_time_with_mode;
+use crate::commands::scouting::{get_scouting_dossier_internal, shortlist_player_internal};
 use crate::commands::season::advance_to_next_season_internal;
 use crate::commands::squad::{
     apply_tactic_preset_internal, set_formation_internal, set_starting_xi_internal,
@@ -596,4 +597,130 @@ fn a_reloaded_career_completes_two_seasons() {
     let last_year = session.game().clock.current_date.format("%Y").to_string();
     assert!(last_year > first_year);
     session.save_close_and_reopen();
+}
+
+/// Sends every idle scout of the user's club to a distinct young player of another club, as the
+/// scouting screen's "send scout" does.
+fn send_idle_scouts(state: &StateManager) {
+    use domain::staff::{StaffPost, StaffRole};
+    state
+        .update_game(|game| {
+            let team = user_team_id(game);
+            let scouts: Vec<String> = game
+                .staff
+                .iter()
+                .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
+                .filter(|s| s.role == StaffRole::Scout && s.post() != StaffPost::Analyst)
+                .map(|s| s.id.clone())
+                .collect();
+            let mut targets: Vec<String> = game
+                .players
+                .iter()
+                .filter(|p| p.team_id.as_deref().is_some_and(|t| t != team) && !p.retired)
+                .map(|p| p.id.clone())
+                .collect();
+            targets.sort();
+            for (scout, target) in scouts.iter().zip(targets) {
+                ofm_core::scouting::send_scout(game, scout, &target).expect("the scout is sent");
+            }
+        })
+        .expect("an active game");
+}
+
+/// Given a career whose scouts have delivered a report and whose manager shortlisted its player,
+/// When the user's match is watched on the 2D screen's path (frames captured), the career is saved
+///      and reopened in the middle of it, and the match is played to full time and finalised,
+/// Then the scouting dossier and shortlist are identical before the match, after the reload and
+///      after full time, the resumed match finishes with the result it is recorded under exactly once,
+///      and a second finish is refused without adding a second result.
+#[test]
+fn a_watched_match_saved_midway_keeps_the_dossier_and_is_finalised_once() {
+    let mut session = Session::begin();
+    send_idle_scouts(&session.state);
+    // Days pass with the match delegated so the scouts' assignments finish; the first user match
+    // that is played live comes after the report exists.
+    for _ in 0..DAY_GUARD {
+        advance_time_with_mode(&session.state, "delegate").expect("a day advances");
+        if !session.game().scouting_dossier.reports.is_empty() {
+            break;
+        }
+    }
+    let reported = session.game().scouting_dossier.reports.first().cloned();
+    let report = reported.expect("a scout delivered a report within the guard");
+    shortlist_player_internal(&session.state, &report.player_id).expect("the report is listed");
+    // The stored dossier, not the screen's view of it: the view also carries market flags that the
+    // load path legitimately refreshes.
+    let stored_dossier = |state: &StateManager| {
+        let dossier = state.get_game(|g| g.scouting_dossier.clone());
+        serde_json::to_string(&dossier.expect("an active game")).expect("serializes")
+    };
+    let dossier_json = stored_dossier(&session.state);
+    assert!(dossier_json.contains(&report.player_id));
+    let shown = get_scouting_dossier_internal(&session.state).expect("the screen's view reads");
+    assert!(
+        shown
+            .shortlist
+            .iter()
+            .any(|row| row.player_id == report.player_id),
+        "the shortlisted player is on the screen's shortlist"
+    );
+
+    advance_until_user_match(&session.state, "live");
+    let completed_before = own_completed(&session.game());
+    start_interactive_match_internal(&session.state).expect("the match starts");
+    let watch = |state: &StateManager, seconds: u32| {
+        advance_interactive_match_internal(
+            state,
+            AdvanceRequest {
+                target: AdvanceTarget::ForSeconds(seconds),
+                stop_at_key_events: false,
+            },
+            0,
+            true,
+        )
+        .expect("the match advances with frames")
+    };
+    let first = watch(&session.state, 600);
+    assert!(!first.frames.is_empty(), "the 2D screen is given frames");
+
+    // Save in the middle of the match and open the file as "load game" does.
+    persist_active_game(&session.state, &mut session.saves).expect("a save mid-match succeeds");
+    let save_id = session.state.get_save_id().expect("the career has a save");
+    let mut reopened = SaveManager::init(session.dir.path()).expect("the folder reopens");
+    let stored = reopened.load_game(&save_id).expect("the save loads");
+    let stats = reopened.load_stats_state(&save_id).expect("stats load");
+    let mut stored = stored;
+    ofm_core::ai_hiring::seed_ai_managers(&mut stored);
+    ofm_core::season_context::refresh_game_context(&mut stored);
+    let resumed = StateManager::new();
+    install_career(&resumed, stored, stats, Some(save_id.clone()));
+    restore_saved_match(&resumed, &mut reopened, &save_id);
+    assert!(
+        resumed.with_interactive_match(|_| ()).is_some(),
+        "the match under way was restored"
+    );
+    assert_eq!(
+        stored_dossier(&resumed),
+        dossier_json,
+        "the dossier and shortlist changed across the save and reload"
+    );
+
+    // The resumed match carries on, is watched to full time and is finalised.
+    start_interactive_match_internal(&resumed).expect("the screen takes the match over");
+    loop {
+        if watch(&resumed, 900).stop == StopReason::Finished {
+            break;
+        }
+    }
+    finish_interactive_match_internal(&resumed).expect("the match is finalised");
+    let game = resumed.get_game(|g| g.clone()).expect("an active game");
+    assert_eq!(own_completed(&game), completed_before + 1);
+    finish_interactive_match_internal(&resumed).expect_err("a second finish is refused");
+    let game = resumed.get_game(|g| g.clone()).expect("an active game");
+    assert_eq!(own_completed(&game), completed_before + 1);
+    assert_eq!(
+        stored_dossier(&resumed),
+        dossier_json,
+        "playing the match changed the dossier"
+    );
 }

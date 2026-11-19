@@ -140,6 +140,29 @@ describe("LiveDirector", () => {
     expect(engine.state.calls.length).toBe(callsBefore);
   });
 
+  /** Given a pause pressed while a stretch is still in flight, When the reply extends the engine's head, Then no order is allowed until the picture has caught up with it. */
+  it("does not allow an order when a late reply puts the engine ahead of a paused picture", async () => {
+    const { engine, director } = await started();
+    director.play();
+    director.tick(16);
+    let release: () => void = () => undefined;
+    const gated = (seconds: number) =>
+      new Promise<AdvanceSnapshot | null>((resolve) => {
+        release = () => resolve(engine.advance(seconds));
+      });
+    const pending = director.pump(gated);
+    director.pause();
+    expect(director.getSnapshot().canOrder).toBe(true); // at the head: nothing is ahead yet
+    release();
+    await pending;
+    expect(director.store.headMs).toBeGreaterThan(director.getSnapshot().playheadMs);
+    expect(director.getSnapshot().canOrder).toBe(false);
+    await run(director, engine.advance, 4_000);
+    const settled = director.getSnapshot();
+    expect(settled.playheadMs).toBe(director.store.headMs);
+    expect(settled.canOrder).toBe(true);
+  });
+
   /** Given a request already in flight, Then a second pump does not ask the engine again. */
   it("keeps one request in flight", async () => {
     const { engine, director } = await started();
