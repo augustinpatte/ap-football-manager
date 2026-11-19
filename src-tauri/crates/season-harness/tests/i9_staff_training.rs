@@ -220,15 +220,18 @@ fn arms() -> Vec<Arm> {
             },
             policy: Policy::EveryOther,
         },
-        // The plan the tactics duty settles on (see "plans:" in the study output), held by hand:
-        // separates what the dials do from what delegating does.
+        // The pressing and tempo the tactics duty settled on in the first seed, held by hand: a
+        // control that separates what those two dials do from what delegating does (I6 found they
+        // do nothing to match-eve condition; see APFM_I6_VALIDATION.md section 6). The duty's other
+        // dials differ from seed to seed, so this is a matched control for seed 1 only.
         Arm {
-            name: "manual training, delegated plan held by hand",
+            name: "manual training, passive and patient plan held by hand",
             setup: |g| {
                 with_staff(g, 50);
                 let id = user_team(g);
                 if let Some(team) = g.teams.iter_mut().find(|t| t.id == id) {
-                    team.tactics_phase.pressing_intensity = domain::team::PressingIntensity::Passive;
+                    team.tactics_phase.pressing_intensity =
+                        domain::team::PressingIntensity::Passive;
                     team.tactics_phase.tempo = domain::team::Tempo::Patient;
                 }
             },
@@ -332,9 +335,23 @@ struct ResultsRead {
     goals_against: usize,
     substitutions: usize,
     cards: usize,
+    /// Minutes the eleven best seniors (by ovr) played in the season, summed over seasons.
+    top_eleven_minutes: u64,
+    /// Days the eleven best seniors spent injured, summed over seasons.
+    top_eleven_injured_days: u64,
 }
 
 impl ResultsRead {
+    /// The eleven best seniors' season: how much they played and how long they were out.
+    fn read_top_eleven(&mut self, game: &Game, team_id: &str) {
+        let mut squad = seniors(game, team_id);
+        squad.sort_by(|a, b| b.ovr.cmp(&a.ovr).then(a.id.cmp(&b.id)));
+        for player in squad.iter().take(11) {
+            self.top_eleven_minutes += u64::from(player.stats.minutes_played);
+            self.top_eleven_injured_days += u64::from(player.stats.injured_days);
+        }
+    }
+
     fn read(&mut self, game: &Game, team_id: &str) {
         for fixture in game
             .competitions
@@ -518,6 +535,7 @@ impl SeasonObserver for Recorder {
 
     fn on_before_rollover(&mut self, game: &Game, _season: u32) {
         self.results.read(game, &self.team_id);
+        self.results.read_top_eleven(game, &self.team_id);
         let mut row = Season {
             staff_bill: market::weekly_staff_bill(game, &self.team_id),
             staff_budget: market::staff_budget(game, &self.team_id),
@@ -738,6 +756,11 @@ fn print_arm(result: &ArmResult, seasons: u32) {
         r.results.goals_against as f64 / n,
         r.results.substitutions as f64 / n,
         r.results.cards as f64 / n,
+    );
+    println!(
+        "  the eleven best seniors: {:.1} minutes a match each, {:.1} injured days a season each",
+        r.results.top_eleven_minutes as f64 / n / 11.0,
+        r.results.top_eleven_injured_days as f64 / per_season / 11.0,
     );
     println!(
         "  plans: formation [{}]; style [{}]; pressing [{}]; tempo [{}]",
