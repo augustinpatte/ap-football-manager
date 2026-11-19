@@ -93,6 +93,12 @@ pub(crate) fn sign_free_agent(
 
     let player = &mut game.players[player_index];
     player.team_id = Some(team.id.clone());
+    // Every route here (the manager's talks, the assistant's, the squad floor, an AI club's
+    // planning, the global market) has checked for a senior place and counts him in it. A player
+    // let go by an academy keeps the role he left with, and without this he joined his new club's
+    // academy instead: the club believed itself one senior stronger, and on the study's seed 2 it
+    // stood a day under the 15-senior floor until the next pass promoted him from the academy.
+    player.squad_role = domain::player::SquadRole::Senior;
     player.jersey_number = resolved_jersey_number;
     player.transfer_listed = false;
     player.loan_listed = false;
@@ -190,6 +196,23 @@ mod tests {
         assert_eq!(refused, Err(ERR_PLAYER_NOT_FREE_AGENT.to_string()));
         assert_eq!(game.players[0].team_id.as_deref(), Some("other"));
         assert!(game.players[0].movement_history.is_empty());
+    }
+
+    /// Given a free agent let go by an academy, who still carries the academy role
+    /// When any route signs him
+    /// Then he joins the senior squad, so the senior place every route reserved for him is the one
+    ///      he takes and the club's count of seniors goes up by one.
+    #[test]
+    fn a_signed_free_agent_joins_the_senior_squad_even_if_he_left_an_academy() {
+        let mut game = game_with_player(None);
+        game.players[0].squad_role = domain::player::SquadRole::Youth;
+        let team = game.teams[0].clone();
+        let today = game.clock.current_date.date_naive();
+
+        sign_free_agent(&mut game, 0, &team, 1_000, 2, today).expect("he is free");
+
+        assert_eq!(game.players[0].squad_role, domain::player::SquadRole::Senior);
+        assert_eq!(game.players[0].team_id.as_deref(), Some("club"));
     }
 
     /// Given a free agent with the manager's offer open and a rival club's offer open

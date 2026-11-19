@@ -2197,7 +2197,91 @@
     "morale": "Moral",
     "estimatedAttributes": "Geschätzte Attribute",
     "undiscovered": "Nicht entdeckt",
-    "confidence": "Zuverlässigkeit"
+    "confidence": "Zuverlässigkeit",
+    "dossier": {
+      "compareColumn": "Vergleichen",
+      "colRating": "Wertung",
+      "colAbility": "Fähigkeit (Spanne)",
+      "colPotential": "Potenzial (gesch.)",
+      "colImpact": "Für deinen Kader",
+      "colWage": "Gehalt",
+      "colContract": "Vertragsende",
+      "unknown": "Unbekannt",
+      "notJudged": "Nicht bewertet",
+      "onShortlist": "Auf deiner Merkliste",
+      "selectToCompare": "{{player}} vergleichen",
+      "impact": {
+        "starter": "Wäre Stammspieler",
+        "cover": "Würde Breite bringen",
+        "no_gain": "Bringt aktuell nichts"
+      },
+      "addShortlist": "Merken",
+      "removeShortlist": "Entfernen",
+      "ratingPublic": "Wertung {{value}}",
+      "reportSection": "Scoutingbericht",
+      "outlookTitle": "Entwicklungsausblick",
+      "outlook": {
+        "high_growth": "Großes Wachstum",
+        "growing": "Wachsend",
+        "near_peak": "Nahe am Höhepunkt",
+        "declining": "Im Abbau",
+        "unclear": "Unklar"
+      },
+      "scoutedBy": "Bericht von {{scout}} am {{date}}.",
+      "reportsCombined": "{{count}} Berichte kombiniert.",
+      "estimateNote": "Der wahre Wert liegt in jeder Spanne, aber nicht unbedingt in der Mitte.",
+      "strengths": "Stärken",
+      "weaknesses": "Schwächen",
+      "noneStoodOut": "Nichts fiel auf",
+      "noReportYet": "Noch niemand hat ihn beobachtet. Nur seine öffentliche Wertung ist bekannt.",
+      "financeTitle": "Finanzieller Rahmen",
+      "freeNoFee": "Vereinslos: keine Ablöse.",
+      "feeFits": "Die Ablöse ({{fee}}) passt in dein Budget.",
+      "feeOver": "Die Ablöse ({{fee}}) übersteigt dein Budget.",
+      "wageFits": "Sein Gehalt passt zu deiner Gehaltspolitik.",
+      "wageOver": "Sein Gehalt würde deine Gehaltspolitik verletzen.",
+      "contractUntil": "Vertrag bis {{date}}",
+      "noContract": "Kein Vertrag",
+      "risksTitle": "Risiken der Verpflichtung",
+      "noRisks": "Keine nennenswerten Risiken",
+      "makeBid": "Transferangebot abgeben",
+      "offerContract": "Vertrag anbieten",
+      "scoutAgain": "Erneut beobachten",
+      "openProfile": "Profil öffnen",
+      "compareTitle": "Ziele vergleichen",
+      "compareMeasure": "Kriterium",
+      "fitsBudget": "Passt ins Budget",
+      "compare": "Vergleichen ({{count}})",
+      "shortlistTitle": "Merkliste",
+      "shortlistHint": "Spieler, die du verfolgst. Wähle zwei bis {{max}} zum Vergleichen.",
+      "loading": "Berichte werden geladen…",
+      "noShortlist": "Noch niemand auf deiner Merkliste.",
+      "reportsTitle": "Scoutingberichte",
+      "reportsHint": "Was deine Scouts gefunden haben. Die Spannen enthalten den wahren Wert; ein besserer Scout oder ein zweiter Blick macht sie enger.",
+      "noReports": "Noch keine Berichte. Schick einen Scout zu einem Spieler, um zu beginnen.",
+      "addShortlistFor": "{{player}} auf deine Merkliste setzen",
+      "removeShortlistFor": "{{player}} von deiner Merkliste entfernen"
+    },
+    "risk": {
+      "contractExpiring": "Vertrag endet innerhalb eines Jahres",
+      "injured": "Aktuell verletzt",
+      "ageing": "Über 30: Leistungsabfall ist ein Risiko",
+      "unscouted": "Niemand hat ihn beobachtet",
+      "staleReport": "Bericht stammt aus einer früheren Saison",
+      "uncertainEstimate": "Große Spanne: geringe Sicherheit",
+      "feeOverBudget": "Ablöse übersteigt dein Budget",
+      "wageOverPolicy": "Gehalt übersteigt deine Politik"
+    },
+    "filters": {
+      "status": "Beobachtung",
+      "any": "Alle",
+      "unscouted": "Nicht beobachtet",
+      "scouted": "Beobachtet",
+      "shortlisted": "Gemerkt",
+      "potentialMin": "Geschätztes Potenzial mindestens",
+      "potentialHint": "Nur beobachtete Spieler",
+      "contractExpiring": "Vertrag endet innerhalb eines Jahres"
+    }
   },
   "match": {
     "simulateWithM12": "Schnellsimulation",
@@ -3285,7 +3369,12 @@
         "playerAlreadyScouted": "Dieser Spieler wird bereits beobachtet",
         "youthSearchAlreadyActive": "Eine passende Jugendsuche ist bereits aktiv",
         "youthAssignmentNotFound": "Jugendscouting-Auftrag nicht gefunden",
-        "scoutAlreadyAssignedToSearch": "Der Scout ist bereits dieser Suche zugewiesen"
+        "scoutAlreadyAssignedToSearch": "Der Scout ist bereits dieser Suche zugewiesen",
+        "shortlistOwnPlayer": "Eigene Spieler können nicht gemerkt werden",
+        "shortlistAlready": "Dieser Spieler steht schon auf deiner Merkliste",
+        "shortlistFull": "Deine Merkliste ist voll",
+        "shortlistNotListed": "Dieser Spieler steht nicht auf deiner Merkliste",
+        "assignmentNotFound": "Beobachtungsauftrag nicht gefunden"
       },
       "invalidPath": "Ungültiger Pfad.",
       "conflict": {
@@ -5026,7 +5115,8 @@
       "recruitNoLongerNeeded": "Verfolgung von {{player}} ({{position}}) eingestellt: der Kader braucht ihn nicht mehr",
       "ownerLeft": "Das zuständige Teammitglied hat den Verein verlassen, daher hat der Co-Trainer diese Aufgabe zurückübernommen.",
       "floorPromoted": "Der Kader lag unter dem Minimum, daher wurde {{player}} aus der Akademie befördert",
-      "floorSigned": "Der Kader lag unter dem Minimum, daher wurde {{player}} als vereinsloser Spieler verpflichtet"
+      "floorSigned": "Der Kader lag unter dem Minimum, daher wurde {{player}} als vereinsloser Spieler verpflichtet",
+      "scoutShortlisted": "{{player}} nach dem Scoutingbericht gemerkt"
     }
   },
   "freeAgents": {
@@ -5228,5 +5318,39 @@
     "signHintCounter": "Übernimm zuerst ihre Bedingungen; ein Gegenangebot kann nicht unterschrieben werden.",
     "signHintRefused": "Dieser Wechsel kann so nicht unterschrieben werden.",
     "errorGeneric": "Der Markt konnte diese Anfrage nicht abschließen. Versuche es erneut."
+  },
+  "academy": {
+    "promotionBlocked": "Kein Platz im Profikader frei",
+    "unlistLoan": "Von der Leihliste nehmen",
+    "listLoan": "Auf die Leihliste setzen",
+    "release": "Freigeben",
+    "reviewTitle": "Entwicklungsübersicht",
+    "reviewHint": "Jede Einschätzung misst den Spieler an der Breite, die dein Profikader auf seiner Position bereits hat. Nichts hier verändert einen Spieler.",
+    "loading": "Übersicht wird geladen…",
+    "capacity": "Profikader: {{seniors}} von {{limit}}",
+    "nextIntake": "Nächster Jahrgang: {{count}}",
+    "ceiling": "Obergrenze",
+    "expectedNext": "Erwartet nächstes Jahr",
+    "squadCover": "Kaderbreite",
+    "verdict": "Urteil",
+    "verdicts": {
+      "ready_for_senior": "Bereit für den Profikader",
+      "keep_developing": "Weiter ausbilden",
+      "loan_candidate": "Leihkandidat",
+      "unlikely_to_progress": "Wird sich kaum durchsetzen"
+    },
+    "reason": {
+      "wouldStart": "Wäre Stammspieler im Profikader",
+      "addsCover": "Bringt die Breite, die dein Kader braucht",
+      "succession": "Wird in wenigen Saisons gebraucht",
+      "injured": "Verletzt",
+      "tooYoungToJudge": "Zu jung für ein Urteil",
+      "ceilingBelowCover": "Selbst seine Obergrenze liegt unter dem Kaderniveau",
+      "closeToSeniorLevel": "Nahe am Profiniveau",
+      "needsMatchMinutes": "Braucht regelmäßige Spiele, die die Akademie nicht bietet",
+      "stillImproving": "Verbessert sich noch",
+      "nearCeiling": "Nahe an der Obergrenze"
+    },
+    "ceilingNote": "Potenzial ist eine Obergrenze, kein Versprechen: Die erwartete Wertung zeigt, was die Entwicklung üblicherweise bringt."
   }
 }

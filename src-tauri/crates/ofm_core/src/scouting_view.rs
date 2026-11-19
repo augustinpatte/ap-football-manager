@@ -28,6 +28,9 @@ const EXPIRING_WITHIN_DAYS: i64 = 365;
 /// Age from which a player's decline is a risk the report names.
 const DECLINE_RISK_AGE: i32 = 31;
 
+/// Age from which the outlook reads as declining, not merely risky.
+const DECLINING_FROM_AGE: i32 = 32;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReportStatus {
@@ -273,7 +276,7 @@ fn view_of(lens: &Lens, player: &Player) -> ScoutingTargetView {
 /// young.
 fn outlook_of(report: Option<&ScoutReport>, age: i32) -> Outlook {
     let Some(potential) = report.and_then(|r| r.potential) else {
-        return if age >= DECLINE_RISK_AGE + 1 {
+        return if age >= DECLINING_FROM_AGE {
             Outlook::Declining
         } else {
             Outlook::Unclear
@@ -281,7 +284,7 @@ fn outlook_of(report: Option<&ScoutReport>, age: i32) -> Outlook {
     };
     let gap = i32::from(potential.mid()) - i32::from(report.map_or(0, |r| r.ability.mid()));
     match age {
-        a if a >= DECLINE_RISK_AGE + 1 => Outlook::Declining,
+        a if a >= DECLINING_FROM_AGE => Outlook::Declining,
         a if a <= 21 && gap >= 10 => Outlook::HighGrowth,
         a if a <= 25 && gap >= 5 => Outlook::Growing,
         _ => Outlook::NearPeak,

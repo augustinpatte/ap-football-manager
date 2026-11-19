@@ -177,6 +177,37 @@ pub fn load_all_youth_scouting(
     Ok(assignments)
 }
 
+/// Stores the scouting dossier (reports and shortlist) as one JSON row. Runs in the caller's
+/// transaction.
+pub fn replace_dossier(conn: &Connection, dossier: &ScoutingDossier) -> Result<(), String> {
+    let json =
+        serde_json::to_string(dossier).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO scouting_dossier (id, state_json) VALUES (1, ?1)",
+        params![json],
+    )
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    Ok(())
+}
+
+/// The stored dossier; a save from before the table existed has none and gets an empty one.
+pub fn load_dossier(conn: &Connection) -> Result<ScoutingDossier, String> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT state_json FROM scouting_dossier WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+    match json {
+        Some(json) => {
+            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
+        }
+        None => Ok(ScoutingDossier::default()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,36 +360,5 @@ mod tests {
         let result = load_all_youth_scouting(&conn);
 
         assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
-    }
-}
-
-/// Stores the scouting dossier (reports and shortlist) as one JSON row. Runs in the caller's
-/// transaction.
-pub fn replace_dossier(conn: &Connection, dossier: &ScoutingDossier) -> Result<(), String> {
-    let json =
-        serde_json::to_string(dossier).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute(
-        "INSERT OR REPLACE INTO scouting_dossier (id, state_json) VALUES (1, ?1)",
-        params![json],
-    )
-    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    Ok(())
-}
-
-/// The stored dossier; a save from before the table existed has none and gets an empty one.
-pub fn load_dossier(conn: &Connection) -> Result<ScoutingDossier, String> {
-    let json: Option<String> = conn
-        .query_row(
-            "SELECT state_json FROM scouting_dossier WHERE id = 1",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
-    match json {
-        Some(json) => {
-            serde_json::from_str(&json).map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())
-        }
-        None => Ok(ScoutingDossier::default()),
     }
 }

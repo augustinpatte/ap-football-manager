@@ -7,10 +7,14 @@ import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/erro
 import { Card, CardBody } from "../ui";
 import { Eye, ScanSearch } from "lucide-react";
 import {
+  cancelScouting,
   cancelYouthScouting,
+  reassignScouting,
   reassignYouthScouting,
   sendScout,
+  shortlistPlayer,
   startYouthScouting,
+  unshortlistPlayer,
 } from "../../services/scoutingService";
 import { calculateAvailableScouts, scoutMaxSlots } from "./ScoutingTab.helpers";
 import { buildAlreadyScoutingIds } from "./ScoutingTab.model";
@@ -19,6 +23,9 @@ import ScoutingOverviewCards from "./ScoutingOverviewCards";
 import ScoutingScoutDetailsCard from "./ScoutingScoutDetailsCard";
 import ScoutingPlayerSearchCard from "./ScoutingPlayerSearchCard";
 import ScoutingYouthRecruitmentCard from "./ScoutingYouthRecruitmentCard";
+import ScoutingDossierSection from "./dossier/ScoutingDossierSection";
+import { indexTargets } from "./dossier/dossierFormat";
+import { useScoutingDossier } from "./dossier/useScoutingDossier";
 import FreeAgentContractModal from "../transfers/FreeAgentContractModal";
 import TransferBidModal from "../transfers/TransferBidModal";
 import { useFreeAgentContractFlow } from "../transfers/useFreeAgentContractFlow";
@@ -62,6 +69,15 @@ export default function ScoutingTab({
 }: ScoutingTabProps) {
   const { t } = useTranslation();
   const [sending, setSending] = useState<string | null>(null);
+  const dossierState = useScoutingDossier(gameState);
+  const knownTargets = useMemo(
+    () =>
+      indexTargets([
+        ...(dossierState.dossier?.reports ?? []),
+        ...(dossierState.dossier?.shortlist ?? []),
+      ]),
+    [dossierState.dossier],
+  );
   const [playerSearchError, setPlayerSearchError] = useState<string | null>(null);
   const [startingYouthSearch, setStartingYouthSearch] = useState(false);
   const [selectedYouthScoutId, setSelectedYouthScoutId] = useState("");
@@ -220,6 +236,46 @@ export default function ScoutingTab({
     }
   };
 
+  const handleCancelScouting = async (assignmentId: string) => {
+    setPlayerSearchError(null);
+    try {
+      onGameUpdate(await cancelScouting(assignmentId));
+    } catch (err) {
+      setPlayerSearchError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+    }
+  };
+
+  const handleReassignScouting = async (assignmentId: string, scoutId: string) => {
+    setPlayerSearchError(null);
+    try {
+      onGameUpdate(await reassignScouting(assignmentId, scoutId));
+    } catch (err) {
+      setPlayerSearchError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+    }
+  };
+
+  const handleToggleShortlist = async (playerId: string, shortlisted: boolean) => {
+    setPlayerSearchError(null);
+    try {
+      onGameUpdate(
+        shortlisted ? await unshortlistPlayer(playerId) : await shortlistPlayer(playerId),
+      );
+      dossierState.refresh();
+    } catch (err) {
+      setPlayerSearchError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+    }
+  };
+
+  const openBidFor = (playerId: string) => {
+    const target = playersById.get(playerId);
+    if (target) openBidNegotiation(target);
+  };
+
+  const openContractFor = (playerId: string) => {
+    const target = playersById.get(playerId);
+    if (target) openFreeAgentContract(target);
+  };
+
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
@@ -252,7 +308,28 @@ export default function ScoutingTab({
         teams={gameState.teams}
         onSelectPlayer={onSelectPlayer}
         onSelectTeam={onSelectTeam}
+        onCancel={(assignmentId) => {
+          void handleCancelScouting(assignmentId);
+        }}
+        onReassign={(assignmentId, scoutId) => {
+          void handleReassignScouting(assignmentId, scoutId);
+        }}
+        idleScouts={availableScouts}
       />
+
+      {scouts.length > 0 && (
+        <ScoutingDossierSection
+          dossierState={dossierState}
+          onGameUpdate={onGameUpdate}
+          canScout={availableScouts.length > 0}
+          onScoutAgain={(playerId) => {
+            void handleSendScout(playerId);
+          }}
+          onBid={openBidFor}
+          onOfferContract={openContractFor}
+          onOpenProfile={onSelectPlayer}
+        />
+      )}
 
       {scouts.length > 0 && (
         <ScoutingYouthRecruitmentCard
@@ -309,6 +386,7 @@ export default function ScoutingTab({
           query={scoutableQuery}
           errorMessage={playerSearchError}
           alreadyScoutingIds={alreadyScoutingIds}
+          knownTargets={knownTargets}
           availableScoutCount={availableScouts.length}
           sendingPlayerId={sending}
           safePage={safePage}
@@ -321,6 +399,9 @@ export default function ScoutingTab({
           onSelectPlayer={onSelectPlayer}
           onSelectTeam={onSelectTeam}
           onSendScout={handleSendScout}
+          onToggleShortlist={(playerId, shortlisted) => {
+            void handleToggleShortlist(playerId, shortlisted);
+          }}
           onPreviousPage={() => patchScoutableQuery({ page: Math.max(1, scoutableQuery.page - 1) })}
           onNextPage={() =>
             patchScoutableQuery({ page: Math.min(totalPages, scoutableQuery.page + 1) })

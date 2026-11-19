@@ -68,6 +68,8 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.value") return "Value";
       if (key === "scouting.action") return "Action";
       if (key === "scouting.scoutBtn") return "Scout";
+      if (key === "scouting.dossier.addShortlistFor") return key;
+      if (key === "scouting.dossier.removeShortlistFor") return key;
       if (key === "scouting.scoutingInProgress") return "Scouting in progress";
       if (key === "scouting.noScoutsFree") return "No scouts free";
       if (key === "scouting.noPlayersFound") return "No players found";
@@ -108,6 +110,36 @@ vi.mock("react-i18next", () => ({
     i18n: { language: "en" },
   }),
 }));
+
+function shortlistedView() {
+  return {
+    player_id: "player-1",
+    full_name: "John Smith",
+    age: 24,
+    natural_position: "Midfielder",
+    alternate_positions: [],
+    nationality: "GB",
+    team_id: "team-2",
+    team_name: "Beta FC",
+    ovr: 60,
+    market_value: 350000,
+    weekly_wage: 12000,
+    contract_end: "2027-06-30",
+    is_free_agent: false,
+    transfer_listed: false,
+    loan_listed: false,
+    injured: false,
+    status: "unscouted",
+    shortlisted: true,
+    being_scouted: false,
+    report: null,
+    outlook: "unclear",
+    squad_impact: "no_gain",
+    fee_affordable: true,
+    wage_permitted: true,
+    risks: ["unscouted"],
+  };
+}
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -315,7 +347,7 @@ describe("ScoutingTab", () => {
 
     render(<ScoutingTab gameState={state} onGameUpdate={onGameUpdate} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Scout/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Scout" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("send_scout", {
@@ -353,7 +385,7 @@ describe("ScoutingTab", () => {
     try {
       render(<ScoutingTab gameState={state} onGameUpdate={vi.fn()} />);
 
-      fireEvent.click(await screen.findByRole("button", { name: /Scout/i }));
+      fireEvent.click(await screen.findByRole("button", { name: "Scout" }));
 
       await waitFor(() => {
         expect(screen.getByRole("alert")).toHaveTextContent(
@@ -418,6 +450,56 @@ describe("ScoutingTab", () => {
         expect.objectContaining({ query: expect.objectContaining({ page: 2 }) }),
       );
     });
+  });
+
+  /**
+   * Given a search row for a player nobody has scouted
+   * When the manager stars him, and the dossier now lists him as shortlisted, and stars him again
+   * Then the shortlist command is sent, the game is forwarded, the dossier is asked again and the
+   *      second press removes him.
+   */
+  it("follows and unfollows a player from the search results", async () => {
+    const updatedState = createGameState();
+    const onGameUpdate = vi.fn();
+    answer("shortlist_player", updatedState);
+    answer("unshortlist_player", updatedState);
+    const state = createGameState({ scouts: [createScout()] });
+    marketPlayers = state.players;
+    let shortlisted = false;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_scouting_dossier") {
+        return { reports: [], shortlist: shortlisted ? [shortlistedView()] : [] };
+      }
+      if (command === "shortlist_player") {
+        shortlisted = true;
+        return updatedState;
+      }
+      if (command === "unshortlist_player") {
+        shortlisted = false;
+        return updatedState;
+      }
+      return command === "get_players_page" ? marketPageOf(marketPlayers) : undefined;
+    });
+
+    render(<ScoutingTab gameState={state} onGameUpdate={onGameUpdate} />);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `scouting.dossier.addShortlistFor`,
+      }),
+    );
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("shortlist_player", { playerId: "player-1" });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    });
+    const pressed = await screen.findByRole("button", {
+      name: "scouting.dossier.removeShortlistFor",
+      pressed: true,
+    });
+    fireEvent.click(pressed);
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("unshortlist_player", { playerId: "player-1" }),
+    );
   });
 
   it("starts a youth scouting search and forwards the updated state", async () => {
@@ -543,6 +625,7 @@ describe("ScoutingTab", () => {
     const onGameUpdate = vi.fn();
 
     invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_scouting_dossier") return { reports: [], shortlist: [] };
       if (command === "get_players_page") {
         return marketPageOf(marketPlayers);
       }

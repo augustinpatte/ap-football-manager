@@ -2197,7 +2197,91 @@
     "morale": "Moral",
     "estimatedAttributes": "Tahmini Özellikler",
     "undiscovered": "Keşfedilmedi",
-    "confidence": "Güven"
+    "confidence": "Güven",
+    "dossier": {
+      "compareColumn": "Karşılaştır",
+      "colRating": "Reyting",
+      "colAbility": "Yetenek (aralık)",
+      "colPotential": "Potansiyel (tahmin)",
+      "colImpact": "Kadron için",
+      "colWage": "Maaş",
+      "colContract": "Sözleşme sonu",
+      "unknown": "Bilinmiyor",
+      "notJudged": "Değerlendirilmedi",
+      "onShortlist": "Kısa listenizde",
+      "selectToCompare": "{{player}} karşılaştır",
+      "impact": {
+        "starter": "İlk 11'e girerdi",
+        "cover": "Yedek derinliği katardı",
+        "no_gain": "Şimdilik katkısı yok"
+      },
+      "addShortlist": "Kısa listeye ekle",
+      "removeShortlist": "Kaldır",
+      "ratingPublic": "Reyting {{value}}",
+      "reportSection": "Gözlemci raporu",
+      "outlookTitle": "Gelişim görünümü",
+      "outlook": {
+        "high_growth": "Yüksek gelişim",
+        "growing": "Gelişiyor",
+        "near_peak": "Zirveye yakın",
+        "declining": "Düşüşte",
+        "unclear": "Belirsiz"
+      },
+      "scoutedBy": "{{scout}} tarafından {{date}} tarihinde raporlandı.",
+      "reportsCombined": "{{count}} rapor birleştirildi.",
+      "estimateNote": "Gerçek değer her aralığın içindedir, ancak mutlaka ortasında değildir.",
+      "strengths": "Güçlü yönler",
+      "weaknesses": "Zayıf yönler",
+      "noneStoodOut": "Öne çıkan yok",
+      "noReportYet": "Henüz kimse onu izlemedi. Yalnızca herkese açık reytingi biliniyor.",
+      "financeTitle": "Mali uygunluk",
+      "freeNoFee": "Serbest oyuncu: transfer bedeli yok.",
+      "feeFits": "Bedel ({{fee}}) bütçenize uygun.",
+      "feeOver": "Bedel ({{fee}}) bütçenizi aşıyor.",
+      "wageFits": "Maaşı maaş politikanıza uygun.",
+      "wageOver": "Maaşı maaş politikanızı bozar.",
+      "contractUntil": "Sözleşme bitişi: {{date}}",
+      "noContract": "Sözleşme yok",
+      "risksTitle": "Transfer riskleri",
+      "noRisks": "Belirgin risk yok",
+      "makeBid": "Transfer teklifi yap",
+      "offerContract": "Sözleşme teklif et",
+      "scoutAgain": "Yeniden izle",
+      "openProfile": "Profili aç",
+      "compareTitle": "Hedefleri karşılaştır",
+      "compareMeasure": "Ölçüt",
+      "fitsBudget": "Bütçenize uygun",
+      "compare": "Karşılaştır ({{count}})",
+      "shortlistTitle": "Kısa liste",
+      "shortlistHint": "Takip ettiğiniz oyuncular. Karşılaştırmak için iki ile {{max}} arası seçin.",
+      "loading": "Raporlar yükleniyor…",
+      "noShortlist": "Kısa listenizde henüz kimse yok.",
+      "reportsTitle": "Gözlem raporları",
+      "reportsHint": "Gözlemcilerinizin bulduğu. Aralıklar gerçek değeri içerir; daha iyi bir gözlemci ya da ikinci bir izleme aralığı daraltır.",
+      "noReports": "Henüz rapor yok. Başlamak için bir oyuncuya gözlemci gönderin.",
+      "addShortlistFor": "{{player}} oyuncusunu kısa listeye ekle",
+      "removeShortlistFor": "{{player}} oyuncusunu kısa listeden çıkar"
+    },
+    "risk": {
+      "contractExpiring": "Sözleşme bir yıl içinde bitiyor",
+      "injured": "Şu an sakat",
+      "ageing": "30 yaşın üstü: düşüş riski var",
+      "unscouted": "Kimse onu izlemedi",
+      "staleReport": "Rapor önceki sezona ait",
+      "uncertainEstimate": "Geniş tahmin: düşük güven",
+      "feeOverBudget": "Bedel bütçenizi aşıyor",
+      "wageOverPolicy": "Maaş politikanızı aşıyor"
+    },
+    "filters": {
+      "status": "Gözlem",
+      "any": "Hepsi",
+      "unscouted": "İzlenmedi",
+      "scouted": "İzlendi",
+      "shortlisted": "Kısa listede",
+      "potentialMin": "En az tahmini potansiyel",
+      "potentialHint": "Yalnızca izlenen oyuncular",
+      "contractExpiring": "Sözleşme bir yıl içinde bitiyor"
+    }
   },
   "match": {
     "simulateWithM12": "Hızlı simülasyon",
@@ -3293,7 +3377,12 @@
         "playerAlreadyScouted": "Bu oyuncu zaten gözlemleniyor",
         "youthSearchAlreadyActive": "Eşleşen bir genç oyuncu araması zaten aktif",
         "youthAssignmentNotFound": "Genç oyuncu kazanım görevi bulunamadı",
-        "scoutAlreadyAssignedToSearch": "Gözlemci bu aramaya zaten atanmış"
+        "scoutAlreadyAssignedToSearch": "Gözlemci bu aramaya zaten atanmış",
+        "shortlistOwnPlayer": "Kendi oyuncularınız kısa listeye eklenemez",
+        "shortlistAlready": "Bu oyuncu zaten kısa listenizde",
+        "shortlistFull": "Kısa listeniz dolu",
+        "shortlistNotListed": "Bu oyuncu kısa listenizde değil",
+        "assignmentNotFound": "Gözlem görevi bulunamadı"
       },
       "invalidPath": "Geçersiz yol.",
       "customTactic": {
@@ -5026,7 +5115,8 @@
       "recruitNoLongerNeeded": "{{player}} ({{position}}) takibini bıraktı: kadronun artık ona ihtiyacı yok",
       "ownerLeft": "Sorumlu ekip üyesi ayrıldı, bu yüzden yardımcı antrenör bu görevi geri aldı.",
       "floorPromoted": "Kadro asgari sayının altındaydı, bu yüzden {{player}} akademiden yükseltildi",
-      "floorSigned": "Kadro asgari sayının altındaydı, bu yüzden serbest oyuncu {{player}} transfer edildi"
+      "floorSigned": "Kadro asgari sayının altındaydı, bu yüzden serbest oyuncu {{player}} transfer edildi",
+      "scoutShortlisted": "Gözlemci raporundan sonra {{player}} kısa listeye eklendi"
     }
   },
   "freeAgents": {
@@ -5228,5 +5318,39 @@
     "signHintCounter": "Önce onların şartlarını kabul et; karşı teklif imzalanamaz.",
     "signHintRefused": "Bu transfer olduğu gibi imzalanamaz.",
     "errorGeneric": "Pazar bu isteği tamamlayamadı. Tekrar dene."
+  },
+  "academy": {
+    "promotionBlocked": "A takımda boş yer yok",
+    "unlistLoan": "Kiralık listesinden çıkar",
+    "listLoan": "Kiralık listesine ekle",
+    "release": "Serbest bırak",
+    "reviewTitle": "Gelişim değerlendirmesi",
+    "reviewHint": "Her değerlendirme oyuncuyu, A takımın o mevkideki mevcut derinliğiyle kıyaslar. Burada hiçbir şey oyuncuyu değiştirmez.",
+    "loading": "Değerlendirme yükleniyor…",
+    "capacity": "A takım: {{seniors}} / {{limit}}",
+    "nextIntake": "Sonraki alım: {{count}}",
+    "ceiling": "Tavan",
+    "expectedNext": "Gelecek yıl beklenen",
+    "squadCover": "Kadro derinliği",
+    "verdict": "Karar",
+    "verdicts": {
+      "ready_for_senior": "A takıma hazır",
+      "keep_developing": "Gelişmeye devam",
+      "loan_candidate": "Kiralık adayı",
+      "unlikely_to_progress": "İlerlemesi olası değil"
+    },
+    "reason": {
+      "wouldStart": "A takımda ilk 11'e girerdi",
+      "addsCover": "Kadronun ihtiyaç duyduğu derinliği katar",
+      "succession": "Birkaç sezon içinde gerekecek",
+      "injured": "Sakat",
+      "tooYoungToJudge": "Değerlendirmek için çok genç",
+      "ceilingBelowCover": "Tavanı bile kadronuzun seviyesinin altında",
+      "closeToSeniorLevel": "A takım seviyesine yakın",
+      "needsMatchMinutes": "Akademinin veremediği düzenli maçlara ihtiyacı var",
+      "stillImproving": "Hâlâ gelişiyor",
+      "nearCeiling": "Tavanına yakın"
+    },
+    "ceilingNote": "Potansiyel bir tavandır, söz değil: beklenen reyting gelişimin genelde neyi getirdiğini gösterir."
   }
 }

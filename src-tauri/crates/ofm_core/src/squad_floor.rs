@@ -1474,6 +1474,29 @@ mod tests {
         );
     }
 
+    /// Given a club one forward short whose only free forward was let go by an academy and still
+    ///   carries the academy role (the study's seed 2, season 6)
+    /// When the floor's top-up signs him
+    /// Then he is a senior of the club at once and the shortfall is gone: the signing the top-up
+    ///   reported is the one that restored the floor, not one that left the club a day short.
+    #[test]
+    fn a_signed_ex_academy_free_agent_restores_the_floor_the_same_pass() {
+        let mut game = club_with([2, 5, 6, 1]);
+        let mut graduate = free_agent("ex_academy_forward", Position::Forward, 64);
+        graduate.squad_role = SquadRole::Youth;
+        game.players.push(graduate);
+
+        let top_up = restore_minimum_squad(&mut game, "club");
+
+        assert_eq!(top_up.signed, vec!["ex_academy_forward".to_string()]);
+        assert_eq!(role_of(&game, "ex_academy_forward"), SquadRole::Senior);
+        assert!(
+            squad_shortfall(&game, "club").is_empty(),
+            "the signing did not count as a senior: {:?}",
+            squad_shortfall(&game, "club")
+        );
+    }
+
     /// A free agent who asks `wage` a week and is rated `ovr`.
     fn free_agent_asking(id: &str, position: Position, ovr: u8, wage: u32) -> Player {
         let mut agent = free_agent(id, position, ovr);

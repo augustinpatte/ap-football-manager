@@ -5,9 +5,10 @@ use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::game::ScoutingAssignment;
+use ofm_core::scouting_dossier::{Range, ScoutReport};
 use ofm_core::slices::players::{
-    PlayerScope, PlayerSortKey, PlayerStatusFilter, PlayersPageQuery, PositionFilter, StatusCounts,
-    query_page,
+    PlayerScope, PlayerSortKey, PlayerStatusFilter, PlayersPageQuery, PositionFilter,
+    ScoutingFilter, StatusCounts, query_page,
 };
 
 fn default_attrs(ovr_hint: u8) -> PlayerAttributes {
@@ -136,6 +137,9 @@ fn baseline_query() -> PlayersPageQuery {
         in_budget: false,
         scope: PlayerScope::All,
         team_id: None,
+        scouting: ScoutingFilter::Any,
+        potential_min: None,
+        contract_expiring: false,
         status: PlayerStatusFilter::All,
         sort_key: PlayerSortKey::Ovr,
         sort_asc: false,
@@ -734,6 +738,92 @@ fn the_scoutable_scope_leaves_out_own_players_but_keeps_those_already_scouted() 
     q.scope = PlayerScope::Scoutable;
 
     assert_eq!(ids(&game, &q), vec!["open", "watched"]);
+}
+
+fn report_on(player_id: &str, potential: Option<Range>) -> ScoutReport {
+    ScoutReport {
+        player_id: player_id.to_string(),
+        scout_id: "s1".to_string(),
+        scout_name: "S".to_string(),
+        scouted_on: "2026-06-20".to_string(),
+        judging_ability: 70,
+        judging_potential: 70,
+        reports: 1,
+        ability: Range { low: 60, high: 68 },
+        potential,
+        age: 22,
+        strengths: vec![],
+        weaknesses: vec![],
+    }
+}
+
+/// Given one unscouted player, one scouted with a good potential range, one scouted with a poor
+/// one, one scouted whose potential the scout could not judge, and one shortlisted
+/// When the search filters by scouting status and by estimated potential
+/// Then each filter keeps exactly the players the club has earned the answer for: the potential
+///      filter never lets an unscouted or unjudged player through, because it would be guessing.
+#[test]
+fn the_search_filters_by_scouting_status_and_estimated_potential() {
+    let players = ["fresh", "high", "low", "blind", "listed"]
+        .iter()
+        .map(|id| PlayerSpec::new(id, id, Some("other")).build())
+        .collect();
+    let mut game = game_managing_mine(0, 0, players);
+    let dossier = &mut game.scouting_dossier;
+    dossier
+        .reports
+        .push(report_on("high", Some(Range { low: 76, high: 88 })));
+    dossier
+        .reports
+        .push(report_on("low", Some(Range { low: 55, high: 65 })));
+    dossier.reports.push(report_on("blind", None));
+    dossier
+        .shortlist
+        .push(ofm_core::scouting_dossier::ShortlistEntry {
+            player_id: "listed".to_string(),
+            added_on: "2026-06-21".to_string(),
+        });
+    let mut q = baseline_query();
+    q.sort_key = PlayerSortKey::Name;
+    q.sort_asc = true;
+
+    q.scouting = ScoutingFilter::Unscouted;
+    assert_eq!(ids(&game, &q), vec!["fresh", "listed"]);
+    q.scouting = ScoutingFilter::Scouted;
+    assert_eq!(ids(&game, &q), vec!["blind", "high", "low"]);
+    q.scouting = ScoutingFilter::Shortlisted;
+    assert_eq!(ids(&game, &q), vec!["listed"]);
+
+    q.scouting = ScoutingFilter::Any;
+    q.potential_min = Some(70);
+    assert_eq!(
+        ids(&game, &q),
+        vec!["high"],
+        "70 or more by the middle of the range"
+    );
+    q.potential_min = Some(1);
+    assert_eq!(
+        ids(&game, &q),
+        vec!["high", "low"],
+        "blind and unscouted never pass"
+    );
+}
+
+/// Given players whose contracts end in four months, in three years, and who have none
+/// When the search asks for contracts ending within a year
+/// Then only the first is listed.
+#[test]
+fn the_search_can_ask_for_contracts_that_end_within_a_year() {
+    let mut soon = PlayerSpec::new("soon", "Soon", Some("other")).build();
+    soon.stage_contract(Some("2024-07-01".into()), Some("2026-11-01".into()), 1000);
+    let mut later = PlayerSpec::new("later", "Later", Some("other")).build();
+    later.stage_contract(Some("2026-01-01".into()), Some("2029-07-01".into()), 1000);
+    let none = PlayerSpec::new("none", "None", None).build();
+    let game = game_managing_mine(0, 0, vec![soon, later, none]);
+    let mut q = baseline_query();
+    q.contract_expiring = true;
+
+    assert_eq!(ids(&game, &q), vec!["soon"]);
 }
 
 fn transfer_offer_from(from_team_id: &str) -> domain::player::TransferOffer {

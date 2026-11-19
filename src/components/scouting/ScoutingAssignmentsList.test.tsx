@@ -179,6 +179,38 @@ describe("ScoutingAssignmentsList", () => {
     expect(onSelectPlayer).toHaveBeenCalledWith("player-1");
   });
 
+  /**
+   * Given a running job and a second, idle scout
+   * When the manager cancels it, and then hands it to the idle scout
+   * Then each handler receives the job's id (and the chosen scout), and with nobody idle the
+   *      reassign control is not offered at all.
+   */
+  it("cancels a job and hands it to an idle scout", () => {
+    const onCancel = vi.fn();
+    const onReassign = vi.fn();
+    const idle = createScout({ id: "staff-2", display_name: "Ida Idle", first_name: "Ida" });
+    const common = {
+      assignments: [createAssignment()],
+      scouts: [createScout(), idle],
+      players: [createPlayer()],
+      teams: [createTeam(), createTeam({ id: "team-2", name: "Beta FC", manager_id: "manager-2" })],
+      onCancel,
+      onReassign,
+    };
+
+    const { rerender } = render(<ScoutingAssignmentsList {...common} idleScouts={[idle]} />);
+    fireEvent.click(screen.getByRole("button", { name: "scouting.reassignSearch" }));
+    expect(onReassign).toHaveBeenCalledWith("assignment-1", "staff-2");
+    fireEvent.click(screen.getByRole("button", { name: "scouting.cancelSearch John Smith" }));
+    expect(onCancel).toHaveBeenCalledWith("assignment-1");
+
+    rerender(<ScoutingAssignmentsList {...common} idleScouts={[]} />);
+    expect(screen.queryByRole("button", { name: "scouting.reassignSearch" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "scouting.cancelSearch John Smith" }),
+    ).toBeInTheDocument();
+  });
+
   it("offers a context menu action to view the assigned player's team", () => {
     const onSelectTeam = vi.fn();
 

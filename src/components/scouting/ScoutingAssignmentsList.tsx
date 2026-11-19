@@ -1,4 +1,5 @@
-import { Clock } from "lucide-react";
+import { Clock, RefreshCcw, XCircle } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { PlayerData, ScoutingAssignment, StaffData, TeamData } from "../../store/gameStore";
@@ -9,7 +10,7 @@ import {
   buildViewTeamMenuItem,
 } from "../playerActions/playerContextMenuItems";
 import { translatePositionLabel } from "../squad/SquadTab.helpers";
-import { Card, CardBody, CardHeader } from "../ui";
+import { Button, Card, CardBody, CardHeader, Select } from "../ui";
 import { naturalPositionOf } from "../../lib/positions";
 
 interface ScoutingAssignmentsListProps {
@@ -19,6 +20,11 @@ interface ScoutingAssignmentsListProps {
   teams: TeamData[];
   onSelectPlayer?: (id: string) => void;
   onSelectTeam?: (id: string) => void;
+  /** Stops a job; no report is written for it. */
+  onCancel?: (assignmentId: string) => void;
+  /** Hands a job to another scout, who must be free; `idleScouts` are the candidates. */
+  onReassign?: (assignmentId: string, scoutId: string) => void;
+  idleScouts?: StaffData[];
 }
 
 export default function ScoutingAssignmentsList({
@@ -28,8 +34,12 @@ export default function ScoutingAssignmentsList({
   teams,
   onSelectPlayer,
   onSelectTeam,
+  onCancel,
+  onReassign,
+  idleScouts = [],
 }: ScoutingAssignmentsListProps) {
   const { t } = useTranslation();
+  const [reassignTargets, setReassignTargets] = useState<Record<string, string>>({});
 
   if (assignments.length === 0) {
     return null;
@@ -93,6 +103,55 @@ export default function ScoutingAssignmentsList({
                     </span>
                   </div>
                 </div>
+                {(onCancel || onReassign) && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {onReassign && idleScouts.length > 0 && (
+                      <>
+                        <Select
+                          selectSize="sm"
+                          value={reassignTargets[assignment.id] ?? idleScouts[0].id}
+                          aria-label={`${t("scouting.reassignSearch")} ${player.full_name}`}
+                          onChange={(event) =>
+                            setReassignTargets((current) => ({
+                              ...current,
+                              [assignment.id]: event.target.value,
+                            }))
+                          }
+                        >
+                          {idleScouts.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.display_name}
+                            </option>
+                          ))}
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          icon={<RefreshCcw />}
+                          onClick={() =>
+                            onReassign(
+                              assignment.id,
+                              reassignTargets[assignment.id] ?? idleScouts[0].id,
+                            )
+                          }
+                        >
+                          {t("scouting.reassignSearch")}
+                        </Button>
+                      </>
+                    )}
+                    {onCancel && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<XCircle />}
+                        aria-label={`${t("scouting.cancelSearch")} ${player.full_name}`}
+                        onClick={() => onCancel(assignment.id)}
+                      >
+                        {t("scouting.cancelSearch")}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             );
 

@@ -10,6 +10,8 @@ export type PositionFilter = { group: string } | { exact: string };
 /** Which players a list is about, before any other filter narrows it. */
 export type PlayerScope = "all" | "market" | "scoutable" | "user_listed" | "with_offers";
 
+export type ScoutingFilter = "any" | "unscouted" | "scouted" | "shortlisted";
+
 export interface PlayersPageQuery {
   search: string | null;
   position: string | null;
@@ -25,6 +27,12 @@ export interface PlayersPageQuery {
   in_budget: boolean;
   scope: PlayerScope;
   team_id: string | null;
+  /** What the club has done about him; omitted is "any". */
+  scouting?: ScoutingFilter;
+  /** The least estimated potential (the middle of a scout's range); unscouted players never pass. */
+  potential_min?: number | null;
+  /** Only players whose contract ends within a year. */
+  contract_expiring?: boolean;
   status: PlayerStatusFilter;
   sort_key: PlayerSortKey;
   sort_asc: boolean;

@@ -2222,7 +2222,91 @@
     "morale": "Morale",
     "estimatedAttributes": "Attributi stimati",
     "undiscovered": "Non scoperto",
-    "confidence": "Affidabilità"
+    "confidence": "Affidabilità",
+    "dossier": {
+      "compareColumn": "Confronta",
+      "colRating": "Valutazione",
+      "colAbility": "Abilità (intervallo)",
+      "colPotential": "Potenziale (stima)",
+      "colImpact": "Per la tua rosa",
+      "colWage": "Stipendio",
+      "colContract": "Fine contratto",
+      "unknown": "Sconosciuto",
+      "notJudged": "Non valutato",
+      "onShortlist": "Nella tua lista obiettivi",
+      "selectToCompare": "Confronta {{player}}",
+      "impact": {
+        "starter": "Sarebbe titolare",
+        "cover": "Darebbe copertura",
+        "no_gain": "Per ora non aggiunge nulla"
+      },
+      "addShortlist": "Aggiungi alla lista",
+      "removeShortlist": "Rimuovi",
+      "ratingPublic": "Valutazione {{value}}",
+      "reportSection": "Rapporto dello scout",
+      "outlookTitle": "Prospettive di crescita",
+      "outlook": {
+        "high_growth": "Grande crescita",
+        "growing": "In crescita",
+        "near_peak": "Vicino al picco",
+        "declining": "In declino",
+        "unclear": "Poco chiaro"
+      },
+      "scoutedBy": "Rapporto di {{scout}} del {{date}}.",
+      "reportsCombined": "{{count}} rapporti combinati.",
+      "estimateNote": "Il valore reale è dentro ogni intervallo, ma non necessariamente al centro.",
+      "strengths": "Punti di forza",
+      "weaknesses": "Punti deboli",
+      "noneStoodOut": "Nessuno spicca",
+      "noReportYet": "Nessuno l'ha ancora osservato. Si conosce solo la valutazione pubblica.",
+      "financeTitle": "Sostenibilità economica",
+      "freeNoFee": "Svincolato: nessun costo del cartellino.",
+      "feeFits": "Il costo ({{fee}}) rientra nel budget.",
+      "feeOver": "Il costo ({{fee}}) supera il budget.",
+      "wageFits": "Lo stipendio rispetta la politica salariale.",
+      "wageOver": "Lo stipendio violerebbe la politica salariale.",
+      "contractUntil": "Contratto fino al {{date}}",
+      "noContract": "Nessun contratto",
+      "risksTitle": "Rischi dell'ingaggio",
+      "noRisks": "Nessun rischio rilevante",
+      "makeBid": "Fai un'offerta di trasferimento",
+      "offerContract": "Offri un contratto",
+      "scoutAgain": "Osserva di nuovo",
+      "openProfile": "Apri profilo",
+      "compareTitle": "Confronta gli obiettivi",
+      "compareMeasure": "Criterio",
+      "fitsBudget": "Rientra nel budget",
+      "compare": "Confronta ({{count}})",
+      "shortlistTitle": "Lista obiettivi",
+      "shortlistHint": "Giocatori che segui. Selezionane da due a {{max}} per confrontarli.",
+      "loading": "Caricamento rapporti…",
+      "noShortlist": "Nessuno nella lista per ora.",
+      "reportsTitle": "Rapporti di scouting",
+      "reportsHint": "Ciò che hanno trovato i tuoi scout. Gli intervalli contengono il valore reale; uno scout migliore, o un secondo sguardo, li restringe.",
+      "noReports": "Ancora nessun rapporto. Manda uno scout da un giocatore per iniziare.",
+      "addShortlistFor": "Aggiungi {{player}} alla lista",
+      "removeShortlistFor": "Rimuovi {{player}} dalla lista"
+    },
+    "risk": {
+      "contractExpiring": "Contratto in scadenza entro un anno",
+      "injured": "Attualmente infortunato",
+      "ageing": "Oltre i 30: il declino è un rischio",
+      "unscouted": "Nessuno l'ha osservato",
+      "staleReport": "Il rapporto è di una stagione precedente",
+      "uncertainEstimate": "Stima ampia: poca fiducia",
+      "feeOverBudget": "Il costo supera il budget",
+      "wageOverPolicy": "Lo stipendio supera la politica"
+    },
+    "filters": {
+      "status": "Osservazione",
+      "any": "Tutti",
+      "unscouted": "Non osservato",
+      "scouted": "Osservato",
+      "shortlisted": "In lista",
+      "potentialMin": "Potenziale stimato minimo",
+      "potentialHint": "Solo giocatori osservati",
+      "contractExpiring": "Contratto in scadenza entro un anno"
+    }
   },
   "match": {
     "simulateWithM12": "Simulazione rapida",
@@ -3285,7 +3369,12 @@
         "playerAlreadyScouted": "Questo giocatore è già sotto osservazione",
         "youthSearchAlreadyActive": "È già attiva una ricerca giovanile corrispondente",
         "youthAssignmentNotFound": "Incarico di scouting giovanile non trovato",
-        "scoutAlreadyAssignedToSearch": "L'osservatore è già assegnato a questa ricerca"
+        "scoutAlreadyAssignedToSearch": "L'osservatore è già assegnato a questa ricerca",
+        "shortlistOwnPlayer": "Non puoi inserire i tuoi giocatori nella lista",
+        "shortlistAlready": "Questo giocatore è già nella lista",
+        "shortlistFull": "La lista è piena",
+        "shortlistNotListed": "Questo giocatore non è nella lista",
+        "assignmentNotFound": "Incarico di scouting non trovato"
       },
       "invalidPath": "Percorso non valido.",
       "conflict": {
@@ -5026,7 +5115,8 @@
       "recruitNoLongerNeeded": "Ha smesso di inseguire {{player}} ({{position}}): la rosa non ha più bisogno di lui",
       "ownerLeft": "Il membro dello staff responsabile se n'è andato, quindi il vice allenatore ha ripreso questo compito.",
       "floorPromoted": "La rosa era sotto il minimo, quindi {{player}} è stato promosso dall'academy",
-      "floorSigned": "La rosa era sotto il minimo, quindi {{player}} è stato ingaggiato come svincolato"
+      "floorSigned": "La rosa era sotto il minimo, quindi {{player}} è stato ingaggiato come svincolato",
+      "scoutShortlisted": "{{player}} aggiunto alla lista dopo il rapporto dello scout"
     }
   },
   "freeAgents": {
@@ -5228,5 +5318,39 @@
     "signHintCounter": "Accetta prima i loro termini; una controproposta non può essere firmata.",
     "signHintRefused": "Questo trasferimento non può essere firmato così com'è.",
     "errorGeneric": "Il mercato non è riuscito a completare la richiesta. Riprova."
+  },
+  "academy": {
+    "promotionBlocked": "Nessun posto libero in prima squadra",
+    "unlistLoan": "Rimuovi dalla lista prestiti",
+    "listLoan": "Metti in lista prestiti",
+    "release": "Svincola",
+    "reviewTitle": "Revisione dello sviluppo",
+    "reviewHint": "Ogni giudizio confronta il giocatore con la copertura che la prima squadra ha già nel suo ruolo. Nulla qui modifica un giocatore.",
+    "loading": "Caricamento della revisione…",
+    "capacity": "Prima squadra: {{seniors}} su {{limit}}",
+    "nextIntake": "Prossimo ingresso: {{count}}",
+    "ceiling": "Tetto",
+    "expectedNext": "Atteso l'anno prossimo",
+    "squadCover": "Copertura rosa",
+    "verdict": "Giudizio",
+    "verdicts": {
+      "ready_for_senior": "Pronto per la prima squadra",
+      "keep_developing": "Continuare a farlo crescere",
+      "loan_candidate": "Candidato al prestito",
+      "unlikely_to_progress": "Improbabile che progredisca"
+    },
+    "reason": {
+      "wouldStart": "Sarebbe titolare in prima squadra",
+      "addsCover": "Dà la copertura di cui la rosa ha bisogno",
+      "succession": "Servirà entro poche stagioni",
+      "injured": "Infortunato",
+      "tooYoungToJudge": "Troppo giovane per giudicare",
+      "ceilingBelowCover": "Anche il suo tetto è sotto la copertura della rosa",
+      "closeToSeniorLevel": "Vicino al livello della prima squadra",
+      "needsMatchMinutes": "Ha bisogno di partite regolari che l'accademia non offre",
+      "stillImproving": "Sta ancora migliorando",
+      "nearCeiling": "Vicino al suo tetto"
+    },
+    "ceilingNote": "Il potenziale è un tetto, non una promessa: la valutazione attesa mostra ciò che lo sviluppo di solito produce."
   }
 }
