@@ -291,7 +291,7 @@ fn the_clock_view_follows_the_periods_and_their_added_time() {
     let added = first
         .added_time_ms
         .expect("announced by the end of the half");
-    assert!(added % 60_000 == 0, "added time is whole minutes");
+    assert!(added.is_multiple_of(60_000), "added time is whole minutes");
 
     let out = m.advance(request(AdvanceTarget::ForMinutes(1))).unwrap();
     let second = out.view.clock;
@@ -354,7 +354,7 @@ fn the_feed_carries_shots_fouls_and_corners_as_well_as_the_key_events() {
         events.windows(2).all(|w| w[0].id < w[1].id),
         "feed is in stream order"
     );
-    assert!(cursor >= events.last().unwrap().id + 1);
+    assert!(cursor > events.last().unwrap().id);
 }
 
 /// Given a match at kickoff,

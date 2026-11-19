@@ -254,6 +254,11 @@ struct Recorder {
     starters: Vec<f64>,
     /// The starters' condition the day before each of the club's matches: what is fielded.
     eve: Vec<f64>,
+    /// Match-eve diagnostics of the lineup actually named and the plan actually in force (I6).
+    xi_eve: Vec<f64>,
+    plans: Plans,
+    previous_xi: Vec<String>,
+    xi_changes: usize,
     ai_starters: Vec<f64>,
     squad: Vec<f64>,
     injured_before: std::collections::HashSet<String>,
@@ -280,6 +285,10 @@ impl Recorder {
             team_id,
             starters: Vec::new(),
             eve: Vec::new(),
+            xi_eve: Vec::new(),
+            plans: Plans::default(),
+            previous_xi: Vec::new(),
+            xi_changes: 0,
             ai_starters: Vec::new(),
             squad: Vec::new(),
             injured_before: Default::default(),
@@ -291,6 +300,79 @@ impl Recorder {
             seasons: Vec::new(),
             bands: AGE_BANDS.iter().map(|_| Band::default()).collect(),
         }
+    }
+}
+
+/// The plan the user's club takes into a match, counted by dial.
+#[derive(Default)]
+struct Plans {
+    formation: BTreeMap<String, usize>,
+    style: BTreeMap<String, usize>,
+    pressing: BTreeMap<String, usize>,
+    tempo: BTreeMap<String, usize>,
+    /// Matches in which the plan differs from the previous match's.
+    plan_changes: usize,
+    last: Option<String>,
+}
+
+impl Recorder {
+    /// What the club is about to field: the lineup's condition, how many of the eleven are new
+    /// since the last match, and the dials in force.
+    fn record_plan(&mut self, game: &Game) {
+        let Some(team) = game.teams.iter().find(|t| t.id == self.team_id) else {
+            return;
+        };
+        let name = |d: &dyn std::fmt::Debug| format!("{d:?}");
+        *self
+            .plans
+            .formation
+            .entry(team.formation.clone())
+            .or_default() += 1;
+        *self.plans.style.entry(name(&team.play_style)).or_default() += 1;
+        *self
+            .plans
+            .pressing
+            .entry(name(&team.tactics_phase.pressing_intensity))
+            .or_default() += 1;
+        *self
+            .plans
+            .tempo
+            .entry(name(&team.tactics_phase.tempo))
+            .or_default() += 1;
+        let signature = format!(
+            "{}|{:?}|{:?}|{:?}",
+            team.formation,
+            team.play_style,
+            team.tactics_phase.pressing_intensity,
+            team.tactics_phase.tempo
+        );
+        if self
+            .plans
+            .last
+            .as_ref()
+            .is_some_and(|last| *last != signature)
+        {
+            self.plans.plan_changes += 1;
+        }
+        self.plans.last = Some(signature);
+
+        let xi: Vec<&Player> = team
+            .starting_xi_ids
+            .iter()
+            .filter_map(|id| game.players.iter().find(|p| &p.id == id))
+            .collect();
+        if xi.len() == 11 {
+            self.xi_eve
+                .push(xi.iter().map(|p| f64::from(p.condition)).sum::<f64>() / 11.0);
+        }
+        if !self.previous_xi.is_empty() {
+            self.xi_changes += team
+                .starting_xi_ids
+                .iter()
+                .filter(|id| !self.previous_xi.contains(id))
+                .count();
+        }
+        self.previous_xi = team.starting_xi_ids.clone();
     }
 }
 
@@ -334,6 +416,7 @@ impl SeasonObserver for Recorder {
         });
         if plays_tomorrow && let Some(c) = starters_condition(game, &self.team_id) {
             self.eve.push(c);
+            self.record_plan(game);
         }
         if day.is_multiple_of(7) {
             if let Some(c) = starters_condition(game, &self.team_id) {
@@ -552,6 +635,28 @@ fn print_arm(result: &ArmResult, seasons: u32) {
         r.eve.iter().copied().fold(f64::MAX, f64::min),
         share_below(&r.eve, 70.0),
         share_below(&r.eve, 60.0),
+    );
+    let histogram = |h: &BTreeMap<String, usize>| {
+        let total: usize = h.values().sum::<usize>().max(1);
+        h.iter()
+            .map(|(k, v)| format!("{k} {:.0}%", *v as f64 / total as f64 * 100.0))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    println!(
+        "  lineup named on the eve: mean condition {:.1} (n={}), {:.2} changes a match, plan changed in {} of {} matches",
+        mean(&r.xi_eve),
+        r.xi_eve.len(),
+        r.xi_changes as f64 / r.xi_eve.len().max(1) as f64,
+        r.plans.plan_changes,
+        r.eve.len(),
+    );
+    println!(
+        "  plans: formation [{}]; style [{}]; pressing [{}]; tempo [{}]",
+        histogram(&r.plans.formation),
+        histogram(&r.plans.style),
+        histogram(&r.plans.pressing),
+        histogram(&r.plans.tempo),
     );
     println!(
         "  injuries/season {:.1}, days lost/season {:.0}",
