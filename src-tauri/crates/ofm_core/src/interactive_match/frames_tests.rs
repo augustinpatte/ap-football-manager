@@ -390,3 +390,87 @@ fn a_period_clock_reports_the_minutes_played_before_it() {
         (2 * half + 15 * 60_000, 15 * 60_000)
     );
 }
+
+/// Given whole matches played with frame capture,
+/// Then the score in the frames changes exactly when the engine's stream has a goal: a frame's
+/// score never moves without a goal event in the half second that led to it, and every goal is
+/// in the frames by the end. The picture and the event feed cannot contradict each other.
+#[test]
+fn the_score_in_the_frames_moves_with_the_goals_in_the_event_stream() {
+    let mut goals_seen = 0;
+    for seed in [3, 5, 7, 11, 13] {
+        let mut m = start(seed);
+        let frames = play_capturing(&mut m, 15);
+        let goal_times: Vec<u32> = m
+            .session()
+            .expect("still playing")
+            .events()
+            .iter()
+            .filter(|e| matches!(e.kind, EventKind::Goal { .. }))
+            .map(|e| e.t_ms)
+            .collect();
+        goals_seen += goal_times.len();
+        for pair in frames.windows(2) {
+            let moved = (u32::from(pair[1].score[0]) + u32::from(pair[1].score[1]))
+                .saturating_sub(u32::from(pair[0].score[0]) + u32::from(pair[0].score[1]));
+            let expected = goal_times
+                .iter()
+                .filter(|t| **t > pair[0].t_ms && **t <= pair[1].t_ms)
+                .count() as u32;
+            assert_eq!(
+                moved, expected,
+                "seed {seed}: score moved between {} and {}",
+                pair[0].t_ms, pair[1].t_ms
+            );
+        }
+        let last = frames.last().unwrap();
+        assert_eq!(
+            u32::from(last.score[0]) + u32::from(last.score[1]),
+            goal_times.len() as u32,
+            "seed {seed}: every goal is in the final score"
+        );
+    }
+    assert!(goals_seen > 0, "five matches produced no goal to compare");
+}
+
+/// Cost of the 2D screen's data, measured (run on purpose, release-like profile):
+/// `cargo test -p ofm_core --lib frames_cost -- --ignored --nocapture`
+#[test]
+#[ignore = "measurement, not a check; prints its numbers"]
+fn frames_cost() {
+    use std::time::Instant;
+    let timed = |capture: bool| {
+        let mut m = start(7);
+        let began = Instant::now();
+        let mut frames = 0usize;
+        let mut bytes = 0usize;
+        let mut largest_chunk = 0usize;
+        loop {
+            let request = request(AdvanceTarget::ForSeconds(10));
+            let out = if capture {
+                m.advance_capturing(request)
+            } else {
+                m.advance(request)
+            }
+            .unwrap();
+            if capture {
+                let chunk = serde_json::to_string(&out.frames).unwrap().len();
+                frames += out.frames.len();
+                bytes += chunk;
+                largest_chunk = largest_chunk.max(chunk);
+            }
+            if out.stop == StopReason::Finished {
+                break;
+            }
+        }
+        (began.elapsed(), frames, bytes, largest_chunk)
+    };
+    let (plain, ..) = timed(false);
+    let (watched, frames, bytes, chunk) = timed(true);
+    println!("plain, 10 s stretches:    {plain:?}");
+    println!("capturing, 10 s stretches: {watched:?}");
+    println!(
+        "{frames} frames, {bytes} bytes of JSON in all ({} bytes a frame), largest 10 s reply {chunk} bytes",
+        bytes / frames.max(1)
+    );
+}

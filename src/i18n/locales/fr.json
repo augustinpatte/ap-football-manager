@@ -2980,9 +2980,6 @@
       "goalBanner": "But ! {{player}} · {{minute}}",
       "pauseToAct": "Mettez le match en pause pour faire des changements. Vos ordres s'appliquent à partir de l'instant affiché.",
       "incompleteData": "Certaines données de position du moteur de match étaient incomplètes et ont été écartées de l'image.",
-      "attacks": "{{team}} attaque {{direction}}",
-      "directionRight": "vers la droite",
-      "directionLeft": "vers la gauche",
       "hasBall": "{{team}} a le ballon",
       "looseBall": "Le ballon est libre",
       "kickoffPending": "En attente du coup d'envoi",
@@ -2997,8 +2994,11 @@
         "goal": "But",
         "injury": "Arrêt pour blessure",
         "substitution": "Remplacement",
-        "period_end": "Fin de la période"
-      }
+        "period_end": "Fin de la période",
+        "other": "Jeu arrêté"
+      },
+      "attacksRight": "{{team}} attaque vers la droite",
+      "attacksLeft": "{{team}} attaque vers la gauche"
     }
   },
   "endOfSeason": {

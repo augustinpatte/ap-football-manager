@@ -15,6 +15,16 @@ import { useLiveMatch } from "./useLiveMatch";
 /** How long a goal stays announced above the pitch, in match time. */
 const GOAL_BANNER_MS = 8_000;
 const PITCH_MIDDLE_X = 52.5;
+/** The engine's stoppage reasons that have their own wording. */
+const STOPPAGE_REASONS = [
+  "ball_out",
+  "foul",
+  "offside",
+  "goal",
+  "injury",
+  "substitution",
+  "period_end",
+];
 
 interface InteractiveMatchScreenProps<TFinish> {
   homeName: string;
@@ -69,7 +79,9 @@ export default function InteractiveMatchScreen<TFinish>({
   const finished = snapshot.status === "finished";
   // When the match ends the Play button disables itself: move focus to the next useful control.
   useEffect(() => {
-    if (finished && document.activeElement === document.body) {
+    // A focused control that has just disabled itself no longer holds focus in every engine.
+    const active = document.activeElement;
+    if (finished && (active === document.body || (active as HTMLButtonElement | null)?.disabled)) {
       document.getElementById("interactive-finish")?.focus();
     }
   }, [finished]);
@@ -90,18 +102,27 @@ export default function InteractiveMatchScreen<TFinish>({
   }
 
   const goal = recentGoal(snapshot);
+  const goalText = goal
+    ? t("match.liveView.goalBanner", {
+        player: nameOf(goal.scorer),
+        minute: director.labelAt(goal.t_ms),
+      })
+    : null;
   const goalX = goal?.position ? (goal.position.x < PITCH_MIDDLE_X ? 0 : 105) : undefined;
   const mine = view.user_side === "away" ? session.away : session.home;
   const myPlan = view.user_side === "away" ? view.away_plan : view.home_plan;
   const controllable = view.user_side !== null && !finished;
   const homeAttacksRight =
     snapshot.period === "first_half" || snapshot.period === "extra_time_first";
-  const direction = (right: boolean) =>
-    t(right ? "match.liveView.directionRight" : "match.liveView.directionLeft");
 
   return (
     <main className="min-h-screen bg-page text-fg">
-      <LiveScoreboard homeName={homeName} awayName={awayName} snapshot={snapshot} />
+      <LiveScoreboard
+        homeName={homeName}
+        awayName={awayName}
+        snapshot={snapshot}
+        announcement={goalText}
+      />
       <LiveControls
         snapshot={snapshot}
         view={view}
@@ -132,17 +153,14 @@ export default function InteractiveMatchScreen<TFinish>({
 
       <div className="grid gap-4 p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3">
-          {goal ? (
-            <p
-              role="status"
-              className="rounded bg-warning-tint px-3 py-2 text-center font-heading text-heading font-bold uppercase tracking-label"
-            >
-              {t("match.liveView.goalBanner", {
-                player: nameOf(goal.scorer),
-                minute: director.labelAt(goal.t_ms),
-              })}
-            </p>
-          ) : null}
+          {/* The banner's height is always reserved so the pitch does not jump when a goal comes. */}
+          <p
+            aria-hidden="true"
+            className="min-h-11 rounded bg-warning-tint px-3 py-2 text-center font-heading text-heading font-bold tracking-label data-[idle=true]:invisible"
+            data-idle={goalText === null}
+          >
+            {goalText ?? "\u00a0"}
+          </p>
           <LivePitch
             director={director}
             roster={view.roster}
@@ -157,8 +175,7 @@ export default function InteractiveMatchScreen<TFinish>({
             snapshot={snapshot}
             homeName={homeName}
             awayName={awayName}
-            homeDirection={direction(homeAttacksRight)}
-            awayDirection={direction(!homeAttacksRight)}
+            homeAttacksRight={homeAttacksRight}
           />
           <div className="grid gap-4 lg:grid-cols-2">
             <EventLog
@@ -220,23 +237,18 @@ interface PitchCaptionProps {
   snapshot: DirectorSnapshot;
   homeName: string;
   awayName: string;
-  homeDirection: string;
-  awayDirection: string;
+  homeAttacksRight: boolean;
 }
 
 /** Who has the ball and which way each team attacks, in words: colour and arrows are never the only signal. */
-function PitchCaption({
-  snapshot,
-  homeName,
-  awayName,
-  homeDirection,
-  awayDirection,
-}: PitchCaptionProps) {
+function PitchCaption({ snapshot, homeName, awayName, homeAttacksRight }: PitchCaptionProps) {
   const { t } = useTranslation();
   const team = snapshot.possessionSide === "away" ? awayName : homeName;
   let situation: string;
   if (snapshot.frameState === "stoppage" && snapshot.stoppage) {
-    situation = t(`match.liveView.stoppage.${snapshot.stoppage}`);
+    // A reason a newer engine adds is "play stopped", never a raw key.
+    const reason = STOPPAGE_REASONS.includes(snapshot.stoppage) ? snapshot.stoppage : "other";
+    situation = t(`match.liveView.stoppage.${reason}`);
   } else if (snapshot.frameState === "kickoff_pending") {
     situation = t("match.liveView.kickoffPending");
   } else if (snapshot.frameState === "in_play" && snapshot.possessionSide) {
@@ -255,7 +267,9 @@ function PitchCaption({
             className="inline-block size-3 rounded-full"
             style={{ backgroundColor: TEAM_COLOURS.home }}
           />
-          {t("match.liveView.attacks", { team: homeName, direction: homeDirection })}
+          {t(homeAttacksRight ? "match.liveView.attacksRight" : "match.liveView.attacksLeft", {
+            team: homeName,
+          })}
         </li>
         <li className="flex items-center gap-2">
           <span
@@ -263,7 +277,9 @@ function PitchCaption({
             className="inline-block size-3 rounded-full"
             style={{ backgroundColor: TEAM_COLOURS.away }}
           />
-          {t("match.liveView.attacks", { team: awayName, direction: awayDirection })}
+          {t(homeAttacksRight ? "match.liveView.attacksLeft" : "match.liveView.attacksRight", {
+            team: awayName,
+          })}
         </li>
       </ul>
       <span>{situation}</span>

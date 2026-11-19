@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Řízení zápasu",
       "manage": "Řídit zápas",
-      "manageDesc": "Sledujte zápas živě na 2D hřišti a sami rozhodujte o taktice a střídání. Výsledek se započítá, až zápas dokončíte.",
+      "manageDesc": "Sledujte zápas živě na 2D hřišti a rozhodujte o taktice a střídání. Výsledek se započítá, až zápas dokončíte.",
       "play": "Hrát",
       "resume": "Pokračovat",
       "toEnd": "Hrát do konce",
@@ -2980,9 +2980,6 @@
       "goalBanner": "Gól! {{player}} · {{minute}}",
       "pauseToAct": "Pozastavte zápas, abyste mohli provést změny. Vaše pokyny platí od zobrazeného okamžiku.",
       "incompleteData": "Některá polohová data z herního enginu byla neúplná a v obraze chybí.",
-      "attacks": "{{team}} útočí {{direction}}",
-      "directionRight": "doprava",
-      "directionLeft": "doleva",
       "hasBall": "{{team}} má míč",
       "looseBall": "Míč je volný",
       "kickoffPending": "Čeká se na výkop",
@@ -2997,8 +2994,11 @@
         "goal": "Gól",
         "injury": "Přerušení kvůli zranění",
         "substitution": "Střídání",
-        "period_end": "Konec poločasu"
-      }
+        "period_end": "Konec poločasu",
+        "other": "Hra je přerušena"
+      },
+      "attacksRight": "{{team}} útočí doprava",
+      "attacksLeft": "{{team}} útočí doleva"
     }
   },
   "endOfSeason": {

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n, { i18nReady } from "../../i18n";
 import InteractiveMatchScreen from "./InteractiveMatchScreen";
@@ -39,6 +39,7 @@ const backend = vi.hoisted(() => {
     assistantActive: false,
     pending: [] as { off: string; on: string }[],
     emittedEvents: 0,
+    stoppage: null as string | null,
     rejectNext: null as string | null,
     failNextAdvance: false,
     calls: [] as string[],
@@ -90,8 +91,8 @@ function frameAt(t: number): LiveFrame {
   return {
     t_ms: t,
     period: second ? "second_half" : "first_half",
-    state: "in_play",
-    stoppage: null,
+    state: backend.state.stoppage ? "stoppage" : "in_play",
+    stoppage: backend.state.stoppage,
     ball: [30 + t / 1000, 34, 0],
     holder: 0,
     possession_side: "home",
@@ -271,6 +272,7 @@ function reset() {
     assistantActive: false,
     pending: [],
     emittedEvents: 0,
+    stoppage: null,
     rejectNext: null,
     failNextAdvance: false,
     calls: [],
@@ -520,6 +522,21 @@ describe("InteractiveMatchScreen (live 2D)", () => {
     const unknown = tr("match.replayUnknownPlayer");
     expect(screen.getByText(`${unknown} → ${unknown}`)).toBeInTheDocument();
     expect(screen.queryByText(/ghost/)).not.toBeInTheDocument();
+  });
+
+  /** Given the engine stopping play for a reason this version has wording for, or one a newer engine adds, Then the caption says it in words, and an unknown reason is "play stopped", never a raw key. */
+  it("names why play stopped, and never shows a raw key for a reason it does not know", async () => {
+    for (const [reason, key] of [
+      ["foul", "match.liveView.stoppage.foul"],
+      ["var_check", "match.liveView.stoppage.other"],
+    ]) {
+      cleanup();
+      reset();
+      backend.state.stoppage = reason;
+      await opened();
+      expect(screen.getByText(tr(key))).toBeInTheDocument();
+      expect(document.body.textContent).not.toContain("match.liveView");
+    }
   });
 
   /** Given the highlight modes, then all three are offered, the full match is the default, and the choice is exposed as a radio group. */

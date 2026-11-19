@@ -372,6 +372,7 @@ export function EventLog({
               teamNames={teamNames}
               nameOf={nameOf}
               minuteLabel={minuteLabel}
+              announce={false}
             />
           </section>
         )}

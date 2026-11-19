@@ -2879,7 +2879,7 @@
     "interactive": {
       "heading": "Gestão da partida",
       "manage": "Gerenciar a partida",
-      "manageDesc": "Assista à partida ao vivo em um campo 2D e tome você mesmo as decisões táticas e de substituição. O resultado só vale quando você terminar.",
+      "manageDesc": "Assista à partida ao vivo em um campo 2D e tome as decisões táticas e de substituição por conta própria. O resultado só vale quando terminar.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até o fim",
@@ -2923,9 +2923,6 @@
       "goalBanner": "Gol! {{player}} · {{minute}}",
       "pauseToAct": "Pause a partida para fazer alterações. Suas ordens valem a partir do momento mostrado.",
       "incompleteData": "Alguns dados de posição do motor da partida estavam incompletos e ficaram de fora da imagem.",
-      "attacks": "{{team}} ataca {{direction}}",
-      "directionRight": "para a direita",
-      "directionLeft": "para a esquerda",
       "hasBall": "{{team}} está com a bola",
       "looseBall": "A bola está livre",
       "kickoffPending": "Aguardando o pontapé inicial",
@@ -2940,8 +2937,11 @@
         "goal": "Gol",
         "injury": "Paralisação por lesão",
         "substitution": "Substituição",
-        "period_end": "Fim do tempo"
-      }
+        "period_end": "Fim do tempo",
+        "other": "Jogo parado"
+      },
+      "attacksRight": "{{team}} ataca para a direita",
+      "attacksLeft": "{{team}} ataca para a esquerda"
     }
   },
   "endOfSeason": {

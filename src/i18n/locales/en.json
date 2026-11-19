@@ -2980,9 +2980,6 @@
       "goalBanner": "Goal! {{player}} · {{minute}}",
       "pauseToAct": "Pause the match to make changes. Your orders apply from the moment shown.",
       "incompleteData": "Some position data from the match engine was incomplete and has been left out of the picture.",
-      "attacks": "{{team}} attacks {{direction}}",
-      "directionRight": "to the right",
-      "directionLeft": "to the left",
       "hasBall": "{{team}} have the ball",
       "looseBall": "The ball is loose",
       "kickoffPending": "Waiting for kick-off",
@@ -2997,8 +2994,11 @@
         "goal": "Goal",
         "injury": "Injury stoppage",
         "substitution": "Substitution",
-        "period_end": "End of the period"
-      }
+        "period_end": "End of the period",
+        "other": "Play stopped"
+      },
+      "attacksRight": "{{team}} attacks to the right",
+      "attacksLeft": "{{team}} attacks to the left"
     }
   },
   "endOfSeason": {

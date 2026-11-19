@@ -2980,9 +2980,6 @@
       "goalBanner": "Tor! {{player}} · {{minute}}",
       "pauseToAct": "Halte das Spiel an, um Änderungen vorzunehmen. Deine Anweisungen gelten ab dem gezeigten Moment.",
       "incompleteData": "Einige Positionsdaten der Spiel-Engine waren unvollständig und wurden im Bild weggelassen.",
-      "attacks": "{{team}} greift {{direction}} an",
-      "directionRight": "nach rechts",
-      "directionLeft": "nach links",
       "hasBall": "{{team}} hat den Ball",
       "looseBall": "Der Ball ist frei",
       "kickoffPending": "Warten auf den Anstoß",
@@ -2997,8 +2994,11 @@
         "goal": "Tor",
         "injury": "Unterbrechung wegen Verletzung",
         "substitution": "Auswechslung",
-        "period_end": "Ende des Spielabschnitts"
-      }
+        "period_end": "Ende des Spielabschnitts",
+        "other": "Spielunterbrechung"
+      },
+      "attacksRight": "{{team}} greift nach rechts an",
+      "attacksLeft": "{{team}} greift nach links an"
     }
   },
   "endOfSeason": {

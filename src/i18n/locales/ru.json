@@ -2980,9 +2980,6 @@
       "goalBanner": "Гол! {{player}} · {{minute}}",
       "pauseToAct": "Поставьте матч на паузу, чтобы внести изменения. Ваши приказы действуют с показанного момента.",
       "incompleteData": "Часть данных о позициях от игрового движка была неполной и не показана на картинке.",
-      "attacks": "{{team}} атакует {{direction}}",
-      "directionRight": "вправо",
-      "directionLeft": "влево",
       "hasBall": "У {{team}} мяч",
       "looseBall": "Мяч ничей",
       "kickoffPending": "Ожидание начала игры",
@@ -2997,8 +2994,11 @@
         "goal": "Гол",
         "injury": "Остановка из-за травмы",
         "substitution": "Замена",
-        "period_end": "Конец тайма"
-      }
+        "period_end": "Конец тайма",
+        "other": "Игра остановлена"
+      },
+      "attacksRight": "{{team}} атакует вправо",
+      "attacksLeft": "{{team}} атакует влево"
     }
   },
   "endOfSeason": {

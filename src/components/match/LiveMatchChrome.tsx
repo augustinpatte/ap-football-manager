@@ -21,10 +21,12 @@ interface ScoreboardProps {
   homeName: string;
   awayName: string;
   snapshot: DirectorSnapshot;
+  /** A goal just shown, in words, announced once through the status line. */
+  announcement?: string | null;
 }
 
 /** The scoreboard: the score and clock are the picture's, never the engine's head, so they match what is drawn. */
-export function LiveScoreboard({ homeName, awayName, snapshot }: ScoreboardProps) {
+export function LiveScoreboard({ homeName, awayName, snapshot, announcement }: ScoreboardProps) {
   const { t } = useTranslation();
   const clock = snapshot.view?.clock;
   const addedTime =
@@ -52,6 +54,7 @@ export function LiveScoreboard({ homeName, awayName, snapshot }: ScoreboardProps
       {/* One status line that changes only when the score or the phase does, not with the clock. */}
       <p role="status" className="sr-only">
         {`${homeName} ${snapshot.score.home}, ${awayName} ${snapshot.score.away}, ${phase}`}
+        {announcement ? `. ${announcement}` : ""}
       </p>
     </header>
   );

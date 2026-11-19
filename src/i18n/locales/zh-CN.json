@@ -2980,9 +2980,6 @@
       "goalBanner": "进球！{{player}} · {{minute}}",
       "pauseToAct": "暂停比赛以进行调整。你的指令从所显示的时刻起生效。",
       "incompleteData": "比赛引擎提供的部分位置数据不完整，已从画面中省略。",
-      "attacks": "{{team}}向{{direction}}进攻",
-      "directionRight": "右",
-      "directionLeft": "左",
       "hasBall": "{{team}}控球",
       "looseBall": "球处于无人控制状态",
       "kickoffPending": "等待开球",
@@ -2997,8 +2994,11 @@
         "goal": "进球",
         "injury": "因伤暂停",
         "substitution": "换人",
-        "period_end": "本节结束"
-      }
+        "period_end": "阶段结束",
+        "other": "比赛暂停"
+      },
+      "attacksRight": "{{team}}向右进攻",
+      "attacksLeft": "{{team}}向左进攻"
     }
   },
   "endOfSeason": {

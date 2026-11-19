@@ -2936,7 +2936,7 @@
     "interactive": {
       "heading": "Gestão do jogo",
       "manage": "Gerir o jogo",
-      "manageDesc": "Veja o jogo em direto num campo 2D e tome as decisões táticas e de substituição. O resultado conta quando terminar.",
+      "manageDesc": "Vê o jogo em direto num campo 2D e toma as decisões táticas e de substituição. O resultado conta quando terminares.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até ao fim",
@@ -2978,17 +2978,14 @@
       "startSecondHalf": "Começar a segunda parte",
       "addedTime": "+{{minutes}} min de compensação",
       "goalBanner": "Golo! {{player}} · {{minute}}",
-      "pauseToAct": "Pause o jogo para fazer alterações. As suas ordens aplicam-se a partir do momento mostrado.",
+      "pauseToAct": "Pausa o jogo para fazer alterações. As tuas ordens aplicam-se a partir do momento mostrado.",
       "incompleteData": "Alguns dados de posição do motor de jogo estavam incompletos e foram deixados de fora da imagem.",
-      "attacks": "{{team}} ataca {{direction}}",
-      "directionRight": "para a direita",
-      "directionLeft": "para a esquerda",
       "hasBall": "{{team}} tem a bola",
       "looseBall": "A bola está solta",
       "kickoffPending": "À espera do pontapé de saída",
       "status": {
         "loading": "A preparar o jogo…",
-        "pausing": "A chegar ao momento em que pode agir…"
+        "pausing": "A chegar ao momento em que podes agir…"
       },
       "stoppage": {
         "ball_out": "Bola fora de jogo",
@@ -2997,8 +2994,11 @@
         "goal": "Golo",
         "injury": "Paragem por lesão",
         "substitution": "Substituição",
-        "period_end": "Fim do período"
-      }
+        "period_end": "Fim do período",
+        "other": "Jogo parado"
+      },
+      "attacksRight": "{{team}} ataca para a direita",
+      "attacksLeft": "{{team}} ataca para a esquerda"
     }
   },
   "endOfSeason": {
