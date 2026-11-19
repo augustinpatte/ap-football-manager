@@ -170,6 +170,7 @@ fn play_interactive_match(state: &StateManager) {
                 stop_at_key_events: false,
             },
             0,
+            false,
         )
         .expect("the match advances");
         if out.stop == StopReason::Finished {

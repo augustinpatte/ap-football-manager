@@ -32,14 +32,21 @@ pub fn get_interactive_match_state(
     get_interactive_match_state_internal(&state, event_cursor)
 }
 
-/// Plays on until the target, a stop (break, goal, dismissal, injury) or full time.
+/// Plays on until the target, a stop (break, goal, dismissal, injury) or full time. With
+/// `capture_frames` the answer carries the frames of the stretch for the 2D screen.
 #[tauri::command]
 pub fn advance_interactive_match(
     state: State<'_, Arc<StateManager>>,
     request: AdvanceRequest,
     event_cursor: usize,
+    capture_frames: Option<bool>,
 ) -> Result<AdvanceSnapshot, String> {
-    advance_interactive_match_internal(&state, request, event_cursor)
+    advance_interactive_match_internal(
+        &state,
+        request,
+        event_cursor,
+        capture_frames.unwrap_or(false),
+    )
 }
 
 /// An order from the manager: tactics, a formation, a substitution or its cancellation.

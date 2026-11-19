@@ -9,8 +9,8 @@
 
 use log::info;
 use ofm_core::interactive_match::{
-    self, AdvanceOutcome, AdvanceRequest, FixtureIdentity, InteractiveMatch, InteractiveView,
-    KeyEvent, OrderReceipt, StopReason, UserCommand,
+    self, live_frames::LiveFrame, AdvanceOutcome, AdvanceRequest, FixtureIdentity,
+    InteractiveMatch, InteractiveView, KeyEvent, OrderReceipt, StopReason, UserCommand,
 };
 use ofm_core::state::StateManager;
 use serde::Serialize;
@@ -32,6 +32,8 @@ pub struct InteractiveSnapshot {
 pub struct AdvanceSnapshot {
     pub stop: StopReason,
     pub snapshot: InteractiveSnapshot,
+    /// The frames of the stretch just played, read from the engine's world; empty unless asked for.
+    pub frames: Vec<LiveFrame>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -105,17 +107,26 @@ pub fn get_interactive_match_state_internal(
 }
 
 /// Plays on. The computer-managed sides are consulted inside; the manager's own side is only
-/// ever changed by his orders (or the assistant's, if he has handed the match over).
+/// ever changed by his orders (or the assistant's, if he has handed the match over). With
+/// `capture_frames` the answer also carries the frames of the stretch (the 2D screen asks for
+/// them; the match played is the same either way).
 pub fn advance_interactive_match_internal(
     state: &StateManager,
     request: AdvanceRequest,
     event_cursor: usize,
+    capture_frames: bool,
 ) -> Result<AdvanceSnapshot, String> {
     with_match(state, |m| {
-        let AdvanceOutcome { stop, .. } = m.advance(request).map_err(|e| e.translation_key())?;
+        let AdvanceOutcome { stop, frames, .. } = if capture_frames {
+            m.advance_capturing(request)
+        } else {
+            m.advance(request)
+        }
+        .map_err(|e| e.translation_key())?;
         Ok(AdvanceSnapshot {
             stop,
             snapshot: snapshot_of(m, event_cursor)?,
+            frames,
         })
     })
 }
@@ -279,6 +290,7 @@ mod tests {
                 stop_at_key_events: false,
             },
             0,
+            false,
         )
         .expect("advance")
     }
