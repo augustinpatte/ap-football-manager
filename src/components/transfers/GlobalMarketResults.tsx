@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Badge, Button, Card, CardBody } from "../ui";
 import { formatVal } from "../../lib/valueFormatting";
+import ReadableRating from "../players/ReadableRating";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { pageRange, totalPages } from "./globalMarketModel";
 import type { GlobalMarketController } from "./useGlobalMarket";
@@ -89,7 +90,7 @@ export default function GlobalMarketResults({ controller }: GlobalMarketResultsP
                 <Th>{t("common.position")}</Th>
                 <Th>{t("common.age")}</Th>
                 <Th>{t("globalMarket.club")}</Th>
-                <Th>{t("common.ovr")}</Th>
+                <Th hint={t("playerRating.sortHint")}>{t("common.ovr")}</Th>
                 <Th>{t("globalMarket.marketValue")}</Th>
                 <Th>{t("common.wage")}</Th>
                 <Th>{t("globalMarket.askingPrice")}</Th>
@@ -158,10 +159,11 @@ export default function GlobalMarketResults({ controller }: GlobalMarketResultsP
   );
 }
 
-function Th({ children }: { children: ReactNode }) {
+function Th({ children, hint }: { children: ReactNode; hint?: string }) {
   return (
     <th
       scope="col"
+      title={hint}
       className="px-3 py-3 font-heading font-bold uppercase tracking-wider text-fg-muted"
     >
       {children}
@@ -221,8 +223,8 @@ function ResultRow({
       <td className="px-3 py-2 align-top text-caption text-fg-muted">
         {item.club ?? t("globalMarket.freeAgent")}
       </td>
-      <td className="px-3 py-2 align-top font-heading font-bold tabular-nums text-fg">
-        {item.ovr}
+      <td className="px-3 py-2 align-top">
+        <ReadableRating rating={{ kind: "standing", standing: item.standing }} />
       </td>
       <td className="px-3 py-2 align-top text-caption tabular-nums text-fg-muted">
         {formatVal(item.marketValue)}

@@ -43,8 +43,7 @@ const summary: RegistrySummary = {
   nationality: "FR",
   position: "Striker",
   positionGroup: "forward",
-  ovr: 78,
-  potential: 86,
+  standing: "strong",
   club: "External United",
   ownership: "contracted",
   contractEnd: "2028-06-30",
@@ -70,9 +69,7 @@ const detail: RegistryPlayerDetail = {
   alternatePositions: [],
   footedness: "Right",
   weakFoot: 3,
-  attributes: { pace: 80, shooting: 82, passing: 70 },
-  ovr: 78,
-  potential: 86,
+  standing: "strong",
   clubId: 900,
   clubName: "External United",
   clubNation: "FR",
@@ -149,6 +146,32 @@ describe("GlobalMarketTab", () => {
     mockedSearch.mockResolvedValue(page([summary], 60));
   });
 
+  /**
+   * Given a market whose page the backend sends with a public standing and no rating
+   * When the results table renders and a profile is opened
+   * Then the rating column says the standing in words, and no number, potential or attribute block
+   *      is shown anywhere for a player nobody has scouted
+   */
+  it("shows the market's standing and never a rating, potential or attributes", async () => {
+    mockedDetail.mockResolvedValue(detail);
+
+    render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
+    const row = (await screen.findByText("Alex Striker")).closest("tr") as HTMLElement;
+
+    expect(within(row).getByText("playerRating.standing.strong")).toBeInTheDocument();
+    expect(screen.getByTitle("playerRating.sortHint")).toBeInTheDocument();
+    for (const hidden of ["78", "86"]) {
+      expect(within(row).queryByText(hidden)).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: /globalMarket\.openProfile/ }));
+    await screen.findByText("globalMarket.negotiation");
+
+    expect(screen.queryByText("globalMarket.potential")).not.toBeInTheDocument();
+    expect(screen.queryByText("playerProfile.attributes")).not.toBeInTheDocument();
+    expect(screen.queryByText("80")).not.toBeInTheDocument();
+  });
+
   it("asks the backend for the sort, direction, filter and page the controls describe", async () => {
     render(<GlobalMarketTab gameState={{} as GameStateData} onGameUpdate={vi.fn()} />);
 
@@ -198,7 +221,10 @@ describe("GlobalMarketTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: /globalMarket\.openProfile/ }));
 
     await screen.findByText("globalMarket.negotiation");
-    expect(screen.getByText("globalMarket.potential")).toBeInTheDocument();
+    // Nobody in the market is scouted: his standing and the note say so, and there is no potential.
+    expect(screen.getAllByText("playerRating.standing.strong").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("playerRating.notScouted")).toBeInTheDocument();
+    expect(screen.queryByText("globalMarket.potential")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "globalMarket.checkTerms" }));
     await screen.findByText("globalMarket.status.agreed");

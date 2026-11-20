@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { GameStateData } from "../store/gameStore";
+import type { PublicStanding } from "./playerRatingService";
 
 /** Which source position group a search accepts. */
 export type RegistryPositionFilter = "any" | "goalkeeper" | "defender" | "midfielder" | "forward";
@@ -37,8 +38,11 @@ export interface RegistrySummary {
   nationality: string | null;
   position: string | null;
   positionGroup: string | null;
-  ovr: number;
-  potential: number;
+  /**
+   * How good he is thought to be, in five steps. Nobody in the market has been scouted, so the
+   * screen is never given his rating, potential or attributes.
+   */
+  standing: PublicStanding;
   club: string | null;
   /** "free_agent" | "contracted", projected from the contract end against the career clock. */
   ownership: string;
@@ -81,9 +85,7 @@ export interface RegistryPlayerDetail {
   alternatePositions: string[];
   footedness: string;
   weakFoot: number;
-  attributes: Record<string, number> | null;
-  ovr: number;
-  potential: number;
+  standing: PublicStanding;
   clubId: number | null;
   clubName: string | null;
   clubNation: string | null;

@@ -6,6 +6,7 @@ import type {
   RegistrySearchRequest,
   RegistrySummary,
 } from "../../services/registryService";
+import type { PublicStanding } from "../../services/playerRatingService";
 import { gameState } from "./fixture.generated";
 
 /**
@@ -69,32 +70,21 @@ const POSITIONS = [
   { position: "Forward", group: "forward" },
 ] as const;
 
-const ATTRIBUTE_VALUES = [
-  "pace",
-  "stamina",
-  "strength",
-  "agility",
-  "aerial",
-  "passing",
-  "shooting",
-  "tackling",
-  "dribbling",
-  "defending",
-  "positioning",
-  "vision",
-  "decisions",
-  "composure",
-  "aggression",
-  "teamwork",
-  "leadership",
-  "handling",
-  "reflexes",
-] as const;
-
 const CONTRACT_END = "2033-06-30";
 
 /** Long enough for five pages, so the paging controls have something to page through. */
 export const MARKET_TOTAL = NAMES.length;
+
+/** The harness's own copy of the backend's standing cut-offs (`ofm_core::rating_view`). */
+function standingOf(ovr: number): PublicStanding {
+  if (ovr >= 81) return "elite";
+  if (ovr >= 77) return "strong";
+  if (ovr >= 70) return "good";
+  if (ovr >= 62) return "average";
+  return "limited";
+}
+
+const STANDING_ORDER: PublicStanding[] = ["limited", "average", "good", "strong", "elite"];
 
 export const marketPlayers: RegistrySummary[] = NAMES.map((name, index) => {
   const position = POSITIONS[index % POSITIONS.length];
@@ -106,8 +96,7 @@ export const marketPlayers: RegistrySummary[] = NAMES.map((name, index) => {
     nationality: NATIONS[index % NATIONS.length],
     position: position.position,
     positionGroup: position.group,
-    ovr: 88 - index,
-    potential: 92 - (index % 9),
+    standing: standingOf(88 - index),
     club: freeAgent ? null : CLUBS[index % CLUBS.length],
     ownership: freeAgent ? "free_agent" : "contracted",
     contractEnd: freeAgent ? null : CONTRACT_END,
@@ -133,7 +122,7 @@ function compare(
     case "club":
       return (left.club ?? "").localeCompare(right.club ?? "");
     default:
-      return left.ovr - right.ovr;
+      return STANDING_ORDER.indexOf(left.standing) - STANDING_ORDER.indexOf(right.standing);
   }
 }
 
@@ -210,11 +199,7 @@ export function marketPlayerDetail(id: string): RegistryPlayerDetail | null {
     alternatePositions: index % 3 === 0 ? ["Midfielder"] : [],
     footedness: index % 4 === 0 ? "Left" : "Right",
     weakFoot: 2 + (index % 4),
-    attributes: Object.fromEntries(
-      ATTRIBUTE_VALUES.map((attribute, position) => [attribute, 8 + ((index + position) % 12)]),
-    ),
-    ovr: player.ovr,
-    potential: player.potential,
+    standing: player.standing,
     clubId: player.ownership === "free_agent" ? null : 700 + index,
     clubName: player.club,
     clubNation: player.ownership === "free_agent" ? null : NATIONS[index % NATIONS.length],

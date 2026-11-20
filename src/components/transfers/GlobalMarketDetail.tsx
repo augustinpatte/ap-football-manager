@@ -1,7 +1,7 @@
 import { type ChangeEvent, useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Card, CardBody, CardHeader } from "../ui";
-import { buildPlayerAttributeGroups } from "../playerProfile/PlayerProfile.attributes";
+import ReadableRating from "../players/ReadableRating";
 import { formatDate } from "../../lib/dateFormatting";
 import { formatExactMoney, formatVal, formatWeeklyWage } from "../../lib/valueFormatting";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
@@ -65,7 +65,6 @@ export default function GlobalMarketDetail({ controller }: GlobalMarketDetailPro
           ) : detail ? (
             <>
               <PlayerSummary controller={controller} />
-              {detail.attributes ? <AttributeGroups controller={controller} /> : null}
               <NegotiationPanel controller={controller} />
             </>
           ) : (
@@ -112,8 +111,12 @@ function PlayerSummary({ controller }: GlobalMarketDetailProps) {
         </p>
       </div>
       <div className="grid grid-cols-1 gap-2 text-body sm:grid-cols-2">
-        <Stat label={t("common.ovr")} value={String(detail.ovr)} />
-        <Stat label={t("globalMarket.potential")} value={String(detail.potential)} />
+        <div className="min-w-0 rounded-lg bg-sunken px-3 py-2">
+          <p className="text-caption font-heading font-bold uppercase tracking-label text-fg-subtle">
+            {t("common.ovr")}
+          </p>
+          <ReadableRating rating={{ kind: "standing", standing: detail.standing }} />
+        </div>
         <Stat label={t("globalMarket.marketValue")} value={formatVal(detail.marketValue)} />
         <Stat label={t("common.wage")} value={formatWeeklyWage(detail.weeklyWage)} />
         <Stat
@@ -129,6 +132,7 @@ function PlayerSummary({ controller }: GlobalMarketDetailProps) {
           }
         />
       </div>
+      <p className="text-caption text-fg-muted">{t("playerRating.notScouted")}</p>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-sunken px-3 py-2 text-body">
         <span className="text-fg-muted">{t("globalMarket.askingPrice")}</span>
         <span className="font-heading font-bold text-fg">
@@ -149,39 +153,6 @@ function Stat({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="break-words font-heading font-bold text-fg">{value}</p>
-    </div>
-  );
-}
-
-function AttributeGroups({ controller }: GlobalMarketDetailProps) {
-  const { t } = useTranslation();
-  const detail = controller.detail;
-  if (!detail?.attributes) return null;
-  const groups = buildPlayerAttributeGroups(
-    {
-      position: detail.position ?? "",
-      natural_position: detail.naturalPosition ?? undefined,
-      attributes: detail.attributes,
-    },
-    t,
-  );
-  return (
-    <div className="space-y-3">
-      {groups.map((group) => (
-        <div key={group.label}>
-          <h4 className="mb-1 text-caption font-heading font-bold uppercase tracking-label text-fg-subtle">
-            {group.label}
-          </h4>
-          <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-caption sm:grid-cols-2">
-            {group.attrs.map((attribute) => (
-              <div key={attribute.name} className="flex justify-between gap-2">
-                <dt className="text-fg-muted">{attribute.name}</dt>
-                <dd className="font-heading font-bold tabular-nums text-fg">{attribute.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ))}
     </div>
   );
 }
