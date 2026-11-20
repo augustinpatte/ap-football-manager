@@ -1401,9 +1401,21 @@ describe("InboxTab", (): void => {
       ]),
       initialMessageId: "youth-tiers",
       prospectReadings: [
-        { player_id: "p-a", current: { kind: "exact", ovr: 60 }, ceiling: { kind: "exact", ovr: 77 } },
-        { player_id: "p-b", current: { kind: "exact", ovr: 60 }, ceiling: { kind: "exact", ovr: 76 } },
-        { player_id: "p-r", current: { kind: "exact", ovr: 50 }, ceiling: { kind: "exact", ovr: 60 } },
+        {
+          player_id: "p-a",
+          current: { kind: "exact", ovr: 60 },
+          ceiling: { kind: "exact", ovr: 77 },
+        },
+        {
+          player_id: "p-b",
+          current: { kind: "exact", ovr: 60 },
+          ceiling: { kind: "exact", ovr: 76 },
+        },
+        {
+          player_id: "p-r",
+          current: { kind: "exact", ovr: 50 },
+          ceiling: { kind: "exact", ovr: 60 },
+        },
       ],
     });
 
@@ -1457,7 +1469,9 @@ describe("InboxTab", (): void => {
 
     expect(await screen.findByText("Limited")).toBeInTheDocument();
     expect(screen.getByText("Strong")).toBeInTheDocument();
-    expect(screen.getByText("Growth room is not known until he joins your academy.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Growth room is not known until he joins your academy."),
+    ).toBeInTheDocument();
     expect(screen.queryByText("52")).not.toBeInTheDocument();
     expect(screen.queryByText("78")).not.toBeInTheDocument();
     expect(screen.queryByText("+26")).not.toBeInTheDocument();

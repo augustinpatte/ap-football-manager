@@ -80,15 +80,15 @@ describe("ReadableRating", () => {
    * Then the standing's name is on screen and no digit is, visible or in the accessible text
    */
   it("shows a standing as a word with no number anywhere", () => {
-    const { container } = render(<ReadableRating rating={{ kind: "standing", standing: "good" }} />);
+    const { container } = render(
+      <ReadableRating rating={{ kind: "standing", standing: "good" }} />,
+    );
 
     expect(screen.getByText("playerRating.standing.good")).toBeInTheDocument();
     // The mocked translator echoes keys, and "a11y" is one: look for digits outside key names.
     expect((container.textContent ?? "").replace(/a11y/g, "")).not.toMatch(/\d/);
     expect(
-      screen.getByText(
-        'playerRating.a11y.standing:{"standing":"playerRating.standing.good"}',
-      ),
+      screen.getByText('playerRating.a11y.standing:{"standing":"playerRating.standing.good"}'),
     ).toBeInTheDocument();
   });
 

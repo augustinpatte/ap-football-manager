@@ -49,7 +49,10 @@ export default function ReadableRating({
   if (rating.kind === "exact") {
     return (
       <span className={wrapper}>
-        <span aria-hidden="true" className={`${figure("exact")} ${ratingTierClass(tierOf(rating.ovr), "text")}`}>
+        <span
+          aria-hidden="true"
+          className={`${figure("exact")} ${ratingTierClass(tierOf(rating.ovr), "text")}`}
+        >
           {rating.ovr}
         </span>
         <span className="sr-only">{t("playerRating.a11y.exact", { value: rating.ovr })}</span>
@@ -81,7 +84,10 @@ export default function ReadableRating({
           </span>
         )}
         <span className="sr-only">
-          {t(rating.current ? "playerRating.a11y.estimate" : "playerRating.a11y.estimateStale", spoken)}
+          {t(
+            rating.current ? "playerRating.a11y.estimate" : "playerRating.a11y.estimateStale",
+            spoken,
+          )}
         </span>
       </span>
     );
@@ -90,7 +96,10 @@ export default function ReadableRating({
   const standing = t(`playerRating.standing.${rating.standing}`);
   return (
     <span className={wrapper} title={t("playerRating.hint.standing")}>
-      <span aria-hidden="true" className={`font-heading font-bold ${FIGURE_SIZE[size].standing} text-fg-muted`}>
+      <span
+        aria-hidden="true"
+        className={`font-heading font-bold ${FIGURE_SIZE[size].standing} text-fg-muted`}
+      >
         {standing}
       </span>
       <span className="sr-only">{t("playerRating.a11y.standing", { standing })}</span>

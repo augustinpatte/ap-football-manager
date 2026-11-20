@@ -384,7 +384,9 @@ describe("PreMatchSetup line-up changes that fail", () => {
     fireEvent.click(screen.getByRole("button", { name: "match.autoSelectXI" }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
-    const lineUpCalls = mockedInvoke.mock.calls.filter(([command]) => command !== "get_player_ratings");
+    const lineUpCalls = mockedInvoke.mock.calls.filter(
+      ([command]) => command !== "get_player_ratings",
+    );
     expect(lineUpCalls).toHaveLength(3);
     expect(onUpdateSnapshot).toHaveBeenCalledTimes(1);
     expect(onUpdateSnapshot).toHaveBeenCalledWith({ marker: "after-second" });

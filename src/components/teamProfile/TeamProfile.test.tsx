@@ -437,7 +437,9 @@ describe("TeamProfile", () => {
 
     const row = async (name: string) =>
       within((await screen.findByText(name)).closest("tr") as HTMLElement);
-    expect((await row("Rival Unknown")).getByText("playerRating.standing.elite")).toBeInTheDocument();
+    expect(
+      (await row("Rival Unknown")).getByText("playerRating.standing.elite"),
+    ).toBeInTheDocument();
     expect((await row("Rival Seen")).getByText("66–74")).toBeInTheDocument();
     expect(screen.queryByText("83")).not.toBeInTheDocument();
     expect(screen.queryByText("??")).not.toBeInTheDocument();

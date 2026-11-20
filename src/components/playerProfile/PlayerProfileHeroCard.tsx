@@ -164,16 +164,12 @@ export default function PlayerProfileHeroCard({
             <QuickStat
               label={t("common.condition")}
               value={conditionText}
-              color={
-                knowsHisForm && player.condition < 70 ? "text-red-400" : "text-primary-400"
-              }
+              color={knowsHisForm && player.condition < 70 ? "text-red-400" : "text-primary-400"}
             />
             <QuickStat
               label={t("common.morale")}
               value={moraleText}
-              color={
-                knowsHisForm && player.morale < 70 ? "text-accent-400" : "text-primary-400"
-              }
+              color={knowsHisForm && player.morale < 70 ? "text-accent-400" : "text-primary-400"}
             />
             <QuickStat
               label={t("common.value")}

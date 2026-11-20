@@ -25,7 +25,9 @@ export function useYouthProspectReadings(
         if (!current) return;
         setAnswer({
           messageId,
-          readings: Object.fromEntries((readings ?? []).map((reading) => [reading.player_id, reading])),
+          readings: Object.fromEntries(
+            (readings ?? []).map((reading) => [reading.player_id, reading]),
+          ),
         });
       })
       .catch((error: unknown) => {
