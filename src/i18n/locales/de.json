@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Derzeit stehen keine berechtigten U21-Profispieler zur Verfügung.",
     "youthPlayers": "Jugendspieler",
     "avgOvr": "Ø OVR",
-    "avgPotential": "Ø Potenzial",
-    "highPotential": "Hohes Potenzial",
     "youthCoach": "Jugendtrainer:",
     "youthProspects": "Jugendtalente",
     "noYouthPlayers": "Keine Jugendspieler (≤21) in deinem Kader.",
@@ -396,7 +394,9 @@
     "traits": "Eigenschaften",
     "condition": "Zustand",
     "delegateToYouthAcademy": "An die Jugendakademie delegieren",
-    "promoteToSeniorSquad": "In den Profikader befördern"
+    "promoteToSeniorSquad": "In den Profikader befördern",
+    "avgCeiling": "Ø Obergrenze (geschätzt)",
+    "highCeiling": "Hohe Obergrenzen"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Profikader: {{seniors}} von {{limit}}",
     "nextIntake": "Nächster Jahrgang: {{count}}",
     "ceiling": "Obergrenze",
-    "expectedNext": "Erwartet nächstes Jahr",
     "squadCover": "Kaderbreite",
     "verdict": "Urteil",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Verbessert sich noch",
       "nearCeiling": "Nahe an der Obergrenze"
     },
-    "ceilingNote": "Potenzial ist eine Obergrenze, kein Versprechen: Die erwartete Wertung zeigt, was die Entwicklung üblicherweise bringt.",
+    "ceilingNote": "Dein Jugendstab schätzt jede Obergrenze als Spanne ein, nie als genaue Zahl. Eine Obergrenze ist kein Versprechen: Ein Spieler kann sie verfehlen oder erreichen.",
     "promoteFor": "{{player}} befördern",
     "listLoanFor": "{{player}} auf die Leihliste setzen",
     "unlistLoanFor": "{{player}} von der Leihliste nehmen",
-    "releaseFor": "{{player}} freigeben"
+    "releaseFor": "{{player}} freigeben",
+    "coaching": "Jugendtraining",
+    "coachingSummary": "Bewertung {{rating}}: Obergrenzen werden auf etwa {{width}} Punkte genau gelesen ({{confidence}}).",
+    "coachingNoStaff": "Kein Jugendtrainer oder Leiter der Jugend: Obergrenzen werden nur auf {{width}} Punkte genau gelesen. Ein Jugendtrainer beschleunigt außerdem deine Akademie.",
+    "coachingBonus": "Deine Jugendtrainer beschleunigen die Entwicklung in der Akademie um {{percent}} %.",
+    "decisions": "Entscheidungen",
+    "advice": {
+      "action": {
+        "promote": "Befördern",
+        "loan": "Leihe",
+        "keep": "In der Akademie bleiben",
+        "renew": "Vertrag"
+      },
+      "state": {
+        "recommended": "Empfohlen",
+        "available": "Möglich",
+        "blocked": "Gesperrt"
+      },
+      "promote": {
+        "onLoan": "Er ist verliehen und kann erst nach seiner Rückkehr befördert werden.",
+        "noPlace": "Dein Profikader hat keinen freien Platz für ihn.",
+        "pastAcademyAge": "Er ist über der Altersgrenze der Akademie: Befördere ihn oder gib ihn ab.",
+        "ready": "Dein Profikader kann ihn jetzt gebrauchen.",
+        "injured": "Er ist verletzt und kann noch nicht spielen.",
+        "notNeeded": "Dein Kader braucht ihn noch nicht; er entwickelt sich weiter in der Akademie."
+      },
+      "loan": {
+        "alreadyOut": "Er ist bereits verliehen.",
+        "recommended": "Regelmäßige Einsätze woanders würden ihm mehr helfen als Akademiefußball.",
+        "listed": "Er steht auf der Leihliste: Andere Vereine können nach ihm fragen.",
+        "promoteInstead": "Er ist bereit für den Profikader: Befördere ihn, statt ihn zu verleihen.",
+        "notNeeded": "Eine Leihe bringt im Moment keinen klaren Vorteil."
+      },
+      "keep": {
+        "developing": "Er braucht mehr Zeit in der Akademie.",
+        "lastYear": "Es ist sein letztes Jahr in der Akademie.",
+        "pastAcademyAge": "Er ist über der Altersgrenze der Akademie."
+      },
+      "renew": {
+        "endsSoon": "Sein Vertrag läuft bald aus: Verlängere ihn, um ihn zu halten.",
+        "letRun": "Sein Vertrag läuft bald aus, und die Übersicht traut ihm wenig zu: Du kannst ihn auslaufen lassen."
+      }
+    },
+    "trainingFocus": "Einzeltraining",
+    "trainingFocusFor": "Einzeltrainingsschwerpunkt für {{player}}",
+    "renew": "Vertrag verlängern",
+    "renewFor": "Vertrag von {{player}} verlängern"
   },
   "playerRating": {
     "unavailable": "Wertung nicht verfügbar",
@@ -5426,7 +5471,8 @@
       "estimate": "Schätzung eines Scouts: Seine wahre Wertung liegt in dieser Spanne.",
       "estimateStale": "Schätzung eines Scouts von vor dieser Saison: Er kann sich seither verändert haben. Lass ihn erneut beobachten, um einen aktuellen Eindruck zu bekommen.",
       "standing": "Sein öffentliches Niveau. Seine genaue Wertung ist erst bekannt, wenn er beobachtet wurde.",
-      "potentialStanding": "Sein öffentliches Potenzialniveau. Sein genaues Potenzial ist erst bekannt, wenn er zu deinem Verein kommt."
+      "potentialStanding": "Sein öffentliches Potenzialniveau. Sein genaues Potenzial ist erst bekannt, wenn er zu deinem Verein kommt.",
+      "potentialEstimate": "Einschätzung deines Jugendstabs: Seine Obergrenze liegt in dieser Spanne, und eine Obergrenze ist kein Versprechen."
     },
     "a11y": {
       "exact": "Gesamtwertung {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Gesamtwertung geschätzt zwischen {{low}} und {{high}}, {{confidence}}, nach einem Bericht von vor dieser Saison",
       "standing": "Gesamtwertung unbekannt, öffentliches Niveau: {{standing}}",
       "potentialExact": "Potenzial {{value}}",
-      "potentialStanding": "Potenzial unbekannt, öffentliches Niveau: {{standing}}"
+      "potentialStanding": "Potenzial unbekannt, öffentliches Niveau: {{standing}}",
+      "potentialEstimate": "Potenzial eingeschätzt zwischen {{low}} und {{high}}, {{confidence}}"
     },
     "notScouted": "Nicht beobachtet: Nur sein öffentliches Niveau ist bekannt. Schicke einen Scout, um seine Wertung und sein Potenzial zu schätzen.",
     "sortHint": "Die Spieler werden nach öffentlichem Niveau geordnet, bis du sie beobachtest; die Reihenfolge innerhalb eines Niveaus ist keine Rangfolge.",
     "prospectGrowthUnknown": "Sein Entwicklungsspielraum ist erst bekannt, wenn er in deine Akademie eintritt.",
-    "notKnown": "Unbekannt"
+    "notKnown": "Unbekannt",
+    "prospectGrowthAssessed": "Sein Entwicklungsspielraum ist nur als Spanne bekannt: Sieh dir die vom Jugendstab eingeschätzte Obergrenze an."
   }
 }

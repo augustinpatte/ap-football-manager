@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Não há jogadores sub-21 elegíveis no elenco principal neste momento.",
     "youthPlayers": "Jogadores da Base",
     "avgOvr": "OVR Médio",
-    "avgPotential": "Potencial Médio",
-    "highPotential": "Alto Potencial",
     "youthCoach": "Treinador da Base:",
     "youthProspects": "Promessas da Base",
     "noYouthPlayers": "Nenhum jogador jovem (≤21) no seu elenco.",
@@ -396,7 +394,9 @@
     "traits": "Características",
     "condition": "Condição",
     "delegateToYouthAcademy": "Delegar para a base",
-    "promoteToSeniorSquad": "Promover ao elenco principal"
+    "promoteToSeniorSquad": "Promover ao elenco principal",
+    "avgCeiling": "Teto médio (est.)",
+    "highCeiling": "Tetos altos"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Elenco principal: {{seniors}} de {{limit}}",
     "nextIntake": "Próxima turma: {{count}}",
     "ceiling": "Teto",
-    "expectedNext": "Esperado no próximo ano",
     "squadCover": "Profundidade do elenco",
     "verdict": "Veredito",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Continua melhorando",
       "nearCeiling": "Perto do seu teto"
     },
-    "ceilingNote": "O potencial é um teto, não uma promessa: a avaliação esperada mostra o que o desenvolvimento costuma entregar.",
+    "ceilingNote": "Sua comissão técnica da base avalia cada teto como um intervalo, nunca como um valor exato. Um teto não é uma promessa: o jogador pode ficar aquém dele ou alcançá-lo.",
     "promoteFor": "Promover {{player}}",
     "listLoanFor": "Colocar {{player}} na lista de empréstimos",
     "unlistLoanFor": "Remover {{player}} da lista de empréstimos",
-    "releaseFor": "Dispensar {{player}}"
+    "releaseFor": "Dispensar {{player}}",
+    "coaching": "Treino da base",
+    "coachingSummary": "Nota {{rating}}: os tetos são lidos com uma margem de cerca de {{width}} pontos ({{confidence}}).",
+    "coachingNoStaff": "Sem treinador da base nem coordenador da base: os tetos só são lidos com uma margem de {{width}} pontos. Um treinador da base também acelera sua academia.",
+    "coachingBonus": "Seus treinadores da base aceleram a progressão da academia em {{percent}}%.",
+    "decisions": "Decisões",
+    "advice": {
+      "action": {
+        "promote": "Promover",
+        "loan": "Empréstimo",
+        "keep": "Ficar na academia",
+        "renew": "Contrato"
+      },
+      "state": {
+        "recommended": "Recomendado",
+        "available": "Possível",
+        "blocked": "Bloqueado"
+      },
+      "promote": {
+        "onLoan": "Ele está emprestado e só pode ser promovido quando voltar.",
+        "noPlace": "Seu elenco principal não tem vaga livre para ele.",
+        "pastAcademyAge": "Ele passou do limite de idade da academia: promova-o ou o dispense.",
+        "ready": "Seu elenco principal já pode contar com ele.",
+        "injured": "Ele está lesionado e ainda não pode jogar.",
+        "notNeeded": "Seu elenco ainda não precisa dele; ele continua se desenvolvendo na academia."
+      },
+      "loan": {
+        "alreadyOut": "Ele já está emprestado.",
+        "recommended": "Jogar com regularidade em outro lugar o ajudaria mais do que o futebol da academia.",
+        "listed": "Ele está na lista de empréstimos: outros clubes podem pedi-lo.",
+        "promoteInstead": "Ele está pronto para o elenco principal: promova-o em vez de emprestá-lo.",
+        "notNeeded": "No momento, um empréstimo não traz uma vantagem clara."
+      },
+      "keep": {
+        "developing": "Ele precisa de mais tempo na academia.",
+        "lastYear": "Este é o último ano dele na academia.",
+        "pastAcademyAge": "Ele passou do limite de idade da academia."
+      },
+      "renew": {
+        "endsSoon": "O contrato termina em breve: renove-o para mantê-lo.",
+        "letRun": "O contrato termina em breve e a análise não aposta nas chances dele: você pode deixá-lo expirar."
+      }
+    },
+    "trainingFocus": "Treino individual",
+    "trainingFocusFor": "Foco de treino individual de {{player}}",
+    "renew": "Renovar contrato",
+    "renewFor": "Renovar o contrato de {{player}}"
   },
   "playerRating": {
     "unavailable": "Avaliação indisponível",
@@ -5426,7 +5471,8 @@
       "estimate": "Estimativa de um olheiro: a avaliação real está dentro deste intervalo.",
       "estimateStale": "Estimativa de um olheiro de antes desta temporada: ele pode ter mudado desde então. Observe-o de novo para uma leitura atualizada.",
       "standing": "O nível público dele. A avaliação exata só é conhecida depois que você o observa.",
-      "potentialStanding": "O nível público do potencial dele. O potencial exato só é conhecido depois que ele entrar no seu clube."
+      "potentialStanding": "O nível público do potencial dele. O potencial exato só é conhecido depois que ele entrar no seu clube.",
+      "potentialEstimate": "Avaliação da sua comissão técnica da base: o teto dele está dentro deste intervalo, e um teto não é uma promessa."
     },
     "a11y": {
       "exact": "Avaliação geral {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Avaliação geral estimada entre {{low}} e {{high}}, {{confidence}}, segundo um relatório anterior a esta temporada",
       "standing": "Avaliação geral desconhecida, nível público: {{standing}}",
       "potentialExact": "Potencial {{value}}",
-      "potentialStanding": "Potencial desconhecido, nível público: {{standing}}"
+      "potentialStanding": "Potencial desconhecido, nível público: {{standing}}",
+      "potentialEstimate": "Potencial avaliado entre {{low}} e {{high}}, {{confidence}}"
     },
     "notScouted": "Não observado: só o nível público é conhecido. Envie um olheiro para estimar a avaliação e o potencial.",
     "sortHint": "Os jogadores são ordenados por nível público até você observá-los; a ordem dentro de um nível não é um ranking.",
     "prospectGrowthUnknown": "A margem de crescimento só é conhecida depois que ele entrar na sua base.",
-    "notKnown": "Desconhecido"
+    "notKnown": "Desconhecido",
+    "prospectGrowthAssessed": "A margem de crescimento dele só é conhecida como intervalo: veja o teto avaliado pela sua comissão técnica da base."
   }
 }

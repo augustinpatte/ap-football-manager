@@ -5,11 +5,16 @@ import { formatDate } from "../../../lib/dateFormatting";
 import { positionBadgeVariant } from "../../../lib/helpers";
 import type { AcademyRow, AcademyVerdict } from "../../../services/academyService";
 import { setPlayerSquadRole } from "../../../services/squadService";
+import { setPlayerTrainingFocus } from "../../../services/trainingService";
 import { toggleLoanList } from "../../../services/transfersService";
 import type { GameStateData, PlayerSelectionOptions } from "../../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../../utils/errorMessage";
 import { translatePositionAbbreviation } from "../../squad/SquadTab.helpers";
-import { Badge, Button, Card, CardBody, CardHeader } from "../../ui";
+import ReadableRating from "../../players/ReadableRating";
+import { Badge, Card, CardBody, CardHeader } from "../../ui";
+import AcademyAdviceList from "./AcademyAdviceList";
+import AcademyCoachingNote from "./AcademyCoachingNote";
+import AcademyRowActions from "./AcademyRowActions";
 import { useAcademyReview } from "./useAcademyReview";
 
 interface AcademyReviewCardProps {
@@ -59,43 +64,17 @@ export default function AcademyReviewCard({
   };
 
   const renderActions = (row: AcademyRow) => (
-    <div className="flex flex-wrap justify-end gap-2">
-      <Button
-        size="sm"
-        disabled={busyId === row.player_id || row.promotion_blocked !== null || row.on_loan}
-        aria-describedby={row.promotion_blocked ? `blocked-${row.player_id}` : undefined}
-        aria-label={t("academy.promoteFor", { player: row.full_name })}
-        onClick={() => void act(row.player_id, () => setPlayerSquadRole(row.player_id, "Senior"))}
-      >
-        {t("youthAcademy.promoteToSeniorSquad")}
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={busyId === row.player_id || row.on_loan}
-        aria-label={t(row.loan_listed ? "academy.unlistLoanFor" : "academy.listLoanFor", {
-          player: row.full_name,
-        })}
-        onClick={() => void act(row.player_id, () => toggleLoanList(row.player_id))}
-      >
-        {row.loan_listed ? t("academy.unlistLoan") : t("academy.listLoan")}
-      </Button>
-      {row.promotion_blocked && (
-        <span id={`blocked-${row.player_id}`} className="basis-full text-caption text-fg-muted">
-          {t("academy.promotionBlocked")}
-        </span>
-      )}
-      {onSelectPlayer && (
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label={t("academy.releaseFor", { player: row.full_name })}
-          onClick={() => onSelectPlayer(row.player_id, { openTermination: true })}
-        >
-          {t("academy.release")}
-        </Button>
-      )}
-    </div>
+    <AcademyRowActions
+      row={row}
+      busy={busyId === row.player_id}
+      promoteReasonsId={`promote-${row.player_id}`}
+      onPromote={() => void act(row.player_id, () => setPlayerSquadRole(row.player_id, "Senior"))}
+      onToggleLoanList={() => void act(row.player_id, () => toggleLoanList(row.player_id))}
+      onSetTrainingFocus={(focus) =>
+        void act(row.player_id, () => setPlayerTrainingFocus(row.player_id, focus))
+      }
+      onSelectPlayer={onSelectPlayer}
+    />
   );
 
   return (
@@ -119,6 +98,7 @@ export default function AcademyReviewCard({
               {t("academy.capacity", { seniors: review.seniors, limit: review.senior_limit })} ·{" "}
               {t("academy.nextIntake", { count: review.next_intake })}
             </p>
+            {review.summary && <AcademyCoachingNote summary={review.summary} />}
             {review.rows.length === 0 ? (
               <p className="text-body text-fg-subtle">{t("youthAcademy.noYouthPlayers")}</p>
             ) : (
@@ -130,9 +110,9 @@ export default function AcademyReviewCard({
                       <th className={`${HEAD} text-center`}>{t("youthAcademy.age")}</th>
                       <th className={`${HEAD} text-center`}>{t("youthAcademy.ovr")}</th>
                       <th className={`${HEAD} text-center`}>{t("academy.ceiling")}</th>
-                      <th className={`${HEAD} text-center`}>{t("academy.expectedNext")}</th>
                       <th className={`${HEAD} text-center`}>{t("academy.squadCover")}</th>
                       <th className={HEAD}>{t("academy.verdict")}</th>
+                      <th className={HEAD}>{t("academy.decisions")}</th>
                       <th className={`${HEAD} text-right`}>{t("scouting.action")}</th>
                     </tr>
                   </thead>
@@ -159,10 +139,11 @@ export default function AcademyReviewCard({
                           </div>
                         </td>
                         <td className={`${CELL} text-center`}>{row.age}</td>
-                        <td className={`${CELL} text-center tabular-nums`}>{row.ovr}</td>
-                        <td className={`${CELL} text-center tabular-nums`}>{row.potential}</td>
-                        <td className={`${CELL} text-center tabular-nums`}>
-                          {row.expected_ovr_next_year}
+                        <td className={`${CELL} text-center`}>
+                          <ReadableRating rating={{ kind: "exact", ovr: row.ovr }} />
+                        </td>
+                        <td className={`${CELL} text-center`}>
+                          <ReadableRating rating={row.ceiling} subject="potential" />
                         </td>
                         <td className={`${CELL} text-center tabular-nums`}>
                           {row.squad_cover > 0 ? row.squad_cover : "—"}
@@ -176,6 +157,12 @@ export default function AcademyReviewCard({
                               <li key={reason}>{t(`academy.reason.${reason}`)}</li>
                             ))}
                           </ul>
+                        </td>
+                        <td className={CELL}>
+                          <AcademyAdviceList
+                            advice={row.advice}
+                            promoteReasonsId={`promote-${row.player_id}`}
+                          />
                         </td>
                         <td className={`${CELL} text-right`}>{renderActions(row)}</td>
                       </tr>

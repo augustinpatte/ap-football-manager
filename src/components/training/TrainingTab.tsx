@@ -28,20 +28,12 @@ import TrainingGroupsCard from "./TrainingGroupsCard";
 import TrainingOutlookCard from "./TrainingOutlookCard";
 import TrainingSettingsPanel from "./TrainingSettingsPanel";
 import { getTrainingStaffAdvice } from "./trainingAdvice";
+import { TRAINING_FOCUS_IDS } from "../../lib/trainingFocus";
 
 interface TrainingTabProps {
   gameState: GameStateData | null;
   onGameUpdate?: (state: GameStateData) => void;
 }
-
-const TRAINING_FOCUS_IDS = [
-  "Physical",
-  "Technical",
-  "Tactical",
-  "Defending",
-  "Attacking",
-  "Recovery",
-] as const;
 
 const TRAINING_FOCUS_ICONS: Record<string, ReactNode> = {
   Physical: <HeartPulse className="w-6 h-6" />,

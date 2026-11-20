@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Şu anda uygun 21 yaş altı A takım oyuncusu yok.",
     "youthPlayers": "Genç Oyuncular",
     "avgOvr": "Ort. OVR",
-    "avgPotential": "Ort. Potansiyel",
-    "highPotential": "Yüksek Potansiyel",
     "youthCoach": "Gençlik antrenörü:",
     "youthProspects": "Genç Yetenekler",
     "noYouthPlayers": "Kadronuzda genç oyuncu (≤21) yok.",
@@ -396,7 +394,9 @@
     "traits": "Özellikler",
     "condition": "Kondisyon",
     "delegateToYouthAcademy": "Altyapı akademisine devret",
-    "promoteToSeniorSquad": "A takıma yükselt"
+    "promoteToSeniorSquad": "A takıma yükselt",
+    "avgCeiling": "Ort. tavan (tahmin)",
+    "highCeiling": "Yüksek tavanlar"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "A takım: {{seniors}} / {{limit}}",
     "nextIntake": "Sonraki alım: {{count}}",
     "ceiling": "Tavan",
-    "expectedNext": "Gelecek yıl beklenen",
     "squadCover": "Kadro derinliği",
     "verdict": "Karar",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Hâlâ gelişiyor",
       "nearCeiling": "Tavanına yakın"
     },
-    "ceilingNote": "Potansiyel bir tavandır, söz değil: beklenen reyting gelişimin genelde neyi getirdiğini gösterir.",
+    "ceilingNote": "Gençlik ekibin her tavanı kesin bir sayı olarak değil, bir aralık olarak değerlendirir. Tavan bir söz değildir: oyuncu ona ulaşamayabilir ya da ulaşabilir.",
     "promoteFor": "{{player}} oyuncusunu terfi ettir",
     "listLoanFor": "{{player}} oyuncusunu kiralık listesine ekle",
     "unlistLoanFor": "{{player}} oyuncusunu kiralık listesinden çıkar",
-    "releaseFor": "{{player}} oyuncusunu serbest bırak"
+    "releaseFor": "{{player}} oyuncusunu serbest bırak",
+    "coaching": "Gençlik antrenmanı",
+    "coachingSummary": "Puan {{rating}}: tavanlar yaklaşık {{width}} puan hassasiyetle okunur ({{confidence}}).",
+    "coachingNoStaff": "Gençlik antrenörü ya da gençlik sorumlusu yok: tavanlar yalnızca {{width}} puan hassasiyetle okunur. Gençlik antrenörü akademini de hızlandırır.",
+    "coachingBonus": "Gençlik antrenörlerin akademideki gelişimi %{{percent}} hızlandırıyor.",
+    "decisions": "Kararlar",
+    "advice": {
+      "action": {
+        "promote": "Yükselt",
+        "loan": "Kiralık",
+        "keep": "Akademide kalsın",
+        "renew": "Sözleşme"
+      },
+      "state": {
+        "recommended": "Önerilir",
+        "available": "Mümkün",
+        "blocked": "Engelli"
+      },
+      "promote": {
+        "onLoan": "Kiralık olarak dışarıda ve dönene kadar yükseltilemez.",
+        "noPlace": "A takımında onun için boş yer yok.",
+        "pastAcademyAge": "Akademi yaş sınırını aştı: yükselt ya da yolla.",
+        "ready": "A takımın onu şimdi kullanabilir.",
+        "injured": "Sakat ve henüz oynayamıyor.",
+        "notNeeded": "Kadron henüz ona ihtiyaç duymuyor; akademide gelişmeye devam ediyor."
+      },
+      "loan": {
+        "alreadyOut": "Zaten kiralık olarak dışarıda.",
+        "recommended": "Başka yerde düzenli maç oynamak ona akademi futbolundan daha çok yarar.",
+        "listed": "Kiralık listesinde: diğer kulüpler onu isteyebilir.",
+        "promoteInstead": "A takıma hazır: kiralık vermek yerine yükselt.",
+        "notNeeded": "Şu an kiralık vermenin net bir faydası yok."
+      },
+      "keep": {
+        "developing": "Akademide daha fazla zamana ihtiyacı var.",
+        "lastYear": "Akademideki son yılı.",
+        "pastAcademyAge": "Akademi yaş sınırını aştı."
+      },
+      "renew": {
+        "endsSoon": "Sözleşmesi yakında bitiyor: tutmak için yenile.",
+        "letRun": "Sözleşmesi yakında bitiyor ve değerlendirme şansına inanmıyor: bitmesine izin verebilirsin."
+      }
+    },
+    "trainingFocus": "Bireysel antrenman",
+    "trainingFocusFor": "{{player}} için bireysel antrenman odağı",
+    "renew": "Sözleşmeyi yenile",
+    "renewFor": "{{player}} oyuncusunun sözleşmesini yenile"
   },
   "playerRating": {
     "unavailable": "Reytingi yok",
@@ -5426,7 +5471,8 @@
       "estimate": "Bir gözlemcinin tahmini: gerçek reytingi bu aralığın içindedir.",
       "estimateStale": "Bu sezondan önceki bir gözlemci tahmini: o zamandan beri değişmiş olabilir. Güncel bir değerlendirme için onu yeniden izlettirin.",
       "standing": "Herkese açık seviyesi. Kesin reytingi, izlenene kadar bilinmez.",
-      "potentialStanding": "Potansiyelinin herkese açık seviyesi. Kesin potansiyeli, kulübünüze katılana kadar bilinmez."
+      "potentialStanding": "Potansiyelinin herkese açık seviyesi. Kesin potansiyeli, kulübünüze katılana kadar bilinmez.",
+      "potentialEstimate": "Gençlik ekibinin değerlendirmesi: tavanı bu aralığın içinde ve tavan bir söz değildir."
     },
     "a11y": {
       "exact": "Genel reyting {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Genel reyting {{low}} ile {{high}} arasında tahmin ediliyor, {{confidence}}, bu sezondan önceki bir rapora göre",
       "standing": "Genel reyting bilinmiyor, herkese açık seviye: {{standing}}",
       "potentialExact": "Potansiyel {{value}}",
-      "potentialStanding": "Potansiyel bilinmiyor, herkese açık seviye: {{standing}}"
+      "potentialStanding": "Potansiyel bilinmiyor, herkese açık seviye: {{standing}}",
+      "potentialEstimate": "Potansiyel {{low}} ile {{high}} arasında değerlendirildi, {{confidence}}"
     },
     "notScouted": "İzlenmedi: yalnızca herkese açık seviyesi biliniyor. Reytingini ve potansiyelini tahmin etmesi için bir gözlemci gönderin.",
     "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir.",
     "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez.",
-    "notKnown": "Bilinmiyor"
+    "notKnown": "Bilinmiyor",
+    "prospectGrowthAssessed": "Gelişim payı yalnızca aralık olarak biliniyor: gençlik ekibinin değerlendirdiği tavana bak."
   }
 }

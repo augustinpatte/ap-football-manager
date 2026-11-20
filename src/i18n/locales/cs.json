@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Momentálně nejsou k dispozici žádní způsobilí hráči do 21 let z A-týmu.",
     "youthPlayers": "Mladí hráči",
     "avgOvr": "Prům. hodnocení",
-    "avgPotential": "Prům. potenciál",
-    "highPotential": "Vysoký potenciál",
     "youthCoach": "Trenér mládeže:",
     "youthProspects": "Talenty v akademii",
     "noYouthPlayers": "V mládežnické akademii nejsou momentálně zařazeni žádní hráči.",
@@ -396,7 +394,9 @@
     "traits": "Vlastnosti",
     "condition": "Kondice",
     "delegateToYouthAcademy": "Přeřadit do akademie",
-    "promoteToSeniorSquad": "Povýšit do A-týmu"
+    "promoteToSeniorSquad": "Povýšit do A-týmu",
+    "avgCeiling": "Průměrný strop (odhad)",
+    "highCeiling": "Vysoké stropy"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "A-tým: {{seniors}} z {{limit}}",
     "nextIntake": "Příští nábor: {{count}}",
     "ceiling": "Strop",
-    "expectedNext": "Očekáváno za rok",
     "squadCover": "Hloubka kádru",
     "verdict": "Posudek",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Stále se zlepšuje",
       "nearCeiling": "Blízko svého stropu"
     },
-    "ceilingNote": "Potenciál je strop, ne příslib: očekávané hodnocení ukazuje, co vývoj obvykle přinese.",
+    "ceilingNote": "Tvůj tým pro mládež odhaduje každý strop jako rozpětí, nikdy jako přesné číslo. Strop není příslib: hráč ho může nedosáhnout, nebo ho dosáhnout.",
     "promoteFor": "Povýšit hráče {{player}}",
     "listLoanFor": "Zařadit hráče {{player}} na hostování",
     "unlistLoanFor": "Odebrat hráče {{player}} ze seznamu hostování",
-    "releaseFor": "Propustit hráče {{player}}"
+    "releaseFor": "Propustit hráče {{player}}",
+    "coaching": "Trénink mládeže",
+    "coachingSummary": "Hodnocení {{rating}}: stropy se čtou s přesností zhruba {{width}} bodů ({{confidence}}).",
+    "coachingNoStaff": "Žádný trenér mládeže ani vedoucí mládeže: stropy se čtou jen s přesností {{width}} bodů. Trenér mládeže také zrychluje tvou akademii.",
+    "coachingBonus": "Tví trenéři mládeže zrychlují vývoj v akademii o {{percent}} %.",
+    "decisions": "Rozhodnutí",
+    "advice": {
+      "action": {
+        "promote": "Povýšit",
+        "loan": "Hostování",
+        "keep": "Zůstat v akademii",
+        "renew": "Smlouva"
+      },
+      "state": {
+        "recommended": "Doporučeno",
+        "available": "Možné",
+        "blocked": "Zablokováno"
+      },
+      "promote": {
+        "onLoan": "Je na hostování a nelze ho povýšit, dokud se nevrátí.",
+        "noPlace": "Tvůj A-tým pro něj nemá volné místo.",
+        "pastAcademyAge": "Překročil věkovou hranici akademie: povyš ho, nebo ho pusť dál.",
+        "ready": "Tvůj A-tým ho může využít hned.",
+        "injured": "Je zraněný a zatím nemůže hrát.",
+        "notNeeded": "Tvůj kádr ho zatím nepotřebuje; dál se rozvíjí v akademii."
+      },
+      "loan": {
+        "alreadyOut": "Už je na hostování.",
+        "recommended": "Pravidelné zápasy jinde by mu pomohly víc než fotbal v akademii.",
+        "listed": "Je na seznamu k hostování: ostatní kluby si o něj mohou říct.",
+        "promoteInstead": "Je připraven pro A-tým: povyš ho místo hostování.",
+        "notNeeded": "Hostování teď nepřinese jasný přínos."
+      },
+      "keep": {
+        "developing": "Potřebuje víc času v akademii.",
+        "lastYear": "Je to jeho poslední rok v akademii.",
+        "pastAcademyAge": "Překročil věkovou hranici akademie."
+      },
+      "renew": {
+        "endsSoon": "Jeho smlouva brzy končí: prodluž ji, abys ho udržel.",
+        "letRun": "Jeho smlouva brzy končí a hodnocení v jeho šance nevěří: můžeš ji nechat vypršet."
+      }
+    },
+    "trainingFocus": "Individuální trénink",
+    "trainingFocusFor": "Individuální tréninkové zaměření pro hráče {{player}}",
+    "renew": "Prodloužit smlouvu",
+    "renewFor": "Prodloužit smlouvu hráče {{player}}"
   },
   "playerRating": {
     "unavailable": "Hodnocení není k dispozici",
@@ -5426,7 +5471,8 @@
       "estimate": "Odhad skauta: jeho skutečné hodnocení leží uvnitř tohoto rozpětí.",
       "estimateStale": "Odhad skauta z doby před touto sezónou: od té doby se mohl změnit. Pošlete skauta znovu pro čerstvý dojem.",
       "standing": "Jeho veřejná úroveň. Přesné hodnocení není známo, dokud ho někdo neskautuje.",
-      "potentialStanding": "Veřejná úroveň jeho potenciálu. Přesný potenciál není znám, dokud nepřestoupí do vašeho klubu."
+      "potentialStanding": "Veřejná úroveň jeho potenciálu. Přesný potenciál není znám, dokud nepřestoupí do vašeho klubu.",
+      "potentialEstimate": "Odhad tvého týmu pro mládež: jeho strop leží v tomto rozpětí a strop není příslib."
     },
     "a11y": {
       "exact": "Celkové hodnocení {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Celkové hodnocení odhadnuto mezi {{low}} a {{high}}, {{confidence}}, podle reportu z doby před touto sezónou",
       "standing": "Celkové hodnocení neznámé, veřejná úroveň: {{standing}}",
       "potentialExact": "Potenciál {{value}}",
-      "potentialStanding": "Potenciál neznámý, veřejná úroveň: {{standing}}"
+      "potentialStanding": "Potenciál neznámý, veřejná úroveň: {{standing}}",
+      "potentialEstimate": "Potenciál odhadnut mezi {{low}} a {{high}}, {{confidence}}"
     },
     "notScouted": "Neskautován: znáte jen jeho veřejnou úroveň. Pošlete skauta, aby odhadl jeho hodnocení a potenciál.",
     "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček.",
     "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie.",
-    "notKnown": "Neznámé"
+    "notKnown": "Neznámé",
+    "prospectGrowthAssessed": "Jeho prostor k růstu je znám jen jako rozpětí: podívej se na strop, který odhadl tvůj tým pro mládež."
   }
 }

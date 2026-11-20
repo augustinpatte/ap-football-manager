@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "当前没有符合条件的 21 岁以下一线队球员可下放。",
     "youthPlayers": "青训球员",
     "avgOvr": "平均综合",
-    "avgPotential": "平均潜力",
-    "highPotential": "高潜力",
     "youthCoach": "青训教练：",
     "youthProspects": "青训新星",
     "noYouthPlayers": "您的阵容中没有青训球员（≤21 岁）。",
@@ -396,7 +394,9 @@
     "traits": "特质",
     "condition": "状态",
     "delegateToYouthAcademy": "下放至青训营",
-    "promoteToSeniorSquad": "提拔至一线队"
+    "promoteToSeniorSquad": "提拔至一线队",
+    "avgCeiling": "平均上限(估计)",
+    "highCeiling": "高上限"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "一线队 {{seniors}} / {{limit}}",
     "nextIntake": "下次青训入队:{{count}}",
     "ceiling": "上限",
-    "expectedNext": "预计明年",
     "squadCover": "阵容深度",
     "verdict": "结论",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "仍在进步",
       "nearCeiling": "接近上限"
     },
-    "ceilingNote": "潜力只是上限而非承诺:预计评分显示培养通常能达到的水平。",
+    "ceilingNote": "青训团队将每名球员的上限评估为一个区间,而不是精确数字。上限不是承诺:球员可能达不到,也可能达到。",
     "promoteFor": "提拔 {{player}}",
     "listLoanFor": "将 {{player}} 列入租借名单",
     "unlistLoanFor": "将 {{player}} 移出租借名单",
-    "releaseFor": "解约 {{player}}"
+    "releaseFor": "解约 {{player}}",
+    "coaching": "青训教练组",
+    "coachingSummary": "评分 {{rating}}:上限的判断误差约为 {{width}} 点({{confidence}})。",
+    "coachingNoStaff": "没有青训教练或青训主管:上限的判断误差只有 {{width}} 点。青训教练还能加快你的青训营发展。",
+    "coachingBonus": "你的青训教练让青训营的成长速度提高 {{percent}}%。",
+    "decisions": "决策",
+    "advice": {
+      "action": {
+        "promote": "提拔",
+        "loan": "租借",
+        "keep": "留在青训营",
+        "renew": "合同"
+      },
+      "state": {
+        "recommended": "建议",
+        "available": "可行",
+        "blocked": "受限"
+      },
+      "promote": {
+        "onLoan": "他正在外租,回归前无法提拔。",
+        "noPlace": "你的一线队没有空位给他。",
+        "pastAcademyAge": "他已超过青训营年龄上限:提拔他或让他离开。",
+        "ready": "你的一线队现在就能用上他。",
+        "injured": "他受伤了,暂时无法比赛。",
+        "notNeeded": "你的阵容暂时还不需要他;他继续在青训营成长。"
+      },
+      "loan": {
+        "alreadyOut": "他已经在外租了。",
+        "recommended": "在别处获得稳定的比赛时间,对他的帮助比青训营足球更大。",
+        "listed": "他在租借名单上:其他俱乐部可以来要人。",
+        "promoteInstead": "他已经可以进入一线队:提拔他,而不是外租。",
+        "notNeeded": "目前租借没有明显好处。"
+      },
+      "keep": {
+        "developing": "他需要在青训营再待一段时间。",
+        "lastYear": "这是他在青训营的最后一年。",
+        "pastAcademyAge": "他已超过青训营年龄上限。"
+      },
+      "renew": {
+        "endsSoon": "他的合同即将到期:续约才能留住他。",
+        "letRun": "他的合同即将到期,而评估并不看好他的前景:你可以让合同到期。"
+      }
+    },
+    "trainingFocus": "个人训练",
+    "trainingFocusFor": "{{player}} 的个人训练重点",
+    "renew": "续约",
+    "renewFor": "为 {{player}} 续约"
   },
   "playerRating": {
     "unavailable": "评分不可用",
@@ -5426,7 +5471,8 @@
       "estimate": "球探的估计:他的真实评分位于此区间之内。",
       "estimateStale": "本赛季之前的球探估计:此后他可能已有变化。请再次派球探考察以获得最新判断。",
       "standing": "他的公开水平。在被考察之前,无法得知其确切评分。",
-      "potentialStanding": "他潜力的公开水平。在他加入你的俱乐部之前,无法得知确切潜力。"
+      "potentialStanding": "他潜力的公开水平。在他加入你的俱乐部之前,无法得知确切潜力。",
+      "potentialEstimate": "青训团队的评估:他的上限在这个区间内,而上限不是承诺。"
     },
     "a11y": {
       "exact": "综合评分 {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "综合评分估计在 {{low}} 到 {{high}} 之间,{{confidence}},来自本赛季之前的报告",
       "standing": "综合评分未知,公开水平:{{standing}}",
       "potentialExact": "潜力 {{value}}",
-      "potentialStanding": "潜力未知,公开水平:{{standing}}"
+      "potentialStanding": "潜力未知,公开水平:{{standing}}",
+      "potentialEstimate": "潜力评估在 {{low}} 到 {{high}} 之间,{{confidence}}"
     },
     "notScouted": "未考察:只知道他的公开水平。派球探去估计他的评分和潜力。",
     "sortHint": "在你考察之前,球员按公开水平排序;同一水平内的顺序并不代表排名。",
     "prospectGrowthUnknown": "在他加入你的青训营之前,无法得知他的成长空间。",
-    "notKnown": "未知"
+    "notKnown": "未知",
+    "prospectGrowthAssessed": "他的成长空间只知道一个区间:请参考青训团队评估的上限。"
   }
 }

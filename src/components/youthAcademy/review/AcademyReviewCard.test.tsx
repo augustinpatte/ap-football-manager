@@ -30,8 +30,14 @@ function row(overrides: Partial<AcademyRow> = {}): AcademyRow {
     age: 18,
     natural_position: "Midfielder",
     ovr: 58,
-    potential: 74,
-    expected_ovr_next_year: 62,
+    ceiling: {
+      kind: "estimate",
+      low: 68,
+      high: 79,
+      confidence: "moderate",
+      current: true,
+      scouted_on: "2026-09-15",
+    },
     verdict: "ready_for_senior",
     reasons: ["addsCover"],
     squad_cover: 55,
@@ -41,7 +47,14 @@ function row(overrides: Partial<AcademyRow> = {}): AcademyRow {
     loan_listed: false,
     contract_end: "2028-06-30",
     weekly_wage: 800,
+    training_focus: null,
     promotion_blocked: null,
+    advice: {
+      promote: { state: "recommended", reasons: ["promote.ready"] },
+      loan: { state: "available", reasons: ["loan.promoteInstead"] },
+      keep: { state: "available", reasons: [] },
+      renew: null,
+    },
     ...overrides,
   };
 }
@@ -49,6 +62,17 @@ function row(overrides: Partial<AcademyRow> = {}): AcademyRow {
 function review(rows: AcademyRow[], extra: Partial<AcademyReview> = {}): AcademyReview {
   return {
     rows,
+    summary: {
+      coaching: {
+        rating: 55,
+        has_staff: true,
+        confidence: "moderate",
+        band_width: 12,
+        progression_bonus_pct: 2,
+      },
+      average_ceiling: 74,
+      high_ceiling_count: 0,
+    },
     seniors: 24,
     senior_limit: 30,
     by_group: [1, 2, 2, 1],
@@ -141,14 +165,152 @@ describe("AcademyReviewCard", () => {
   /**
    * Given a club with no senior place free
    * When the review loads
-   * Then promotion is disabled for everyone rather than failing after the click.
+   * Then promotion is disabled rather than failing after the click, and the reason is on screen
+   *      and tied to the button.
    */
-  it("disables promotion when no senior place is free", async () => {
-    answer(review([row({ promotion_blocked: "be.error.squadFull" })], { seniors: 30 }));
+  it("disables promotion when no senior place is free and says why", async () => {
+    answer(
+      review(
+        [
+          row({
+            promotion_blocked: "be.error.squadFull",
+            advice: {
+              promote: { state: "blocked", reasons: ["promote.noPlace"] },
+              loan: { state: "available", reasons: ["loan.promoteInstead"] },
+              keep: { state: "available", reasons: [] },
+              renew: null,
+            },
+          }),
+        ],
+        { seniors: 30 },
+      ),
+    );
+
+    render(<AcademyReviewCard gameState={null} />);
+
+    const promote = await screen.findByRole("button", { name: PROMOTE });
+    expect(promote).toBeDisabled();
+    expect(screen.getByText("academy.advice.promote.noPlace")).toBeInTheDocument();
+    expect(promote).toHaveAccessibleDescription("academy.advice.promote.noPlace");
+  });
+
+  /**
+   * Given a youngster whose ceiling the youth staff assessed as a band
+   * When the review loads
+   * Then the band is shown as an estimate with its confidence, his rating is exact, and no
+   *      expected-rating column or bare potential figure is on the screen.
+   */
+  it("shows the ceiling as an assessed band, never a number", async () => {
+    answer(review([row()]));
+
+    render(<AcademyReviewCard gameState={null} />);
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("68–79")).toBeInTheDocument();
+    expect(within(table).getByText(/playerRating\.a11y\.potentialEstimate/)).toHaveTextContent(
+      '"low":68',
+    );
+    expect(within(table).queryByText("academy.expectedNext")).toBeNull();
+    expect(within(table).queryByText("74")).toBeNull();
+    expect(within(table).getByText("58")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a club whose youth department reads ceilings to a stated width
+   * When the review loads
+   * Then the coaching note explains the width and the progression bonus.
+   */
+  it("explains how well the youth staff can read a ceiling", async () => {
+    answer(review([row()]));
+
+    render(<AcademyReviewCard gameState={null} />);
+
+    expect(await screen.findByText(/academy\.coachingSummary/)).toHaveTextContent('"width":12');
+    expect(screen.getByText(/academy\.coachingBonus/)).toHaveTextContent('"percent":2');
+  });
+
+  /**
+   * Given an academy player and the manager's choice of an individual focus
+   * When he picks Technical
+   * Then the existing training command is sent for that player and the review is asked again.
+   */
+  it("sets an individual training focus through the training command", async () => {
+    answer(review([row()]), { set_player_training_focus: { updated: true } });
+
+    render(<AcademyReviewCard gameState={null} />);
+    fireEvent.click(
+      await screen.findByRole("combobox", {
+        name: `academy.trainingFocusFor:${JSON.stringify({ player: "Kai Youth" })}`,
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", { name: "training.focuses.Technical.label" }),
+    );
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_player_training_focus", {
+        playerId: "y1",
+        focus: "Technical",
+      }),
+    );
+  });
+
+  /**
+   * Given a youngster whose contract ends soon, and one whose contract runs on
+   * When the review loads
+   * Then only the first offers a renewal, which opens his profile on the renewal dialog.
+   */
+  it("offers a renewal only when the contract is ending", async () => {
+    answer(
+      review([
+        row({
+          advice: {
+            promote: { state: "available", reasons: ["promote.notNeeded"] },
+            loan: { state: "available", reasons: ["loan.notNeeded"] },
+            keep: { state: "recommended", reasons: ["keep.developing"] },
+            renew: { state: "recommended", reasons: ["renew.endsSoon"] },
+          },
+        }),
+        row({ player_id: "y2", full_name: "Steady Sam" }),
+      ]),
+    );
+    const onSelectPlayer = vi.fn();
+
+    render(<AcademyReviewCard gameState={null} onSelectPlayer={onSelectPlayer} />);
+    const renew = await screen.findByRole("button", {
+      name: `academy.renewFor:${JSON.stringify({ player: "Kai Youth" })}`,
+    });
+    fireEvent.click(renew);
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("y1", { openRenewal: true });
+    expect(screen.getAllByRole("button", { name: /academy\.renewFor/ })).toHaveLength(1);
+  });
+
+  /**
+   * Given a youngster out on loan
+   * When the review loads
+   * Then promotion and the loan list are disabled and the reasons say he is out.
+   */
+  it("disables promotion and the loan list for a player out on loan", async () => {
+    answer(
+      review([
+        row({
+          on_loan: true,
+          advice: {
+            promote: { state: "blocked", reasons: ["promote.onLoan"] },
+            loan: { state: "blocked", reasons: ["loan.alreadyOut"] },
+            keep: { state: "available", reasons: [] },
+            renew: null,
+          },
+        }),
+      ]),
+    );
 
     render(<AcademyReviewCard gameState={null} />);
 
     expect(await screen.findByRole("button", { name: PROMOTE })).toBeDisabled();
+    expect(screen.getByRole("button", { name: LIST_LOAN })).toBeDisabled();
+    expect(screen.getByText("academy.advice.loan.alreadyOut")).toBeInTheDocument();
   });
 
   /**

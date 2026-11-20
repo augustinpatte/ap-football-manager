@@ -408,8 +408,6 @@
     "noEligibleSeniorPlayers": "Al momento non ci sono under 21 idonei nella prima squadra.",
     "youthPlayers": "Giocatori giovani",
     "avgOvr": "OVR medio",
-    "avgPotential": "Potenziale medio",
-    "highPotential": "Alto potenziale",
     "youthCoach": "Allenatore giovanile:",
     "youthProspects": "Prospetti giovanili",
     "noYouthPlayers": "Nessun giovane (≤21) nella tua rosa.",
@@ -422,7 +420,9 @@
     "traits": "Tratti",
     "condition": "Condizione",
     "delegateToYouthAcademy": "Delega al settore giovanile",
-    "promoteToSeniorSquad": "Promuovi in prima squadra"
+    "promoteToSeniorSquad": "Promuovi in prima squadra",
+    "avgCeiling": "Tetto medio (stima)",
+    "highCeiling": "Tetti alti"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Prima squadra: {{seniors}} su {{limit}}",
     "nextIntake": "Prossimo ingresso: {{count}}",
     "ceiling": "Tetto",
-    "expectedNext": "Atteso l'anno prossimo",
     "squadCover": "Profondità della rosa",
     "verdict": "Giudizio",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Sta ancora migliorando",
       "nearCeiling": "Vicino al suo tetto"
     },
-    "ceilingNote": "Il potenziale è un tetto, non una promessa: la valutazione attesa mostra ciò che lo sviluppo di solito produce.",
+    "ceilingNote": "Il tuo staff giovanile valuta ogni tetto come un intervallo, mai come un valore esatto. Un tetto non è una promessa: un giocatore può non raggiungerlo oppure raggiungerlo.",
     "promoteFor": "Promuovi {{player}}",
     "listLoanFor": "Metti {{player}} in lista prestiti",
     "unlistLoanFor": "Rimuovi {{player}} dalla lista prestiti",
-    "releaseFor": "Svincola {{player}}"
+    "releaseFor": "Svincola {{player}}",
+    "coaching": "Allenamento giovanile",
+    "coachingSummary": "Valutazione {{rating}}: i tetti sono letti con un margine di circa {{width}} punti ({{confidence}}).",
+    "coachingNoStaff": "Nessun allenatore giovanile né responsabile del settore giovanile: i tetti sono letti solo con un margine di {{width}} punti. Un allenatore giovanile accelera anche la tua academy.",
+    "coachingBonus": "I tuoi allenatori giovanili accelerano la crescita dell'academy del {{percent}}%.",
+    "decisions": "Decisioni",
+    "advice": {
+      "action": {
+        "promote": "Promuovi",
+        "loan": "Prestito",
+        "keep": "Resta nell'academy",
+        "renew": "Contratto"
+      },
+      "state": {
+        "recommended": "Consigliato",
+        "available": "Possibile",
+        "blocked": "Bloccato"
+      },
+      "promote": {
+        "onLoan": "È in prestito e non può essere promosso finché non torna.",
+        "noPlace": "La tua prima squadra non ha un posto libero per lui.",
+        "pastAcademyAge": "Ha superato il limite d'età dell'academy: promuovilo o lascialo andare.",
+        "ready": "La tua prima squadra può usarlo subito.",
+        "injured": "È infortunato e non può ancora giocare.",
+        "notNeeded": "La tua rosa non ha ancora bisogno di lui; continua a crescere nell'academy."
+      },
+      "loan": {
+        "alreadyOut": "È già in prestito.",
+        "recommended": "Giocare con regolarità altrove lo aiuterebbe più del calcio dell'academy.",
+        "listed": "È in lista prestiti: altri club possono chiederlo.",
+        "promoteInstead": "È pronto per la prima squadra: promuovilo invece di darlo in prestito.",
+        "notNeeded": "Al momento un prestito non porta un vantaggio chiaro."
+      },
+      "keep": {
+        "developing": "Ha bisogno di più tempo nell'academy.",
+        "lastYear": "È il suo ultimo anno nell'academy.",
+        "pastAcademyAge": "Ha superato il limite d'età dell'academy."
+      },
+      "renew": {
+        "endsSoon": "Il suo contratto scade presto: rinnovalo per tenerlo.",
+        "letRun": "Il suo contratto scade presto e la valutazione non crede nelle sue possibilità: puoi lasciarlo scadere."
+      }
+    },
+    "trainingFocus": "Allenamento individuale",
+    "trainingFocusFor": "Focus di allenamento individuale per {{player}}",
+    "renew": "Rinnova il contratto",
+    "renewFor": "Rinnova il contratto di {{player}}"
   },
   "playerRating": {
     "unavailable": "Valutazione non disponibile",
@@ -5426,7 +5471,8 @@
       "estimate": "Stima di uno scout: la sua valutazione reale è dentro questo intervallo.",
       "estimateStale": "Stima di uno scout precedente a questa stagione: potrebbe essere cambiato da allora. Fallo osservare di nuovo per una lettura aggiornata.",
       "standing": "Il suo livello pubblico. La valutazione esatta si conosce solo dopo che è stato osservato.",
-      "potentialStanding": "Il suo livello pubblico di potenziale. Il potenziale esatto si conosce solo dopo che arriva nel tuo club."
+      "potentialStanding": "Il suo livello pubblico di potenziale. Il potenziale esatto si conosce solo dopo che arriva nel tuo club.",
+      "potentialEstimate": "Valutazione del tuo staff giovanile: il suo tetto è in questo intervallo, e un tetto non è una promessa."
     },
     "a11y": {
       "exact": "Valutazione complessiva {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Valutazione complessiva stimata tra {{low}} e {{high}}, {{confidence}}, da un rapporto precedente a questa stagione",
       "standing": "Valutazione complessiva sconosciuta, livello pubblico: {{standing}}",
       "potentialExact": "Potenziale {{value}}",
-      "potentialStanding": "Potenziale sconosciuto, livello pubblico: {{standing}}"
+      "potentialStanding": "Potenziale sconosciuto, livello pubblico: {{standing}}",
+      "potentialEstimate": "Potenziale valutato tra {{low}} e {{high}}, {{confidence}}"
     },
     "notScouted": "Non osservato: si conosce solo il livello pubblico. Manda uno scout per stimare valutazione e potenziale.",
     "sortHint": "I giocatori sono ordinati per livello pubblico finché non li osservi; l'ordine all'interno di un livello non è una classifica.",
     "prospectGrowthUnknown": "Il margine di crescita si conosce solo dopo che entra nella tua academy.",
-    "notKnown": "Sconosciuto"
+    "notKnown": "Sconosciuto",
+    "prospectGrowthAssessed": "Il suo margine di crescita è noto solo come intervallo: guarda il tetto valutato dal tuo staff giovanile."
   }
 }

@@ -142,6 +142,29 @@ describe("ReadableRating confidence and subject", () => {
   });
 });
 
+describe("ReadableRating of an assessed ceiling", () => {
+  /**
+   * Given a ceiling the youth staff assessed as a band
+   * When it is shown as a potential
+   * Then it is spoken as an assessed potential with its confidence, and its hint credits the youth
+   *      staff, not a scout's old report
+   */
+  it("speaks and explains a ceiling band as the youth staff's assessment", () => {
+    const { container } = render(<ReadableRating rating={ESTIMATE} subject="potential" />);
+
+    expect(
+      screen.getByText(
+        'playerRating.a11y.potentialEstimate:{"low":64,"high":70,"confidence":"playerRating.confidence.moderate"}',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/playerRating\.a11y\.estimate:/)).not.toBeInTheDocument();
+    expect(container.querySelector("[title]")).toHaveAttribute(
+      "title",
+      "playerRating.hint.potentialEstimate",
+    );
+  });
+});
+
 describe("SpokenRatingFigure", () => {
   /**
    * Given a range, a standing and no reading

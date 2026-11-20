@@ -32,7 +32,13 @@ function spokenRating(
       : t("playerRating.a11y.exact", { value: rating.ovr });
   }
   if (rating.kind === "estimate") {
-    return t(rating.current ? "playerRating.a11y.estimate" : "playerRating.a11y.estimateStale", {
+    const key =
+      subject === "potential"
+        ? "playerRating.a11y.potentialEstimate"
+        : rating.current
+          ? "playerRating.a11y.estimate"
+          : "playerRating.a11y.estimateStale";
+    return t(key, {
       low: rating.low,
       high: rating.high,
       confidence: t(`playerRating.confidence.${rating.confidence}`),
@@ -42,6 +48,12 @@ function spokenRating(
   return subject === "potential"
     ? t("playerRating.a11y.potentialStanding", { standing })
     : t("playerRating.a11y.standing", { standing });
+}
+
+/** A ceiling is the youth staff's assessment, never an old scout's report, so it has its own hint. */
+function estimateHintKey(subject: "rating" | "potential", current: boolean): string {
+  if (subject === "potential") return "playerRating.hint.potentialEstimate";
+  return current ? "playerRating.hint.estimate" : "playerRating.hint.estimateStale";
 }
 
 /** `spokenRating` for a component that holds a translator already (a token's description). */
@@ -128,10 +140,7 @@ export default function ReadableRating({
 
   if (rating.kind === "estimate") {
     return (
-      <span
-        className={wrapper}
-        title={t(rating.current ? "playerRating.hint.estimate" : "playerRating.hint.estimateStale")}
-      >
+      <span className={wrapper} title={t(estimateHintKey(subject, rating.current))}>
         <span aria-hidden="true" className={`${figure("estimate")} text-fg`}>
           {formatRange(rating)}
         </span>

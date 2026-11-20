@@ -1,20 +1,9 @@
-import { useRatingTiers } from "../../hooks/useRatingTiers";
-import { isEliteTier, ratingTierClass, ratingTierLetterKey } from "../../lib/ratingTier";
 import { useEffect, useRef, useState } from "react";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useGameStore } from "../../store/gameStore";
 import { useFetchedSquad } from "../../hooks/useFetchedSquad";
 import { getStaff, type StaffSlice } from "../../services/staffService";
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  Badge,
-  ProgressBar,
-  CountryFlag,
-  Button,
-  PlayerAvatar,
-} from "../ui";
+import { Card, CardHeader, CardBody, Badge, CountryFlag, Button, PlayerAvatar } from "../ui";
 import { calcAge, positionBadgeVariant } from "../../lib/helpers";
 import { canDelegateToYouthAcademy, isYouthAcademyPlayer } from "../../lib/playerSquad";
 import { TraitList } from "../TraitBadge";
@@ -46,7 +35,9 @@ import type { PlayerSquadRole } from "../../store/types";
 import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
 import ScoutingYouthRecruitmentCard from "../scouting/ScoutingYouthRecruitmentCard";
 import { naturalPositionOf } from "../../lib/positions";
+import ReadableRating from "../players/ReadableRating";
 import AcademyReviewCard from "./review/AcademyReviewCard";
+import { useAcademyReview } from "./review/useAcademyReview";
 
 interface YouthAcademyTabProps {
   gameState: GameStateData | null;
@@ -61,9 +52,11 @@ export default function YouthAcademyTab({
   onGameUpdate,
   onNavigate,
 }: YouthAcademyTabProps) {
-  const tierOf = useRatingTiers();
   const { t, i18n } = useTranslation();
   const { sessionState } = useGameStore();
+  // The ceilings and the order of the prospects come from the academy review: the staff's
+  // assessment, never the potential the squad payload carries.
+  const { review } = useAcademyReview(gameState);
   const [fetchedStaff, setFetchedStaff] = useState<StaffSlice | null>(null);
   const [selectedYouthScoutId, setSelectedYouthScoutId] = useState("");
   const [youthRegion, setYouthRegion] = useState("Domestic");
@@ -116,15 +109,23 @@ export default function YouthAcademyTab({
   }, [availableScouts, selectedYouthScoutId]);
 
   const roster = fetchedSquad ?? gameState?.players.filter((p) => p.team_id === teamId) ?? [];
+  const reviewOrder = new Map(review?.rows.map((row, index) => [row.player_id, index]) ?? []);
+  const ceilingOf = new Map(review?.rows.map((row) => [row.player_id, row.ceiling]) ?? []);
+  // The review's order (verdict, then the assessed ceiling) is the default; a player it has not
+  // listed yet follows alphabetically, so nothing here sorts on a figure the manager lacks.
   const youthPlayers = roster
     .filter((player) => isYouthAcademyPlayer(player))
     .map((p) => ({
       ...p,
       age: calcAge(p.date_of_birth),
       ovr: p.ovr ?? 0,
-      potential: p.potential ?? 1,
     }))
-    .sort((a, b) => b.potential - a.potential);
+    .sort(
+      (a, b) =>
+        (reviewOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (reviewOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.full_name.localeCompare(b.full_name),
+    );
   const eligibleSeniorPlayers = roster
     .filter((player) => canDelegateToYouthAcademy(player))
     .map((player) => ({
@@ -137,12 +138,6 @@ export default function YouthAcademyTab({
     youthPlayers.length > 0
       ? Math.round(youthPlayers.reduce((s, p) => s + p.ovr, 0) / youthPlayers.length)
       : 0;
-  const avgPotential =
-    youthPlayers.length > 0
-      ? Math.round(youthPlayers.reduce((s, p) => s + p.potential, 0) / youthPlayers.length)
-      : 0;
-  const highPotential = youthPlayers.filter((p) => isEliteTier(tierOf(p.potential))).length;
-
   // Youth development staff
   const youthCoach =
     fetchedStaff?.team_staff.filter((s) => s.specialization === "Youth") ??
@@ -260,10 +255,10 @@ export default function YouthAcademyTab({
             <div className="text-center">
               <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-1" />
               <p className="font-heading font-bold text-2xl text-gray-800 dark:text-gray-100">
-                {avgPotential}
+                {review?.summary?.average_ceiling ?? "—"}
               </p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
-                {t("youthAcademy.avgPotential")}
+                {t("youthAcademy.avgCeiling")}
               </p>
             </div>
           </CardBody>
@@ -272,9 +267,11 @@ export default function YouthAcademyTab({
           <CardBody>
             <div className="text-center">
               <Sparkles className="w-5 h-5 text-accent-400 mx-auto mb-1" />
-              <p className="font-heading font-bold text-2xl text-accent-500">{highPotential}</p>
+              <p className="font-heading font-bold text-2xl text-accent-500">
+                {review?.summary?.high_ceiling_count ?? "—"}
+              </p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
-                {t("youthAcademy.highPotential")}
+                {t("youthAcademy.highCeiling")}
               </p>
             </div>
           </CardBody>
@@ -436,10 +433,7 @@ export default function YouthAcademyTab({
                     {t("youthAcademy.ovr")}
                   </th>
                   <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">
-                    {t("youthAcademy.potential")}
-                  </th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    {t("youthAcademy.growth")}
+                    {t("academy.ceiling")}
                   </th>
                   <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     {t("youthAcademy.traits")}
@@ -454,9 +448,6 @@ export default function YouthAcademyTab({
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
                 {youthPlayers.map((player) => {
-                  const potTier = tierOf(player.potential);
-                  const potLetterKey = ratingTierLetterKey(potTier);
-                  const growthRoom = player.potential - player.ovr;
                   const contextItems = [
                     buildViewProfileMenuItem(t, () => onSelectPlayer?.(player.id)),
                     buildPromoteToSeniorSquadMenuItem(t, () => {
@@ -520,32 +511,10 @@ export default function YouthAcademyTab({
                           </span>
                         </td>
                         <td className="py-2.5 px-4 text-center">
-                          <span
-                            className={`text-sm font-heading font-bold tabular-nums ${ratingTierClass(potTier, "text")}`}
-                          >
-                            {player.potential}
-                          </span>
-                          {potLetterKey && (
-                            <p
-                              className={`text-caption font-heading uppercase tracking-wider ${ratingTierClass(potTier, "text")}`}
-                            >
-                              {t(potLetterKey)}
-                            </p>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <div className="flex items-center gap-2">
-                            <ProgressBar
-                              value={Math.min(100, (player.ovr / player.potential) * 100)}
-                              variant={
-                                growthRoom > 15 ? "accent" : growthRoom > 5 ? "primary" : "auto"
-                              }
-                              size="sm"
-                            />
-                            <span className="text-[10px] font-heading font-bold text-gray-500 tabular-nums w-6">
-                              +{growthRoom}
-                            </span>
-                          </div>
+                          <ReadableRating
+                            rating={ceilingOf.get(player.id) ?? null}
+                            subject="potential"
+                          />
                         </td>
                         <td className="py-2.5 px-4">
                           <TraitList traits={player.traits || []} max={2} />

@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Aucun joueur senior U21 éligible n'est disponible pour le moment.",
     "youthPlayers": "Joueurs Jeunes",
     "avgOvr": "Moy. OVR",
-    "avgPotential": "Moy. Potentiel",
-    "highPotential": "Haut Potentiel",
     "youthCoach": "Entraîneur des Jeunes :",
     "youthProspects": "Espoirs",
     "noYouthPlayers": "Aucun joueur jeune (≤21) dans votre effectif.",
@@ -396,7 +394,9 @@
     "traits": "Attributs",
     "condition": "Condition",
     "delegateToYouthAcademy": "Déléguer au centre de formation",
-    "promoteToSeniorSquad": "Promouvoir en équipe première"
+    "promoteToSeniorSquad": "Promouvoir en équipe première",
+    "avgCeiling": "Plafond moyen (est.)",
+    "highCeiling": "Plafonds élevés"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Équipe première : {{seniors}} sur {{limit}}",
     "nextIntake": "Prochaine promotion : {{count}}",
     "ceiling": "Plafond",
-    "expectedNext": "Attendu l'an prochain",
     "squadCover": "Profondeur actuelle",
     "verdict": "Avis",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Progresse encore",
       "nearCeiling": "Proche de son plafond"
     },
-    "ceilingNote": "Le potentiel est un plafond, pas une promesse : la note attendue montre ce que la progression apporte d'ordinaire.",
+    "ceilingNote": "Votre staff des jeunes évalue chaque plafond sous forme de fourchette, jamais de chiffre exact. Un plafond n'est pas une promesse : un joueur peut ne pas l'atteindre, ou l'atteindre.",
     "promoteFor": "Promouvoir {{player}}",
     "listLoanFor": "Mettre {{player}} sur la liste de prêts",
     "unlistLoanFor": "Retirer {{player}} de la liste de prêts",
-    "releaseFor": "Libérer {{player}}"
+    "releaseFor": "Libérer {{player}}",
+    "coaching": "Encadrement des jeunes",
+    "coachingSummary": "Note {{rating}} : les plafonds sont lus à environ {{width}} points près ({{confidence}}).",
+    "coachingNoStaff": "Ni entraîneur des jeunes ni responsable de la formation : les plafonds ne sont lus qu'à {{width}} points près. Un entraîneur des jeunes accélère aussi votre académie.",
+    "coachingBonus": "Vos entraîneurs des jeunes accélèrent la progression de l'académie de {{percent}} %.",
+    "decisions": "Décisions",
+    "advice": {
+      "action": {
+        "promote": "Promouvoir",
+        "loan": "Prêt",
+        "keep": "Rester à l'académie",
+        "renew": "Contrat"
+      },
+      "state": {
+        "recommended": "Conseillé",
+        "available": "Faisable",
+        "blocked": "Bloqué"
+      },
+      "promote": {
+        "onLoan": "Il est prêté et ne peut pas être promu avant son retour.",
+        "noPlace": "Votre équipe première n'a pas de place libre pour lui.",
+        "pastAcademyAge": "Il a dépassé l'âge limite de l'académie : promouvez-le ou séparez-vous de lui.",
+        "ready": "Votre équipe première peut l'utiliser dès maintenant.",
+        "injured": "Il est blessé et ne peut pas encore jouer.",
+        "notNeeded": "Votre effectif n'a pas encore besoin de lui ; il continue de progresser à l'académie."
+      },
+      "loan": {
+        "alreadyOut": "Il est déjà prêté.",
+        "recommended": "Jouer régulièrement ailleurs l'aiderait plus que le football de l'académie.",
+        "listed": "Il est sur la liste de prêts : d'autres clubs peuvent le demander.",
+        "promoteInstead": "Il est prêt pour l'équipe première : promouvez-le plutôt que de le prêter.",
+        "notNeeded": "Un prêt n'apporte pas d'avantage net pour le moment."
+      },
+      "keep": {
+        "developing": "Il a besoin de plus de temps à l'académie.",
+        "lastYear": "C'est sa dernière année à l'académie.",
+        "pastAcademyAge": "Il a dépassé l'âge limite de l'académie."
+      },
+      "renew": {
+        "endsSoon": "Son contrat se termine bientôt : prolongez-le pour le garder.",
+        "letRun": "Son contrat se termine bientôt et l'évaluation ne croit pas en ses chances : vous pouvez le laisser expirer."
+      }
+    },
+    "trainingFocus": "Entraînement individuel",
+    "trainingFocusFor": "Axe d'entraînement individuel de {{player}}",
+    "renew": "Prolonger le contrat",
+    "renewFor": "Prolonger le contrat de {{player}}"
   },
   "playerRating": {
     "unavailable": "Note indisponible",
@@ -5426,7 +5471,8 @@
       "estimate": "Estimation d'un recruteur : sa vraie note se situe dans cette fourchette.",
       "estimateStale": "Estimation d'un recruteur datant d'avant cette saison : il a pu changer depuis. Faites-le observer à nouveau pour une lecture récente.",
       "standing": "Son niveau public. Sa note exacte n'est connue qu'une fois qu'il a été observé.",
-      "potentialStanding": "Son niveau public de potentiel. Son potentiel exact n'est connu qu'une fois qu'il a rejoint votre club."
+      "potentialStanding": "Son niveau public de potentiel. Son potentiel exact n'est connu qu'une fois qu'il a rejoint votre club.",
+      "potentialEstimate": "Évaluation de votre staff des jeunes : son plafond se situe dans cette fourchette, et un plafond n'est pas une promesse."
     },
     "a11y": {
       "exact": "Note globale {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Note globale estimée entre {{low}} et {{high}}, {{confidence}}, d'après un rapport antérieur à cette saison",
       "standing": "Note globale inconnue, niveau public : {{standing}}",
       "potentialExact": "Potentiel {{value}}",
-      "potentialStanding": "Potentiel inconnu, niveau public : {{standing}}"
+      "potentialStanding": "Potentiel inconnu, niveau public : {{standing}}",
+      "potentialEstimate": "Potentiel évalué entre {{low}} et {{high}}, {{confidence}}"
     },
     "notScouted": "Non observé : seul son niveau public est connu. Envoyez un recruteur pour estimer sa note et son potentiel.",
     "sortHint": "Les joueurs sont classés par niveau public tant que vous ne les avez pas observés ; l'ordre au sein d'un niveau n'est pas un classement.",
     "prospectGrowthUnknown": "Sa marge de progression n'est connue qu'une fois qu'il a rejoint votre centre de formation.",
-    "notKnown": "Inconnu"
+    "notKnown": "Inconnu",
+    "prospectGrowthAssessed": "Sa marge de progression n'est connue que sous forme de fourchette : voyez le plafond évalué par votre staff des jeunes."
   }
 }

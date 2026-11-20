@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "Belum ada pemain senior di bawah 21 tahun yang memenuhi syarat.",
     "youthPlayers": "Pemain Muda",
     "avgOvr": "Rata-rata OVR",
-    "avgPotential": "Rata-rata Potensi",
-    "highPotential": "Potensi Tinggi",
     "youthCoach": "Pelatih Akademi:",
     "youthProspects": "Prospek Muda",
     "noYouthPlayers": "Belum ada pemain yang ditugaskan ke akademi.",
@@ -396,7 +394,9 @@
     "traits": "Traits",
     "condition": "Kondisi",
     "delegateToYouthAcademy": "Delegasikan ke akademi",
-    "promoteToSeniorSquad": "Naikkan ke skuad senior"
+    "promoteToSeniorSquad": "Naikkan ke skuad senior",
+    "avgCeiling": "Rata-rata batas atas (perkiraan)",
+    "highCeiling": "Batas atas tinggi"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Skuad utama {{seniors}} dari {{limit}}",
     "nextIntake": "Penerimaan berikutnya: {{count}}",
     "ceiling": "Batas atas",
-    "expectedNext": "Perkiraan tahun depan",
     "squadCover": "Cadangan skuad",
     "verdict": "Penilaian",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Masih berkembang",
       "nearCeiling": "Mendekati batas atasnya"
     },
-    "ceilingNote": "Potensi adalah batas atas, bukan janji: rating perkiraan menunjukkan hasil pembinaan yang lazim.",
+    "ceilingNote": "Staf akademi Anda menilai setiap batas atas sebagai rentang, bukan angka pasti. Batas atas bukanlah janji: pemain bisa tidak mencapainya atau justru mencapainya.",
     "promoteFor": "Promosikan {{player}}",
     "listLoanFor": "Masukkan {{player}} ke daftar pinjaman",
     "unlistLoanFor": "Hapus {{player}} dari daftar pinjaman",
-    "releaseFor": "Lepaskan {{player}}"
+    "releaseFor": "Lepaskan {{player}}",
+    "coaching": "Pelatihan akademi",
+    "coachingSummary": "Peringkat {{rating}}: batas atas dibaca dengan selisih sekitar {{width}} poin ({{confidence}}).",
+    "coachingNoStaff": "Tidak ada pelatih akademi atau kepala akademi: batas atas hanya dibaca dengan selisih {{width}} poin. Pelatih akademi juga mempercepat akademi Anda.",
+    "coachingBonus": "Pelatih akademi Anda mempercepat perkembangan akademi sebesar {{percent}}%.",
+    "decisions": "Keputusan",
+    "advice": {
+      "action": {
+        "promote": "Naikkan",
+        "loan": "Pinjaman",
+        "keep": "Tetap di akademi",
+        "renew": "Kontrak"
+      },
+      "state": {
+        "recommended": "Disarankan",
+        "available": "Mungkin",
+        "blocked": "Terblokir"
+      },
+      "promote": {
+        "onLoan": "Dia sedang dipinjamkan dan tidak bisa dinaikkan sampai kembali.",
+        "noPlace": "Skuad utama Anda tidak punya slot kosong untuknya.",
+        "pastAcademyAge": "Dia melewati batas usia akademi: naikkan atau lepaskan.",
+        "ready": "Skuad utama Anda bisa memanfaatkannya sekarang.",
+        "injured": "Dia cedera dan belum bisa bermain.",
+        "notNeeded": "Skuad Anda belum membutuhkannya; dia terus berkembang di akademi."
+      },
+      "loan": {
+        "alreadyOut": "Dia sudah dipinjamkan.",
+        "recommended": "Bermain rutin di tempat lain akan lebih membantunya daripada sepak bola akademi.",
+        "listed": "Dia ada di daftar pinjaman: klub lain bisa memintanya.",
+        "promoteInstead": "Dia siap masuk skuad utama: naikkan, jangan dipinjamkan.",
+        "notNeeded": "Saat ini pinjaman tidak memberi keuntungan yang jelas."
+      },
+      "keep": {
+        "developing": "Dia butuh lebih banyak waktu di akademi.",
+        "lastYear": "Ini tahun terakhirnya di akademi.",
+        "pastAcademyAge": "Dia melewati batas usia akademi."
+      },
+      "renew": {
+        "endsSoon": "Kontraknya segera berakhir: perpanjang untuk mempertahankannya.",
+        "letRun": "Kontraknya segera berakhir dan evaluasi tidak yakin pada peluangnya: Anda boleh membiarkannya habis."
+      }
+    },
+    "trainingFocus": "Latihan individu",
+    "trainingFocusFor": "Fokus latihan individu untuk {{player}}",
+    "renew": "Perpanjang kontrak",
+    "renewFor": "Perpanjang kontrak {{player}}"
   },
   "playerRating": {
     "unavailable": "Rating tidak tersedia",
@@ -5426,7 +5471,8 @@
       "estimate": "Perkiraan pemandu bakat: rating aslinya berada di dalam kisaran ini.",
       "estimateStale": "Perkiraan pemandu bakat dari sebelum musim ini: ia mungkin sudah berubah sejak itu. Pantau lagi untuk pembacaan terbaru.",
       "standing": "Tingkat publiknya. Rating pastinya tidak diketahui sampai ia dipantau.",
-      "potentialStanding": "Tingkat publik potensinya. Potensi pastinya tidak diketahui sampai ia bergabung dengan klub Anda."
+      "potentialStanding": "Tingkat publik potensinya. Potensi pastinya tidak diketahui sampai ia bergabung dengan klub Anda.",
+      "potentialEstimate": "Penilaian staf akademi Anda: batas atasnya ada dalam rentang ini, dan batas atas bukanlah janji."
     },
     "a11y": {
       "exact": "Rating keseluruhan {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Rating keseluruhan diperkirakan antara {{low}} dan {{high}}, {{confidence}}, dari laporan sebelum musim ini",
       "standing": "Rating keseluruhan tidak diketahui, tingkat publik: {{standing}}",
       "potentialExact": "Potensi {{value}}",
-      "potentialStanding": "Potensi tidak diketahui, tingkat publik: {{standing}}"
+      "potentialStanding": "Potensi tidak diketahui, tingkat publik: {{standing}}",
+      "potentialEstimate": "Potensi dinilai antara {{low}} dan {{high}}, {{confidence}}"
     },
     "notScouted": "Belum dipantau: hanya tingkat publiknya yang diketahui. Kirim pemandu bakat untuk memperkirakan rating dan potensinya.",
     "sortHint": "Pemain diurutkan menurut tingkat publik sampai Anda memantau mereka; urutan di dalam satu tingkat bukan peringkat.",
     "prospectGrowthUnknown": "Ruang pertumbuhannya tidak diketahui sampai ia bergabung dengan akademi Anda.",
-    "notKnown": "Tidak diketahui"
+    "notKnown": "Tidak diketahui",
+    "prospectGrowthAssessed": "Ruang pertumbuhannya hanya diketahui sebagai rentang: lihat batas atas yang dinilai staf akademi Anda."
   }
 }

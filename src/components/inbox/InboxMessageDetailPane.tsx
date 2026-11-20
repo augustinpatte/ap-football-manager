@@ -1,7 +1,5 @@
-import { useRatingTiers } from "../../hooks/useRatingTiers";
 import ReadableRating from "../players/ReadableRating";
 import { useYouthProspectReadings } from "./useYouthProspectReadings";
-import { ratingTierClass, ratingTierLetterKey } from "../../lib/ratingTier";
 import { ArrowLeft, CheckCircle2, MailOpen, MessageCircle, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { JSX } from "react";
@@ -15,7 +13,7 @@ import { naturalPositionOf } from "../../lib/positions";
 import type { MessageData } from "../../store/gameStore";
 import ScoutPlayerCard from "../ScoutPlayerCard";
 import SwitchClubConfirmModal from "../SwitchClubConfirmModal";
-import { Badge, Button, Card, CardBody, CountryFlag, ProgressBar } from "../ui";
+import { Badge, Button, Card, CardBody, CountryFlag } from "../ui";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import InboxDelegatedRenewalReport from "./InboxDelegatedRenewalReport";
 import {
@@ -57,7 +55,6 @@ export default function InboxMessageDetailPane({
   onRequestDelete,
   onScoutPlayerClick,
 }: InboxMessageDetailPaneProps): JSX.Element {
-  const tierOf = useRatingTiers();
   const { t } = useTranslation();
   const [pendingSwitch, setPendingSwitch] = useState<PendingSwitch | null>(null);
 
@@ -248,17 +245,6 @@ export default function InboxMessageDetailPane({
                     const signedToAcademy = prospect.team_id === currentTeamId;
                     const reading = prospectReadings[prospect.id];
                     const currentRating = reading?.current ?? null;
-                    // Growth is only known for a prospect the club has signed (its own player).
-                    const exactCeiling =
-                      reading?.ceiling.kind === "exact" && reading.current.kind === "exact"
-                        ? { ovr: reading.current.ovr, potential: reading.ceiling.ovr }
-                        : null;
-                    const potentialTier = tierOf(exactCeiling?.potential ?? 0);
-                    const potentialLetterKey = ratingTierLetterKey(potentialTier);
-                    const growthRoom = exactCeiling
-                      ? Math.max(0, exactCeiling.potential - exactCeiling.ovr)
-                      : 0;
-
                     return (
                       <Card key={prospect.id}>
                         <CardBody className="space-y-4">
@@ -314,40 +300,14 @@ export default function InboxMessageDetailPane({
                               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                 {t("youthAcademy.growth")}
                               </p>
-                              {exactCeiling ? (
-                                <div className="mt-2 flex items-center gap-2">
-                                  <ProgressBar
-                                    value={Math.min(
-                                      100,
-                                      exactCeiling.potential > 0
-                                        ? (exactCeiling.ovr / exactCeiling.potential) * 100
-                                        : 0,
-                                    )}
-                                    variant={
-                                      growthRoom > 15
-                                        ? "accent"
-                                        : growthRoom > 5
-                                          ? "primary"
-                                          : "auto"
-                                    }
-                                    size="sm"
-                                  />
-                                  <span className="w-8 text-right text-xs font-heading font-bold tabular-nums text-gray-500 dark:text-gray-400">
-                                    +{growthRoom}
-                                  </span>
-                                </div>
-                              ) : (
-                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                  {t("playerRating.prospectGrowthUnknown")}
-                                </p>
-                              )}
-                              {exactCeiling && potentialLetterKey && (
-                                <p
-                                  className={`mt-1 text-caption font-heading uppercase tracking-wider ${ratingTierClass(potentialTier, "text")}`}
-                                >
-                                  {t(potentialLetterKey)}
-                                </p>
-                              )}
+                              {/* Even a signed prospect's growth is only known as the youth staff's band. */}
+                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                {t(
+                                  signedToAcademy
+                                    ? "playerRating.prospectGrowthAssessed"
+                                    : "playerRating.prospectGrowthUnknown",
+                                )}
+                              </p>
                             </div>
 
                             <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 dark:border-navy-600 dark:bg-navy-700/40">

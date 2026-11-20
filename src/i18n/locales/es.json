@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "No hay jugadores sub-21 elegibles en el plantel principal en este momento.",
     "youthPlayers": "Jugadores Jóvenes",
     "avgOvr": "Media OVR",
-    "avgPotential": "Media Potencial",
-    "highPotential": "Alto Potencial",
     "youthCoach": "Entrenador de Cantera:",
     "youthProspects": "Promesas de Cantera",
     "noYouthPlayers": "No hay jugadores jóvenes (≤21) en tu plantilla.",
@@ -396,7 +394,9 @@
     "traits": "Rasgos",
     "condition": "Condición",
     "delegateToYouthAcademy": "Delegar a la cantera",
-    "promoteToSeniorSquad": "Ascender al primer equipo"
+    "promoteToSeniorSquad": "Ascender al primer equipo",
+    "avgCeiling": "Techo medio (est.)",
+    "highCeiling": "Techos altos"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Primer equipo: {{seniors}} de {{limit}}",
     "nextIntake": "Próxima cantera: {{count}}",
     "ceiling": "Techo",
-    "expectedNext": "Esperado el año próximo",
     "squadCover": "Profundidad de plantilla",
     "verdict": "Veredicto",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Sigue mejorando",
       "nearCeiling": "Cerca de su techo"
     },
-    "ceilingNote": "El potencial es un techo, no una promesa: la valoración esperada muestra lo que suele dar el desarrollo.",
+    "ceilingNote": "Tu cuerpo técnico de cantera valora cada techo como un rango, nunca como una cifra exacta. Un techo no es una promesa: un jugador puede quedarse corto o alcanzarlo.",
     "promoteFor": "Ascender a {{player}}",
     "listLoanFor": "Poner a {{player}} en la lista de cesiones",
     "unlistLoanFor": "Quitar a {{player}} de la lista de cesiones",
-    "releaseFor": "Rescindir a {{player}}"
+    "releaseFor": "Rescindir a {{player}}",
+    "coaching": "Entrenamiento de cantera",
+    "coachingSummary": "Valoración {{rating}}: los techos se leen con un margen de unos {{width}} puntos ({{confidence}}).",
+    "coachingNoStaff": "Sin entrenador de cantera ni director de cantera: los techos solo se leen con un margen de {{width}} puntos. Un entrenador de cantera también acelera tu academia.",
+    "coachingBonus": "Tus entrenadores de cantera aceleran la progresión de la academia un {{percent}} %.",
+    "decisions": "Decisiones",
+    "advice": {
+      "action": {
+        "promote": "Ascender",
+        "loan": "Cesión",
+        "keep": "Seguir en la academia",
+        "renew": "Contrato"
+      },
+      "state": {
+        "recommended": "Aconsejado",
+        "available": "Posible",
+        "blocked": "Bloqueado"
+      },
+      "promote": {
+        "onLoan": "Está cedido y no puede ascender hasta que vuelva.",
+        "noPlace": "Tu primer equipo no tiene plaza libre para él.",
+        "pastAcademyAge": "Ha superado la edad límite de la academia: asciéndelo o dale salida.",
+        "ready": "Tu primer equipo puede aprovecharlo ya.",
+        "injured": "Está lesionado y aún no puede jugar.",
+        "notNeeded": "Tu plantilla aún no lo necesita; sigue desarrollándose en la academia."
+      },
+      "loan": {
+        "alreadyOut": "Ya está cedido.",
+        "recommended": "Jugar con regularidad en otro sitio le ayudaría más que el fútbol de la academia.",
+        "listed": "Está en la lista de cesiones: otros clubes pueden pedirlo.",
+        "promoteInstead": "Está listo para el primer equipo: asciéndelo en vez de cederlo.",
+        "notNeeded": "Ahora mismo una cesión no aporta una ventaja clara."
+      },
+      "keep": {
+        "developing": "Lo que necesita es más tiempo en la academia.",
+        "lastYear": "Es su último año en la academia.",
+        "pastAcademyAge": "Ha superado la edad límite de la academia."
+      },
+      "renew": {
+        "endsSoon": "Su contrato termina pronto: renuévalo para conservarlo.",
+        "letRun": "Su contrato termina pronto y la revisión no confía en sus opciones: puedes dejar que expire."
+      }
+    },
+    "trainingFocus": "Entrenamiento individual",
+    "trainingFocusFor": "Enfoque de entrenamiento individual para {{player}}",
+    "renew": "Renovar contrato",
+    "renewFor": "Renovar el contrato de {{player}}"
   },
   "playerRating": {
     "unavailable": "Valoración no disponible",
@@ -5426,7 +5471,8 @@
       "estimate": "Estimación de un ojeador: su valoración real está dentro de este rango.",
       "estimateStale": "Estimación de un ojeador de antes de esta temporada: puede haber cambiado desde entonces. Vuelve a ojearlo para obtener una lectura nueva.",
       "standing": "Su nivel público. Su valoración exacta no se conoce hasta que se le ojea.",
-      "potentialStanding": "Su nivel público de potencial. Su potencial exacto no se conoce hasta que fiche por tu club."
+      "potentialStanding": "Su nivel público de potencial. Su potencial exacto no se conoce hasta que fiche por tu club.",
+      "potentialEstimate": "Valoración de tu cuerpo técnico de cantera: su techo está dentro de este rango, y un techo no es una promesa."
     },
     "a11y": {
       "exact": "Valoración global {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Valoración global estimada entre {{low}} y {{high}}, {{confidence}}, según un informe anterior a esta temporada",
       "standing": "Valoración global desconocida, nivel público: {{standing}}",
       "potentialExact": "Potencial {{value}}",
-      "potentialStanding": "Potencial desconocido, nivel público: {{standing}}"
+      "potentialStanding": "Potencial desconocido, nivel público: {{standing}}",
+      "potentialEstimate": "Potencial valorado entre {{low}} y {{high}}, {{confidence}}"
     },
     "notScouted": "Sin ojear: solo se conoce su nivel público. Envía a un ojeador para estimar su valoración y su potencial.",
     "sortHint": "Los jugadores se ordenan por nivel público hasta que los ojees; el orden dentro de un nivel no es una clasificación.",
     "prospectGrowthUnknown": "Se desconoce su margen de crecimiento hasta que entre en tu cantera.",
-    "notKnown": "Se desconoce"
+    "notKnown": "Se desconoce",
+    "prospectGrowthAssessed": "Su margen de crecimiento solo se conoce como un rango: mira el techo que valoró tu cuerpo técnico de cantera."
   }
 }

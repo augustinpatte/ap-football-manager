@@ -1374,18 +1374,17 @@ describe("InboxTab", (): void => {
   });
 
   /**
-   * Given a youth recruitment report whose prospects the club has signed, with ceilings of 77 (A),
-   *       76 (B) and 60 (the rest)
+   * Given a youth recruitment report whose prospect the club has signed, and a reading that gives
+   *       his rating exactly but his ceiling only as the youth staff's band
    * When the report is read
-   * Then each exact ceiling is captioned with its backend tier's letter, and the rest has no caption.
+   * Then the band is shown as a potential estimate, the exact potential is nowhere on screen, and
+   *      there is no tier letter or growth bar to derive it from.
    */
-  it("captions a signed prospect's ceiling with its backend tier", async (): Promise<void> => {
-    const prospect = (id: string, potential: number) =>
-      createProspect({ id, full_name: `Prospect ${potential}`, team_id: "t1", potential });
+  it("shows a signed prospect's ceiling as the staff's band, with no tier letter", async (): Promise<void> => {
     await renderInboxTab({
       gameState: createGameState([
         createMessage({
-          id: "youth-tiers",
+          id: "youth-signed",
           category: "ScoutReport",
           read: true,
           subject: "Youth prospects found",
@@ -1394,34 +1393,38 @@ describe("InboxTab", (): void => {
             team_id: "t1",
             player_id: null,
             fixture_id: null,
-            youth_prospects: [prospect("p-a", 77), prospect("p-b", 76), prospect("p-r", 60)],
+            youth_prospects: [
+              createProspect({ id: "p-a", full_name: "Prospect A", team_id: "t1", potential: 77 }),
+            ],
             match_result: null,
           },
         }),
       ]),
-      initialMessageId: "youth-tiers",
+      initialMessageId: "youth-signed",
       prospectReadings: [
         {
           player_id: "p-a",
           current: { kind: "exact", ovr: 60 },
-          ceiling: { kind: "exact", ovr: 77 },
-        },
-        {
-          player_id: "p-b",
-          current: { kind: "exact", ovr: 60 },
-          ceiling: { kind: "exact", ovr: 76 },
-        },
-        {
-          player_id: "p-r",
-          current: { kind: "exact", ovr: 50 },
-          ceiling: { kind: "exact", ovr: 60 },
+          ceiling: {
+            kind: "estimate",
+            low: 73,
+            high: 84,
+            confidence: "moderate",
+            current: true,
+            scouted_on: "2026-09-15",
+          },
         },
       ],
     });
 
-    expect(await screen.findByText("A", { selector: "p" })).toBeInTheDocument();
-    expect(screen.getByText("B", { selector: "p" })).toBeInTheDocument();
-    expect(screen.queryByText("S", { selector: "p" })).not.toBeInTheDocument();
+    expect(await screen.findByText("73–84")).toBeInTheDocument();
+    expect(screen.queryByText("77")).not.toBeInTheDocument();
+    for (const letter of ["S", "A", "B"]) {
+      expect(screen.queryByText(letter, { selector: "p" })).not.toBeInTheDocument();
+    }
+    expect(
+      screen.getByText(/prospectGrowthAssessed|Growth room is only known as a range/),
+    ).toBeInTheDocument();
   });
 
   /**

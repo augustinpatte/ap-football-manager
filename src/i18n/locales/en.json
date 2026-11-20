@@ -382,8 +382,6 @@
     "noEligibleSeniorPlayers": "No eligible under-21 senior players are available right now.",
     "youthPlayers": "Youth Players",
     "avgOvr": "Avg OVR",
-    "avgPotential": "Avg Potential",
-    "highPotential": "High Potential",
     "youthCoach": "Youth Coach:",
     "youthProspects": "Youth Prospects",
     "noYouthPlayers": "No players are currently assigned to the youth academy.",
@@ -396,7 +394,9 @@
     "traits": "Traits",
     "condition": "Condition",
     "delegateToYouthAcademy": "Delegate to youth academy",
-    "promoteToSeniorSquad": "Promote to senior squad"
+    "promoteToSeniorSquad": "Promote to senior squad",
+    "avgCeiling": "Avg ceiling (est.)",
+    "highCeiling": "High ceilings"
   },
   "common": {
     "ratingTier": {
@@ -5379,7 +5379,6 @@
     "capacity": "Senior squad {{seniors}} of {{limit}}",
     "nextIntake": "Next intake: {{count}}",
     "ceiling": "Ceiling",
-    "expectedNext": "Expected next year",
     "squadCover": "Squad cover",
     "verdict": "Verdict",
     "verdicts": {
@@ -5400,11 +5399,57 @@
       "stillImproving": "Still improving",
       "nearCeiling": "Near his ceiling"
     },
-    "ceilingNote": "Potential is a ceiling, not a promise: the expected rating shows what development usually delivers.",
+    "ceilingNote": "Your youth staff assess each ceiling as a range, never an exact figure. A ceiling is not a promise: a player can fall short of it or reach it.",
     "promoteFor": "Promote {{player}}",
     "listLoanFor": "List {{player}} for loan",
     "unlistLoanFor": "Remove {{player}} from the loan list",
-    "releaseFor": "Release {{player}}"
+    "releaseFor": "Release {{player}}",
+    "coaching": "Youth coaching",
+    "coachingSummary": "Rated {{rating}}: ceilings are read to within {{width}} points ({{confidence}}).",
+    "coachingNoStaff": "No youth coach or head of youth: ceilings are only read to within {{width}} points. A youth coach also speeds up your academy.",
+    "coachingBonus": "Your youth coaches speed up academy progression by {{percent}}%.",
+    "decisions": "Decisions",
+    "advice": {
+      "action": {
+        "promote": "Promote",
+        "loan": "Loan",
+        "keep": "Stay in the academy",
+        "renew": "Contract"
+      },
+      "state": {
+        "recommended": "Advised",
+        "available": "Possible",
+        "blocked": "Blocked"
+      },
+      "promote": {
+        "onLoan": "He is out on loan and cannot be promoted until he is back.",
+        "noPlace": "Your senior squad has no free place for him.",
+        "pastAcademyAge": "He is past the academy age limit: promote him or move him on.",
+        "ready": "Your senior squad can use him now.",
+        "injured": "He is injured and cannot play yet.",
+        "notNeeded": "Your squad does not need him yet; he keeps developing in the academy."
+      },
+      "loan": {
+        "alreadyOut": "He is already out on loan.",
+        "recommended": "Regular matches elsewhere would help him more than academy football.",
+        "listed": "He is on the loan list: other clubs can ask for him.",
+        "promoteInstead": "He is ready for your senior squad: promote him instead of loaning him out.",
+        "notNeeded": "There is no clear gain from a loan right now."
+      },
+      "keep": {
+        "developing": "More time in the academy is what he needs.",
+        "lastYear": "This is his last year in the academy.",
+        "pastAcademyAge": "He is past the academy age limit."
+      },
+      "renew": {
+        "endsSoon": "His contract ends soon: renew it to keep him.",
+        "letRun": "His contract ends soon and the review does not rate his chances: you may let it run out."
+      }
+    },
+    "trainingFocus": "Individual training",
+    "trainingFocusFor": "Individual training focus for {{player}}",
+    "renew": "Renew contract",
+    "renewFor": "Renew the contract of {{player}}"
   },
   "playerRating": {
     "unavailable": "Rating unavailable",
@@ -5426,7 +5471,8 @@
       "estimate": "A scout's estimate: his true rating lies inside this range.",
       "estimateStale": "A scout's estimate from before this season: he may have changed since. Scout him again for a fresh reading.",
       "standing": "His public standing. His exact rating is not known until he is scouted.",
-      "potentialStanding": "His public standing of potential. His exact potential is not known until he joins your club."
+      "potentialStanding": "His public standing of potential. His exact potential is not known until he joins your club.",
+      "potentialEstimate": "Your youth staff's assessment: his ceiling lies inside this range, and a ceiling is not a promise."
     },
     "a11y": {
       "exact": "Overall rating {{value}}",
@@ -5434,11 +5480,13 @@
       "estimateStale": "Overall rating estimated between {{low}} and {{high}}, {{confidence}}, from a report written before this season",
       "standing": "Overall rating not known, public standing: {{standing}}",
       "potentialExact": "Potential {{value}}",
-      "potentialStanding": "Potential not known, public standing: {{standing}}"
+      "potentialStanding": "Potential not known, public standing: {{standing}}",
+      "potentialEstimate": "Potential assessed between {{low}} and {{high}}, {{confidence}}"
     },
     "notScouted": "Not scouted: only his public standing is known. Send a scout for an estimate of his rating and potential.",
     "sortHint": "Players are ordered by public standing until you scout them; the order within a standing is not a ranking.",
     "prospectGrowthUnknown": "Growth room is not known until he joins your academy.",
-    "notKnown": "Not known"
+    "notKnown": "Not known",
+    "prospectGrowthAssessed": "His growth room is only known as a range: see the ceiling your youth staff assessed."
   }
 }

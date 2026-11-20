@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
+import type { AcademyRow } from "../../services/academyService";
 import type { GameStateData, PlayerData, StaffData, TeamData } from "../../store/gameStore";
 import YouthAcademyTab from "./YouthAcademyTab";
 import { createSeasonContext } from "../../test-utils/factories";
@@ -444,16 +445,18 @@ describe("YouthAcademyTab", () => {
   // response, or the promoted player lingers in the list until the user
   // switches pages.
   /**
-   * Given youth prospects with ceilings of 81 (S), 77 (A), 76 (B) and 60 (the rest)
+   * Given four prospects whose squad payload carries true potentials of 81, 77, 76 and 60, and a
+   *       review whose staff assessed each only as a band and listed them in its own order
    * When the academy lists them
-   * Then each ceiling carries its backend tier's letter (none for the rest), and the "high potential"
-   *      count is the S and A prospects: two.
+   * Then each shows its assessed band, no true potential or tier letter is on the screen, the rows
+   *      follow the review's order rather than the potentials, and the two summary tiles come from
+   *      the review.
    */
-  it("shows each prospect's ceiling as its backend tier", async () => {
+  it("shows each prospect's ceiling as the staff's band, in the review's order", async () => {
     const prospect = (id: string, potential: number) =>
       createPlayer({
         id,
-        full_name: `Prospect ${potential}`,
+        full_name: `Prospect ${id}`,
         date_of_birth: "2008-01-01",
         squad_role: "Youth",
         potential,
@@ -465,8 +468,61 @@ describe("YouthAcademyTab", () => {
       prospect("b", 76),
       prospect("r", 60),
     ]);
+    const bands: Record<string, [number, number]> = {
+      r: [61, 72],
+      b: [73, 84],
+      a: [73, 84],
+      s: [73, 96],
+    };
+    const reviewRows: AcademyRow[] = ["r", "b", "a", "s"].map((id) => ({
+      player_id: id,
+      full_name: `Prospect ${id}`,
+      age: 18,
+      natural_position: "Midfielder",
+      ovr: 50,
+      ceiling: {
+        kind: "estimate",
+        low: bands[id][0],
+        high: bands[id][1],
+        confidence: "moderate",
+        current: true,
+        scouted_on: "2026-09-15",
+      },
+      verdict: "keep_developing",
+      reasons: ["stillImproving"],
+      squad_cover: 60,
+      seasons_left_in_academy: 3,
+      injured: false,
+      on_loan: false,
+      loan_listed: false,
+      contract_end: null,
+      weekly_wage: 500,
+      training_focus: null,
+      promotion_blocked: null,
+      advice: {
+        promote: { state: "available", reasons: ["promote.notNeeded"] },
+        loan: { state: "available", reasons: ["loan.notNeeded"] },
+        keep: { state: "recommended", reasons: ["keep.developing"] },
+        renew: null,
+      },
+    }));
     mockedInvoke.mockImplementation(async (command: string) => {
-      if (command === "get_academy_review") return null;
+      if (command === "get_academy_review") {
+        return {
+          rows: reviewRows,
+          summary: {
+            coaching: {
+              rating: 55,
+              has_staff: true,
+              confidence: "moderate",
+              band_width: 12,
+              progression_bonus_pct: 2,
+            },
+            average_ceiling: 71,
+            high_ceiling_count: 3,
+          },
+        };
+      }
       if (command === "get_squad") return state.players.filter((p) => p.team_id === "team-1");
       if (command === "get_staff") return makeEmptyStaffSlice();
       return state;
@@ -474,14 +530,26 @@ describe("YouthAcademyTab", () => {
 
     render(<YouthAcademyTab gameState={state} />);
 
-    // The ceiling cell reads as its number and, for a tiered prospect, the tier letter: "81 S".
-    const ceilingOf = async (potential: number) =>
-      within(await screen.findByRole("row", { name: new RegExp(`Prospect ${potential}\\b`) }));
-    expect((await ceilingOf(81)).getByRole("cell", { name: "81 S" })).toBeInTheDocument();
-    expect((await ceilingOf(77)).getByRole("cell", { name: "77 A" })).toBeInTheDocument();
-    expect((await ceilingOf(76)).getByRole("cell", { name: "76 B" })).toBeInTheDocument();
-    expect((await ceilingOf(60)).getByRole("cell", { name: "60" })).toBeInTheDocument();
-    expect(screen.getByText("High Potential").previousElementSibling).toHaveTextContent("2");
+    // The prospects table is the last one: the review card's own table comes first.
+    const table = (await screen.findAllByRole("table")).slice(-1)[0];
+    await within(table).findAllByText("73–84");
+    const order = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.textContent ?? "");
+    expect(order.map((text) => text.match(/Prospect (\w)/)?.[1])).toEqual(["r", "b", "a", "s"]);
+    expect(within(table).getByText("61–72")).toBeInTheDocument();
+    expect(within(table).getByText("73–96")).toBeInTheDocument();
+    for (const leaked of ["81", "77", "76", "60"]) {
+      expect(within(table).queryByText(leaked)).toBeNull();
+    }
+    expect(within(table).queryByText(/^[SAB]$/)).toBeNull();
+    expect(screen.getByText("youthAcademy.avgCeiling").previousElementSibling).toHaveTextContent(
+      "71",
+    );
+    expect(screen.getByText("youthAcademy.highCeiling").previousElementSibling).toHaveTextContent(
+      "3",
+    );
   });
 
   it("removes a promoted player from the prospects list without a refetch", async () => {
