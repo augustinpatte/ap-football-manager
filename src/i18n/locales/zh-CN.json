@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "加入名单",
       "removeShortlist": "移除",
-      "ratingPublic": "评分 {{value}}",
       "reportSection": "球探报告",
       "outlookTitle": "成长前景",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "球员资料",
     "freeAgent": "自由球员",
     "contracted": "合同球员",
-    "potential": "潜力",
     "marketValue": "身价",
     "askingPrice": "要价",
     "contractUntil": "合同至",

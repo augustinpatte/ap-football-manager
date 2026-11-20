@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Añadir a la lista",
       "removeShortlist": "Quitar",
-      "ratingPublic": "Valoración {{value}}",
       "reportSection": "Informe del ojeador",
       "outlookTitle": "Perspectiva de desarrollo",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Perfil del jugador",
     "freeAgent": "Agente libre",
     "contracted": "Con contrato",
-    "potential": "Potencial",
     "marketValue": "Valor de mercado",
     "askingPrice": "Precio pedido",
     "contractUntil": "Contrato hasta",

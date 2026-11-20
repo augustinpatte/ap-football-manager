@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "В список",
       "removeShortlist": "Убрать",
-      "ratingPublic": "Рейтинг {{value}}",
       "reportSection": "Отчёт скаута",
       "outlookTitle": "Перспективы развития",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Профиль игрока",
     "freeAgent": "Свободный агент",
     "contracted": "С контрактом",
-    "potential": "Потенциал",
     "marketValue": "Стоимость",
     "askingPrice": "Запрошенная цена",
     "contractUntil": "Контракт до",

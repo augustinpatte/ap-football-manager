@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Přidat do seznamu",
       "removeShortlist": "Odebrat",
-      "ratingPublic": "Hodnocení {{value}}",
       "reportSection": "Zpráva skauta",
       "outlookTitle": "Výhled vývoje",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Profil hráče",
     "freeAgent": "Volný hráč",
     "contracted": "Se smlouvou",
-    "potential": "Potenciál",
     "marketValue": "Tržní hodnota",
     "askingPrice": "Požadovaná cena",
     "contractUntil": "Smlouva do",

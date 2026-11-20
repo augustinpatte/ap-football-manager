@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Shortlist",
       "removeShortlist": "Remove",
-      "ratingPublic": "Rating {{value}}",
       "reportSection": "Scout's report",
       "outlookTitle": "Development outlook",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Player profile",
     "freeAgent": "Free agent",
     "contracted": "Under contract",
-    "potential": "Potential",
     "marketValue": "Market value",
     "askingPrice": "Asking price",
     "contractUntil": "Contract until",

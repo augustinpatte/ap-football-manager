@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Suivre",
       "removeShortlist": "Retirer",
-      "ratingPublic": "Note {{value}}",
       "reportSection": "Rapport du recruteur",
       "outlookTitle": "Perspectives de progression",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Profil du joueur",
     "freeAgent": "Agent libre",
     "contracted": "Sous contrat",
-    "potential": "Potentiel",
     "marketValue": "Valeur marchande",
     "askingPrice": "Prix demandé",
     "contractUntil": "Contrat jusqu'au",

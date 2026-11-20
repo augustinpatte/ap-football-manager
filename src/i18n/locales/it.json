@@ -2244,7 +2244,6 @@
       },
       "addShortlist": "Aggiungi alla lista",
       "removeShortlist": "Rimuovi",
-      "ratingPublic": "Valutazione {{value}}",
       "reportSection": "Rapporto dello scout",
       "outlookTitle": "Prospettive di crescita",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Profilo del giocatore",
     "freeAgent": "Svincolato",
     "contracted": "Sotto contratto",
-    "potential": "Potenziale",
     "marketValue": "Valore di mercato",
     "askingPrice": "Richiesta",
     "contractUntil": "Contratto fino al",

@@ -746,6 +746,16 @@ development outlook, what the I4A squad model says he would add *as the club bel
 the recruitment risks. Players are compared side by side from the shortlist or the reports; a bid or
 free-agent offer goes through the existing transfer flows.
 
+**What the manager may read of a rating** (`ofm_core::rating_view`, one rule for every screen): his own
+players and players at clubs in his division read exactly (his staff see them every season); a player a
+scout reported on reads as the scout's **ability range**, with its confidence, marked *old* when the
+report predates the season and never refreshed silently when the player changes; everyone else reads as
+a **public standing** (limited, average, good, strong, elite: cut where the game's tiers already cut, 62,
+70, 77 and 81), never a number. Sorting by rating orders by what is readable (a standing sorts at the middle of
+its span, so two players in one standing keep name order), and a rating bound keeps whoever *could* be
+inside it, so neither can be used to find a hidden rating. Potential and attributes are never given for
+an unscouted player. The estimate is `scouting_dossier`'s own; nothing here is a second estimator.
+
 The delegated **scouting duty** sends idle scouts first to the manager's shortlisted players without a
 current report, then to players for the positions the squad model says are weak (ranked on public
 ratings, never on hidden potential), and shortlists each new report that would start or cover for the

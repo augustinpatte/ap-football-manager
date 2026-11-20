@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Kısa listeye ekle",
       "removeShortlist": "Kaldır",
-      "ratingPublic": "Reyting {{value}}",
       "reportSection": "Gözlemci raporu",
       "outlookTitle": "Gelişim görünümü",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Oyuncu profili",
     "freeAgent": "Serbest oyuncu",
     "contracted": "Sözleşmeli",
-    "potential": "Potansiyel",
     "marketValue": "Piyasa değeri",
     "askingPrice": "İstenen bedel",
     "contractUntil": "Sözleşme bitişi",

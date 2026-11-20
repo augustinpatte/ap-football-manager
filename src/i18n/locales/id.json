@@ -2218,7 +2218,6 @@
       },
       "addShortlist": "Tambah ke daftar",
       "removeShortlist": "Hapus",
-      "ratingPublic": "Peringkat {{value}}",
       "reportSection": "Laporan pemandu bakat",
       "outlookTitle": "Prospek perkembangan",
       "outlook": {
@@ -5317,7 +5316,6 @@
     "profile": "Profil pemain",
     "freeAgent": "Agen bebas",
     "contracted": "Terikat kontrak",
-    "potential": "Potensi",
     "marketValue": "Nilai pasar",
     "askingPrice": "Harga yang diminta",
     "contractUntil": "Kontrak hingga",
