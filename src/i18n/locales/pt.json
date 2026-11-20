@@ -2234,7 +2234,7 @@
       "strengths": "Pontos fortes",
       "weaknesses": "Pontos fracos",
       "noneStoodOut": "Nenhum se destacou",
-      "noReportYet": "Ninguém o observou ainda. Só se conhece a avaliação pública.",
+      "noReportYet": "Ninguém o observou ainda. Só se conhece o nível público.",
       "financeTitle": "Adequação financeira",
       "freeNoFee": "Jogador livre: sem custo de transferência.",
       "feeFits": "O valor ({{fee}}) cabe no teu orçamento.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Pôr {{player}} na lista de empréstimos",
     "unlistLoanFor": "Retirar {{player}} da lista de empréstimos",
     "releaseFor": "Libertar {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Avaliação indisponível",
+    "estimate": "aprox.",
+    "stale": "Relatório antigo",
+    "standing": {
+      "limited": "Limitado",
+      "average": "Médio",
+      "good": "Bom",
+      "strong": "Forte",
+      "elite": "De elite"
+    },
+    "confidence": {
+      "low": "Confiança baixa",
+      "moderate": "Confiança moderada",
+      "high": "Confiança alta"
+    },
+    "hint": {
+      "estimate": "Estimativa de um olheiro: a avaliação real está dentro deste intervalo.",
+      "estimateStale": "Estimativa de um olheiro de antes desta época: pode ter mudado desde então. Observa-o de novo para uma leitura atualizada.",
+      "standing": "O seu nível público. A avaliação exata só se conhece depois de o observares."
+    },
+    "a11y": {
+      "exact": "Avaliação global {{value}}",
+      "estimate": "Avaliação global estimada entre {{low}} e {{high}}, {{confidence}}",
+      "estimateStale": "Avaliação global estimada entre {{low}} e {{high}}, {{confidence}}, segundo um relatório anterior a esta época",
+      "standing": "Avaliação global desconhecida, nível público: {{standing}}"
+    },
+    "notScouted": "Não observado: só se conhece o nível público. Envia um olheiro para estimar a avaliação e o potencial.",
+    "sortHint": "Os jogadores são ordenados por nível público até os observares; a ordem dentro de um nível não é uma classificação."
   }
 }

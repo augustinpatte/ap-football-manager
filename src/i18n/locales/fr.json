@@ -2234,7 +2234,7 @@
       "strengths": "Points forts",
       "weaknesses": "Points faibles",
       "noneStoodOut": "Rien de marquant",
-      "noReportYet": "Personne ne l'a encore observé. Seule sa note publique est connue.",
+      "noReportYet": "Personne ne l'a encore observé. Seul son niveau public est connu.",
       "financeTitle": "Adéquation financière",
       "freeNoFee": "Joueur libre : pas d'indemnité.",
       "feeFits": "L'indemnité ({{fee}}) rentre dans votre budget.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Mettre {{player}} sur la liste de prêts",
     "unlistLoanFor": "Retirer {{player}} de la liste de prêts",
     "releaseFor": "Libérer {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Note indisponible",
+    "estimate": "estim.",
+    "stale": "Ancien rapport",
+    "standing": {
+      "limited": "Limité",
+      "average": "Moyen",
+      "good": "Bon",
+      "strong": "Fort",
+      "elite": "Élite"
+    },
+    "confidence": {
+      "low": "Confiance faible",
+      "moderate": "Confiance modérée",
+      "high": "Confiance élevée"
+    },
+    "hint": {
+      "estimate": "Estimation d'un recruteur : sa vraie note se situe dans cette fourchette.",
+      "estimateStale": "Estimation d'un recruteur datant d'avant cette saison : il a pu changer depuis. Faites-le observer à nouveau pour une lecture récente.",
+      "standing": "Son niveau public. Sa note exacte n'est connue qu'une fois qu'il a été observé."
+    },
+    "a11y": {
+      "exact": "Note globale {{value}}",
+      "estimate": "Note globale estimée entre {{low}} et {{high}}, {{confidence}}",
+      "estimateStale": "Note globale estimée entre {{low}} et {{high}}, {{confidence}}, d'après un rapport antérieur à cette saison",
+      "standing": "Note globale inconnue, niveau public : {{standing}}"
+    },
+    "notScouted": "Non observé : seul son niveau public est connu. Envoyez un recruteur pour estimer sa note et son potentiel.",
+    "sortHint": "Les joueurs sont classés par niveau public tant que vous ne les avez pas observés ; l'ordre au sein d'un niveau n'est pas un classement."
   }
 }

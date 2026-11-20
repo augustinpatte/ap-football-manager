@@ -2260,7 +2260,7 @@
       "strengths": "Punti di forza",
       "weaknesses": "Punti deboli",
       "noneStoodOut": "Nessuno spicca",
-      "noReportYet": "Nessuno l'ha ancora osservato. Si conosce solo la valutazione pubblica.",
+      "noReportYet": "Nessuno l'ha ancora osservato. Si conosce solo il livello pubblico.",
       "financeTitle": "Sostenibilità economica",
       "freeNoFee": "Svincolato: nessun costo del cartellino.",
       "feeFits": "Il costo ({{fee}}) rientra nel budget.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Metti {{player}} in lista prestiti",
     "unlistLoanFor": "Rimuovi {{player}} dalla lista prestiti",
     "releaseFor": "Svincola {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Valutazione non disponibile",
+    "estimate": "stim.",
+    "stale": "Rapporto vecchio",
+    "standing": {
+      "limited": "Limitato",
+      "average": "Medio",
+      "good": "Buono",
+      "strong": "Forte",
+      "elite": "Di élite"
+    },
+    "confidence": {
+      "low": "Fiducia bassa",
+      "moderate": "Fiducia moderata",
+      "high": "Fiducia alta"
+    },
+    "hint": {
+      "estimate": "Stima di uno scout: la sua valutazione reale è dentro questo intervallo.",
+      "estimateStale": "Stima di uno scout precedente a questa stagione: potrebbe essere cambiato da allora. Fallo osservare di nuovo per una lettura aggiornata.",
+      "standing": "Il suo livello pubblico. La valutazione esatta si conosce solo dopo che è stato osservato."
+    },
+    "a11y": {
+      "exact": "Valutazione complessiva {{value}}",
+      "estimate": "Valutazione complessiva stimata tra {{low}} e {{high}}, {{confidence}}",
+      "estimateStale": "Valutazione complessiva stimata tra {{low}} e {{high}}, {{confidence}}, da un rapporto precedente a questa stagione",
+      "standing": "Valutazione complessiva sconosciuta, livello pubblico: {{standing}}"
+    },
+    "notScouted": "Non osservato: si conosce solo il livello pubblico. Manda uno scout per stimare valutazione e potenziale.",
+    "sortHint": "I giocatori sono ordinati per livello pubblico finché non li osservi; l'ordine all'interno di un livello non è una classifica."
   }
 }

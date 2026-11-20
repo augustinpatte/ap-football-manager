@@ -2234,7 +2234,7 @@
       "strengths": "Silné stránky",
       "weaknesses": "Slabé stránky",
       "noneStoodOut": "Nic nevynikalo",
-      "noReportYet": "Zatím ho nikdo neskautoval. Znáte jen jeho veřejné hodnocení.",
+      "noReportYet": "Zatím ho nikdo neskautoval. Znáte jen jeho veřejnou úroveň.",
       "financeTitle": "Finanční únosnost",
       "freeNoFee": "Volný hráč: bez odstupného.",
       "feeFits": "Odstupné ({{fee}}) se vejde do rozpočtu.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Zařadit hráče {{player}} na hostování",
     "unlistLoanFor": "Odebrat hráče {{player}} ze seznamu hostování",
     "releaseFor": "Propustit hráče {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Hodnocení není k dispozici",
+    "estimate": "odhad",
+    "stale": "Starý report",
+    "standing": {
+      "limited": "Omezená",
+      "average": "Průměrná",
+      "good": "Dobrá",
+      "strong": "Silná",
+      "elite": "Elitní"
+    },
+    "confidence": {
+      "low": "Nízká jistota",
+      "moderate": "Střední jistota",
+      "high": "Vysoká jistota"
+    },
+    "hint": {
+      "estimate": "Odhad skauta: jeho skutečné hodnocení leží uvnitř tohoto rozpětí.",
+      "estimateStale": "Odhad skauta z doby před touto sezónou: od té doby se mohl změnit. Pošlete skauta znovu pro čerstvý dojem.",
+      "standing": "Jeho veřejná úroveň. Přesné hodnocení není známo, dokud ho někdo neskautuje."
+    },
+    "a11y": {
+      "exact": "Celkové hodnocení {{value}}",
+      "estimate": "Celkové hodnocení odhadnuto mezi {{low}} a {{high}}, {{confidence}}",
+      "estimateStale": "Celkové hodnocení odhadnuto mezi {{low}} a {{high}}, {{confidence}}, podle reportu z doby před touto sezónou",
+      "standing": "Celkové hodnocení neznámé, veřejná úroveň: {{standing}}"
+    },
+    "notScouted": "Neskautován: znáte jen jeho veřejnou úroveň. Pošlete skauta, aby odhadl jeho hodnocení a potenciál.",
+    "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček."
   }
 }

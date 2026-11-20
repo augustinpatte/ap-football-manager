@@ -2234,7 +2234,7 @@
       "strengths": "Puntos fuertes",
       "weaknesses": "Puntos débiles",
       "noneStoodOut": "Ninguno destacó",
-      "noReportYet": "Nadie lo ha ojeado aún. Solo se conoce su valoración pública.",
+      "noReportYet": "Nadie lo ha ojeado aún. Solo se conoce su nivel público.",
       "financeTitle": "Encaje financiero",
       "freeNoFee": "Agente libre: sin traspaso.",
       "feeFits": "El traspaso ({{fee}}) cabe en tu presupuesto.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Poner a {{player}} en la lista de cesiones",
     "unlistLoanFor": "Quitar a {{player}} de la lista de cesiones",
     "releaseFor": "Rescindir a {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Valoración no disponible",
+    "estimate": "aprox.",
+    "stale": "Informe antiguo",
+    "standing": {
+      "limited": "Limitado",
+      "average": "Medio",
+      "good": "Bueno",
+      "strong": "Fuerte",
+      "elite": "Élite"
+    },
+    "confidence": {
+      "low": "Confianza baja",
+      "moderate": "Confianza moderada",
+      "high": "Confianza alta"
+    },
+    "hint": {
+      "estimate": "Estimación de un ojeador: su valoración real está dentro de este rango.",
+      "estimateStale": "Estimación de un ojeador de antes de esta temporada: puede haber cambiado desde entonces. Vuelve a ojearlo para obtener una lectura nueva.",
+      "standing": "Su nivel público. Su valoración exacta no se conoce hasta que se le ojea."
+    },
+    "a11y": {
+      "exact": "Valoración global {{value}}",
+      "estimate": "Valoración global estimada entre {{low}} y {{high}}, {{confidence}}",
+      "estimateStale": "Valoración global estimada entre {{low}} y {{high}}, {{confidence}}, según un informe anterior a esta temporada",
+      "standing": "Valoración global desconocida, nivel público: {{standing}}"
+    },
+    "notScouted": "Sin ojear: solo se conoce su nivel público. Envía a un ojeador para estimar su valoración y su potencial.",
+    "sortHint": "Los jugadores se ordenan por nivel público hasta que los ojees; el orden dentro de un nivel no es una clasificación."
   }
 }

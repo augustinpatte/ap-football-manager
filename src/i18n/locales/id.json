@@ -2234,7 +2234,7 @@
       "strengths": "Kekuatan",
       "weaknesses": "Kelemahan",
       "noneStoodOut": "Tidak ada yang menonjol",
-      "noReportYet": "Belum ada yang memantaunya. Hanya rating publiknya yang diketahui.",
+      "noReportYet": "Belum ada yang memantaunya. Hanya tingkat publiknya yang diketahui.",
       "financeTitle": "Kesesuaian keuangan",
       "freeNoFee": "Pemain bebas: tanpa biaya transfer.",
       "feeFits": "Biaya ({{fee}}) sesuai anggaran Anda.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "Masukkan {{player}} ke daftar pinjaman",
     "unlistLoanFor": "Hapus {{player}} dari daftar pinjaman",
     "releaseFor": "Lepaskan {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "Rating tidak tersedia",
+    "estimate": "perk.",
+    "stale": "Laporan lama",
+    "standing": {
+      "limited": "Terbatas",
+      "average": "Rata-rata",
+      "good": "Bagus",
+      "strong": "Kuat",
+      "elite": "Elit"
+    },
+    "confidence": {
+      "low": "Keyakinan rendah",
+      "moderate": "Keyakinan sedang",
+      "high": "Keyakinan tinggi"
+    },
+    "hint": {
+      "estimate": "Perkiraan pemandu bakat: rating aslinya berada di dalam kisaran ini.",
+      "estimateStale": "Perkiraan pemandu bakat dari sebelum musim ini: ia mungkin sudah berubah sejak itu. Pantau lagi untuk pembacaan terbaru.",
+      "standing": "Tingkat publiknya. Rating pastinya tidak diketahui sampai ia dipantau."
+    },
+    "a11y": {
+      "exact": "Rating keseluruhan {{value}}",
+      "estimate": "Rating keseluruhan diperkirakan antara {{low}} dan {{high}}, {{confidence}}",
+      "estimateStale": "Rating keseluruhan diperkirakan antara {{low}} dan {{high}}, {{confidence}}, dari laporan sebelum musim ini",
+      "standing": "Rating keseluruhan tidak diketahui, tingkat publik: {{standing}}"
+    },
+    "notScouted": "Belum dipantau: hanya tingkat publiknya yang diketahui. Kirim pemandu bakat untuk memperkirakan rating dan potensinya.",
+    "sortHint": "Pemain diurutkan menurut tingkat publik sampai Anda memantau mereka; urutan di dalam satu tingkat bukan peringkat."
   }
 }

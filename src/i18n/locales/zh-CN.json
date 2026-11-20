@@ -2234,7 +2234,7 @@
       "strengths": "优势",
       "weaknesses": "劣势",
       "noneStoodOut": "没有明显项",
-      "noReportYet": "尚未有人考察过他,只知道公开评分。",
+      "noReportYet": "尚未有人考察过他,只知道公开水平。",
       "financeTitle": "财务匹配",
       "freeNoFee": "自由球员:无转会费。",
       "feeFits": "转会费({{fee}})在预算之内。",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "将 {{player}} 列入租借名单",
     "unlistLoanFor": "将 {{player}} 移出租借名单",
     "releaseFor": "解约 {{player}}"
+  },
+  "playerRating": {
+    "unavailable": "评分不可用",
+    "estimate": "估计",
+    "stale": "旧报告",
+    "standing": {
+      "limited": "有限",
+      "average": "一般",
+      "good": "良好",
+      "strong": "出色",
+      "elite": "顶级"
+    },
+    "confidence": {
+      "low": "可信度低",
+      "moderate": "可信度中等",
+      "high": "可信度高"
+    },
+    "hint": {
+      "estimate": "球探的估计:他的真实评分位于此区间之内。",
+      "estimateStale": "本赛季之前的球探估计:此后他可能已有变化。请再次派球探考察以获得最新判断。",
+      "standing": "他的公开水平。在被考察之前,无法得知其确切评分。"
+    },
+    "a11y": {
+      "exact": "综合评分 {{value}}",
+      "estimate": "综合评分估计在 {{low}} 到 {{high}} 之间,{{confidence}}",
+      "estimateStale": "综合评分估计在 {{low}} 到 {{high}} 之间,{{confidence}},来自本赛季之前的报告",
+      "standing": "综合评分未知,公开水平:{{standing}}"
+    },
+    "notScouted": "未考察:只知道他的公开水平。派球探去估计他的评分和潜力。",
+    "sortHint": "在你考察之前,球员按公开水平排序;同一水平内的顺序并不代表排名。"
   }
 }

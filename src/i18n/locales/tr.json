@@ -2234,7 +2234,7 @@
       "strengths": "Güçlü yönler",
       "weaknesses": "Zayıf yönler",
       "noneStoodOut": "Öne çıkan yok",
-      "noReportYet": "Henüz kimse onu izlemedi. Yalnızca herkese açık reytingi biliniyor.",
+      "noReportYet": "Henüz kimse onu izlemedi. Yalnızca herkese açık seviyesi biliniyor.",
       "financeTitle": "Mali uygunluk",
       "freeNoFee": "Serbest oyuncu: transfer bedeli yok.",
       "feeFits": "Bedel ({{fee}}) bütçenize uygun.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "{{player}} oyuncusunu kiralık listesine ekle",
     "unlistLoanFor": "{{player}} oyuncusunu kiralık listesinden çıkar",
     "releaseFor": "{{player}} oyuncusunu serbest bırak"
+  },
+  "playerRating": {
+    "unavailable": "Reytingi yok",
+    "estimate": "tah.",
+    "stale": "Eski rapor",
+    "standing": {
+      "limited": "Sınırlı",
+      "average": "Orta",
+      "good": "İyi",
+      "strong": "Güçlü",
+      "elite": "Elit"
+    },
+    "confidence": {
+      "low": "Düşük güven",
+      "moderate": "Orta güven",
+      "high": "Yüksek güven"
+    },
+    "hint": {
+      "estimate": "Bir gözlemcinin tahmini: gerçek reytingi bu aralığın içindedir.",
+      "estimateStale": "Bu sezondan önceki bir gözlemci tahmini: o zamandan beri değişmiş olabilir. Güncel bir değerlendirme için onu yeniden izlettirin.",
+      "standing": "Herkese açık seviyesi. Kesin reytingi, izlenene kadar bilinmez."
+    },
+    "a11y": {
+      "exact": "Genel reyting {{value}}",
+      "estimate": "Genel reyting {{low}} ile {{high}} arasında tahmin ediliyor, {{confidence}}",
+      "estimateStale": "Genel reyting {{low}} ile {{high}} arasında tahmin ediliyor, {{confidence}}, bu sezondan önceki bir rapora göre",
+      "standing": "Genel reyting bilinmiyor, herkese açık seviye: {{standing}}"
+    },
+    "notScouted": "İzlenmedi: yalnızca herkese açık seviyesi biliniyor. Reytingini ve potansiyelini tahmin etmesi için bir gözlemci gönderin.",
+    "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir."
   }
 }

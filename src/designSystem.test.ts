@@ -21,6 +21,8 @@ const FINISHED_FOLDERS = [
   // tokens from the start.
   "./components/scouting/dossier/",
   "./components/youthAcademy/review/",
+  // The one display of a rating the manager may read (exact, an estimate or a standing).
+  "./components/players/ReadableRating",
   // The Global Market screen and the model it reads, finished with I2.2's UX pass.
   "./components/transfers/GlobalMarket",
   "./components/transfers/globalMarketModel",

@@ -2234,7 +2234,7 @@
       "strengths": "Stärken",
       "weaknesses": "Schwächen",
       "noneStoodOut": "Nichts fiel auf",
-      "noReportYet": "Noch niemand hat ihn beobachtet. Nur seine öffentliche Wertung ist bekannt.",
+      "noReportYet": "Noch niemand hat ihn beobachtet. Nur sein öffentliches Niveau ist bekannt.",
       "financeTitle": "Finanzieller Rahmen",
       "freeNoFee": "Vereinslos: keine Ablöse.",
       "feeFits": "Die Ablöse ({{fee}}) passt in dein Budget.",
@@ -5407,5 +5407,35 @@
     "listLoanFor": "{{player}} auf die Leihliste setzen",
     "unlistLoanFor": "{{player}} von der Leihliste nehmen",
     "releaseFor": "{{player}} freigeben"
+  },
+  "playerRating": {
+    "unavailable": "Wertung nicht verfügbar",
+    "estimate": "gesch.",
+    "stale": "Alter Bericht",
+    "standing": {
+      "limited": "Begrenzt",
+      "average": "Durchschnittlich",
+      "good": "Gut",
+      "strong": "Stark",
+      "elite": "Spitzenklasse"
+    },
+    "confidence": {
+      "low": "Geringe Sicherheit",
+      "moderate": "Mittlere Sicherheit",
+      "high": "Hohe Sicherheit"
+    },
+    "hint": {
+      "estimate": "Schätzung eines Scouts: Seine wahre Wertung liegt in dieser Spanne.",
+      "estimateStale": "Schätzung eines Scouts von vor dieser Saison: Er kann sich seither verändert haben. Lass ihn erneut beobachten, um einen aktuellen Eindruck zu bekommen.",
+      "standing": "Sein öffentliches Niveau. Seine genaue Wertung ist erst bekannt, wenn er beobachtet wurde."
+    },
+    "a11y": {
+      "exact": "Gesamtwertung {{value}}",
+      "estimate": "Gesamtwertung geschätzt zwischen {{low}} und {{high}}, {{confidence}}",
+      "estimateStale": "Gesamtwertung geschätzt zwischen {{low}} und {{high}}, {{confidence}}, nach einem Bericht von vor dieser Saison",
+      "standing": "Gesamtwertung unbekannt, öffentliches Niveau: {{standing}}"
+    },
+    "notScouted": "Nicht beobachtet: Nur sein öffentliches Niveau ist bekannt. Schicke einen Scout, um seine Wertung und sein Potenzial zu schätzen.",
+    "sortHint": "Die Spieler werden nach öffentlichem Niveau geordnet, bis du sie beobachtest; die Reihenfolge innerhalb eines Niveaus ist keine Rangfolge."
   }
 }
