@@ -198,7 +198,9 @@ vi.mock("../../services/interactiveMatchService", () => ({
         if (s.lastFrameMs < 0 && frames.length === 0) frames.push(frameAt(0));
         s.lastFrameMs = Math.max(s.lastFrameMs, reached);
       }
-      // The real engine's revision moves with the match clock, about twice a simulated second.
+      // The real engine's revision counts its steps. Asked for frames, as the screen always does,
+      // it steps once per 500 ms frame, so it moves about twice per simulated second (measured on
+      // the real backend: +2 a second with frames, +1 per stretch without); an accepted order adds one.
       s.revision += Math.round(((reached - s.clockMs) / 1000) * 2);
       s.clockMs = reached;
       let stop = "reached";

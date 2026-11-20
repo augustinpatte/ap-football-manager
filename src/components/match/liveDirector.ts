@@ -70,6 +70,27 @@ export interface DirectorSnapshot {
   rejectedFrames: number;
 }
 
+/**
+ * The stopwatch of the first half when the first view this screen sees is already in the second
+ * (a saved match that was reloaded, or a screen opened late): the engine reports only the current
+ * period, yet the feed still holds first-half events. A regulation half is as long as the nominal
+ * time played before the second one; added time is not known, and a minute past it is counted on.
+ */
+function earlierClocks(view: InteractiveView): ClockView[] {
+  const { clock, regulation_minutes: regulation } = view;
+  const isSecondHalf = clock.period_base_ms > 0 && clock.period_base_ms * 2 === regulation * 60_000;
+  if (!isSecondHalf) return [];
+  return [
+    {
+      period_start_ms: 0,
+      period_base_ms: 0,
+      period_nominal_ms: clock.period_base_ms,
+      nominal_end_ms: clock.period_base_ms,
+      added_time_ms: null,
+    },
+  ];
+}
+
 export class LiveDirector {
   readonly store = new FrameStore();
   private events: MatchKeyEvent[] = [];
@@ -130,6 +151,7 @@ export class LiveDirector {
       if (event.id > lastId) this.events.push(event);
     }
     const clock = snapshot.view.clock;
+    if (this.clocks.length === 0) this.clocks.push(...earlierClocks(snapshot.view));
     const known = this.clocks.findIndex((c) => c.period_start_ms === clock.period_start_ms);
     if (known >= 0) this.clocks[known] = clock;
     else this.clocks.push(clock);

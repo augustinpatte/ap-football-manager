@@ -37,6 +37,8 @@ use crate::commands::util::mutate_active_game;
 const SEED: u64 = 1;
 /// More days than any season has, so a loop that never finds its target fails instead of hanging.
 const DAY_GUARD: u32 = 460;
+/// Stretches of play one match may take before the test calls it hung (a match is a handful of requests).
+const MATCH_GUARD: u32 = 500;
 
 /// One career on disk: the state a player's session holds, and the folder their saves live in.
 struct Session {
@@ -163,7 +165,8 @@ fn advance_until_user_match(state: &StateManager, mode: &str) {
 
 fn play_interactive_match(state: &StateManager) {
     start_interactive_match_internal(state).expect("the interactive match starts");
-    loop {
+    let mut ended = false;
+    for _ in 0..MATCH_GUARD {
         let out = advance_interactive_match_internal(
             state,
             AdvanceRequest {
@@ -175,9 +178,11 @@ fn play_interactive_match(state: &StateManager) {
         )
         .expect("the match advances");
         if out.stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(ended, "the match never reached full time in {MATCH_GUARD} stretches");
     finish_interactive_match_internal(state).expect("the match is finalised");
 }
 
@@ -707,11 +712,14 @@ fn a_watched_match_saved_midway_keeps_the_dossier_and_is_finalised_once() {
 
     // The resumed match carries on, is watched to full time and is finalised.
     start_interactive_match_internal(&resumed).expect("the screen takes the match over");
-    loop {
+    let mut ended = false;
+    for _ in 0..MATCH_GUARD {
         if watch(&resumed, 900).stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(ended, "the resumed match never reached full time in {MATCH_GUARD} stretches");
     finish_interactive_match_internal(&resumed).expect("the match is finalised");
     let game = resumed.get_game(|g| g.clone()).expect("an active game");
     assert_eq!(own_completed(&game), completed_before + 1);

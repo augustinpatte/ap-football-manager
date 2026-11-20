@@ -54,6 +54,7 @@ function fakeEngine(scheduled: { t_ms: number; type: string }[] = []) {
     const view = {
       user_side: "home",
       roster: [{ id: "p0", side: "home" }],
+      regulation_minutes: 90,
       session: { finished: stop === "finished" },
       clock: {
         period_start_ms: state.period === 0 ? 0 : HALF_MS,
@@ -313,5 +314,19 @@ describe("LiveDirector", () => {
     expect(director.getSnapshot().playheadMs).toBe(before);
     director.setMode("full");
     expect(director.getSnapshot().playheadMs).toBe(before);
+  });
+
+  /** Given a screen whose first view is already in the second half (a saved match reloaded), When the stopwatch is asked for an instant of the first half, Then it reads that half's minute instead of nothing. */
+  it("keeps a stopwatch for the first half when it only ever saw the second", async () => {
+    const engine = fakeEngine([{ t_ms: 10_000, type: "goal" }]);
+    engine.state.period = 1;
+    engine.state.clock = HALF_MS + 20_000;
+    engine.state.lastFrame = HALF_MS + 19_500;
+    const director = new LiveDirector();
+    director.ingestAdvance(await engine.advance(0));
+    expect(director.labelAt(10_000)).toBe("1'");
+    expect(director.labelAt(HALF_MS + 20_000)).toBe("46'");
+    // the feed's first-half goal is now in the director's events with a readable minute
+    expect(director.getSnapshot().events.map((e) => director.labelAt(e.t_ms))).toEqual(["1'"]);
   });
 });
