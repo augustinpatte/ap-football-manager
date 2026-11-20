@@ -46,6 +46,8 @@ const mockTranslationState = vi.hoisted(() => ({
       "playerRating.standing.limited": "Limited",
       "playerRating.standing.strong": "Strong",
       "playerRating.prospectGrowthUnknown": "Growth room is not known until he joins your academy.",
+      "playerRating.prospectGrowthAssessed":
+        "His growth room is only known as a range: see the ceiling your youth staff assessed.",
       "playerRating.unavailable": "Rating unavailable",
       "youthAcademy.growth": "Growth",
       "youthAcademy.ovr": "OVR",
@@ -1422,9 +1424,7 @@ describe("InboxTab", (): void => {
     for (const letter of ["S", "A", "B"]) {
       expect(screen.queryByText(letter, { selector: "p" })).not.toBeInTheDocument();
     }
-    expect(
-      screen.getByText(/prospectGrowthAssessed|Growth room is only known as a range/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/growth room is only known as a range/)).toBeInTheDocument();
   });
 
   /**

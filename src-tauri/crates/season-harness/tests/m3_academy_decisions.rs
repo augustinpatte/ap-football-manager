@@ -92,6 +92,8 @@ struct Watch {
     blocked_rows: usize,
     reloads: usize,
     seasons_with_new_intake: usize,
+    /// Academy players lent out to another club during the career, to be back by the end of it.
+    lent: Vec<String>,
 }
 
 fn review_json(review: &AcademyReview) -> String {
@@ -128,6 +130,52 @@ fn check_day(game: &Game, watch: &mut Watch, label: &str) {
             watch.seen_in_academy.insert(player.id.clone());
         }
     }
+}
+
+/// Lends one academy player to another club for three weeks, as a loan deal would: the club keeps his
+/// contract, he plays for the borrower, and the daily loan processing must bring him back. Gives the
+/// scenario a youngster the advice must call blocked, which a scripted manager does not meet by
+/// chance.
+fn lend_one_academy_player(game: &mut Game, watch: &mut Watch) {
+    let team = user_team(game);
+    let borrower = game
+        .teams
+        .iter()
+        .find(|t| t.id != team)
+        .map(|t| t.id.clone())
+        .expect("another club exists");
+    let today = game.clock.current_date.date_naive();
+    let Some(id) = academy_players(game)
+        .into_iter()
+        .filter(|id| {
+            game.players
+                .iter()
+                .any(|p| &p.id == id && p.active_loan.is_none() && p.squad_role == SquadRole::Youth)
+        })
+        .min()
+    else {
+        return;
+    };
+    let player = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == id)
+        .expect("the player exists");
+    player.team_id = Some(borrower.clone());
+    player.active_loan = Some(domain::player::ActiveLoan {
+        parent_team_id: team,
+        loan_team_id: borrower,
+        loan_team_name: None,
+        start_date: today.to_string(),
+        end_date: (today + chrono::Duration::days(21)).to_string(),
+        wage_contribution_pct: 50,
+        buy_option_fee: None,
+        loan_start_minutes: 0,
+        loan_start_appearances: 0,
+        development_reported_minutes: 0,
+        development_reported_appearances: 0,
+    });
+    watch.lent.push(id);
 }
 
 /// What a week's review must satisfy, and the manager's reaction to it.
@@ -252,6 +300,9 @@ fn run_career(seasons: u32) -> Watch {
             day += 1;
             assert!(day < 470, "season {season} did not complete");
             let label = format!("season {season} day {day}");
+            if day == 50 {
+                lend_one_academy_player(&mut game, &mut watch);
+            }
             if day % 7 == 1 {
                 manager_reads_the_review(&mut game, &mut watch, &label);
             }
@@ -259,6 +310,28 @@ fn run_career(seasons: u32) -> Watch {
                 .unwrap_or_else(|e| panic!("{label}: {e}"));
             check_day(&game, &mut watch, &label);
         }
+        // Every youngster lent so far still exists exactly once; the one lent this season is back
+        // at his club, with the contract still his club's.
+        for id in &watch.lent {
+            assert_eq!(
+                game.players.iter().filter(|p| &p.id == id).count(),
+                1,
+                "season {season}: {id} must exist once"
+            );
+        }
+        let id = watch.lent.last().expect("one was lent this season");
+        let lent = game.players.iter().find(|p| &p.id == id).expect("exists");
+        assert!(
+            lent.active_loan.is_none(),
+            "season {season}: {id} is still out on loan after his three weeks"
+        );
+        eprintln!(
+            "M3 season {season}: lent {id} is back={} (club {:?}, contract club {:?}, role {:?})",
+            lent.team_id.as_deref() == Some(user_team(&game).as_str()),
+            lent.team_id,
+            lent.contract_club_id(),
+            lent.squad_role
+        );
         let academy_before = academy_players(&game);
         // The season boundary: the career goes through a real database and continues from the copy.
         game = save_and_reload(
@@ -326,8 +399,17 @@ fn m3_academy_decisions_hold_across_seasons_and_reloads() {
         watch.seasons_with_new_intake > 0,
         "no season's intake brought a new youngster into the academy"
     );
+    assert_eq!(
+        watch.lent.len(),
+        seasons as usize,
+        "one youngster lent out in each season"
+    );
     assert!(
-        watch.promoted + watch.loan_listed > 0,
+        watch.blocked_rows > 0,
+        "the advice never met a blocked promotion: the loan injected each season should have"
+    );
+    assert!(
+        watch.promoted > 0 && watch.loan_listed > 0,
         "the manager never acted on the advice: the scenario would be vacuous"
     );
     eprintln!(

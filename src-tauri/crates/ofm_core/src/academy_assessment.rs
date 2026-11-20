@@ -186,6 +186,12 @@ mod tests {
         let (average, average_trust) = band_of_department(50.0);
         let (strong, strong_trust) = band_of_department(85.0);
         assert!(none > average && average > strong);
+        // The cut-offs themselves: 70 is a strong department, a hair under it is not; 50 is
+        // average, a hair under it is not.
+        assert_eq!(band_of_department(70.0).0, NARROW_BAND);
+        assert_eq!(band_of_department(69.9).0, MEDIUM_BAND);
+        assert_eq!(band_of_department(50.0).0, MEDIUM_BAND);
+        assert_eq!(band_of_department(49.9).0, WIDE_BAND);
         assert_eq!(
             (none_trust, average_trust, strong_trust),
             (Confidence::Low, Confidence::Moderate, Confidence::High)

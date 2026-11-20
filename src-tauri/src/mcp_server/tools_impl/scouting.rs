@@ -357,7 +357,13 @@ pub fn scout_cancel(
 pub fn academy_get_review(ctx: Arc<McpContext>) -> Result<AcademyReviewResult, String> {
     let review = crate::commands::scouting::get_academy_review_internal(&ctx.state_manager)?
         .ok_or_else(|| "be.error.noTeamAssigned".to_string())?;
-    Ok(AcademyReviewResult {
+    Ok(academy_review_result(review))
+}
+
+/// The agent's view of the academy review: the screen's own fields, with the ceiling as the staff's
+/// assessed range (never the exact potential) and its confidence.
+fn academy_review_result(review: ofm_core::academy_review::AcademyReview) -> AcademyReviewResult {
+    AcademyReviewResult {
         seniors: review.seniors,
         senior_limit: review.senior_limit,
         next_intake: review.next_intake,
@@ -380,5 +386,97 @@ pub fn academy_get_review(ctx: Arc<McpContext>) -> Result<AcademyReviewResult, S
                 promotion_blocked: row.promotion_blocked.is_some(),
             })
             .collect(),
-    })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ofm_core::academy_advice::{ActionAdvice, AdviceState, RowAdvice};
+    use ofm_core::academy_review::{AcademyReview, AcademyRow, Verdict};
+    use ofm_core::scouting_dossier::Confidence;
+
+    fn advice() -> ActionAdvice {
+        ActionAdvice {
+            state: AdviceState::Available,
+            reasons: vec![],
+        }
+    }
+
+    fn row(id: &str, ceiling: RatingView) -> AcademyRow {
+        AcademyRow {
+            player_id: id.to_string(),
+            full_name: id.to_string(),
+            age: 18,
+            natural_position: domain::player::Position::Midfielder,
+            ovr: 58,
+            ceiling,
+            verdict: Verdict::KeepDeveloping,
+            reasons: vec!["stillImproving".to_string()],
+            squad_cover: 60,
+            seasons_left_in_academy: 4,
+            injured: false,
+            on_loan: false,
+            loan_listed: false,
+            contract_end: None,
+            weekly_wage: 0,
+            training_focus: None,
+            promotion_blocked: None,
+            advice: RowAdvice {
+                promote: advice(),
+                loan: advice(),
+                keep: advice(),
+                renew: None,
+            },
+        }
+    }
+
+    /// Given an academy review with a band, a one-point band and a (never expected) exact ceiling
+    /// When the agent's result is built
+    /// Then the band reads as a range with its confidence, a one-point band as one figure, and no
+    ///      exact potential field exists on the wire.
+    #[test]
+    fn the_agents_academy_review_carries_a_band_and_never_a_potential() {
+        let estimate = |low, high, confidence| RatingView::Estimate {
+            low,
+            high,
+            confidence,
+            current: true,
+            scouted_on: "2026-09-15".to_string(),
+        };
+        let review = AcademyReview {
+            rows: vec![
+                row("wide", estimate(73, 84, Confidence::Moderate)),
+                row("point", estimate(80, 80, Confidence::High)),
+            ],
+            summary: None,
+            seniors: 24,
+            senior_limit: 30,
+            by_group: [0; 4],
+            target_by_group: [1, 2, 2, 1],
+            next_intake: 2,
+        };
+
+        let result = academy_review_result(review);
+
+        assert_eq!(
+            (
+                result.rows[0].ceiling.as_str(),
+                result.rows[0].ceiling_confidence.as_str()
+            ),
+            ("73-84", "moderate")
+        );
+        assert_eq!(
+            (
+                result.rows[1].ceiling.as_str(),
+                result.rows[1].ceiling_confidence.as_str()
+            ),
+            ("80", "high")
+        );
+        let wire = serde_json::to_string(&result).expect("serializes");
+        assert!(
+            !wire.contains("potential") && !wire.contains("next_year"),
+            "{wire}"
+        );
+    }
 }

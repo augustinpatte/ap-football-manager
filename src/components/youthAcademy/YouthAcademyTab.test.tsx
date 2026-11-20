@@ -540,8 +540,9 @@ describe("YouthAcademyTab", () => {
     expect(order.map((text) => text.match(/Prospect (\w)/)?.[1])).toEqual(["r", "b", "a", "s"]);
     expect(within(table).getByText("61–72")).toBeInTheDocument();
     expect(within(table).getByText("73–96")).toBeInTheDocument();
+    // The squad payload still carries the true potentials; the screen must not print them.
     for (const leaked of ["81", "77", "76", "60"]) {
-      expect(within(table).queryByText(leaked)).toBeNull();
+      expect(table.textContent ?? "").not.toMatch(new RegExp(`(^|\\D)${leaked}(\\D|$)`));
     }
     expect(within(table).queryByText(/^[SAB]$/)).toBeNull();
     expect(screen.getByText("youthAcademy.avgCeiling").previousElementSibling).toHaveTextContent(

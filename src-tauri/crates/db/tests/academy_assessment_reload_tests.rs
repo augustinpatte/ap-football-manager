@@ -12,6 +12,7 @@ mod market_fixtures;
 
 use db::save_manager::SaveManager;
 use domain::player::SquadRole;
+use domain::staff::{Staff, StaffAttributes, StaffPost};
 use market_fixtures::{game_with, rated_player};
 use ofm_core::academy_review::academy_review;
 use ofm_core::game::Game;
@@ -106,4 +107,49 @@ fn the_assessments_survive_a_save_and_a_reload_and_the_save_keeps_the_truth() {
     let second = serde_json::to_string(&academy_review(&again).unwrap()).unwrap();
     assert_eq!(first, second);
     assert!(!first.contains("\"potential\""), "{first}");
+}
+
+fn head_of_youth(level: u8) -> Staff {
+    let mut staff = Staff::new(
+        "head-of-youth".to_string(),
+        "Y".to_string(),
+        "H".to_string(),
+        "1975-01-01".to_string(),
+        StaffPost::HeadOfYouth.role(),
+        StaffAttributes {
+            coaching: level,
+            judging_ability: level,
+            judging_potential: level,
+            physiotherapy: level,
+        },
+    );
+    staff.specialization = StaffPost::HeadOfYouth.specialization();
+    staff.post = Some(StaffPost::HeadOfYouth);
+    staff.team_id = Some("team-1".to_string());
+    staff
+}
+
+/// Given a club with a strong head of youth, saved to disk and loaded by a fresh save manager
+/// When the assessments are read before and after
+/// Then the band is the narrow one both times (the staff and their post survive the save), still
+///      holds the exact ceiling, and the summary says the department has staff.
+#[test]
+fn a_strong_youth_department_still_narrows_the_band_after_a_reload() {
+    let mut game = academy_career();
+    game.staff.push(head_of_youth(90));
+    let (low, high) = ceiling_of(&game, "kid-high");
+    assert!(
+        high - low < 6,
+        "a strong department reads a narrow band: {low}-{high}"
+    );
+    let dir = tempfile::tempdir().unwrap();
+
+    let reloaded = saved_and_loaded(&game, dir.path(), "Academy staffed");
+
+    assert_eq!(assessments(&game), assessments(&reloaded));
+    let (low, high) = ceiling_of(&reloaded, "kid-high");
+    assert!(low <= 71 && 71 <= high && high - low < 6, "{low}-{high}");
+    let summary = academy_review(&reloaded).unwrap().summary.unwrap();
+    assert!(summary.coaching.has_staff);
+    assert_eq!(summary.coaching.band_width, 6);
 }

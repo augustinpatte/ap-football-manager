@@ -109,8 +109,8 @@ fn loan_out(player: &mut Player) {
 }
 
 fn row_of(state: &StateManager, id: &str) -> ofm_core::academy_review::AcademyRow {
-    let review = state
-        .get_game(academy_review)
+    // Through the seam the screen and the MCP tool both call.
+    let review = super::scouting::get_academy_review_internal(state)
         .expect("a game")
         .expect("the manager has a club");
     let rows: Vec<_> = review
@@ -133,8 +133,14 @@ fn a_youngster_out_on_loan_cannot_be_promoted_or_listed_and_the_review_says_so()
     let state = StateManager::new();
     state.set_game(game(20, vec![lent]));
 
-    assert!(set_player_squad_role_internal(&state, "lent", "Senior").is_err());
-    assert!(toggle_loan_list_internal(&state, "lent").is_err());
+    assert_eq!(
+        set_player_squad_role_internal(&state, "lent", "Senior").unwrap_err(),
+        "be.error.playerNotInSquad"
+    );
+    assert_eq!(
+        toggle_loan_list_internal(&state, "lent").unwrap_err(),
+        "be.error.transfers.playerNotOwnedByUser"
+    );
 
     let stored = state.get_game(|g| g.clone()).expect("a game");
     let lent = stored
@@ -245,4 +251,22 @@ fn an_overage_academy_player_is_advised_to_move_on_and_cannot_return() {
     assert_eq!(error, "be.error.youthAcademyOverage");
     let stored = state.get_game(|g| g.clone()).expect("a game");
     assert_eq!(stored.players.iter().filter(|p| p.id == "grown").count(), 1);
+}
+
+/// Given a youngster at the club who is not out on loan
+/// When the manager lists him for loan and takes him off the list again
+/// Then the commands succeed and the review shows the listing each time: the control for the
+///      loaned-out refusal above, so that refusal is about the loan and not about the fixture.
+#[test]
+fn a_youngster_who_is_not_out_on_loan_can_be_listed_and_unlisted() {
+    let state = StateManager::new();
+    state.set_game(game(
+        20,
+        vec![person("kid", "2008-01-01", SquadRole::Youth, "team-1")],
+    ));
+
+    toggle_loan_list_internal(&state, "kid").expect("listed");
+    assert!(row_of(&state, "kid").loan_listed);
+    toggle_loan_list_internal(&state, "kid").expect("unlisted");
+    assert!(!row_of(&state, "kid").loan_listed);
 }

@@ -101,16 +101,20 @@ M3_SEASONS=3 cargo test --release -p season-harness --test m3_academy_decisions 
 ```
 
 A scripted manager acts only on the review (promotes what the advice recommends while a place is free, lists loan
-candidates). At every season end the game is written to a `.db` in a temporary directory, read by a fresh
-`SaveManager`, and **the career continues from the reloaded copy**. Result (seed 1, 3 seasons, 30 s):
-152 weekly reviews, 9 promotions, 1 loan listing, 13 academy players seen, an intake in each of the 3 seasons.
-Held on every day and week: no duplicate id; no academy player ever leaves `game.players`; registered seniors never
-above the limit; no `potential` in the review; every band holds the true ceiling within 24 points; two reads on a
-day agree; the review is identical across each reload; advice is blocked **exactly** when the player is out on loan
-or no place is free.
+candidates). Each season one academy youngster is also **lent out for three weeks** (the club keeps his contract),
+which is the only way a scripted run meets a blocked promotion; the daily loan processing must bring him back.
+At every season end the game is written to a `.db` in a temporary directory, read by a fresh `SaveManager`, and
+**the career continues from the reloaded copy**. Result (seed 1, 3 seasons, 31 s in release): 152 weekly reviews,
+9 promotions, 2 loan listings, 12 blocked rows, 13 academy players seen, an intake in each of the 3 seasons, each
+lent youngster back at his club with one record and no loan. Held on every day and week: no duplicate id; no
+academy player ever leaves `game.players`; registered seniors never above the limit; no `potential` in the review;
+every band holds the true ceiling within 24 points; two reads on a day agree; the review is identical across each
+reload; advice is blocked **exactly** when the player is out on loan or no place is free.
 
-Not exercised by that scenario: the scripted run had no loaned-out youngster and never met a full squad (0 blocked
-rows), so those two paths are covered by the command tests (`academy_decisions_tests.rs`), not by the career.
+Not exercised by the career: a **full senior squad** (no run reached the limit), so `promote.noPlace` is covered by
+the command tests (`commands/academy_decisions_tests.rs`: refusal by key, the player left a Youth, the same
+promotion succeeding once a place is free), not by the scenario. The scripted run applies a promotion by setting the
+role directly (as the I7 study does); the command path is the one those tests drive.
 
 ## 6. Exceptions kept
 
@@ -122,6 +126,23 @@ rows), so those two paths are covered by the command tests (`academy_decisions_t
   boundary): only the manager's review reads the believed copy.
 * The Player Profile screens were not changed in this mission (they never printed `potential`).
 
-## 7. Validation and final state
+## 7. Reviewers (run on `9cf4db5d..HEAD`) and what was done
+
+| Reviewer | Result | Action |
+| --- | --- | --- |
+| `i18n-auditor` | no missing or English-copied key, placeholders match, every advice reason has a key; Czech and Turkish addressed the manager informally where their neighbours are formal; three locales named staff posts differently from `staff.posts.*` | fixed: formal address in cs/tr, the existing post names in de/ru/tr. Not changed: `id` mixes `kamu`/`Anda` in older keys |
+| `ui-accessibility-reviewer` | no blocker; a px-literal width on the new Select; `aria-describedby` could dangle; new text on raw palette classes in two unmigrated files | fixed: `max-w-32`, the attribute only when reasons exist, the new inbox note on role tokens. Not done: the two stat tiles still use the file's old gray classes; contrast, keyboard use of the listbox in a table cell and focus return after an action were **not verified** |
+| `ofm-architecture-reviewer` | the review path never reads the true potential; no serialized type changed; simulation and AI still read the truth. Two fail-open spots: a signed prospect later sold read as an exact stranger, and the believed copy of a non-own player kept the true ceiling | both fixed to fail closed, with a test written first (seen failing); `AcademyLens` narrowed to the crate. **Not done:** `YouthAcademyTab()` (about 520 lines) and `InboxMessageDetailPane()` (about 430) exceed the 200-line frontend limit; they were already over and this change made them smaller, not compliant. `academy_review`/`academy_advice` import each other (in-crate, compiles) |
+| `ofm-test-reviewer` | 16 mutations: the privacy mutations were killed; four survived (optimistic top of the band, ownership guard, the 70 cut-off, the high-ceiling count) plus the harness meeting no blocked row, the MCP mapping and the advice-key coverage unproved | added: the optimistic rule at `judge` and through the review (mutation re-run, killed), the summary figures, the ownership guard with a loaned-out player, the 70 / 69.9 / 50 / 49.9 cut-offs, the remaining advice reasons and an age-limit boundary, a test that every reason advice can give has an `en.json` key, the MCP mapping as a pure function with a test, command tests asserting error keys with a positive control and state-unchanged checks, a loaned youngster in the career, a staffed youth department across a real reload. Removed a vacuous test. Not added: keyboard-only tests of the new controls |
+| `ofm-dedup-reviewer` | one-point band printed as "72-72" in the MCP text; the confidence formatter twice; the sort key not taken from `sort_value` | fixed all three. The copied `administered` setup in the new harness file stays (also in four other test files): consolidating into `season_harness` is the right home, **not done**, named for #589 |
+
+One finding was mine, not a reviewer's: the stored **Wonderkid** trait is awarded only to a young player whose true
+ceiling is S-tier with 14 or more to grow, and its badge tooltip lists "Potential 90+". Any trait list (profile,
+squad, academy tables) therefore revealed a bound on the hidden ceiling. `TraitList` now leaves it out (the
+standalone `TraitBadge` and its test are unchanged); the band and the "High ceilings" tile carry the information
+instead. This changes the profile and squad screens as well as the academy, and is a judgement call: the trait is
+still stored and still read by the game.
+
+## 8. Validation and final state
 
 See the end of this file.

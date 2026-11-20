@@ -520,7 +520,8 @@ mod tests {
         row
     }
 
-    /// Given two academy players identical but for a true ceiling that falls in one assessment band,
+    /// Given two academy players identical but for a true ceiling that falls in one assessment band
+    /// (with no youth staff the band is 24 wide; the pair is picked inside one 12-point cell of it),
     /// and ceilings that would have given them different verdicts if the review had read them
     /// When the review reads them
     /// Then every field of their rows matches: verdict, reasons, band and advice give nothing away.
@@ -681,16 +682,129 @@ mod tests {
         );
     }
 
-    /// Given the review reading a believed copy of each youngster
-    /// When the true ceiling is changed inside the band
-    /// Then the stored player still holds the exact value: the simulation's number is untouched.
-    #[test]
-    fn the_review_does_not_change_the_players_true_ceiling() {
-        use domain::player::Position::Midfielder;
-        let game = club_with(&[("y", Midfielder, 50, 68, 19)], vec![]);
-        let _ = academy_review(&game);
+    // ── the rules that read the band ────────────────────────────────────────────────────────────
 
-        let stored = game.players.iter().find(|p| p.id == "y").unwrap();
-        assert_eq!((stored.ovr, stored.potential), (50, 68));
+    /// Given a youngster whose believed (middle) ceiling is under the squad's cover by more than the
+    ///       margin, but whose band's top is not, and another whose whole band is under it
+    /// When each is judged
+    /// Then only the second is written off: "unlikely" needs even the most hopeful reading to fall
+    ///      short.
+    #[test]
+    fn a_youngster_is_written_off_only_when_the_top_of_his_band_falls_short() {
+        let cover = 70;
+        let believed = youth(52, 60);
+        let hopeful_top = i32::from(cover) - UNLIKELY_MARGIN;
+        let judged = |top: i32| judge(&believed, top as u8, 19, cover, 55, Some(Pathway::NotYet)).0;
+
+        assert_ne!(judged(hopeful_top), Verdict::UnlikelyToProgress);
+        assert_eq!(judged(hopeful_top - 1), Verdict::UnlikelyToProgress);
+    }
+
+    /// Given an academy of three on a club with no youth staff (bands 24 wide)
+    /// When the summary is read
+    /// Then the average ceiling is the average of the band middles, and the high-ceiling count
+    ///      includes a band whose foot reaches the A tier and excludes one whose top only reaches it.
+    #[test]
+    fn the_summary_averages_band_middles_and_counts_only_sure_high_ceilings() {
+        use domain::player::Position::Midfielder;
+        let game = club_with(
+            &[
+                ("sure", Midfielder, 80, 95, 19),
+                ("maybe", Midfielder, 50, 90, 19),
+                ("modest", Midfielder, 40, 52, 19),
+            ],
+            vec![],
+        );
+
+        let review = academy_review(&game).unwrap();
+        let summary = review.summary.unwrap();
+        let mids: Vec<u32> = review
+            .rows
+            .iter()
+            .map(|row| u32::from(row.ceiling.sort_value()))
+            .collect();
+
+        assert_eq!(
+            u32::from(summary.average_ceiling.unwrap()),
+            mids.iter().sum::<u32>() / 3
+        );
+        // "sure": band 80-96, foot 80 >= 77; "maybe": band 73-96, foot 73 < 77.
+        assert_eq!(summary.high_ceiling_count, 1);
+    }
+
+    /// Given a stranger at another club, an own youngster, and one of the club's out on loan
+    /// When the lens reads each
+    /// Then the stranger has no assessment, and the loaned-out own player has one, so the academy's
+    ///      knowledge follows the contract, not where he is playing.
+    #[test]
+    fn only_the_clubs_own_players_have_an_assessed_ceiling() {
+        use domain::player::Position::Midfielder;
+        let mut game = club_with(
+            &[
+                ("own", Midfielder, 50, 68, 19),
+                ("away", Midfielder, 50, 68, 19),
+            ],
+            vec![],
+        );
+        for player in &mut game.players {
+            if player.id == "away" {
+                player.team_id = Some("elsewhere".into());
+                player.active_loan = Some(domain::player::ActiveLoan {
+                    parent_team_id: "club".into(),
+                    loan_team_id: "elsewhere".into(),
+                    loan_team_name: None,
+                    start_date: "2026-07-01".into(),
+                    end_date: "2027-06-30".into(),
+                    wage_contribution_pct: 50,
+                    buy_option_fee: None,
+                    loan_start_minutes: 0,
+                    loan_start_appearances: 0,
+                    development_reported_minutes: 0,
+                    development_reported_appearances: 0,
+                });
+            }
+        }
+        let mut stranger = senior_of("stranger", Midfielder, 60, 25);
+        stranger.team_id = Some("elsewhere".into());
+        game.players.push(stranger);
+        let lens = AcademyLens::of(&game).expect("a club");
+        let find = |id: &str| game.players.iter().find(|p| p.id == id).unwrap();
+
+        assert!(lens.ceiling_range_of(find("own")).is_some());
+        assert!(lens.ceiling_range_of(find("away")).is_some());
+        assert!(lens.ceiling_range_of(find("stranger")).is_none());
+        assert_eq!(
+            lens.believed(find("stranger")).potential,
+            find("stranger").ovr
+        );
+    }
+
+    /// Given a club's cover, and a youngster whose true ceiling puts the middle of his band under
+    ///       the unlikely line but the top of it not
+    /// When the review reads him
+    /// Then he is not written off: the review itself, not only `judge`, reads the optimistic end.
+    #[test]
+    fn the_review_does_not_write_off_a_youngster_whose_band_still_reaches_the_cover() {
+        use domain::player::Position::Midfielder;
+        let probe = club_with(&[("y", Midfielder, 40, 45, 19)], vec![]);
+        let cover = academy_review(&probe).unwrap().rows[0].squad_cover;
+        let reads_hopefully = (41..=99u8).find_map(|ceiling| {
+            let game = club_with(&[("y", Midfielder, 40, ceiling, 19)], vec![]);
+            let row = academy_review(&game).unwrap().rows.remove(0);
+            let (low, high) = row.ceiling.bounds();
+            let mid = i32::from(row.ceiling.sort_value());
+            let _ = low;
+            (mid + UNLIKELY_MARGIN < i32::from(cover)
+                && i32::from(high) + UNLIKELY_MARGIN >= i32::from(cover))
+            .then_some(row)
+        });
+        let row = reads_hopefully.expect("a band straddling the unlikely line exists");
+
+        assert_ne!(
+            row.verdict,
+            Verdict::UnlikelyToProgress,
+            "{:?}",
+            row.ceiling
+        );
     }
 }

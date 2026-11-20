@@ -244,4 +244,99 @@ mod tests {
         assert_eq!(advice.promote.reasons, vec!["promote.pastAcademyAge"]);
         assert_eq!(advice.keep.reasons, vec!["keep.pastAcademyAge"]);
     }
+
+    /// Given a ready youngster who is injured, one already on the loan list, and one in his last
+    ///       academy year
+    /// When the actions are advised
+    /// Then each reason shows, and the age limit is exact: at it he is in his last year, a year
+    ///      later he is past it.
+    #[test]
+    fn injury_the_loan_list_and_the_last_academy_year_each_have_their_reason() {
+        let hurt = advise(&AdviceFacts {
+            injured: true,
+            ..facts(Verdict::ReadyForSenior)
+        });
+        assert_eq!(
+            hurt.promote.reasons,
+            vec!["promote.ready", "promote.injured"]
+        );
+        let listed = advise(&AdviceFacts {
+            loan_listed: true,
+            ..facts(Verdict::LoanCandidate)
+        });
+        assert_eq!(listed.loan.reasons, vec!["loan.recommended", "loan.listed"]);
+        let at_limit = AdviceFacts {
+            age: crate::roster::YOUTH_ACADEMY_MAX_AGE,
+            ..facts(Verdict::KeepDeveloping)
+        };
+        assert_eq!(
+            advise(&at_limit).keep.reasons,
+            vec!["keep.developing", "keep.lastYear"]
+        );
+        assert_ne!(
+            advise(&at_limit).promote.reasons,
+            vec!["promote.pastAcademyAge"]
+        );
+    }
+
+    /// Given every combination of the facts advice reads
+    /// When all the reasons it can give are collected
+    /// Then each has a translation in `en.json`, so a reason added here without a key would fail
+    ///      this test instead of showing the player a raw key.
+    #[test]
+    fn every_reason_the_advice_can_give_has_a_translation() {
+        let locale = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../src/i18n/locales/en.json"
+        ))
+        .expect("the English locale is readable from the crate");
+        let en: serde_json::Value = serde_json::from_str(&locale).expect("valid JSON");
+        let mut reasons = std::collections::BTreeSet::new();
+        for verdict in [
+            Verdict::ReadyForSenior,
+            Verdict::KeepDeveloping,
+            Verdict::LoanCandidate,
+            Verdict::UnlikelyToProgress,
+        ] {
+            for age in [
+                17,
+                crate::roster::YOUTH_ACADEMY_MAX_AGE,
+                crate::roster::YOUTH_ACADEMY_MAX_AGE + 1,
+            ] {
+                for flags in 0..16u8 {
+                    for days in [None, Some(900), Some(30)] {
+                        let advice = advise(&AdviceFacts {
+                            verdict,
+                            age,
+                            injured: flags & 1 != 0,
+                            on_loan: flags & 2 != 0,
+                            loan_listed: flags & 4 != 0,
+                            place_refusal: (flags & 8 != 0).then_some("be.error.squadFull"),
+                            contract_days_left: days,
+                        });
+                        let all = [
+                            Some(&advice.promote),
+                            Some(&advice.loan),
+                            Some(&advice.keep),
+                            advice.renew.as_ref(),
+                        ];
+                        for entry in all.into_iter().flatten() {
+                            reasons.extend(entry.reasons.iter().cloned());
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            reasons.len() >= 16,
+            "the sweep should reach every reason: {reasons:?}"
+        );
+        for reason in reasons {
+            let (action, key) = reason.split_once('.').expect("action.reason");
+            assert!(
+                en["academy"]["advice"][action][key].is_string(),
+                "no translation for academy.advice.{reason}"
+            );
+        }
+    }
 }

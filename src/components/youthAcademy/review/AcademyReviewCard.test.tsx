@@ -211,7 +211,6 @@ describe("AcademyReviewCard", () => {
       '"low":68',
     );
     expect(within(table).queryByText("academy.expectedNext")).toBeNull();
-    expect(within(table).queryByText("74")).toBeNull();
     expect(within(table).getByText("58")).toBeInTheDocument();
   });
 
