@@ -868,6 +868,21 @@ pub(crate) fn sign_free_agent_for(
     if crate::transfers::signing_place_refusal(game, &team.id, "").is_some() {
         return None;
     }
+    sign_free_agent_for_with_a_place(game, team, group, required, better_than, context)
+}
+
+/// [`sign_free_agent_for`] for a caller that has just asked the place question itself and has not
+/// signed or moved anyone since. A failed attempt writes nothing to the game, so a caller trying
+/// several needs in a row asks once instead of once per need: the question reads every player in
+/// the world, and asking it per need was a measured tenth of an AI club's day.
+pub(crate) fn sign_free_agent_for_with_a_place(
+    game: &mut Game,
+    team: &Team,
+    group: &Position,
+    required: bool,
+    better_than: Option<BetterThan>,
+    context: &mut SigningContext,
+) -> Option<BroughtIn> {
     let current_date = game.clock.current_date.date_naive();
     let (index, wage) = best_signing(
         game,

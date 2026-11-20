@@ -293,9 +293,16 @@ fn improve_squad(
     club: &mut Vec<usize>,
     context: &mut SigningContext,
 ) {
-    use crate::squad_floor::{BetterThan, STARTERS_PER_GROUP, sign_free_agent_for};
+    use crate::squad_floor::{BetterThan, STARTERS_PER_GROUP, sign_free_agent_for_with_a_place};
 
     if seniors_in(game, club, None) >= IMPROVEMENT_SQUAD_LIMIT {
+        return;
+    }
+    // A club with no senior place cannot sign whatever it needs, so it does not model its squad to
+    // find out. Asked once for the plan and the four groups below: a failed attempt changes
+    // nothing, so the answer holds for each of them in turn (asking each was a measured tenth of an
+    // AI club's day in the 440-club world).
+    if crate::transfers::signing_place_refusal(game, &team.id, "").is_some() {
         return;
     }
     if sign_for_the_plan(game, team, context) {
@@ -322,7 +329,7 @@ fn improve_squad(
     covers.sort_unstable();
     for (cover, group) in covers {
         let position = crate::squad_floor::MIN_PLAYERS_PER_GROUP[group].0.clone();
-        if sign_free_agent_for(
+        if sign_free_agent_for_with_a_place(
             game,
             team,
             &position,
@@ -339,9 +346,10 @@ fn improve_squad(
 }
 
 /// Sign for the most pressing place in the club's plan, most pressing first, until one signing
-/// succeeds or the plan's pressing places are exhausted. Returns whether anyone signed.
+/// succeeds or the plan's pressing places are exhausted. Returns whether anyone signed. The club has
+/// a senior place: the caller asked ([`improve_squad`]).
 fn sign_for_the_plan(game: &mut Game, team: &Team, context: &mut SigningContext) -> bool {
-    use crate::squad_floor::{BetterThan, sign_free_agent_for};
+    use crate::squad_floor::{BetterThan, sign_free_agent_for_with_a_place};
     use crate::squad_intelligence::appetite::Appetite;
     use crate::squad_intelligence::needs::NeedKind;
 
@@ -358,7 +366,9 @@ fn sign_for_the_plan(game: &mut Game, team: &Team, context: &mut SigningContext)
         need.kind != NeedKind::Succession && need.urgency.is_pressing() && need.short_term
     }) {
         let bar = need.incumbent.map(BetterThan::Today);
-        if sign_free_agent_for(game, team, &need.position, false, bar, context).is_some() {
+        if sign_free_agent_for_with_a_place(game, team, &need.position, false, bar, context)
+            .is_some()
+        {
             return true;
         }
     }
@@ -1951,6 +1961,70 @@ mod tests {
         assert_eq!(club_of(&game, "better"), Some("ai"));
         assert_eq!(club_of(&game, "also_better"), None, "one a review");
         assert_eq!(club_of(&game, "worse"), None);
+    }
+
+    /// A club of the world with `lent` of its seniors out on loan at the user's club: each returns
+    /// to a place on its senior list when the loan ends, so the club cannot promise that place to a
+    /// new signing meanwhile.
+    fn game_where_the_ai_club_has_lent_seniors_out(lent: usize) -> Game {
+        let mut game = world();
+        for other in game.players.iter_mut() {
+            if other.team_id.as_deref() == Some("ai") {
+                other.stage_wage(500);
+            }
+        }
+        for index in 0..lent {
+            let mut away = player(
+                &format!("lent{index}"),
+                "user",
+                Position::Midfielder,
+                55,
+                27,
+                500,
+            );
+            away.active_loan = Some(domain::player::ActiveLoan {
+                parent_team_id: "ai".to_string(),
+                loan_team_id: "user".to_string(),
+                loan_team_name: None,
+                start_date: "2026-01-01".to_string(),
+                end_date: "2027-06-30".to_string(),
+                wage_contribution_pct: 50,
+                buy_option_fee: None,
+                loan_start_minutes: 0,
+                loan_start_appearances: 0,
+                development_reported_minutes: 0,
+                development_reported_appearances: 0,
+            });
+            game.players.push(away);
+        }
+        game.players
+            .push(free_agent("better", Position::Midfielder, 70));
+        game
+    }
+
+    /// Given a club with 19 seniors that is under the improvement limit, eleven more of its seniors
+    ///       out on loan (their places are spoken for), and a free agent better than its cover
+    /// When it plans its squad
+    /// Then it signs nobody: with no place to give, it does not sign to improve, however much the
+    ///      plan wants him.
+    #[test]
+    fn a_club_whose_places_are_spoken_for_signs_no_one_to_improve_itself() {
+        let mut game = game_where_the_ai_club_has_lent_seniors_out(11);
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(club_of(&game, "better"), None);
+    }
+
+    /// The control for the case above: one fewer senior out on loan leaves a place, and the same
+    /// club signs the same free agent.
+    #[test]
+    fn a_club_with_one_place_left_signs_the_free_agent_the_plan_wants() {
+        let mut game = game_where_the_ai_club_has_lent_seniors_out(10);
+
+        apply_ai_squad_planning(&mut game, review_day());
+
+        assert_eq!(club_of(&game, "better"), Some("ai"));
     }
 
     /// Given a club whose whole forward line is far below the rest of the side, whose defence has
