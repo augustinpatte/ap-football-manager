@@ -219,7 +219,7 @@ The `initialize` result's `serverInfo.version` is the package version plus the s
 | `scout_shortlist_add` | Add a player to your shortlist (at most 30; not your own players) |
 | `scout_shortlist_remove` | Remove a player from your shortlist |
 | `scout_cancel` | Cancel a scouting assignment on a player; no report is written |
-| `academy_get_review` | Review your academy: ready for the senior squad, keep developing, loan candidate or unlikely to progress, with the reasons |
+| `academy_get_review` | Review your academy: ready for the senior squad, keep developing, loan candidate or unlikely to progress, with the reasons, each ceiling as the youth staff's assessed range with its confidence (never the exact potential) |
 
 ### Season (3 tools)
 

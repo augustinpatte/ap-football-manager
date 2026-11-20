@@ -763,7 +763,12 @@ side at a price the club can pay, once.
 
 The **academy review** (`academy_review`) puts each academy player in one of four verdicts: ready for
 the senior squad (the same pathway question the AI clubs ask when they promote), a loan candidate,
-keep developing, or unlikely to progress, with the reasons. It never changes a player.
+keep developing, or unlikely to progress, with the reasons. It never changes a player. The manager is
+never given a youngster's `potential`: his youth staff assess the ceiling as a band (6, 12 or 24 rating
+points wide by the youth department's rating) that always holds it, and the verdict, the reasons and the
+order are all decided on that band, so none of them can show the number. Each row also says whether
+promoting, a loan, staying and a contract renewal are advised, possible or blocked, and why. Rules, numbers
+and limits: [`APFM_YOUTH_ACADEMY_DECISIONS.md`](APFM_YOUTH_ACADEMY_DECISIONS.md).
 
 ## Free-agent negotiations
 

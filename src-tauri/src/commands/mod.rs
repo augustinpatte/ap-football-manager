@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod academy_decisions_tests;
 pub mod club;
 pub mod contracts;
 pub mod custom_tactics;
