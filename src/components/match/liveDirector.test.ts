@@ -140,7 +140,7 @@ describe("LiveDirector", () => {
     expect(engine.state.calls.length).toBe(callsBefore);
   });
 
-  /** Given a pause pressed while a stretch is still in flight, When the reply extends the engine's head, Then no order is allowed until the picture has caught up with it. */
+  /** Given a pause pressed while a stretch is still in flight, When the reply extends the engine's head, Then no order is allowed while it is in flight, nor until the picture has caught up with it. */
   it("does not allow an order when a late reply puts the engine ahead of a paused picture", async () => {
     const { engine, director } = await started();
     director.play();
@@ -152,7 +152,9 @@ describe("LiveDirector", () => {
       });
     const pending = director.pump(gated);
     director.pause();
-    expect(director.getSnapshot().canOrder).toBe(true); // at the head: nothing is ahead yet
+    // at the head, but the engine is about to move: an order now would meet a moment not yet shown
+    expect(director.getSnapshot().canOrder).toBe(false);
+    expect(director.getSnapshot().status).toBe("pausing");
     release();
     await pending;
     expect(director.store.headMs).toBeGreaterThan(director.getSnapshot().playheadMs);

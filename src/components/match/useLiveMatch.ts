@@ -17,6 +17,11 @@ import { LiveDirector } from "./liveDirector";
 /** The longest wall-clock step the picture takes in one animation frame (a throttled tab must not jump). */
 const MAX_FRAME_STEP_MS = 100;
 
+/** A short random string that makes this screen's command ids distinct from any earlier screen's. */
+function newOrderSalt(): string {
+  return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+}
+
 /**
  * Everything a live match screen does with the backend, behind one hook: it starts the match,
  * feeds the director with what the engine produces, runs the animation loop while the match is
@@ -25,6 +30,9 @@ const MAX_FRAME_STEP_MS = 100;
  */
 export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
   const { t } = useTranslation();
+  // The language may change while the match is open; that must not restart anything.
+  const tRef = useRef(t);
+  tRef.current = t;
   const [director] = useState(() => new LiveDirector());
   const snapshot = useSyncExternalStore(director.subscribe, director.getSnapshot);
   const [notice, setNotice] = useState<string | null>(null);
@@ -32,6 +40,9 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
   const queue = useRef<Promise<unknown>>(Promise.resolve());
   const drawRef = useRef<(() => void) | null>(null);
   const orderCount = useRef(0);
+  // The engine answers a repeated command id with its first answer and applies nothing, and it
+  // remembers ids across a reopened screen and a reloaded save: an id is unique to this screen.
+  const orderSalt = useRef(newOrderSalt());
 
   /** Runs one backend call after the ones before it; a failure is shown and the match resynchronised. */
   const call = useCallback(
@@ -40,7 +51,7 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
         try {
           return await request();
         } catch (error) {
-          setNotice(resolveBackendKeyError(error, t("match.interactive.matchFailed")));
+          setNotice(resolveBackendKeyError(error, tRef.current("match.interactive.matchFailed")));
           director.halt();
           // Whatever went wrong, show the match as the engine has it now, not as it was.
           await getInteractiveMatchState(director.eventCursor)
@@ -55,7 +66,7 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
       );
       return run;
     },
-    [director, t],
+    [director],
   );
 
   const advance = useCallback(
@@ -106,12 +117,14 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
   /** Plays the engine on to the next break or full time and shows where it got to. */
   const skipAhead = useCallback(async () => {
     director.pause();
-    const reply = await call(() =>
-      advanceInteractiveMatch({ kind: "to_end" }, director.eventCursor, false, true),
-    );
-    if (!reply) return;
-    director.ingestAdvance(reply);
-    director.skipToHead();
+    await director.track(async () => {
+      const reply = await call(() =>
+        advanceInteractiveMatch({ kind: "to_end" }, director.eventCursor, false, true),
+      );
+      if (!reply) return;
+      director.ingestAdvance(reply);
+      director.skipToHead();
+    });
   }, [call, director]);
 
   const giveOrder = useCallback(
@@ -120,41 +133,50 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
       // Orders are given on the moment the picture shows, never on one still ahead of it.
       if (!view || !director.getSnapshot().canOrder) return;
       orderCount.current += 1;
-      const id = `${view.session.session_id}:${orderCount.current}`;
-      const answer = await call(() =>
-        submitMatchCommand(id, view.session.revision, order, director.eventCursor),
-      );
-      if (!answer) return;
-      director.ingestSnapshot(answer.snapshot);
-      setNotice(
-        answer.receipt.accepted
-          ? null
-          : t("match.interactive.orderRefused", {
-              reason: rejectionMessage(answer.receipt.rejection ?? "other", t),
-            }),
-      );
+      const id = `${view.session.session_id}:${orderSalt.current}:${orderCount.current}`;
+      await director.track(async () => {
+        const answer = await call(() =>
+          submitMatchCommand(id, view.session.revision, order, director.eventCursor),
+        );
+        if (!answer) return;
+        director.ingestSnapshot(answer.snapshot);
+        setNotice(
+          answer.receipt.accepted
+            ? null
+            : t("match.interactive.orderRefused", {
+                reason: rejectionMessage(answer.receipt.rejection ?? "other", t),
+              }),
+        );
+      });
     },
     [call, director, t],
   );
 
   const toggleAssistant = useCallback(
     async (active: boolean) => {
-      const next = await call(() => setInteractiveAssistant(active, director.eventCursor));
-      if (next) director.ingestSnapshot(next);
+      await director.track(async () => {
+        const next = await call(() => setInteractiveAssistant(active, director.eventCursor));
+        if (next) director.ingestSnapshot(next);
+      });
     },
     [call, director],
   );
 
-  const finishInFlight = useRef(false);
+  // True from the first click until the result is applied; it stays true after a success, so a
+  // late second click cannot ask the engine to finalise a match that no longer exists. A failure
+  // clears it, because the match is kept and the manager may try again.
+  const finishRequested = useRef(false);
   const finish = useCallback(async () => {
-    // A double click must not finalise twice: the second one would only report "no match".
-    if (finishInFlight.current) return;
-    finishInFlight.current = true;
+    if (finishRequested.current) return;
+    finishRequested.current = true;
     setFinishing(true);
     const response = await call(() => finishInteractiveMatch<TFinish>());
     setFinishing(false);
-    finishInFlight.current = false;
-    if (response) onFinished(response);
+    if (!response) {
+      finishRequested.current = false;
+      return;
+    }
+    onFinished(response);
   }, [call, onFinished]);
 
   return {
