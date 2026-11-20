@@ -338,6 +338,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     setMatchMode,
     blockerModal,
     setBlockerModal,
+    advanceError,
     handleContinue,
     handleConfirmMatch,
     handleSkipToMatchDay,
@@ -641,6 +642,14 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
             className="m-3 rounded-lg border border-line bg-warning-tint px-4 py-3 text-body text-warning"
           >
             {resolveBackendError(saveError)}
+          </p>
+        ) : null}
+        {advanceError ? (
+          <p
+            role="alert"
+            className="m-3 rounded-lg border border-line bg-warning-tint px-4 py-3 text-body text-warning"
+          >
+            {advanceError}
           </p>
         ) : null}
         <DashboardHeader

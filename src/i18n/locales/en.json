@@ -3132,7 +3132,8 @@
       "plannedContractExitCrisis": "Planned contract exits would leave only {{healthyPlayers}} healthy player(s) and {{goalkeepers}} goalkeeper(s): {{players}}",
       "urgentMessages": "{{count}} urgent unread message(s)",
       "keyContractRisk": "Key player contract risk in squad planning: {{players}}",
-      "contractWageRisk": "{{amount}} of wages are tied to at-risk contracts — review your wage budget"
+      "contractWageRisk": "{{amount}} of wages are tied to at-risk contracts — review your wage budget",
+      "checkFailed": "Could not check whether anything needs your attention, so time was not advanced. Try again."
     }
   },
   "squadCompare": {

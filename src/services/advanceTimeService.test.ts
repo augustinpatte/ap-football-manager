@@ -40,15 +40,45 @@ describe("advanceTimeService", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("check_blocking_actions");
   });
 
-  it("falls back to an empty blocker list when the blocker command fails", async () => {
+  /** Given a blocker check that cannot be answered, then the failure reaches the caller instead of looking like "no blockers". */
+  it("rejects when the blocker command fails, so a failed check is not an empty one", async () => {
     const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockedInvoke.mockRejectedValueOnce(new Error("boom"));
 
     try {
-      await expect(checkBlockingActions("test")).resolves.toEqual([]);
+      await expect(checkBlockingActions("test")).rejects.toThrow("boom");
     } finally {
       consoleWarnSpy.mockRestore();
     }
+  });
+
+  /** Given a check that succeeds and finds nothing, then the answer is the empty list. */
+  it("returns an empty list when the check succeeds and finds nothing", async () => {
+    mockedInvoke.mockResolvedValueOnce([]);
+
+    await expect(checkBlockingActions("test")).resolves.toEqual([]);
+  });
+
+  /** Given the manager's explicit "Continue anyway", then the backend is told so; otherwise it is not sent. */
+  it("sends ignoreBlockers to the advance only when the manager acknowledged", async () => {
+    mockedInvoke.mockResolvedValue({ action: "advanced" });
+
+    await advanceTimeWithMode("delegate");
+    expect(mockedInvoke).toHaveBeenLastCalledWith("advance_time_with_mode", { mode: "delegate" });
+    await advanceTimeWithMode("delegate", true);
+    expect(mockedInvoke).toHaveBeenLastCalledWith("advance_time_with_mode", {
+      mode: "delegate",
+      ignoreBlockers: true,
+    });
+  });
+
+  it("sends ignoreBlockers to the skip only when the manager acknowledged", async () => {
+    mockedInvoke.mockResolvedValue({ action: "arrived" });
+
+    await skipToMatchDay();
+    expect(mockedInvoke).toHaveBeenLastCalledWith("skip_to_match_day");
+    await skipToMatchDay(true);
+    expect(mockedInvoke).toHaveBeenLastCalledWith("skip_to_match_day", { ignoreBlockers: true });
   });
 
   it("calls the skip-to-match-day backend command", async () => {

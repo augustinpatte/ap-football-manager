@@ -3132,7 +3132,8 @@
       "plannedContractExitCrisis": "Plánované konce smluv by ponechaly pouze {{healthyPlayers}} zdravých hráčů a {{goalkeepers}} brankáře: {{players}}",
       "urgentMessages": "{{count}} urgentní nepřečtená zpráva(y)",
       "keyContractRisk": "Riziko konce smlouvy u klíčového hráče v plánování kádru: {{players}}",
-      "contractWageRisk": "{{amount}} z platového rozpočtu je vázáno v ohrožených smlouvách — zkontrolujte své mzdové náklady"
+      "contractWageRisk": "{{amount}} z platového rozpočtu je vázáno v ohrožených smlouvách — zkontrolujte své mzdové náklady",
+      "checkFailed": "Nepodařilo se ověřit, zda něco nevyžaduje vaši pozornost, takže se čas neposunul. Zkuste to znovu."
     }
   },
   "squadCompare": {

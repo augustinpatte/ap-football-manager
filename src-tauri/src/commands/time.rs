@@ -2,8 +2,8 @@ use log::info;
 use std::sync::Arc;
 use tauri::State;
 
-use crate::application::time_advancement::advance_time_with_mode as advance_time_with_mode_service;
 pub use crate::application::time_advancement::AdvanceTimeWithModeResponse;
+use crate::application::time_advancement::{advance_time_with_blocker_policy, BlockerPolicy};
 use crate::application::time_blockers::compute_blocking_actions as compute_blocking_actions_service;
 use ofm_core::advance_results::collect_advance_results;
 use ofm_core::game::Game;
@@ -36,11 +36,19 @@ pub fn advance_time_internal(state: &StateManager) -> Result<Game, String> {
     Ok(advanced)
 }
 
-pub fn advance_time_with_mode_internal(
+/// `advance_time_with_mode` for the Dashboard: stops on unresolved blockers unless `ignore_blockers`
+/// carries the manager's explicit "Continue anyway".
+pub fn advance_time_with_blockers_internal(
     state: &StateManager,
     mode: &str,
+    ignore_blockers: bool,
 ) -> Result<AdvanceTimeWithModeResponse, String> {
-    advance_time_with_mode_service(state, mode)
+    let policy = if ignore_blockers {
+        BlockerPolicy::Skip
+    } else {
+        BlockerPolicy::Enforce
+    };
+    advance_time_with_blocker_policy(state, mode, policy)
 }
 
 /// Advance time with a specific match mode.
@@ -53,9 +61,13 @@ pub fn advance_time_with_mode_internal(
 pub async fn advance_time_with_mode(
     state: State<'_, Arc<StateManager>>,
     mode: String,
+    ignore_blockers: Option<bool>,
 ) -> Result<AdvanceTimeWithModeResponse, String> {
     let state = state.inner().clone();
-    run_off_thread(move || advance_time_with_mode_internal(&state, &mode)).await
+    run_off_thread(move || {
+        advance_time_with_blockers_internal(&state, &mode, ignore_blockers.unwrap_or(false))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -101,12 +113,19 @@ pub fn check_blocking_actions(
 #[tauri::command]
 pub async fn skip_to_match_day(
     state: State<'_, Arc<StateManager>>,
+    ignore_blockers: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let state = state.inner().clone();
-    run_off_thread(move || skip_to_match_day_internal(&state)).await
+    run_off_thread(move || skip_to_match_day_internal(&state, ignore_blockers.unwrap_or(false)))
+        .await
 }
 
-pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Value, String> {
+/// `ignore_blockers` is the manager's "Continue anyway": without it, blockers already standing
+/// stop the skip before its first day is played.
+pub fn skip_to_match_day_internal(
+    state: &StateManager,
+    ignore_blockers: bool,
+) -> Result<serde_json::Value, String> {
     let _operation = crate::application::live_session::idle_operation(state)?;
     crate::platform::keep_simulation_awake();
     info!("[cmd] skip_to_match_day");
@@ -127,6 +146,31 @@ pub fn skip_to_match_day_internal(state: &StateManager) -> Result<serde_json::Va
         "[cmd] skip_to_match_day: start_date={}, user_team_id={}",
         start_date, user_team_id
     );
+    if !ignore_blockers {
+        // Not "checked after each day": a blocker already standing must stop the skip before the
+        // first day is played, whatever the caller did or did not check first.
+        let standing = state
+            .get_game(|game| {
+                if game.user_has_scheduled_match_on(&start_date) {
+                    Vec::new()
+                } else {
+                    compute_blocking_actions(game)
+                }
+            })
+            .ok_or("be.error.noActiveGameSession")?;
+        if !standing.is_empty() {
+            let game = state
+                .get_game(|game| game.ui_clone())
+                .ok_or("be.error.noActiveGameSession")?;
+            return Ok(serde_json::json!({
+                "action": "blocked",
+                "game": game,
+                "blockers": standing,
+                "days_skipped": 0,
+                "results": []
+            }));
+        }
+    }
 
     // One day per update_game call: each day is processed and persisted
     // atomically under the game lock, so concurrent GUI/MCP writes between
@@ -519,7 +563,8 @@ pub fn advance_to_next_event_internal(state: &StateManager) -> Result<serde_json
 #[cfg(test)]
 mod tests {
     use super::{
-        advance_time_with_mode_internal, compute_blocking_actions, continue_reached_attention_event,
+        advance_time_with_blockers_internal, compute_blocking_actions,
+        continue_reached_attention_event,
     };
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
@@ -1350,8 +1395,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_round_summary_game());
 
-        let response =
-            advance_time_with_mode_internal(&state, "live").expect("live advance response");
+        let response = advance_time_with_blockers_internal(&state, "live", true)
+            .expect("live advance response");
 
         assert_eq!(response.action, "live_match");
         assert_eq!(response.competition_id.as_deref(), Some("league1"));
@@ -1367,8 +1412,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_round_summary_game());
 
-        let response =
-            advance_time_with_mode_internal(&state, "delegate").expect("delegate advance response");
+        let response = advance_time_with_blockers_internal(&state, "delegate", true)
+            .expect("delegate advance response");
 
         assert_eq!(response.action, "advanced");
         let round_summary = response.round_summary.expect("round summary");
@@ -1585,5 +1630,114 @@ mod tests {
             game.clock.current_date.date_naive().to_string(),
             "2025-06-16"
         );
+    }
+
+    fn with_urgent_unread_message(mut game: Game) -> Game {
+        game.messages
+            .push(make_message("urgent-1", MessagePriority::Urgent, false));
+        game
+    }
+
+    fn clock_date(state: &StateManager) -> String {
+        state
+            .get_game(|game| game.clock.current_date.format("%Y-%m-%d").to_string())
+            .unwrap()
+    }
+
+    /// Given an unresolved blocker and no acknowledgement,
+    /// When the Dashboard's single-day advance runs,
+    /// Then the backend itself refuses: action `blocked`, the blockers listed, the day not played.
+    #[test]
+    fn a_continue_is_refused_by_the_backend_while_a_blocker_stands() {
+        let state = StateManager::new();
+        state.set_game(with_urgent_unread_message(make_game(11)));
+        state.set_stats_state(StatsState::default());
+        let before = clock_date(&state);
+
+        let response = advance_time_with_blockers_internal(&state, "delegate", false).unwrap();
+
+        assert_eq!(response.action, "blocked");
+        assert_eq!(response.blockers.len(), 1);
+        assert_eq!(response.blockers[0]["id"], "urgent_messages");
+        assert_eq!(clock_date(&state), before, "the day must not be played");
+    }
+
+    /// Given the same blocker and the manager's explicit "Continue anyway",
+    /// When the advance runs,
+    /// Then the day is played.
+    #[test]
+    fn an_acknowledged_continue_plays_the_day_past_the_blocker() {
+        let state = StateManager::new();
+        state.set_game(with_urgent_unread_message(make_game(11)));
+        state.set_stats_state(StatsState::default());
+        let before = clock_date(&state);
+
+        let response = advance_time_with_blockers_internal(&state, "delegate", true).unwrap();
+
+        assert_eq!(response.action, "advanced");
+        assert!(response.blockers.is_empty());
+        assert_ne!(clock_date(&state), before);
+    }
+
+    /// Given no blocker, when an enforced advance runs, then the day is played as before.
+    #[test]
+    fn an_enforced_continue_with_nothing_blocking_plays_the_day() {
+        let state = StateManager::new();
+        state.set_game(make_game(11));
+        state.set_stats_state(StatsState::default());
+        let before = clock_date(&state);
+
+        let response = advance_time_with_blockers_internal(&state, "delegate", false).unwrap();
+
+        assert_eq!(response.action, "advanced");
+        assert_ne!(clock_date(&state), before);
+    }
+
+    /// Given a blocker standing on the user's match day,
+    /// When Continue runs in delegate mode,
+    /// Then the match day is handled as before (the pre-match flow owns it), not refused here.
+    #[test]
+    fn match_day_is_not_refused_by_the_blocker_check() {
+        let state = StateManager::new();
+        state.set_game(with_urgent_unread_message(
+            make_game_with_competition_matchday(),
+        ));
+        state.set_stats_state(StatsState::default());
+
+        let response = advance_time_with_blockers_internal(&state, "delegate", false).unwrap();
+
+        assert_ne!(response.action, "blocked");
+    }
+
+    /// Given an unresolved blocker and no acknowledgement,
+    /// When skip-to-match-day runs,
+    /// Then it stops before its first day with `blocked`, zero days skipped and the clock unmoved.
+    #[test]
+    fn a_skip_is_refused_before_its_first_day_while_a_blocker_stands() {
+        let state = StateManager::new();
+        state.set_game(with_urgent_unread_message(make_game(11)));
+        state.set_stats_state(StatsState::default());
+        let before = clock_date(&state);
+
+        let response = super::skip_to_match_day_internal(&state, false).unwrap();
+
+        assert_eq!(response["action"], "blocked");
+        assert_eq!(response["days_skipped"], 0);
+        assert_eq!(response["blockers"][0]["id"], "urgent_messages");
+        assert_eq!(clock_date(&state), before);
+    }
+
+    /// Given the same blocker and "Continue anyway", when the skip runs, then it plays days.
+    #[test]
+    fn an_acknowledged_skip_plays_past_the_standing_blocker() {
+        let state = StateManager::new();
+        state.set_game(with_urgent_unread_message(make_game(11)));
+        state.set_stats_state(StatsState::default());
+        let before = clock_date(&state);
+
+        let response = super::skip_to_match_day_internal(&state, true).unwrap();
+
+        assert_ne!(clock_date(&state), before);
+        assert_ne!(response["days_skipped"], 0);
     }
 }

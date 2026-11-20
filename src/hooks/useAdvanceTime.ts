@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { resolveBackendKeyError } from "../utils/backendI18n";
 import type { GameStateData } from "../store/gameStore";
 import { useGameStore } from "../store/gameStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   acknowledgeContractWarnings,
   advanceTimeWithMode,
+  type BlockerData,
   checkBlockingActions,
   skipToMatchDay,
   type SkipToMatchDayResponse,
@@ -26,6 +29,8 @@ export interface AdvanceTimeState {
   setMatchMode: (v: MatchModeType) => void;
   blockerModal: BlockerModal | null;
   setBlockerModal: (v: BlockerModal | null) => void;
+  /** Why nothing was advanced when the blocker check itself could not be answered, translated. */
+  advanceError: string | null;
   handleContinue: (mode?: string) => Promise<void>;
   handleConfirmMatch: () => void;
   handleSkipToMatchDay: () => Promise<void>;
@@ -52,6 +57,8 @@ export function useAdvanceTime(
   continueToNextEvent: boolean = false,
 ): AdvanceTimeState {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showContinueMenu, setShowContinueMenu] = useState(false);
@@ -105,6 +112,17 @@ export function useAdvanceTime(
     setBlockerModal(options?.blockerModal ?? null);
   }
 
+  // `null` means the check could not be answered: the caller must stop, not treat it as "clear".
+  const verifyNoBlockers = async (logContext: string): Promise<BlockerData[] | null> => {
+    setAdvanceError(null);
+    try {
+      return await checkBlockingActions(logContext);
+    } catch (err) {
+      setAdvanceError(resolveBackendKeyError(err, t("notifications.blockers.checkFailed")));
+      return null;
+    }
+  };
+
   const runStreamingDigest = (options?: { resume?: boolean; ignoreBlockers?: boolean }) => {
     resumeAfterBlockerRef.current = () => void startDigest({ resume: true, ignoreBlockers: true });
     void startDigest(options);
@@ -122,7 +140,7 @@ export function useAdvanceTime(
     run();
   };
 
-  const doAdvance = async (effectiveMode: string) => {
+  const doAdvance = async (effectiveMode: string, ignoreBlockers = false) => {
     if (advanceInFlightRef.current) return;
     advanceInFlightRef.current = true;
     console.info("[useAdvanceTime] doAdvance:start", {
@@ -137,7 +155,7 @@ export function useAdvanceTime(
     // Clock date before advancing — the cursor for "what happened" in the digest.
     const sinceDate = toDatePart(useGameStore.getState().gameState?.clock?.current_date);
     try {
-      const result = await advanceTimeWithMode(effectiveMode);
+      const result = await advanceTimeWithMode(effectiveMode, ignoreBlockers);
       console.info("[useAdvanceTime] doAdvance:result", {
         action: result.action,
         fixtureIndex: result.fixture_index,
@@ -145,7 +163,14 @@ export function useAdvanceTime(
         hasGame: !!result.game,
         hasSnapshot: !!result.snapshot,
       });
-      if (result.action === "fired") {
+      if (result.action === "blocked") {
+        // The backend refused the day (a blocker appeared after the check, or none was made):
+        // the day was not played, and "continue anyway" asks it to play past them.
+        setBlockerModal({
+          blockers: result.blockers ?? [],
+          pendingAction: () => void continueAnyway(() => void doAdvance(effectiveMode, true)),
+        });
+      } else if (result.action === "fired") {
         if (result.game) setGameState(result.game as GameStateData);
         setShowFiredModal(true);
       } else if (result.action === "live_match") {
@@ -197,14 +222,15 @@ export function useAdvanceTime(
     const runContinue = continueToNextEvent
       ? () => runStreamingDigest()
       : () => doAdvance(resolvedMode);
-    const blockers = await checkBlockingActions("handleContinue");
+    const blockers = await verifyNoBlockers("handleContinue");
+    if (blockers === null) return;
     if (blockers.length > 0) {
       setBlockerModal({
         blockers,
         // The day-by-day run asks the backend again, which would block on the same list.
         pendingAction: continueToNextEvent
           ? () => runStreamingDigest({ ignoreBlockers: true })
-          : () => void continueAnyway(runContinue),
+          : () => void continueAnyway(() => void doAdvance(resolvedMode, true)),
       });
       return;
     }
@@ -219,11 +245,13 @@ export function useAdvanceTime(
   const handleSkipToMatchDay = async () => {
     if (isAdvancing) return;
     console.info("[useAdvanceTime] handleSkipToMatchDay:start");
-    const blockers = await checkBlockingActions("handleSkipToMatchDay");
+    const blockers = await verifyNoBlockers("handleSkipToMatchDay");
+    if (blockers === null) return;
     if (blockers.length > 0) {
       setBlockerModal({
         blockers,
-        pendingAction: () => void continueAnyway(() => void doSkipToMatchDay()),
+        pendingAction: () =>
+          void continueAnyway(() => void doSkipToMatchDay({ ignoreBlockers: true })),
       });
       return;
     }
@@ -287,10 +315,14 @@ export function useAdvanceTime(
     }
   };
 
-  const doSkipToMatchDay = (options?: { append?: boolean }) => {
+  const doSkipToMatchDay = (options?: { append?: boolean; ignoreBlockers?: boolean }) => {
     resumeAfterBlockerRef.current = () =>
-      void continueAnyway(() => void doSkipToMatchDay({ append: true }));
-    return runMultiDayAdvance(skipToMatchDay, "doSkipToMatchDay", options);
+      void continueAnyway(() => void doSkipToMatchDay({ append: true, ignoreBlockers: true }));
+    return runMultiDayAdvance(
+      () => skipToMatchDay(options?.ignoreBlockers ?? false),
+      "doSkipToMatchDay",
+      options,
+    );
   };
 
   return {
@@ -303,6 +335,7 @@ export function useAdvanceTime(
     setMatchMode,
     blockerModal,
     setBlockerModal,
+    advanceError,
     handleContinue,
     handleConfirmMatch,
     handleSkipToMatchDay,

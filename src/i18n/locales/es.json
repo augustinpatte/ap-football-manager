@@ -3132,7 +3132,8 @@
       "plannedContractExitCrisis": "Las salidas contractuales previstas dejarían solo {{healthyPlayers}} jugador(es) sanos y {{goalkeepers}} portero(s): {{players}}",
       "urgentMessages": "{{count}} mensaje(s) urgente(s) sin leer",
       "keyContractRisk": "Riesgo contractual de jugador clave en la planificación de la plantilla: {{players}}",
-      "contractWageRisk": "{{amount}} en salarios están ligados a contratos en riesgo — revisa tu presupuesto salarial"
+      "contractWageRisk": "{{amount}} en salarios están ligados a contratos en riesgo — revisa tu presupuesto salarial",
+      "checkFailed": "No se pudo comprobar si algo requiere tu atención, así que el tiempo no avanzó. Inténtalo de nuevo."
     }
   },
   "squadCompare": {

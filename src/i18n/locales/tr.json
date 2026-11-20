@@ -3132,7 +3132,8 @@
       "plannedContractExitCrisis": "Planlanan sözleşme ayrılıkları geriye yalnızca {{healthyPlayers}} sağlıklı oyuncu ve {{goalkeepers}} kaleci bırakır: {{players}}",
       "urgentMessages": "{{count}} acil okunmamış mesaj",
       "keyContractRisk": "Kadro planlamasında kilit oyuncu sözleşme riski: {{players}}",
-      "contractWageRisk": "Maaşların {{amount}} tutarı risk altındaki sözleşmelere bağlı — maaş bütçenizi gözden geçirin"
+      "contractWageRisk": "Maaşların {{amount}} tutarı risk altındaki sözleşmelere bağlı — maaş bütçenizi gözden geçirin",
+      "checkFailed": "Dikkatinizi gerektiren bir şey olup olmadığı denetlenemedi, bu yüzden zaman ilerletilmedi. Tekrar deneyin."
     }
   },
   "squadCompare": {

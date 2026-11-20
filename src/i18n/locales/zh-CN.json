@@ -3132,7 +3132,8 @@
       "plannedContractExitCrisis": "计划中的合同离队将使球队仅剩{{healthyPlayers}}名健康球员和{{goalkeepers}}名门将:{{players}}",
       "urgentMessages": "{{count}}条紧急未读消息",
       "keyContractRisk": "阵容规划中的关键球员合同风险:{{players}}",
-      "contractWageRisk": "{{amount}}的工资与高风险合同绑定——请审查您的薪资预算"
+      "contractWageRisk": "{{amount}}的工资与高风险合同绑定——请审查您的薪资预算",
+      "checkFailed": "无法检查是否有事项需要你处理，因此时间没有推进。请重试。"
     }
   },
   "squadCompare": {
