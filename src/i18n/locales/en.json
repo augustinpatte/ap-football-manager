@@ -3133,7 +3133,8 @@
       "urgentMessages": "{{count}} urgent unread message(s)",
       "keyContractRisk": "Key player contract risk in squad planning: {{players}}",
       "contractWageRisk": "{{amount}} of wages are tied to at-risk contracts — review your wage budget",
-      "checkFailed": "Could not check whether anything needs your attention, so time was not advanced. Try again."
+      "checkFailed": "Could not check whether anything needs your attention, so time was not advanced. Try again.",
+      "advanceFailed": "Time could not be advanced. Try again."
     }
   },
   "squadCompare": {

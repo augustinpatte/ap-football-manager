@@ -3133,7 +3133,8 @@
       "urgentMessages": "{{count}} acil okunmamış mesaj",
       "keyContractRisk": "Kadro planlamasında kilit oyuncu sözleşme riski: {{players}}",
       "contractWageRisk": "Maaşların {{amount}} tutarı risk altındaki sözleşmelere bağlı — maaş bütçenizi gözden geçirin",
-      "checkFailed": "Dikkatinizi gerektiren bir şey olup olmadığı denetlenemedi, bu yüzden zaman ilerletilmedi. Tekrar deneyin."
+      "checkFailed": "Dikkatinizi gerektiren bir şey olup olmadığı denetlenemedi, bu yüzden zaman ilerletilmedi. Tekrar deneyin.",
+      "advanceFailed": "Zaman ilerletilemedi. Tekrar deneyin."
     }
   },
   "squadCompare": {

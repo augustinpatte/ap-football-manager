@@ -3133,7 +3133,8 @@
       "urgentMessages": "{{count}} pesan mendesak belum dibaca",
       "keyContractRisk": "Risiko kontrak pemain kunci dalam perencanaan skuad: {{players}}",
       "contractWageRisk": "{{amount}} gaji terkait kontrak berisiko — tinjau anggaran gaji kamu",
-      "checkFailed": "Tidak dapat memeriksa apakah ada yang butuh perhatian Anda, jadi waktu tidak dimajukan. Coba lagi."
+      "checkFailed": "Tidak dapat memeriksa apakah ada yang butuh perhatian Anda, jadi waktu tidak dimajukan. Coba lagi.",
+      "advanceFailed": "Waktu tidak dapat dimajukan. Coba lagi."
     }
   },
   "squadCompare": {

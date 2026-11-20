@@ -3133,7 +3133,8 @@
       "urgentMessages": "{{count}} ungelesene dringende Nachricht(en)",
       "keyContractRisk": "Vertragsrisiko bei Schlüsselspielern in der Kaderplanung: {{players}}",
       "contractWageRisk": "{{amount}} an Gehältern sind an riskante Verträge gebunden — prüfe dein Gehaltsbudget",
-      "checkFailed": "Es konnte nicht geprüft werden, ob etwas deine Aufmerksamkeit braucht, daher ist keine Zeit vergangen. Versuche es erneut."
+      "checkFailed": "Es konnte nicht geprüft werden, ob etwas deine Aufmerksamkeit braucht, daher ist keine Zeit vergangen. Versuche es erneut.",
+      "advanceFailed": "Die Zeit konnte nicht vorgestellt werden. Versuche es erneut."
     }
   },
   "squadCompare": {

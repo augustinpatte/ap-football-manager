@@ -149,6 +149,7 @@ export function useAdvanceTime(
       matchMode,
     });
     setIsAdvancing(true);
+    setAdvanceError(null);
     resetTransientUi();
     // Any lingering feed belongs to a previous advance.
     dismissDigest();
@@ -190,6 +191,7 @@ export function useAdvanceTime(
       }
     } catch (err) {
       console.error("Failed to advance time:", err);
+      setAdvanceError(resolveBackendKeyError(err, t("notifications.blockers.advanceFailed")));
     } finally {
       console.info("[useAdvanceTime] doAdvance:complete", { effectiveMode });
       advanceInFlightRef.current = false;
@@ -272,6 +274,7 @@ export function useAdvanceTime(
     if (advanceInFlightRef.current) return;
     advanceInFlightRef.current = true;
     setIsAdvancing(true);
+    setAdvanceError(null);
     resetTransientUi();
     // Drop the stop footer while the batch crunches: a resumed run keeps its
     // feed (the new days append to it), a fresh run starts from the spinner.
@@ -308,6 +311,7 @@ export function useAdvanceTime(
       showStaticDigest(merged, stopReason);
     } catch (err) {
       console.error(`Failed to ${label}:`, err);
+      setAdvanceError(resolveBackendKeyError(err, t("notifications.blockers.advanceFailed")));
     } finally {
       console.info(`[useAdvanceTime] ${label}:complete`);
       advanceInFlightRef.current = false;

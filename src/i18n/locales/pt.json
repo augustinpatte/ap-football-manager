@@ -3133,7 +3133,8 @@
       "urgentMessages": "{{count}} mensagem(ns) urgente(s) por ler",
       "keyContractRisk": "Risco contratual de jogador-chave no planeamento do plantel: {{players}}",
       "contractWageRisk": "{{amount}} em salários estão ligados a contratos em risco — revê o teu orçamento salarial",
-      "checkFailed": "Não foi possível verificar se algo precisa da sua atenção, por isso o tempo não avançou. Tente novamente."
+      "checkFailed": "Não foi possível verificar se algo precisa da sua atenção, por isso o tempo não avançou. Tente novamente.",
+      "advanceFailed": "Não foi possível avançar o tempo. Tenta novamente."
     }
   },
   "squadCompare": {

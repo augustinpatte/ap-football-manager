@@ -328,6 +328,42 @@ describe("useAdvanceTime", (): void => {
     consoleWarnSpy.mockRestore();
   });
 
+  /**
+   * Given a clear blocker check but a backend failure while playing the day,
+   * When the manager presses Continue,
+   * Then an error is shown (never a silent stop) and the manager can press Continue again.
+   */
+  it("says so when the backend fails while advancing a day", async (): Promise<void> => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") return [];
+      if (command === "advance_time_with_mode") throw "be.error.noActiveGameSession";
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
+  });
+
+  /** Given a clear check but a backend failure during the multi-day skip, then an error is shown. */
+  it("says so when the backend fails while skipping to match day", async (): Promise<void> => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") return [];
+      if (command === "skip_to_match_day") throw new Error("database is locked");
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
+  });
+
   /** Given a failed check followed by a working one, when the manager tries again, then the day advances and the error is gone. */
   it("lets the manager retry after a failed check", async (): Promise<void> => {
     const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
