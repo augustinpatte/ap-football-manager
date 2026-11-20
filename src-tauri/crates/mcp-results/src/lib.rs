@@ -320,8 +320,8 @@ mod tests {
 
     /// Given a dossier with one scouted and one unscouted shortlisted player, and an academy review
     /// When they are rendered and sent over the wire
-    /// Then the scouted player shows ranges, the unscouted one shows dashes (never a number nobody
-    ///      earned), the academy says its potential is a ceiling, and every struct round-trips.
+    /// Then the scouted player shows ranges, the unscouted one shows dashes and a standing (never a
+    ///      number nobody earned), the academy says its potential is a ceiling, and every struct round-trips.
     #[test]
     fn the_dossier_and_the_academy_review_show_only_what_is_known() {
         let row = |id: &str, known: bool| scouting::DossierRow {
@@ -346,8 +346,8 @@ mod tests {
         };
         let text = dossier.to_string();
         assert!(text
-            .contains("| p1 | Player p1 | Striker | 19 | Free | 61 | 58-66 | 70-84 | moderate |"));
-        assert!(text.contains("| p2 | Player p2 | Striker | 19 | Free | 61 | - | - | - |"));
+            .contains("| p1 | Player p1 | Striker | 19 | Free | 58-66 | 58-66 | 70-84 | moderate |"));
+        assert!(text.contains("| p2 | Player p2 | Striker | 19 | Free | average | - | - | - |"));
         round_trips(dossier);
 
         let review = scouting::AcademyReviewResult {
