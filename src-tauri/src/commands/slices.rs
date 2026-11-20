@@ -280,8 +280,6 @@ mod tests {
         assert!(get_squad_internal(&state, "other-club").unwrap().is_empty());
     }
 
-    /// Given no active game, when the knowledge adapter reads it,
-    /// then the translated session error is returned.
     /// Given no active game, when the prospect adapter is asked, then it reports the missing
     /// session, and with a game but no such message it answers an empty list.
     #[test]
@@ -308,6 +306,113 @@ mod tests {
         assert!(get_youth_prospect_readings_internal(&state, "nope")
             .unwrap()
             .is_empty());
+    }
+
+    /// Given a stranger a scout reported on (an old report, a wide range) and a youth message that
+    ///       proposes one prospect
+    /// When the IPC adapters answer
+    /// Then the wire carries the shapes the screens read: `estimate` with `low`, `high`,
+    ///      `confidence`, `current` and `scouted_on`, and a prospect with `player_id`, `current`
+    ///      and `ceiling` as standings, with neither true number anywhere
+    #[test]
+    fn the_adapters_pin_the_estimate_and_prospect_wire_shapes() {
+        use chrono::TimeZone;
+        use domain::manager::Manager;
+        use domain::player::{Player, PlayerAttributes, Position};
+        let attrs: PlayerAttributes = serde_json::from_value(serde_json::json!({
+            "pace": 60, "stamina": 60, "strength": 60, "agility": 60, "passing": 60,
+            "shooting": 60, "tackling": 60, "dribbling": 60, "defending": 60,
+            "positioning": 60, "vision": 60, "decisions": 60, "composure": 60,
+            "aggression": 60, "teamwork": 60, "leadership": 60,
+            "handling": 60, "reflexes": 60, "aerial": 60
+        }))
+        .unwrap();
+        let make = |id: &str, ovr: u8, potential: u8| {
+            let mut player = Player::new(
+                id.into(),
+                id.into(),
+                id.into(),
+                "2000-01-01".into(),
+                "GB".into(),
+                Position::Forward,
+                attrs.clone(),
+            );
+            player.team_id = Some("elsewhere".into());
+            player.ovr = ovr;
+            player.potential = potential;
+            player
+        };
+        let mut manager = Manager::new(
+            "m".into(),
+            "M".into(),
+            "Gr".into(),
+            "1980-01-01".into(),
+            "GB".into(),
+        );
+        manager.team_id = Some("club".into());
+        let mut game = ofm_core::game::Game::new(
+            ofm_core::clock::GameClock::new(
+                chrono::Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap(),
+            ),
+            manager,
+            vec![],
+            vec![make("seen", 74, 80)],
+            vec![],
+            vec![],
+        );
+        game.season_context.season_start = Some("2026-07-01".into());
+        game.scouting_dossier
+            .reports
+            .push(ofm_core::scouting_dossier::ScoutReport {
+                player_id: "seen".into(),
+                scout_id: "s".into(),
+                scout_name: "S".into(),
+                scouted_on: "2026-03-10".into(),
+                judging_ability: 40,
+                judging_potential: 40,
+                reports: 1,
+                ability: ofm_core::scouting_dossier::Range { low: 64, high: 82 },
+                potential: None,
+                age: 26,
+                strengths: vec![],
+                weaknesses: vec![],
+            });
+        let mut message = domain::message::InboxMessage::new(
+            "youth-1".into(),
+            String::new(),
+            String::new(),
+            "Scout".into(),
+            "2026-08-01".into(),
+        );
+        let mut prospect = make("prospect", 52, 78);
+        prospect.team_id = None;
+        message.context.youth_prospects = Some(vec![prospect]);
+        game.messages.push(message);
+        let state = StateManager::new();
+        state.set_game(game);
+
+        let ratings =
+            serde_json::to_value(get_player_ratings_internal(&state, &["seen".into()]).unwrap())
+                .unwrap();
+        let prospects =
+            serde_json::to_value(get_youth_prospect_readings_internal(&state, "youth-1").unwrap())
+                .unwrap();
+
+        assert_eq!(
+            ratings,
+            serde_json::json!({ "seen": {
+                "kind": "estimate", "low": 64, "high": 82, "confidence": "low",
+                "current": false, "scouted_on": "2026-03-10"
+            }})
+        );
+        assert_eq!(
+            prospects,
+            serde_json::json!([{
+                "player_id": "prospect",
+                "current": { "kind": "standing", "standing": "limited" },
+                "ceiling": { "kind": "standing", "standing": "strong" }
+            }])
+        );
     }
 
     /// Given no active game, when the ratings adapter is asked, then it reports the missing session.
@@ -386,6 +491,8 @@ mod tests {
         );
     }
 
+    /// Given no active game, when the knowledge adapter reads it,
+    /// then the translated session error is returned.
     #[test]
     fn the_knowledge_adapter_reports_a_missing_session() {
         assert_eq!(

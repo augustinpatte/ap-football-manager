@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "球探的估计:他的真实评分位于此区间之内。",
       "estimateStale": "本赛季之前的球探估计:此后他可能已有变化。请再次派球探考察以获得最新判断。",
-      "standing": "他的公开水平。在被考察之前,无法得知其确切评分。"
+      "standing": "他的公开水平。在被考察之前,无法得知其确切评分。",
+      "potentialStanding": "他潜力的公开水平。在他加入你的俱乐部之前,无法得知确切潜力。"
     },
     "a11y": {
       "exact": "综合评分 {{value}}",
       "estimate": "综合评分估计在 {{low}} 到 {{high}} 之间,{{confidence}}",
       "estimateStale": "综合评分估计在 {{low}} 到 {{high}} 之间,{{confidence}},来自本赛季之前的报告",
-      "standing": "综合评分未知,公开水平:{{standing}}"
+      "standing": "综合评分未知,公开水平:{{standing}}",
+      "potentialExact": "潜力 {{value}}",
+      "potentialStanding": "潜力未知,公开水平:{{standing}}"
     },
     "notScouted": "未考察:只知道他的公开水平。派球探去估计他的评分和潜力。",
     "sortHint": "在你考察之前,球员按公开水平排序;同一水平内的顺序并不代表排名。",
-    "prospectGrowthUnknown": "在他加入你的青训营之前,无法得知他的成长空间。"
+    "prospectGrowthUnknown": "在他加入你的青训营之前,无法得知他的成长空间。",
+    "notKnown": "未知"
   }
 }

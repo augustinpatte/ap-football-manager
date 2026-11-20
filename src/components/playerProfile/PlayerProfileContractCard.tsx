@@ -71,6 +71,13 @@ export default function PlayerProfileContractCard({
   onOpenFreeAgentContract,
   t,
 }: PlayerProfileContractCardProps) {
+  // A figure the club does not know is a dash for the eye and "not known" for a screen reader.
+  const unknownValue = (
+    <>
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">{t("playerRating.notKnown")}</span>
+    </>
+  );
   return (
     <Card>
       <CardHeader>{t("playerProfile.contractInfo")}</CardHeader>
@@ -117,12 +124,12 @@ export default function PlayerProfileContractCard({
           <InfoRow
             icon={<Heart className="w-4 h-4" />}
             label={t("common.condition")}
-            value={condition === null ? "—" : `${condition}%`}
+            value={condition === null ? unknownValue : `${condition}%`}
           />
           <InfoRow
             icon={<Activity className="w-4 h-4" />}
             label={t("common.morale")}
-            value={morale === null ? "—" : `${morale}%`}
+            value={morale === null ? unknownValue : `${morale}%`}
           />
         </div>
         {isOwnClub && steppingStonePromise ? (

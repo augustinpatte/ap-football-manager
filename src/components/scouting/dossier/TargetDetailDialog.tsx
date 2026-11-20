@@ -69,7 +69,8 @@ export default function TargetDetailDialog({
             <span>
               {target.age} · {target.team_name ?? t("common.freeAgent")} ·
             </span>
-            <ReadableRating rating={target.rating} />
+            <span>{t("scouting.dossier.colRating")}:</span>
+            <ReadableRating rating={target.rating} layout="inline" />
           </p>
         </div>
 

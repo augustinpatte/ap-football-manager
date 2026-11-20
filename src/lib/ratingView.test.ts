@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ratingFigure } from "./ratingView";
+import { formatRange, ratingFigure } from "./ratingView";
 
 describe("ratingFigure", () => {
   /**
@@ -23,5 +23,17 @@ describe("ratingFigure", () => {
     expect(ratingFigure({ kind: "standing", standing: "elite" })).toBe("—");
     expect(ratingFigure(null)).toBe("—");
     expect(ratingFigure(undefined)).toBe("—");
+  });
+});
+
+describe("formatRange", () => {
+  /**
+   * Given a range and a degenerate one
+   * When they are formatted
+   * Then the first reads low–high and the second a single number
+   */
+  it("reads low–high, or one number when the range has no width", () => {
+    expect(formatRange({ low: 62, high: 70 })).toBe("62–70");
+    expect(formatRange({ low: 64, high: 64 })).toBe("64");
   });
 });

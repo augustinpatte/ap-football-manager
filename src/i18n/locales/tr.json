@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Bir gözlemcinin tahmini: gerçek reytingi bu aralığın içindedir.",
       "estimateStale": "Bu sezondan önceki bir gözlemci tahmini: o zamandan beri değişmiş olabilir. Güncel bir değerlendirme için onu yeniden izlettirin.",
-      "standing": "Herkese açık seviyesi. Kesin reytingi, izlenene kadar bilinmez."
+      "standing": "Herkese açık seviyesi. Kesin reytingi, izlenene kadar bilinmez.",
+      "potentialStanding": "Potansiyelinin herkese açık seviyesi. Kesin potansiyeli, kulübünüze katılana kadar bilinmez."
     },
     "a11y": {
       "exact": "Genel reyting {{value}}",
       "estimate": "Genel reyting {{low}} ile {{high}} arasında tahmin ediliyor, {{confidence}}",
       "estimateStale": "Genel reyting {{low}} ile {{high}} arasında tahmin ediliyor, {{confidence}}, bu sezondan önceki bir rapora göre",
-      "standing": "Genel reyting bilinmiyor, herkese açık seviye: {{standing}}"
+      "standing": "Genel reyting bilinmiyor, herkese açık seviye: {{standing}}",
+      "potentialExact": "Potansiyel {{value}}",
+      "potentialStanding": "Potansiyel bilinmiyor, herkese açık seviye: {{standing}}"
     },
     "notScouted": "İzlenmedi: yalnızca herkese açık seviyesi biliniyor. Reytingini ve potansiyelini tahmin etmesi için bir gözlemci gönderin.",
     "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir.",
-    "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez."
+    "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez.",
+    "notKnown": "Bilinmiyor"
   }
 }

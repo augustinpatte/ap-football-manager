@@ -168,6 +168,8 @@ describe("PlayerProfileHeroCard for a player the club has not scouted", () => {
     expect(screen.queryByText("43%")).not.toBeInTheDocument();
     expect(screen.queryByText("38%")).not.toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    // The dashes are spoken as "not known", not read as a lone dash.
+    expect(screen.getAllByText("playerRating.notKnown").length).toBeGreaterThanOrEqual(2);
   });
 
   /**

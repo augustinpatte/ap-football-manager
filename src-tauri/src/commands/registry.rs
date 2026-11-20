@@ -99,6 +99,8 @@ pub struct RegistryPublicPage {
 }
 
 /// One market player as the manager reads him: no rating, no potential, no attribute block.
+/// It re-lists `RegistryPlayerDetail`'s other fields on purpose (a hidden field must be left out by
+/// name, not by a skip attribute), so a field added there is added here too.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryPublicDetail {

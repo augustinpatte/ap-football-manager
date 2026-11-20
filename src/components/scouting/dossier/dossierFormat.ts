@@ -1,9 +1,9 @@
+import { formatRange as formatKnownRange } from "../../../lib/ratingView";
 import type { RatingRange, ScoutingTargetView } from "../../../services/scoutingService";
 
-/** "62–70": the range a scout gave, never a single number he could not know. */
+/** "62–70": the range a scout gave, or `null` when nobody has judged it. */
 export function formatRange(range: RatingRange | null | undefined): string | null {
-  if (!range) return null;
-  return range.low === range.high ? `${range.low}` : `${range.low}–${range.high}`;
+  return range ? formatKnownRange(range) : null;
 }
 
 /** Most players the comparison holds: more than four stops being a comparison. */

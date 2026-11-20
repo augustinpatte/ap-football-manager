@@ -473,9 +473,9 @@ fn sort_matches(
     let today = context.today;
     matches.sort_by(|a, b| {
         let primary = match query.sort_key {
-            PlayerSortKey::Ovr => {
-                readable_ratings[a.id.as_str()].cmp(&readable_ratings[b.id.as_str()])
-            }
+            PlayerSortKey::Ovr => readable_ratings
+                .get(a.id.as_str())
+                .cmp(&readable_ratings.get(b.id.as_str())),
             key => compare_by_key(a, b, key, teams, today),
         };
         let primary = if query.sort_asc {

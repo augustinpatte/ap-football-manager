@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useRatingTiers } from "../../hooks/useRatingTiers";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { Shield } from "lucide-react";
@@ -62,8 +63,15 @@ export default function PlayerProfileHeroCard({
   const tierOf = useRatingTiers();
   const teamId = player.team_id;
   const knowsHisForm = formKnown;
-  const conditionText = knowsHisForm ? `${player.condition}%` : "—";
-  const moraleText = knowsHisForm ? `${player.morale}%` : "—";
+  // An unknown figure is a dash for the eye and "not known" for a screen reader.
+  const unknown = (
+    <>
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">{t("playerRating.notKnown")}</span>
+    </>
+  );
+  const conditionText = knowsHisForm ? `${player.condition}%` : unknown;
+  const moraleText = knowsHisForm ? `${player.morale}%` : unknown;
   const teamContextItems =
     teamId && onSelectTeam ? [buildViewTeamMenuItem(t, () => onSelectTeam(teamId))] : [];
 
@@ -211,7 +219,7 @@ export default function PlayerProfileHeroCard({
   );
 }
 
-function QuickStat({ label, value, color }: { label: string; value: string; color: string }) {
+function QuickStat({ label, value, color }: { label: string; value: ReactNode; color: string }) {
   return (
     <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
       <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{label}</p>
@@ -220,7 +228,15 @@ function QuickStat({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-function MobileQuickStat({ label, value, color }: { label: string; value: string; color: string }) {
+function MobileQuickStat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: ReactNode;
+  color: string;
+}) {
   return (
     <div className="bg-white dark:bg-navy-800 p-3 text-center">
       <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">

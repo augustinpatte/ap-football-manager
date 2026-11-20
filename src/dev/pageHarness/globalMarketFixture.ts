@@ -75,7 +75,11 @@ const CONTRACT_END = "2033-06-30";
 /** Long enough for five pages, so the paging controls have something to page through. */
 export const MARKET_TOTAL = NAMES.length;
 
-/** The harness's own copy of the backend's standing cut-offs (`ofm_core::rating_view`). */
+/**
+ * The harness's own copy of the backend's standing cut-offs (`ofm_core::rating_view`). The page
+ * harness runs with no backend, so it cannot ask; the copy goes when the harness can call the real
+ * command. Drift only mislabels a fixture, never the game.
+ */
 function standingOf(ovr: number): PublicStanding {
   if (ovr >= 81) return "elite";
   if (ovr >= 77) return "strong";

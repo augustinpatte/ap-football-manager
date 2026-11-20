@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Estimation d'un recruteur : sa vraie note se situe dans cette fourchette.",
       "estimateStale": "Estimation d'un recruteur datant d'avant cette saison : il a pu changer depuis. Faites-le observer à nouveau pour une lecture récente.",
-      "standing": "Son niveau public. Sa note exacte n'est connue qu'une fois qu'il a été observé."
+      "standing": "Son niveau public. Sa note exacte n'est connue qu'une fois qu'il a été observé.",
+      "potentialStanding": "Son niveau public de potentiel. Son potentiel exact n'est connu qu'une fois qu'il a rejoint votre club."
     },
     "a11y": {
       "exact": "Note globale {{value}}",
       "estimate": "Note globale estimée entre {{low}} et {{high}}, {{confidence}}",
       "estimateStale": "Note globale estimée entre {{low}} et {{high}}, {{confidence}}, d'après un rapport antérieur à cette saison",
-      "standing": "Note globale inconnue, niveau public : {{standing}}"
+      "standing": "Note globale inconnue, niveau public : {{standing}}",
+      "potentialExact": "Potentiel {{value}}",
+      "potentialStanding": "Potentiel inconnu, niveau public : {{standing}}"
     },
     "notScouted": "Non observé : seul son niveau public est connu. Envoyez un recruteur pour estimer sa note et son potentiel.",
     "sortHint": "Les joueurs sont classés par niveau public tant que vous ne les avez pas observés ; l'ordre au sein d'un niveau n'est pas un classement.",
-    "prospectGrowthUnknown": "Sa marge de progression n'est connue qu'une fois qu'il a rejoint votre centre de formation."
+    "prospectGrowthUnknown": "Sa marge de progression n'est connue qu'une fois qu'il a rejoint votre centre de formation.",
+    "notKnown": "Inconnu"
   }
 }

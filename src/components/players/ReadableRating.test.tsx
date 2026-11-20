@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RatingView } from "../../services/playerRatingService";
-import ReadableRating from "./ReadableRating";
+import ReadableRating, { SpokenRatingFigure } from "./ReadableRating";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -102,5 +102,66 @@ describe("ReadableRating", () => {
 
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByText("playerRating.unavailable")).toBeInTheDocument();
+  });
+});
+
+describe("ReadableRating confidence and subject", () => {
+  /**
+   * Given a scout's estimate at each confidence level
+   * When it is shown
+   * Then the spoken sentence carries that level's own label, never another's
+   */
+  it.each(["low", "moderate", "high"] as const)("speaks %s confidence", (confidence) => {
+    render(<ReadableRating rating={{ ...ESTIMATE, kind: "estimate", confidence }} />);
+
+    expect(
+      screen.getByText(
+        `playerRating.a11y.estimate:{"low":64,"high":70,"confidence":"playerRating.confidence.${confidence}"}`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Given a ceiling shown beside a rating, known only by its standing and then exactly
+   * When it is shown as a potential
+   * Then it is spoken as a potential, never as an overall rating
+   */
+  it("speaks a potential as a potential", () => {
+    const { rerender } = render(
+      <ReadableRating rating={{ kind: "standing", standing: "strong" }} subject="potential" />,
+    );
+    expect(
+      screen.getByText(
+        'playerRating.a11y.potentialStanding:{"standing":"playerRating.standing.strong"}',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/playerRating\.a11y\.standing/)).not.toBeInTheDocument();
+
+    rerender(<ReadableRating rating={{ kind: "exact", ovr: 84 }} subject="potential" />);
+    expect(screen.getByText('playerRating.a11y.potentialExact:{"value":84}')).toBeInTheDocument();
+  });
+});
+
+describe("SpokenRatingFigure", () => {
+  /**
+   * Given a range, a standing and no reading
+   * When each is drawn as a short figure
+   * Then the eye gets the figure, and a screen reader the full sentence instead of a bare range or dash
+   */
+  it("pairs the short figure with its spoken sentence", () => {
+    const { container, rerender } = render(<SpokenRatingFigure rating={ESTIMATE} />);
+    expect(screen.getByText("64–70")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".sr-only")?.textContent).toContain(
+      "playerRating.a11y.estimate",
+    );
+
+    rerender(<SpokenRatingFigure rating={{ kind: "standing", standing: "good" }} />);
+    expect(screen.getByText("—")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".sr-only")?.textContent).toContain(
+      "playerRating.a11y.standing",
+    );
+
+    rerender(<SpokenRatingFigure rating={null} />);
+    expect(container.querySelector(".sr-only")?.textContent).toBe("playerRating.unavailable");
   });
 });

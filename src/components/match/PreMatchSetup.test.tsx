@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
 import PreMatchSetup from "./PreMatchSetup";
@@ -155,6 +155,11 @@ function renderSetup(
 }
 
 describe("PreMatchSetup opponent scout panel", () => {
+  beforeEach(() => {
+    // Each test says what the backend answers about the opposition's ratings.
+    vi.mocked(invoke).mockReset();
+  });
+
   /** Given a pre-match token, when its player name is hovered,
    * then its summary appears outside the clipped pitch. */
   it("shows a pre-match token summary when its name is hovered", () => {
@@ -230,10 +235,12 @@ describe("PreMatchSetup opponent scout panel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Away FC/ }));
     await waitFor(() => expect(screen.getAllByText("77").length).toBeGreaterThan(0));
 
+    // The coloured element is the figure itself, or the wrapper around its aria-hidden text.
     const statsOf = (name: string, rating: string) =>
       within(screen.getByText(name).closest("div.flex") as HTMLElement)
         .getAllByText(rating)
-        .filter((element) => element.className.includes("tabular-nums"));
+        .map((element) => element.closest(".tabular-nums"))
+        .filter((element): element is Element => element !== null);
     // The rating and the shooting stat of each player: an empty list must not pass the loops below.
     const aTier = statsOf("Away A", "77");
     const bTier = statsOf("Away B", "76");

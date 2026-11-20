@@ -1,6 +1,7 @@
 import { usePlayerRatings } from "../../hooks/usePlayerRatings";
 import { useRatingTiers } from "../../hooks/useRatingTiers";
 import { ratingFigure } from "../../lib/ratingView";
+import { SpokenRatingFigure, useSpokenRating } from "../players/ReadableRating";
 import { resolveBackendKeyError } from "../../utils/backendI18n";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { useMemo, useState, type ReactNode } from "react";
@@ -98,6 +99,7 @@ export default function PreMatchSetup({
   const oppTeam = userSide === "Home" ? awayTeam : homeTeam;
   // The opposition's ratings as the manager may read them: exact in his division, a scout's range
   // or nothing otherwise. The snapshot carries the engine's true values, which a screen never shows.
+  const spokenRating = useSpokenRating();
   const oppRatings = usePlayerRatings(
     oppTeam.players.map((player) => player.id),
     oppTeam,
@@ -223,6 +225,7 @@ export default function PreMatchSetup({
           positionAbbr={translatePositionAbbreviation(t, displayPosition)}
           position={displayPosition}
           ovr={ratingFigure(oppRatings[player.id])}
+          ovrDescription={spokenRating(oppRatings[player.id] ?? null)}
           condition={player.condition}
           avatar={
             sp
@@ -599,24 +602,33 @@ export default function PreMatchSetup({
                   key={p.id}
                   className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-gray-100 dark:hover:bg-navy-700/30 transition-colors"
                 >
-                  <div className="h-7 w-7 shrink-0 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 transition-colors duration-300">
+                  <div
+                    aria-hidden="true"
+                    className="h-7 w-7 shrink-0 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 transition-colors duration-300"
+                  >
                     {ratingFigure(oppRatings[p.id])}
                   </div>
                   <span className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">
                     {p.name}
                   </span>
                   <div className="flex items-center">
-                    <span
+                    <SpokenRatingFigure
+                      rating={oppRatings[p.id] ?? null}
                       className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${ratingTierClass(oppRatings[p.id]?.kind === "exact" ? tierOf(p.ovr) : "Rest", "text")}`}
-                    >
-                      {ratingFigure(oppRatings[p.id])}
-                    </span>
+                    />
                     {keyStats.map((s) => (
                       <span
                         key={s.label}
                         className={`text-[10px] font-heading tabular-nums w-7 text-center ${ratingTierClass(oppRatings[p.id]?.kind === "exact" ? tierOf(getStatVal(p, s.key)) : "Rest", "text")}`}
                       >
-                        {oppRatings[p.id]?.kind === "exact" ? getStatVal(p, s.key) : "—"}
+                        {oppRatings[p.id]?.kind === "exact" ? (
+                          getStatVal(p, s.key)
+                        ) : (
+                          <>
+                            <span aria-hidden="true">—</span>
+                            <span className="sr-only">{t("playerRating.notKnown")}</span>
+                          </>
+                        )}
                       </span>
                     ))}
                   </div>

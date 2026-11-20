@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Schätzung eines Scouts: Seine wahre Wertung liegt in dieser Spanne.",
       "estimateStale": "Schätzung eines Scouts von vor dieser Saison: Er kann sich seither verändert haben. Lass ihn erneut beobachten, um einen aktuellen Eindruck zu bekommen.",
-      "standing": "Sein öffentliches Niveau. Seine genaue Wertung ist erst bekannt, wenn er beobachtet wurde."
+      "standing": "Sein öffentliches Niveau. Seine genaue Wertung ist erst bekannt, wenn er beobachtet wurde.",
+      "potentialStanding": "Sein öffentliches Potenzialniveau. Sein genaues Potenzial ist erst bekannt, wenn er zu deinem Verein kommt."
     },
     "a11y": {
       "exact": "Gesamtwertung {{value}}",
       "estimate": "Gesamtwertung geschätzt zwischen {{low}} und {{high}}, {{confidence}}",
       "estimateStale": "Gesamtwertung geschätzt zwischen {{low}} und {{high}}, {{confidence}}, nach einem Bericht von vor dieser Saison",
-      "standing": "Gesamtwertung unbekannt, öffentliches Niveau: {{standing}}"
+      "standing": "Gesamtwertung unbekannt, öffentliches Niveau: {{standing}}",
+      "potentialExact": "Potenzial {{value}}",
+      "potentialStanding": "Potenzial unbekannt, öffentliches Niveau: {{standing}}"
     },
     "notScouted": "Nicht beobachtet: Nur sein öffentliches Niveau ist bekannt. Schicke einen Scout, um seine Wertung und sein Potenzial zu schätzen.",
     "sortHint": "Die Spieler werden nach öffentlichem Niveau geordnet, bis du sie beobachtest; die Reihenfolge innerhalb eines Niveaus ist keine Rangfolge.",
-    "prospectGrowthUnknown": "Sein Entwicklungsspielraum ist erst bekannt, wenn er in deine Akademie eintritt."
+    "prospectGrowthUnknown": "Sein Entwicklungsspielraum ist erst bekannt, wenn er in deine Akademie eintritt.",
+    "notKnown": "Unbekannt"
   }
 }

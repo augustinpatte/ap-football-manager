@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Estimación de un ojeador: su valoración real está dentro de este rango.",
       "estimateStale": "Estimación de un ojeador de antes de esta temporada: puede haber cambiado desde entonces. Vuelve a ojearlo para obtener una lectura nueva.",
-      "standing": "Su nivel público. Su valoración exacta no se conoce hasta que se le ojea."
+      "standing": "Su nivel público. Su valoración exacta no se conoce hasta que se le ojea.",
+      "potentialStanding": "Su nivel público de potencial. Su potencial exacto no se conoce hasta que fiche por tu club."
     },
     "a11y": {
       "exact": "Valoración global {{value}}",
       "estimate": "Valoración global estimada entre {{low}} y {{high}}, {{confidence}}",
       "estimateStale": "Valoración global estimada entre {{low}} y {{high}}, {{confidence}}, según un informe anterior a esta temporada",
-      "standing": "Valoración global desconocida, nivel público: {{standing}}"
+      "standing": "Valoración global desconocida, nivel público: {{standing}}",
+      "potentialExact": "Potencial {{value}}",
+      "potentialStanding": "Potencial desconocido, nivel público: {{standing}}"
     },
     "notScouted": "Sin ojear: solo se conoce su nivel público. Envía a un ojeador para estimar su valoración y su potencial.",
     "sortHint": "Los jugadores se ordenan por nivel público hasta que los ojees; el orden dentro de un nivel no es una clasificación.",
-    "prospectGrowthUnknown": "Se desconoce su margen de crecimiento hasta que entre en tu cantera."
+    "prospectGrowthUnknown": "Se desconoce su margen de crecimiento hasta que entre en tu cantera.",
+    "notKnown": "Se desconoce"
   }
 }

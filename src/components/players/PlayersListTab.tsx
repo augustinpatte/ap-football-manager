@@ -565,6 +565,7 @@ function SortHeader({
     >
       <span className="flex items-center gap-1">
         {label}
+        {hint ? <span className="sr-only">{hint}</span> : null}
         <ArrowUpDown
           className={`w-3 h-3 ${isActive ? "text-primary-500" : "text-gray-300 dark:text-navy-600"}`}
         />

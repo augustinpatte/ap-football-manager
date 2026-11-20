@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Stima di uno scout: la sua valutazione reale è dentro questo intervallo.",
       "estimateStale": "Stima di uno scout precedente a questa stagione: potrebbe essere cambiato da allora. Fallo osservare di nuovo per una lettura aggiornata.",
-      "standing": "Il suo livello pubblico. La valutazione esatta si conosce solo dopo che è stato osservato."
+      "standing": "Il suo livello pubblico. La valutazione esatta si conosce solo dopo che è stato osservato.",
+      "potentialStanding": "Il suo livello pubblico di potenziale. Il potenziale esatto si conosce solo dopo che arriva nel tuo club."
     },
     "a11y": {
       "exact": "Valutazione complessiva {{value}}",
       "estimate": "Valutazione complessiva stimata tra {{low}} e {{high}}, {{confidence}}",
       "estimateStale": "Valutazione complessiva stimata tra {{low}} e {{high}}, {{confidence}}, da un rapporto precedente a questa stagione",
-      "standing": "Valutazione complessiva sconosciuta, livello pubblico: {{standing}}"
+      "standing": "Valutazione complessiva sconosciuta, livello pubblico: {{standing}}",
+      "potentialExact": "Potenziale {{value}}",
+      "potentialStanding": "Potenziale sconosciuto, livello pubblico: {{standing}}"
     },
     "notScouted": "Non osservato: si conosce solo il livello pubblico. Manda uno scout per stimare valutazione e potenziale.",
     "sortHint": "I giocatori sono ordinati per livello pubblico finché non li osservi; l'ordine all'interno di un livello non è una classifica.",
-    "prospectGrowthUnknown": "Il margine di crescita si conosce solo dopo che entra nella tua academy."
+    "prospectGrowthUnknown": "Il margine di crescita si conosce solo dopo che entra nella tua academy.",
+    "notKnown": "Sconosciuto"
   }
 }

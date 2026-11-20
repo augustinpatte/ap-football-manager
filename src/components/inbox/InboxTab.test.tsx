@@ -1472,9 +1472,9 @@ describe("InboxTab", (): void => {
     expect(
       screen.getByText("Growth room is not known until he joins your academy."),
     ).toBeInTheDocument();
-    expect(screen.queryByText("52")).not.toBeInTheDocument();
-    expect(screen.queryByText("78")).not.toBeInTheDocument();
-    expect(screen.queryByText("+26")).not.toBeInTheDocument();
+    const shown = document.body.textContent ?? "";
+    expect(shown).not.toMatch(/\b(52|78)\b/);
+    expect(shown).not.toContain("+26");
     expect(screen.queryByText("A", { selector: "p" })).not.toBeInTheDocument();
   });
 

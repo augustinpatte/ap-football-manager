@@ -1801,6 +1801,22 @@ mod tests {
         );
     }
 
+    /// Given every rating from 1 to 99
+    /// When the registry's SQL rank is computed for each
+    /// Then it equals the public standing's own rank, so the rating sort and the standing the screen
+    ///      shows can never disagree at a cut-off
+    #[test]
+    fn the_sql_rank_is_the_public_standing_for_every_rating() {
+        use ofm_core::rating_view::PublicStanding;
+        let conn = Connection::open_in_memory().unwrap();
+        let query = format!("SELECT {} FROM (SELECT ?1 AS ovr)", standing_rank_sql());
+
+        for ovr in 1..=99_i64 {
+            let rank: i64 = conn.query_row(&query, [ovr], |row| row.get(0)).unwrap();
+            assert_eq!(rank, PublicStanding::of(ovr as u8) as i64, "rating {ovr}");
+        }
+    }
+
     /// Given the same page of players
     /// When the search screen's filters are applied one at a time
     /// Then only the players matching that filter are returned, and the career's exclusions still

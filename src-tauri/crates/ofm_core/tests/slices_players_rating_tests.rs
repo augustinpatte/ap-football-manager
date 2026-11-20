@@ -275,3 +275,34 @@ fn a_rating_filter_is_exact_for_exact_players_and_excludes_whole_standings() {
 
     assert_eq!(order(&game, &query), vec!["own"]);
 }
+
+/// Given a scouted player read as 64 to 72 (his true rating is 90), an old report on another, and an
+///       unscouted one
+/// When the list is bounded at 70 or more, then at 73 or more, and asked for potential of 60 or more
+/// Then a bound inside the range keeps him (he could be there), a bound above it drops him, an old
+///      report still filters by what it says, and an unscouted player never passes the potential bar
+#[test]
+fn a_rating_bound_reads_a_scouts_range_and_potential_needs_a_report() {
+    let mut game = game(vec![
+        player("seen", Some("faraway"), 90),
+        player("old", Some("faraway"), 90),
+        player("stranger", Some("faraway"), 90),
+    ]);
+    game.scouting_dossier
+        .reports
+        .push(report("seen", "2026-09-01", Range { low: 64, high: 72 }));
+    game.scouting_dossier
+        .reports
+        .push(report("old", "2026-03-01", Range { low: 50, high: 58 }));
+    let mut at_least_70 = query(PlayerSortKey::Name, true);
+    at_least_70.ovr_min = Some(70);
+    let mut at_least_73 = query(PlayerSortKey::Name, true);
+    at_least_73.ovr_min = Some(73);
+    let mut potential_60 = query(PlayerSortKey::Name, true);
+    potential_60.potential_min = Some(60);
+
+    // The stranger is an "elite" standing (81 to 99), so he could be 70 or 73 too.
+    assert_eq!(order(&game, &at_least_70), vec!["seen", "stranger"]);
+    assert_eq!(order(&game, &at_least_73), vec!["stranger"]);
+    assert!(order(&game, &potential_60).is_empty());
+}

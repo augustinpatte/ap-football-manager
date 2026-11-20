@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Estimativa de um olheiro: a avaliação real está dentro deste intervalo.",
       "estimateStale": "Estimativa de um olheiro de antes desta época: pode ter mudado desde então. Observa-o de novo para uma leitura atualizada.",
-      "standing": "O seu nível público. A avaliação exata só se conhece depois de o observares."
+      "standing": "O seu nível público. A avaliação exata só se conhece depois de o observares.",
+      "potentialStanding": "O nível público do seu potencial. O potencial exato só se conhece depois de ele entrar no teu clube."
     },
     "a11y": {
       "exact": "Avaliação global {{value}}",
       "estimate": "Avaliação global estimada entre {{low}} e {{high}}, {{confidence}}",
       "estimateStale": "Avaliação global estimada entre {{low}} e {{high}}, {{confidence}}, segundo um relatório anterior a esta época",
-      "standing": "Avaliação global desconhecida, nível público: {{standing}}"
+      "standing": "Avaliação global desconhecida, nível público: {{standing}}",
+      "potentialExact": "Potencial {{value}}",
+      "potentialStanding": "Potencial desconhecido, nível público: {{standing}}"
     },
     "notScouted": "Não observado: só se conhece o nível público. Envia um olheiro para estimar a avaliação e o potencial.",
     "sortHint": "Os jogadores são ordenados por nível público até os observares; a ordem dentro de um nível não é uma classificação.",
-    "prospectGrowthUnknown": "A margem de crescimento só se conhece depois de ele entrar na tua academia."
+    "prospectGrowthUnknown": "A margem de crescimento só se conhece depois de ele entrar na tua academia.",
+    "notKnown": "Desconhecido"
   }
 }

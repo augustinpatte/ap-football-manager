@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Estimativa de um olheiro: a avaliação real está dentro deste intervalo.",
       "estimateStale": "Estimativa de um olheiro de antes desta temporada: ele pode ter mudado desde então. Observe-o de novo para uma leitura atualizada.",
-      "standing": "O nível público dele. A avaliação exata só é conhecida depois que você o observa."
+      "standing": "O nível público dele. A avaliação exata só é conhecida depois que você o observa.",
+      "potentialStanding": "O nível público do potencial dele. O potencial exato só é conhecido depois que ele entrar no seu clube."
     },
     "a11y": {
       "exact": "Avaliação geral {{value}}",
       "estimate": "Avaliação geral estimada entre {{low}} e {{high}}, {{confidence}}",
       "estimateStale": "Avaliação geral estimada entre {{low}} e {{high}}, {{confidence}}, segundo um relatório anterior a esta temporada",
-      "standing": "Avaliação geral desconhecida, nível público: {{standing}}"
+      "standing": "Avaliação geral desconhecida, nível público: {{standing}}",
+      "potentialExact": "Potencial {{value}}",
+      "potentialStanding": "Potencial desconhecido, nível público: {{standing}}"
     },
     "notScouted": "Não observado: só o nível público é conhecido. Envie um olheiro para estimar a avaliação e o potencial.",
     "sortHint": "Os jogadores são ordenados por nível público até você observá-los; a ordem dentro de um nível não é um ranking.",
-    "prospectGrowthUnknown": "A margem de crescimento só é conhecida depois que ele entrar na sua base."
+    "prospectGrowthUnknown": "A margem de crescimento só é conhecida depois que ele entrar na sua base.",
+    "notKnown": "Desconhecido"
   }
 }

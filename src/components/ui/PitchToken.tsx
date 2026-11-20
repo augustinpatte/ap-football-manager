@@ -35,6 +35,8 @@ export interface PitchTokenProps {
   position?: string;
   /** The rating's short figure: a number, a scout's range, or a dash (see `ratingFigure`). */
   ovr: number | string;
+  /** Said for a screen reader in place of the bare figure (a range or a dash is not self-explaining). */
+  ovrDescription?: string;
   /** 0–100 short-term condition; drives the bar at the bottom. */
   condition: number;
   fitTone?: PitchFitTone;
@@ -147,6 +149,7 @@ export function PitchToken({
   positionAbbr,
   position,
   ovr,
+  ovrDescription,
   condition,
   fitTone = "empty",
   descriptionId,
@@ -265,7 +268,14 @@ export function PitchToken({
         )}
         <div className="absolute -bottom-1 -right-1.5 z-10">
           <span className="rounded-full bg-chrome px-2 py-0.5 text-caption font-heading font-bold leading-4 text-on-brand ring-1 ring-on-brand/30">
-            {ovr}
+            {ovrDescription ? (
+              <>
+                <span aria-hidden="true">{ovr}</span>
+                <span className="sr-only">{ovrDescription}</span>
+              </>
+            ) : (
+              ovr
+            )}
           </span>
         </div>
       </div>

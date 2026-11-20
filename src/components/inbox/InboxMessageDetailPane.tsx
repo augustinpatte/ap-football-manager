@@ -295,11 +295,16 @@ export default function InboxMessageDetailPane({
 
                             <div className="flex flex-wrap gap-2">
                               <Badge variant="neutral" size="sm">
-                                {t("youthAcademy.ovr")} <ReadableRating rating={currentRating} />
+                                {t("youthAcademy.ovr")}{" "}
+                                <ReadableRating rating={currentRating} layout="inline" />
                               </Badge>
                               <Badge variant="neutral" size="sm">
                                 {t("youthAcademy.potential")}{" "}
-                                <ReadableRating rating={reading?.ceiling ?? null} />
+                                <ReadableRating
+                                  rating={reading?.ceiling ?? null}
+                                  subject="potential"
+                                  layout="inline"
+                                />
                               </Badge>
                             </div>
                           </div>

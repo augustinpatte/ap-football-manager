@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Odhad skauta: jeho skutečné hodnocení leží uvnitř tohoto rozpětí.",
       "estimateStale": "Odhad skauta z doby před touto sezónou: od té doby se mohl změnit. Pošlete skauta znovu pro čerstvý dojem.",
-      "standing": "Jeho veřejná úroveň. Přesné hodnocení není známo, dokud ho někdo neskautuje."
+      "standing": "Jeho veřejná úroveň. Přesné hodnocení není známo, dokud ho někdo neskautuje.",
+      "potentialStanding": "Veřejná úroveň jeho potenciálu. Přesný potenciál není znám, dokud nepřestoupí do vašeho klubu."
     },
     "a11y": {
       "exact": "Celkové hodnocení {{value}}",
       "estimate": "Celkové hodnocení odhadnuto mezi {{low}} a {{high}}, {{confidence}}",
       "estimateStale": "Celkové hodnocení odhadnuto mezi {{low}} a {{high}}, {{confidence}}, podle reportu z doby před touto sezónou",
-      "standing": "Celkové hodnocení neznámé, veřejná úroveň: {{standing}}"
+      "standing": "Celkové hodnocení neznámé, veřejná úroveň: {{standing}}",
+      "potentialExact": "Potenciál {{value}}",
+      "potentialStanding": "Potenciál neznámý, veřejná úroveň: {{standing}}"
     },
     "notScouted": "Neskautován: znáte jen jeho veřejnou úroveň. Pošlete skauta, aby odhadl jeho hodnocení a potenciál.",
     "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček.",
-    "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie."
+    "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie.",
+    "notKnown": "Neznámé"
   }
 }

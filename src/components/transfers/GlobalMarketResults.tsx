@@ -167,6 +167,7 @@ function Th({ children, hint }: { children: ReactNode; hint?: string }) {
       className="px-3 py-3 font-heading font-bold uppercase tracking-wider text-fg-muted"
     >
       {children}
+      {hint ? <span className="sr-only">{hint}</span> : null}
     </th>
   );
 }

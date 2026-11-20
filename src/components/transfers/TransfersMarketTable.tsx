@@ -152,6 +152,7 @@ export function TransfersMarketTable({ state }: TransfersMarketTableProps) {
                   >
                     <div className="flex items-center gap-1">
                       {t("common.ovr")}
+                      <span className="sr-only">{t("playerRating.sortHint")}</span>
                       {ovrSortDir === "desc" ? (
                         <ChevronDown className="w-3 h-3" />
                       ) : ovrSortDir === "asc" ? (

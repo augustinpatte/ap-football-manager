@@ -5425,16 +5425,20 @@
     "hint": {
       "estimate": "Perkiraan pemandu bakat: rating aslinya berada di dalam kisaran ini.",
       "estimateStale": "Perkiraan pemandu bakat dari sebelum musim ini: ia mungkin sudah berubah sejak itu. Pantau lagi untuk pembacaan terbaru.",
-      "standing": "Tingkat publiknya. Rating pastinya tidak diketahui sampai ia dipantau."
+      "standing": "Tingkat publiknya. Rating pastinya tidak diketahui sampai ia dipantau.",
+      "potentialStanding": "Tingkat publik potensinya. Potensi pastinya tidak diketahui sampai ia bergabung dengan klub Anda."
     },
     "a11y": {
       "exact": "Rating keseluruhan {{value}}",
       "estimate": "Rating keseluruhan diperkirakan antara {{low}} dan {{high}}, {{confidence}}",
       "estimateStale": "Rating keseluruhan diperkirakan antara {{low}} dan {{high}}, {{confidence}}, dari laporan sebelum musim ini",
-      "standing": "Rating keseluruhan tidak diketahui, tingkat publik: {{standing}}"
+      "standing": "Rating keseluruhan tidak diketahui, tingkat publik: {{standing}}",
+      "potentialExact": "Potensi {{value}}",
+      "potentialStanding": "Potensi tidak diketahui, tingkat publik: {{standing}}"
     },
     "notScouted": "Belum dipantau: hanya tingkat publiknya yang diketahui. Kirim pemandu bakat untuk memperkirakan rating dan potensinya.",
     "sortHint": "Pemain diurutkan menurut tingkat publik sampai Anda memantau mereka; urutan di dalam satu tingkat bukan peringkat.",
-    "prospectGrowthUnknown": "Ruang pertumbuhannya tidak diketahui sampai ia bergabung dengan akademi Anda."
+    "prospectGrowthUnknown": "Ruang pertumbuhannya tidak diketahui sampai ia bergabung dengan akademi Anda.",
+    "notKnown": "Tidak diketahui"
   }
 }
