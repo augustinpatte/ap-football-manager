@@ -55,7 +55,14 @@ describe("the live screen on real engine payloads", () => {
 
   /** Given the engine's real replies, When the manager plays at 16x, Then the screen asks for frames by seconds with the argument names the backend reads, and shows the real match's clock. */
   it("plays a real match's first minutes through the real service", async () => {
-    render(<InteractiveMatchScreen homeName="Reds" awayName="Blues" onFinished={vi.fn()} />);
+    render(
+      <InteractiveMatchScreen
+        homeName="Reds"
+        awayName="Blues"
+        onFinished={vi.fn()}
+        onExited={vi.fn()}
+      />,
+    );
     await screen.findByRole("img", {
       name: tr("match.liveView.pitchLabel", { home: "Reds", away: "Blues" }),
     });
@@ -80,7 +87,14 @@ describe("the live screen on real engine payloads", () => {
 
   /** Given the real lineups, Then the screen shows the engine's own players with their conditions, and no raw id. */
   it("shows the engine's lineups from the real view", async () => {
-    render(<InteractiveMatchScreen homeName="Reds" awayName="Blues" onFinished={vi.fn()} />);
+    render(
+      <InteractiveMatchScreen
+        homeName="Reds"
+        awayName="Blues"
+        onFinished={vi.fn()}
+        onExited={vi.fn()}
+      />,
+    );
     await screen.findByRole("img");
     await wall(50);
     const start = (
