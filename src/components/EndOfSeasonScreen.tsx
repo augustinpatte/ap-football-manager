@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { GameStateData, SeasonAwardsData } from "../store/gameStore";
+import { resolveBackendKeyError } from "../utils/backendI18n";
 import { useGameStore } from "../store/gameStore";
 import { Card, CardBody } from "./ui";
 import { competitionDisplayName } from "../lib/competitionName";
@@ -51,6 +52,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
   const { t } = useTranslation();
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [loading, setLoading] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [summary, setSummary] = useState<EndOfSeasonSummary | null>(null);
   const [step, setStep] = useState<"review" | "ceremony" | "done">("review");
 
@@ -71,6 +73,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
   const handleAdvance = async () => {
     if (loading) return;
     setLoading(true);
+    setAdvanceError(null);
     try {
       const result = await invoke<{
         action?: string;
@@ -87,6 +90,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
       setStep("ceremony");
     } catch (err) {
       console.error("Failed to advance season:", err);
+      setAdvanceError(resolveBackendKeyError(err, t("endOfSeason.advanceFailed")));
     } finally {
       setLoading(false);
     }
@@ -245,6 +249,14 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
 
           {/* Action */}
           <div className="text-center">
+            {advanceError ? (
+              <p
+                role="alert"
+                className="mx-auto mb-4 max-w-xl rounded-lg border border-line bg-warning-tint px-4 py-3 text-body text-warning"
+              >
+                {advanceError}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={handleAdvance}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 
@@ -44,6 +44,14 @@ vi.mock("react-i18next", () => ({
     },
     i18n: { language: "en" },
   }),
+}));
+
+// The real resolver needs the full i18n instance; its own behaviour is tested in backendI18n.test.ts.
+vi.mock("../utils/backendI18n", () => ({
+  resolveBackendKeyError: (error: unknown, fallback: string) => {
+    const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+    return message.startsWith("be.error.") ? `resolved:${message}` : fallback;
+  },
 }));
 
 vi.mock("../store/gameStore", async () => {
@@ -215,6 +223,43 @@ function createGameState(): GameStateData {
 }
 
 describe("EndOfSeasonScreen", () => {
+  /**
+   * Given a finished season whose rollover the backend refuses,
+   * When the manager presses Start next season,
+   * Then they are told why, nothing is applied, and the button works again for a retry.
+   */
+  it("says so when the next season cannot be started, and lets the manager retry", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockRejectedValueOnce("be.error.seasonNotComplete");
+    const onGameUpdate = vi.fn();
+    render(<EndOfSeasonScreen gameState={createGameState()} onGameUpdate={onGameUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start next season" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "resolved:be.error.seasonNotComplete",
+    );
+    expect(onGameUpdate).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Start next season" })).toBeEnabled();
+    });
+    consoleErrorSpy.mockRestore();
+  });
+
+  /** Given an unexpected failure with no translation key, then a generic translated sentence is shown. */
+  it("falls back to a generic sentence for an unknown failure", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("database is locked"));
+    render(<EndOfSeasonScreen gameState={createGameState()} onGameUpdate={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Start next season" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("endOfSeason.advanceFailed");
+    consoleErrorSpy.mockRestore();
+  });
+
   it("shows the awards ceremony after advancing to the next season", async () => {
     vi.mocked(invoke).mockResolvedValue({
       game: createGameState(),

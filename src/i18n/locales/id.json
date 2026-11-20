@@ -3106,6 +3106,7 @@
     "finalStandings": "Klasemen Akhir (5 Besar)",
     "leagueChampions": "Juara Liga",
     "startNextSeason": "Mulai Musim Berikutnya",
+    "advanceFailed": "Musim berikutnya tidak dapat dimulai. Coba lagi.",
     "processing": "Memproses...",
     "statsArchived": "Statistik pemain akan diarsipkan. Jadwal baru akan dibuat.",
     "seasonLine": "{{league}} — Musim {{season}}",

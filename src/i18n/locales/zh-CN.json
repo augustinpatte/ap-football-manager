@@ -3106,6 +3106,7 @@
     "finalStandings": "最终排名（前 5 名）",
     "leagueChampions": "联赛冠军",
     "startNextSeason": "开始下赛季",
+    "advanceFailed": "无法开始新赛季。请重试。",
     "processing": "处理中...",
     "statsArchived": "球员数据将被存档。新的赛程将被生成。",
     "seasonLine": "{{league}} — 第 {{season}} 赛季",

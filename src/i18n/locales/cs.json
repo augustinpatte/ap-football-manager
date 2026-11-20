@@ -3106,6 +3106,7 @@
     "finalStandings": "Konečné pořadí (Top 5)",
     "leagueChampions": "Ligový mistr",
     "startNextSeason": "Zahájit příští sezónu",
+    "advanceFailed": "Další sezónu se nepodařilo zahájit. Zkuste to znovu.",
     "processing": "Zpracovávání...",
     "statsArchived": "Statistiky hráčů budou archivovány. Bude vygenerován nový rozpis zápasů.",
     "seasonLine": "{{league}} — Sezóna {{season}}",

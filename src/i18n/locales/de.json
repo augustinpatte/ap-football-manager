@@ -3106,6 +3106,7 @@
     "finalStandings": "Endtabelle (Top 5)",
     "leagueChampions": "Ligameister",
     "startNextSeason": "Nächste Saison starten",
+    "advanceFailed": "Die nächste Saison konnte nicht gestartet werden. Versuche es erneut.",
     "processing": "Verarbeitung...",
     "statsArchived": "Spielerstatistiken werden archiviert. Ein neuer Spielplan wird erstellt.",
     "seasonLine": "{{league}} — Saison {{season}}",

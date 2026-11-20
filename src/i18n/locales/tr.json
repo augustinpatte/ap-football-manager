@@ -3106,6 +3106,7 @@
     "finalStandings": "Final Sıralaması (İlk 5)",
     "leagueChampions": "Lig Şampiyonu",
     "startNextSeason": "Yeni Sezonu Başlat",
+    "advanceFailed": "Yeni sezon başlatılamadı. Tekrar deneyin.",
     "processing": "İşleniyor...",
     "statsArchived": "Oyuncu istatistikleri arşivlenecek. Yeni bir fikstür oluşturulacak.",
     "seasonLine": "{{league}} — Sezon {{season}}",
