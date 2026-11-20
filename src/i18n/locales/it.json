@@ -5436,6 +5436,7 @@
       "standing": "Valutazione complessiva sconosciuta, livello pubblico: {{standing}}"
     },
     "notScouted": "Non osservato: si conosce solo il livello pubblico. Manda uno scout per stimare valutazione e potenziale.",
-    "sortHint": "I giocatori sono ordinati per livello pubblico finché non li osservi; l'ordine all'interno di un livello non è una classifica."
+    "sortHint": "I giocatori sono ordinati per livello pubblico finché non li osservi; l'ordine all'interno di un livello non è una classifica.",
+    "prospectGrowthUnknown": "Il margine di crescita si conosce solo dopo che entra nella tua academy."
   }
 }

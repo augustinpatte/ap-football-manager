@@ -5436,6 +5436,7 @@
       "standing": "Valoración global desconocida, nivel público: {{standing}}"
     },
     "notScouted": "Sin ojear: solo se conoce su nivel público. Envía a un ojeador para estimar su valoración y su potencial.",
-    "sortHint": "Los jugadores se ordenan por nivel público hasta que los ojees; el orden dentro de un nivel no es una clasificación."
+    "sortHint": "Los jugadores se ordenan por nivel público hasta que los ojees; el orden dentro de un nivel no es una clasificación.",
+    "prospectGrowthUnknown": "Se desconoce su margen de crecimiento hasta que entre en tu cantera."
   }
 }

@@ -5,7 +5,7 @@ use tauri::State;
 
 use domain::message::InboxMessage;
 use ofm_core::player_knowledge::{players_knowledge, PlayerKnowledge};
-use ofm_core::rating_view::{ratings_view, RatingView};
+use ofm_core::rating_view::{ratings_view, youth_prospect_readings, ProspectReading, RatingView};
 use ofm_core::slices::competitions::{query_competitions, CompetitionsQuery, CompetitionsView};
 use ofm_core::slices::inbox::{query_messages, MessagesQuery};
 use ofm_core::slices::news::{query_news_feed, NewsFeed, NewsFeedQuery};
@@ -162,6 +162,25 @@ fn get_player_ratings_internal(
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())
 }
 
+/// How the manager reads each prospect a scout proposed in a youth recruitment message: broad
+/// standings until the club signs him. An unknown message answers an empty list.
+#[tauri::command]
+pub async fn get_youth_prospect_readings(
+    state: State<'_, Arc<StateManager>>,
+    message_id: String,
+) -> Result<Vec<ProspectReading>, String> {
+    get_youth_prospect_readings_internal(&state, &message_id)
+}
+
+fn get_youth_prospect_readings_internal(
+    state: &StateManager,
+    message_id: &str,
+) -> Result<Vec<ProspectReading>, String> {
+    state
+        .get_game(|game| youth_prospect_readings(game, message_id).unwrap_or_default())
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
 #[tauri::command]
 pub async fn get_squad(
     state: State<'_, Arc<StateManager>>,
@@ -263,6 +282,34 @@ mod tests {
 
     /// Given no active game, when the knowledge adapter reads it,
     /// then the translated session error is returned.
+    /// Given no active game, when the prospect adapter is asked, then it reports the missing
+    /// session, and with a game but no such message it answers an empty list.
+    #[test]
+    fn the_prospect_adapter_reports_a_missing_session_and_an_unknown_message() {
+        assert_eq!(
+            get_youth_prospect_readings_internal(&StateManager::new(), "m").unwrap_err(),
+            NO_ACTIVE_GAME
+        );
+        let state = StateManager::new();
+        state.set_game(ofm_core::game::Game::new(
+            ofm_core::clock::GameClock::new(chrono::Utc::now()),
+            domain::manager::Manager::new(
+                "m".into(),
+                "M".into(),
+                "G".into(),
+                "1980-01-01".into(),
+                "GB".into(),
+            ),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        ));
+        assert!(get_youth_prospect_readings_internal(&state, "nope")
+            .unwrap()
+            .is_empty());
+    }
+
     /// Given no active game, when the ratings adapter is asked, then it reports the missing session.
     #[test]
     fn the_ratings_adapter_reports_a_missing_session() {

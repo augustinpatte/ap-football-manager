@@ -5436,6 +5436,7 @@
       "standing": "Avaliação global desconhecida, nível público: {{standing}}"
     },
     "notScouted": "Não observado: só se conhece o nível público. Envia um olheiro para estimar a avaliação e o potencial.",
-    "sortHint": "Os jogadores são ordenados por nível público até os observares; a ordem dentro de um nível não é uma classificação."
+    "sortHint": "Os jogadores são ordenados por nível público até os observares; a ordem dentro de um nível não é uma classificação.",
+    "prospectGrowthUnknown": "A margem de crescimento só se conhece depois de ele entrar na tua academia."
   }
 }

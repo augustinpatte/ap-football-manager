@@ -5436,6 +5436,7 @@
       "standing": "Gesamtwertung unbekannt, öffentliches Niveau: {{standing}}"
     },
     "notScouted": "Nicht beobachtet: Nur sein öffentliches Niveau ist bekannt. Schicke einen Scout, um seine Wertung und sein Potenzial zu schätzen.",
-    "sortHint": "Die Spieler werden nach öffentlichem Niveau geordnet, bis du sie beobachtest; die Reihenfolge innerhalb eines Niveaus ist keine Rangfolge."
+    "sortHint": "Die Spieler werden nach öffentlichem Niveau geordnet, bis du sie beobachtest; die Reihenfolge innerhalb eines Niveaus ist keine Rangfolge.",
+    "prospectGrowthUnknown": "Sein Entwicklungsspielraum ist erst bekannt, wenn er in deine Akademie eintritt."
   }
 }

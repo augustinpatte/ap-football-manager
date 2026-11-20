@@ -177,6 +177,50 @@ pub fn ratings_view(game: &Game, player_ids: &[String]) -> HashMap<String, Ratin
         .collect()
 }
 
+/// How the manager reads one youth prospect a scout proposed: his current rating and his ceiling.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProspectReading {
+    pub player_id: String,
+    pub current: RatingView,
+    /// What he could become. A prospect is not a player of the club until it signs him, so a scout
+    /// proposing him gives a broad standing of each, not the two numbers the generator drew.
+    pub ceiling: RatingView,
+}
+
+/// How the manager reads each prospect in a scout's youth recruitment message. Once the club has
+/// signed one, he is its own player and reads exactly. `None` when no message has that id or it
+/// proposes nobody.
+pub fn youth_prospect_readings(game: &Game, message_id: &str) -> Option<Vec<ProspectReading>> {
+    let message = game
+        .messages
+        .iter()
+        .find(|message| message.id == message_id)?;
+    let prospects = message.context.youth_prospects.as_ref()?;
+    let club = game.manager.team_id.as_deref();
+    Some(
+        prospects
+            .iter()
+            .map(|prospect| {
+                let signed = club.is_some() && prospect.team_id.as_deref() == club;
+                let read = |value: u8| {
+                    if signed {
+                        RatingView::Exact { ovr: value }
+                    } else {
+                        RatingView::Standing {
+                            standing: PublicStanding::of(value),
+                        }
+                    }
+                };
+                ProspectReading {
+                    player_id: prospect.id.clone(),
+                    current: read(prospect.ovr),
+                    ceiling: read(prospect.potential.max(prospect.ovr)),
+                }
+            })
+            .collect(),
+    )
+}
+
 /// How the manager reads one player's rating.
 pub fn rating_view(game: &Game, player: &Player) -> RatingView {
     RatingLens::of(game).rating_of(player)
@@ -485,6 +529,49 @@ mod tests {
         assert_eq!(answer.len(), 2);
         assert_eq!(answer["own"], RatingView::Exact { ovr: 71 });
         assert_eq!(answer["stranger"], view_of(&game, "stranger"));
+    }
+
+    /// Given a scout's youth message proposing a prospect rated 52 with potential 78, one the club
+    ///       has since signed, and an id no message has
+    /// When the readings are asked
+    /// Then the unsigned prospect reads as standings of his rating and his ceiling, the signed one
+    ///      exactly, and an unknown message has none
+    #[test]
+    fn a_proposed_prospect_reads_as_standings_until_the_club_signs_him() {
+        let mut game = world(vec![]);
+        let mut offered = player("offered", None, 52);
+        offered.potential = 78;
+        let mut signed = player("signed", Some(MY_CLUB), 55);
+        signed.potential = 84;
+        let mut message = domain::message::InboxMessage::new(
+            "youth-scout-1".to_string(),
+            String::new(),
+            String::new(),
+            "Scout".to_string(),
+            "2026-09-01".to_string(),
+        );
+        message.context.youth_prospects = Some(vec![offered, signed]);
+        game.messages.push(message);
+
+        let readings = youth_prospect_readings(&game, "youth-scout-1").unwrap();
+
+        assert_eq!(
+            readings[0].current,
+            RatingView::Standing {
+                standing: PublicStanding::Limited
+            }
+        );
+        assert_eq!(
+            readings[0].ceiling,
+            RatingView::Standing {
+                standing: PublicStanding::Strong
+            }
+        );
+        assert_eq!(readings[1].current, RatingView::Exact { ovr: 55 });
+        assert_eq!(readings[1].ceiling, RatingView::Exact { ovr: 84 });
+        assert!(youth_prospect_readings(&game, "nope").is_none());
+        let wire = serde_json::to_string(&readings[0]).unwrap();
+        assert!(!wire.contains("52") && !wire.contains("78"), "{wire}");
     }
 
     /// Given a game with a report and a standing, saved to JSON and loaded again

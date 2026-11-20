@@ -1,4 +1,6 @@
 import { useRatingTiers } from "../../hooks/useRatingTiers";
+import ReadableRating from "../players/ReadableRating";
+import { useYouthProspectReadings } from "./useYouthProspectReadings";
 import { ratingTierClass, ratingTierLetterKey } from "../../lib/ratingTier";
 import { ArrowLeft, CheckCircle2, MailOpen, MessageCircle, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
@@ -68,6 +70,12 @@ export default function InboxMessageDetailPane({
 
   const currentClubName = currentTeamName ?? "";
   const hasYouthProspects = Boolean(selectedMessage?.context?.youth_prospects?.length);
+  // The message carries the generator's true numbers; what the manager may read of each prospect
+  // (a broad standing until the club signs him) comes from the backend.
+  const prospectReadings = useYouthProspectReadings(
+    hasYouthProspects ? (selectedMessage?.id ?? null) : null,
+    selectedMessage,
+  );
   const linkedPlayerId = selectedMessage?.context?.player_id ?? null;
 
   const handleOptionClick = (messageId: string, actionId: string, optionId: string) => {
@@ -238,10 +246,18 @@ export default function InboxMessageDetailPane({
                       : [];
                     const prospectPosition = naturalPositionOf(prospect);
                     const signedToAcademy = prospect.team_id === currentTeamId;
-                    const potential = prospect.potential ?? 0;
-                    const potentialTier = tierOf(potential);
+                    const reading = prospectReadings[prospect.id];
+                    const currentRating = reading?.current ?? null;
+                    // Growth is only known for a prospect the club has signed (its own player).
+                    const exactCeiling =
+                      reading?.ceiling.kind === "exact" && reading.current.kind === "exact"
+                        ? { ovr: reading.current.ovr, potential: reading.ceiling.ovr }
+                        : null;
+                    const potentialTier = tierOf(exactCeiling?.potential ?? 0);
                     const potentialLetterKey = ratingTierLetterKey(potentialTier);
-                    const growthRoom = Math.max(0, potential - (prospect.ovr ?? 0));
+                    const growthRoom = exactCeiling
+                      ? Math.max(0, exactCeiling.potential - exactCeiling.ovr)
+                      : 0;
 
                     return (
                       <Card key={prospect.id}>
@@ -279,10 +295,11 @@ export default function InboxMessageDetailPane({
 
                             <div className="flex flex-wrap gap-2">
                               <Badge variant="neutral" size="sm">
-                                {t("youthAcademy.ovr")} {prospect.ovr ?? 0}
+                                {t("youthAcademy.ovr")} <ReadableRating rating={currentRating} />
                               </Badge>
                               <Badge variant="neutral" size="sm">
-                                {t("youthAcademy.potential")} {prospect.potential ?? 0}
+                                {t("youthAcademy.potential")}{" "}
+                                <ReadableRating rating={reading?.ceiling ?? null} />
                               </Badge>
                             </div>
                           </div>
@@ -292,22 +309,34 @@ export default function InboxMessageDetailPane({
                               <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                                 {t("youthAcademy.growth")}
                               </p>
-                              <div className="mt-2 flex items-center gap-2">
-                                <ProgressBar
-                                  value={Math.min(
-                                    100,
-                                    potential > 0 ? ((prospect.ovr ?? 0) / potential) * 100 : 0,
-                                  )}
-                                  variant={
-                                    growthRoom > 15 ? "accent" : growthRoom > 5 ? "primary" : "auto"
-                                  }
-                                  size="sm"
-                                />
-                                <span className="w-8 text-right text-xs font-heading font-bold tabular-nums text-gray-500 dark:text-gray-400">
-                                  +{growthRoom}
-                                </span>
-                              </div>
-                              {potentialLetterKey && (
+                              {exactCeiling ? (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <ProgressBar
+                                    value={Math.min(
+                                      100,
+                                      exactCeiling.potential > 0
+                                        ? (exactCeiling.ovr / exactCeiling.potential) * 100
+                                        : 0,
+                                    )}
+                                    variant={
+                                      growthRoom > 15
+                                        ? "accent"
+                                        : growthRoom > 5
+                                          ? "primary"
+                                          : "auto"
+                                    }
+                                    size="sm"
+                                  />
+                                  <span className="w-8 text-right text-xs font-heading font-bold tabular-nums text-gray-500 dark:text-gray-400">
+                                    +{growthRoom}
+                                  </span>
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                  {t("playerRating.prospectGrowthUnknown")}
+                                </p>
+                              )}
+                              {exactCeiling && potentialLetterKey && (
                                 <p
                                   className={`mt-1 text-caption font-heading uppercase tracking-wider ${ratingTierClass(potentialTier, "text")}`}
                                 >

@@ -5436,6 +5436,7 @@
       "standing": "Genel reyting bilinmiyor, herkese açık seviye: {{standing}}"
     },
     "notScouted": "İzlenmedi: yalnızca herkese açık seviyesi biliniyor. Reytingini ve potansiyelini tahmin etmesi için bir gözlemci gönderin.",
-    "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir."
+    "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir.",
+    "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez."
   }
 }

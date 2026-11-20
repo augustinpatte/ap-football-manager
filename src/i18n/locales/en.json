@@ -5436,6 +5436,7 @@
       "standing": "Overall rating not known, public standing: {{standing}}"
     },
     "notScouted": "Not scouted: only his public standing is known. Send a scout for an estimate of his rating and potential.",
-    "sortHint": "Players are ordered by public standing until you scout them; the order within a standing is not a ranking."
+    "sortHint": "Players are ordered by public standing until you scout them; the order within a standing is not a ranking.",
+    "prospectGrowthUnknown": "Growth room is not known until he joins your academy."
   }
 }

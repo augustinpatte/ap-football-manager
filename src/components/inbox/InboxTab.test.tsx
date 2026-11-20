@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "../../i18n";
 
+import type { ProspectReading } from "../../services/playerRatingService";
 import type { GameStateData, MessageAction, MessageData } from "../../store/gameStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import InboxTab from "./InboxTab";
@@ -42,6 +43,10 @@ const mockTranslationState = vi.hoisted(() => ({
       "inbox.sortOldest": "Oldest first",
       "jobs.switchConfirmAccept": "Accept new role",
       "jobs.switchConfirmTitle": "Leave your current club?",
+      "playerRating.standing.limited": "Limited",
+      "playerRating.standing.strong": "Strong",
+      "playerRating.prospectGrowthUnknown": "Growth room is not known until he joins your academy.",
+      "playerRating.unavailable": "Rating unavailable",
       "youthAcademy.growth": "Growth",
       "youthAcademy.ovr": "OVR",
       "youthAcademy.potential": "Potential",
@@ -310,12 +315,25 @@ async function renderInboxTab(options: {
   initialMessageId?: string | null;
   onGameUpdate?: (state: GameStateData) => void;
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
+  /**
+   * What the backend says the manager may read of a youth message's prospects. A message with
+   * prospects asks for it (before the inbox fetches its own messages), so a test that shows
+   * prospects says what the backend answers.
+   */
+  prospectReadings?: ProspectReading[];
 }): Promise<void> {
-  // Prime the self-fetch so InboxTab's useEffect gets the same messages as
-  // gameState rather than an undefined result (which would fall back fine, but
-  // any test that uses mockResolvedValue for a mutation would accidentally
-  // serve those mutation results to get_messages_page too).
-  mockedInvoke.mockResolvedValueOnce(options.gameState.messages ?? []);
+  if (options.prospectReadings) {
+    const readings = options.prospectReadings;
+    mockedInvoke.mockImplementation(async (command: string) =>
+      command === "get_youth_prospect_readings" ? readings : (options.gameState.messages ?? []),
+    );
+  } else {
+    // Prime the self-fetch so InboxTab's useEffect gets the same messages as
+    // gameState rather than an undefined result (which would fall back fine, but
+    // any test that uses mockResolvedValue for a mutation would accidentally
+    // serve those mutation results to get_messages_page too).
+    mockedInvoke.mockResolvedValueOnce(options.gameState.messages ?? []);
+  }
 
   await act(async () => {
     render(
@@ -1348,6 +1366,7 @@ describe("InboxTab", (): void => {
         }),
       ]),
       initialMessageId: "youth-natural",
+      prospectReadings: [],
     });
 
     expect(screen.getByText("Lucas Flank")).toBeInTheDocument();
@@ -1355,13 +1374,14 @@ describe("InboxTab", (): void => {
   });
 
   /**
-   * Given a youth recruitment report with prospects whose ceilings are 77 (A), 76 (B) and 60 (the rest)
+   * Given a youth recruitment report whose prospects the club has signed, with ceilings of 77 (A),
+   *       76 (B) and 60 (the rest)
    * When the report is read
-   * Then each ceiling is captioned with its backend tier's letter, and the rest has no caption.
+   * Then each exact ceiling is captioned with its backend tier's letter, and the rest has no caption.
    */
-  it("captions a youth prospect's ceiling with its backend tier", async (): Promise<void> => {
+  it("captions a signed prospect's ceiling with its backend tier", async (): Promise<void> => {
     const prospect = (id: string, potential: number) =>
-      createProspect({ id, full_name: `Prospect ${potential}`, team_id: null, potential });
+      createProspect({ id, full_name: `Prospect ${potential}`, team_id: "t1", potential });
     await renderInboxTab({
       gameState: createGameState([
         createMessage({
@@ -1380,11 +1400,68 @@ describe("InboxTab", (): void => {
         }),
       ]),
       initialMessageId: "youth-tiers",
+      prospectReadings: [
+        { player_id: "p-a", current: { kind: "exact", ovr: 60 }, ceiling: { kind: "exact", ovr: 77 } },
+        { player_id: "p-b", current: { kind: "exact", ovr: 60 }, ceiling: { kind: "exact", ovr: 76 } },
+        { player_id: "p-r", current: { kind: "exact", ovr: 50 }, ceiling: { kind: "exact", ovr: 60 } },
+      ],
     });
 
-    expect(screen.getByText("A", { selector: "p" })).toBeInTheDocument();
+    expect(await screen.findByText("A", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByText("B", { selector: "p" })).toBeInTheDocument();
     expect(screen.queryByText("S", { selector: "p" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a youth recruitment report proposing a prospect who is rated 52 with a potential of 78,
+   *       whom the club has not signed
+   * When the report is read
+   * Then his current rating and his potential read as standings in words, neither number is on
+   *      screen, and the growth bar and tier letter are replaced by a note that growth is unknown
+   */
+  it("shows an unsigned prospect as standings, not his rating and potential", async (): Promise<void> => {
+    await renderInboxTab({
+      gameState: createGameState([
+        createMessage({
+          id: "youth-hidden",
+          category: "ScoutReport",
+          read: true,
+          subject: "Youth prospect found",
+          body: "Scout report body",
+          context: {
+            team_id: "t1",
+            player_id: null,
+            fixture_id: null,
+            youth_prospects: [
+              createProspect({
+                id: "p-hidden",
+                full_name: "Hidden Gem",
+                team_id: null,
+                ovr: 52,
+                potential: 78,
+              }),
+            ],
+            match_result: null,
+          },
+        }),
+      ]),
+      initialMessageId: "youth-hidden",
+      prospectReadings: [
+        {
+          player_id: "p-hidden",
+          current: { kind: "standing", standing: "limited" },
+          ceiling: { kind: "standing", standing: "strong" },
+        },
+      ],
+    });
+
+    expect(await screen.findByText("Limited")).toBeInTheDocument();
+    expect(screen.getByText("Strong")).toBeInTheDocument();
+    expect(screen.getByText("Growth room is not known until he joins your academy.")).toBeInTheDocument();
+    expect(screen.queryByText("52")).not.toBeInTheDocument();
+    expect(screen.queryByText("78")).not.toBeInTheDocument();
+    expect(screen.queryByText("+26")).not.toBeInTheDocument();
+    expect(screen.queryByText("A", { selector: "p" })).not.toBeInTheDocument();
   });
 
   it("renders without crashing when gameState is null", async (): Promise<void> => {
@@ -1489,6 +1566,7 @@ describe("InboxTab", (): void => {
         }),
       ]),
       initialMessageId: "youth-scout-2",
+      prospectReadings: [],
     });
 
     expect(screen.getAllByText("Scout Report — Youth Recruitment")).toHaveLength(2);

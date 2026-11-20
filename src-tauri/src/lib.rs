@@ -302,6 +302,7 @@ pub fn run() {
             get_player_history,
             get_player_knowledge,
             get_player_ratings,
+            get_youth_prospect_readings,
             get_squad,
             get_staff,
             get_active_save_id,

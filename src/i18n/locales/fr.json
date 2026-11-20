@@ -5436,6 +5436,7 @@
       "standing": "Note globale inconnue, niveau public : {{standing}}"
     },
     "notScouted": "Non observé : seul son niveau public est connu. Envoyez un recruteur pour estimer sa note et son potentiel.",
-    "sortHint": "Les joueurs sont classés par niveau public tant que vous ne les avez pas observés ; l'ordre au sein d'un niveau n'est pas un classement."
+    "sortHint": "Les joueurs sont classés par niveau public tant que vous ne les avez pas observés ; l'ordre au sein d'un niveau n'est pas un classement.",
+    "prospectGrowthUnknown": "Sa marge de progression n'est connue qu'une fois qu'il a rejoint votre centre de formation."
   }
 }

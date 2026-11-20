@@ -27,3 +27,18 @@ export type RatingView =
 export async function getPlayerRatings(playerIds: string[]): Promise<Record<string, RatingView>> {
   return await invoke<Record<string, RatingView>>("get_player_ratings", { playerIds });
 }
+
+/** How the manager reads one prospect a scout proposed: his current rating and his ceiling. */
+export interface ProspectReading {
+  player_id: string;
+  current: RatingView;
+  ceiling: RatingView;
+}
+
+/**
+ * The reading of each prospect in a scout's youth recruitment message: broad standings until the
+ * club signs him, then exact. An unknown message answers an empty list.
+ */
+export async function getYouthProspectReadings(messageId: string): Promise<ProspectReading[]> {
+  return await invoke<ProspectReading[]>("get_youth_prospect_readings", { messageId });
+}

@@ -5436,6 +5436,7 @@
       "standing": "Celkové hodnocení neznámé, veřejná úroveň: {{standing}}"
     },
     "notScouted": "Neskautován: znáte jen jeho veřejnou úroveň. Pošlete skauta, aby odhadl jeho hodnocení a potenciál.",
-    "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček."
+    "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček.",
+    "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie."
   }
 }
