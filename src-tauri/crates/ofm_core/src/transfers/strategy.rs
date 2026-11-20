@@ -909,13 +909,15 @@ mod tests {
             let mut team = template.clone();
             team.id = id.clone();
             team.reputation = 100 + 60 * index as u32;
-            team.finance = if index % 3 == 0 {
+            team.finance = if index % 4 == 0 {
                 -2_000_000
             } else {
                 1_000_000 * (index as i64 + 1) * 40
             };
             team.transfer_budget = team.finance.max(0) / 2;
-            team.wage_budget = 150_000 + 80_000 * index as i64;
+            // Odd clubs pay far more than their wage budget allows; the others have room to spare:
+            // the wage bill is what separates them (a club in debt is overstretched either way).
+            team.wage_budget = if index % 2 == 1 { 20_000 } else { 50_000_000 };
             game.teams.push(team);
         }
         template = game.teams[0].clone();

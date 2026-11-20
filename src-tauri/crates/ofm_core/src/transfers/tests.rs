@@ -742,7 +742,8 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
             .wrapping_add(1_442_695_040_888_963_407);
         (state >> 33) % bound
     };
-    let (mut refused, mut allowed) = (0, 0);
+    let (mut refused, mut allowed, mut exception_decided) = (0, 0, 0);
+    let mut unexcepted = std::collections::HashMap::new();
     for world in 0..12u64 {
         let mut game = acceptance_game("team1", false);
         game.players.truncate(1);
@@ -775,8 +776,8 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
             } else {
                 SquadRole::Senior
             };
-            player.retired = next(12) == 0;
-            if next(5) == 0 {
+            player.retired = next(4) == 0;
+            if next(3) == 0 {
                 player.active_loan = Some(ActiveLoan {
                     parent_team_id: clubs[next(4) as usize].to_string(),
                     loan_team_id: clubs[next(4) as usize].to_string(),
@@ -831,8 +832,44 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
             }
             game.players.push(player);
         }
+        // Put each club exactly at the edge: as many places left as places promised, so that
+        // excepting any one promise (or not) decides whether the club is full.
+        for club in clubs {
+            use super::registration::{
+                loaned_out_seniors, pending_incoming_loans, pending_incoming_purchases,
+            };
+            let promised = pending_incoming_purchases(&game, club, "")
+                + pending_incoming_loans(&game, club, "")
+                + loaned_out_seniors(&game, club, "");
+            let capacity = crate::contracts::squad_capacity(&game, club);
+            let target = capacity.senior_limit.saturating_sub(promised);
+            let mut registered = capacity.registered_seniors;
+            for player in game.players.iter_mut().filter(|p| {
+                p.team_id.as_deref() == Some(club)
+                    && !p.retired
+                    && p.squad_role == domain::player::SquadRole::Senior
+            }) {
+                if registered <= target {
+                    break;
+                }
+                player.squad_role = domain::player::SquadRole::Youth;
+                registered -= 1;
+            }
+            for index in registered..target {
+                let mut filler = game.players[0].clone();
+                filler.id = format!("{club}-edge-{world}-{index}");
+                filler.team_id = Some(club.to_string());
+                filler.squad_role = domain::player::SquadRole::Senior;
+                filler.retired = false;
+                filler.active_loan = None;
+                filler.transfer_offers.clear();
+                filler.loan_offers.clear();
+                game.players.push(filler);
+            }
+        }
+        // Every player in turn is the one excepted, so each reservation is excepted somewhere.
         let ids: Vec<String> = std::iter::once(String::new())
-            .chain(game.players.iter().step_by(7).map(|p| p.id.clone()))
+            .chain(game.players.iter().map(|p| p.id.clone()))
             .collect();
         for club in clubs {
             for incoming in &ids {
@@ -842,6 +879,12 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
                     fast, original,
                     "world {world}, {club}, excepting {incoming:?}"
                 );
+                // Cases where the exception is what decides the answer.
+                if incoming.is_empty() {
+                    unexcepted.insert((club, world), fast.is_some());
+                } else if unexcepted.get(&(club, world)) != Some(&fast.is_some()) {
+                    exception_decided += 1;
+                }
                 if fast.is_some() {
                     refused += 1
                 } else {
@@ -850,6 +893,10 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
             }
         }
     }
+    assert!(
+        exception_decided > 10,
+        "the worlds must include cases the excepted player decides: {exception_decided}"
+    );
     assert!(
         refused > 50 && allowed > 50,
         "the worlds must exercise both answers: {refused} refused, {allowed} allowed"
