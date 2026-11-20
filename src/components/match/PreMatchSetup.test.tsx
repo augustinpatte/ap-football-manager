@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 
 import PreMatchSetup from "./PreMatchSetup";
 import { ratingTierClass } from "../../lib/ratingTier";
@@ -25,6 +26,13 @@ vi.mock("react-i18next", () => ({
     },
     i18n: { language: "en" },
   }),
+}));
+// The real resolver needs the full i18n instance; its own behaviour is tested in backendI18n.test.ts.
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendKeyError: (error: unknown, fallback: string) => {
+    const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+    return message.startsWith("be.error.") ? `resolved:${message}` : fallback;
+  },
 }));
 vi.mock("../../context/ThemeContext", () => ({
   useTheme: () => ({ isDark: false, toggleTheme: vi.fn() }),
@@ -259,5 +267,86 @@ describe("PreMatchSetup opponent scout panel", () => {
     ]);
 
     expect(screen.getByText("Copa Nacional")).toBeInTheDocument();
+  });
+});
+
+describe("PreMatchSetup line-up changes that fail", () => {
+  const mockedInvoke = vi.mocked(invoke);
+
+  function startersAndBench(): Record<string, unknown> {
+    const starters = [
+      enginePlayer({ id: "s-gk", name: "S GK", position: "Goalkeeper" }),
+      ...[1, 2, 3, 4].map((n) =>
+        enginePlayer({ id: `s-df${n}`, name: `S Def ${n}`, position: "Defender" }),
+      ),
+      ...[1, 2, 3, 4].map((n) =>
+        enginePlayer({ id: `s-mf${n}`, name: `S Mid ${n}`, position: "Midfielder" }),
+      ),
+      ...[1, 2].map((n) =>
+        enginePlayer({ id: `s-fw${n}`, name: `S Fwd ${n}`, position: "Forward" }),
+      ),
+    ];
+    const bench = [1, 2, 3].map((n) =>
+      enginePlayer({ id: `b-df${n}`, name: `B Def ${n}`, position: "Defender", ovr: 90 }),
+    );
+    const base = snapshot() as Record<string, Record<string, unknown> | unknown>;
+    return {
+      ...base,
+      home_team: { ...(base.home_team as Record<string, unknown>), players: starters },
+      home_bench: bench,
+    };
+  }
+
+  function renderWith(onUpdateSnapshot: (snap: MatchSnapshot) => void) {
+    return render(
+      <PreMatchSetup
+        snapshot={startersAndBench() as unknown as MatchSnapshot}
+        gameState={gameState() as unknown as GameStateData}
+        userSide="Home"
+        onStart={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+      />,
+    );
+  }
+
+  /**
+   * Given three better defenders on the bench, so Auto-Select needs three swaps,
+   * When the third swap is refused after two were applied,
+   * Then the screen is refreshed with the line-up after the second swap (the backend already
+   *      holds it) and the manager is told the rest could not be done.
+   */
+  it("shows the swaps that were applied and says so when auto-select stops part way", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedInvoke.mockReset();
+    mockedInvoke
+      .mockResolvedValueOnce({ marker: "after-first" })
+      .mockResolvedValueOnce({ marker: "after-second" })
+      .mockRejectedValueOnce(new Error("swap refused"));
+    const onUpdateSnapshot = vi.fn();
+    renderWith(onUpdateSnapshot);
+
+    fireEvent.click(screen.getByRole("button", { name: "match.autoSelectXI" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(mockedInvoke).toHaveBeenCalledTimes(3);
+    expect(onUpdateSnapshot).toHaveBeenCalledTimes(1);
+    expect(onUpdateSnapshot).toHaveBeenCalledWith({ marker: "after-second" });
+    consoleErrorSpy.mockRestore();
+  });
+
+  /** Given a formation change the backend refuses, then the manager is told and nothing is shown as changed. */
+  it("says so when a formation change is refused", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedInvoke.mockReset();
+    mockedInvoke.mockRejectedValueOnce(new Error("refused"));
+    const onUpdateSnapshot = vi.fn();
+    renderWith(onUpdateSnapshot);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "tactics.formation" }));
+    fireEvent.click(screen.getByRole("option", { name: "4-3-3" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(onUpdateSnapshot).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 });

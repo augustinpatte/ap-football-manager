@@ -2438,6 +2438,7 @@
     "deliverTeamTalk": "Fai il discorso",
     "delivering": "In corso...",
     "teamTalkFailed": "Il discorso è fallito. Riprova.",
+    "lineupChangeFailed": "Impossibile applicare questa modifica alla formazione. Controlla la formazione mostrata e riprova.",
     "restoreFailed": "Non è stato possibile aprire la partita. Sei tornato alla dashboard.",
     "finishFailed": "Non è stato possibile salvare il risultato della partita. Riprova.",
     "delivered": "Consegnato",

@@ -2413,6 +2413,7 @@
     "deliverTeamTalk": "Ansprache halten",
     "delivering": "Wird übermittelt...",
     "teamTalkFailed": "Ansprache fehlgeschlagen. Bitte erneut versuchen.",
+    "lineupChangeFailed": "Diese Aufstellungsänderung konnte nicht übernommen werden. Prüfe die angezeigte Aufstellung und versuche es erneut.",
     "restoreFailed": "Das Spiel konnte nicht geöffnet werden. Du wurdest zur Übersicht zurückgebracht.",
     "finishFailed": "Das Spielergebnis konnte nicht gespeichert werden. Versuche es erneut.",
     "delivered": "Gehalten",

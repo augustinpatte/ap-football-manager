@@ -2413,6 +2413,7 @@
     "deliverTeamTalk": "发表更衣室讲话",
     "delivering": "正在发表...",
     "teamTalkFailed": "更衣室讲话失败，请重试.",
+    "lineupChangeFailed": "无法应用该阵容调整。请检查当前显示的阵容后重试。",
     "restoreFailed": "无法打开比赛。已返回主界面。",
     "finishFailed": "无法保存比赛结果。请重试。",
     "delivered": "已发表",

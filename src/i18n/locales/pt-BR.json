@@ -2270,6 +2270,7 @@
     "deliverTeamTalk": "Fazer Preleção",
     "delivering": "Entregando...",
     "teamTalkFailed": "A preleção falhou. Por favor, tente novamente.",
+    "lineupChangeFailed": "Não foi possível aplicar essa mudança de escalação. Confira a escalação exibida e tente de novo.",
     "restoreFailed": "Não foi possível abrir a partida. Você voltou ao painel.",
     "finishFailed": "Não foi possível salvar o resultado da partida. Tente de novo.",
     "delivered": "Feito",

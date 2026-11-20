@@ -2447,6 +2447,7 @@
     "deliverTeamTalk": "Deliver Team Talk",
     "delivering": "Delivering...",
     "teamTalkFailed": "Team talk failed. Please try again.",
+    "lineupChangeFailed": "That line-up change could not be applied. Check the line-up shown and try again.",
     "restoreFailed": "The match could not be opened. You have been returned to the dashboard.",
     "finishFailed": "The match result could not be saved. Try again.",
     "delivered": "Delivered",

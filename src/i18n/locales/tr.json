@@ -2447,6 +2447,7 @@
     "deliverTeamTalk": "Takım Konuşmasını Yap",
     "delivering": "İletiliyor...",
     "teamTalkFailed": "Takım konuşması başarısız oldu. Lütfen tekrar deneyin.",
+    "lineupChangeFailed": "Bu kadro değişikliği uygulanamadı. Gösterilen kadroyu kontrol edip tekrar deneyin.",
     "restoreFailed": "Maç açılamadı. Kontrol paneline geri döndünüz.",
     "finishFailed": "Maç sonucu kaydedilemedi. Tekrar deneyin.",
     "delivered": "İletildi",

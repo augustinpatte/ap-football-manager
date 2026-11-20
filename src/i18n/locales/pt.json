@@ -2413,6 +2413,7 @@
     "deliverTeamTalk": "Dar a Palestra",
     "delivering": "A entregar...",
     "teamTalkFailed": "A palestra falhou. Por favor, tente novamente.",
+    "lineupChangeFailed": "Não foi possível aplicar essa alteração à equipa. Verifica a equipa apresentada e tenta novamente.",
     "restoreFailed": "Não foi possível abrir o jogo. Voltaste ao painel.",
     "finishFailed": "Não foi possível guardar o resultado do jogo. Tenta novamente.",
     "delivered": "Entregue",

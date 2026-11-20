@@ -2413,6 +2413,7 @@
     "deliverTeamTalk": "Donner la Causerie",
     "delivering": "En cours...",
     "teamTalkFailed": "La causerie a échoué. Veuillez réessayer.",
+    "lineupChangeFailed": "Ce changement de composition n'a pas pu être appliqué. Vérifiez la composition affichée et réessayez.",
     "restoreFailed": "Le match n'a pas pu être ouvert. Vous êtes revenu au tableau de bord.",
     "finishFailed": "Le résultat du match n'a pas pu être enregistré. Réessayez.",
     "delivered": "Donné",

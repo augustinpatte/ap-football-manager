@@ -1,4 +1,5 @@
 import { useRatingTiers } from "../../hooks/useRatingTiers";
+import { resolveBackendKeyError } from "../../utils/backendI18n";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -53,6 +54,9 @@ export default function PreMatchSetup({
   const { t } = useTranslation();
   const [selectedStarterId, setSelectedStarterId] = useState<string | null>(null);
   const [isAutoSelecting, setIsAutoSelecting] = useState(false);
+  // Why the last line-up change did not go through: the screen shows what the club holds, so a
+  // refused change must be said out loud rather than leave the manager guessing.
+  const [lineupError, setLineupError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"team" | "opponent">("team");
   const [phase, setPhase] = useState<TacticsPhaseSettings | undefined>(() => {
     const uid = userSide === "Home" ? snapshot.home_team.id : snapshot.away_team.id;
@@ -241,7 +245,12 @@ export default function PreMatchSetup({
 
   const formationNeeds = parseFormationNeeds(userTeam.formation);
 
+  const reportLineupFailure = (err: unknown) => {
+    setLineupError(resolveBackendKeyError(err, t("match.lineupChangeFailed")));
+  };
+
   const handleFormationChange = async (formation: string) => {
+    setLineupError(null);
     try {
       const snap = await invoke<MatchSnapshot>("apply_match_command", {
         command: { ChangeFormation: { side: userSide, formation } },
@@ -249,10 +258,12 @@ export default function PreMatchSetup({
       onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Formation change failed:", err);
+      reportLineupFailure(err);
     }
   };
 
   const handlePlayStyleChange = async (playStyle: string) => {
+    setLineupError(null);
     try {
       const snap = await invoke<MatchSnapshot>("apply_match_command", {
         command: { ChangePlayStyle: { side: userSide, play_style: playStyle } },
@@ -260,11 +271,13 @@ export default function PreMatchSetup({
       onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Play style change failed:", err);
+      reportLineupFailure(err);
     }
   };
 
   const handleSwap = async (benchPlayerId: string) => {
     if (!selectedStarterId) return;
+    setLineupError(null);
     try {
       const snap = await invoke<MatchSnapshot>("apply_match_command", {
         command: {
@@ -278,11 +291,12 @@ export default function PreMatchSetup({
       onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Pre-match swap failed:", err);
+      reportLineupFailure(err);
     }
     setSelectedStarterId(null);
   };
 
-  const handleSetPieceTaker = async (role: string, playerId: string) => {
+  const applySetPieceTaker = async (role: string, playerId: string) => {
     const commandMap: Record<string, string> = {
       penalty: "SetPenaltyTaker",
       freekick: "SetFreeKickTaker",
@@ -298,11 +312,21 @@ export default function PreMatchSetup({
       onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Set piece taker change failed:", err);
+      reportLineupFailure(err);
     }
+  };
+
+  const handleSetPieceTaker = async (role: string, playerId: string) => {
+    setLineupError(null);
+    await applySetPieceTaker(role, playerId);
   };
 
   const handleAutoSelect = async () => {
     setIsAutoSelecting(true);
+    setLineupError(null);
+    // Swaps are applied one at a time: if one is refused the earlier ones already stand in the
+    // backend, so the screen must still be refreshed with the last line-up it returned.
+    let snap: MatchSnapshot | null = null;
     try {
       const pool = [...userTeam.players, ...userBench];
       const idealIds = new Set<string>();
@@ -331,7 +355,6 @@ export default function PreMatchSetup({
       const toAdd = [...idealIds].filter((id) => !currentIds.has(id));
       const toRemove = [...currentIds].filter((id) => !idealIds.has(id));
 
-      let snap: MatchSnapshot | null = null;
       for (let i = 0; i < Math.min(toAdd.length, toRemove.length); i++) {
         snap = await invoke<MatchSnapshot>("apply_match_command", {
           command: {
@@ -343,16 +366,18 @@ export default function PreMatchSetup({
           },
         });
       }
-      if (snap) onUpdateSnapshot(snap);
     } catch (err) {
       console.error("Auto-select failed:", err);
+      reportLineupFailure(err);
     } finally {
+      if (snap) onUpdateSnapshot(snap);
       setIsAutoSelecting(false);
       setSelectedStarterId(null);
     }
   };
 
   const handleAutoSelectSetPieces = async () => {
+    setLineupError(null);
     try {
       const ids = userTeam.players.map((p) => p.id);
       const result = await invoke<{
@@ -361,12 +386,13 @@ export default function PreMatchSetup({
         free_kick_taker: string | null;
         corner_taker: string | null;
       }>("auto_select_set_pieces", { playerIds: ids });
-      if (result.captain) await handleSetPieceTaker("captain", result.captain);
-      if (result.penalty_taker) await handleSetPieceTaker("penalty", result.penalty_taker);
-      if (result.free_kick_taker) await handleSetPieceTaker("freekick", result.free_kick_taker);
-      if (result.corner_taker) await handleSetPieceTaker("corner", result.corner_taker);
+      if (result.captain) await applySetPieceTaker("captain", result.captain);
+      if (result.penalty_taker) await applySetPieceTaker("penalty", result.penalty_taker);
+      if (result.free_kick_taker) await applySetPieceTaker("freekick", result.free_kick_taker);
+      if (result.corner_taker) await applySetPieceTaker("corner", result.corner_taker);
     } catch (err) {
       console.error("Auto-select set pieces failed:", err);
+      reportLineupFailure(err);
     }
   };
 
@@ -699,6 +725,14 @@ export default function PreMatchSetup({
           </div>
         </div>
       </header>
+      {lineupError ? (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-line bg-warning-tint px-6 py-2 text-body text-warning"
+        >
+          {lineupError}
+        </p>
+      ) : null}
 
       {viewModeSlot}
 

@@ -2413,6 +2413,7 @@
     "deliverTeamTalk": "Dar la Charla",
     "delivering": "Entregando...",
     "teamTalkFailed": "La charla falló. Por favor, inténtalo de nuevo.",
+    "lineupChangeFailed": "No se pudo aplicar ese cambio de alineación. Revisa la alineación mostrada e inténtalo de nuevo.",
     "restoreFailed": "No se pudo abrir el partido. Has vuelto al panel.",
     "finishFailed": "No se pudo guardar el resultado del partido. Inténtalo de nuevo.",
     "delivered": "Entregado",

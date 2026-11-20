@@ -2447,6 +2447,7 @@
     "deliverTeamTalk": "Prunést proslov",
     "delivering": "Pronešení proslovu...",
     "teamTalkFailed": "Proslov se nezdařil. Zkuste to prosím znovu.",
+    "lineupChangeFailed": "Tuto změnu sestavy se nepodařilo použít. Zkontrolujte zobrazenou sestavu a zkuste to znovu.",
     "restoreFailed": "Zápas se nepodařilo otevřít. Vrátili jste se na přehled.",
     "finishFailed": "Výsledek zápasu se nepodařilo uložit. Zkuste to znovu.",
     "delivered": "Proslov dokončen",

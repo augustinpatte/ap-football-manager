@@ -2447,6 +2447,7 @@
     "deliverTeamTalk": "Sampaikan Sesi Tim",
     "delivering": "Menyampaikan...",
     "teamTalkFailed": "Sesi tim gagal disampaikan. Silakan coba lagi.",
+    "lineupChangeFailed": "Perubahan susunan pemain itu tidak dapat diterapkan. Periksa susunan yang ditampilkan lalu coba lagi.",
     "restoreFailed": "Pertandingan tidak dapat dibuka. Anda dikembalikan ke dasbor.",
     "finishFailed": "Hasil pertandingan tidak dapat disimpan. Coba lagi.",
     "delivered": "Tersampaikan",
