@@ -30,7 +30,14 @@ function target(overrides: Partial<ScoutingTargetView> = {}): ScoutingTargetView
     nationality: "GB",
     team_id: "club-2",
     team_name: "Rival FC",
-    ovr: 61,
+    rating: {
+      kind: "estimate",
+      low: 58,
+      high: 66,
+      confidence: "moderate",
+      current: true,
+      scouted_on: "2026-08-01",
+    },
     market_value: 2_000_000,
     weekly_wage: 5000,
     contract_end: "2027-06-30",
@@ -66,8 +73,10 @@ const UNSCOUTED = target({
   full_name: "Bo Unscouted",
   status: "unscouted",
   report: null,
+  rating: { kind: "standing", standing: "average" },
   outlook: "unclear",
-  squad_impact: "no_gain",
+  // The club cannot judge a fit it cannot measure.
+  squad_impact: null,
   shortlisted: true,
   risks: ["unscouted"],
 });
@@ -122,13 +131,33 @@ describe("ScoutingDossierSection", () => {
 
     render(<Harness />);
 
-    expect(await screen.findByText("58–66")).toBeInTheDocument();
+    // The rating column and the ability column both read the scout's range.
+    expect((await screen.findAllByText("58–66")).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("70–84")).toBeInTheDocument();
     const unscoutedRow = screen.getByText("Bo Unscouted").closest("tr");
     expect(
       within(unscoutedRow as HTMLElement).getAllByText("scouting.dossier.unknown").length,
     ).toBeGreaterThanOrEqual(2);
     expect(within(unscoutedRow as HTMLElement).queryByText(/\d+–\d+/)).toBeNull();
+  });
+
+  /**
+   * Given a shortlisted player nobody has scouted
+   * When the section loads
+   * Then the rating cell is his public standing, with no rating number, and the squad fit reads
+   *      unknown rather than a verdict computed from a hidden rating
+   */
+  it("shows an unscouted target as a standing and an unknown squad fit", async () => {
+    answerDossier({ reports: [], shortlist: [UNSCOUTED] });
+
+    render(<Harness />);
+
+    const row = (await screen.findByText("Bo Unscouted")).closest("tr") as HTMLElement;
+    expect(within(row).getByText("playerRating.standing.average")).toBeInTheDocument();
+    expect(within(row).queryByText("playerRating.estimate")).not.toBeInTheDocument();
+    // Ability, potential and squad fit are all unknown.
+    expect(within(row).getAllByText("scouting.dossier.unknown")).toHaveLength(3);
+    expect(within(row).queryByText(/scouting\.dossier\.impact\./)).toBeNull();
   });
 
   /**
@@ -214,8 +243,10 @@ describe("ScoutingDossierSection", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("columnheader", { name: "Ada Prospect" })).toBeInTheDocument();
     expect(within(dialog).getByRole("columnheader", { name: "Bo Unscouted" })).toBeInTheDocument();
-    expect(within(dialog).getByText("58–66")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("58–66").length).toBeGreaterThanOrEqual(1);
     expect(within(dialog).getAllByText("scouting.dossier.unknown").length).toBeGreaterThan(0);
+    // The unscouted player is a standing here, never a rating a column could rank him by.
+    expect(within(dialog).getByText("playerRating.standing.average")).toBeInTheDocument();
   });
 
   /**

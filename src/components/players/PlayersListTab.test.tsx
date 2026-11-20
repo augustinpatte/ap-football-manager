@@ -295,7 +295,7 @@ function summaryFrom(player: PlayerData, teams: TeamData[]): PlayerSummary {
     team_id: player.team_id ?? null,
     team_name,
     market_value: player.market_value,
-    ovr: (player as { ovr?: number }).ovr ?? 0,
+    rating: { kind: "exact", ovr: (player as { ovr?: number }).ovr ?? 0 },
     transfer_listed: player.transfer_listed,
     loan_listed: player.loan_listed,
     injured: player.injury != null,
@@ -728,5 +728,57 @@ describe("PlayersListTab rating tiers", () => {
 
     expect(await screen.findByText("77")).toHaveClass(...ratingTierClass("A", "text").split(" "));
     expect(screen.getByText("76")).toHaveClass(...ratingTierClass("B", "text").split(" "));
+  });
+});
+
+describe("PlayersListTab ratings the manager may not read", () => {
+  /**
+   * Given a list whose rows are an unscouted player (a public standing) and a scouted one (a range)
+   * When the players list renders
+   * Then the first row shows the standing's name and no number, the second shows its range marked as
+   *      an estimate, and the rating header says why the order is by standing
+   */
+  it("shows a standing and a scouted range instead of a rating", async () => {
+    const gameState: GameStateData = {
+      ...createGameState(),
+      players: [
+        createPlayer({ id: "p-unknown", full_name: "Unknown Man", match_name: "U. Man", ovr: 71 }),
+        createPlayer({ id: "p-seen", full_name: "Seen Man", match_name: "S. Man", ovr: 73 }),
+      ],
+    };
+    setupSliceMock(gameState, {
+      get_players_page: (args) => {
+        const query = (args as { query: PlayersPageQuery }).query;
+        const [unknown, seen] = gameState.players.map((p) => summaryFrom(p, gameState.teams));
+        return applyQuery(
+          [
+            { ...unknown, rating: { kind: "standing", standing: "good" } },
+            {
+              ...seen,
+              rating: {
+                kind: "estimate",
+                low: 68,
+                high: 76,
+                confidence: "moderate",
+                current: false,
+                scouted_on: "2026-03-01",
+              },
+            },
+          ],
+          query,
+        );
+      },
+    });
+
+    render(
+      <PlayersListTab gameState={gameState} onSelectPlayer={vi.fn()} onSelectTeam={vi.fn()} />,
+    );
+
+    expect(await screen.findByText("playerRating.standing.good")).toBeInTheDocument();
+    expect(screen.getByText("68–76")).toBeInTheDocument();
+    expect(screen.getByText("playerRating.stale")).toBeInTheDocument();
+    expect(screen.queryByText("71")).not.toBeInTheDocument();
+    expect(screen.queryByText("73")).not.toBeInTheDocument();
+    expect(screen.getByTitle("playerRating.sortHint")).toBeInTheDocument();
   });
 });

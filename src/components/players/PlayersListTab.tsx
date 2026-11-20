@@ -1,5 +1,4 @@
-import { useRatingTiers } from "../../hooks/useRatingTiers";
-import { ratingTierClass } from "../../lib/ratingTier";
+import ReadableRating from "./ReadableRating";
 import { useCallback, useState } from "react";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
@@ -76,7 +75,6 @@ export default function PlayersListTab({
   onSelectTeam,
 }: PlayersListTabProps) {
   const { t } = useTranslation();
-  const tierOf = useRatingTiers();
   const {
     query,
     patchQuery,
@@ -281,6 +279,7 @@ export default function PlayersListTab({
                   />
                   <SortHeader
                     label={t("common.ovr")}
+                    hint={t("playerRating.sortHint")}
                     sortKey="ovr"
                     current={query.sort_key}
                     asc={query.sort_asc}
@@ -363,7 +362,6 @@ export default function PlayersListTab({
                     }
                   }
 
-                  const ovr = summary.ovr;
                   const row = (
                     <tr
                       key={summary.id}
@@ -414,11 +412,7 @@ export default function PlayersListTab({
                         {formatVal(summary.market_value)}
                       </td>
                       <td className="py-2.5 px-4">
-                        <span
-                          className={`font-heading font-bold text-base tabular-nums ${ratingTierClass(tierOf(ovr), "text")}`}
-                        >
-                          {ovr}
-                        </span>
+                        <ReadableRating rating={summary.rating} />
                       </td>
                       <td className="py-2.5 px-4">
                         {summary.transfer_listed && (
@@ -549,11 +543,14 @@ export default function PlayersListTab({
 
 function SortHeader({
   label,
+  hint,
   sortKey,
   current,
   onClick,
 }: {
   label: string;
+  /** Said on hover: why this order is what it is. */
+  hint?: string;
   sortKey: PlayerSortKey;
   current: PlayerSortKey;
   asc: boolean;
@@ -563,6 +560,7 @@ function SortHeader({
   return (
     <th
       onClick={() => onClick(sortKey)}
+      title={hint}
       className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors select-none"
     >
       <span className="flex items-center gap-1">

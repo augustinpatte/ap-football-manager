@@ -1,9 +1,10 @@
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatDate } from "../../../lib/dateFormatting";
 import { formatVal } from "../../../lib/helpers";
 import type { ScoutingTargetView } from "../../../services/scoutingService";
+import ReadableRating from "../../players/ReadableRating";
 import { translatePositionAbbreviation } from "../../squad/SquadTab.helpers";
 import { Button, Dialog } from "../../ui";
 import { formatRange } from "./dossierFormat";
@@ -23,14 +24,14 @@ export default function CompareDialog({ targets, onClose }: CompareDialogProps) 
   const titleId = useId();
   const unknown = t("scouting.dossier.unknown");
 
-  const rows: { label: string; cell: (target: ScoutingTargetView) => string }[] = [
+  const rows: { label: string; cell: (target: ScoutingTargetView) => ReactNode }[] = [
     { label: t("scouting.team"), cell: (v) => v.team_name ?? t("common.freeAgent") },
     {
       label: t("scouting.pos"),
       cell: (v) => translatePositionAbbreviation(t, v.natural_position),
     },
     { label: t("scouting.age"), cell: (v) => String(v.age) },
-    { label: t("scouting.dossier.colRating"), cell: (v) => String(v.ovr) },
+    { label: t("scouting.dossier.colRating"), cell: (v) => <ReadableRating rating={v.rating} /> },
     {
       label: t("scouting.dossier.colAbility"),
       cell: (v) => formatRange(v.report?.ability) ?? unknown,

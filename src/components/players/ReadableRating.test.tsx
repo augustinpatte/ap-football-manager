@@ -84,7 +84,7 @@ describe("ReadableRating", () => {
 
     expect(screen.getByText("playerRating.standing.good")).toBeInTheDocument();
     // The mocked translator echoes keys, and "a11y" is one: look for digits outside key names.
-    expect((container.textContent ?? "").replaceAll("a11y", "")).not.toMatch(/\d/);
+    expect((container.textContent ?? "").replace(/a11y/g, "")).not.toMatch(/\d/);
     expect(
       screen.getByText(
         'playerRating.a11y.standing:{"standing":"playerRating.standing.good"}',

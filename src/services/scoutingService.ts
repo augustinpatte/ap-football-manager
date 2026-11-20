@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { GameStateData, ScoutedPlayerView } from "../store/gameStore";
+import type { RatingView } from "./playerRatingService";
 
 export interface StartYouthScoutingInput {
   scoutId: string;
@@ -80,7 +81,8 @@ export interface ScoutingTargetView {
   nationality: string;
   team_id: string | null;
   team_name: string | null;
-  ovr: number;
+  /** The overall rating as the manager may read it; the true rating is not on this view. */
+  rating: RatingView;
   market_value: number;
   weekly_wage: number;
   contract_end: string | null;

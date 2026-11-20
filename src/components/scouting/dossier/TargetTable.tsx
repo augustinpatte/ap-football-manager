@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { formatVal, positionBadgeVariant } from "../../../lib/helpers";
 import type { ScoutingTargetView } from "../../../services/scoutingService";
+import ReadableRating from "../../players/ReadableRating";
 import { translatePositionAbbreviation } from "../../squad/SquadTab.helpers";
 import { Badge, Checkbox } from "../../ui";
 import { COMPARE_MAX, formatRange } from "./dossierFormat";
@@ -97,7 +98,9 @@ export default function TargetTable({
                 <td className={`${CELL} max-w-40 truncate text-fg-muted`}>
                   {target.team_name ?? t("common.freeAgent")}
                 </td>
-                <td className={`${CELL} text-center tabular-nums`}>{target.ovr}</td>
+                <td className={`${CELL} text-center`}>
+                  <ReadableRating rating={target.rating} />
+                </td>
                 <td className={`${CELL} text-center tabular-nums`}>
                   {ability ?? (
                     <span className="text-fg-subtle">{t("scouting.dossier.unknown")}</span>

@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
+import type { RatingView } from "./playerRatingService";
+
 export type PlayerSortKey = "name" | "position" | "age" | "ovr" | "value" | "team";
 
 export type PlayerStatusFilter = "all" | "transfer" | "loan" | "free_agent" | "available";
@@ -59,7 +61,8 @@ export interface PlayerSummary {
   team_id: string | null;
   team_name: string | null;
   market_value: number;
-  ovr: number;
+  /** The overall rating as the manager may read it: exact, a scout's range or a public standing. */
+  rating: RatingView;
   transfer_listed: boolean;
   loan_listed: boolean;
   injured: boolean;

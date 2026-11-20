@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { formatDate } from "../../../lib/dateFormatting";
 import { formatVal } from "../../../lib/helpers";
 import type { ScoutingTargetView } from "../../../services/scoutingService";
+import ReadableRating from "../../players/ReadableRating";
 import { Badge, Button, Dialog } from "../../ui";
 import { formatRange } from "./dossierFormat";
 
@@ -64,9 +65,11 @@ export default function TargetDetailDialog({
           <h3 id={titleId} className="font-heading text-heading font-bold text-fg">
             {target.full_name}
           </h3>
-          <p className="text-body text-fg-muted">
-            {target.age} · {target.team_name ?? t("common.freeAgent")} ·{" "}
-            {t("scouting.dossier.ratingPublic", { value: target.ovr })}
+          <p className="flex flex-wrap items-center gap-x-2 text-body text-fg-muted">
+            <span>
+              {target.age} · {target.team_name ?? t("common.freeAgent")} ·
+            </span>
+            <ReadableRating rating={target.rating} />
           </p>
         </div>
 
