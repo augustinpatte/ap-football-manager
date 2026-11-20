@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -216,13 +216,19 @@ describe("PreMatchSetup opponent scout panel", () => {
    * When the opponent scout panel lists them
    * Then each rating and key stat takes the colour of its backend tier (B and A).
    */
-  it("colours the opponent's ratings and key stats by their backend tier", () => {
+  it("colours the opponent's ratings and key stats by their backend tier", async () => {
+    // His division's players read exactly.
+    vi.mocked(invoke).mockResolvedValue({
+      "a-b": { kind: "exact", ovr: 76 },
+      "a-a": { kind: "exact", ovr: 77 },
+    });
     renderSetup(undefined, undefined, [
       enginePlayer({ id: "a-b", name: "Away B", position: "Forward", ovr: 76, shooting: 76 }),
       enginePlayer({ id: "a-a", name: "Away A", position: "Forward", ovr: 77, shooting: 77 }),
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: /Away FC/ }));
+    await waitFor(() => expect(screen.getAllByText("77").length).toBeGreaterThan(0));
 
     const statsOf = (name: string, rating: string) =>
       within(screen.getByText(name).closest("div.flex") as HTMLElement)
@@ -239,6 +245,41 @@ describe("PreMatchSetup opponent scout panel", () => {
     for (const element of bTier) {
       expect(element).toHaveClass(...ratingTierClass("B", "text").split(" "));
     }
+  });
+
+  /**
+   * Given an opponent from another division, rated 83 with a shooting stat of 81, whom nobody has
+   *       scouted, and a second whom a scout reported on
+   * When the opponent scout panel lists them
+   * Then the first shows dashes for his rating and key stats, the second the scout's range, and
+   *      neither true value is anywhere on screen
+   */
+  it("shows an unscouted opponent as dashes and a scouted one as a range", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      "a-u": { kind: "standing", standing: "elite" },
+      "a-s": {
+        kind: "estimate",
+        low: 66,
+        high: 74,
+        confidence: "moderate",
+        current: true,
+        scouted_on: "2026-07-20",
+      },
+    });
+    renderSetup(undefined, undefined, [
+      enginePlayer({ id: "a-u", name: "Away Unknown", position: "Forward", ovr: 83, shooting: 81 }),
+      enginePlayer({ id: "a-s", name: "Away Seen", position: "Forward", ovr: 70, shooting: 69 }),
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Away FC/ }));
+
+    await waitFor(() => expect(screen.getAllByText("66–74").length).toBeGreaterThan(0));
+    expect(screen.queryByText("83")).toBeNull();
+    expect(screen.queryByText("81")).toBeNull();
+    expect(screen.queryByText("70")).toBeNull();
+    expect(screen.queryByText("69")).toBeNull();
+    const unknownRow = screen.getByText("Away Unknown").closest("div.flex") as HTMLElement;
+    expect(within(unknownRow).getAllByText("—").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the translated competition name for the current named cup fixture", () => {
@@ -297,6 +338,21 @@ describe("PreMatchSetup line-up changes that fail", () => {
     };
   }
 
+  /**
+   * The line-up commands answer in this order. The opponent's ratings are asked for on every
+   * render and are answered apart, so they do not use up an answer meant for a swap.
+   */
+  function answerInOrder(answers: Array<Record<string, unknown> | Error>) {
+    const queue = [...answers];
+    mockedInvoke.mockReset();
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_player_ratings") return {};
+      const next = queue.shift();
+      if (next instanceof Error) throw next;
+      return next;
+    });
+  }
+
   function renderWith(onUpdateSnapshot: (snap: MatchSnapshot) => void) {
     return render(
       <PreMatchSetup
@@ -317,18 +373,19 @@ describe("PreMatchSetup line-up changes that fail", () => {
    */
   it("shows the swaps that were applied and says so when auto-select stops part way", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockedInvoke.mockReset();
-    mockedInvoke
-      .mockResolvedValueOnce({ marker: "after-first" })
-      .mockResolvedValueOnce({ marker: "after-second" })
-      .mockRejectedValueOnce(new Error("swap refused"));
+    answerInOrder([
+      { marker: "after-first" },
+      { marker: "after-second" },
+      new Error("swap refused"),
+    ]);
     const onUpdateSnapshot = vi.fn();
     renderWith(onUpdateSnapshot);
 
     fireEvent.click(screen.getByRole("button", { name: "match.autoSelectXI" }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(mockedInvoke).toHaveBeenCalledTimes(3);
+    const lineUpCalls = mockedInvoke.mock.calls.filter(([command]) => command !== "get_player_ratings");
+    expect(lineUpCalls).toHaveLength(3);
     expect(onUpdateSnapshot).toHaveBeenCalledTimes(1);
     expect(onUpdateSnapshot).toHaveBeenCalledWith({ marker: "after-second" });
     consoleErrorSpy.mockRestore();
@@ -337,8 +394,7 @@ describe("PreMatchSetup line-up changes that fail", () => {
   /** Given a formation change the backend refuses, then the manager is told and nothing is shown as changed. */
   it("says so when a formation change is refused", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockedInvoke.mockReset();
-    mockedInvoke.mockRejectedValueOnce(new Error("refused"));
+    answerInOrder([new Error("refused")]);
     const onUpdateSnapshot = vi.fn();
     renderWith(onUpdateSnapshot);
 

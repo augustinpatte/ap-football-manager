@@ -1,4 +1,6 @@
+import { usePlayerRatings } from "../../hooks/usePlayerRatings";
 import { useRatingTiers } from "../../hooks/useRatingTiers";
+import { ratingFigure } from "../../lib/ratingView";
 import { resolveBackendKeyError } from "../../utils/backendI18n";
 import { ratingTierClass } from "../../lib/ratingTier";
 import { useMemo, useState, type ReactNode } from "react";
@@ -94,6 +96,12 @@ export default function PreMatchSetup({
   const awayTeam = snapshot.away_team;
   const userTeam = userSide === "Home" ? homeTeam : awayTeam;
   const oppTeam = userSide === "Home" ? awayTeam : homeTeam;
+  // The opposition's ratings as the manager may read them: exact in his division, a scout's range
+  // or nothing otherwise. The snapshot carries the engine's true values, which a screen never shows.
+  const oppRatings = usePlayerRatings(
+    oppTeam.players.map((player) => player.id),
+    oppTeam,
+  );
   const userSetPieces = userSide === "Home" ? snapshot.home_set_pieces : snapshot.away_set_pieces;
 
   const homeFullTeam = gameState.teams.find((t) => t.id === homeTeam.id);
@@ -214,7 +222,7 @@ export default function PreMatchSetup({
           name={(sp?.match_name || player.name).toUpperCase()}
           positionAbbr={translatePositionAbbreviation(t, displayPosition)}
           position={displayPosition}
-          ovr={player.ovr}
+          ovr={ratingFigure(oppRatings[player.id])}
           condition={player.condition}
           avatar={
             sp
@@ -592,23 +600,23 @@ export default function PreMatchSetup({
                   className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-gray-100 dark:hover:bg-navy-700/30 transition-colors"
                 >
                   <div className="h-7 w-7 shrink-0 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 transition-colors duration-300">
-                    {p.ovr}
+                    {ratingFigure(oppRatings[p.id])}
                   </div>
                   <span className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">
                     {p.name}
                   </span>
                   <div className="flex items-center">
                     <span
-                      className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${ratingTierClass(tierOf(p.ovr), "text")}`}
+                      className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${ratingTierClass(oppRatings[p.id]?.kind === "exact" ? tierOf(p.ovr) : "Rest", "text")}`}
                     >
-                      {p.ovr}
+                      {ratingFigure(oppRatings[p.id])}
                     </span>
                     {keyStats.map((s) => (
                       <span
                         key={s.label}
-                        className={`text-[10px] font-heading tabular-nums w-7 text-center ${ratingTierClass(tierOf(getStatVal(p, s.key)), "text")}`}
+                        className={`text-[10px] font-heading tabular-nums w-7 text-center ${ratingTierClass(oppRatings[p.id]?.kind === "exact" ? tierOf(getStatVal(p, s.key)) : "Rest", "text")}`}
                       >
-                        {getStatVal(p, s.key)}
+                        {oppRatings[p.id]?.kind === "exact" ? getStatVal(p, s.key) : "—"}
                       </span>
                     ))}
                   </div>

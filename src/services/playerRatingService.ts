@@ -24,6 +24,6 @@ export type RatingView =
   | { kind: "standing"; standing: PublicStanding };
 
 /** The reading of each requested player, by id; an id no player has is not in the answer. */
-export function getPlayerRatings(playerIds: string[]): Promise<Record<string, RatingView>> {
-  return invoke<Record<string, RatingView>>("get_player_ratings", { playerIds });
+export async function getPlayerRatings(playerIds: string[]): Promise<Record<string, RatingView>> {
+  return await invoke<Record<string, RatingView>>("get_player_ratings", { playerIds });
 }

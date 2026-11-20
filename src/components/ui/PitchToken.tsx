@@ -33,7 +33,8 @@ export interface PitchTokenProps {
   positionAbbr: string;
   /** Raw position enum (e.g. "CenterBack"); colours the position badge. */
   position?: string;
-  ovr: number;
+  /** The rating's short figure: a number, a scout's range, or a dash (see `ratingFigure`). */
+  ovr: number | string;
   /** 0–100 short-term condition; drives the bar at the bottom. */
   condition: number;
   fitTone?: PitchFitTone;
