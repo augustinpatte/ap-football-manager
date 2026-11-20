@@ -5406,7 +5406,7 @@
     "releaseFor": "{{player}} freigeben",
     "coaching": "Jugendtraining",
     "coachingSummary": "Bewertung {{rating}}: Obergrenzen werden auf etwa {{width}} Punkte genau gelesen ({{confidence}}).",
-    "coachingNoStaff": "Kein Jugendtrainer oder Leiter der Jugend: Obergrenzen werden nur auf {{width}} Punkte genau gelesen. Ein Jugendtrainer beschleunigt außerdem deine Akademie.",
+    "coachingNoStaff": "Kein Jugendtrainer oder Leiter Nachwuchs: Obergrenzen werden nur auf {{width}} Punkte genau gelesen. Ein Jugendtrainer beschleunigt außerdem deine Akademie.",
     "coachingBonus": "Deine Jugendtrainer beschleunigen die Entwicklung in der Akademie um {{percent}} %.",
     "decisions": "Entscheidungen",
     "advice": {

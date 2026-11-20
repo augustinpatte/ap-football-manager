@@ -5399,15 +5399,15 @@
       "stillImproving": "Stále se zlepšuje",
       "nearCeiling": "Blízko svého stropu"
     },
-    "ceilingNote": "Tvůj tým pro mládež odhaduje každý strop jako rozpětí, nikdy jako přesné číslo. Strop není příslib: hráč ho může nedosáhnout, nebo ho dosáhnout.",
+    "ceilingNote": "Váš tým pro mládež odhaduje každý strop jako rozpětí, nikdy jako přesné číslo. Strop není příslib: hráč ho může nedosáhnout, nebo ho dosáhnout.",
     "promoteFor": "Povýšit hráče {{player}}",
     "listLoanFor": "Zařadit hráče {{player}} na hostování",
     "unlistLoanFor": "Odebrat hráče {{player}} ze seznamu hostování",
     "releaseFor": "Propustit hráče {{player}}",
     "coaching": "Trénink mládeže",
     "coachingSummary": "Hodnocení {{rating}}: stropy se čtou s přesností zhruba {{width}} bodů ({{confidence}}).",
-    "coachingNoStaff": "Žádný trenér mládeže ani vedoucí mládeže: stropy se čtou jen s přesností {{width}} bodů. Trenér mládeže také zrychluje tvou akademii.",
-    "coachingBonus": "Tví trenéři mládeže zrychlují vývoj v akademii o {{percent}} %.",
+    "coachingNoStaff": "Žádný trenér mládeže ani vedoucí mládeže: stropy se čtou jen s přesností {{width}} bodů. Trenér mládeže také zrychluje vaši akademii.",
+    "coachingBonus": "Vaši trenéři mládeže zrychlují vývoj v akademii o {{percent}} %.",
     "decisions": "Rozhodnutí",
     "advice": {
       "action": {
@@ -5423,17 +5423,17 @@
       },
       "promote": {
         "onLoan": "Je na hostování a nelze ho povýšit, dokud se nevrátí.",
-        "noPlace": "Tvůj A-tým pro něj nemá volné místo.",
-        "pastAcademyAge": "Překročil věkovou hranici akademie: povyš ho, nebo ho pusť dál.",
-        "ready": "Tvůj A-tým ho může využít hned.",
+        "noPlace": "Váš A-tým pro něj nemá volné místo.",
+        "pastAcademyAge": "Překročil věkovou hranici akademie: povyšte ho, nebo ho pusťte dál.",
+        "ready": "Váš A-tým ho může využít hned.",
         "injured": "Je zraněný a zatím nemůže hrát.",
-        "notNeeded": "Tvůj kádr ho zatím nepotřebuje; dál se rozvíjí v akademii."
+        "notNeeded": "Váš kádr ho zatím nepotřebuje; dál se rozvíjí v akademii."
       },
       "loan": {
         "alreadyOut": "Už je na hostování.",
         "recommended": "Pravidelné zápasy jinde by mu pomohly víc než fotbal v akademii.",
         "listed": "Je na seznamu k hostování: ostatní kluby si o něj mohou říct.",
-        "promoteInstead": "Je připraven pro A-tým: povyš ho místo hostování.",
+        "promoteInstead": "Je připraven pro A-tým: povyšte ho místo hostování.",
         "notNeeded": "Hostování teď nepřinese jasný přínos."
       },
       "keep": {
@@ -5442,8 +5442,8 @@
         "pastAcademyAge": "Překročil věkovou hranici akademie."
       },
       "renew": {
-        "endsSoon": "Jeho smlouva brzy končí: prodluž ji, abys ho udržel.",
-        "letRun": "Jeho smlouva brzy končí a hodnocení v jeho šance nevěří: můžeš ji nechat vypršet."
+        "endsSoon": "Jeho smlouva brzy končí: prodlužte ji, aby zůstal v klubu.",
+        "letRun": "Jeho smlouva brzy končí a hodnocení v jeho šance nevěří: můžete ji nechat vypršet."
       }
     },
     "trainingFocus": "Individuální trénink",
@@ -5472,7 +5472,7 @@
       "estimateStale": "Odhad skauta z doby před touto sezónou: od té doby se mohl změnit. Pošlete skauta znovu pro čerstvý dojem.",
       "standing": "Jeho veřejná úroveň. Přesné hodnocení není známo, dokud ho někdo neskautuje.",
       "potentialStanding": "Veřejná úroveň jeho potenciálu. Přesný potenciál není znám, dokud nepřestoupí do vašeho klubu.",
-      "potentialEstimate": "Odhad tvého týmu pro mládež: jeho strop leží v tomto rozpětí a strop není příslib."
+      "potentialEstimate": "Odhad vašeho týmu pro mládež: jeho strop leží v tomto rozpětí a strop není příslib."
     },
     "a11y": {
       "exact": "Celkové hodnocení {{value}}",
@@ -5487,6 +5487,6 @@
     "sortHint": "Hráči jsou řazeni podle veřejné úrovně, dokud je neskautujete; pořadí uvnitř úrovně není žebříček.",
     "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie.",
     "notKnown": "Neznámé",
-    "prospectGrowthAssessed": "Jeho prostor k růstu je znám jen jako rozpětí: podívej se na strop, který odhadl tvůj tým pro mládež."
+    "prospectGrowthAssessed": "Jeho prostor k růstu je znám jen jako rozpětí: podívejte se na strop, který odhadl váš tým pro mládež."
   }
 }

@@ -259,7 +259,8 @@ fn row_of(player: &Player, context: &ReviewContext) -> (AcademyRow, u8) {
         promotion_blocked: context.place_refusal.clone(),
         advice,
     };
-    (row, believed.potential)
+    let sort_key = row.ceiling.sort_value();
+    (row, sort_key)
 }
 
 /// The verdict and the reasons behind it. Ordered: a player the squad can use now is ready

@@ -79,7 +79,7 @@ pub struct YouthCoaching {
 
 /// The assessment of the club's academy players, found once for a list: the department's rating
 /// is read from the staff a single time.
-pub struct AcademyLens<'a> {
+pub(crate) struct AcademyLens<'a> {
     game: &'a Game,
     team_id: String,
     youth_rating: f64,
@@ -89,7 +89,7 @@ pub struct AcademyLens<'a> {
 
 impl<'a> AcademyLens<'a> {
     /// `None` when the manager has no club.
-    pub fn of(game: &'a Game) -> Option<Self> {
+    pub(crate) fn of(game: &'a Game) -> Option<Self> {
         let team_id = game.manager.team_id.clone()?;
         let youth_rating = StaffProfile::of(game, &team_id).youth;
         let (width, confidence) = band_of_department(youth_rating);
@@ -104,14 +104,14 @@ impl<'a> AcademyLens<'a> {
 
     /// The band his department reads for the player's ceiling; `None` for a player who is not the
     /// club's own (a stranger's ceiling is scouting's to estimate, not the academy's).
-    pub fn ceiling_range_of(&self, player: &Player) -> Option<Range> {
+    pub(crate) fn ceiling_range_of(&self, player: &Player) -> Option<Range> {
         let own = player.team_id.as_deref() == Some(self.team_id.as_str())
             || player.contract_club_id() == Some(self.team_id.as_str());
         own.then(|| ceiling_band(player.potential, player.ovr, self.width))
     }
 
     /// The ceiling as the screens read it, in the shape the rating projection uses for an estimate.
-    pub fn ceiling_of(&self, player: &Player) -> Option<RatingView> {
+    pub(crate) fn ceiling_of(&self, player: &Player) -> Option<RatingView> {
         let range = self.ceiling_range_of(player)?;
         Some(RatingView::Estimate {
             low: range.low,
@@ -126,15 +126,17 @@ impl<'a> AcademyLens<'a> {
     /// The player as the manager's screens may reason about him: his true rating, and for ceiling
     /// the middle of the band. Everything the academy review decides, it decides on this copy, so
     /// no verdict, reason or ordering can depend on a figure the manager was not given.
-    pub fn believed(&self, player: &Player) -> Player {
+    pub(crate) fn believed(&self, player: &Player) -> Player {
         let mut believed = player.clone();
-        if let Some(range) = self.ceiling_range_of(player) {
-            believed.potential = range.mid();
-        }
+        // Fails closed: a player who is not the club's has no assessment, so the copy carries no
+        // ceiling beyond his rating rather than the figure the model holds.
+        believed.potential = self
+            .ceiling_range_of(player)
+            .map_or(player.ovr, |range| range.mid());
         believed
     }
 
-    pub fn coaching(&self) -> YouthCoaching {
+    pub(crate) fn coaching(&self) -> YouthCoaching {
         let staff = team_staff(self.game, &self.team_id);
         let youth_mult =
             crate::training::compute_coaching_bonus(&staff, &TrainingFocus::Technical).youth_mult;

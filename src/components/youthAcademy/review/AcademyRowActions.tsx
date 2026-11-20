@@ -39,7 +39,7 @@ export default function AcademyRowActions({
       <Button
         size="sm"
         disabled={busy || promoteBlocked}
-        aria-describedby={promoteReasonsId}
+        aria-describedby={row.advice.promote.reasons.length > 0 ? promoteReasonsId : undefined}
         aria-label={t("academy.promoteFor", { player: row.full_name })}
         onClick={onPromote}
       >
@@ -74,7 +74,7 @@ export default function AcademyRowActions({
         selectSize="xs"
         aria-label={t("academy.trainingFocusFor", { player: row.full_name })}
         title={t("academy.trainingFocus")}
-        wrapperClassName="w-full max-w-[130px]"
+        wrapperClassName="w-full max-w-32"
       >
         <option value="">{t("training.groups.teamDefault")}</option>
         {TRAINING_FOCUS_IDS.map((focusId) => (

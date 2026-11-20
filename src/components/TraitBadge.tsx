@@ -262,6 +262,14 @@ export function TraitBadge({
   );
 }
 
+/**
+ * Traits the game awards from a figure the manager is not given. Wonderkid is stored only for a
+ * young player whose true ceiling is S-tier with room to grow, so a list showing the badge (and its
+ * "Potential 90+" tooltip) would hand over the very bound the youth staff's assessment withholds.
+ * A list leaves them out; the ceiling band and the academy summary carry that information instead.
+ */
+const POTENTIAL_REVEALING_TRAITS: readonly string[] = ["Wonderkid"];
+
 export function TraitList({
   traits,
   size = "sm",
@@ -271,12 +279,13 @@ export function TraitList({
   size?: "sm" | "xs";
   max?: number;
 }) {
-  if (!traits || traits.length === 0) {
+  const visible = (traits ?? []).filter((trait) => !POTENTIAL_REVEALING_TRAITS.includes(trait));
+  if (visible.length === 0) {
     return null;
   }
 
-  const displayed = max ? traits.slice(0, max) : traits;
-  const remaining = max && traits.length > max ? traits.length - max : 0;
+  const displayed = max ? visible.slice(0, max) : visible;
+  const remaining = max && visible.length > max ? visible.length - max : 0;
 
   return (
     <div className="flex flex-wrap gap-1">

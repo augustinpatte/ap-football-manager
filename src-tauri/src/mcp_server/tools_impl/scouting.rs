@@ -245,9 +245,16 @@ pub fn scout_youth_reassign(
 fn rating_text(rating: &RatingView) -> String {
     match rating {
         RatingView::Exact { ovr } => ovr.to_string(),
+        // A band one point wide is one figure, as the screen's `formatRange` shows it.
+        RatingView::Estimate { low, high, .. } if low == high => low.to_string(),
         RatingView::Estimate { low, high, .. } => format!("{low}-{high}"),
         RatingView::Standing { standing } => format!("{standing:?}").to_lowercase(),
     }
+}
+
+/// How far a reading can be trusted, in the words the screen uses (`low`, `moderate`, `high`).
+fn confidence_text(confidence: ofm_core::scouting_dossier::Confidence) -> String {
+    format!("{confidence:?}").to_lowercase()
 }
 
 fn dossier_row(view: ScoutingTargetView) -> DossierRow {
@@ -268,9 +275,7 @@ fn dossier_row(view: ScoutingTargetView) -> DossierRow {
         rating: rating_text(&view.rating),
         ability_range: report.as_ref().map(|r| range(r.ability)),
         potential_range: report.as_ref().and_then(|r| r.potential).map(range),
-        confidence: report
-            .as_ref()
-            .map(|r| format!("{:?}", r.confidence).to_lowercase()),
+        confidence: report.as_ref().map(|r| confidence_text(r.confidence)),
         outlook: format!("{:?}", view.outlook),
         squad_impact: view.squad_impact.map(|i| format!("{i:?}")),
         fee_affordable: view.fee_affordable,
@@ -367,9 +372,7 @@ pub fn academy_get_review(ctx: Arc<McpContext>) -> Result<AcademyReviewResult, S
                 rating: row.ovr,
                 ceiling: rating_text(&row.ceiling),
                 ceiling_confidence: match &row.ceiling {
-                    RatingView::Estimate { confidence, .. } => {
-                        format!("{confidence:?}").to_lowercase()
-                    }
+                    RatingView::Estimate { confidence, .. } => confidence_text(*confidence),
                     RatingView::Exact { .. } | RatingView::Standing { .. } => String::new(),
                 },
                 verdict: format!("{:?}", row.verdict),

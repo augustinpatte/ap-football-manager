@@ -301,7 +301,7 @@ export default function InboxMessageDetailPane({
                                 {t("youthAcademy.growth")}
                               </p>
                               {/* Even a signed prospect's growth is only known as the youth staff's band. */}
-                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                              <p className="mt-2 text-caption text-fg-muted">
                                 {t(
                                   signedToAcademy
                                     ? "playerRating.prospectGrowthAssessed"

@@ -5399,15 +5399,15 @@
       "stillImproving": "Hâlâ gelişiyor",
       "nearCeiling": "Tavanına yakın"
     },
-    "ceilingNote": "Gençlik ekibin her tavanı kesin bir sayı olarak değil, bir aralık olarak değerlendirir. Tavan bir söz değildir: oyuncu ona ulaşamayabilir ya da ulaşabilir.",
+    "ceilingNote": "Altyapı ekibiniz her tavanı kesin bir sayı olarak değil, bir aralık olarak değerlendirir. Tavan bir söz değildir: oyuncu ona ulaşamayabilir ya da ulaşabilir.",
     "promoteFor": "{{player}} oyuncusunu terfi ettir",
     "listLoanFor": "{{player}} oyuncusunu kiralık listesine ekle",
     "unlistLoanFor": "{{player}} oyuncusunu kiralık listesinden çıkar",
     "releaseFor": "{{player}} oyuncusunu serbest bırak",
     "coaching": "Gençlik antrenmanı",
     "coachingSummary": "Puan {{rating}}: tavanlar yaklaşık {{width}} puan hassasiyetle okunur ({{confidence}}).",
-    "coachingNoStaff": "Gençlik antrenörü ya da gençlik sorumlusu yok: tavanlar yalnızca {{width}} puan hassasiyetle okunur. Gençlik antrenörü akademini de hızlandırır.",
-    "coachingBonus": "Gençlik antrenörlerin akademideki gelişimi %{{percent}} hızlandırıyor.",
+    "coachingNoStaff": "Altyapı antrenörü ya da altyapı sorumlusu yok: tavanlar yalnızca {{width}} puan hassasiyetle okunur. Altyapı antrenörü akademinizi de hızlandırır.",
+    "coachingBonus": "Altyapı antrenörleriniz akademideki gelişimi %{{percent}} hızlandırıyor.",
     "decisions": "Kararlar",
     "advice": {
       "action": {
@@ -5423,17 +5423,17 @@
       },
       "promote": {
         "onLoan": "Kiralık olarak dışarıda ve dönene kadar yükseltilemez.",
-        "noPlace": "A takımında onun için boş yer yok.",
-        "pastAcademyAge": "Akademi yaş sınırını aştı: yükselt ya da yolla.",
-        "ready": "A takımın onu şimdi kullanabilir.",
+        "noPlace": "A takımınızda onun için boş yer yok.",
+        "pastAcademyAge": "Akademi yaş sınırını aştı: yükseltin ya da yollayın.",
+        "ready": "A takımınız onu şimdi kullanabilir.",
         "injured": "Sakat ve henüz oynayamıyor.",
-        "notNeeded": "Kadron henüz ona ihtiyaç duymuyor; akademide gelişmeye devam ediyor."
+        "notNeeded": "Kadronuz henüz ona ihtiyaç duymuyor; akademide gelişmeye devam ediyor."
       },
       "loan": {
         "alreadyOut": "Zaten kiralık olarak dışarıda.",
         "recommended": "Başka yerde düzenli maç oynamak ona akademi futbolundan daha çok yarar.",
         "listed": "Kiralık listesinde: diğer kulüpler onu isteyebilir.",
-        "promoteInstead": "A takıma hazır: kiralık vermek yerine yükselt.",
+        "promoteInstead": "A takıma hazır: kiralık vermek yerine yükseltin.",
         "notNeeded": "Şu an kiralık vermenin net bir faydası yok."
       },
       "keep": {
@@ -5442,8 +5442,8 @@
         "pastAcademyAge": "Akademi yaş sınırını aştı."
       },
       "renew": {
-        "endsSoon": "Sözleşmesi yakında bitiyor: tutmak için yenile.",
-        "letRun": "Sözleşmesi yakında bitiyor ve değerlendirme şansına inanmıyor: bitmesine izin verebilirsin."
+        "endsSoon": "Sözleşmesi yakında bitiyor: tutmak için yenileyin.",
+        "letRun": "Sözleşmesi yakında bitiyor ve değerlendirme şansına inanmıyor: bitmesine izin verebilirsiniz."
       }
     },
     "trainingFocus": "Bireysel antrenman",
@@ -5472,7 +5472,7 @@
       "estimateStale": "Bu sezondan önceki bir gözlemci tahmini: o zamandan beri değişmiş olabilir. Güncel bir değerlendirme için onu yeniden izlettirin.",
       "standing": "Herkese açık seviyesi. Kesin reytingi, izlenene kadar bilinmez.",
       "potentialStanding": "Potansiyelinin herkese açık seviyesi. Kesin potansiyeli, kulübünüze katılana kadar bilinmez.",
-      "potentialEstimate": "Gençlik ekibinin değerlendirmesi: tavanı bu aralığın içinde ve tavan bir söz değildir."
+      "potentialEstimate": "Altyapı ekibinizin değerlendirmesi: tavanı bu aralığın içinde ve tavan bir söz değildir."
     },
     "a11y": {
       "exact": "Genel reyting {{value}}",
@@ -5487,6 +5487,6 @@
     "sortHint": "Oyuncuları izleyene kadar herkese açık seviyeye göre sıralanır; bir seviye içindeki sıra bir sıralama değildir.",
     "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez.",
     "notKnown": "Bilinmiyor",
-    "prospectGrowthAssessed": "Gelişim payı yalnızca aralık olarak biliniyor: gençlik ekibinin değerlendirdiği tavana bak."
+    "prospectGrowthAssessed": "Gelişim payı yalnızca aralık olarak biliniyor: altyapı ekibinizin değerlendirdiği tavana bakın."
   }
 }

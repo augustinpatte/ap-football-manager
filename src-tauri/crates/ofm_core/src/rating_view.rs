@@ -207,21 +207,21 @@ pub fn youth_prospect_readings(game: &Game, message_id: &str) -> Option<Vec<Pros
                 let signed = club.is_some() && prospect.team_id.as_deref() == club;
                 if signed {
                     // The signed youngster in the game is the one that has been developing since;
-                    // the message only holds the player as the scout proposed him.
+                    // the message only holds the player as the scout proposed him. If he is no
+                    // longer the club's (sold since), the message is out of date and he reads as
+                    // any stranger does.
                     let own = game
                         .players
                         .iter()
                         .find(|player| player.id == prospect.id)
                         .unwrap_or(prospect);
-                    let ceiling = academy
-                        .as_ref()
-                        .and_then(|lens| lens.ceiling_of(own))
-                        .unwrap_or_else(|| standing_of(own.potential.max(own.ovr)));
-                    return ProspectReading {
-                        player_id: prospect.id.clone(),
-                        current: RatingView::Exact { ovr: own.ovr },
-                        ceiling,
-                    };
+                    if let Some(ceiling) = academy.as_ref().and_then(|lens| lens.ceiling_of(own)) {
+                        return ProspectReading {
+                            player_id: prospect.id.clone(),
+                            current: RatingView::Exact { ovr: own.ovr },
+                            ceiling,
+                        };
+                    }
                 }
                 ProspectReading {
                     player_id: prospect.id.clone(),
@@ -631,6 +631,43 @@ mod tests {
             panic!("an assessed band");
         };
         assert!(low <= 95 && 95 <= high, "{low}-{high}");
+    }
+
+    /// Given a prospect the club signed and has since sold to a rival, in a message that still says
+    ///       he is the club's
+    /// When the readings are asked
+    /// Then he reads as a stranger does, standings of his rating and ceiling: neither his current
+    ///      rating nor his potential is read exactly because an old message calls him signed.
+    #[test]
+    fn a_prospect_sold_since_signing_reads_as_a_stranger() {
+        let mut game = world(vec![]);
+        let mut snapshot = player("sold", Some(MY_CLUB), 52);
+        snapshot.potential = 78;
+        let mut now_at_rival = player("sold", Some("faraway"), 74);
+        now_at_rival.potential = 90;
+        game.players.push(now_at_rival);
+        let mut message = domain::message::InboxMessage::new(
+            "youth-scout-3".to_string(),
+            String::new(),
+            String::new(),
+            "Scout".to_string(),
+            "2026-09-01".to_string(),
+        );
+        message.context.youth_prospects = Some(vec![snapshot]);
+        game.messages.push(message);
+
+        let reading = &youth_prospect_readings(&game, "youth-scout-3").unwrap()[0];
+
+        assert!(
+            matches!(reading.current, RatingView::Standing { .. }),
+            "{:?}",
+            reading.current
+        );
+        assert!(
+            matches!(reading.ceiling, RatingView::Standing { .. }),
+            "{:?}",
+            reading.ceiling
+        );
     }
 
     /// Given a game with a report and a standing, saved to JSON and loaded again
