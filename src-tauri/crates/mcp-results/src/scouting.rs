@@ -166,7 +166,9 @@ pub struct DossierRow {
     pub position: String,
     pub age: i32,
     pub team: Option<String>,
-    pub public_rating: u8,
+    /// How the club may read his rating: a number for a player it knows, a range for one a scout
+    /// reported on, a standing (`good`, `strong`...) for anyone else.
+    pub rating: String,
     pub ability_range: Option<String>,
     pub potential_range: Option<String>,
     pub confidence: Option<String>,
@@ -216,7 +218,7 @@ fn write_dossier_table(
             row.position,
             row.age,
             row.team.as_deref().unwrap_or("Free"),
-            row.public_rating,
+            row.rating,
             row.ability_range.as_deref().unwrap_or("-"),
             row.potential_range.as_deref().unwrap_or("-"),
             row.confidence.as_deref().unwrap_or("-"),

@@ -5,6 +5,7 @@ use mcp_results::scouting::{
     ScoutReports, ScoutingAssignment, ScoutingCancelled, ShortlistChanged, YouthScoutingCancelled,
     YouthScoutingReassigned, YouthScoutingStarted,
 };
+use ofm_core::rating_view::RatingView;
 use ofm_core::scouting_view::ScoutingTargetView;
 
 use crate::mcp_server::context::McpContext;
@@ -240,6 +241,15 @@ pub fn scout_youth_reassign(
 
 // ─── scout_get_dossier ──────────────────────────────────────────────────────
 
+/// The rating as the agent may read it: what the manager's own screen shows, in words.
+fn rating_text(rating: &RatingView) -> String {
+    match rating {
+        RatingView::Exact { ovr } => ovr.to_string(),
+        RatingView::Estimate { low, high, .. } => format!("{low}-{high}"),
+        RatingView::Standing { standing } => format!("{standing:?}").to_lowercase(),
+    }
+}
+
 fn dossier_row(view: ScoutingTargetView) -> DossierRow {
     let range = |r: ofm_core::scouting_dossier::Range| {
         if r.low == r.high {
@@ -255,7 +265,7 @@ fn dossier_row(view: ScoutingTargetView) -> DossierRow {
         position: format!("{:?}", view.natural_position),
         age: view.age,
         team: view.team_name,
-        public_rating: view.ovr,
+        rating: rating_text(&view.rating),
         ability_range: report.as_ref().map(|r| range(r.ability)),
         potential_range: report.as_ref().and_then(|r| r.potential).map(range),
         confidence: report

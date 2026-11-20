@@ -369,6 +369,48 @@ fn the_view_separates_what_is_known_from_what_is_not() {
     assert_eq!(dossier.shortlist.len(), 1);
 }
 
+/// Given a scouted and an unscouted target at a club outside the manager's division
+/// When the screen projection is built
+/// Then the unscouted one reads as a public standing with no `ovr` field and no squad verdict
+///      (the club cannot judge a fit it cannot measure), and the scouted one reads as the
+///      report's own range
+#[test]
+fn an_unscouted_target_shows_no_rating_and_no_squad_verdict() {
+    let mut game = game_with(vec![scout("s1", 80, 80)], 2);
+    send_scout(&mut game, "s1", "t0").unwrap();
+    finish(&mut game);
+    let views = targets_view(&game, &["t0".into(), "t1".into()]);
+    let (scouted, unscouted) = (&views[0], &views[1]);
+
+    let report = scouted.report.as_ref().unwrap();
+    assert_eq!(
+        scouted.rating.bounds(),
+        (report.ability.low, report.ability.high)
+    );
+    assert!(matches!(
+        unscouted.rating,
+        ofm_core::rating_view::RatingView::Standing { .. }
+    ));
+    assert!(unscouted.squad_impact.is_none());
+    let json = serde_json::to_value(unscouted).unwrap();
+    assert!(json.get("ovr").is_none(), "{json}");
+    assert!(json["rating"].get("ovr").is_none(), "{json}");
+}
+
+/// Given an unscouted target whose true rating is far above the club's best
+/// When the squad verdict is asked, before and after the true rating changes
+/// Then it is the same: an unscouted player's verdict cannot be used to measure him
+#[test]
+fn the_squad_verdict_of_an_unscouted_target_does_not_follow_his_true_rating() {
+    let mut game = game_with(vec![], 1);
+    let before = targets_view(&game, &["t0".into()])[0].squad_impact;
+    game.players.iter_mut().find(|p| p.id == "t0").unwrap().ovr = 95;
+    let after = targets_view(&game, &["t0".into()])[0].squad_impact;
+
+    assert_eq!(before, after);
+    assert!(after.is_none());
+}
+
 /// Given a report written before this season started
 /// When the view is built
 /// Then it is stale and carries the risk.

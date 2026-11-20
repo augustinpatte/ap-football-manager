@@ -11,6 +11,7 @@
 //! assistant's.
 
 use crate::game::Game;
+use crate::rating_view::{RatingLens, RatingView};
 use crate::scouting_dossier::{Confidence, Range, ScoutReport};
 use crate::squad_intelligence::ClubSquad;
 use crate::squad_intelligence::appetite::Appetite;
@@ -87,8 +88,9 @@ pub struct ScoutingTargetView {
     pub nationality: String,
     pub team_id: Option<String>,
     pub team_name: Option<String>,
-    /// The rating everyone can see.
-    pub ovr: u8,
+    /// The rating as the manager may read it: exact only for a player he knows, otherwise a scout's
+    /// range or a public standing. The true rating is not on this view.
+    pub rating: RatingView,
     pub market_value: u64,
     pub weekly_wage: u32,
     pub contract_end: Option<String>,
@@ -121,6 +123,7 @@ struct Lens<'a> {
     today: chrono::NaiveDate,
     team: Option<&'a Team>,
     squad: Option<ClubSquad>,
+    ratings: RatingLens<'a>,
 }
 
 impl<'a> Lens<'a> {
@@ -134,6 +137,7 @@ impl<'a> Lens<'a> {
             game,
             today: game.clock.current_date.date_naive(),
             squad: team.and_then(|t| ClubSquad::of(game, &t.id, Appetite::NEUTRAL)),
+            ratings: RatingLens::of(game),
             team,
         }
     }
@@ -178,6 +182,7 @@ fn view_of_id(lens: &Lens, player_id: &str) -> Option<ScoutingTargetView> {
 
 fn view_of(lens: &Lens, player: &Player) -> ScoutingTargetView {
     let game = lens.game;
+    let rating = lens.ratings.rating_of(player);
     let report = game.scouting_dossier.report_on(&player.id);
     let status = match report {
         None => ReportStatus::Unscouted,
@@ -242,7 +247,7 @@ fn view_of(lens: &Lens, player: &Player) -> ScoutingTargetView {
         nationality: player.nationality.clone(),
         team_id: player.team_id.clone(),
         team_name: player.team_id.as_deref().map(|id| game.team_name_or_id(id)),
-        ovr: player.ovr,
+        rating: rating.clone(),
         market_value: player.market_value,
         weekly_wage: wage,
         contract_end: player.contract_end().map(str::to_string),
@@ -257,7 +262,7 @@ fn view_of(lens: &Lens, player: &Player) -> ScoutingTargetView {
             .iter()
             .any(|a| a.player_id == player.id),
         outlook: outlook_of(report, age),
-        squad_impact: squad_impact(lens, player, report),
+        squad_impact: squad_impact(lens, player, report, &rating),
         report: report.map(|r| ReportView {
             scouted_on: r.scouted_on.clone(),
             scout_name: r.scout_name.clone(),
@@ -294,19 +299,22 @@ fn outlook_of(report: Option<&ScoutReport>, age: i32) -> Outlook {
     }
 }
 
-/// The squad model's verdict on the player as the club believes him to be.
-fn squad_impact(lens: &Lens, player: &Player, report: Option<&ScoutReport>) -> Option<SquadImpact> {
+/// The squad model's verdict on the player as the club believes him to be: the rating it may read
+/// (exact, or the middle of a scout's range) and the scout's potential. A player the club has only
+/// a public standing for has no verdict: the model would have to be given his true rating.
+fn squad_impact(
+    lens: &Lens,
+    player: &Player,
+    report: Option<&ScoutReport>,
+    rating: &RatingView,
+) -> Option<SquadImpact> {
     let squad = lens.squad.as_ref()?;
     let mut believed = crate::youth_pathway::as_senior(player);
-    if let Some(report) = report {
-        believed.ovr = report.ability.mid();
-        believed.potential = report
-            .potential
-            .map_or(believed.ovr, |p| p.mid().max(believed.ovr));
-    } else {
-        // Nobody has judged his potential: the club counts what it can see.
-        believed.potential = believed.ovr;
-    }
+    believed.ovr = rating.believed_ovr()?;
+    // Nobody has judged his potential: the club counts what it can see.
+    believed.potential = report
+        .and_then(|r| r.potential)
+        .map_or(believed.ovr, |p| p.mid().max(believed.ovr));
     let marginal = squad.signing(&believed, 0.0)?;
     Some(if marginal.starts_at.is_some() && marginal.now_gain > 0.0 {
         SquadImpact::Starter

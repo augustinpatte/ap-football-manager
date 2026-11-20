@@ -330,7 +330,7 @@ mod tests {
             position: "Striker".to_string(),
             age: 19,
             team: None,
-            public_rating: 61,
+            rating: if known { "58-66" } else { "average" }.to_string(),
             ability_range: known.then(|| "58-66".to_string()),
             potential_range: known.then(|| "70-84".to_string()),
             confidence: known.then(|| "moderate".to_string()),
