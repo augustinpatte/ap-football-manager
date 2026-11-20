@@ -361,8 +361,8 @@ mod tests {
                 age: 18,
                 position: "Midfielder".to_string(),
                 rating: 58,
-                potential_ceiling: 74,
-                expected_rating_next_year: 62,
+                ceiling: "68-79".to_string(),
+                ceiling_confidence: "moderate".to_string(),
                 verdict: "ReadyForSenior".to_string(),
                 reasons: vec!["addsCover".to_string()],
                 promotion_blocked: true,
@@ -371,7 +371,8 @@ mod tests {
         let text = review.to_string();
         assert!(text.contains("Senior squad 24/30"));
         assert!(text.contains("ReadyForSenior (no senior place)"));
-        assert!(text.contains("Potential is a ceiling, not a promise"));
+        assert!(text.contains("a range and not a promise"));
+        assert!(text.contains("| 68-79 | moderate |"));
         round_trips(review);
         round_trips(scouting::ShortlistChanged {
             player_name: "A".to_string(),

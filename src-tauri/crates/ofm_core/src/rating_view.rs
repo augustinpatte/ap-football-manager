@@ -16,6 +16,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde::Serialize;
 
+use crate::academy_assessment::AcademyLens;
 use crate::game::Game;
 use crate::player_knowledge::{PlayerKnowledge, Viewer, knowledge_from};
 use crate::player_tier::{A_TIER_MIN_RATING, B_TIER_MIN_RATING, S_TIER_MIN_RATING};
@@ -188,8 +189,9 @@ pub struct ProspectReading {
 }
 
 /// How the manager reads each prospect in a scout's youth recruitment message. Once the club has
-/// signed one, he is its own player and reads exactly. `None` when no message has that id or it
-/// proposes nobody.
+/// signed one, he is its own player: his rating reads exactly, and his ceiling as the club's youth
+/// staff assess it ([`crate::academy_assessment`]), a band and never the figure the development
+/// model holds. `None` when no message has that id or it proposes nobody.
 pub fn youth_prospect_readings(game: &Game, message_id: &str) -> Option<Vec<ProspectReading>> {
     let message = game
         .messages
@@ -197,28 +199,44 @@ pub fn youth_prospect_readings(game: &Game, message_id: &str) -> Option<Vec<Pros
         .find(|message| message.id == message_id)?;
     let prospects = message.context.youth_prospects.as_ref()?;
     let club = game.manager.team_id.as_deref();
+    let academy = AcademyLens::of(game);
     Some(
         prospects
             .iter()
             .map(|prospect| {
                 let signed = club.is_some() && prospect.team_id.as_deref() == club;
-                let read = |value: u8| {
-                    if signed {
-                        RatingView::Exact { ovr: value }
-                    } else {
-                        RatingView::Standing {
-                            standing: PublicStanding::of(value),
-                        }
-                    }
-                };
+                if signed {
+                    // The signed youngster in the game is the one that has been developing since;
+                    // the message only holds the player as the scout proposed him.
+                    let own = game
+                        .players
+                        .iter()
+                        .find(|player| player.id == prospect.id)
+                        .unwrap_or(prospect);
+                    let ceiling = academy
+                        .as_ref()
+                        .and_then(|lens| lens.ceiling_of(own))
+                        .unwrap_or_else(|| standing_of(own.potential.max(own.ovr)));
+                    return ProspectReading {
+                        player_id: prospect.id.clone(),
+                        current: RatingView::Exact { ovr: own.ovr },
+                        ceiling,
+                    };
+                }
                 ProspectReading {
                     player_id: prospect.id.clone(),
-                    current: read(prospect.ovr),
-                    ceiling: read(prospect.potential.max(prospect.ovr)),
+                    current: standing_of(prospect.ovr),
+                    ceiling: standing_of(prospect.potential.max(prospect.ovr)),
                 }
             })
             .collect(),
     )
+}
+
+fn standing_of(rating: u8) -> RatingView {
+    RatingView::Standing {
+        standing: PublicStanding::of(rating),
+    }
 }
 
 /// How the manager reads one player's rating.
@@ -534,8 +552,9 @@ mod tests {
     /// Given a scout's youth message proposing a prospect rated 52 with potential 78, one the club
     ///       has since signed, and an id no message has
     /// When the readings are asked
-    /// Then the unsigned prospect reads as standings of his rating and his ceiling, the signed one
-    ///      exactly, and an unknown message has none
+    /// Then the unsigned prospect reads as standings of his rating and his ceiling; the signed one
+    ///      reads his rating exactly and his ceiling as the youth staff's band, never the exact
+    ///      figure; and an unknown message has none
     #[test]
     fn a_proposed_prospect_reads_as_standings_until_the_club_signs_him() {
         let mut game = world(vec![]);
@@ -568,10 +587,50 @@ mod tests {
             }
         );
         assert_eq!(readings[1].current, RatingView::Exact { ovr: 55 });
-        assert_eq!(readings[1].ceiling, RatingView::Exact { ovr: 84 });
+        // With no youth staff to narrow it the band is 24 wide: 73 to 96 holds 84.
+        let RatingView::Estimate { low, high, .. } = readings[1].ceiling else {
+            panic!("a signed prospect's ceiling reads as an assessed band");
+        };
+        assert!(low <= 84 && 84 <= high && low < high, "{low}-{high}");
+        let signed_wire = serde_json::to_string(&readings[1]).unwrap();
+        assert!(
+            !signed_wire.contains("\"exact\",\"ovr\":84"),
+            "{signed_wire}"
+        );
         assert!(youth_prospect_readings(&game, "nope").is_none());
         let wire = serde_json::to_string(&readings[0]).unwrap();
         assert!(!wire.contains("52") && !wire.contains("78"), "{wire}");
+    }
+
+    /// Given a prospect the club signed, who has developed since the scout proposed him
+    /// When the readings are asked
+    /// Then the ceiling is the band of the player in the game, not of the message's old snapshot,
+    ///      and his rating is the current one.
+    #[test]
+    fn a_signed_prospect_reads_the_player_he_has_become() {
+        let mut game = world(vec![]);
+        let mut proposed = player("kid", Some(MY_CLUB), 52);
+        proposed.potential = 60;
+        let mut grown = player("kid", Some(MY_CLUB), 70);
+        grown.potential = 95;
+        game.players.push(grown);
+        let mut message = domain::message::InboxMessage::new(
+            "youth-scout-2".to_string(),
+            String::new(),
+            String::new(),
+            "Scout".to_string(),
+            "2026-09-01".to_string(),
+        );
+        message.context.youth_prospects = Some(vec![proposed]);
+        game.messages.push(message);
+
+        let reading = &youth_prospect_readings(&game, "youth-scout-2").unwrap()[0];
+
+        assert_eq!(reading.current, RatingView::Exact { ovr: 70 });
+        let RatingView::Estimate { low, high, .. } = reading.ceiling else {
+            panic!("an assessed band");
+        };
+        assert!(low <= 95 && 95 <= high, "{low}-{high}");
     }
 
     /// Given a game with a report and a standing, saved to JSON and loaded again

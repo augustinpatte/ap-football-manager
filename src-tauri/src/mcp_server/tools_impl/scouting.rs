@@ -365,8 +365,13 @@ pub fn academy_get_review(ctx: Arc<McpContext>) -> Result<AcademyReviewResult, S
                 age: row.age,
                 position: format!("{:?}", row.natural_position),
                 rating: row.ovr,
-                potential_ceiling: row.potential,
-                expected_rating_next_year: row.expected_ovr_next_year,
+                ceiling: rating_text(&row.ceiling),
+                ceiling_confidence: match &row.ceiling {
+                    RatingView::Estimate { confidence, .. } => {
+                        format!("{confidence:?}").to_lowercase()
+                    }
+                    RatingView::Exact { .. } | RatingView::Standing { .. } => String::new(),
+                },
                 verdict: format!("{:?}", row.verdict),
                 reasons: row.reasons,
                 promotion_blocked: row.promotion_blocked.is_some(),

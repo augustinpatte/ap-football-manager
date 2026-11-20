@@ -275,9 +275,11 @@ pub struct AcademyRowResult {
     pub age: i32,
     pub position: String,
     pub rating: u8,
-    /// The ceiling: what development may let him reach, not a promise.
-    pub potential_ceiling: u8,
-    pub expected_rating_next_year: u8,
+    /// What the youth staff judge his ceiling to be, as a range ("62-72"): never the exact figure
+    /// the development model holds, and not a promise.
+    pub ceiling: String,
+    /// How far the range can be trusted: low, moderate or high.
+    pub ceiling_confidence: String,
     pub verdict: String,
     pub reasons: Vec<String>,
     pub promotion_blocked: bool,
@@ -303,7 +305,7 @@ impl fmt::Display for AcademyReviewResult {
         }
         write!(
             f,
-            "| ID | Player | Age | Pos | Rating | Ceiling | Next year | Verdict | Reasons |\n|----|--------|-----|-----|--------|---------|-----------|---------|---------|\n"
+            "| ID | Player | Age | Pos | Rating | Ceiling (assessed) | Confidence | Verdict | Reasons |\n|----|--------|-----|-----|--------|--------------------|------------|---------|---------|\n"
         )?;
         for row in &self.rows {
             writeln!(
@@ -314,8 +316,8 @@ impl fmt::Display for AcademyReviewResult {
                 row.age,
                 row.position,
                 row.rating,
-                row.potential_ceiling,
-                row.expected_rating_next_year,
+                row.ceiling,
+                row.ceiling_confidence,
                 row.verdict,
                 if row.promotion_blocked {
                     " (no senior place)"
@@ -325,6 +327,6 @@ impl fmt::Display for AcademyReviewResult {
                 row.reasons.join(", "),
             )?;
         }
-        write!(f, "\n*Potential is a ceiling, not a promise. Promote with `squad_set_player_role` while a senior place is free.*")
+        write!(f, "\n*The ceiling is your youth staff's assessment, a range and not a promise. Promote with `squad_set_player_role` while a senior place is free.*")
     }
 }
