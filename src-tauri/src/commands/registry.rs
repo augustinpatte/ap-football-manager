@@ -16,8 +16,8 @@ use tauri::{Manager, State};
 
 use fm24_adapter::career;
 use fm24_adapter::registry::{
-    self, RegistryAvailability, RegistryPage, RegistryPlayerDetail, RegistryPositionFilter,
-    RegistryQuery, RegistrySort,
+    self, RegistryAvailability, RegistryCounts, RegistryPage, RegistryPlayerDetail,
+    RegistryPositionFilter, RegistryQuery, RegistrySort, RegistrySummary,
 };
 use ofm_core::external_registry::{
     finalize_external_transfer as finalize_promotion,
@@ -27,6 +27,7 @@ use ofm_core::external_registry::{
     ExternalRecruitPreview,
 };
 use ofm_core::game::Game;
+use ofm_core::rating_view::PublicStanding;
 use ofm_core::state::StateManager;
 
 use crate::commands::fm24_world::registry_path;
@@ -63,6 +64,144 @@ pub struct RegistryContext {
     /// so two saves of the same source but different seeds see different markets.
     pub seed: u64,
     pub excluded_ids: Vec<String>,
+}
+
+/// One row of the market as the manager reads it. The registry holds every player's rating,
+/// potential and attributes; nobody in the market has been scouted, so the screen gets the public
+/// standing and the facts a market shows (club, contract, value), and nothing it could rank by.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPublicSummary {
+    pub id: String,
+    pub name: String,
+    pub age: Option<u32>,
+    pub nationality: Option<String>,
+    pub position: Option<String>,
+    pub position_group: Option<String>,
+    pub standing: PublicStanding,
+    pub club: Option<String>,
+    pub ownership: String,
+    pub contract_end: Option<String>,
+    pub market_value: u64,
+    pub weekly_wage: u64,
+    pub asking_price: u64,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPublicPage {
+    pub items: Vec<RegistryPublicSummary>,
+    pub total: u32,
+    pub page: u32,
+    pub page_size: u32,
+    pub counts: RegistryCounts,
+}
+
+/// One market player as the manager reads him: no rating, no potential, no attribute block.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPublicDetail {
+    pub id: String,
+    pub name: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub common_name: Option<String>,
+    pub age: Option<u32>,
+    pub birth_date: Option<String>,
+    pub nation: Option<String>,
+    pub nationality: Option<String>,
+    pub position: Option<String>,
+    pub position_group: Option<String>,
+    pub natural_position: Option<domain::player::Position>,
+    pub alternate_positions: Vec<domain::player::Position>,
+    pub footedness: domain::player::Footedness,
+    pub weak_foot: u8,
+    pub standing: PublicStanding,
+    pub club_id: Option<i64>,
+    pub club_name: Option<String>,
+    pub club_nation: Option<String>,
+    pub club_reputation: i64,
+    pub ownership: String,
+    pub contract_end: Option<String>,
+    pub market_value: u64,
+    pub weekly_wage: u64,
+    pub value_source: String,
+    pub wage_source: String,
+    pub asking_price: u64,
+    pub status: String,
+    pub exclusion_reason: Option<String>,
+    pub fm_uid: Option<i64>,
+    pub fm_uid_status: String,
+    pub source_row_hash: String,
+}
+
+fn public_summary(summary: RegistrySummary) -> RegistryPublicSummary {
+    RegistryPublicSummary {
+        standing: PublicStanding::of(summary.ovr),
+        id: summary.id,
+        name: summary.name,
+        age: summary.age,
+        nationality: summary.nationality,
+        position: summary.position,
+        position_group: summary.position_group,
+        club: summary.club,
+        ownership: summary.ownership,
+        contract_end: summary.contract_end,
+        market_value: summary.market_value,
+        weekly_wage: summary.weekly_wage,
+        asking_price: summary.asking_price,
+        status: summary.status,
+    }
+}
+
+/// The page the screen may read; the totals and counts are public.
+pub fn public_page(page: RegistryPage) -> RegistryPublicPage {
+    RegistryPublicPage {
+        items: page.items.into_iter().map(public_summary).collect(),
+        total: page.total,
+        page: page.page,
+        page_size: page.page_size,
+        counts: page.counts,
+    }
+}
+
+/// The player the screen may read. The recruitment commands load the full record themselves.
+pub fn public_detail(detail: RegistryPlayerDetail) -> RegistryPublicDetail {
+    RegistryPublicDetail {
+        standing: PublicStanding::of(detail.ovr),
+        id: detail.id,
+        name: detail.name,
+        first_name: detail.first_name,
+        last_name: detail.last_name,
+        common_name: detail.common_name,
+        age: detail.age,
+        birth_date: detail.birth_date,
+        nation: detail.nation,
+        nationality: detail.nationality,
+        position: detail.position,
+        position_group: detail.position_group,
+        natural_position: detail.natural_position,
+        alternate_positions: detail.alternate_positions,
+        footedness: detail.footedness,
+        weak_foot: detail.weak_foot,
+        club_id: detail.club_id,
+        club_name: detail.club_name,
+        club_nation: detail.club_nation,
+        club_reputation: detail.club_reputation,
+        ownership: detail.ownership,
+        contract_end: detail.contract_end,
+        market_value: detail.market_value,
+        weekly_wage: detail.weekly_wage,
+        value_source: detail.value_source,
+        wage_source: detail.wage_source,
+        asking_price: detail.asking_price,
+        status: detail.status,
+        exclusion_reason: detail.exclusion_reason,
+        fm_uid: detail.fm_uid,
+        fm_uid_status: detail.fm_uid_status,
+        source_row_hash: detail.source_row_hash,
+    }
 }
 
 /// Every source identity already in the career, on a roster or in the retired archive.
@@ -138,13 +277,14 @@ pub async fn search_external_players(
     app_handle: tauri::AppHandle,
     state: State<'_, Arc<StateManager>>,
     request: RegistrySearchRequest,
-) -> Result<RegistryPage, String> {
+) -> Result<RegistryPublicPage, String> {
     info!("[cmd] search_external_players");
     let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
     tauri::async_runtime::spawn_blocking(move || search_internal(&base, &context, request))
         .await
         .map_err(|_| REGISTRY_READ_FAILED.to_string())?
+        .map(public_page)
 }
 
 /// One page of this career's market: the cache at the career's season, the screen's filters and the
@@ -178,13 +318,14 @@ pub async fn get_external_player(
     app_handle: tauri::AppHandle,
     state: State<'_, Arc<StateManager>>,
     player_id: String,
-) -> Result<Option<RegistryPlayerDetail>, String> {
+) -> Result<Option<RegistryPublicDetail>, String> {
     info!("[cmd] get_external_player: player_id={player_id}");
     let base = registry_file(&app_handle)?;
     let context = context_for(&state)?;
     tauri::async_runtime::spawn_blocking(move || detail_internal(&base, &context, &player_id))
         .await
         .map_err(|_| REGISTRY_READ_FAILED.to_string())?
+        .map(|detail| detail.map(public_detail))
 }
 
 /// The promotion payload, or the key that says why the stored record cannot be one.
@@ -614,6 +755,77 @@ mod tests {
         assert_eq!(query.page, 2);
         assert_eq!(query.page_size, 10);
         assert_eq!(query.today, context.today);
+    }
+
+    /// Given a stored record of a free agent rated 70 with potential 80 and a full attribute block
+    /// When the screen asks for him
+    /// Then it receives his public standing and the facts a market shows (club, value, contract),
+    ///      and the wire carries no rating, no potential and no attributes: he has not been scouted
+    #[test]
+    fn the_screens_detail_has_a_standing_and_no_hidden_values() {
+        let public = public_detail(detail("fm-p-3"));
+
+        assert_eq!(public.standing, PublicStanding::Good);
+        let wire = serde_json::to_value(&public).unwrap();
+        for hidden in ["ovr", "potential", "attributes"] {
+            assert!(
+                wire.get(hidden).is_none(),
+                "{hidden} is on the wire: {wire}"
+            );
+        }
+        assert_eq!(wire["marketValue"], 2_000_000);
+        assert_eq!(wire["name"], "John Free");
+        assert_eq!(wire["standing"], "good");
+    }
+
+    /// Given a page whose rows are rated 55, 70 and 90
+    /// When the screen receives it
+    /// Then each row has a standing, the totals are untouched and no row carries a rating or a
+    ///      potential
+    #[test]
+    fn the_screens_page_has_standings_and_no_hidden_values() {
+        let row = |id: &str, ovr: u8| RegistrySummary {
+            id: id.to_string(),
+            name: id.to_string(),
+            age: Some(24),
+            nationality: None,
+            position: None,
+            position_group: None,
+            ovr,
+            potential: 99,
+            club: None,
+            ownership: "free_agent".to_string(),
+            contract_end: None,
+            market_value: 1_000,
+            weekly_wage: 10,
+            asking_price: 0,
+            status: "eligible".to_string(),
+        };
+        let page = RegistryPage {
+            items: vec![row("a", 55), row("b", 70), row("c", 90)],
+            total: 3,
+            page: 1,
+            page_size: 25,
+            counts: Default::default(),
+        };
+
+        let public = public_page(page);
+
+        let standings: Vec<PublicStanding> = public.items.iter().map(|i| i.standing).collect();
+        assert_eq!(
+            standings,
+            vec![
+                PublicStanding::Limited,
+                PublicStanding::Good,
+                PublicStanding::Elite
+            ]
+        );
+        assert_eq!(public.total, 3);
+        let wire = serde_json::to_string(&public).unwrap();
+        assert!(
+            !wire.contains("\"ovr\"") && !wire.contains("potential"),
+            "{wire}"
+        );
     }
 
     /// Given a stored record missing an attribute block, when it is promoted, then the refusal is

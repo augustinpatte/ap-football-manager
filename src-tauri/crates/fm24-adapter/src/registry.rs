@@ -870,13 +870,41 @@ fn availability_clause(
 /// view: Z before A for a name, 90 before 50 for a rating or a fee, the oldest first for an age.
 /// Age is the one column stored the other way round (an earlier birth date is older), so it alone
 /// reverses the direction.
+/// SQL for a player's public standing as a number, lowest standing 0, from the one set of cut-offs
+/// (`ofm_core::rating_view`).
+fn standing_rank_sql() -> String {
+    use ofm_core::rating_view::PublicStanding;
+    let mut rank = String::from("CASE");
+    for standing in [
+        PublicStanding::Elite,
+        PublicStanding::Strong,
+        PublicStanding::Good,
+        PublicStanding::Average,
+    ] {
+        let (lowest_rating, _) = standing.span();
+        rank.push_str(&format!(
+            " WHEN ovr >= {lowest_rating} THEN {}",
+            standing as u8
+        ));
+    }
+    rank.push_str(" ELSE 0 END");
+    rank
+}
+
 fn order_clause(query: &RegistryQuery) -> String {
     let direction = if query.descending { "DESC" } else { "ASC" };
     let age_direction = if query.descending { "ASC" } else { "DESC" };
     match query.sort {
         RegistrySort::Name => format!(" ORDER BY search_name {direction}, ofm_id ASC"),
         RegistrySort::Age => format!(" ORDER BY birth_date {age_direction}, ofm_id ASC"),
-        RegistrySort::Ovr => format!(" ORDER BY ovr {direction}, search_name ASC"),
+        // The market has nobody scouted, so a rating sort orders by public standing: sorting by the
+        // rating would rank players the manager is not allowed to tell apart.
+        RegistrySort::Ovr => {
+            format!(
+                " ORDER BY {} {direction}, search_name ASC",
+                standing_rank_sql()
+            )
+        }
         RegistrySort::Value => {
             format!(" ORDER BY market_value_eur {direction}, search_name ASC")
         }
@@ -1742,9 +1770,12 @@ mod tests {
         );
 
         // The D7B1 defect: these two used the age reversal, so "best first" returned the worst.
+        // The rating column orders by public standing, not by the rating: fm-p-1 (60) and fm-p-4
+        // (50) are both "limited", so they keep name order in both directions and the sort cannot
+        // say which is better.
         assert_eq!(
             asc(RegistrySort::Ovr),
-            ["fm-p-4", "fm-p-1", "fm-p-3", "fm-p-2"]
+            ["fm-p-1", "fm-p-4", "fm-p-3", "fm-p-2"]
         );
         assert_eq!(
             desc(RegistrySort::Ovr),
