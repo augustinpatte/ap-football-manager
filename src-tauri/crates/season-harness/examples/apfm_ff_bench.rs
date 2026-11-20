@@ -28,6 +28,14 @@ fn keep_employed(game: &mut Game) {
     game.manager.warning_stage = 0;
 }
 
+/// FNV-1a over the fingerprint's bytes: the same world gives the same number in any build, so two
+/// binaries' output can be compared without keeping the fingerprints themselves.
+fn fnv1a(text: &str) -> u64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+    })
+}
+
 fn today(game: &Game) -> NaiveDate {
     game.clock.current_date.date_naive()
 }
@@ -149,6 +157,8 @@ fn main() {
                     "ui_state_ms": ui_ms,
                     "rollovers": rollovers,
                     "players": a.players.len(),
+                    "fingerprint": format!("{:016x}", fnv1a(&fa)),
+                    "fingerprint_lines": fa.lines().count(),
                 })
             );
         }
