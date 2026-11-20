@@ -76,7 +76,7 @@ export default function YouthAcademyTab({
 
   const teamId = sessionState?.manager?.team_id ?? gameState?.manager?.team_id ?? null;
   const clockDate = sessionState?.clock.current_date ?? gameState?.clock.current_date ?? "";
-  const [fetchedSquad, setFetchedSquad] = useFetchedSquad(teamId, clockDate);
+  const [fetchedSquad, setFetchedSquad] = useFetchedSquad(teamId, clockDate, gameState);
 
   useEffect(() => {
     if (!teamId) return;

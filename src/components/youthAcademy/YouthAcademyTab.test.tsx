@@ -526,6 +526,47 @@ describe("YouthAcademyTab", () => {
     expect(screen.getByText("Rising Star").closest("tr")).toBeNull();
   });
 
+  /**
+   * Given a prospect listed in the academy,
+   * When the game changes without the clock moving (the review card's Promote reports through
+   *      onGameUpdate, not through this tab's own handlers) and the backend now has him as senior,
+   * Then the prospect list is refetched and no longer shows him as a youth.
+   */
+  it("refreshes the prospects when the game changes without the clock moving", async () => {
+    const youthPlayer = createPlayer({
+      id: "player-young",
+      full_name: "Rising Star",
+      date_of_birth: "2008-01-01",
+      squad_role: "Youth",
+    });
+    const before = createGameState([youthPlayer]);
+    const after = {
+      ...before,
+      players: before.players.map((p) => ({ ...p, squad_role: "Senior" as const })),
+    };
+    let served = before;
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_academy_review") return null;
+      if (command === "get_squad") return served.players.filter((p) => p.team_id === "team-1");
+      if (command === "get_staff") return makeEmptyStaffSlice();
+      return null;
+    });
+
+    const { rerender } = render(
+      <YouthAcademyTab gameState={before} onGameUpdate={vi.fn()} onSelectPlayer={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Rising Star").closest("tr")).not.toBeNull();
+    });
+
+    served = after;
+    rerender(<YouthAcademyTab gameState={after} onGameUpdate={vi.fn()} onSelectPlayer={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("No youth players")).toBeInTheDocument();
+    });
+  });
+
   it("promotes youth academy players through the context menu", async () => {
     const youthPlayer = createPlayer({
       id: "player-young",
