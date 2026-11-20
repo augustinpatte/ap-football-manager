@@ -185,7 +185,10 @@ fn play_interactive_match(state: &StateManager) {
             break;
         }
     }
-    assert!(ended, "the match never reached full time in {MATCH_GUARD} stretches");
+    assert!(
+        ended,
+        "the match never reached full time in {MATCH_GUARD} stretches"
+    );
     finish_interactive_match_internal(state).expect("the match is finalised");
 }
 
@@ -599,7 +602,9 @@ fn old_saves_load_and_play_on() {
     assert!(!ids.is_empty(), "no save of the index exists in the copy");
     for save_id in ids {
         let stored = saves.load_game(&save_id).expect("the old save loads");
-        let stats = saves.load_stats_state(&save_id).expect("its statistics load");
+        let stats = saves
+            .load_stats_state(&save_id)
+            .expect("its statistics load");
         let mut game = stored.clone();
         ofm_core::ai_hiring::seed_ai_managers(&mut game);
         ofm_core::season_context::refresh_game_context(&mut game);
@@ -613,7 +618,10 @@ fn old_saves_load_and_play_on() {
             game.clock.current_date.format("%Y-%m-%d"),
             game.scouting_dossier.reports.len(),
         );
-        assert!(seniors > 0, "{save_id}: the club has no players after loading");
+        assert!(
+            seniors > 0,
+            "{save_id}: the club has no players after loading"
+        );
         assert!(
             game.scouting_dossier.reports.is_empty(),
             "{save_id}: an old save cannot hold scouting reports"
@@ -630,31 +638,33 @@ fn old_saves_load_and_play_on() {
             "{save_id}: an old save cannot hold a match in progress"
         );
 
-        let played_before = state.get_game(|g| own_completed(g)).expect("game");
+        let played_before = state.get_game(own_completed).expect("game");
         for _ in 0..60 {
             if advance_time_with_mode(&state, "delegate").is_err() {
                 break;
             }
         }
-        let played_after = state.get_game(|g| own_completed(g)).expect("game");
+        let played_after = state.get_game(own_completed).expect("game");
         println!("  60 days later: own completed fixtures {played_before} -> {played_after}");
         assert!(played_after >= played_before);
 
         advance_until_user_match(&state, "live");
-        let completed = state.get_game(|g| own_completed(g)).expect("game");
+        let completed = state.get_game(own_completed).expect("game");
         play_interactive_match(&state);
-        let after = state.get_game(|g| own_completed(g)).expect("game");
+        let after = state.get_game(own_completed).expect("game");
         assert_eq!(after, completed + 1, "{save_id}: the match counts once");
         finish_interactive_match_internal(&state).expect_err("a second finish is refused");
         assert_eq!(
-            state.get_game(|g| own_completed(g)).expect("game"),
+            state.get_game(own_completed).expect("game"),
             after,
             "{save_id}: a second finish changed the career"
         );
 
         persist_active_game(&state, &mut saves).expect("the old career saves in the new format");
-        let reopened = saves.load_game(&save_id).expect("the new-format save loads");
-        let live = state.get_game(|g| fingerprint(g)).expect("game");
+        let reopened = saves
+            .load_game(&save_id)
+            .expect("the new-format save loads");
+        let live = state.get_game(fingerprint).expect("game");
         assert!(
             live == fingerprint(&reopened),
             "{save_id}: reload differs: {}",
@@ -708,7 +718,7 @@ fn an_academy_promotion_survives_a_reload() {
         game.players
             .iter()
             .find(|p| p.id == id)
-            .map(|p| p.squad_role.clone())
+            .map(|p| p.squad_role)
     };
     assert_eq!(role_of(&stored, &promoted), Some(SquadRole::Senior));
     for id in &prospects[1..] {
@@ -725,7 +735,10 @@ fn an_academy_promotion_survives_a_reload() {
             .expect("the club has an academy review"),
     )
     .expect("serializes");
-    assert_eq!(review_after, review_before, "the academy review changed across the reload");
+    assert_eq!(
+        review_after, review_before,
+        "the academy review changed across the reload"
+    );
 }
 
 #[test]
@@ -878,7 +891,10 @@ fn a_watched_match_saved_midway_keeps_the_dossier_and_is_finalised_once() {
             break;
         }
     }
-    assert!(ended, "the resumed match never reached full time in {MATCH_GUARD} stretches");
+    assert!(
+        ended,
+        "the resumed match never reached full time in {MATCH_GUARD} stretches"
+    );
     finish_interactive_match_internal(&resumed).expect("the match is finalised");
     let game = resumed.get_game(|g| g.clone()).expect("an active game");
     assert_eq!(own_completed(&game), completed_before + 1);

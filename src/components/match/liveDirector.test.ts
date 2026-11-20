@@ -329,4 +329,27 @@ describe("LiveDirector", () => {
     // the feed's first-half goal is now in the director's events with a readable minute
     expect(director.getSnapshot().events.map((e) => director.labelAt(e.t_ms))).toEqual(["1'"]);
   });
+
+  /** Given a match taken over (a saved match reloaded) at 30 s in a highlight mode, with a goal already scored before that point, When it plays on, Then the picture starts at the engine's head, the earlier goal is in the feed at once, and the later goal appears only when the picture reaches it. */
+  it("plays a taken-over match on from the head in a highlight mode", async () => {
+    const engine = fakeEngine([
+      { t_ms: 5_000, type: "goal" },
+      { t_ms: 50_000, type: "goal" },
+    ]);
+    engine.state.clock = 30_000;
+    engine.state.lastFrame = 29_500;
+    const director = new LiveDirector();
+    director.setMode("key");
+    director.ingestAdvance(await engine.advance(0));
+    expect(director.getSnapshot().playheadMs).toBe(30_000);
+    expect(director.getSnapshot().events.map((e) => e.t_ms)).toEqual([5_000]);
+    director.setSpeed(8);
+    director.play();
+    const seen = await run(director, engine.advance, 6_000);
+    expect(seen.every((t, i) => i === 0 || t >= seen[i - 1])).toBe(true);
+    expect(seen[0]).toBeGreaterThanOrEqual(30_000);
+    const snapshot = director.getSnapshot();
+    expect(snapshot.playheadMs).toBeGreaterThan(50_000);
+    expect(snapshot.events.map((e) => e.t_ms)).toEqual([5_000, 50_000]);
+  });
 });

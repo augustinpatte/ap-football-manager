@@ -1774,7 +1774,11 @@ mod tests {
                     )
                 })
                 .expect("game");
-            assert_eq!((scored, conceded), (home + away, home + away), "seed {seed}");
+            assert_eq!(
+                (scored, conceded),
+                (home + away, home + away),
+                "seed {seed}"
+            );
             return;
         }
         panic!("no seed produced a decisive match with goals; the scan proves nothing");
