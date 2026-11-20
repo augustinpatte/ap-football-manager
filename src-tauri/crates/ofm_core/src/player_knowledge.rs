@@ -1,6 +1,7 @@
 //! What the manager's club knows about a player: the one rule every screen that shows a player's
 //! rating, potential, condition or wage reads, so none of them decides it for itself.
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 use domain::player::Player;
@@ -31,31 +32,51 @@ pub fn player_knowledge(game: &Game, player: &Player) -> PlayerKnowledge {
 
 /// The manager's club and the league table it plays in, worked out once per request rather than
 /// once per player.
-struct Viewer<'a> {
+pub(crate) struct Viewer<'a> {
     club: Option<&'a str>,
     division: Option<&'a str>,
+    /// Whether a club plays in the viewer's division, asked once per club: a list of thousands of
+    /// players names a few hundred clubs, and finding a club's table walks every competition.
+    club_in_division: RefCell<HashMap<&'a str, bool>>,
 }
 
 impl<'a> Viewer<'a> {
-    fn of(game: &'a Game) -> Self {
+    pub(crate) fn of(game: &'a Game) -> Self {
         let club = game.manager.team_id.as_deref();
         Self {
             club,
             division: club.and_then(|club| division_of(game, club)),
+            club_in_division: RefCell::new(HashMap::new()),
         }
+    }
+
+    fn sees_club_play_in_division(&self, game: &'a Game, club: &'a str) -> bool {
+        let Some(division) = self.division else {
+            return false;
+        };
+        *self
+            .club_in_division
+            .borrow_mut()
+            .entry(club)
+            .or_insert_with(|| division_of(game, club) == Some(division))
     }
 }
 
-fn knowledge_from(game: &Game, viewer: &Viewer, player: &Player) -> PlayerKnowledge {
+pub(crate) fn knowledge_from<'a>(
+    game: &'a Game,
+    viewer: &Viewer<'a>,
+    player: &'a Player,
+) -> PlayerKnowledge {
     if viewer
         .club
         .is_some_and(|club| is_at_or_owned_by(player, club))
     {
         return PlayerKnowledge::Own;
     }
-    if viewer
-        .division
-        .is_some_and(|division| plays_in(game, player, division))
+    if player
+        .team_id
+        .as_deref()
+        .is_some_and(|club| viewer.sees_club_play_in_division(game, club))
     {
         return PlayerKnowledge::Known;
     }
@@ -75,13 +96,6 @@ fn is_at_or_owned_by(player: &Player, club_id: &str) -> bool {
 /// The league table a club contests. The legacy `game.league` never stands in for one.
 fn division_of<'a>(game: &'a Game, club: &str) -> Option<&'a str> {
     crate::end_of_season::club_league_table(game, club).map(|league| league.id.as_str())
-}
-
-fn plays_in(game: &Game, player: &Player, division: &str) -> bool {
-    player
-        .team_id
-        .as_deref()
-        .is_some_and(|club| division_of(game, club) == Some(division))
 }
 
 fn scouted_or_unknown(game: &Game, player: &Player) -> PlayerKnowledge {
