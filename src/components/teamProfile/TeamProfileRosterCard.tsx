@@ -1,11 +1,11 @@
-import { useRatingTiers } from "../../hooks/useRatingTiers";
-import { ratingTierClass } from "../../lib/ratingTier";
+import { usePlayerRatings } from "../../hooks/usePlayerRatings";
 import { countryName } from "../../lib/countries";
-import { calcAge, formatVal, getPlayerOvr, positionBadgeVariant } from "../../lib/helpers";
+import { calcAge, formatVal, positionBadgeVariant } from "../../lib/helpers";
 import type { PlayerData } from "../../store/gameStore";
 import ContextMenu from "../ContextMenu";
 import { buildViewProfileMenuItem } from "../playerActions/playerContextMenuItems";
 import { Badge, Card, CardBody, CardHeader, CountryFlag, PlayerAvatar, ProgressBar } from "../ui";
+import ReadableRating from "../players/ReadableRating";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import type { TeamProfileTranslate } from "./TeamProfile.types";
 import { naturalPositionOf } from "../../lib/positions";
@@ -25,7 +25,12 @@ export default function TeamProfileRosterCard({
   t,
   onSelectPlayer,
 }: TeamProfileRosterCardProps) {
-  const tierOf = useRatingTiers();
+  // What the manager may read of each player's rating: exact for his own club's and his division's
+  // players, a scout's range or a public standing for the rest.
+  const ratings = usePlayerRatings(
+    roster.map((player) => player.id),
+    roster,
+  );
   return (
     <Card className="lg:col-span-3">
       <CardHeader>
@@ -63,7 +68,6 @@ export default function TeamProfileRosterCard({
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
               {roster.map((player) => {
-                const ovr = getPlayerOvr(player);
                 const age = calcAge(player.date_of_birth);
                 const contextItems = onSelectPlayer
                   ? [buildViewProfileMenuItem(t, () => onSelectPlayer(player.id))]
@@ -120,14 +124,7 @@ export default function TeamProfileRosterCard({
                       </td>
                     )}
                     <td className="py-3 px-5">
-                      <span
-                        className={`font-heading font-bold text-lg tabular-nums ${ratingTierClass(
-                          isOwnTeam ? tierOf(ovr) : "Rest",
-                          "text",
-                        )}`}
-                      >
-                        {isOwnTeam ? ovr : "??"}
-                      </span>
+                      <ReadableRating rating={ratings[player.id] ?? null} />
                     </td>
                   </tr>
                 );

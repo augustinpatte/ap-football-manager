@@ -383,6 +383,15 @@ describe("TeamProfile", () => {
       createPlayer({ id: "p-77", full_name: "Seventy Seven", match_name: "S. Seven", ovr: 77 }),
     ].map((player) => ({ ...player, team_id: team.id }));
 
+    vi.mocked(invoke).mockImplementation(async (command: string) =>
+      command === "get_player_ratings"
+        ? {
+            "p-76": { kind: "exact", ovr: 76 },
+            "p-77": { kind: "exact", ovr: 77 },
+          }
+        : null,
+    );
+
     render(<TeamProfile team={team} gameState={state} isOwnTeam />);
 
     const ratingOf = async (name: string, rating: string) =>
@@ -393,6 +402,45 @@ describe("TeamProfile", () => {
     expect(await ratingOf("Seventy Six", "76")).toHaveClass(
       ...ratingTierClass("B", "text").split(" "),
     );
+  });
+
+  /**
+   * Given a rival club outside the manager's division with one player nobody has scouted (true
+   *   rating 83) and one a scout reported on
+   * When its roster renders and the backend answers with what the manager may read
+   * Then the first reads as a standing, the second as the scout's range, and 83 is not on screen
+   */
+  it("shows a rival's roster as standings and scout ranges, never the true ratings", async () => {
+    const team = createTeam({ id: "team-9", name: "Rival FC" });
+    const state = createGameState(team);
+    state.players = [
+      createPlayer({ id: "r-1", full_name: "Rival Unknown", match_name: "R. Unknown", ovr: 83 }),
+      createPlayer({ id: "r-2", full_name: "Rival Seen", match_name: "R. Seen", ovr: 70 }),
+    ].map((player) => ({ ...player, team_id: team.id }));
+    vi.mocked(invoke).mockImplementation(async (command: string) =>
+      command === "get_player_ratings"
+        ? {
+            "r-1": { kind: "standing", standing: "elite" },
+            "r-2": {
+              kind: "estimate",
+              low: 66,
+              high: 74,
+              confidence: "moderate",
+              current: true,
+              scouted_on: "2026-08-20",
+            },
+          }
+        : null,
+    );
+
+    render(<TeamProfile team={team} gameState={state} isOwnTeam={false} />);
+
+    const row = async (name: string) =>
+      within((await screen.findByText(name)).closest("tr") as HTMLElement);
+    expect((await row("Rival Unknown")).getByText("playerRating.standing.elite")).toBeInTheDocument();
+    expect((await row("Rival Seen")).getByText("66–74")).toBeInTheDocument();
+    expect(screen.queryByText("83")).not.toBeInTheDocument();
+    expect(screen.queryByText("??")).not.toBeInTheDocument();
   });
 
   it("offers a roster context menu action to view the player profile", async () => {
