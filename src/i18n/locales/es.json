@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "No se puede cambiar la formación mientras haya un jugador lesionado en el campo.",
         "unauthorized": "No se puede dar esa orden.",
         "other": "El motor del partido rechazó esa orden."
-      }
+      },
+      "saveGame": "Guardar partida",
+      "saving": "Guardando…",
+      "saved": "Partida guardada. El partido queda almacenado tal como está.",
+      "saveFailed": "No se pudo guardar la partida. Tu partido sigue intacto: comprueba el espacio libre en disco e inténtalo de nuevo.",
+      "saveExit": "Guardar y volver al menú",
+      "exiting": "Guardando y saliendo…",
+      "exitFailed": "No se pudo guardar la partida, así que sigues en el partido. Inténtalo de nuevo o sigue jugando."
     },
     "liveView": {
       "pitchLabel": "Campo 2D en directo: {{home}} contra {{away}}",

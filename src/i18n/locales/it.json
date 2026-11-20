@@ -3074,7 +3074,14 @@
         "formation_needs_eleven_players": "Il modulo non può cambiare finché un giocatore è infortunato in campo.",
         "unauthorized": "Non è possibile impartire quest'ordine.",
         "other": "Il motore di gioco ha rifiutato quest'ordine."
-      }
+      },
+      "saveGame": "Salva partita",
+      "saving": "Salvataggio…",
+      "saved": "Partita salvata. La gara è memorizzata esattamente com'è.",
+      "saveFailed": "Impossibile salvare la partita. La tua gara non è stata toccata: controlla lo spazio libero su disco e riprova.",
+      "saveExit": "Salva e torna al menu",
+      "exiting": "Salvataggio e uscita…",
+      "exitFailed": "Impossibile salvare la partita, quindi resti nella gara. Riprova oppure continua a giocare."
     },
     "liveView": {
       "pitchLabel": "Campo 2D in diretta: {{home}} contro {{away}}",

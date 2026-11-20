@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "Die Formation kann nicht geändert werden, solange ein Spieler verletzt auf dem Platz liegt.",
         "unauthorized": "Diese Anweisung ist nicht möglich.",
         "other": "Die Spiel-Engine hat diese Anweisung abgelehnt."
-      }
+      },
+      "saveGame": "Spiel speichern",
+      "saving": "Speichern…",
+      "saved": "Spiel gespeichert. Das Match ist genau so gesichert, wie es steht.",
+      "saveFailed": "Das Spiel konnte nicht gespeichert werden. Dein Match ist unverändert: Prüfe den freien Speicherplatz und versuche es erneut.",
+      "saveExit": "Speichern und zum Menü",
+      "exiting": "Speichern und Beenden…",
+      "exitFailed": "Das Spiel konnte nicht gespeichert werden, du bleibst daher im Match. Versuche es erneut oder spiele weiter."
     },
     "liveView": {
       "pitchLabel": "2D-Spielfeld live: {{home}} gegen {{away}}",

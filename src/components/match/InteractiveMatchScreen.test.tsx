@@ -52,6 +52,29 @@ const backend = vi.hoisted(() => {
   return { state };
 });
 
+/** The career-level calls the match screen makes: both go through the same queue as the engine's. */
+const career = vi.hoisted(() => ({
+  save: vi.fn<() => Promise<void>>(),
+  exit: vi.fn<() => Promise<void>>(),
+  closeRequested: null as null | ((event: { preventDefault: () => void }) => Promise<void> | void),
+  destroy: vi.fn(async () => undefined),
+}));
+
+vi.mock("../../services/sessionService", () => ({
+  saveGame: () => career.save(),
+  exitToMenu: () => career.exit(),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: (handler: typeof career.closeRequested) => {
+      career.closeRequested = handler;
+      return Promise.resolve(() => undefined);
+    },
+    destroy: career.destroy,
+  }),
+}));
+
 const SCHEDULED: MatchKeyEvent[] = [
   { id: 0, t_ms: 0, type: "period_start", period: "first_half" },
   { id: 1, t_ms: GOAL_MS, type: "goal", side: "home", scorer: "H2", position: { x: 104.5, y: 34 } },
@@ -332,8 +355,15 @@ async function wall(ms: number) {
   });
 }
 
-function renderScreen(onFinished = vi.fn()) {
-  render(<InteractiveMatchScreen homeName="Reds" awayName="Blues" onFinished={onFinished} />);
+function renderScreen(onFinished = vi.fn(), onExited = vi.fn()) {
+  render(
+    <InteractiveMatchScreen
+      homeName="Reds"
+      awayName="Blues"
+      onFinished={onFinished}
+      onExited={onExited}
+    />,
+  );
   return onFinished;
 }
 
@@ -679,5 +709,197 @@ describe("InteractiveMatchScreen (live 2D)", () => {
     await wall(100);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(backend.state.plan.pressing).toBe("Aggressive");
+  });
+});
+
+describe("InteractiveMatchScreen save controls", () => {
+  const saveName = () => tr("match.interactive.saveGame");
+  const exitName = () => tr("match.interactive.saveExit");
+
+  beforeEach(async () => {
+    await i18nReady;
+    reset();
+    stubCanvas();
+    career.save.mockReset().mockImplementation(async () => {
+      backend.state.calls.push("save");
+    });
+    career.exit.mockReset().mockImplementation(async () => {
+      backend.state.calls.push("exit");
+    });
+    career.destroy.mockClear();
+    career.closeRequested = null;
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame", "performance"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Given a live managed match, when the player clicks Save game, then the career is saved once and the screen says so, and the match carries on. */
+  it("saves the game from the match screen and confirms it", async () => {
+    await opened();
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(50);
+    expect(career.save).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(tr("match.interactive.saved"))).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: saveName() })).toBeEnabled();
+    expect(screen.getByRole("button", { name: tr("match.interactive.play") })).toBeEnabled();
+  });
+
+  /** Given a save in flight, when the player clicks Save, Save and return, Play or Finish again, then nothing duplicates or interleaves and the buttons say they are busy. */
+  it("allows one save at a time and blocks conflicting actions while it runs", async () => {
+    await opened();
+    let finishSave = () => {};
+    career.save.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const save = screen.getByRole("button", { name: saveName() });
+    fireEvent.click(save);
+    await wall(10);
+    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: exitName() })).toBeDisabled();
+    expect(screen.getByRole("button", { name: tr("match.interactive.play") })).toBeDisabled();
+    fireEvent.click(save);
+    fireEvent.click(screen.getByRole("button", { name: exitName() }));
+    expect(career.save).toHaveBeenCalledTimes(1);
+    expect(career.exit).not.toHaveBeenCalled();
+    finishSave();
+    await wall(50);
+    expect(save).toBeEnabled();
+  });
+
+  /** Given an accepted order, when the player saves straight after it, then the order reached the engine before the save, so the checkpoint carries it. */
+  it("saves after the orders already accepted, never before them", async () => {
+    await opened();
+    fireEvent.click(
+      screen.getByRole("combobox", { name: tr("tactics.phaseSettings.pressingIntensity") }),
+    );
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: tr("tactics.phaseSettings.pressingIntensity_Aggressive"),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.applyTactics") }));
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(100);
+    const calls = backend.state.calls;
+    const orderAt = calls.findIndex((c) => c.startsWith("order:"));
+    expect(orderAt).toBeGreaterThanOrEqual(0);
+    expect(calls.indexOf("save")).toBeGreaterThan(orderAt);
+    expect(backend.state.plan.pressing).toBe("Aggressive");
+  });
+
+  /** Given the backend refuses the save, when the player clicks Save, then the translated reason is shown, the match is untouched and the save can be retried. */
+  it("explains a failed save and keeps the match", async () => {
+    await opened();
+    career.save.mockRejectedValueOnce("be.error.noActiveSaveSession");
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(50);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(tr("be.error.noActiveSaveSession"));
+    expect(alert).not.toHaveTextContent("be.error.");
+    expect(screen.queryByText(tr("match.interactive.saved"))).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: tr("match.interactive.play") })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(50);
+    expect(career.save).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  /** Given a save that failed with an unknown error, when the screen reports it, then the player still gets an actionable sentence and no raw key. */
+  it("falls back to an actionable sentence for an unknown save error", async () => {
+    await opened();
+    career.save.mockRejectedValueOnce(new Error("disk exploded"));
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(50);
+    expect(screen.getByRole("alert")).toHaveTextContent(tr("match.interactive.saveFailed"));
+  });
+
+  /** Given a match under way, when the player chooses Save and return to menu, then the existing exit path runs once and the screen hands over to the menu. */
+  it("saves and returns to the menu through the existing exit path", async () => {
+    const onExited = vi.fn();
+    renderScreen(vi.fn(), onExited);
+    await screen.findByRole("img", {
+      name: tr("match.liveView.pitchLabel", { home: "Reds", away: "Blues" }),
+    });
+    await wall(50);
+    const exit = screen.getByRole("button", { name: exitName() });
+    fireEvent.click(exit);
+    fireEvent.click(exit);
+    await wall(50);
+    expect(career.exit).toHaveBeenCalledTimes(1);
+    expect(career.save).not.toHaveBeenCalled();
+    expect(onExited).toHaveBeenCalledTimes(1);
+  });
+
+  /** Given the exit save fails, when the player chooses Save and return, then they stay in the match with the reason shown and can try again. */
+  it("stays in the match when the exit save fails", async () => {
+    const onExited = vi.fn();
+    renderScreen(vi.fn(), onExited);
+    await screen.findByRole("img", {
+      name: tr("match.liveView.pitchLabel", { home: "Reds", away: "Blues" }),
+    });
+    await wall(50);
+    career.exit.mockRejectedValueOnce("be.error.liveMatch.inProgress");
+    fireEvent.click(screen.getByRole("button", { name: exitName() }));
+    await wall(50);
+    expect(onExited).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(tr("be.error.liveMatch.inProgress"));
+    expect(screen.getByRole("button", { name: exitName() })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: exitName() }));
+    await wall(50);
+    expect(onExited).toHaveBeenCalledTimes(1);
+  });
+
+  /** Given a match played on since the last save, when the window is closed, then the close is held and the player is asked, and Save & Quit saves before the window goes. */
+  it("never closes the window silently over unsaved match progress", async () => {
+    await opened();
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.play") }));
+    await wall(1500);
+    const preventDefault = vi.fn();
+    await act(async () => {
+      await career.closeRequested?.({ preventDefault });
+    });
+    expect(preventDefault).toHaveBeenCalled();
+    expect(career.destroy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: tr("closeConfirm.saveQuit") }));
+    await wall(100);
+    expect(career.save).toHaveBeenCalledTimes(1);
+    expect(career.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  /** Given Save & Quit fails, when the window close was requested, then the window stays open and the reason is shown. */
+  it("keeps the window open when the save before closing fails", async () => {
+    await opened();
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.play") }));
+    await wall(1500);
+    career.save.mockRejectedValueOnce("be.error.noActiveSaveSession");
+    await act(async () => {
+      await career.closeRequested?.({ preventDefault: vi.fn() });
+    });
+    fireEvent.click(screen.getByRole("button", { name: tr("closeConfirm.saveQuit") }));
+    await wall(100);
+    expect(career.destroy).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(tr("be.error.noActiveSaveSession"));
+  });
+
+  /** Given the match was saved and nothing has happened since, when the window is closed, then it closes without a prompt. */
+  it("lets the window close once the match is saved and unchanged", async () => {
+    await opened();
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.play") }));
+    await wall(1500);
+    fireEvent.click(screen.getByRole("button", { name: tr("match.pause") }));
+    await wall(3000);
+    fireEvent.click(screen.getByRole("button", { name: saveName() }));
+    await wall(100);
+    const preventDefault = vi.fn();
+    await act(async () => {
+      await career.closeRequested?.({ preventDefault });
+    });
+    expect(preventDefault).not.toHaveBeenCalled();
   });
 });

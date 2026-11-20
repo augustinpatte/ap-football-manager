@@ -93,7 +93,7 @@ export default function MatchSimulation() {
   const location = useLocation();
   const routeState = (location.state as MatchRouteState | null) ?? null;
   const matchMode = routeState?.mode || "live";
-  const { gameState, setGameState } = useGameStore();
+  const { gameState, setGameState, clearGame } = useGameStore();
   const { settings } = useSettingsStore();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(routeState?.snapshot ?? null);
   const [stage, setStage] = useState<MatchDayStage>("prematch");
@@ -366,6 +366,13 @@ export default function MatchSimulation() {
     [setGameState, snapshot, routeState],
   );
 
+  // The backend saved the career (with this match as a checkpoint) and cleared its session: the
+  // match is not finalised here, it resumes from the save.
+  const handleManagedExited = useCallback(() => {
+    clearGame();
+    navigate("/");
+  }, [clearGame, navigate]);
+
   // Reads the stored document only: the backend never simulates or finalises here.
   const handleWatchStoredReplay = useCallback(async () => {
     if (!replayRef || spatialActionInFlight.current) return;
@@ -505,6 +512,7 @@ export default function MatchSimulation() {
           snapshot.away_team.name
         }
         onFinished={handleManagedFinished}
+        onExited={handleManagedExited}
       />
     );
   }

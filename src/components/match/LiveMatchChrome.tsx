@@ -4,6 +4,8 @@ import type { InteractiveView } from "../../services/interactiveMatchService";
 import { Badge, Button, Checkbox, SegmentedControl } from "../ui";
 import type { DirectorSnapshot } from "./liveDirector";
 import { HIGHLIGHT_MODES, type HighlightMode, type PlaybackSpeed, SPEEDS } from "./livePlayback";
+import { MatchSaveControls } from "./MatchSaveControls";
+import type { MatchSaveStatus } from "./useMatchSave";
 
 /** The phase of the match as a person names it, from what the picture shows. */
 export function phaseLabelKey(snapshot: DirectorSnapshot): string {
@@ -60,10 +62,20 @@ export function LiveScoreboard({ homeName, awayName, snapshot, announcement }: S
   );
 }
 
+/** What the controls need of the career-level save: where it stands and the two ways to start it. */
+export interface SaveControls {
+  status: MatchSaveStatus;
+  /** A save or exit is running: nothing else may move the match. */
+  busy: boolean;
+  onSave: () => void;
+  onSaveAndExit: () => void;
+}
+
 interface ControlsProps {
   snapshot: DirectorSnapshot;
   view: InteractiveView | null;
   finishing: boolean;
+  save: SaveControls;
   onTogglePlay: () => void;
   onSkip: () => void;
   onSpeed: (speed: PlaybackSpeed) => void;
@@ -83,6 +95,7 @@ export function LiveControls({
   snapshot,
   view,
   finishing,
+  save,
   onTogglePlay,
   onSkip,
   onSpeed,
@@ -95,15 +108,16 @@ export function LiveControls({
   const modeLabel = useId();
   const finished = snapshot.status === "finished";
   const loading = snapshot.status === "loading";
+  const held = save.busy;
   return (
     <section
       aria-label={t("match.liveView.controls")}
       className="flex flex-wrap items-end gap-4 border-b border-line bg-sunken px-6 py-3"
     >
-      <Button size="sm" onClick={onTogglePlay} disabled={finished || loading}>
+      <Button size="sm" onClick={onTogglePlay} disabled={finished || loading || held}>
         {t(playLabelKey(snapshot))}
       </Button>
-      <Button size="sm" variant="outline" onClick={onSkip} disabled={finished || loading}>
+      <Button size="sm" variant="outline" onClick={onSkip} disabled={finished || loading || held}>
         {t("match.liveView.skip")}
       </Button>
       <div className="flex flex-col gap-1">
@@ -152,12 +166,18 @@ export function LiveControls({
           </span>
         </div>
       )}
-      <div className="ml-auto">
+      <div className="ml-auto flex flex-wrap items-start gap-4">
+        <MatchSaveControls
+          status={save.status}
+          disabled={finishing}
+          onSave={save.onSave}
+          onSaveAndExit={save.onSaveAndExit}
+        />
         <Button
           id="interactive-finish"
           size="sm"
           onClick={onFinish}
-          disabled={!finished || finishing}
+          disabled={!finished || finishing || held}
           aria-busy={finishing}
         >
           {t("match.interactive.finish")}

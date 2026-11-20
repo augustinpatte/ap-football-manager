@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "Le dispositif ne peut pas changer tant qu'un joueur est blessé sur le terrain.",
         "unauthorized": "Cet ordre ne peut pas être donné.",
         "other": "Le moteur de match a refusé cet ordre."
-      }
+      },
+      "saveGame": "Sauvegarder la partie",
+      "saving": "Sauvegarde…",
+      "saved": "Partie sauvegardée. Le match est enregistré tel qu'il est.",
+      "saveFailed": "La partie n'a pas pu être sauvegardée. Votre match est intact : vérifiez l'espace disque libre et réessayez.",
+      "saveExit": "Sauvegarder et revenir au menu",
+      "exiting": "Sauvegarde et sortie…",
+      "exitFailed": "La partie n'a pas pu être sauvegardée, vous restez donc dans le match. Réessayez ou continuez à jouer."
     },
     "liveView": {
       "pitchLabel": "Terrain 2D en direct : {{home}} contre {{away}}",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardBody } from "../ui";
+import DashboardCloseConfirmModal from "../dashboard/DashboardCloseConfirmModal";
 import type { MatchKeyEvent } from "../../services/interactiveMatchService";
 import { EventLog, SubstitutionPanel, TacticsPanel, TeamLineup } from "./InteractiveMatchPanels";
 import { LiveControls, LiveScoreboard } from "./LiveMatchChrome";
@@ -12,6 +13,7 @@ import { ReplayStatsPanel } from "./ReplayPanels";
 import { type FeedEntry, feedEntryOf, statsAt } from "./replayDerived";
 import { TEAM_COLOURS } from "./replayPitch";
 import { useLiveMatch } from "./useLiveMatch";
+import { useMatchSave } from "./useMatchSave";
 
 /** How long a goal stays announced above the pitch, in match time. */
 const GOAL_BANNER_MS = 8_000;
@@ -31,6 +33,8 @@ interface InteractiveMatchScreenProps<TFinish> {
   awayName: string;
   /** Receives what the career's own finalisation returned once the result has been applied. */
   onFinished: (response: TFinish) => void;
+  /** The career was saved and cleared for the main menu: leave the match screen. */
+  onExited: () => void;
 }
 
 /** The goal the picture has just shown, if it is still being announced. */
@@ -50,10 +54,19 @@ export default function InteractiveMatchScreen<TFinish>({
   homeName,
   awayName,
   onFinished,
+  onExited,
 }: InteractiveMatchScreenProps<TFinish>) {
   const { t } = useTranslation();
   const live = useLiveMatch<TFinish>(onFinished);
   const { director, snapshot, notice, drawRef } = live;
+  const save = useMatchSave({
+    enqueue: live.enqueue,
+    unsaved: live.unsaved,
+    markSaved: live.markSaved,
+    markLeaving: live.markLeaving,
+    halt: () => director.halt(),
+    onExited,
+  });
   const view = snapshot.view;
   const session = view?.session;
 
@@ -126,6 +139,12 @@ export default function InteractiveMatchScreen<TFinish>({
         snapshot={snapshot}
         view={view}
         finishing={live.finishing}
+        save={{
+          status: save.status,
+          busy: save.busy,
+          onSave: save.save,
+          onSaveAndExit: save.saveAndExit,
+        }}
         onTogglePlay={live.togglePlay}
         onSkip={() => void live.skipAhead()}
         onSpeed={(speed) => director.setSpeed(speed)}
@@ -143,6 +162,18 @@ export default function InteractiveMatchScreen<TFinish>({
         <p role="alert" className="bg-danger-tint px-6 py-2 text-body text-danger">
           {notice}
         </p>
+      )}
+      {save.error && (
+        <p role="alert" className="bg-danger-tint px-6 py-2 text-body text-danger">
+          {save.error}
+        </p>
+      )}
+      {save.closePrompt && (
+        <DashboardCloseConfirmModal
+          onCancel={save.dismissClosePrompt}
+          onQuitWithoutSave={() => save.closeWindow(false)}
+          onSaveAndQuit={() => save.closeWindow(true)}
+        />
       )}
       {snapshot.rejectedFrames > 0 && (
         <p className="bg-warning-tint px-6 py-2 text-body text-fg">
