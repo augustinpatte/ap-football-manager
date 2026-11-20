@@ -866,10 +866,6 @@ fn availability_clause(
     }
 }
 
-/// The page order. `descending` always means "the larger value first" from the screen's point of
-/// view: Z before A for a name, 90 before 50 for a rating or a fee, the oldest first for an age.
-/// Age is the one column stored the other way round (an earlier birth date is older), so it alone
-/// reverses the direction.
 /// SQL for a player's public standing as a number, lowest standing 0, from the one set of cut-offs
 /// (`ofm_core::rating_view`).
 fn standing_rank_sql() -> String {
@@ -891,6 +887,10 @@ fn standing_rank_sql() -> String {
     rank
 }
 
+/// The page order. `descending` always means "the larger value first" from the screen's point of
+/// view: Z before A for a name, 90 before 50 for a rating or a fee, the oldest first for an age.
+/// Age is the one column stored the other way round (an earlier birth date is older), so it alone
+/// reverses the direction.
 fn order_clause(query: &RegistryQuery) -> String {
     let direction = if query.descending { "DESC" } else { "ASC" };
     let age_direction = if query.descending { "ASC" } else { "DESC" };
