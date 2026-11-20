@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use crate::save_index::{SaveEntry, SaveIndex, load_index, rebuild_index, write_index};
+use crate::save_index::{
+    DbValidation, SaveEntry, SaveIndex, load_index_or_quarantine, rebuild_index, write_index,
+};
 
 const SAVE_INDEX_WRITE_ERROR: &str = "be.error.saveIndex.writeFailed";
 
@@ -14,7 +16,7 @@ pub struct SaveIndexManager {
 impl SaveIndexManager {
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
         let index_path = saves_dir.join("save_index.json");
-        let (index, index_needs_rebuild) = match load_index(&index_path)? {
+        let (index, index_needs_rebuild) = match load_index_or_quarantine(&index_path)? {
             Some(index) => (index, false),
             None => (SaveIndex::new(), true),
         };
@@ -32,7 +34,15 @@ impl SaveIndexManager {
             return Ok(());
         }
 
-        let (index, _) = rebuild_index(&self.saves_dir)?;
+        let (index, validations) = rebuild_index(&self.saves_dir)?;
+        for validation in &validations {
+            // Left on disk untouched and unlisted: say so rather than skip it silently.
+            if let DbValidation::Invalid { filename, reason } = validation {
+                log::warn!(
+                    "[saves] {filename} is not a usable career and was not indexed: {reason}"
+                );
+            }
+        }
 
         write_index(&self.index_path, &index)?;
         self.index = index;
