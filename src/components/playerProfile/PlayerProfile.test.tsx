@@ -565,6 +565,73 @@ describe("PlayerProfile contract surfaces", () => {
   });
 
   /**
+   * Given a player at another club whom nobody has scouted, rated 73 in the game
+   * When the profile opens and the backend says only his public standing is known
+   * Then the hero shows the standing and nowhere on the page is his rating, nor his condition
+   */
+  it("shows an unscouted external player as a standing, not his rating", async () => {
+    const player = createPlayer({ team_id: "team-2", ovr: 73, condition: 81, morale: 64 });
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: InvokeArgs) => {
+      if (command === "get_player_ratings") {
+        expect(args).toEqual({ playerIds: [player.id] });
+        return { [player.id]: { kind: "standing", standing: "good" } };
+      }
+      return defaultInvokeResponse(command);
+    });
+
+    render(
+      <PlayerProfile
+        player={player}
+        gameState={createGameState(player, [createStaff()])}
+        isOwnClub={false}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("playerRating.standing.good")).toBeInTheDocument();
+    expect(screen.queryByText("73")).not.toBeInTheDocument();
+    expect(screen.queryByText("81%")).not.toBeInTheDocument();
+    expect(screen.queryByText("64%")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a player a scout reported on, with a stale report, whose true rating is 90
+   * When the profile opens
+   * Then the hero shows the report's range marked old, not the new rating, until he is scouted again
+   */
+  it("shows a stale scouted range, not the rating the player has grown to", async () => {
+    const player = createPlayer({ team_id: "team-2", ovr: 90 });
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_player_ratings") {
+        return {
+          [player.id]: {
+            kind: "estimate",
+            low: 60,
+            high: 66,
+            confidence: "moderate",
+            current: false,
+            scouted_on: "2026-03-10",
+          },
+        };
+      }
+      return defaultInvokeResponse(command);
+    });
+
+    render(
+      <PlayerProfile
+        player={player}
+        gameState={createGameState(player, [createStaff()])}
+        isOwnClub={false}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("60–66")).toBeInTheDocument();
+    expect(screen.getByText("playerRating.stale")).toBeInTheDocument();
+    expect(screen.queryByText("90")).not.toBeInTheDocument();
+  });
+
+  /**
    * Given a player born on 10 March 2000 and a game date of 1 August 2030
    * When the profile opens
    * Then it shows age 30

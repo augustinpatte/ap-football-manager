@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ratingTierClass } from "../../lib/ratingTier";
+import type { RatingView } from "../../services/playerRatingService";
 import { createPlayer } from "../../test-utils/factories";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
 
@@ -9,6 +10,14 @@ vi.mock("../../hooks/useRatingTiers", async () => {
   const { cannedRatingTiersModule } = await import("../../test-utils/ratingTiers");
   return cannedRatingTiersModule();
 });
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key}:${JSON.stringify(params)}` : key,
+    i18n: { language: "en" },
+  }),
+}));
 
 function t(key: string): string {
   return key === "common.ovr" ? "OVR" : key;
@@ -20,7 +29,8 @@ function renderHero(face?: string) {
   render(
     <PlayerProfileHeroCard
       player={player}
-      ovr={77}
+      rating={{ kind: "exact", ovr: 77 }}
+      formKnown
       primaryPosition="Midfielder"
       age={22}
       teamName="Brussels FC"
@@ -74,7 +84,8 @@ function renderHeroAtOvr(ovr: number) {
   return render(
     <PlayerProfileHeroCard
       player={createPlayer()}
-      ovr={ovr}
+      rating={{ kind: "exact", ovr }}
+      formKnown
       primaryPosition="Forward"
       age={25}
       teamName="Club"
@@ -112,5 +123,92 @@ describe("PlayerProfileHeroCard rating tiers", () => {
 
     renderHeroAtOvr(77);
     expect(frameOf("77")).toHaveClass(...ratingTierClass("A", "hero").split(" "));
+  });
+});
+
+function renderHeroWith(rating: RatingView | null) {
+  return render(
+    <PlayerProfileHeroCard
+      player={createPlayer({ condition: 43, morale: 38 })}
+      rating={rating}
+      formKnown={rating?.kind === "exact"}
+      primaryPosition="Forward"
+      age={25}
+      teamName="Club"
+      footednessLabel="Right"
+      weakFootValue={3}
+      language="en"
+      isOwnClub={false}
+      scoutAvailability={{
+        scouts: [],
+        availableScout: null,
+        alreadyScouting: false,
+        allBusy: false,
+        canScout: false,
+      }}
+      scoutStatus="idle"
+      scoutError={null}
+      onScout={vi.fn()}
+      t={(key: string) => key}
+    />,
+  );
+}
+
+describe("PlayerProfileHeroCard for a player the club has not scouted", () => {
+  /**
+   * Given an external player known only by his public standing
+   * When his profile hero renders
+   * Then the OVR tile says the standing, no number stands for his rating, and his condition and
+   *      morale (what a scout reports) are not shown either
+   */
+  it("shows a standing, never a rating, condition or morale", () => {
+    renderHeroWith({ kind: "standing", standing: "strong" });
+
+    expect(screen.getByText("playerRating.standing.strong")).toBeInTheDocument();
+    expect(screen.queryByText("43%")).not.toBeInTheDocument();
+    expect(screen.queryByText("38%")).not.toBeInTheDocument();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  /**
+   * Given a player a scout reported on, from before this season
+   * When his profile hero renders
+   * Then the tile shows the scout's range marked as an old estimate, not a single figure
+   */
+  it("shows an old scout's range as an estimate marked old", () => {
+    renderHeroWith({
+      kind: "estimate",
+      low: 70,
+      high: 78,
+      confidence: "low",
+      current: false,
+      scouted_on: "2026-03-01",
+    });
+
+    expect(screen.getByText("70–78")).toBeInTheDocument();
+    expect(screen.getByText("playerRating.stale")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a rating that has not arrived yet
+   * When his profile hero renders
+   * Then a dash stands in the tile, and no number is invented
+   */
+  it("shows a dash while the rating is on its way", () => {
+    renderHeroWith(null);
+
+    expect(screen.getByText("playerRating.unavailable")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a player the club knows exactly (its own)
+   * When his profile hero renders
+   * Then his condition and morale are shown as before
+   */
+  it("still shows the condition and morale of a player the club knows", () => {
+    renderHeroWith({ kind: "exact", ovr: 70 });
+
+    expect(screen.getAllByText("43%").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("38%").length).toBeGreaterThanOrEqual(1);
   });
 });

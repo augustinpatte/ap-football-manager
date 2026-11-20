@@ -1,4 +1,4 @@
-import { getPlayerOvr } from "../../lib/helpers";
+import { usePlayerRatings } from "../../hooks/usePlayerRatings";
 import { useContractRiskLevels } from "../../hooks/useContractWarningStages";
 import type { PlayerData, GameStateData } from "../../store/gameStore";
 import { useTranslation } from "react-i18next";
@@ -71,7 +71,11 @@ export default function PlayerProfile({
     gameState,
     onGameUpdate,
   });
-  const ovr = getPlayerOvr(player);
+  // His rating as the club may read it: exact for its own, a scout's range or a standing otherwise.
+  const rating = usePlayerRatings([player.id], gameState)[player.id] ?? null;
+  // His condition and morale are seen by the staff of the club he plays for, or by anyone in his
+  // division; for any other player they are what a scout reports, so they are not shown unscouted.
+  const formKnown = rating?.kind === "exact";
   const age = calcAgeOnDate(player.date_of_birth, gameState.clock.current_date);
   const playerTeam = gameState.teams.find((team) => team.id === player.team_id);
   const currentTacticalRole: PlayerRole = playerTeam?.player_roles?.[player.id] ?? "Standard";
@@ -248,7 +252,8 @@ export default function PlayerProfile({
 
       <PlayerProfileHeroCard
         player={player}
-        ovr={ovr}
+        rating={rating}
+        formKnown={formKnown}
         primaryPosition={primaryPosition}
         age={age}
         teamName={teamName}
@@ -306,8 +311,8 @@ export default function PlayerProfile({
           dateOfBirth={player.date_of_birth}
           contractEnd={player.contract_end}
           currentDate={gameState.clock.current_date}
-          condition={player.condition}
-          morale={player.morale}
+          condition={formKnown ? player.condition : null}
+          morale={formKnown ? player.morale : null}
           marketValue={player.market_value}
           wage={player.wage}
           language={i18n.language}

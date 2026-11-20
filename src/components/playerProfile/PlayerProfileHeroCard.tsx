@@ -13,12 +13,17 @@ import PlayerProfileScoutAction from "./PlayerProfileScoutAction";
 import { TraitList } from "../TraitBadge";
 import { Badge, Card, CountryFlag, JerseyIcon, PlayerAvatar } from "../ui";
 import type { TeamData } from "../../store/types";
+import type { RatingView } from "../../services/playerRatingService";
+import ReadableRating from "../players/ReadableRating";
 
 type TranslateFn = (key: string, options?: Record<string, string | number>) => string;
 
 interface PlayerProfileHeroCardProps {
   player: PlayerData;
-  ovr: number;
+  /** How the manager may read his rating; `null` while it is on its way. */
+  rating: RatingView | null;
+  /** Whether his condition and morale may be shown: the club's staff see him, or a scout reported. */
+  formKnown: boolean;
   primaryPosition: string;
   age: number;
   teamName: string;
@@ -37,7 +42,8 @@ interface PlayerProfileHeroCardProps {
 
 export default function PlayerProfileHeroCard({
   player,
-  ovr,
+  rating,
+  formKnown,
   primaryPosition,
   age,
   teamName,
@@ -55,6 +61,9 @@ export default function PlayerProfileHeroCard({
 }: PlayerProfileHeroCardProps) {
   const tierOf = useRatingTiers();
   const teamId = player.team_id;
+  const knowsHisForm = formKnown;
+  const conditionText = knowsHisForm ? `${player.condition}%` : "—";
+  const moraleText = knowsHisForm ? `${player.morale}%` : "—";
   const teamContextItems =
     teamId && onSelectTeam ? [buildViewTeamMenuItem(t, () => onSelectTeam(teamId))] : [];
 
@@ -67,10 +76,10 @@ export default function PlayerProfileHeroCard({
             className="w-24 h-24 shrink-0 rounded-2xl flex items-center justify-center font-heading font-bold text-3xl border-2 border-white/10 bg-white/5 text-gray-300 overflow-hidden"
           />
           <div
-            className={`flex h-24 w-20 shrink-0 flex-col items-center justify-center rounded-2xl border-2 font-heading ${ratingTierClass(tierOf(ovr), "hero")}`}
+            className={`flex min-h-24 min-w-20 shrink-0 flex-col items-center justify-center rounded-2xl border-2 px-3 font-heading ${ratingTierClass(rating?.kind === "exact" ? tierOf(rating.ovr) : "Rest", "hero")}`}
           >
             <span className="text-xs font-bold uppercase tracking-wider">{t("common.ovr")}</span>
-            <span className="text-4xl font-bold leading-none">{ovr}</span>
+            <ReadableRating rating={rating} size="hero" />
           </div>
           {player.jersey_number != null && team != null && (
             <JerseyIcon
@@ -154,13 +163,17 @@ export default function PlayerProfileHeroCard({
           <div className="hidden md:grid grid-cols-2 gap-3 shrink-0">
             <QuickStat
               label={t("common.condition")}
-              value={`${player.condition}%`}
-              color={player.condition >= 70 ? "text-primary-400" : "text-red-400"}
+              value={conditionText}
+              color={
+                knowsHisForm && player.condition < 70 ? "text-red-400" : "text-primary-400"
+              }
             />
             <QuickStat
               label={t("common.morale")}
-              value={`${player.morale}%`}
-              color={player.morale >= 70 ? "text-primary-400" : "text-accent-400"}
+              value={moraleText}
+              color={
+                knowsHisForm && player.morale < 70 ? "text-accent-400" : "text-primary-400"
+              }
             />
             <QuickStat
               label={t("common.value")}
@@ -179,13 +192,13 @@ export default function PlayerProfileHeroCard({
       <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600 md:hidden">
         <MobileQuickStat
           label={t("common.condition")}
-          value={`${player.condition}%`}
-          color={player.condition >= 70 ? "text-primary-500" : "text-red-500"}
+          value={conditionText}
+          color={knowsHisForm && player.condition < 70 ? "text-red-500" : "text-primary-500"}
         />
         <MobileQuickStat
           label={t("common.morale")}
-          value={`${player.morale}%`}
-          color={player.morale >= 70 ? "text-primary-500" : "text-accent-500"}
+          value={moraleText}
+          color={knowsHisForm && player.morale < 70 ? "text-accent-500" : "text-primary-500"}
         />
         <MobileQuickStat
           label={t("common.value")}

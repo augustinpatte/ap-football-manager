@@ -26,8 +26,9 @@ interface PlayerProfileContractCardProps {
   dateOfBirth: string;
   contractEnd: string | null;
   currentDate: string;
-  condition: number;
-  morale: number;
+  /** `null` when the club does not know his form (an external player nobody has scouted). */
+  condition: number | null;
+  morale: number | null;
   marketValue: number;
   wage: number;
   language: string;
@@ -116,12 +117,12 @@ export default function PlayerProfileContractCard({
           <InfoRow
             icon={<Heart className="w-4 h-4" />}
             label={t("common.condition")}
-            value={`${condition}%`}
+            value={condition === null ? "—" : `${condition}%`}
           />
           <InfoRow
             icon={<Activity className="w-4 h-4" />}
             label={t("common.morale")}
-            value={`${morale}%`}
+            value={morale === null ? "—" : `${morale}%`}
           />
         </div>
         {isOwnClub && steppingStonePromise ? (
