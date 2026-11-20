@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useGameStore, type GameStateData } from "../store/gameStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { resolveBackendKeyError } from "../utils/backendI18n";
+import { showError } from "../lib/errorDialog";
 import type {
   MatchSnapshot,
   MatchEvent,
@@ -89,6 +90,12 @@ function snapshotHomePlayerIds(snapshot: MatchSnapshot): ReadonlySet<string> {
 
 export default function MatchSimulation() {
   const { t } = useTranslation();
+  // The snapshot effect must not re-run (and restart a match) when only the language changes, so
+  // it reads the translator through a ref instead of listing it as a dependency.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = (location.state as MatchRouteState | null) ?? null;
@@ -234,6 +241,10 @@ export default function MatchSimulation() {
           }
         } catch (restoreError) {
           console.error("Failed to restore live match session:", restoreError);
+          await showError(
+            tRef.current("errors.title"),
+            resolveBackendKeyError(restoreError, tRef.current("match.restoreFailed")),
+          );
           navigate("/dashboard");
         }
       }
@@ -428,6 +439,10 @@ export default function MatchSimulation() {
       return true;
     } catch (err) {
       console.error("Failed to finish match:", err);
+      await showError(
+        tRef.current("errors.title"),
+        resolveBackendKeyError(err, tRef.current("match.finishFailed")),
+      );
       return false;
     }
   }, [hasFinalizedMatch, setGameState]);

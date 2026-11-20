@@ -8,6 +8,7 @@ import MatchSimulation from "./MatchSimulation";
 
 const navigateMock = vi.fn();
 const setGameStateMock = vi.fn();
+const showErrorMock = vi.fn();
 let locationState: unknown = null;
 let gameStoreState: {
   gameState: Record<string, unknown> | null;
@@ -21,6 +22,10 @@ vi.mock("../components/match/matchCommands", async (importOriginal) => {
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
+}));
+
+vi.mock("../lib/errorDialog", () => ({
+  showError: (title: string, detail: string) => showErrorMock(title, detail),
 }));
 
 // The real resolver needs the full i18n instance; its own behaviour is tested in backendI18n.test.ts.
@@ -417,6 +422,7 @@ describe("MatchSimulation", (): void => {
     mockedInvoke.mockReset();
     navigateMock.mockReset();
     setGameStateMock.mockReset();
+    showErrorMock.mockReset();
     locationState = null;
     gameStoreState = {
       gameState: makeGameState(),
@@ -684,6 +690,72 @@ describe("MatchSimulation", (): void => {
       expect(screen.getByTestId("prematch")).toHaveTextContent("Restored FC");
     } finally {
       consoleWarnSpy.mockRestore();
+    }
+  });
+
+  /**
+   * Given a live match that cannot be restored (the backend has no such session),
+   * When the match screen opens,
+   * Then the manager is told why before being sent back to the dashboard, not dropped silently.
+   */
+  it("says why a live match could not be restored before leaving for the dashboard", async (): Promise<void> => {
+    const consoleSpies = [
+      vi.spyOn(console, "warn").mockImplementation(() => {}),
+      vi.spyOn(console, "error").mockImplementation(() => {}),
+    ];
+    try {
+      locationState = {
+        fixtureIndex: 4,
+        competitionId: "cup1",
+        fixtureId: "cup-fix4",
+        mode: "live",
+      };
+      mockedInvoke.mockRejectedValueOnce(new Error("No active live match"));
+      mockedInvoke.mockRejectedValueOnce("be.error.liveMatch.notFound");
+
+      render(<MatchSimulation />);
+
+      await waitFor((): void => {
+        expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+      });
+      expect(showErrorMock).toHaveBeenCalledTimes(1);
+      expect(showErrorMock).toHaveBeenCalledWith(
+        "errors.title",
+        "resolved:be.error.liveMatch.notFound",
+      );
+    } finally {
+      for (const spy of consoleSpies) spy.mockRestore();
+    }
+  });
+
+  /**
+   * Given a finished match whose result cannot be stored (finish_live_match fails),
+   * When full time is reached,
+   * Then the manager is told, stays on the match screen and nothing is reported as finished.
+   */
+  it("tells the manager when the finished match could not be stored", async (): Promise<void> => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      locationState = { mode: "spectator", snapshot: makeSnapshot() };
+      mockedInvoke
+        .mockResolvedValueOnce(makeSnapshot())
+        .mockRejectedValueOnce(new Error("disk full"));
+
+      render(<MatchSimulation />);
+      fireEvent.click(await screen.findByRole("button", { name: "match.startMatch" }));
+      await waitFor((): void => {
+        expect(screen.getByTestId("match-live-container")).toHaveTextContent("Home FC");
+      });
+      fireEvent.click(screen.getByTestId("match-live"));
+
+      await waitFor((): void => {
+        expect(showErrorMock).toHaveBeenCalledWith("errors.title", "match.finishFailed");
+      });
+      expect(screen.queryByTestId("postmatch-finish")).not.toBeInTheDocument();
+      expect(setGameStateMock).not.toHaveBeenCalled();
+      expect(navigateMock).not.toHaveBeenCalledWith("/dashboard");
+    } finally {
+      consoleErrorSpy.mockRestore();
     }
   });
 

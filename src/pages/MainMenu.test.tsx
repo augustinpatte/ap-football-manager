@@ -796,6 +796,27 @@ describe("MainMenu", () => {
     expect(mockedInvoke).not.toHaveBeenCalledWith("install_package", expect.anything());
   });
 
+  /**
+   * Given the saves list cannot be read (get_saves fails),
+   * When the manager opens Load Game,
+   * Then they are told so instead of seeing an empty list that looks like lost saves.
+   */
+  it("says so when the list of saves cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "list_installed_packages") return [];
+      if (command === "get_saves") throw "be.error.saveIndex.loadFailed";
+      return null;
+    });
+
+    render(<MainMenu />);
+    fireEvent.click(screen.getByText("menu.loadGame"));
+
+    await waitFor(() => {
+      expect(showErrorMock).toHaveBeenCalledWith("errors.title", "menu.failedLoadSaves");
+    });
+  });
+
   it("surfaces a message when a save fails to load", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 

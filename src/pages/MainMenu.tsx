@@ -467,6 +467,10 @@ export default function MainMenu() {
       setSaves(dbSaves);
     } catch (error) {
       console.error("Failed to load saves:", error);
+      await showError(
+        t("errors.title"),
+        t("menu.failedLoadSaves", { error: resolveBackendError(error) }),
+      );
     } finally {
       setIsLoadingSaves(false);
     }
