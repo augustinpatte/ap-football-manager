@@ -58,26 +58,39 @@ pub(crate) fn squad_capacity_of(players: &[Player], club_id: &str) -> SquadCapac
             loaned_out += 1;
         }
     }
-    let senior_limit = MAX_SENIOR_SQUAD;
-    let free_places = senior_limit.saturating_sub(registered_seniors);
-    let blocks_signing = free_places == 0;
-    SquadCapacity {
-        registered_seniors,
-        senior_limit,
-        youth,
-        loaned_in,
-        loaned_out,
-        free_places,
-        releases_needed: if blocks_signing {
-            registered_seniors + 1 - senior_limit
-        } else {
-            0
-        },
-        blocks_signing,
-    }
+    SquadCapacity::from_counts(registered_seniors, youth, loaned_in, loaned_out)
 }
 
 impl SquadCapacity {
+    /// The capacity a club has with these counts on its lists. `squad_capacity_of` counts them from
+    /// the players; a caller that has already counted the seniors itself (a registration check made
+    /// in one pass over the world) builds the same figure here, so the limit and its error are
+    /// still one rule.
+    pub(crate) fn from_counts(
+        registered_seniors: usize,
+        youth: usize,
+        loaned_in: usize,
+        loaned_out: usize,
+    ) -> SquadCapacity {
+        let senior_limit = MAX_SENIOR_SQUAD;
+        let free_places = senior_limit.saturating_sub(registered_seniors);
+        let blocks_signing = free_places == 0;
+        SquadCapacity {
+            registered_seniors,
+            senior_limit,
+            youth,
+            loaned_in,
+            loaned_out,
+            free_places,
+            releases_needed: if blocks_signing {
+                registered_seniors + 1 - senior_limit
+            } else {
+                0
+            },
+            blocks_signing,
+        }
+    }
+
     /// The refusal as a translation key with the numbers the player needs to act on it.
     pub(crate) fn full_error(&self) -> String {
         format!(

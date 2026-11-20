@@ -293,7 +293,9 @@ fn advanced_day_response(
     let results = collect_advance_results(game, today);
     AdvanceTimeWithModeResponse {
         action: "advanced".to_string(),
-        game: Some(game.clone()),
+        // The screen's copy, like every other time command's: the per-season history of each player
+        // stays out of the response and is loaded with the profile that shows it.
+        game: Some(game.ui_clone()),
         snapshot: None,
         fixture_index: None,
         competition_id: None,
@@ -645,5 +647,54 @@ mod tests {
             Some("staged-elsewhere"),
             "the mirror is restored, so the game the player returns to is the one they left"
         );
+    }
+
+    /// Given a career whose players carry season-by-season history
+    /// When the manager continues one quiet day
+    /// Then the response carries the screen's copy, without any player's history (the profile loads
+    ///      it on demand), while the game the server keeps still holds all of it.
+    #[test]
+    fn continuing_a_day_sends_the_screens_copy_without_player_history() {
+        let mut game = game_with(vec![league("eng-d1", Vec::new())], None);
+        let mut veteran = senior(
+            "veteran",
+            Some("eng-00"),
+            domain::player::Position::Midfielder,
+        );
+        veteran.career.push(domain::player::CareerEntry {
+            season: 2035,
+            team_id: "eng-00".to_string(),
+            team_name: "Eng".to_string(),
+            appearances: 30,
+            goals: 3,
+            assists: 4,
+            synthetic: false,
+        });
+        game.players.push(veteran);
+        let state = StateManager::new();
+        state.set_game(game);
+
+        let response = advance_time_with_mode(&state, "delegate").expect("a quiet day advances");
+
+        assert_eq!(response.action, "advanced");
+        let sent = response.game.expect("the response carries the game");
+        let sent_player = sent
+            .players
+            .iter()
+            .find(|p| p.id == "veteran")
+            .expect("sent");
+        assert!(
+            sent_player.career.is_empty(),
+            "history must stay off the wire"
+        );
+        let kept = state
+            .get_game(|game| {
+                game.players
+                    .iter()
+                    .find(|p| p.id == "veteran")
+                    .map(|p| p.career.len())
+            })
+            .flatten();
+        assert_eq!(kept, Some(1), "the server's game keeps the history");
     }
 }

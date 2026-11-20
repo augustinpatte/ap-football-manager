@@ -330,8 +330,17 @@ pub(crate) fn profiles_among(
 /// One club's profile, read as the sweep reads it: for a caller that works for a single club (the
 /// manager's assistant) and has no sweep to share the reading with.
 pub(crate) fn profile_of(game: &Game, team_id: &str) -> ClubProfile {
-    let wage_bills = crate::finances::wage_bills_by_club(game);
-    profiles(game, &wage_bills)
+    // Only this club is read: its squad, its league and its wage bill. Reading every club's profile
+    // and every club's bill to answer for one made this a pass over the whole world per club per
+    // day (a measured tenth of a simulated day in the 440-club world). A club's profile depends on
+    // nothing another club's does, and `calc_wages` is its bill by the contract `wage_bills_by_club`
+    // is tested against, so the answer is the one the full reading gives.
+    let only: std::collections::HashSet<String> = std::iter::once(team_id.to_string()).collect();
+    let wage_bills = HashMap::from([(
+        team_id.to_string(),
+        crate::finances::calc_wages(game, team_id),
+    )]);
+    profiles_among(game, &wage_bills, Some(&only))
         .remove(team_id)
         .unwrap_or(ClubProfile::NEUTRAL)
 }
@@ -879,5 +888,92 @@ mod tests {
     fn a_record_from_before_tiers_were_kept_reads_as_it_always_did() {
         let game = pyramid_with(300, 800, 0, (1, None));
         assert_eq!(ambition_of_club(&game), Ambition::Established);
+    }
+
+    /// Given a world of clubs that differ in wealth, wage bills, league place and squad, with
+    ///       players on loan between them and some free
+    /// When one club's profile is read alone and then every club's together
+    /// Then each club's profile is the same either way, and the world holds more than one profile
+    ///      (so the comparison could fail).
+    #[test]
+    fn a_clubs_profile_read_alone_is_the_one_the_whole_world_reading_gives() {
+        use crate::transfers::tests::{acceptance_game, sample_attributes};
+        use domain::league::{League, StandingEntry};
+        use domain::player::{ActiveLoan, Player, Position};
+
+        let mut game = acceptance_game("team1", false);
+        let ids: Vec<String> = (1..=8).map(|n| format!("club{n}")).collect();
+        let mut template = game.teams[0].clone();
+        game.teams.clear();
+        for (index, id) in ids.iter().enumerate() {
+            let mut team = template.clone();
+            team.id = id.clone();
+            team.reputation = 100 + 60 * index as u32;
+            team.finance = if index % 3 == 0 {
+                -2_000_000
+            } else {
+                1_000_000 * (index as i64 + 1) * 40
+            };
+            team.transfer_budget = team.finance.max(0) / 2;
+            team.wage_budget = 150_000 + 80_000 * index as i64;
+            game.teams.push(team);
+        }
+        template = game.teams[0].clone();
+        let _ = template;
+        for (index, id) in ids.iter().enumerate() {
+            for n in 0..(14 + index) {
+                let mut player = Player::new(
+                    format!("{id}-p{n}"),
+                    "P".into(),
+                    "Q".into(),
+                    format!("{}-03-01", 1990 + (n % 14)),
+                    "England".into(),
+                    Position::Midfielder,
+                    sample_attributes(),
+                );
+                player.team_id = Some(id.clone());
+                player.market_value = 200_000 * (1 + (n as u64 * (index as u64 + 1)) % 9);
+                player.stage_wage(2_000 + 1_500 * (n as u32 % 7) * (index as u32 + 1));
+                if n == 3 && index % 2 == 0 {
+                    player.active_loan = Some(ActiveLoan {
+                        parent_team_id: id.clone(),
+                        loan_team_id: ids[(index + 1) % ids.len()].clone(),
+                        loan_team_name: None,
+                        start_date: "2026-01-01".to_string(),
+                        end_date: "2026-06-30".to_string(),
+                        wage_contribution_pct: 40,
+                        buy_option_fee: None,
+                        loan_start_minutes: 0,
+                        loan_start_appearances: 0,
+                        development_reported_minutes: 0,
+                        development_reported_appearances: 0,
+                    });
+                }
+                game.players.push(player);
+            }
+        }
+        let standings: Vec<StandingEntry> = ids
+            .iter()
+            .map(|id| StandingEntry::new(id.clone()))
+            .collect();
+        game.competitions = vec![League {
+            id: "league".to_string(),
+            name: "League".to_string(),
+            season: 2026,
+            standings,
+            ..Default::default()
+        }];
+
+        let everyone = profiles(&game, &crate::finances::wage_bills_by_club(&game));
+
+        let mut distinct = std::collections::HashSet::new();
+        for id in &ids {
+            assert_eq!(profile_of(&game, id), everyone[id], "{id}");
+            distinct.insert(format!("{:?}", everyone[id]));
+        }
+        assert!(
+            distinct.len() > 1,
+            "the world must hold different profiles: {distinct:?}"
+        );
     }
 }

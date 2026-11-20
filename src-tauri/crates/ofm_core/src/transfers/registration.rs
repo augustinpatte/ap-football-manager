@@ -51,6 +51,7 @@ pub(crate) fn pending_wage_commitments(game: &Game, team_id: &str) -> i64 {
     }
     reserved
 }
+#[cfg(test)]
 /// The players `team_id` has agreed to buy that wait to register, other than `except_player_id`:
 /// each will take a place on its senior list. Derived from the saved offers like the wage and the
 /// fee. A player already registered at the club (a loan that becomes a purchase) takes none.
@@ -72,6 +73,7 @@ pub(crate) fn pending_incoming_purchases(
         })
         .count()
 }
+#[cfg(test)]
 
 /// The players `team_id` has agreed to take on loan that wait to register, other than
 /// `except_player_id`: each will take a place on its senior list exactly as a purchase does. A
@@ -91,6 +93,7 @@ pub(crate) fn pending_incoming_loans(game: &Game, team_id: &str, except_player_i
         })
         .count()
 }
+#[cfg(test)]
 
 /// The club's own seniors who are out on loan elsewhere, other than `except_player_id`. Each
 /// returns to the club's list and takes a place there, so the club cannot promise that place to a
@@ -110,14 +113,6 @@ pub(crate) fn loaned_out_seniors(game: &Game, team_id: &str, except_player_id: &
                 .is_some_and(|loan| loan.parent_team_id == team_id)
         })
         .count()
-}
-
-/// The refusal when `team_id` has no place left on its senior list once `promised` places, taken
-/// by purchases agreed and waiting to register, are set aside; `None` when there is room. The one
-/// place the limit is applied to a purchase, shared by the in-game market and the global market.
-pub(crate) fn senior_place_refusal(game: &Game, team_id: &str, promised: usize) -> Option<String> {
-    let capacity = crate::contracts::squad_capacity(game, team_id);
-    (capacity.free_places <= promised).then(|| capacity.full_error())
 }
 
 /// The refusal when `team_id` has no place left on its senior list for `incoming_player_id` once
@@ -140,10 +135,46 @@ pub(crate) fn signing_place_refusal(
     team_id: &str,
     incoming_player_id: &str,
 ) -> Option<String> {
-    let promised = pending_incoming_purchases(game, team_id, incoming_player_id)
-        + pending_incoming_loans(game, team_id, incoming_player_id)
-        + loaned_out_seniors(game, team_id, incoming_player_id);
-    senior_place_refusal(game, team_id, promised)
+    // One pass over the world, not four: this gate runs for every club's every signing, so it is
+    // the hottest loop of an AI day. The team is compared once per player, and a player who
+    // reserves nothing (almost all of them) costs no more than that comparison. The three counts
+    // above (kept for the tests as the plain statement of the rule) are what each branch sums.
+    let mut registered_seniors = 0;
+    let mut promised = 0;
+    for player in &game.players {
+        if player.team_id.as_deref() == Some(team_id) {
+            if !player.retired && player.squad_role == domain::player::SquadRole::Senior {
+                registered_seniors += 1;
+            }
+            continue;
+        }
+        let reserved = places_reserved_by(player, team_id);
+        if reserved > 0 && player.id != incoming_player_id {
+            promised += reserved;
+        }
+    }
+    let capacity = crate::contracts::SquadCapacity::from_counts(registered_seniors, 0, 0, 0);
+    (capacity.free_places <= promised).then(|| capacity.full_error())
+}
+
+/// The places a player who is *not* registered at `team_id` holds for it: a purchase agreed and
+/// waiting to register, a loan agreed and waiting to register, and, if he is one of its seniors out
+/// on loan, the place he returns to. Each counts one. The incoming player's own exception is the
+/// caller's.
+fn places_reserved_by(player: &domain::player::Player, team_id: &str) -> usize {
+    let pending_purchase = player.transfer_offers.iter().any(|offer| {
+        offer.status == TransferOfferStatus::PendingRegistration && offer.from_team_id == team_id
+    });
+    let pending_loan = player.loan_offers.iter().any(|offer| {
+        offer.status == LoanOfferStatus::PendingRegistration && offer.from_team_id == team_id
+    });
+    let loaned_out_senior = !player.retired
+        && player.squad_role == domain::player::SquadRole::Senior
+        && player
+            .active_loan
+            .as_ref()
+            .is_some_and(|loan| loan.parent_team_id == team_id);
+    usize::from(pending_purchase) + usize::from(pending_loan) + usize::from(loaned_out_senior)
 }
 
 /// The cash and transfer budget `team_id` has agreed to spend in purchases that wait for their

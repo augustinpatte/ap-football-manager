@@ -97,8 +97,9 @@ pub fn check_blocking_actions(
     state: State<'_, Arc<StateManager>>,
 ) -> Result<serde_json::Value, String> {
     log::debug!("[cmd] check_blocking_actions");
+    // The screen's copy, as every other response of this command and of `advance_time` carries.
     let game = state
-        .get_game(|g| g.clone())
+        .get_game(|g| g.ui_clone())
         .ok_or("be.error.noActiveGameSession")?;
 
     let blockers = compute_blocking_actions(&game);
@@ -264,8 +265,9 @@ pub fn skip_to_match_day_internal(
         }
     }
 
+    // The screen's copy, as every other response of this command and of `advance_time` carries.
     let game = state
-        .get_game(|g| g.clone())
+        .get_game(|g| g.ui_clone())
         .ok_or("be.error.noActiveGameSession")?;
     info!(
         "[cmd] skip_to_match_day: arrived_after_days={}, final_date={}",
@@ -543,8 +545,9 @@ pub fn advance_to_next_event_internal(state: &StateManager) -> Result<serde_json
         }
     }
 
+    // The screen's copy, as every other response of this command and of `advance_time` carries.
     let game = state
-        .get_game(|g| g.clone())
+        .get_game(|g| g.ui_clone())
         .ok_or("be.error.noActiveGameSession")?;
     info!(
         "[cmd] advance_to_next_event: stopped_after_days={}, final_date={}",

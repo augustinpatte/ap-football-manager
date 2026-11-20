@@ -14,10 +14,38 @@ pub fn age_between(born: NaiveDate, on: NaiveDate) -> i32 {
     on.year() - born.year() - i32::from(!had_birthday)
 }
 
+/// A `YYYY-MM-DD` date, as the saves and the wire write every date, or `None` when it cannot be read.
+///
+/// The same answer as `NaiveDate::parse_from_str(text, "%Y-%m-%d")` for every input; the common
+/// shape (four digits, two, two, exactly) is read directly, because ages and contract days are
+/// asked of every player of a 14,000-player world many times a day and chrono's general format
+/// parser was a measured tenth of a simulated day. Anything else (a one-digit month, a sign, a
+/// stray space) goes to chrono, which decides it as before.
+pub fn parse_iso_date(text: &str) -> Option<NaiveDate> {
+    let bytes = text.as_bytes();
+    if let [y1, y2, y3, y4, b'-', m1, m2, b'-', d1, d2] = *bytes {
+        let digit = |byte: u8| byte.is_ascii_digit().then(|| u32::from(byte - b'0'));
+        if let (Some(y1), Some(y2), Some(y3), Some(y4), Some(m1), Some(m2), Some(d1), Some(d2)) = (
+            digit(y1),
+            digit(y2),
+            digit(y3),
+            digit(y4),
+            digit(m1),
+            digit(m2),
+            digit(d1),
+            digit(d2),
+        ) {
+            let year = i32::try_from(y1 * 1000 + y2 * 100 + y3 * 10 + y4).ok()?;
+            return NaiveDate::from_ymd_opt(year, m1 * 10 + m2, d1 * 10 + d2);
+        }
+    }
+    NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()
+}
+
 /// The age on `on` of someone born on `date_of_birth` (`YYYY-MM-DD`), or `None` when the date
 /// cannot be read.
 pub fn age_on(on: NaiveDate, date_of_birth: &str) -> Option<i32> {
-    let born = NaiveDate::parse_from_str(date_of_birth, "%Y-%m-%d").ok()?;
+    let born = parse_iso_date(date_of_birth)?;
     Some(age_between(born, on))
 }
 
@@ -121,5 +149,60 @@ mod tests {
         assert_eq!(age_on(day(2026, 3, 1), "2000-03-01"), Some(26));
         assert_eq!(age_on(day(2026, 3, 1), "not a date"), None);
         assert_eq!(age_on(day(2026, 3, 1), ""), None);
+    }
+
+    /// Given dates as the game writes them and every odd shape a damaged or hand-edited record could
+    ///       hold (impossible days, a one-digit month, a sign, whitespace, non-ASCII digits, nothing)
+    /// When they are read by the direct reader and by chrono's format parser
+    /// Then the two agree on every one, so the faster path changes no age and no contract day.
+    #[test]
+    fn the_direct_date_reader_agrees_with_chronos_parser_on_every_shape() {
+        let mut cases: Vec<String> = [
+            "2000-01-01",
+            "0000-01-01",
+            "9999-12-31",
+            "2000-02-29",
+            "1900-02-29",
+            "2000-02-30",
+            "2000-13-01",
+            "2000-00-10",
+            "2000-01-00",
+            "2000-01-32",
+            "2000-1-01",
+            "2000-01-1",
+            "2000-1-1",
+            "+2000-01-01",
+            "-2000-01-01",
+            " 2000-01-01",
+            "2000-01-01 ",
+            "2000/01/01",
+            "20000101",
+            "٢٠٠٠-٠١-٠١",
+            "２０００-０１-０１",
+            "2000-01-01T00:00:00",
+            "",
+            "garbage",
+            "2000-01-0a",
+            "a000-01-01",
+            "2000_01-01",
+            "2000-01_01",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        for year in [1, 999, 1582, 1900, 1999, 2000, 2024, 2033, 9999] {
+            for month in 0..=13 {
+                for day in [0, 1, 15, 28, 29, 30, 31, 32] {
+                    cases.push(format!("{year:04}-{month:02}-{day:02}"));
+                }
+            }
+        }
+        for case in &cases {
+            assert_eq!(
+                parse_iso_date(case),
+                NaiveDate::parse_from_str(case, "%Y-%m-%d").ok(),
+                "{case:?}"
+            );
+        }
     }
 }

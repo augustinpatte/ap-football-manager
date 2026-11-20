@@ -77,7 +77,27 @@ fn perf_baseline() {
     };
 
     let started = Instant::now();
-    let base = spec.build().expect("the world builds");
+    let mut base = spec.build().expect("the world builds");
+    // A career that has already lasted: `PERF_SEASONS` seasons are played first (not measured), so
+    // the payload and the save show what history costs a long career.
+    let seasons_first: u32 = env_or("PERF_SEASONS", 0);
+    if seasons_first > 0 {
+        struct Quiet;
+        impl season_harness::driver::SeasonObserver for Quiet {}
+        let played = Instant::now();
+        season_harness::driver::run_seasons(
+            &mut base,
+            season_harness::driver::RunOptions::seasons(seasons_first),
+            &mut Quiet,
+        )
+        .expect("the seasons play");
+        report(
+            "seasons_first",
+            &world,
+            seed,
+            json!({ "seasons": seasons_first, "ms": ms(played) }),
+        );
+    }
     report(
         "world",
         &world,

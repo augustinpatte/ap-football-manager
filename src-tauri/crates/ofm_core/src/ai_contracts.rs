@@ -140,17 +140,22 @@ fn graduate_overage_academy_players(
     current_date: NaiveDate,
 ) {
     for &position in club {
+        let player = &game.players[position];
+        let overage = player.squad_role == domain::player::SquadRole::Youth
+            && player.active_loan.is_none()
+            && domain::age::age_on_or_unknown(current_date, &player.date_of_birth)
+                > crate::roster::YOUTH_ACADEMY_MAX_AGE;
+        // Asked only when somebody is about to graduate: the place check reads the whole world, and
+        // it was being made for every player of every club every day, graduates or not. Nothing
+        // that is not a graduation changes the answer, so it is the answer the per-player check
+        // gave at every step that mattered.
+        if !overage {
+            continue;
+        }
         if crate::transfers::signing_place_refusal(game, team_id, "").is_some() {
             return;
         }
-        let player = &mut game.players[position];
-        if player.squad_role == domain::player::SquadRole::Youth
-            && player.active_loan.is_none()
-            && domain::age::age_on_or_unknown(current_date, &player.date_of_birth)
-                > crate::roster::YOUTH_ACADEMY_MAX_AGE
-        {
-            player.squad_role = domain::player::SquadRole::Senior;
-        }
+        game.players[position].squad_role = domain::player::SquadRole::Senior;
     }
 }
 
@@ -1636,6 +1641,106 @@ mod tests {
             .iter()
             .find(|p| p.id == id)
             .and_then(|p| p.team_id.as_deref())
+    }
+
+    /// The graduation as it was written when the place check was made for every player of the club.
+    fn graduate_checking_every_player(
+        game: &mut Game,
+        club: &[usize],
+        team_id: &str,
+        current_date: chrono::NaiveDate,
+    ) {
+        for &position in club {
+            if crate::transfers::signing_place_refusal(game, team_id, "").is_some() {
+                return;
+            }
+            let player = &mut game.players[position];
+            if player.squad_role == domain::player::SquadRole::Youth
+                && player.active_loan.is_none()
+                && domain::age::age_on_or_unknown(current_date, &player.date_of_birth)
+                    > crate::roster::YOUTH_ACADEMY_MAX_AGE
+            {
+                player.squad_role = domain::player::SquadRole::Senior;
+            }
+        }
+    }
+
+    /// Given a club with its senior list a few places short of full, several academy players past
+    ///       the academy age (one of them out on loan) and some still in it, in every order
+    /// When overage players graduate by the check made only when somebody graduates, and by the
+    ///      check made at every player
+    /// Then the same players graduate: the place check sees the same list at each graduation, so
+    ///      the club stops at the same place.
+    #[test]
+    fn graduating_with_the_place_check_only_at_graduations_agrees_with_checking_every_player() {
+        let today = world().clock.current_date.date_naive();
+        for seniors_short in 0..6usize {
+            for rotation in 0..5 {
+                let mut game = world();
+                // Fill the club's list to `30 - seniors_short`: the 19 it has plus extras.
+                let have = game
+                    .players
+                    .iter()
+                    .filter(|p| {
+                        p.team_id.as_deref() == Some("ai")
+                            && p.squad_role == domain::player::SquadRole::Senior
+                    })
+                    .count();
+                for index in 0..(30 - seniors_short).saturating_sub(have) {
+                    game.players.push(player(
+                        &format!("filler{index}"),
+                        "ai",
+                        Position::Midfielder,
+                        60,
+                        27,
+                        1_000,
+                    ));
+                }
+                let mut youths = vec![
+                    academy("over-a", "ai", Position::Midfielder, 22),
+                    academy("young-a", "ai", Position::Midfielder, 19),
+                    academy("over-b", "ai", Position::Defender, 23),
+                    academy("over-c", "ai", Position::Forward, 22),
+                    academy("young-b", "ai", Position::Forward, 17),
+                    academy("over-d", "ai", Position::Goalkeeper, 24),
+                ];
+                let mut lent = academy("over-lent", "ai", Position::Midfielder, 22);
+                lent.active_loan = Some(domain::player::ActiveLoan {
+                    parent_team_id: "ai".to_string(),
+                    loan_team_id: "user".to_string(),
+                    loan_team_name: None,
+                    start_date: "2026-01-01".to_string(),
+                    end_date: "2027-01-01".to_string(),
+                    wage_contribution_pct: 50,
+                    buy_option_fee: None,
+                    loan_start_minutes: 0,
+                    loan_start_appearances: 0,
+                    development_reported_minutes: 0,
+                    development_reported_appearances: 0,
+                });
+                youths.push(lent);
+                youths.rotate_left(rotation);
+                game.players.extend(youths);
+                let club = crate::match_day_eligibility::club_positions(&game.players, "ai");
+
+                let mut lazy = game.clone();
+                graduate_overage_academy_players(&mut lazy, &club, "ai", today);
+                let mut every = game.clone();
+                graduate_checking_every_player(&mut every, &club, "ai", today);
+
+                let roles = |g: &Game| {
+                    g.players
+                        .iter()
+                        .map(|p| (p.id.clone(), p.squad_role))
+                        .collect::<Vec<_>>()
+                };
+                assert_eq!(
+                    roles(&lazy),
+                    roles(&every),
+                    "short {seniors_short}, rotation {rotation}"
+                );
+            }
+        }
     }
 
     /// Given a club already at its senior limit and an academy player past the academy age

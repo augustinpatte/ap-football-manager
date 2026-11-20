@@ -201,7 +201,7 @@ pub(crate) fn round_up_wage(value: u32) -> u32 {
 /// Dates are plain strings on the wire and in saves, so every reader parses them;
 /// this is the one place that says how.
 pub(crate) fn parse_contract_date(value: &str) -> Option<NaiveDate> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d").ok()
+    domain::age::parse_iso_date(value)
 }
 
 pub(crate) fn contract_days_remaining(

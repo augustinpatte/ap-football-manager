@@ -709,3 +709,149 @@ fn lend_a_senior_out(game: &mut Game, parent: &str, borrower: &str) -> String {
     game.players.push(player);
     id
 }
+
+/// The registration gate as it was written before it became one pass: the three counts of places
+/// promised, and the capacity of the club's list, each read in a pass of its own.
+fn the_gate_as_four_passes(game: &Game, team_id: &str, incoming: &str) -> Option<String> {
+    use super::registration::{
+        loaned_out_seniors, pending_incoming_loans, pending_incoming_purchases,
+    };
+    let promised = pending_incoming_purchases(game, team_id, incoming)
+        + pending_incoming_loans(game, team_id, incoming)
+        + loaned_out_seniors(game, team_id, incoming);
+    let capacity = crate::contracts::squad_capacity(game, team_id);
+    (capacity.free_places <= promised).then(|| capacity.full_error())
+}
+
+/// Given worlds of players scattered over four clubs and free agents, with every way a player can
+///       hold or promise a place (a registered senior, a youth, a retired player, a purchase or a
+///       loan waiting to register in every state, a senior out on loan), at club sizes either side
+///       of the senior limit
+/// When the one-pass registration gate and the four-pass original are asked for every club, with
+///      and without an incoming player excepted
+/// Then they give the same answer, error text included, every time.
+#[test]
+fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
+    use domain::player::{ActiveLoan, LoanOfferStatus, SquadRole};
+
+    let clubs = ["team1", "team2", "team3", "team4"];
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut next = move |bound: u64| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        (state >> 33) % bound
+    };
+    let (mut refused, mut allowed) = (0, 0);
+    for world in 0..12u64 {
+        let mut game = acceptance_game("team1", false);
+        game.players.truncate(1);
+        game.players[0].team_id = None;
+        for (index, club) in clubs.iter().enumerate() {
+            // Sizes straddling the limit of 30: some clubs full, some a place short, some roomy.
+            register_seniors(
+                &mut game,
+                club,
+                24 + ((world + index as u64 * 3) % 9) as usize,
+            );
+        }
+        for n in 0..60u64 {
+            let mut player = Player::new(
+                format!("extra-{world}-{n}"),
+                "X".into(),
+                "Y".into(),
+                "1999-01-01".into(),
+                "England".into(),
+                Position::Midfielder,
+                sample_attributes(),
+            );
+            // Half of them belong to no club; the rest spread over the four.
+            player.team_id = match next(10) {
+                0..=4 => None,
+                k => Some(clubs[(k - 5) as usize % 4].to_string()),
+            };
+            player.squad_role = if next(3) == 0 {
+                SquadRole::Youth
+            } else {
+                SquadRole::Senior
+            };
+            player.retired = next(12) == 0;
+            if next(5) == 0 {
+                player.active_loan = Some(ActiveLoan {
+                    parent_team_id: clubs[next(4) as usize].to_string(),
+                    loan_team_id: clubs[next(4) as usize].to_string(),
+                    loan_team_name: None,
+                    start_date: "2026-07-01".to_string(),
+                    end_date: "2027-06-30".to_string(),
+                    wage_contribution_pct: 100,
+                    buy_option_fee: None,
+                    loan_start_minutes: 0,
+                    loan_start_appearances: 0,
+                    development_reported_minutes: 0,
+                    development_reported_appearances: 0,
+                });
+            }
+            // Most players promise nothing; one in six holds an offer or two in some state.
+            for _ in 0..(if next(6) == 0 { 1 + next(2) } else { 0 }) {
+                let status = match next(3) {
+                    0 => TransferOfferStatus::Pending,
+                    1 => TransferOfferStatus::PendingRegistration,
+                    _ => TransferOfferStatus::Rejected,
+                };
+                super::bids::upsert_transfer_offer(
+                    &mut player,
+                    clubs[next(4) as usize],
+                    500_000,
+                    status,
+                    "2026-01-12",
+                    None,
+                    1,
+                    None,
+                    None,
+                );
+            }
+            // Most players promise nothing; one in six holds an offer or two in some state.
+            for _ in 0..(if next(6) == 0 { 1 + next(2) } else { 0 }) {
+                let status = match next(3) {
+                    0 => LoanOfferStatus::Pending,
+                    1 => LoanOfferStatus::PendingRegistration,
+                    _ => LoanOfferStatus::Rejected,
+                };
+                super::loans::upsert_loan_offer(
+                    &mut player,
+                    clubs[next(4) as usize],
+                    clubs[next(4) as usize],
+                    "2026-01-12",
+                    "2026-12-20",
+                    60,
+                    None,
+                    status,
+                    "2026-01-12",
+                );
+            }
+            game.players.push(player);
+        }
+        let ids: Vec<String> = std::iter::once(String::new())
+            .chain(game.players.iter().step_by(7).map(|p| p.id.clone()))
+            .collect();
+        for club in clubs {
+            for incoming in &ids {
+                let fast = super::registration::signing_place_refusal(&game, club, incoming);
+                let original = the_gate_as_four_passes(&game, club, incoming);
+                assert_eq!(
+                    fast, original,
+                    "world {world}, {club}, excepting {incoming:?}"
+                );
+                if fast.is_some() {
+                    refused += 1
+                } else {
+                    allowed += 1
+                }
+            }
+        }
+    }
+    assert!(
+        refused > 50 && allowed > 50,
+        "the worlds must exercise both answers: {refused} refused, {allowed} allowed"
+    );
+}
