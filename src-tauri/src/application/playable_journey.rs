@@ -25,10 +25,13 @@ use crate::application::interactive_match::{
 };
 use crate::application::saving::persist_active_game;
 use crate::application::time_advancement::advance_time_with_mode;
-use crate::commands::scouting::{get_scouting_dossier_internal, shortlist_player_internal};
+use crate::commands::scouting::{
+    get_academy_review_internal, get_scouting_dossier_internal, shortlist_player_internal,
+};
 use crate::commands::season::advance_to_next_season_internal;
 use crate::commands::squad::{
-    apply_tactic_preset_internal, set_formation_internal, set_starting_xi_internal,
+    apply_tactic_preset_internal, set_formation_internal, set_player_squad_role_internal,
+    set_starting_xi_internal,
 };
 use crate::commands::staff::set_mode;
 use crate::commands::transfers::make_transfer_bid_internal;
@@ -37,6 +40,8 @@ use crate::commands::util::mutate_active_game;
 const SEED: u64 = 1;
 /// More days than any season has, so a loop that never finds its target fails instead of hanging.
 const DAY_GUARD: u32 = 460;
+/// Stretches of play one match may take before the test calls it hung (a match is a handful of requests).
+const MATCH_GUARD: u32 = 500;
 
 /// One career on disk: the state a player's session holds, and the folder their saves live in.
 struct Session {
@@ -163,7 +168,8 @@ fn advance_until_user_match(state: &StateManager, mode: &str) {
 
 fn play_interactive_match(state: &StateManager) {
     start_interactive_match_internal(state).expect("the interactive match starts");
-    loop {
+    let mut ended = false;
+    for _ in 0..MATCH_GUARD {
         let out = advance_interactive_match_internal(
             state,
             AdvanceRequest {
@@ -175,9 +181,14 @@ fn play_interactive_match(state: &StateManager) {
         )
         .expect("the match advances");
         if out.stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(
+        ended,
+        "the match never reached full time in {MATCH_GUARD} stretches"
+    );
     finish_interactive_match_internal(state).expect("the match is finalised");
 }
 
@@ -564,6 +575,172 @@ fn delegation_needs_an_assistant_but_taking_control_back_does_not() {
 /// When it is played to the end of two seasons through the calendar, rolling over in between,
 /// Then both seasons complete, the second season starts a year later with fixtures to play, and the
 ///      career is still the same world after the save is closed and reopened at the end.
+/// Opens saves written by older builds, from COPIES of them, and plays them on.
+///
+/// `APFM_OLD_SAVES_COPY=<folder holding a copy of save_index.json and the .db files to try>`
+/// `cargo test --lib --locked old_saves_load_and_play_on -- --ignored --nocapture`
+///
+/// For every save in the folder: it loads as "Load Game" does (the file is migrated in place, which
+/// is why this must only ever be pointed at a copy), nothing is waiting from a match, the career is
+/// played on for sixty days, the user's next match is watched and finalised once, and a save and
+/// reload of the result is the same career. It checks nothing it cannot measure: no old save holds
+/// a dossier, so the dossier must simply come up empty rather than break the load.
+#[test]
+#[ignore = "needs APFM_OLD_SAVES_COPY=<a copy of real saves>; never point it at the originals"]
+fn old_saves_load_and_play_on() {
+    let Ok(folder) = std::env::var("APFM_OLD_SAVES_COPY") else {
+        return;
+    };
+    let folder = std::path::PathBuf::from(folder);
+    let mut saves = SaveManager::init(&folder).expect("the copy's save folder opens");
+    let ids: Vec<String> = saves
+        .list_saves()
+        .iter()
+        .filter(|entry| folder.join(&entry.db_filename).exists())
+        .map(|entry| entry.id.clone())
+        .collect();
+    assert!(!ids.is_empty(), "no save of the index exists in the copy");
+    for save_id in ids {
+        let stored = saves.load_game(&save_id).expect("the old save loads");
+        let stats = saves
+            .load_stats_state(&save_id)
+            .expect("its statistics load");
+        let mut game = stored.clone();
+        ofm_core::ai_hiring::seed_ai_managers(&mut game);
+        ofm_core::season_context::refresh_game_context(&mut game);
+        let team = user_team_id(&game);
+        let seniors = user_squad(&game).len();
+        println!(
+            "OLD SAVE {save_id}: club {team}, {} players, {} seniors, {} competitions, date {}, dossier reports {}",
+            game.players.len(),
+            seniors,
+            game.competitions.len(),
+            game.clock.current_date.format("%Y-%m-%d"),
+            game.scouting_dossier.reports.len(),
+        );
+        assert!(
+            seniors > 0,
+            "{save_id}: the club has no players after loading"
+        );
+        assert!(
+            game.scouting_dossier.reports.is_empty(),
+            "{save_id}: an old save cannot hold scouting reports"
+        );
+        let state = StateManager::new();
+        install_career(&state, game, stats, Some(save_id.clone()));
+        restore_saved_match(&state, &mut saves, &save_id);
+        assert!(
+            state.take_restore_notice().is_none(),
+            "{save_id}: an old save was reported as holding a damaged match"
+        );
+        assert!(
+            state.with_interactive_match(|_| ()).is_none(),
+            "{save_id}: an old save cannot hold a match in progress"
+        );
+
+        let played_before = state.get_game(own_completed).expect("game");
+        for _ in 0..60 {
+            if advance_time_with_mode(&state, "delegate").is_err() {
+                break;
+            }
+        }
+        let played_after = state.get_game(own_completed).expect("game");
+        println!("  60 days later: own completed fixtures {played_before} -> {played_after}");
+        assert!(played_after >= played_before);
+
+        advance_until_user_match(&state, "live");
+        let completed = state.get_game(own_completed).expect("game");
+        play_interactive_match(&state);
+        let after = state.get_game(own_completed).expect("game");
+        assert_eq!(after, completed + 1, "{save_id}: the match counts once");
+        finish_interactive_match_internal(&state).expect_err("a second finish is refused");
+        assert_eq!(
+            state.get_game(own_completed).expect("game"),
+            after,
+            "{save_id}: a second finish changed the career"
+        );
+
+        persist_active_game(&state, &mut saves).expect("the old career saves in the new format");
+        let reopened = saves
+            .load_game(&save_id)
+            .expect("the new-format save loads");
+        let live = state.get_game(fingerprint).expect("game");
+        assert!(
+            live == fingerprint(&reopened),
+            "{save_id}: reload differs: {}",
+            first_difference(&live, &fingerprint(&reopened))
+        );
+        println!("  watched match finalised once; save and reload equal");
+    }
+}
+
+/// Given a new career whose club has academy prospects, and one of them promoted by the manager,
+/// When the career is saved, closed and opened again,
+/// Then the academy and the senior squad are exactly as they were left (the promoted player is a
+/// senior, the others are still in the academy), the academy review reads the same rows, and the
+/// review is not the empty default a lost field would give.
+#[test]
+fn an_academy_promotion_survives_a_reload() {
+    use domain::player::SquadRole;
+    let mut session = Session::begin();
+    let game = session.game();
+    let team = user_team_id(&game);
+    let prospects: Vec<String> = game
+        .players
+        .iter()
+        .filter(|p| {
+            p.contract_club_id() == Some(team.as_str())
+                && p.squad_role == SquadRole::Youth
+                && !p.retired
+        })
+        .map(|p| p.id.clone())
+        .collect();
+    assert!(
+        prospects.len() >= 2,
+        "the generated club needs an academy to prove anything ({} prospects)",
+        prospects.len()
+    );
+    let seniors_before = user_squad(&game)
+        .iter()
+        .filter(|p| p.squad_role == SquadRole::Senior)
+        .count();
+    let promoted = prospects[0].clone();
+    set_player_squad_role_internal(&session.state, &promoted, "Senior").expect("a place is free");
+    let review_before = serde_json::to_string(
+        &get_academy_review_internal(&session.state)
+            .expect("the review reads")
+            .expect("the club has an academy review"),
+    )
+    .expect("serializes");
+
+    let stored = session.save_close_and_reopen();
+    let role_of = |game: &Game, id: &str| {
+        game.players
+            .iter()
+            .find(|p| p.id == id)
+            .map(|p| p.squad_role)
+    };
+    assert_eq!(role_of(&stored, &promoted), Some(SquadRole::Senior));
+    for id in &prospects[1..] {
+        assert_eq!(role_of(&stored, id), Some(SquadRole::Youth), "{id} stays");
+    }
+    let seniors_after = user_squad(&stored)
+        .iter()
+        .filter(|p| p.squad_role == SquadRole::Senior)
+        .count();
+    assert_eq!(seniors_after, seniors_before + 1);
+    let review_after = serde_json::to_string(
+        &get_academy_review_internal(&session.state)
+            .expect("the review reads")
+            .expect("the club has an academy review"),
+    )
+    .expect("serializes");
+    assert_eq!(
+        review_after, review_before,
+        "the academy review changed across the reload"
+    );
+}
+
 #[test]
 #[ignore = "plays two full seasons; run with --release -- --ignored"]
 fn a_reloaded_career_completes_two_seasons() {
@@ -707,11 +884,17 @@ fn a_watched_match_saved_midway_keeps_the_dossier_and_is_finalised_once() {
 
     // The resumed match carries on, is watched to full time and is finalised.
     start_interactive_match_internal(&resumed).expect("the screen takes the match over");
-    loop {
+    let mut ended = false;
+    for _ in 0..MATCH_GUARD {
         if watch(&resumed, 900).stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(
+        ended,
+        "the resumed match never reached full time in {MATCH_GUARD} stretches"
+    );
     finish_interactive_match_internal(&resumed).expect("the match is finalised");
     let game = resumed.get_game(|g| g.clone()).expect("an active game");
     assert_eq!(own_completed(&game), completed_before + 1);

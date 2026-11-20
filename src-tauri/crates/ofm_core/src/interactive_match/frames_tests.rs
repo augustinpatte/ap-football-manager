@@ -27,10 +27,17 @@ fn request(target: AdvanceTarget) -> AdvanceRequest {
     }
 }
 
-/// Plays to full time in `minutes`-sized stretches, collecting every frame handed out.
+/// More stretches than any match needs (a 90-minute match is 540 ten-second stretches, 9,000 for
+/// extra time at ten seconds a stretch would still be far below): a loop that reaches it is a hung
+/// match, and fails its test instead of hanging the suite.
+const MAX_STRETCHES: usize = 2_000;
+
+/// Plays to full time in `minutes`-sized stretches, collecting every frame handed out. A match that
+/// does not end within twice its length in stretches fails the test instead of hanging the suite.
 fn play_capturing(m: &mut InteractiveMatch, minutes: u32) -> Vec<LiveFrame> {
     let mut frames = Vec::new();
-    loop {
+    let stretches = 2 * 120 / minutes.max(1) + 4;
+    for _ in 0..stretches {
         let out = m
             .advance_capturing(request(AdvanceTarget::ForMinutes(minutes)))
             .expect("advances");
@@ -41,6 +48,7 @@ fn play_capturing(m: &mut InteractiveMatch, minutes: u32) -> Vec<LiveFrame> {
             _ => {}
         }
     }
+    panic!("the match did not reach full time within {stretches} stretches of {minutes} minutes");
 }
 
 /// Given a managed match played to full time with frame capture on,
@@ -117,21 +125,27 @@ fn captured_frames_are_the_engines_own_recorded_frames() {
 #[test]
 fn capturing_frames_does_not_change_the_match() {
     let mut plain = start(7);
-    loop {
+    let mut ended = false;
+    for _ in 0..MAX_STRETCHES {
         let out = plain.advance(request(AdvanceTarget::ToEnd)).unwrap();
         if out.stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(ended, "the plain match never reached full time");
     let mut watched = start(7);
-    loop {
+    ended = false;
+    for _ in 0..MAX_STRETCHES {
         let out = watched
             .advance_capturing(request(AdvanceTarget::ForMinutes(1)))
             .unwrap();
         if out.stop == StopReason::Finished {
+            ended = true;
             break;
         }
     }
+    assert!(ended, "the watched match never reached full time");
     let events = |m: &InteractiveMatch| m.session().unwrap().events().to_vec();
     assert_eq!(events(&plain), events(&watched));
     // The session revision counts advance calls (stale-order protection), so it differs by design;
@@ -445,7 +459,7 @@ fn frames_cost() {
         let mut frames = 0usize;
         let mut bytes = 0usize;
         let mut largest_chunk = 0usize;
-        loop {
+        for _ in 0..MAX_STRETCHES {
             let request = request(AdvanceTarget::ForSeconds(10));
             let out = if capture {
                 m.advance_capturing(request)

@@ -44,6 +44,10 @@ const backend = vi.hoisted(() => {
     failNextAdvance: false,
     calls: [] as string[],
     orders: [] as unknown[],
+    /** Receipts by command id: the real engine answers a repeated id with the first answer and applies nothing. */
+    receipts: new Map<string, unknown>(),
+    /** While set, an advance waits for it before answering: a request still in flight. */
+    advanceGate: null as Promise<void> | null,
   };
   return { state };
 });
@@ -159,6 +163,8 @@ function snapshot(): InteractiveSnapshot {
 vi.mock("../../services/interactiveMatchService", () => ({
   startInteractiveMatch: vi.fn(async () => {
     backend.state.calls.push("start");
+    // taking over a match under way: the next advance hands out the current frame again
+    backend.state.lastFrameMs = -1;
     return snapshot();
   }),
   getInteractiveMatchState: vi.fn(async () => {
@@ -174,6 +180,7 @@ vi.mock("../../services/interactiveMatchService", () => ({
     ) => {
       const s = backend.state;
       s.calls.push(`advance:${target.kind}:${capture ? "frames" : "plain"}`);
+      if (s.advanceGate) await s.advanceGate;
       if (s.failNextAdvance) {
         s.failNextAdvance = false;
         throw "be.error.interactive.engineFailed";
@@ -186,14 +193,16 @@ vi.mock("../../services/interactiveMatchService", () => ({
       const reached = Math.min(limit, wanted);
       const frames: LiveFrame[] = [];
       if (capture) {
-        for (let t = Math.max(0, s.lastFrameMs + 500); t <= reached; t += 500) {
-          if (t > s.lastFrameMs) frames.push(frameAt(t));
-        }
+        const from = s.lastFrameMs < 0 ? reached : s.lastFrameMs + 500;
+        for (let t = from; t <= reached; t += 500) frames.push(frameAt(t));
         if (s.lastFrameMs < 0 && frames.length === 0) frames.push(frameAt(0));
         s.lastFrameMs = Math.max(s.lastFrameMs, reached);
       }
+      // The real engine's revision counts its steps. Asked for frames, as the screen always does,
+      // it steps once per 500 ms frame, so it moves about twice per simulated second (measured on
+      // the real backend: +2 a second with frames, +1 per stretch without); an accepted order adds one.
+      s.revision += Math.round(((reached - s.clockMs) / 1000) * 2);
       s.clockMs = reached;
-      s.revision += 1;
       let stop = "reached";
       if (reached >= limit) {
         if (s.brokeAtHalf) {
@@ -213,21 +222,36 @@ vi.mock("../../services/interactiveMatchService", () => ({
   submitMatchCommand: vi.fn(async (id: string, revision: number, order: UserOrder) => {
     const s = backend.state;
     s.calls.push(`order:${revision}`);
+    const answered = s.receipts.get(id);
+    if (answered) {
+      return { receipt: { ...(answered as object), duplicate: true }, snapshot: snapshot() };
+    }
+    if (revision !== s.revision) {
+      const stale = {
+        command_id: id,
+        accepted: false,
+        queued: false,
+        rejection: "stale_revision",
+        revision: s.revision,
+        duplicate: false,
+      };
+      s.receipts.set(id, stale);
+      return { receipt: stale, snapshot: snapshot() };
+    }
     s.orders.push(order);
     if (s.rejectNext) {
       const rejection = s.rejectNext;
       s.rejectNext = null;
-      return {
-        receipt: {
-          command_id: id,
-          accepted: false,
-          queued: false,
-          rejection,
-          revision: s.revision,
-          duplicate: false,
-        },
-        snapshot: snapshot(),
+      const refused = {
+        command_id: id,
+        accepted: false,
+        queued: false,
+        rejection,
+        revision: s.revision,
+        duplicate: false,
       };
+      s.receipts.set(id, refused);
+      return { receipt: refused, snapshot: snapshot() };
     }
     if ("Tactics" in order) Object.assign(s.plan, order.Tactics);
     if ("Substitute" in order) {
@@ -237,17 +261,16 @@ vi.mock("../../services/interactiveMatchService", () => ({
       s.pending = s.pending.filter((p) => p.off !== order.CancelSubstitution.player_off_id);
     }
     s.revision += 1;
-    return {
-      receipt: {
-        command_id: id,
-        accepted: true,
-        queued: "Substitute" in order,
-        rejection: null,
-        revision: s.revision,
-        duplicate: false,
-      },
-      snapshot: snapshot(),
+    const accepted = {
+      command_id: id,
+      accepted: true,
+      queued: "Substitute" in order,
+      rejection: null,
+      revision: s.revision,
+      duplicate: false,
     };
+    s.receipts.set(id, accepted);
+    return { receipt: accepted, snapshot: snapshot() };
   }),
   setInteractiveAssistant: vi.fn(async (active: boolean) => {
     backend.state.calls.push(`assistant:${active}`);
@@ -277,6 +300,8 @@ function reset() {
     failNextAdvance: false,
     calls: [],
     orders: [],
+    receipts: new Map(),
+    advanceGate: null,
   });
 }
 
@@ -568,5 +593,91 @@ describe("InteractiveMatchScreen (live 2D)", () => {
     expect(box).toBeEnabled();
     fireEvent.click(box);
     await waitFor(() => expect(backend.state.assistantActive).toBe(true));
+  });
+  /** Given a match under way, when the manager changes the language, then the match is not started again, the picture stays where it was and no data warning appears. */
+  it("keeps the match as it is when the language changes", async () => {
+    await opened();
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.play") }));
+    await wall(4000);
+    const callsBefore = [...backend.state.calls];
+    expect(callsBefore.filter((c) => c === "start")).toHaveLength(1);
+    const clockBefore = screen.getByTestId("live-clock").textContent;
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("fr");
+      });
+      await wall(100);
+      expect(backend.state.calls.filter((c) => c === "start")).toHaveLength(1);
+      expect(backend.state.calls.filter((c) => c === "advance:for_seconds:frames").length).toBe(
+        callsBefore.filter((c) => c === "advance:for_seconds:frames").length,
+      );
+      expect(screen.getByTestId("live-clock").textContent).toBe(clockBefore);
+      expect(screen.queryByText(i18n.t("match.liveView.incompleteData"))).not.toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
+  });
+
+  /** Given the screen is closed and opened again on the same match (or the career is reloaded), when an order is given, then it is a new order: the engine has not answered its id before. */
+  it("gives an order on a reopened screen an id the engine has not used", async () => {
+    await opened();
+    const give = async () => {
+      fireEvent.click(
+        screen.getByRole("combobox", { name: tr("tactics.phaseSettings.pressingIntensity") }),
+      );
+      fireEvent.click(
+        screen.getByRole("option", {
+          name: tr("tactics.phaseSettings.pressingIntensity_Aggressive"),
+        }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.applyTactics") }));
+      await wall(100);
+    };
+    await give();
+    expect(backend.state.orders).toEqual([{ Tactics: { pressing: "Aggressive" } }]);
+    cleanup();
+    backend.state.plan = { ...backend.state.plan, pressing: "Medium" };
+    await opened();
+    await give();
+    // the second order really changed the plan, rather than being answered as a repeat of the first
+    expect(backend.state.orders).toHaveLength(2);
+    expect(backend.state.plan.pressing).toBe("Aggressive");
+  });
+
+  /** Given the manager pauses while the engine is still producing a stretch, when the stretch lands, then no order was sent for a moment the picture had not reached: orders stay off until the picture is at the head again. */
+  it("does not take an order while a stretch of play is still being produced", async () => {
+    await opened();
+    let release = () => {};
+    backend.state.advanceGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.play") }));
+    await wall(300); // the first stretch is requested and held
+    fireEvent.click(screen.getByRole("button", { name: tr("match.pause") }));
+    await wall(50);
+    // the match is paused, but the engine is still producing play: nothing can be ordered yet
+    expect(screen.getByText(tr("match.liveView.status.pausing"))).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: tr("tactics.phaseSettings.pressingIntensity") }),
+    ).toBeDisabled();
+    expect(backend.state.calls.filter((c) => c.startsWith("order:"))).toHaveLength(0);
+    backend.state.advanceGate = null;
+    release();
+    await wall(5000);
+    // the picture caught up with what the engine produced, and only then are orders possible
+    fireEvent.click(
+      screen.getByRole("combobox", { name: tr("tactics.phaseSettings.pressingIntensity") }),
+    );
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: tr("tactics.phaseSettings.pressingIntensity_Aggressive"),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: tr("match.interactive.applyTactics") }));
+    await wall(100);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(backend.state.plan.pressing).toBe("Aggressive");
   });
 });

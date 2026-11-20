@@ -54,6 +54,7 @@ function fakeEngine(scheduled: { t_ms: number; type: string }[] = []) {
     const view = {
       user_side: "home",
       roster: [{ id: "p0", side: "home" }],
+      regulation_minutes: 90,
       session: { finished: stop === "finished" },
       clock: {
         period_start_ms: state.period === 0 ? 0 : HALF_MS,
@@ -140,7 +141,7 @@ describe("LiveDirector", () => {
     expect(engine.state.calls.length).toBe(callsBefore);
   });
 
-  /** Given a pause pressed while a stretch is still in flight, When the reply extends the engine's head, Then no order is allowed until the picture has caught up with it. */
+  /** Given a pause pressed while a stretch is still in flight, When the reply extends the engine's head, Then no order is allowed while it is in flight, nor until the picture has caught up with it. */
   it("does not allow an order when a late reply puts the engine ahead of a paused picture", async () => {
     const { engine, director } = await started();
     director.play();
@@ -152,7 +153,9 @@ describe("LiveDirector", () => {
       });
     const pending = director.pump(gated);
     director.pause();
-    expect(director.getSnapshot().canOrder).toBe(true); // at the head: nothing is ahead yet
+    // at the head, but the engine is about to move: an order now would meet a moment not yet shown
+    expect(director.getSnapshot().canOrder).toBe(false);
+    expect(director.getSnapshot().status).toBe("pausing");
     release();
     await pending;
     expect(director.store.headMs).toBeGreaterThan(director.getSnapshot().playheadMs);
@@ -311,5 +314,42 @@ describe("LiveDirector", () => {
     expect(director.getSnapshot().playheadMs).toBe(before);
     director.setMode("full");
     expect(director.getSnapshot().playheadMs).toBe(before);
+  });
+
+  /** Given a screen whose first view is already in the second half (a saved match reloaded), When the stopwatch is asked for an instant of the first half, Then it reads that half's minute instead of nothing. */
+  it("keeps a stopwatch for the first half when it only ever saw the second", async () => {
+    const engine = fakeEngine([{ t_ms: 10_000, type: "goal" }]);
+    engine.state.period = 1;
+    engine.state.clock = HALF_MS + 20_000;
+    engine.state.lastFrame = HALF_MS + 19_500;
+    const director = new LiveDirector();
+    director.ingestAdvance(await engine.advance(0));
+    expect(director.labelAt(10_000)).toBe("1'");
+    expect(director.labelAt(HALF_MS + 20_000)).toBe("46'");
+    // the feed's first-half goal is now in the director's events with a readable minute
+    expect(director.getSnapshot().events.map((e) => director.labelAt(e.t_ms))).toEqual(["1'"]);
+  });
+
+  /** Given a match taken over (a saved match reloaded) at 30 s in a highlight mode, with a goal already scored before that point, When it plays on, Then the picture starts at the engine's head, the earlier goal is in the feed at once, and the later goal appears only when the picture reaches it. */
+  it("plays a taken-over match on from the head in a highlight mode", async () => {
+    const engine = fakeEngine([
+      { t_ms: 5_000, type: "goal" },
+      { t_ms: 50_000, type: "goal" },
+    ]);
+    engine.state.clock = 30_000;
+    engine.state.lastFrame = 29_500;
+    const director = new LiveDirector();
+    director.setMode("key");
+    director.ingestAdvance(await engine.advance(0));
+    expect(director.getSnapshot().playheadMs).toBe(30_000);
+    expect(director.getSnapshot().events.map((e) => e.t_ms)).toEqual([5_000]);
+    director.setSpeed(8);
+    director.play();
+    const seen = await run(director, engine.advance, 6_000);
+    expect(seen.every((t, i) => i === 0 || t >= seen[i - 1])).toBe(true);
+    expect(seen[0]).toBeGreaterThanOrEqual(30_000);
+    const snapshot = director.getSnapshot();
+    expect(snapshot.playheadMs).toBeGreaterThan(50_000);
+    expect(snapshot.events.map((e) => e.t_ms)).toEqual([5_000, 50_000]);
   });
 });

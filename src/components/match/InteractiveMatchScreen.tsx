@@ -7,6 +7,7 @@ import { LiveControls, LiveScoreboard } from "./LiveMatchChrome";
 import LivePitch from "./LivePitch";
 import { playerNames, playerShirts } from "./interactiveMatch.helpers";
 import type { DirectorSnapshot } from "./liveDirector";
+import { goalLineNearest, homeAttacksPositiveGoal } from "./livePlayback";
 import { ReplayStatsPanel } from "./ReplayPanels";
 import { type FeedEntry, feedEntryOf, statsAt } from "./replayDerived";
 import { TEAM_COLOURS } from "./replayPitch";
@@ -14,7 +15,6 @@ import { useLiveMatch } from "./useLiveMatch";
 
 /** How long a goal stays announced above the pitch, in match time. */
 const GOAL_BANNER_MS = 8_000;
-const PITCH_MIDDLE_X = 52.5;
 /** The engine's stoppage reasons that have their own wording. */
 const STOPPAGE_REASONS = [
   "ball_out",
@@ -108,12 +108,11 @@ export default function InteractiveMatchScreen<TFinish>({
         minute: director.labelAt(goal.t_ms),
       })
     : null;
-  const goalX = goal?.position ? (goal.position.x < PITCH_MIDDLE_X ? 0 : 105) : undefined;
+  const goalX = goal?.position ? goalLineNearest(goal.position.x) : undefined;
   const mine = view.user_side === "away" ? session.away : session.home;
   const myPlan = view.user_side === "away" ? view.away_plan : view.home_plan;
   const controllable = view.user_side !== null && !finished;
-  const homeAttacksRight =
-    snapshot.period === "first_half" || snapshot.period === "extra_time_first";
+  const homeAttacksRight = snapshot.period !== null && homeAttacksPositiveGoal(snapshot.period);
 
   return (
     <main className="min-h-screen bg-page text-fg">

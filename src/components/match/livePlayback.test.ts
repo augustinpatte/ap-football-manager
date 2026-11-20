@@ -3,6 +3,8 @@ import type { ClockView, LiveFrame, MatchKeyEvent } from "../../services/interac
 import {
   FrameStore,
   attackedGoalX,
+  goalLineNearest,
+  homeAttacksPositiveGoal,
   clockAt,
   clockLabel,
   highlightSpans,
@@ -216,6 +218,24 @@ describe("highlights", () => {
     expect(attackedGoalX("home", "second_half")).toBe(0);
     expect(attackedGoalX("away", "second_half")).toBe(105);
     expect(attackedGoalX("home", "extra_time_first")).toBe(105);
+  });
+
+  /** Given every period, Then one rule says which way home attacks, and the goal a side attacks follows it. */
+  it("has one rule for the way home attacks in every period", () => {
+    const periods = ["first_half", "second_half", "extra_time_first", "extra_time_second"] as const;
+    expect(periods.map(homeAttacksPositiveGoal)).toEqual([true, false, true, false]);
+    for (const period of periods) {
+      expect(attackedGoalX("home", period)).toBe(homeAttacksPositiveGoal(period) ? 105 : 0);
+      expect(attackedGoalX("away", period)).toBe(homeAttacksPositiveGoal(period) ? 0 : 105);
+    }
+  });
+
+  /** Given where a goal was scored, Then the goal line lit is the nearer one, and the halfway line goes to the far goal. */
+  it("picks the goal line nearest to a goal's position", () => {
+    expect(goalLineNearest(0.5)).toBe(0);
+    expect(goalLineNearest(104.5)).toBe(105);
+    expect(goalLineNearest(52.49)).toBe(0);
+    expect(goalLineNearest(52.5)).toBe(105);
   });
 });
 

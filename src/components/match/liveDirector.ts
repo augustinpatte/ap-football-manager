@@ -70,6 +70,27 @@ export interface DirectorSnapshot {
   rejectedFrames: number;
 }
 
+/**
+ * The stopwatch of the first half when the first view this screen sees is already in the second
+ * (a saved match that was reloaded, or a screen opened late): the engine reports only the current
+ * period, yet the feed still holds first-half events. A regulation half is as long as the nominal
+ * time played before the second one; added time is not known, and a minute past it is counted on.
+ */
+function earlierClocks(view: InteractiveView): ClockView[] {
+  const { clock, regulation_minutes: regulation } = view;
+  const isSecondHalf = clock.period_base_ms > 0 && clock.period_base_ms * 2 === regulation * 60_000;
+  if (!isSecondHalf) return [];
+  return [
+    {
+      period_start_ms: 0,
+      period_base_ms: 0,
+      period_nominal_ms: clock.period_base_ms,
+      nominal_end_ms: clock.period_base_ms,
+      added_time_ms: null,
+    },
+  ];
+}
+
 export class LiveDirector {
   readonly store = new FrameStore();
   private events: MatchKeyEvent[] = [];
@@ -89,6 +110,8 @@ export class LiveDirector {
   private catchingUp = false;
   private waiting = false;
   private fetching = false;
+  /** Calls of the screen that have not finished, results included: the picture may not be given orders meanwhile. */
+  private inFlight = 0;
   private sinceNotifyMs = 0;
   private version = 0;
   private snapshot: DirectorSnapshot;
@@ -128,6 +151,7 @@ export class LiveDirector {
       if (event.id > lastId) this.events.push(event);
     }
     const clock = snapshot.view.clock;
+    if (this.clocks.length === 0) this.clocks.push(...earlierClocks(snapshot.view));
     const known = this.clocks.findIndex((c) => c.period_start_ms === clock.period_start_ms);
     if (known >= 0) this.clocks[known] = clock;
     else this.clocks.push(clock);
@@ -204,6 +228,22 @@ export class LiveDirector {
     this.notify();
   }
 
+  /**
+   * Runs one of the screen's backend calls (and whatever it does with the answer). While it runs
+   * no order is accepted: the engine is about to move, so an order quoted against its present
+   * revision would be refused, or would meet a moment the picture has not reached.
+   */
+  async track<T>(work: () => Promise<T>): Promise<T> {
+    this.inFlight += 1;
+    this.notify();
+    try {
+      return await work();
+    } finally {
+      this.inFlight -= 1;
+      this.notify();
+    }
+  }
+
   /** After the engine was played on without the picture (skip ahead): show where it got to. */
   skipToHead(): void {
     this.playhead = this.store.headMs;
@@ -278,13 +318,15 @@ export class LiveDirector {
   async pump(advance: (seconds: number) => Promise<AdvanceSnapshot | null>): Promise<void> {
     if (!this.needsMore()) return;
     this.fetching = true;
+    let reply: AdvanceSnapshot | null = null;
     try {
-      const reply = await advance(this.chunkSeconds());
-      if (reply) this.ingestAdvance(reply);
-      else this.halt();
+      reply = await advance(this.chunkSeconds());
     } finally {
+      // Cleared before the answer is taken, so the notification that follows already allows orders.
       this.fetching = false;
     }
+    if (reply) this.ingestAdvance(reply);
+    else this.halt();
   }
 
   // ---- reading
@@ -320,7 +362,7 @@ export class LiveDirector {
     if (this.lastStop === "finished" && atHead) return "finished";
     if (this.lastStop === "period_break" && atHead && !this.wantPlaying) return "break";
     if (this.wantPlaying) return "playing";
-    if (this.catchingUp) return "pausing";
+    if (this.catchingUp || this.fetching || this.inFlight > 0) return "pausing";
     return "paused";
   }
 
@@ -351,6 +393,8 @@ export class LiveDirector {
         this.view.user_side !== null &&
         (status === "paused" || status === "break") &&
         atHead &&
+        !this.fetching &&
+        this.inFlight === 0 &&
         !this.view.session.finished,
       buffering: this.wantPlaying && this.waiting && !this.streamEnded,
       rejectedFrames: this.store.rejected,

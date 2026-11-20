@@ -298,8 +298,11 @@ mod tests {
         .expect("advance")
     }
 
+    /// Generous for a match of two halves: a request that never reaches the break fails the test.
+    const MAX_STRETCHES: usize = 50;
+
     fn to_halftime(state: &StateManager) {
-        loop {
+        for _ in 0..MAX_STRETCHES {
             let out = advance(state, AdvanceTarget::ToEnd);
             match out.stop {
                 StopReason::PeriodBreak => return,
@@ -307,14 +310,16 @@ mod tests {
                 _ => {}
             }
         }
+        panic!("no break within {MAX_STRETCHES} stretches");
     }
 
     fn to_full_time(state: &StateManager) {
-        loop {
+        for _ in 0..MAX_STRETCHES {
             if advance(state, AdvanceTarget::ToEnd).stop == StopReason::Finished {
                 return;
             }
         }
+        panic!("no full time within {MAX_STRETCHES} stretches");
     }
 
     fn snapshot(state: &StateManager) -> InteractiveSnapshot {
@@ -1513,7 +1518,10 @@ mod tests {
         let mut frames = Vec::new();
         frames.extend(watch(&state, 0).frames);
         let mut order_given = false;
+        let mut stretches = 0;
         let last_frame = loop {
+            stretches += 1;
+            assert!(stretches <= 400, "the match never reached full time");
             let out = watch(&state, 45);
             frames.extend(out.frames);
             match out.stop {
@@ -1622,6 +1630,258 @@ mod tests {
         assert!(players
             .iter()
             .all(|p| p[0].as_u64().unwrap() < roster.len() as u64));
+    }
+
+    /// Given a match watched for a minute and then another thirty seconds, as the 2D screen does
+    /// (with frames),
+    /// When an order quoted against the revision of the first view is sent after the second,
+    /// Then the engine refuses it as stale and changes nothing, and the same order quoted against
+    /// the current revision is accepted. (Asked for frames the engine steps once per 500 ms frame,
+    /// so the revision moves about twice per simulated second; a view a few stretches old is never
+    /// current. Without frames it moves once per stretch.)
+    #[test]
+    fn an_order_quoted_against_an_older_revision_is_refused_and_changes_nothing() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        watch(&state, 60);
+        let seen = snapshot(&state).view;
+        watch(&state, 30);
+        let now = snapshot(&state).view;
+        assert!(
+            now.session.revision >= seen.session.revision + 30,
+            "the revision moves with the match when frames are captured: {} then {}",
+            seen.session.revision,
+            now.session.revision
+        );
+
+        let change = || {
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            })
+        };
+        let stale = submit_match_command_internal(
+            &state,
+            UserCommand {
+                command_id: "late".into(),
+                expected_revision: seen.session.revision,
+                order: change(),
+            },
+            0,
+        )
+        .expect("a stale order is answered, not an error");
+        assert!(!stale.receipt.accepted);
+        assert_eq!(stale.receipt.rejection.as_deref(), Some("stale_revision"));
+        assert_eq!(stale.snapshot.view.home_plan.style, now.home_plan.style);
+        assert_eq!(
+            stale.snapshot.view.session.revision, now.session.revision,
+            "a refused order does not touch the match"
+        );
+
+        let current = submit_match_command_internal(
+            &state,
+            UserCommand {
+                command_id: "on-time".into(),
+                expected_revision: now.session.revision,
+                order: change(),
+            },
+            0,
+        )
+        .expect("order");
+        assert!(current.receipt.accepted, "{:?}", current.receipt);
+        assert_eq!(current.snapshot.view.home_plan.style, PlayStyle::Attacking);
+    }
+
+    /// Given an order accepted under a command id before the career was saved,
+    /// When the career is reloaded and a different order is sent under the same id,
+    /// Then the engine answers it as a repeat of the first and applies nothing: ids are remembered
+    /// across a reload. This is why the screen must make every id its own (a counter that starts
+    /// again at 1 on a reopened screen would have its first order swallowed).
+    #[test]
+    fn a_command_id_used_before_a_reload_is_still_remembered_after_it() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        let first = order(
+            &state,
+            "same-id",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        );
+        assert!(first.receipt.accepted);
+        crate::application::saving::persist_active_game(&state, &mut saves).expect("save");
+
+        let resumed = reload(&mut saves, &save_id);
+        let again = order(
+            &resumed,
+            "same-id",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Defensive),
+                ..Default::default()
+            }),
+        );
+        assert!(again.receipt.duplicate);
+        assert_eq!(again.snapshot.view.home_plan.style, PlayStyle::Attacking);
+        let fresh = order(
+            &resumed,
+            "another-id",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Defensive),
+                ..Default::default()
+            }),
+        );
+        assert!(fresh.receipt.accepted && !fresh.receipt.duplicate);
+        assert_eq!(fresh.snapshot.view.home_plan.style, PlayStyle::Defensive);
+    }
+
+    /// Given a managed match the engine ends with goals (the seeds are scanned until one does;
+    /// nothing is forced),
+    /// When it is finalised,
+    /// Then the fixture's result is the score the match view showed at full time, and the table
+    /// credits exactly those goals to the two clubs: a 0-0 would pass a copy of the wrong field.
+    #[test]
+    fn a_match_that_ends_with_goals_is_finalised_with_those_goals() {
+        for seed in 1..=120u64 {
+            let state = StateManager::new();
+            let mut game = game_with_spatial_fixture();
+            game.seed = seed;
+            state.set_game(game);
+            begin(&state);
+            to_full_time(&state);
+            let session = snapshot(&state).view.session;
+            let (home, away) = (u32::from(session.score_home), u32::from(session.score_away));
+            if home == away || home + away < 2 {
+                continue; // want a decisive, multi-goal match so home/away cannot be confused
+            }
+            let finalised = finish_interactive_match_internal(&state).expect("finalisation");
+            let result = finalised.game.competitions[0].fixtures[0]
+                .result
+                .as_ref()
+                .expect("a result");
+            assert_eq!(
+                (u32::from(result.home_goals), u32::from(result.away_goals)),
+                (home, away),
+                "seed {seed}"
+            );
+            let (scored, conceded) = state
+                .get_game(|g| {
+                    let table = &g.competitions[0].standings;
+                    (
+                        table.iter().map(|s| s.goals_for).sum::<u32>(),
+                        table.iter().map(|s| s.goals_against).sum::<u32>(),
+                    )
+                })
+                .expect("game");
+            assert_eq!(
+                (scored, conceded),
+                (home + away, home + away),
+                "seed {seed}"
+            );
+            return;
+        }
+        panic!("no seed produced a decisive match with goals; the scan proves nothing");
+    }
+
+    /// Writes real payloads of the second half of a match for the screen's own tests: the stop at
+    /// half time, the two orders a manager gives there, the start of the second half and full time.
+    /// Frames are trimmed to the last few of each stretch (the screen's tests need the shapes of the
+    /// views, clocks and receipts at these moments, not forty minutes of positions):
+    /// `APFM_WRITE_LIVE_FIXTURE=1 cargo test --lib write_break_fixture -- --ignored`
+    #[test]
+    #[ignore = "writes src/components/match/liveMatch.break.generated.json; run on purpose"]
+    fn write_break_fixture() {
+        if std::env::var("APFM_WRITE_LIVE_FIXTURE").is_err() {
+            return;
+        }
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        let play = |target: AdvanceTarget, cursor: usize| {
+            advance_interactive_match_internal(
+                &state,
+                AdvanceRequest {
+                    target,
+                    stop_at_key_events: false,
+                },
+                cursor,
+                true,
+            )
+            .expect("advance with frames")
+        };
+        let trimmed = |mut reply: AdvanceSnapshot, keep: usize| {
+            let drop = reply.frames.len().saturating_sub(keep);
+            reply.frames.drain(..drop);
+            reply
+        };
+        let mut halftime = play(AdvanceTarget::ToEnd, 0);
+        while halftime.stop != StopReason::PeriodBreak {
+            halftime = play(AdvanceTarget::ToEnd, 0);
+        }
+        let mut cursor = halftime.snapshot.next_event_cursor;
+        let halftime = trimmed(halftime, 6);
+        let view = halftime.snapshot.view.clone();
+        let (off, on) = legal_swap(&view);
+        let command = |id: &str, order: UserOrder, state: &StateManager, cursor: usize| {
+            let revision = get_interactive_match_state_internal(state, cursor)
+                .expect("state")
+                .view
+                .session
+                .revision;
+            submit_match_command_internal(
+                state,
+                UserCommand {
+                    command_id: id.into(),
+                    expected_revision: revision,
+                    order,
+                },
+                cursor,
+            )
+            .expect("order")
+        };
+        let tactics = command(
+            "fixture-tactics",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+            &state,
+            cursor,
+        );
+        cursor = tactics.snapshot.next_event_cursor;
+        let substitution = command(
+            "fixture-swap",
+            UserOrder::Substitute {
+                player_off_id: off,
+                player_on_id: on,
+            },
+            &state,
+            cursor,
+        );
+        cursor = substitution.snapshot.next_event_cursor;
+        let second_half = play(AdvanceTarget::ForSeconds(20), cursor);
+        cursor = second_half.snapshot.next_event_cursor;
+        let mut full_time = play(AdvanceTarget::ToEnd, cursor);
+        while full_time.stop != StopReason::Finished {
+            cursor = full_time.snapshot.next_event_cursor;
+            full_time = play(AdvanceTarget::ToEnd, cursor);
+        }
+        let full_time = trimmed(full_time, 6);
+        // Serialised straight to text, as the IPC does (see `write_live_fixture`).
+        let fixture = format!(
+            "{{\"halftime\":{},\"tactics\":{},\"substitution\":{},\"second_half\":{},\"full_time\":{}}}",
+            serde_json::to_string(&halftime).unwrap(),
+            serde_json::to_string(&tactics).unwrap(),
+            serde_json::to_string(&substitution).unwrap(),
+            serde_json::to_string(&second_half).unwrap(),
+            serde_json::to_string(&full_time).unwrap(),
+        );
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../src/components/match/liveMatch.break.generated.json"
+        );
+        std::fs::write(path, fixture).expect("written");
     }
 
     /// Writes the real frames of the first minutes of a match for the screen's own tests, which
