@@ -164,7 +164,13 @@ fn projection_includes_table_fields_and_denormalized_team_name() {
     assert_eq!(item.full_name, "John Smith");
     assert_eq!(item.team_id.as_deref(), Some("t1"));
     assert_eq!(item.team_name.as_deref(), Some("Alpha FC"));
-    assert_eq!(item.ovr, 65);
+    // The manager has no club here and no report: he reads a standing, not the rating.
+    assert_eq!(
+        item.rating,
+        ofm_core::rating_view::RatingView::Standing {
+            standing: ofm_core::rating_view::PublicStanding::Average
+        }
+    );
     assert!(!item.injured);
 }
 

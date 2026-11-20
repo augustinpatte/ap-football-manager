@@ -133,7 +133,7 @@ impl<'a> RatingLens<'a> {
         }
     }
 
-    pub fn rating_of(&self, player: &'a Player) -> RatingView {
+    pub fn rating_of(&self, player: &Player) -> RatingView {
         match knowledge_from(self.game, &self.viewer, player) {
             PlayerKnowledge::Own | PlayerKnowledge::Known => RatingView::Exact { ovr: player.ovr },
             PlayerKnowledge::Scouted { .. } | PlayerKnowledge::Unknown => {

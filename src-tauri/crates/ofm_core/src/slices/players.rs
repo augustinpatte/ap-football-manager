@@ -1,5 +1,6 @@
 use super::search_text::{contains_folded, fold_needle};
 use crate::game::Game;
+use crate::rating_view::{RatingLens, RatingView};
 use crate::transfers::{
     can_afford_fee, has_pending_transfer_registration, player_has_active_or_pending_loan,
 };
@@ -138,7 +139,8 @@ pub struct PlayerSummary {
     pub team_id: Option<String>,
     pub team_name: Option<String>,
     pub market_value: u64,
-    pub ovr: u8,
+    /// What the manager may read of his overall rating: exact, a scout's range, or a standing.
+    pub rating: RatingView,
     pub transfer_listed: bool,
     pub loan_listed: bool,
     pub injured: bool,
@@ -222,7 +224,7 @@ pub fn query_page(game: &Game, query: &PlayersPageQuery) -> PlayersPage {
         .filter(|player| matches_status(player, query.status))
         .collect();
 
-    sort_matches(&mut matches, query, &teams, context.today);
+    sort_matches(&mut matches, query, &teams, &context);
 
     let total = matches.len();
     let page = query.page.max(1);
@@ -232,7 +234,7 @@ pub fn query_page(game: &Game, query: &PlayersPageQuery) -> PlayersPage {
         .get(start..end)
         .unwrap_or(&[])
         .iter()
-        .map(|player| project_summary(player, &teams, context.today))
+        .map(|player| project_summary(player, &teams, &context))
         .collect();
 
     PlayersPage {
@@ -249,6 +251,8 @@ struct ListContext<'a> {
     today: NaiveDate,
     user_team: Option<&'a Team>,
     dossier: &'a crate::scouting_dossier::ScoutingDossier,
+    /// How the manager reads a rating: every rating filter, sort and row goes through it.
+    ratings: RatingLens<'a>,
 }
 
 impl<'a> ListContext<'a> {
@@ -262,6 +266,7 @@ impl<'a> ListContext<'a> {
             today: game.clock.current_date.date_naive(),
             user_team,
             dossier: &game.scouting_dossier,
+            ratings: RatingLens::of(game),
         }
     }
 
@@ -349,8 +354,7 @@ fn matches_all_but_status(
     if query.age_min.is_some_and(|min| age < min) || query.age_max.is_some_and(|max| age > max) {
         return false;
     }
-    if query.ovr_min.is_some_and(|min| player.ovr < min)
-        || query.ovr_max.is_some_and(|max| player.ovr > max)
+    if !matches_rating_bounds(player, query, context)
         || query.value_min.is_some_and(|min| player.market_value < min)
         || query.value_max.is_some_and(|max| player.market_value > max)
     {
@@ -385,6 +389,17 @@ fn matches_all_but_status(
     }
 
     true
+}
+
+/// The rating bounds the manager set. They test what he may read, not the true rating: a bound
+/// that cut through a standing or a range would let him find the rating by narrowing it.
+fn matches_rating_bounds(player: &Player, query: &PlayersPageQuery, context: &ListContext) -> bool {
+    // Every list asks this of every player: with no bound set, there is nothing to look up.
+    (query.ovr_min.is_none() && query.ovr_max.is_none())
+        || context
+            .ratings
+            .rating_of(player)
+            .may_be_rated_within(query.ovr_min, query.ovr_max)
 }
 
 /// The scouting-status and estimated-potential tests of the search.
@@ -439,10 +454,30 @@ fn sort_matches(
     matches: &mut [&Player],
     query: &PlayersPageQuery,
     teams: &TeamLookup,
-    today: NaiveDate,
+    context: &ListContext,
 ) {
+    // The rating column sorts by what the manager may read, worked out once per player.
+    let readable_ratings: HashMap<&str, u8> = if query.sort_key == PlayerSortKey::Ovr {
+        matches
+            .iter()
+            .map(|player| {
+                (
+                    player.id.as_str(),
+                    context.ratings.rating_of(player).sort_value(),
+                )
+            })
+            .collect()
+    } else {
+        HashMap::new()
+    };
+    let today = context.today;
     matches.sort_by(|a, b| {
-        let primary = compare_by_key(a, b, query.sort_key, teams, today);
+        let primary = match query.sort_key {
+            PlayerSortKey::Ovr => {
+                readable_ratings[a.id.as_str()].cmp(&readable_ratings[b.id.as_str()])
+            }
+            key => compare_by_key(a, b, key, teams, today),
+        };
         let primary = if query.sort_asc {
             primary
         } else {
@@ -472,13 +507,14 @@ fn compare_by_key(
         PlayerSortKey::Age => age_on_or_unknown(today, &a.date_of_birth)
             .cmp(&age_on_or_unknown(today, &b.date_of_birth))
             .then_with(|| b.date_of_birth.cmp(&a.date_of_birth)),
-        PlayerSortKey::Ovr => a.ovr.cmp(&b.ovr),
+        // The rating column is sorted from what the manager may read, in `sort_matches`.
+        PlayerSortKey::Ovr => Ordering::Equal,
         PlayerSortKey::Value => a.market_value.cmp(&b.market_value),
         PlayerSortKey::Team => team_name_for(a, teams).cmp(team_name_for(b, teams)),
     }
 }
 
-fn project_summary(player: &Player, teams: &TeamLookup, today: NaiveDate) -> PlayerSummary {
+fn project_summary(player: &Player, teams: &TeamLookup, context: &ListContext) -> PlayerSummary {
     let team_name = player
         .team_id
         .as_deref()
@@ -489,7 +525,7 @@ fn project_summary(player: &Player, teams: &TeamLookup, today: NaiveDate) -> Pla
         full_name: player.full_name.clone(),
         match_name: player.match_name.clone(),
         date_of_birth: player.date_of_birth.clone(),
-        age: age_on_or_unknown(today, &player.date_of_birth),
+        age: age_on_or_unknown(context.today, &player.date_of_birth),
         wage: player.wage(),
         nationality: player.nationality.clone(),
         position: player.position.clone(),
@@ -497,7 +533,7 @@ fn project_summary(player: &Player, teams: &TeamLookup, today: NaiveDate) -> Pla
         team_id: player.team_id.clone(),
         team_name,
         market_value: player.market_value,
-        ovr: player.ovr,
+        rating: context.ratings.rating_of(player),
         transfer_listed: player.transfer_listed,
         loan_listed: player.loan_listed,
         injured: player.injury.is_some(),

@@ -37,7 +37,7 @@ pub(crate) struct Viewer<'a> {
     division: Option<&'a str>,
     /// Whether a club plays in the viewer's division, asked once per club: a list of thousands of
     /// players names a few hundred clubs, and finding a club's table walks every competition.
-    club_in_division: RefCell<HashMap<&'a str, bool>>,
+    club_in_division: RefCell<HashMap<String, bool>>,
 }
 
 impl<'a> Viewer<'a> {
@@ -50,23 +50,22 @@ impl<'a> Viewer<'a> {
         }
     }
 
-    fn sees_club_play_in_division(&self, game: &'a Game, club: &'a str) -> bool {
+    fn sees_club_play_in_division(&self, game: &Game, club: &str) -> bool {
         let Some(division) = self.division else {
             return false;
         };
-        *self
-            .club_in_division
+        if let Some(known) = self.club_in_division.borrow().get(club) {
+            return *known;
+        }
+        let plays_there = division_of(game, club) == Some(division);
+        self.club_in_division
             .borrow_mut()
-            .entry(club)
-            .or_insert_with(|| division_of(game, club) == Some(division))
+            .insert(club.to_string(), plays_there);
+        plays_there
     }
 }
 
-pub(crate) fn knowledge_from<'a>(
-    game: &'a Game,
-    viewer: &Viewer<'a>,
-    player: &'a Player,
-) -> PlayerKnowledge {
+pub(crate) fn knowledge_from(game: &Game, viewer: &Viewer, player: &Player) -> PlayerKnowledge {
     if viewer
         .club
         .is_some_and(|club| is_at_or_owned_by(player, club))
