@@ -122,3 +122,20 @@ competition on load. The test now builds a league and keeps the strangers outsid
 ## 7. Validation and final state
 
 See the end of this file.
+
+### Final run (code state `104fa882`; this document is committed after it)
+
+| Check | Result |
+| --- | --- |
+| `cargo test --workspace` | 5281 passed, 0 failed (133 ignored: need a display or the nightly) |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings`, default and `--features mcp` | clean |
+| `cargo fmt --check` | clean |
+| `npm test` | 3209 passed, 4 skipped, 0 failed (includes `src/i18n`, `architecture.test.ts`, `designSystem.test.ts`) |
+| `npm run format:check`, `npm run lint`, `npm run knip`, `npm run build` | clean (lint reports 3 pre-existing infos) |
+| Mutation checks | 6 of 6 caught (section 5) |
+| Reviewers | 5 of 5 run (section 6) |
+
+**Not verified:** the real desktop window was not operated (no computer-use access in this session), so no
+screen was seen by eye, no screen reader was used, and contrast of the new tokens in both themes is
+unmeasured. `npm run audit:i18n` was not run (advisory, never fails); the real i18n gate passes.
+Commits are local; nothing was pushed.
