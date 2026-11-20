@@ -345,8 +345,9 @@ mod tests {
             reports: vec![row("p1", true)],
         };
         let text = dossier.to_string();
-        assert!(text
-            .contains("| p1 | Player p1 | Striker | 19 | Free | 58-66 | 58-66 | 70-84 | moderate |"));
+        assert!(text.contains(
+            "| p1 | Player p1 | Striker | 19 | Free | 58-66 | 58-66 | 70-84 | moderate |"
+        ));
         assert!(text.contains("| p2 | Player p2 | Striker | 19 | Free | average | - | - | - |"));
         round_trips(dossier);
 

@@ -12,6 +12,8 @@
 //!
 //! The estimate is [`crate::scouting_dossier`]'s own: this module only chooses what to show.
 
+use std::collections::{HashMap, HashSet};
+
 use serde::Serialize;
 
 use crate::game::Game;
@@ -162,6 +164,17 @@ impl<'a> RatingLens<'a> {
             scouted_on: report.scouted_on.clone(),
         }
     }
+}
+
+/// How the manager reads each requested player's rating. An id no player has is left out.
+pub fn ratings_view(game: &Game, player_ids: &[String]) -> HashMap<String, RatingView> {
+    let wanted: HashSet<&str> = player_ids.iter().map(String::as_str).collect();
+    let lens = RatingLens::of(game);
+    game.players
+        .iter()
+        .filter(|player| wanted.contains(player.id.as_str()))
+        .map(|player| (player.id.clone(), lens.rating_of(player)))
+        .collect()
 }
 
 /// How the manager reads one player's rating.
@@ -454,6 +467,24 @@ mod tests {
         assert_eq!(estimate.sort_value(), 67);
         assert_eq!(estimate.believed_ovr(), Some(67));
         assert_eq!(good.believed_ovr(), None);
+    }
+
+    /// Given a request for several players, one of them an id no player has
+    /// When their ratings are read in one go
+    /// Then each real player is answered as `rating_view` would, and the stray id is left out
+    #[test]
+    fn a_bulk_request_answers_each_player_and_skips_unknown_ids() {
+        let game = world(vec![
+            player("own", Some(MY_CLUB), 71),
+            player("stranger", Some("faraway"), 74),
+        ]);
+        let ids = ["own", "stranger", "nobody"].map(str::to_string);
+
+        let answer = ratings_view(&game, &ids);
+
+        assert_eq!(answer.len(), 2);
+        assert_eq!(answer["own"], RatingView::Exact { ovr: 71 });
+        assert_eq!(answer["stranger"], view_of(&game, "stranger"));
     }
 
     /// Given a game with a report and a standing, saved to JSON and loaded again

@@ -5,6 +5,7 @@ use tauri::State;
 
 use domain::message::InboxMessage;
 use ofm_core::player_knowledge::{players_knowledge, PlayerKnowledge};
+use ofm_core::rating_view::{ratings_view, RatingView};
 use ofm_core::slices::competitions::{query_competitions, CompetitionsQuery, CompetitionsView};
 use ofm_core::slices::inbox::{query_messages, MessagesQuery};
 use ofm_core::slices::news::{query_news_feed, NewsFeed, NewsFeedQuery};
@@ -142,6 +143,25 @@ fn get_player_knowledge_internal(
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())
 }
 
+/// How the manager may read each player's overall rating: exact, a scout's range, or a public
+/// standing. Screens that hold a player from the game read his rating here, never from `ovr`.
+#[tauri::command]
+pub async fn get_player_ratings(
+    state: State<'_, Arc<StateManager>>,
+    player_ids: Vec<String>,
+) -> Result<HashMap<String, RatingView>, String> {
+    get_player_ratings_internal(&state, &player_ids)
+}
+
+fn get_player_ratings_internal(
+    state: &StateManager,
+    player_ids: &[String],
+) -> Result<HashMap<String, RatingView>, String> {
+    state
+        .get_game(|game| ratings_view(game, player_ids))
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
 #[tauri::command]
 pub async fn get_squad(
     state: State<'_, Arc<StateManager>>,
@@ -243,6 +263,82 @@ mod tests {
 
     /// Given no active game, when the knowledge adapter reads it,
     /// then the translated session error is returned.
+    /// Given no active game, when the ratings adapter is asked, then it reports the missing session.
+    #[test]
+    fn the_ratings_adapter_reports_a_missing_session() {
+        assert_eq!(
+            get_player_ratings_internal(&StateManager::new(), &["p".to_string()]).unwrap_err(),
+            NO_ACTIVE_GAME
+        );
+    }
+
+    /// Given the manager's own player and a stranger at a club outside his division,
+    /// when the IPC adapter is asked about both and an id no player has,
+    /// then the screen receives the wire shape it reads: `exact` with the number for his own
+    /// player, `standing` with a label and no number for the stranger, nothing for the stray id.
+    #[test]
+    fn the_ratings_adapter_answers_exact_for_his_own_and_a_standing_for_a_stranger() {
+        use chrono::TimeZone;
+        use domain::manager::Manager;
+        use domain::player::{Player, PlayerAttributes, Position};
+        let attrs: PlayerAttributes = serde_json::from_value(serde_json::json!({
+            "pace": 60, "stamina": 60, "strength": 60, "agility": 60, "passing": 60,
+            "shooting": 60, "tackling": 60, "dribbling": 60, "defending": 60,
+            "positioning": 60, "vision": 60, "decisions": 60, "composure": 60,
+            "aggression": 60, "teamwork": 60, "leadership": 60,
+            "handling": 60, "reflexes": 60, "aerial": 60
+        }))
+        .unwrap();
+        let make = |id: &str, club: &str, ovr: u8| {
+            let mut player = Player::new(
+                id.into(),
+                id.into(),
+                id.into(),
+                "2000-01-01".into(),
+                "GB".into(),
+                Position::Forward,
+                attrs.clone(),
+            );
+            player.team_id = Some(club.into());
+            player.ovr = ovr;
+            player
+        };
+        let mut manager = Manager::new(
+            "m".into(),
+            "M".into(),
+            "Gr".into(),
+            "1980-01-01".into(),
+            "GB".into(),
+        );
+        manager.team_id = Some("club".into());
+        let game = ofm_core::game::Game::new(
+            ofm_core::clock::GameClock::new(
+                chrono::Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap(),
+            ),
+            manager,
+            vec![],
+            vec![make("own", "club", 71), make("stranger", "elsewhere", 74)],
+            vec![],
+            vec![],
+        );
+        let state = StateManager::new();
+        state.set_game(game);
+
+        let answer = get_player_ratings_internal(
+            &state,
+            &["own".into(), "stranger".into(), "nobody".into()],
+        );
+        let value = serde_json::to_value(answer.unwrap()).unwrap();
+
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "own": { "kind": "exact", "ovr": 71 },
+                "stranger": { "kind": "standing", "standing": "good" },
+            })
+        );
+    }
+
     #[test]
     fn the_knowledge_adapter_reports_a_missing_session() {
         assert_eq!(
