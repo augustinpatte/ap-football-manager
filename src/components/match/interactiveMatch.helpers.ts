@@ -5,11 +5,6 @@ import type {
   TacticalChange,
 } from "../../services/interactiveMatchService";
 
-/** The match minute a clock reading is in (the engine's clock, never a screen timer). */
-export function matchMinute(clockMs: number): number {
-  return Math.floor(clockMs / 60_000);
-}
-
 /** Every player of both teams by id, from the engine's own lists. */
 export function playerNames(view: InteractiveView): Record<string, string> {
   const names: Record<string, string> = {};

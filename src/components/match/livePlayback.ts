@@ -230,7 +230,13 @@ export interface Span {
   end: number;
 }
 
-const KEY_EVENTS = new Set(["goal", "shot", "card", "injury", "penalty"]);
+/**
+ * The moments the highlight reel is cut around. Deliberately not the engine's `is_key_event`
+ * (ofm_core::interactive_match), which decides what stops a stretch of play and includes
+ * substitutions, tactical changes and period boundaries but not shots: a reel wants the football
+ * (a shot, a card), the engine's stops want the changes of the match.
+ */
+const HIGHLIGHT_EVENTS = new Set(["goal", "shot", "card", "injury", "penalty"]);
 const EXTENDED_EVENTS = new Set(["corner", "foul", "offside"]);
 
 /** Seconds of run-up and aftermath shown around a moment. */
@@ -246,10 +252,19 @@ const JOIN_GAP_MS = 2_000;
 /** How much run-up a highlight needs, which is how close to the head quiet play is parked. */
 export const LEAD_MS = 15_000;
 
-/** Which goal a side attacks in this period (sides swap at half-time and before extra time). */
+/** Whether home attacks the goal at x = 105 in this period (sides swap at half-time and before extra time). */
+export function homeAttacksPositiveGoal(period: LiveFrame["period"]): boolean {
+  return period === "first_half" || period === "extra_time_first";
+}
+
+/** Which goal a side attacks in this period. */
 export function attackedGoalX(side: "home" | "away", period: LiveFrame["period"]): number {
-  const homeAttacksPositive = period === "first_half" || period === "extra_time_first";
-  return (side === "home") === homeAttacksPositive ? PITCH_LENGTH_M : 0;
+  return (side === "home") === homeAttacksPositiveGoal(period) ? PITCH_LENGTH_M : 0;
+}
+
+/** The goal line (x = 0 or 105) a ball at `x` is nearest to: the goal a scorer at that spot has just scored in. */
+export function goalLineNearest(x: number): number {
+  return x < PITCH_LENGTH_M / 2 ? 0 : PITCH_LENGTH_M;
 }
 
 function isDangerous(frame: LiveFrame): boolean {
@@ -282,7 +297,8 @@ export function highlightSpans(
 ): Span[] | null {
   if (mode === "full") return null;
   const padding = PADDING_MS[mode];
-  const kinds = mode === "extended" ? new Set([...KEY_EVENTS, ...EXTENDED_EVENTS]) : KEY_EVENTS;
+  const kinds =
+    mode === "extended" ? new Set([...HIGHLIGHT_EVENTS, ...EXTENDED_EVENTS]) : HIGHLIGHT_EVENTS;
   const spans: Span[] = [];
   for (const event of events) {
     if (!kinds.has(event.type)) continue;

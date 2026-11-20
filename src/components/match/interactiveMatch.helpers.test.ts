@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
-import { changedTactics, matchMinute, rejectionMessage } from "./interactiveMatch.helpers";
+import { changedTactics, rejectionMessage } from "./interactiveMatch.helpers";
 import type { PlanView } from "../../services/interactiveMatchService";
 
 // A translator that shows its key and parameters, so a test sees which words were chosen.
@@ -13,13 +13,6 @@ const plan: PlanView = {
   tempo: "Direct",
   formation: "4-4-2",
 };
-
-describe("matchMinute", () => {
-  /** Given an engine clock of 45:30, then the match is in minute 45. */
-  it("reads the minute from the engine's clock", () => {
-    expect(matchMinute(45 * 60_000 + 30_000)).toBe(45);
-  });
-});
 
 describe("rejectionMessage", () => {
   /** Given a code the screen knows, then its own text; an unknown code, the generic one. */

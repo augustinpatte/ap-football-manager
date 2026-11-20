@@ -2,6 +2,7 @@ import { type MutableRefObject, useCallback, useEffect, useMemo, useRef } from "
 import { useTranslation } from "react-i18next";
 import type { InteractiveView } from "../../services/interactiveMatchService";
 import type { LiveDirector } from "./liveDirector";
+import { homeAttacksPositiveGoal } from "./livePlayback";
 import { drawPitch } from "./replayPitch";
 import type { PitchPlayer } from "./m12Replay";
 
@@ -94,7 +95,7 @@ export default function LivePitch({
       },
       onPitch,
       flashGoalX,
-      homeAttacksPositiveX: sample.period === "first_half" || sample.period === "extra_time_first",
+      homeAttacksPositiveX: homeAttacksPositiveGoal(sample.period),
     });
   }, [director, lookup, flashGoalX]);
 

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { TeamData } from "../../store/gameStore";
 import MatchScreenLayout from "./MatchScreenLayout";
 import { frameAtOrBefore, parseM12Replay, playersOnPitch, type ReplayRejection } from "./m12Replay";
+import { goalLineNearest } from "./livePlayback";
 import ReplayEventFeed from "./ReplayEventFeed";
 import ReplayPlaybackBar from "./ReplayPlaybackBar";
 import ReplayViews, { type ViewId } from "./ReplayViews";
@@ -105,7 +106,7 @@ export default function M12ReplayViewer({
     const last = goals[goals.length - 1];
     return last && time - last.t_ms <= GOAL_BANNER_MS ? last : null;
   }, [replay, time]);
-  const flashGoalX = recentGoal?.position ? (recentGoal.position.x < 52.5 ? 0 : 105) : undefined;
+  const flashGoalX = recentGoal?.position ? goalLineNearest(recentGoal.position.x) : undefined;
 
   useEffect(() => {
     if (!playing || !replay || time >= end) return;
