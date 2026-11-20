@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "The formation cannot change while a player lies injured.",
         "unauthorized": "You cannot give that order.",
         "other": "The engine refused that order."
-      }
+      },
+      "saveGame": "Save game",
+      "saving": "Saving…",
+      "saved": "Game saved. The match is stored exactly as it stands.",
+      "saveFailed": "The game could not be saved. Your match is untouched: check free disk space and try again.",
+      "saveExit": "Save and return to menu",
+      "exiting": "Saving and leaving…",
+      "exitFailed": "The game could not be saved, so you are still in the match. Try again, or keep playing."
     },
     "liveView": {
       "pitchLabel": "Live 2D pitch: {{home}} against {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "Planned contract exits would leave only {{healthyPlayers}} healthy player(s) and {{goalkeepers}} goalkeeper(s): {{players}}",
       "urgentMessages": "{{count}} urgent unread message(s)",
       "keyContractRisk": "Key player contract risk in squad planning: {{players}}",
-      "contractWageRisk": "{{amount}} of wages are tied to at-risk contracts — review your wage budget"
+      "contractWageRisk": "{{amount}} of wages are tied to at-risk contracts — review your wage budget",
+      "checkFailed": "Could not check whether anything needs your attention, so time was not advanced. Try again."
     }
   },
   "squadCompare": {

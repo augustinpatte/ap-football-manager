@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "Rozestavení nelze změnit, dokud na hřišti leží zraněný hráč.",
         "unauthorized": "Tento pokyn nelze zadat.",
         "other": "Zápasový engine tento pokyn odmítl."
-      }
+      },
+      "saveGame": "Uložit hru",
+      "saving": "Ukládání…",
+      "saved": "Hra uložena. Zápas je uložen přesně v aktuálním stavu.",
+      "saveFailed": "Hru se nepodařilo uložit. Zápas zůstal beze změny: zkontrolujte volné místo na disku a zkuste to znovu.",
+      "saveExit": "Uložit a vrátit se do menu",
+      "exiting": "Ukládání a odchod…",
+      "exitFailed": "Hru se nepodařilo uložit, takže zůstáváte v zápase. Zkuste to znovu, nebo hrajte dál."
     },
     "liveView": {
       "pitchLabel": "2D hřiště živě: {{home}} proti {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "Plánované konce smluv by ponechaly pouze {{healthyPlayers}} zdravých hráčů a {{goalkeepers}} brankáře: {{players}}",
       "urgentMessages": "{{count}} urgentní nepřečtená zpráva(y)",
       "keyContractRisk": "Riziko konce smlouvy u klíčového hráče v plánování kádru: {{players}}",
-      "contractWageRisk": "{{amount}} z platového rozpočtu je vázáno v ohrožených smlouvách — zkontrolujte své mzdové náklady"
+      "contractWageRisk": "{{amount}} z platového rozpočtu je vázáno v ohrožených smlouvách — zkontrolujte své mzdové náklady",
+      "checkFailed": "Nepodařilo se ověřit, zda něco nevyžaduje vaši pozornost, takže se čas neposunul. Zkuste to znovu."
     }
   },
   "squadCompare": {

@@ -1807,10 +1807,9 @@ mod live_session_tests {
     refused_advance!(live_mode_advancing_during_a_live_match_is_refused, |s| {
         time_advancement::advance_time_with_mode(s, "live")
     });
-    refused_advance!(
-        skipping_during_a_live_match_is_refused,
-        time::skip_to_match_day_internal
-    );
+    refused_advance!(skipping_during_a_live_match_is_refused, |s| {
+        time::skip_to_match_day_internal(s, true)
+    });
     refused_advance!(one_day_advancing_during_a_live_match_is_refused, |s| {
         time::advance_one_day_internal(s, false)
     });

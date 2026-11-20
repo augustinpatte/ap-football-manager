@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "Formasi tidak dapat diubah selama ada pemain cedera di lapangan.",
         "unauthorized": "Instruksi itu tidak dapat diberikan.",
         "other": "Mesin pertandingan menolak instruksi itu."
-      }
+      },
+      "saveGame": "Simpan game",
+      "saving": "Menyimpan…",
+      "saved": "Game tersimpan. Pertandingan disimpan persis seperti keadaannya sekarang.",
+      "saveFailed": "Game tidak dapat disimpan. Pertandingan Anda tidak berubah: periksa ruang disk yang tersisa lalu coba lagi.",
+      "saveExit": "Simpan dan kembali ke menu",
+      "exiting": "Menyimpan dan keluar…",
+      "exitFailed": "Game tidak dapat disimpan, jadi Anda tetap di pertandingan. Coba lagi atau lanjutkan bermain."
     },
     "liveView": {
       "pitchLabel": "Lapangan 2D langsung: {{home}} melawan {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "Rencana pemain yang keluar akan menyisakan hanya {{healthyPlayers}} pemain sehat dan {{goalkeepers}} penjaga gawang: {{players}}",
       "urgentMessages": "{{count}} pesan mendesak belum dibaca",
       "keyContractRisk": "Risiko kontrak pemain kunci dalam perencanaan skuad: {{players}}",
-      "contractWageRisk": "{{amount}} gaji terkait kontrak berisiko — tinjau anggaran gaji kamu"
+      "contractWageRisk": "{{amount}} gaji terkait kontrak berisiko — tinjau anggaran gaji kamu",
+      "checkFailed": "Tidak dapat memeriksa apakah ada yang butuh perhatian Anda, jadi waktu tidak dimajukan. Coba lagi."
     }
   },
   "squadCompare": {

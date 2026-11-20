@@ -37,17 +37,38 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
   const snapshot = useSyncExternalStore(director.subscribe, director.getSnapshot);
   const [notice, setNotice] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  // True once the engine has moved or taken an order since the career was last saved: closing the
+  // window then would lose that progress. A match opened from a save starts false.
+  const [unsaved, setUnsaved] = useState(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  // Set once the career has been saved and cleared for the menu: engine calls still waiting in the
+  // queue then have no match to talk to and must not report that as a failure.
+  const leaving = useRef(false);
   const drawRef = useRef<(() => void) | null>(null);
   const orderCount = useRef(0);
   // The engine answers a repeated command id with its first answer and applies nothing, and it
   // remembers ids across a reopened screen and a reloaded save: an id is unique to this screen.
   const orderSalt = useRef(newOrderSalt());
 
-  /** Runs one backend call after the ones before it; a failure is shown and the match resynchronised. */
+  /**
+   * Runs one backend call after the ones before it and hands its failure back to the caller. The
+   * career's own save and exit use this: they must not halt the match or replace their reason with
+   * the engine's generic notice.
+   */
+  const enqueue = useCallback(<T>(request: () => Promise<T>): Promise<T> => {
+    const run = queue.current.then(request);
+    queue.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }, []);
+
+  /** Runs one engine call in the queue; a failure is shown and the match resynchronised. */
   const call = useCallback(
-    <T>(request: () => Promise<T>): Promise<T | null> => {
-      const run = queue.current.then(async () => {
+    <T>(request: () => Promise<T>): Promise<T | null> =>
+      enqueue(async () => {
+        if (leaving.current) return null;
         try {
           return await request();
         } catch (error) {
@@ -59,26 +80,23 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
             .catch(() => undefined);
           return null;
         }
-      });
-      queue.current = run.then(
-        () => undefined,
-        () => undefined,
-      );
-      return run;
-    },
-    [director],
+      }),
+    [director, enqueue],
   );
 
   const advance = useCallback(
     (seconds: number): Promise<AdvanceSnapshot | null> =>
-      call(() =>
-        advanceInteractiveMatch(
+      call(async () => {
+        const reply = await advanceInteractiveMatch(
           { kind: "for_seconds", value: seconds },
           director.eventCursor,
           false,
           true,
-        ),
-      ),
+        );
+        // The kickoff fetch asks for no time and changes nothing the save would lose.
+        if (seconds > 0) setUnsaved(true);
+        return reply;
+      }),
     [call, director],
   );
 
@@ -122,6 +140,7 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
         advanceInteractiveMatch({ kind: "to_end" }, director.eventCursor, false, true),
       );
       if (!reply) return;
+      setUnsaved(true);
       director.ingestAdvance(reply);
       director.skipToHead();
     });
@@ -139,6 +158,7 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
           submitMatchCommand(id, view.session.revision, order, director.eventCursor),
         );
         if (!answer) return;
+        if (answer.receipt.accepted) setUnsaved(true);
         director.ingestSnapshot(answer.snapshot);
         setNotice(
           answer.receipt.accepted
@@ -156,7 +176,10 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
     async (active: boolean) => {
       await director.track(async () => {
         const next = await call(() => setInteractiveAssistant(active, director.eventCursor));
-        if (next) director.ingestSnapshot(next);
+        if (next) {
+          setUnsaved(true);
+          director.ingestSnapshot(next);
+        }
       });
     },
     [call, director],
@@ -184,6 +207,12 @@ export function useLiveMatch<TFinish>(onFinished: (response: TFinish) => void) {
     snapshot,
     notice,
     finishing,
+    unsaved,
+    markSaved: useCallback(() => setUnsaved(false), []),
+    enqueue,
+    markLeaving: useCallback(() => {
+      leaving.current = true;
+    }, []),
     drawRef,
     togglePlay,
     skipAhead,

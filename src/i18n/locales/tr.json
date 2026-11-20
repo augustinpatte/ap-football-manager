@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "Sahada sakatlanmış bir oyuncu yatarken diziliş değiştirilemez.",
         "unauthorized": "Bu talimat verilemez.",
         "other": "Maç motoru bu talimatı reddetti."
-      }
+      },
+      "saveGame": "Oyunu kaydet",
+      "saving": "Kaydediliyor…",
+      "saved": "Oyun kaydedildi. Maç tam olarak bulunduğu haliyle saklandı.",
+      "saveFailed": "Oyun kaydedilemedi. Maçınıza dokunulmadı: boş disk alanını kontrol edip tekrar deneyin.",
+      "saveExit": "Kaydet ve menüye dön",
+      "exiting": "Kaydedilip çıkılıyor…",
+      "exitFailed": "Oyun kaydedilemedi, bu yüzden maçtasınız. Tekrar deneyin ya da oynamaya devam edin."
     },
     "liveView": {
       "pitchLabel": "Canlı 2D saha: {{home}} – {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "Planlanan sözleşme ayrılıkları geriye yalnızca {{healthyPlayers}} sağlıklı oyuncu ve {{goalkeepers}} kaleci bırakır: {{players}}",
       "urgentMessages": "{{count}} acil okunmamış mesaj",
       "keyContractRisk": "Kadro planlamasında kilit oyuncu sözleşme riski: {{players}}",
-      "contractWageRisk": "Maaşların {{amount}} tutarı risk altındaki sözleşmelere bağlı — maaş bütçenizi gözden geçirin"
+      "contractWageRisk": "Maaşların {{amount}} tutarı risk altındaki sözleşmelere bağlı — maaş bütçenizi gözden geçirin",
+      "checkFailed": "Dikkatinizi gerektiren bir şey olup olmadığı denetlenemedi, bu yüzden zaman ilerletilmedi. Tekrar deneyin."
     }
   },
   "squadCompare": {

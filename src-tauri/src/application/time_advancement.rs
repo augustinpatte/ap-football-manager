@@ -26,13 +26,37 @@ pub struct AdvanceTimeWithModeResponse {
     /// Matches finished during this advance (user's competitions + nationals).
     #[serde(default)]
     pub results: Vec<AdvanceMatchResult>,
+    /// What stopped a `blocked` advance; empty otherwise. Old clients ignore it.
+    #[serde(default)]
+    pub blockers: Vec<serde_json::Value>,
+}
+
+/// Whether an advance stops for unresolved blocking actions before it plays the day.
+///
+/// The Dashboard asks to be stopped and passes `Skip` only after the manager's explicit
+/// "Continue anyway". The MCP server passes `Skip`: an agent reads `check_blocking_actions`
+/// itself and is not walked through a dialog.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockerPolicy {
+    Enforce,
+    Skip,
 }
 
 use ofm_core::matchday::scheduled_user_fixture as scheduled_user_fixture_index;
 
+/// The advance that never stops for blockers: the MCP tools and the simulation tests.
+#[cfg(any(test, feature = "mcp"))]
 pub fn advance_time_with_mode(
     state: &StateManager,
     mode: &str,
+) -> Result<AdvanceTimeWithModeResponse, String> {
+    advance_time_with_blocker_policy(state, mode, BlockerPolicy::Skip)
+}
+
+pub fn advance_time_with_blocker_policy(
+    state: &StateManager,
+    mode: &str,
+    policy: BlockerPolicy,
 ) -> Result<AdvanceTimeWithModeResponse, String> {
     let _operation = super::live_session::idle_operation(state)?;
     crate::platform::keep_simulation_awake();
@@ -45,7 +69,7 @@ pub fn advance_time_with_mode(
     // are never held at once.
     let mut captures = Vec::new();
     let (response, session_out) = state
-        .update_game(|game| advance_day_in_mode(game, mode, &mut captures))
+        .update_game(|game| advance_day_in_mode(game, mode, policy, &mut captures))
         .ok_or("be.error.noActiveGameSession")??;
 
     for capture in captures {
@@ -63,6 +87,7 @@ use ofm_core::matchday::LeagueRoundContext;
 fn advance_day_in_mode(
     game: &mut Game,
     mode: &str,
+    policy: BlockerPolicy,
     captures: &mut Vec<domain::stats::StatsState>,
 ) -> Result<
     (
@@ -72,6 +97,18 @@ fn advance_day_in_mode(
     String,
 > {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    // Checked under the same game lock as the advance, before anything is played or begun. The
+    // user's match day is left to the pre-match flow, which is where a lineup is fixed.
+    if policy == BlockerPolicy::Enforce && !game.user_has_scheduled_match_on(&today) {
+        let blockers = crate::application::time_blockers::compute_blocking_actions(game);
+        if !blockers.is_empty() {
+            info!(
+                "[cmd] advance_time_with_mode: blocked date={today} count={}",
+                blockers.len()
+            );
+            return Ok((blocked_response(blockers), None));
+        }
+    }
     // Before anything is played, so a round drawn by today's results is known to be new.
     ofm_core::turn::begin_day(game);
     let round_context = ofm_core::matchday::user_league_round_context(game);
@@ -93,6 +130,22 @@ fn advance_day_in_mode(
             advance_simulated_day(game, mode, &today, round_context, captures),
             None,
         )),
+    }
+}
+
+fn blocked_response(blockers: Vec<serde_json::Value>) -> AdvanceTimeWithModeResponse {
+    AdvanceTimeWithModeResponse {
+        action: "blocked".to_string(),
+        game: None,
+        snapshot: None,
+        fixture_index: None,
+        competition_id: None,
+        fixture_id: None,
+        mode: None,
+        round_summary: None,
+        cup_round_summaries: Vec::new(),
+        results: Vec::new(),
+        blockers,
     }
 }
 
@@ -174,6 +227,7 @@ fn advance_live_matchday(
             round_summary,
             cup_round_summaries: build_cup_round_summaries(game, today),
             results: Vec::new(),
+            blockers: Vec::new(),
         },
         session,
     ))
@@ -248,6 +302,7 @@ fn advanced_day_response(
         round_summary,
         cup_round_summaries: build_cup_round_summaries(game, today),
         results,
+        blockers: Vec::new(),
     }
 }
 

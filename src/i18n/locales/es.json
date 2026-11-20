@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "No se puede cambiar la formación mientras haya un jugador lesionado en el campo.",
         "unauthorized": "No se puede dar esa orden.",
         "other": "El motor del partido rechazó esa orden."
-      }
+      },
+      "saveGame": "Guardar partida",
+      "saving": "Guardando…",
+      "saved": "Partida guardada. El partido queda almacenado tal como está.",
+      "saveFailed": "No se pudo guardar la partida. Tu partido sigue intacto: comprueba el espacio libre en disco e inténtalo de nuevo.",
+      "saveExit": "Guardar y volver al menú",
+      "exiting": "Guardando y saliendo…",
+      "exitFailed": "No se pudo guardar la partida, así que sigues en el partido. Inténtalo de nuevo o sigue jugando."
     },
     "liveView": {
       "pitchLabel": "Campo 2D en directo: {{home}} contra {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "Las salidas contractuales previstas dejarían solo {{healthyPlayers}} jugador(es) sanos y {{goalkeepers}} portero(s): {{players}}",
       "urgentMessages": "{{count}} mensaje(s) urgente(s) sin leer",
       "keyContractRisk": "Riesgo contractual de jugador clave en la planificación de la plantilla: {{players}}",
-      "contractWageRisk": "{{amount}} en salarios están ligados a contratos en riesgo — revisa tu presupuesto salarial"
+      "contractWageRisk": "{{amount}} en salarios están ligados a contratos en riesgo — revisa tu presupuesto salarial",
+      "checkFailed": "No se pudo comprobar si algo requiere tu atención, así que el tiempo no avanzó. Inténtalo de nuevo."
     }
   },
   "squadCompare": {

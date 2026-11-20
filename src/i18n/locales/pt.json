@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "O sistema tático não pode mudar enquanto um jogador estiver lesionado em campo.",
         "unauthorized": "Não é possível dar essa ordem.",
         "other": "O motor de jogo recusou essa ordem."
-      }
+      },
+      "saveGame": "Guardar jogo",
+      "saving": "A guardar…",
+      "saved": "Jogo guardado. O jogo fica guardado exatamente como está.",
+      "saveFailed": "Não foi possível guardar o jogo. A partida não foi alterada: verifique o espaço livre em disco e tente novamente.",
+      "saveExit": "Guardar e voltar ao menu",
+      "exiting": "A guardar e a sair…",
+      "exitFailed": "Não foi possível guardar o jogo, por isso continua na partida. Tente novamente ou continue a jogar."
     },
     "liveView": {
       "pitchLabel": "Campo 2D em direto: {{home}} contra {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "As saídas contratuais planeadas deixariam apenas {{healthyPlayers}} jogador(es) saudáveis e {{goalkeepers}} guarda-redes: {{players}}",
       "urgentMessages": "{{count}} mensagem(ns) urgente(s) por ler",
       "keyContractRisk": "Risco contratual de jogador-chave no planeamento do plantel: {{players}}",
-      "contractWageRisk": "{{amount}} em salários estão ligados a contratos em risco — revê o teu orçamento salarial"
+      "contractWageRisk": "{{amount}} em salários estão ligados a contratos em risco — revê o teu orçamento salarial",
+      "checkFailed": "Não foi possível verificar se algo precisa da sua atenção, por isso o tempo não avançou. Tente novamente."
     }
   },
   "squadCompare": {

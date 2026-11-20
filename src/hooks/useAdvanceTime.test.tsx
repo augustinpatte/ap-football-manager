@@ -25,6 +25,7 @@ function HookHarness(props: {
 }): JSX.Element {
   const [, setGameState] = useState<GameStateData | null>(null);
   const {
+    advanceError,
     blockerModal,
     handleConfirmMatch,
     handleContinue,
@@ -53,6 +54,7 @@ function HookHarness(props: {
       <button type="button" onClick={() => blockerModal?.pendingAction?.()}>
         Continue anyway
       </button>
+      {advanceError ? <p role="alert">{advanceError}</p> : null}
       <div data-testid="show-match-confirm">{String(showMatchConfirm)}</div>
       <div data-testid="blocker-count">{blockerModal?.blockers.length ?? 0}</div>
     </div>
@@ -285,6 +287,175 @@ describe("useAdvanceTime", (): void => {
 
     await waitFor((): void => {
       expect(mockedInvoke).toHaveBeenCalledWith("advance_one_day", { ignoreBlockers: true });
+    });
+  });
+
+  /**
+   * Given a blocker check that fails,
+   * When the manager clicks Continue,
+   * Then nothing is advanced, a usable error is shown, and no blocker dialog pretends the list was empty.
+   */
+  it("does not advance when the blocker check fails and says why", async (): Promise<void> => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") throw "be.error.noActiveGameSession";
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("advance_time_with_mode", expect.anything());
+    expect(screen.getByTestId("blocker-count")).toHaveTextContent("0");
+    consoleWarnSpy.mockRestore();
+  });
+
+  /** Given a failed blocker check on Skip, then no multi-day skip is started. */
+  it("does not skip when the blocker check fails", async (): Promise<void> => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") throw new Error("ipc down");
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("skip_to_match_day");
+    expect(mockedInvoke).not.toHaveBeenCalledWith("skip_to_match_day", expect.anything());
+    consoleWarnSpy.mockRestore();
+  });
+
+  /** Given a failed check followed by a working one, when the manager tries again, then the day advances and the error is gone. */
+  it("lets the manager retry after a failed check", async (): Promise<void> => {
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let checks = 0;
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") {
+        checks += 1;
+        if (checks === 1) throw new Error("transient");
+        return [];
+      }
+      if (command === "advance_time_with_mode") {
+        return { action: "advanced", game: { clock: { current_date: "2026-07-02" } } };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenCalledWith("advance_time_with_mode", { mode: "live" });
+    });
+    await waitFor((): void => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+    consoleWarnSpy.mockRestore();
+  });
+
+  /**
+   * Given blockers shown to the manager,
+   * When they choose "continue anyway" on a normal Continue,
+   * Then the backend is told to play the day past them, exactly once, and no new check loops.
+   */
+  it("tells the backend to play the day when a Continue goes ahead anyway", async (): Promise<void> => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") {
+        return [{ id: "key_contract_risk", severity: "warn", tab: "Squad", text: "x" }];
+      }
+      if (command === "acknowledge_contract_warnings") return 1;
+      if (command === "advance_time_with_mode") {
+        return { action: "advanced", game: { clock: { current_date: "2026-07-02" } } };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor((): void => {
+      expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenCalledWith("advance_time_with_mode", {
+        mode: "live",
+        ignoreBlockers: true,
+      });
+    });
+    const advances = mockedInvoke.mock.calls.filter(([c]) => c === "advance_time_with_mode");
+    const checks = mockedInvoke.mock.calls.filter(([c]) => c === "check_blocking_actions");
+    expect(advances).toHaveLength(1);
+    expect(checks).toHaveLength(1);
+  });
+
+  /**
+   * Given a blocker that appeared after the frontend's check passed,
+   * When the backend answers `blocked`,
+   * Then the manager sees the blockers and can continue anyway, which asks the backend to ignore them.
+   */
+  it("shows the blockers when the backend itself refuses the day", async (): Promise<void> => {
+    let advances = 0;
+    mockedInvoke.mockImplementation(async (command: string, args?: unknown) => {
+      if (command === "check_blocking_actions") return [];
+      if (command === "acknowledge_contract_warnings") return 0;
+      if (command === "advance_time_with_mode") {
+        advances += 1;
+        if ((args as { ignoreBlockers?: boolean }).ignoreBlockers) {
+          return { action: "advanced", game: { clock: { current_date: "2026-07-02" } } };
+        }
+        return {
+          action: "blocked",
+          blockers: [{ id: "urgent_messages", severity: "info", tab: "Inbox", text: "1" }],
+        };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor((): void => {
+      expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    });
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenCalledWith("advance_time_with_mode", {
+        mode: "live",
+        ignoreBlockers: true,
+      });
+    });
+    expect(advances).toBe(2);
+  });
+
+  /** Given "continue anyway" on a skip, then the backend is told to skip past the blockers. */
+  it("tells the backend to skip past the blockers when the manager continues anyway", async (): Promise<void> => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "check_blocking_actions") {
+        return [{ id: "key_contract_risk", severity: "warn", tab: "Squad", text: "x" }];
+      }
+      if (command === "acknowledge_contract_warnings") return 2;
+      if (command === "skip_to_match_day") {
+        return { action: "arrived", days_skipped: 1, results: [], game: { clock: {} } };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    await waitFor((): void => {
+      expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue anyway" }));
+
+    await waitFor((): void => {
+      expect(mockedInvoke).toHaveBeenCalledWith("skip_to_match_day", { ignoreBlockers: true });
     });
   });
 });

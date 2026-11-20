@@ -5381,4 +5381,137 @@ mod tests {
             .unwrap();
         assert_eq!(stored, next);
     }
+
+    /// Everything startup needs from a damaged index: the careers listed, the damaged file kept.
+    fn quarantined_index_files(saves_dir: &Path) -> Vec<PathBuf> {
+        fs::read_dir(saves_dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("save_index.json.corrupt-"))
+            })
+            .collect()
+    }
+
+    /// Given two careers whose SQLite files are intact and a save index cut off mid-write,
+    /// When the application starts and lists its saves,
+    /// Then startup succeeds, both careers are listed with their names, the cut-off index is kept
+    /// byte for byte for diagnosis, the live index is valid again and both careers still load.
+    #[test]
+    fn a_truncated_index_is_rebuilt_from_the_career_files_and_kept_for_diagnosis() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+        let (first, second) = {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            (
+                sm.create_save(&sample_game(), "First Career").unwrap(),
+                sm.create_save(&sample_game(), "Second Career").unwrap(),
+            )
+        };
+        let whole = fs::read(&index_path).unwrap();
+        let truncated = &whole[..whole.len() / 2];
+        fs::write(&index_path, truncated).unwrap();
+
+        let mut sm = SaveManager::init(&saves_dir).expect("a damaged index must not stop startup");
+        let mut names: Vec<_> = sm
+            .load_saves()
+            .unwrap()
+            .into_iter()
+            .map(|entry| (entry.id, entry.name))
+            .collect();
+        names.sort();
+        let mut expected = vec![
+            (first.clone(), "First Career".to_string()),
+            (second.clone(), "Second Career".to_string()),
+        ];
+        expected.sort();
+        assert_eq!(names, expected);
+
+        let kept = quarantined_index_files(&saves_dir);
+        assert_eq!(kept.len(), 1, "the damaged index is kept: {kept:?}");
+        assert_eq!(fs::read(&kept[0]).unwrap(), truncated);
+        let rebuilt: crate::save_index::SaveIndex =
+            serde_json::from_slice(&fs::read(&index_path).unwrap()).unwrap();
+        assert_eq!(rebuilt.saves.len(), 2);
+        assert!(sm.load_game(&first).is_ok());
+        assert!(sm.load_game(&second).is_ok());
+    }
+
+    /// Given an index cut off inside a multi-byte character, so it is not even valid UTF-8,
+    /// When the application starts,
+    /// Then it is treated as damaged like any other cut-off index.
+    #[test]
+    fn an_index_that_is_not_valid_utf8_is_recovered_not_fatal() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let id = {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            sm.create_save(&sample_game(), "Zoë's Career").unwrap()
+        };
+        let damaged = b"{\"version\": 1, \"saves\": [{\"name\": \"Zo\xC3".to_vec();
+        fs::write(saves_dir.join("save_index.json"), &damaged).unwrap();
+
+        let mut sm = SaveManager::init(&saves_dir).expect("startup");
+        let saves = sm.load_saves().unwrap();
+
+        assert_eq!(saves.len(), 1);
+        assert_eq!(saves[0].id, id);
+        let kept = quarantined_index_files(&saves_dir);
+        assert_eq!(fs::read(&kept[0]).unwrap(), damaged);
+    }
+
+    /// Given a damaged index and, beside the real careers, a database file that is not a career,
+    /// When the index is rebuilt,
+    /// Then the unusable file is neither deleted nor altered, and it is not listed as a career.
+    #[test]
+    fn rebuilding_never_deletes_or_alters_a_file_it_cannot_use() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let id = {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            sm.create_save(&sample_game(), "Career").unwrap()
+        };
+        let unusable = saves_dir.join("not-a-career.db");
+        fs::write(&unusable, b"this is not a sqlite database").unwrap();
+        fs::write(saves_dir.join("save_index.json"), b"{\"version\": 1, \"sav").unwrap();
+
+        let mut sm = SaveManager::init(&saves_dir).expect("startup");
+        let saves = sm.load_saves().unwrap();
+
+        assert_eq!(
+            saves.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(),
+            [id]
+        );
+        assert_eq!(
+            fs::read(&unusable).unwrap(),
+            b"this is not a sqlite database"
+        );
+    }
+
+    /// Given a recovered index, when a new career is created and the manager restarts,
+    /// Then the new career and the recovered ones are all listed, with no second recovery.
+    #[test]
+    fn a_recovered_index_keeps_working_for_new_saves() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            sm.create_save(&sample_game(), "Old Career").unwrap();
+        }
+        fs::write(saves_dir.join("save_index.json"), b"{").unwrap();
+        {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            sm.load_saves().unwrap();
+            sm.create_save(&sample_game(), "New Career").unwrap();
+        }
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+
+        assert_eq!(sm.load_saves().unwrap().len(), 2);
+        assert_eq!(quarantined_index_files(&saves_dir).len(), 1);
+    }
 }

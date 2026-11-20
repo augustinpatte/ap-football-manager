@@ -963,6 +963,50 @@ mod tests {
         );
     }
 
+    /// Given a match 20 minutes in with an accepted order,
+    /// When the player saves and returns to the menu, then reloads the career,
+    /// Then the menu path cleared the live state, the same match resumes with the order in force,
+    /// and it finishes exactly once.
+    #[test]
+    fn saving_and_returning_to_the_menu_keeps_the_match_resumable() {
+        let directory = TempDir::new().expect("dir");
+        let (state, mut saves, save_id) = career_mid_match(&directory);
+        let tactics = order(
+            &state,
+            "exit-mentality",
+            UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        );
+        assert!(tactics.receipt.accepted);
+        let before = snapshot(&state).view;
+
+        let saved = crate::application::saving::exit_to_menu(&state, &mut saves)
+            .expect("a match in progress does not block the exit save");
+        assert!(saved);
+        assert!(state.get_game(|_| ()).is_none());
+        assert!(
+            state.with_live_match(|_| ()).is_none(),
+            "the live session is cleared"
+        );
+        assert!(state.get_save_id().is_none());
+
+        let resumed = reload(&mut saves, &save_id);
+        assert!(resumed.take_restore_notice().is_none());
+        let after = snapshot(&resumed).view;
+        assert_eq!(after.session.clock_ms, before.session.clock_ms);
+        assert_eq!(after.session.score_home, before.session.score_home);
+        assert_eq!(after.home_plan.style, PlayStyle::Attacking);
+
+        to_full_time(&resumed);
+        finish_interactive_match_internal(&resumed).expect("finishes");
+        assert!(
+            finish_interactive_match_internal(&resumed).is_err(),
+            "no second finalisation"
+        );
+    }
+
     /// Given a match 20 minutes in with a substitution still waiting for a stoppage and a tactical
     /// order already in force,
     /// When the career is saved, reloaded into a fresh state and played to full time,

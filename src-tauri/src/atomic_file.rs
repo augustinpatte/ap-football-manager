@@ -10,41 +10,9 @@ use std::path::Path;
 use serde::Serialize;
 
 pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
     let json = serde_json::to_string_pretty(value)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
-
-    let mut scratch_name = path.file_name().unwrap_or_default().to_owned();
-    scratch_name.push(".part");
-    let scratch = path.with_file_name(scratch_name);
-    write_and_sync(&scratch, json.as_bytes())?;
-    std::fs::rename(&scratch, path).inspect_err(|_| {
-        // Best effort: a stray `.part` is harmless, but there is no reason to leave one.
-        let _ = std::fs::remove_file(&scratch);
-    })?;
-    sync_directory(path.parent())
-}
-
-/// The data must be on disk before the rename can be trusted: a power cut after a rename of
-/// unsynced data can leave the new name pointing at an empty file.
-fn write_and_sync(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write as _;
-    let mut file = std::fs::File::create(path)?;
-    file.write_all(bytes)?;
-    file.sync_all()
-}
-
-/// Makes the rename itself durable. Windows cannot open a directory to sync it, and its rename is
-/// already journalled.
-fn sync_directory(directory: Option<&Path>) -> std::io::Result<()> {
-    #[cfg(unix)]
-    if let Some(directory) = directory {
-        return std::fs::File::open(directory)?.sync_all();
-    }
-    let _ = directory;
-    Ok(())
+    db::atomic_write::write_atomically(path, json.as_bytes())
 }
 
 #[cfg(test)]

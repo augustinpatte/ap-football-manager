@@ -36,6 +36,8 @@ export interface AdvanceTimeWithModeResponse {
   round_summary?: unknown;
   cup_round_summaries?: unknown;
   results?: AdvanceMatchResultData[];
+  /** Set when `action` is "blocked": what stopped the day, which was not played. */
+  blockers?: BlockerData[];
 }
 
 export interface SkipToMatchDayResponse {
@@ -46,12 +48,26 @@ export interface SkipToMatchDayResponse {
   results?: AdvanceMatchResultData[];
 }
 
-export async function advanceTimeWithMode(mode: string): Promise<AdvanceTimeWithModeResponse> {
-  return invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", {
-    mode,
-  });
+/**
+ * `ignoreBlockers` is the manager's explicit "Continue anyway": without it the backend stops on a
+ * standing blocker and answers `blocked` instead of playing the day.
+ */
+export async function advanceTimeWithMode(
+  mode: string,
+  ignoreBlockers = false,
+): Promise<AdvanceTimeWithModeResponse> {
+  return ignoreBlockers
+    ? invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", {
+        mode,
+        ignoreBlockers: true,
+      })
+    : invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", { mode });
 }
 
+/**
+ * The blockers standing now. A check that cannot be answered rejects: it must never look like
+ * "nothing is blocking", or an unresolved decision would be played past because a request failed.
+ */
 export async function checkBlockingActions(logContext: string): Promise<BlockerData[]> {
   try {
     const blockers = await invoke<BlockerData[]>("check_blocking_actions");
@@ -62,12 +78,14 @@ export async function checkBlockingActions(logContext: string): Promise<BlockerD
     return blockers;
   } catch (err) {
     console.warn(`[useAdvanceTime] ${logContext}:blockerCheckFailed`, err);
-    return [];
+    throw err;
   }
 }
 
-export async function skipToMatchDay(): Promise<SkipToMatchDayResponse> {
-  return invoke<SkipToMatchDayResponse>("skip_to_match_day");
+export async function skipToMatchDay(ignoreBlockers = false): Promise<SkipToMatchDayResponse> {
+  return ignoreBlockers
+    ? invoke<SkipToMatchDayResponse>("skip_to_match_day", { ignoreBlockers: true })
+    : invoke<SkipToMatchDayResponse>("skip_to_match_day");
 }
 
 /** Per-day response used by the digest feed loop. */

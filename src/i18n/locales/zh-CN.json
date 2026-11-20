@@ -3049,7 +3049,14 @@
         "formation_needs_eleven_players": "场上有球员因伤倒地时，不能更改阵型。",
         "unauthorized": "无法下达该指令。",
         "other": "比赛引擎拒绝了该指令。"
-      }
+      },
+      "saveGame": "保存游戏",
+      "saving": "正在保存…",
+      "saved": "游戏已保存。比赛已按当前进度存储。",
+      "saveFailed": "无法保存游戏。比赛未受影响：请检查磁盘可用空间后重试。",
+      "saveExit": "保存并返回菜单",
+      "exiting": "正在保存并退出…",
+      "exitFailed": "无法保存游戏，因此你仍在比赛中。请重试，或继续比赛。"
     },
     "liveView": {
       "pitchLabel": "2D 球场直播：{{home}} 对 {{away}}",
@@ -3125,7 +3132,8 @@
       "plannedContractExitCrisis": "计划中的合同离队将使球队仅剩{{healthyPlayers}}名健康球员和{{goalkeepers}}名门将:{{players}}",
       "urgentMessages": "{{count}}条紧急未读消息",
       "keyContractRisk": "阵容规划中的关键球员合同风险:{{players}}",
-      "contractWageRisk": "{{amount}}的工资与高风险合同绑定——请审查您的薪资预算"
+      "contractWageRisk": "{{amount}}的工资与高风险合同绑定——请审查您的薪资预算",
+      "checkFailed": "无法检查是否有事项需要你处理，因此时间没有推进。请重试。"
     }
   },
   "squadCompare": {
