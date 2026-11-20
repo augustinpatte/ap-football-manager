@@ -6,6 +6,13 @@ import AcademyReviewCard from "./AcademyReviewCard";
 
 const invokeMock = vi.fn();
 
+// The exact rating cell paints its tier; the tier table is the backend's, so it is canned here
+// rather than left to the generic invoke mock, which answers every other command with nothing.
+vi.mock("../../../hooks/useRatingTiers", async () => {
+  const { cannedRatingTiersModule } = await import("../../../test-utils/ratingTiers");
+  return cannedRatingTiersModule();
+});
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
