@@ -28,6 +28,13 @@ npm run tauri dev
 
 Use `npm run tauri dev`, not `npx`. (`npx` can silently run the wrong tool.)
 
+**Without compiling: the release app.** A release build is produced by
+`npm run tauri build -- --bundles app` (about 5 minutes) and opens with
+`open "$HOME/apfm-migration/apfm-main/src-tauri/target/release/bundle/macos/AP Football Manager.app"`. It is
+ad-hoc signed only, so it opens from where it was built but a copy sent to another Mac will be blocked by
+Gatekeeper. It uses the same saves folder as `npm run tauri dev`. Details and the validation results:
+[`APFM_ALPHA_RELEASE_CANDIDATE.md`](APFM_ALPHA_RELEASE_CANDIDATE.md).
+
 ## 3. What you should see first
 
 The **main menu**: *New Game*, *Load Game*, *Settings*, *Exit Game*. The window title reads
@@ -90,6 +97,8 @@ You cannot give orders while the match is playing. Pausing first is intentional.
 * Use the **Save game** button on the dashboard (it says "Saved!" when done). Save before you quit; do
   not rely on automatic saving.
 * Saves are in `~/Library/Application Support/com.apfootballmanager.app/saves`.
+* Opening an old save in this build migrates it in place (an older build cannot read it afterwards). Back the
+  folder up first: `cp -R "$HOME/Library/Application Support/com.apfootballmanager.app/saves" "$HOME/apfm-saves-backup"`.
 * You can save **in the middle of a 2D match**. After *Load Game*, the match should be waiting at the
   instant you saved: press **Continue**, and when the Match Day panel appears choose *Manage the match* again. (The picture before the save point is not
   replayed.)
