@@ -146,3 +146,23 @@ still stored and still read by the game.
 ## 8. Validation and final state
 
 See the end of this file.
+
+### Final run (code state `3a5720ac`; this document is committed after it)
+
+| Check | Result |
+| --- | --- |
+| `cargo test --workspace` | 5312 passed, 0 failed (134 ignored: need a display, the nightly, or are the long studies) |
+| `cargo test --lib --features mcp`, `-p mcp-results` | 705 and 14 passed, 0 failed |
+| `m3_academy_decisions` (3 seasons, `--release -- --ignored`) | passed in 31 s |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings`, default and `--features mcp` | clean |
+| `cargo fmt --check` | clean |
+| `npm test` | 3217 passed, 4 skipped, 0 failed (includes `src/i18n`, `architecture.test.ts`, `designSystem.test.ts`) |
+| `npm run build` (typechecked), `format:check`, `lint`, `knip` | clean (lint reports 3 pre-existing infos) |
+| Mutation checks | 3 of 3 of mine caught, one fixture found weak and repaired; the test reviewer's 16 (12 killed, 4 survived and now covered, one re-run and killed) |
+| Reviewers | 5 of 5 run (section 7) |
+
+**Not verified:** the real desktop window was not operated, so no screen was seen by eye, no screen reader or
+keyboard-only pass was done on the new controls (the training-focus listbox inside a table cell in particular),
+and contrast of the new text in both themes is unmeasured. `npm run audit:i18n` reports nothing for the touched
+files, but it is only a heuristic. The scripted career never filled the senior squad, so that block is covered
+by command tests rather than by the career.
