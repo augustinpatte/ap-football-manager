@@ -25,6 +25,7 @@ type TransfersMarketTableProps = {
     | "view"
     | "isScoutingView"
     | "visibleList"
+    | "ratingsById"
     | "alreadyScoutingIds"
     | "scoutingPlayerId"
     | "availableScouts"
@@ -139,6 +140,7 @@ export function TransfersMarketTable({ state }: TransfersMarketTableProps) {
                           : "none"
                     }
                     tabIndex={0}
+                    title={t("playerRating.sortHint")}
                     className={`py-3 px-4 font-heading font-bold uppercase tracking-wider cursor-pointer select-none hover:text-primary-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 transition-colors ${ovrSortDir !== "none" ? "text-primary-700 dark:text-primary-400" : "text-gray-500 dark:text-gray-400"}`}
                     onClick={cycleOvrSort}
                     onKeyDown={(event) => {

@@ -1,5 +1,3 @@
-import { useRatingTiers } from "../../hooks/useRatingTiers";
-import { ratingTierClass } from "../../lib/ratingTier";
 import { History } from "lucide-react";
 import type { MouseEventHandler } from "react";
 import type { LoanOfferData, PlayerData, TransferOfferData } from "../../store/gameStore";
@@ -10,7 +8,6 @@ import {
   calcAge,
   formatVal,
   formatWeeklyWage,
-  getPlayerOvr,
   positionBadgeVariant,
 } from "../../lib/helpers";
 import { countryName } from "../../lib/countries";
@@ -27,6 +24,8 @@ import type { TransfersTabController } from "./useTransfersTabController";
 import { getRelevantTransferOffers, getRelevantLoanOffers } from "./TransfersTab.model";
 import { PlayerOffersCell } from "./TransfersPlayerOffers";
 import { naturalPositionOf } from "../../lib/positions";
+import type { RatingView } from "../../services/playerRatingService";
+import ReadableRating from "../players/ReadableRating";
 type PlayerRowDetailsProps = {
   state: Pick<
     TransfersTabController,
@@ -45,13 +44,15 @@ type PlayerRowDetailsProps = {
     | "isScoutingView"
     | "openDealEntry"
     | "openDealHistory"
+    | "ratingsById"
     | "getDealEntryIcon"
     | "getDealEntryLabel"
   >;
   player: PlayerData;
   onContextMenu?: MouseEventHandler<HTMLTableRowElement>;
   age: number;
-  ovr: number;
+  /** How the manager may read his rating, from the page the backend answered. */
+  rating: RatingView | null;
   hasOffersForThisPlayer: boolean;
   transferOffersForThisPlayer: TransferOfferData[];
   loanOffersForThisPlayer: LoanOfferData[];
@@ -74,6 +75,7 @@ type TransferPlayerRowProps = {
     | "getDealEntryIcon"
     | "openDealEntry"
     | "openDealHistory"
+    | "ratingsById"
     | "i18n"
     | "gameState"
     | "userTeamId"
@@ -91,12 +93,11 @@ export function PlayerRowDetails({
   onContextMenu,
   player,
   age,
-  ovr,
+  rating,
   hasOffersForThisPlayer,
   transferOffersForThisPlayer,
   loanOffersForThisPlayer,
 }: PlayerRowDetailsProps) {
-  const tierOf = useRatingTiers();
   const playerTeamId = player.team_id;
   const {
     view,
@@ -165,11 +166,7 @@ export function PlayerRowDetails({
         {formatWeeklyWage(player.wage, "compact")}
       </td>
       <td className="py-2.5 px-4">
-        <span
-          className={`font-heading font-bold text-base tabular-nums ${ratingTierClass(tierOf(ovr), "text")}`}
-        >
-          {ovr}
-        </span>
+        <ReadableRating rating={rating} />
       </td>
       <td className="py-2.5 px-4">
         <div className="flex gap-1">
@@ -242,7 +239,6 @@ export function TransferPlayerRow({ state, player }: TransferPlayerRowProps) {
     openDealEntry,
   } = state;
 
-  const ovr = getPlayerOvr(player);
   const age = calcAge(player.date_of_birth);
   const transferOffersForThisPlayer = getRelevantTransferOffers(player, userTeamId);
   const loanOffersForThisPlayer = getRelevantLoanOffers(player, userTeamId);
@@ -300,7 +296,7 @@ export function TransferPlayerRow({ state, player }: TransferPlayerRowProps) {
       state={state}
       player={player}
       age={age}
-      ovr={ovr}
+      rating={state.ratingsById.get(player.id) ?? null}
       hasOffersForThisPlayer={hasOffersForThisPlayer}
       transferOffersForThisPlayer={transferOffersForThisPlayer}
       loanOffersForThisPlayer={loanOffersForThisPlayer}

@@ -7,10 +7,11 @@ import {
   calcAge,
   formatVal,
   formatWeeklyWage,
-  getPlayerOvr,
   getTeamName,
   positionBadgeVariant,
 } from "../../lib/helpers";
+import { usePlayerRatings } from "../../hooks/usePlayerRatings";
+import ReadableRating from "../players/ReadableRating";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { Badge, CountryFlag, PlayerAvatar } from "../ui";
 import type { DealKind } from "./PlayerDealWorkspace";
@@ -180,14 +181,13 @@ export function DealWorkspaceFacts({
   offeredWage?: number | null;
 }) {
   const { t } = useTranslation();
-  const ovr = getPlayerOvr(player);
+  // How the manager may read his rating; a new `player` object means the game moved on.
+  const rating = usePlayerRatings([player.id], player)[player.id] ?? null;
   return (
     <aside className="min-h-0 space-y-4 lg:overflow-y-auto">
       <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white p-4  dark:bg-navy-800 ">
         <p className={factLabelClass()}>{t("common.ovr")}</p>
-        <p className="mt-1 font-heading text-3xl font-bold tabular-nums text-primary-700 dark:text-primary-400">
-          {ovr}
-        </p>
+        <ReadableRating rating={rating} size="hero" className="mt-1" />
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
             <p className={factLabelClass()}>{t("common.value")}</p>

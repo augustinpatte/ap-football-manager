@@ -108,6 +108,12 @@ export function useTransferMarket({ gameState, userTeamId, t, myTeam }: Input) {
     [marketSlice, playersById],
   );
   const filteredList = listedPlayers;
+  // What the manager may read of each listed player's rating comes with the page; a row never
+  // reads the rating off the full player.
+  const ratingsById = useMemo(
+    () => new Map((marketSlice?.items ?? []).map((summary) => [summary.id, summary.rating])),
+    [marketSlice],
+  );
 
   const marketTotal = marketSlice?.total ?? 0;
   const marketTotalPages = Math.max(1, Math.ceil(marketTotal / TRANSFER_MARKET_PAGE_SIZE));
@@ -146,6 +152,7 @@ export function useTransferMarket({ gameState, userTeamId, t, myTeam }: Input) {
     marketLoaded: marketSlice !== null,
     marketStatusCounts: marketSlice?.status_counts,
     ovrSortDir,
+    ratingsById,
     setMarketPage,
     cycleOvrSort,
     myListedPlayers,
