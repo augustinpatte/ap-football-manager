@@ -590,6 +590,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     struct TempWorldDir {
@@ -598,11 +599,20 @@ mod tests {
 
     impl TempWorldDir {
         fn new() -> Self {
+            // A timestamp alone is not unique: tests start within the clock's resolution, shared a
+            // directory, and one test's cleanup deleted the file another was reading. The counter
+            // makes the name unique per test, the process id per test run.
+            static NEXT: AtomicU64 = AtomicU64::new(0);
             let unique = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("system clock should be after unix epoch")
                 .as_nanos();
-            let path = std::env::temp_dir().join(format!("ofm-world-io-tests-{}", unique));
+            let path = std::env::temp_dir().join(format!(
+                "ofm-world-io-tests-{}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed),
+                unique
+            ));
             fs::create_dir_all(&path).expect("temporary world dir should be created");
             Self { path }
         }
