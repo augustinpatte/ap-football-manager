@@ -62,6 +62,7 @@ export default function InteractiveMatchScreen<TFinish>({
   const save = useMatchSave({
     enqueue: live.enqueue,
     unsaved: live.unsaved,
+    progressAtRisk: live.progressAtRisk,
     markSaved: live.markSaved,
     markLeaving: live.markLeaving,
     halt: () => director.halt(),

@@ -11,6 +11,8 @@ interface MatchSaveOptions {
   enqueue: <T>(request: () => Promise<T>) => Promise<T>;
   /** True while the engine has moved or taken an order since the career was last saved. */
   unsaved: boolean;
+  /** Read when the window is asked to close: unsaved progress, or engine calls still to answer. */
+  progressAtRisk: () => boolean;
   markSaved: () => void;
   /** Called inside the queue once the career has been saved and cleared, before any later engine call. */
   markLeaving: () => void;
@@ -27,6 +29,7 @@ interface MatchSaveOptions {
 export function useMatchSave({
   enqueue,
   unsaved,
+  progressAtRisk,
   markSaved,
   markLeaving,
   halt,
@@ -40,8 +43,8 @@ export function useMatchSave({
   const [closePrompt, setClosePrompt] = useState(false);
   // A ref as well as state: two clicks in one frame must not both start an action.
   const working = useRef(false);
-  const unsavedRef = useRef(unsaved);
-  unsavedRef.current = unsaved;
+  const progressAtRiskRef = useRef(progressAtRisk);
+  progressAtRiskRef.current = progressAtRisk;
   const closing = useRef(false);
 
   const attempt = useCallback(
@@ -99,7 +102,7 @@ export function useMatchSave({
     try {
       void getCurrentWindow()
         .onCloseRequested((event) => {
-          if (closing.current || !unsavedRef.current) return;
+          if (closing.current || !progressAtRiskRef.current()) return;
           event.preventDefault();
           setClosePrompt(true);
         })
