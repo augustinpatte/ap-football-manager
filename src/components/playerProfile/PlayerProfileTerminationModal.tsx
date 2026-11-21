@@ -92,21 +92,21 @@ export default function PlayerProfileTerminationModal({
         {errorMessage ? (
           <p className="text-sm text-red-600 dark:text-red-300">{errorMessage}</p>
         ) : null}
-
-        <DialogFooter className="justify-end">
-          <Button variant="ghost" onClick={onCancel} disabled={submitting}>
-            {t("common.cancel")}
-          </Button>
-          <Button
-            variant="outline"
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-            disabled={submitting || !preview?.squad_safety.can_field_matchday_squad}
-            onClick={onConfirm}
-          >
-            {t("playerProfile.confirmTerminateContract")}
-          </Button>
-        </DialogFooter>
       </div>
+
+      <DialogFooter className="justify-end">
+        <Button variant="ghost" onClick={onCancel} disabled={submitting}>
+          {t("common.cancel")}
+        </Button>
+        <Button
+          variant="outline"
+          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          disabled={submitting || !preview?.squad_safety.can_field_matchday_squad}
+          onClick={onConfirm}
+        >
+          {t("playerProfile.confirmTerminateContract")}
+        </Button>
+      </DialogFooter>
     </Dialog>
   );
 }

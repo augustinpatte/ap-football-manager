@@ -115,7 +115,10 @@ describe("PressConference", () => {
 
     answerEveryQuestion();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("FAILED:");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("FAILED: be.error.liveMatch.noCompletedMatch");
+    // The button that was pressed has just disabled itself: focus goes to the reason, not the page.
+    expect(alert).toHaveFocus();
     expect(onFinish).not.toHaveBeenCalled();
   });
 
@@ -144,8 +147,49 @@ describe("PressConference", () => {
 
     await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
     expect(mockedInvoke).toHaveBeenCalledTimes(2);
+    // The retry sends the very same answers, not a fresh or emptied set.
+    expect(mockedInvoke.mock.calls[1]).toEqual(mockedInvoke.mock.calls[0]);
   });
 
+  /**
+   * Given the last answer has been submitted and the backend has not replied yet
+   * When the manager presses the same button again
+   * Then only one submission is sent.
+   */
+  it("sends the conference once while a submission is in flight", async () => {
+    let finish: (value: unknown) => void = () => {};
+    mockedInvoke.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    render(
+      <PressConference
+        snapshot={fourTwoSnapshot()}
+        gameState={{} as GameStateData}
+        userSide="Home"
+        onFinish={vi.fn()}
+      />,
+    );
+    for (let step = 0; step < 4; step += 1) {
+      fireEvent.click(
+        screen.getAllByRole("button").filter((b) => b.textContent?.includes("match.press"))[0],
+      );
+      fireEvent.click(screen.getByRole("button", { name: /match\.nextQuestion/ }));
+    }
+    fireEvent.click(
+      screen.getAllByRole("button").filter((b) => b.textContent?.includes("match.press"))[0],
+    );
+    const leave = screen.getByRole("button", { name: /match\.leaveConference/ });
+
+    fireEvent.click(leave);
+    fireEvent.click(leave);
+
+    expect(mockedInvoke).toHaveBeenCalledTimes(1);
+    finish({ game: { id: "g" }, morale_delta: 0 });
+  });
+
+  /**
+   * Given a conference the backend refuses because one was already held today
+   * When the manager chooses Leave without recording
+   * Then the conference closes, and only because they chose it.
+   */
   it("leaves without recording only when the manager chooses to", async () => {
     mockedInvoke.mockRejectedValue("be.error.liveMatch.pressConferenceAlreadyHeld");
     const onFinish = vi.fn();

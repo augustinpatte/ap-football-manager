@@ -1,3 +1,4 @@
+import { isFieldScout } from "../../lib/scoutEligibility";
 import { useEffect, useRef, useState } from "react";
 import { type GameStateData, type StaffData, useGameStore } from "../../store/gameStore";
 import {
@@ -396,7 +397,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             const contextItems: ContextMenuItem[] =
               view === "mystaff"
                 ? [
-                    ...(staff.role === "Scout" && onNavigate
+                    ...(isFieldScout(staff) && onNavigate
                       ? [
                           {
                             label: openScoutingWorkflowLabel,
@@ -475,12 +476,12 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                               {formatWeeklyWage(staff.wage, "compact")}
                             </Badge>
                           )}
-                          {staff.role === "Scout" ? (
+                          {isFieldScout(staff) ? (
                             <Badge variant="primary" size="sm">
                               {scoutingLoadLabel}
                             </Badge>
                           ) : null}
-                          {staff.role === "Scout" && youthLoad > 0 ? (
+                          {isFieldScout(staff) && youthLoad > 0 ? (
                             <Badge variant="accent" size="sm">
                               {youthLoadLabel}
                             </Badge>
@@ -536,7 +537,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                           </span>
                         </p>
 
-                        {staff.role === "Scout" && onNavigate ? (
+                        {isFieldScout(staff) && onNavigate ? (
                           <button
                             type="button"
                             className={LINK_BUTTON}

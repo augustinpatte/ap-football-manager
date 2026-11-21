@@ -32,6 +32,7 @@ vi.mock("../store/settingsStore", () => ({
 
 type ScreenProps = {
   snapshot: { home_score: number; away_score: number; events: { event_type: string }[] };
+  spatialResult?: { homeGoals: number; awayGoals: number; events: unknown[] } | null;
   onContinue?: () => void;
   onPressConference?: () => void;
 };
@@ -42,9 +43,29 @@ vi.mock("../components/match/PreMatchSetup", () => ({
   ),
 }));
 vi.mock("../components/match/PostMatchScreen", () => ({
-  default: ({ onContinue }: ScreenProps) => (
-    <button type="button" data-testid="postmatch-continue" onClick={onContinue}>
-      Continue
+  // Reads its props the way the real screen does: the score and report events come from the
+  // spatial result when there is one, else from the snapshot.
+  default: ({ snapshot, spatialResult, onContinue }: ScreenProps) => (
+    <div>
+      <div data-testid="postmatch-report">
+        {spatialResult?.homeGoals ?? snapshot.home_score}-
+        {spatialResult?.awayGoals ?? snapshot.away_score}:
+        {(spatialResult?.events ?? snapshot.events).length}
+      </div>
+      <button type="button" data-testid="postmatch-continue" onClick={onContinue}>
+        Continue
+      </button>
+    </div>
+  ),
+}));
+vi.mock("../components/match/InteractiveMatchScreen", () => ({
+  default: ({ onFinished }: { onFinished: (response: unknown) => void }) => (
+    <button
+      type="button"
+      data-testid="finish-managed"
+      onClick={() => onFinished({ game: gameWithFixture(fourTwo) })}
+    >
+      Finish managed match
     </button>
   ),
 }));
@@ -192,9 +213,34 @@ describe("MatchSimulation final result", () => {
     });
 
     fireEvent.click(simulateButton);
-    fireEvent.click(await screen.findByTestId("postmatch-continue"));
+    expect(await screen.findByTestId("postmatch-report")).toHaveTextContent("4-2:6");
+    fireEvent.click(screen.getByTestId("postmatch-continue"));
     expect(await screen.findByTestId("digest-score")).toHaveTextContent("4-2");
 
+    fireEvent.click(screen.getByTestId("digest-press"));
+    await waitFor(() => expect(screen.getByTestId("press-score")).toHaveTextContent("4-2"));
+    expect(screen.getByTestId("press-goals")).toHaveTextContent("6");
+  });
+
+  /**
+   * Given a match the manager played through the interactive screen, whose finish returns no
+   *       event list, while the career's fixture holds the 4-2 and its six scorers
+   * When the post-match report, the digest and the press conference open
+   * Then all three describe 4-2 with six goals, taken from the stored fixture.
+   */
+  it("tells every screen the stored 4-2 after a managed match", async () => {
+    mockedInvoke.mockResolvedValueOnce(preMatchSnapshot());
+    setGameStateMock.mockImplementation((game: Record<string, unknown>) => {
+      gameStoreState = { gameState: game, setGameState: setGameStateMock };
+    });
+    render(<MatchSimulation />);
+    fireEvent.click(await screen.findByRole("button", { name: "match.interactive.manage" }));
+
+    fireEvent.click(await screen.findByTestId("finish-managed"));
+
+    expect(await screen.findByTestId("postmatch-report")).toHaveTextContent("4-2:6");
+    fireEvent.click(screen.getByTestId("postmatch-continue"));
+    expect(await screen.findByTestId("digest-score")).toHaveTextContent("4-2");
     fireEvent.click(screen.getByTestId("digest-press"));
     await waitFor(() => expect(screen.getByTestId("press-score")).toHaveTextContent("4-2"));
     expect(screen.getByTestId("press-goals")).toHaveTextContent("6");

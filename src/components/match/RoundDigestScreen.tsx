@@ -496,7 +496,7 @@ export default function RoundDigestScreen({
           label={t("match.matchDetails")}
           onClose={() => setSelectedOtherFixtureId(null)}
           dismissOnBackdrop
-          overlayClassName="bg-black/70 px-4"
+          overlayClassName="bg-black/70 p-4"
           surfaceClassName="bg-white dark:bg-navy-900"
           className="w-full max-w-3xl rounded-2xl transition-colors duration-300"
         >

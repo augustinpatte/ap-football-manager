@@ -537,6 +537,35 @@ describe("StaffTab", () => {
   });
 
   /**
+   * Given an FM24 recruitment analyst, who is filed under the Scout role but cannot be sent on
+   *       scouting jobs
+   * When the staff page draws their card
+   * Then it shows no scouting workload and no shortcut to the scouting workflow.
+   */
+  it("does not offer the scouting workflow for an analyst filed under the scout role", async () => {
+    const analyst = createStaff({
+      id: "staff-3",
+      first_name: "Ana",
+      last_name: "Lyst",
+      display_name: "Ana Lyst",
+      role: "Scout",
+      post: "Analyst",
+    });
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_staff") return makeStaffSlice([analyst]);
+      return createGameState([analyst]);
+    });
+
+    render(<StaffTab gameState={createGameState([analyst])} onNavigate={vi.fn()} />);
+
+    await screen.findByText("Ana Lyst");
+    expect(
+      screen.queryByRole("button", { name: "Open scouting workflow" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/active assignments?/)).not.toBeInTheDocument();
+  });
+
+  /**
    * Given a staff member known as "Cafu" whose full name is Marcos Evangelista
    * When the staff card is drawn
    * Then it shows the backend's display name, not the first and last name put together.

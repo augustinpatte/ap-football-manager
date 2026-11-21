@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -229,6 +229,12 @@ export default function PressConference({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submitErrorRef = useRef<HTMLDivElement>(null);
+
+  // The button that was pressed has just disabled itself, so focus would otherwise fall to the page.
+  useEffect(() => {
+    if (submitError) submitErrorRef.current?.focus();
+  }, [submitError]);
 
   const currentQ = questions[currentIdx];
   const isLastQuestion = currentIdx === questions.length - 1;
@@ -382,6 +388,8 @@ export default function PressConference({
 
             {submitError ? (
               <div
+                ref={submitErrorRef}
+                tabIndex={-1}
                 role="alert"
                 className="mt-6 ml-16 rounded-xl bg-danger-tint p-4 text-body text-danger"
               >

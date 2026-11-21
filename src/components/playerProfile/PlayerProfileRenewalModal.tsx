@@ -191,32 +191,32 @@ export default function PlayerProfileRenewalModal({
           patienceKey="playerProfile.renewalPatience"
           tensionKey="playerProfile.renewalTension"
         />
-
-        <DialogFooter>
-          {renewalIsTerminal ? (
-            <Button className="flex-1" onClick={onClose}>
-              {t("common.done")}
-            </Button>
-          ) : (
-            <>
-              <Button className="flex-1" variant="ghost" onClick={onClose}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                className="flex-1"
-                variant="outline"
-                onClick={onDelegate}
-                disabled={delegateRenewalDisabled}
-              >
-                {t("playerProfile.delegateRenewal")}
-              </Button>
-              <Button className="flex-1" onClick={onSubmit} disabled={renewalSubmitDisabled}>
-                {t("playerProfile.renewalSubmit")}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
       </div>
+
+      <DialogFooter>
+        {renewalIsTerminal ? (
+          <Button className="flex-1" onClick={onClose}>
+            {t("common.done")}
+          </Button>
+        ) : (
+          <>
+            <Button className="flex-1" variant="ghost" onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              className="flex-1"
+              variant="outline"
+              onClick={onDelegate}
+              disabled={delegateRenewalDisabled}
+            >
+              {t("playerProfile.delegateRenewal")}
+            </Button>
+            <Button className="flex-1" onClick={onSubmit} disabled={renewalSubmitDisabled}>
+              {t("playerProfile.renewalSubmit")}
+            </Button>
+          </>
+        )}
+      </DialogFooter>
     </Dialog>
   );
 }

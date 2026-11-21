@@ -326,6 +326,22 @@ describe("ScoutingTab", () => {
     expect(screen.getByText("Hire a scout first")).toBeInTheDocument();
   });
 
+  /**
+   * Given a club whose only "Scout"-role staff member is an FM24 recruitment analyst
+   * When the scouting centre opens
+   * Then it counts no scouts and offers no youth recruitment, as the backend would refuse them.
+   */
+  it("does not treat an analyst as a scout", () => {
+    render(
+      <ScoutingTab
+        gameState={createGameState({ scouts: [createScout({ post: "Analyst" })] })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No scouts")).toBeInTheDocument();
+  });
+
   it("renders the youth recruitment card when scouts are available", () => {
     render(
       <ScoutingTab

@@ -1,4 +1,5 @@
 import { teamFieldScouts } from "../../lib/scoutEligibility";
+import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
 import type { ScoutingAssignment, StaffData, YouthScoutingAssignment } from "../../store/gameStore";
 
 export type PlayerProfileScoutStatus = "idle" | "sending" | "sent" | "error";
@@ -41,8 +42,7 @@ export function getScoutAvailability({
     scouts.find(
       (scout) => !allAssignments.some((assignment) => assignment.scout_id === scout.id),
     ) ?? null;
-  const busyScoutIds = new Set(allAssignments.map((assignment) => assignment.scout_id));
-  const freeScoutCount = scouts.filter((scout) => !busyScoutIds.has(scout.id)).length;
+  const freeScoutCount = calculateAvailableScouts(scouts, allAssignments).length;
   const scoutIds = new Set(scouts.map((scout) => scout.id));
   const activeAssignmentCount = allAssignments.filter((assignment) =>
     scoutIds.has(assignment.scout_id),

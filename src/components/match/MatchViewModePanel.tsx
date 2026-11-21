@@ -38,7 +38,7 @@ function Option({
   return (
     <li
       className={`flex flex-1 flex-col gap-2 rounded border bg-panel p-3 ${
-        highlighted ? "border-focus ring-1 ring-focus" : "border-line"
+        highlighted ? "border-primary-500 ring-1 ring-primary-500" : "border-line"
       }`}
     >
       <p className="font-heading text-body font-bold uppercase tracking-label text-fg">{title}</p>

@@ -718,7 +718,6 @@ fn a_reloaded_career_completes_two_seasons() {
 /// Sends every idle scout of the user's club to a distinct young player of another club, as the
 /// scouting screen's "send scout" does.
 fn send_idle_scouts(state: &StateManager) {
-    use domain::staff::{StaffPost, StaffRole};
     state
         .update_game(|game| {
             let team = user_team_id(game);
@@ -726,7 +725,7 @@ fn send_idle_scouts(state: &StateManager) {
                 .staff
                 .iter()
                 .filter(|s| s.team_id.as_deref() == Some(team.as_str()))
-                .filter(|s| s.role == StaffRole::Scout && s.post() != StaffPost::Analyst)
+                .filter(|s| ofm_core::scouting::is_field_scout(s))
                 .map(|s| s.id.clone())
                 .collect();
             let mut targets: Vec<String> = game

@@ -71,6 +71,42 @@ describe("contract dialogs", () => {
   });
 
   /**
+   * Given a renewal or termination dialog taller than the window
+   * When its action row is pinned
+   * Then the row is a direct child of the dialog panel, the element that carries the surface
+   *      colour: the row takes its background from its parent (`bg-inherit`), so any wrapper
+   *      between the two would make it transparent and let scrolled content show through it.
+   *      (jsdom cannot compute the colour; the structure is what can be asserted.)
+   */
+  it("keeps the pinned action row directly under the surface of both contract dialogs", () => {
+    renewal();
+    const renewalFooter = screen.getByRole("button", {
+      name: "playerProfile.renewalSubmit",
+    }).parentElement;
+    expect(renewalFooter?.parentElement).toBe(screen.getByRole("dialog"));
+    expect(screen.getByRole("dialog").className).toContain("bg-white");
+  });
+
+  it("keeps the termination action row directly under the dialog surface", () => {
+    render(
+      <PlayerProfileTerminationModal
+        show
+        playerName="John Smith"
+        t={t}
+        preview={null}
+        errorMessage={null}
+        submitting={false}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    const footer = screen.getByRole("button", {
+      name: "playerProfile.confirmTerminateContract",
+    }).parentElement;
+    expect(footer?.parentElement).toBe(screen.getByRole("dialog"));
+  });
+
+  /**
    * Given the termination confirmation is open
    * When it is reached by assistive technology
    * Then it is a modal dialog named by its heading, and Escape cancels it.

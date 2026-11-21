@@ -155,4 +155,42 @@ describe("PlayerProfile scouting helpers", () => {
 
     expect(availability.availableScout?.id).toBe("real");
   });
+
+  /**
+   * Given two scouts, one of them on a player job and a youth search, and an analyst whose old
+   *       assignment is still on file
+   * When the profile counts availability
+   * Then one scout is free, two assignments are running and the analyst's is not counted.
+   */
+  it("counts free scouts and running assignments for the eligible scouts only", () => {
+    const availability = getScoutAvailability({
+      staff: [
+        createScout({ id: "busy" }),
+        createScout({ id: "free" }),
+        createScout({ id: "analyst", post: "Analyst" }),
+      ],
+      scoutingAssignments: [
+        { id: "a1", scout_id: "busy", player_id: "other-player", days_remaining: 3 },
+        { id: "a2", scout_id: "analyst", player_id: "stale", days_remaining: 3 },
+      ],
+      youthScoutingAssignments: [
+        {
+          id: "y1",
+          scout_id: "busy",
+          region: "Domestic",
+          objective: "Balanced",
+          target_position: null,
+          days_remaining: 4,
+        } as unknown as YouthScoutingAssignment,
+      ],
+      managerTeamId: "team-1",
+      playerId: "player-1",
+      scoutStatus: "idle",
+    });
+
+    expect(availability.scouts.map((scout) => scout.id)).toEqual(["busy", "free"]);
+    expect(availability.freeScoutCount).toBe(1);
+    expect(availability.activeAssignmentCount).toBe(2);
+    expect(availability.availableScout?.id).toBe("free");
+  });
 });

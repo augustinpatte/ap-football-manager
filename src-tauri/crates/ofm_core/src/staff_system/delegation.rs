@@ -839,6 +839,33 @@ mod tests {
         assert_eq!(g.scouting_assignments[0].scout_id, "scout1");
     }
 
+    /// Given a club whose only "Scout"-role staff member is a recruitment analyst
+    /// When the assistant runs delegated scouting on a day with a clear gap to fill
+    /// Then no assignment is made: an analyst cannot be sent on a scouting job, the same rule the
+    /// manager's own Scout button follows.
+    #[test]
+    fn delegated_scouting_never_sends_an_analyst() {
+        let mut g = game(Some(80), 6);
+        let mut analyst = staff_member("analyst1", StaffPost::Analyst, 70, "team1");
+        analyst.wage = 500;
+        g.staff
+            .retain(|s| s.post() != StaffPost::Scout && s.post() != StaffPost::Analyst);
+        g.staff.push(analyst);
+        g.teams[0].transfer_budget = 10_000_000;
+        for p in g
+            .players
+            .iter_mut()
+            .filter(|p| p.team_id.as_deref() == Some("team2"))
+        {
+            p.date_of_birth = "2005-01-01".into();
+            p.market_value = 1_000_000;
+            p.natural_position = domain::player::Position::Striker;
+        }
+        delegate(&mut g, Duty::Scouting, false);
+        run_after_day(&mut g);
+        assert!(g.scouting_assignments.is_empty());
+    }
+
     /// A club with one idle scout and two candidate targets of the same public standing, the one
     /// with the far higher hidden potential listed first by id.
     fn club_with_one_scout_and_two_prospects() -> (Game, String, String) {
