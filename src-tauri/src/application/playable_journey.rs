@@ -312,77 +312,16 @@ fn a_delegated_match_day_finalises_the_match_once() {
 ///      club paid no more than the fee plus a wage-sized margin.
 #[test]
 fn a_transfer_is_scheduled_on_acceptance_and_completes_on_its_registration_date() {
-    use domain::transfer_terms::TransferTerms;
-    use ofm_core::transfers::TransferNegotiationDecision as Decision;
-
     let session = Session::begin();
     let game = session.game();
     let user = user_team_id(&game);
-    let budget = game
-        .teams
-        .iter()
-        .find(|t| t.id == user)
-        .unwrap()
-        .transfer_budget;
-    let targets: Vec<_> = game
-        .players
-        .iter()
-        .filter(|p| p.team_id.as_deref().is_some_and(|t| t != user) && p.transfer_listed)
-        .map(|p| (p.id.clone(), p.market_value.max(100_000) * 13 / 10))
-        .filter(|(_, fee)| (*fee as i64) <= budget)
-        .take(15)
-        .collect();
-    assert!(
-        !targets.is_empty(),
-        "the world lists players the club can afford"
-    );
-
     let cash = |g: &Game| g.teams.iter().find(|t| t.id == user).unwrap().finance;
     let (cash_before, squad_before) = (cash(&game), user_squad(&game).len());
-    let mut signed = None;
-    for (target, fee) in targets {
-        let mut response = match make_transfer_bid_internal(
-            &session.state,
-            &target,
-            fee,
-            TransferTerms::default(),
-        ) {
-            Ok(response) => response,
-            Err(error) => {
-                assert!(error.starts_with("be.error."), "{error}");
-                continue;
-            }
-        };
-        if let Some(demand) = response.player_demand.clone() {
-            let terms = TransferTerms {
-                player_weekly_wage: demand.weekly_wage,
-                player_contract_years: demand.contract_years as u8,
-                ..TransferTerms::default()
-            };
-            response = make_transfer_bid_internal(&session.state, &target, fee, terms)
-                .expect("the contract terms are answered");
-        }
-        if response.decision == Decision::Accepted {
-            let date = response
-                .registration_date
-                .clone()
-                .expect("an accepted deal is dated");
-            signed = Some((target, fee, date));
-            break;
-        }
-        let unchanged = session.game();
-        assert_eq!(
-            user_squad(&unchanged).len(),
-            squad_before,
-            "a bid not accepted moved a player"
-        );
-        assert_eq!(
-            cash(&unchanged),
-            cash_before,
-            "a bid not accepted charged the club"
-        );
-    }
-    let (target, fee, date) = signed.expect("no bid was accepted");
+    let AgreedSigning {
+        player_id: target,
+        fee,
+        registration_date: date,
+    } = agree_a_signing(&session);
 
     let at_club = |g: &Game| user_squad(g).iter().any(|p| p.id == target);
     let today = |g: &Game| g.clock.current_date.format("%Y-%m-%d").to_string();
@@ -906,4 +845,441 @@ fn a_watched_match_saved_midway_keeps_the_dossier_and_is_finalised_once() {
         dossier_json,
         "playing the match changed the dossier"
     );
+}
+
+// ---------------------------------------------------------------------------------------------
+// The whole journey, in one career.
+
+/// A signing the clubs have agreed, with the date the player may be registered.
+struct AgreedSigning {
+    player_id: String,
+    fee: u64,
+    registration_date: String,
+}
+
+/// Bids for listed players, answering a contract demand, until one is accepted.
+fn agree_a_signing(session: &Session) -> AgreedSigning {
+    use domain::transfer_terms::TransferTerms;
+    use ofm_core::transfers::TransferNegotiationDecision as Decision;
+
+    let game = session.game();
+    let user = user_team_id(&game);
+    let budget = game
+        .teams
+        .iter()
+        .find(|t| t.id == user)
+        .unwrap()
+        .transfer_budget;
+    let targets: Vec<_> = game
+        .players
+        .iter()
+        .filter(|p| p.team_id.as_deref().is_some_and(|t| t != user) && p.transfer_listed)
+        .map(|p| (p.id.clone(), p.market_value.max(100_000) * 13 / 10))
+        .filter(|(_, fee)| (*fee as i64) <= budget)
+        .take(15)
+        .collect();
+    assert!(
+        !targets.is_empty(),
+        "the world lists players the club can afford"
+    );
+    let cash = |g: &Game| g.teams.iter().find(|t| t.id == user).unwrap().finance;
+    let (cash_before, squad_before) = (cash(&game), user_squad(&game).len());
+    for (target, fee) in targets {
+        let mut response = match make_transfer_bid_internal(
+            &session.state,
+            &target,
+            fee,
+            TransferTerms::default(),
+        ) {
+            Ok(response) => response,
+            Err(error) => {
+                assert!(error.starts_with("be.error."), "{error}");
+                continue;
+            }
+        };
+        if let Some(demand) = response.player_demand.clone() {
+            let terms = TransferTerms {
+                player_weekly_wage: demand.weekly_wage,
+                player_contract_years: demand.contract_years as u8,
+                ..TransferTerms::default()
+            };
+            response = make_transfer_bid_internal(&session.state, &target, fee, terms)
+                .expect("the contract terms are answered");
+        }
+        if response.decision == Decision::Accepted {
+            return AgreedSigning {
+                player_id: target,
+                fee,
+                registration_date: response
+                    .registration_date
+                    .clone()
+                    .expect("an accepted deal is dated"),
+            };
+        }
+        let unchanged = session.game();
+        assert_eq!(user_squad(&unchanged).len(), squad_before);
+        assert_eq!(cash(&unchanged), cash_before);
+    }
+    panic!("no bid was accepted");
+}
+
+/// The manager's own side of an interactive match: the starter who leaves and the outfield
+/// substitute who comes on.
+fn legal_swap_for_the_manager(
+    view: &ofm_core::interactive_match::InteractiveView,
+) -> (String, String) {
+    let side = if format!("{:?}", view.user_side.expect("the manager has a side")) == "Home" {
+        &view.session.home
+    } else {
+        &view.session.away
+    };
+    let off = side
+        .on_pitch
+        .iter()
+        .find(|p| !format!("{:?}", p.role).contains("Gk"))
+        .expect("an outfield starter");
+    let on = side
+        .bench
+        .iter()
+        .find(|p| !format!("{:?}", p.natural_position).contains("Gk"))
+        .expect("an outfield substitute");
+    (off.id.0.clone(), on.id.0.clone())
+}
+
+/// Whether the club's next unplayed fixture is one the league table counts (a friendly is not).
+fn next_user_fixture_counts_for_the_table(game: &Game) -> bool {
+    let team = user_team_id(game);
+    game.competitions
+        .iter()
+        .flat_map(|c| c.fixtures.iter())
+        .filter(|f| f.home_team_id == team || f.away_team_id == team)
+        .filter(|f| f.status == domain::league::FixtureStatus::Scheduled)
+        .min_by(|a, b| a.date.cmp(&b.date))
+        .is_some_and(|f| f.counts_for_league_standings())
+}
+
+/// What the books and the calendar must never show twice, whatever the manager did.
+fn assert_no_duplicate_bookkeeping(game: &Game, stage: &str) {
+    use season_harness::lifecycle::{
+        fixture_ids_unique, league_pairings_not_duplicated, standings_match_results,
+    };
+    assert_eq!(fixture_ids_unique(game), Vec::<String>::new(), "{stage}");
+    assert_eq!(
+        league_pairings_not_duplicated(game),
+        Vec::<String>::new(),
+        "{stage}"
+    );
+    assert_eq!(
+        standings_match_results(game),
+        Vec::<String>::new(),
+        "{stage}"
+    );
+    assert!(
+        ofm_core::finances::journal::journal_matches_cash(game),
+        "{stage}: a club's cash is not the sum of its journal"
+    );
+    let mut ids: Vec<&str> = game.cash_journal.iter().map(|p| p.id.as_str()).collect();
+    let posts = ids.len();
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(ids.len(), posts, "{stage}: a cash post exists twice");
+}
+
+fn count_posts(game: &Game, club: &str, kind: domain::finance::CashKind) -> usize {
+    game.cash_journal
+        .iter()
+        .filter(|p| p.club_id == club && p.kind == kind)
+        .count()
+}
+
+/// Given one new career,
+/// When the manager does everything the alpha promises in order: sets the squad, tactics and
+///      training, hands work to the assistant and answers a proposal, sends scouts and shortlists a
+///      report, promotes a youth player, signs a player, advances the calendar, plays the match with
+///      a tactical order and a substitution, saves in the middle of it and reopens the save, plays
+///      on to full time and finishes, completes the season, rolls over, and saves and reloads in the
+///      next season,
+/// Then every step took effect once: the squad, the books, the table and the calendar are
+///      consistent after each, and nothing (a result, a fixture, a cash post) exists twice.
+#[test]
+fn the_whole_alpha_journey_runs_in_one_career() {
+    use domain::finance::CashKind;
+    use domain::player::SquadRole;
+    use domain::team::PlayStyle;
+    use ofm_core::interactive_match::plan::TacticalChange;
+    use ofm_core::interactive_match::{UserCommand, UserOrder};
+
+    use crate::application::interactive_match::{
+        set_interactive_pause_internal, submit_match_command_internal,
+    };
+    use crate::commands::squad::{set_training_internal, set_training_schedule_internal};
+
+    // 1. New career, club selected.
+    let mut session = Session::begin();
+    let opening = session.game();
+    let user = user_team_id(&opening);
+    assert_no_duplicate_bookkeeping(&opening, "new career");
+
+    // 2. Squad, tactics, training.
+    apply_tactic_preset_internal(&session.state, "4-3-3", "HighPress").expect("a preset applies");
+    let eleven = eleven_for(&session.game(), "4-3-3");
+    set_starting_xi_internal(&session.state, eleven.clone()).expect("an eleven is set");
+    set_training_internal(&session.state, "Technical", "Medium").expect("training is set");
+    set_training_schedule_internal(&session.state, "Balanced").expect("a schedule is set");
+    let team_of = |g: &Game| g.teams.iter().find(|t| t.id == user).cloned().unwrap();
+    assert_eq!(team_of(&session.game()).formation, "4-3-3");
+    assert_eq!(team_of(&session.game()).starting_xi_ids, eleven);
+    assert_eq!(
+        team_of(&session.game()).training_focus,
+        domain::team::TrainingFocus::Technical
+    );
+
+    // 3. Staff: the assistant is given the work with approval, leaves a proposal, the manager
+    //    accepts it, then takes control back for the match.
+    mutate_active_game(&session.state, |game| {
+        set_mode(game, DelegationMode::Approval)
+    })
+    .expect("an assistant takes the work");
+    let (listed_player, proposal) = queue_listing_proposal(&session);
+    answer_proposal(&session, &proposal, true);
+    assert!(is_listed(&session.game(), &listed_player));
+    assert!(session.game().delegation.proposals.is_empty());
+    mutate_active_game(&session.state, |game| {
+        set_mode(game, DelegationMode::Manual)
+    })
+    .expect("manual control is always available");
+
+    // 4. Scouting and shortlist: the match days that pass are simulated for the manager.
+    send_idle_scouts(&session.state);
+    for _ in 0..DAY_GUARD {
+        advance_time_with_mode(&session.state, "delegate").expect("a day advances");
+        if !session.game().scouting_dossier.reports.is_empty() {
+            break;
+        }
+    }
+    let report = session
+        .game()
+        .scouting_dossier
+        .reports
+        .first()
+        .cloned()
+        .expect("a scout delivered a report");
+    shortlist_player_internal(&session.state, &report.player_id).expect("the report is listed");
+    let stored_dossier = |state: &StateManager| {
+        let dossier = state.get_game(|g| g.scouting_dossier.clone());
+        serde_json::to_string(&dossier.expect("an active game")).expect("serializes")
+    };
+    let dossier_json = stored_dossier(&session.state);
+
+    // 5. Youth development and promotion.
+    let prospect = session
+        .game()
+        .players
+        .iter()
+        .find(|p| {
+            p.contract_club_id() == Some(user.as_str())
+                && p.squad_role == SquadRole::Youth
+                && !p.retired
+        })
+        .map(|p| p.id.clone())
+        .expect("the academy has a prospect");
+    set_player_squad_role_internal(&session.state, &prospect, "Senior").expect("a place is free");
+    assert!(get_academy_review_internal(&session.state)
+        .expect("the review reads")
+        .is_some());
+
+    // 6. Transfer negotiation, and its financial effect, once.
+    let fee_posts_before = count_posts(&session.game(), &user, CashKind::TransferFeeOut);
+    let cash_before = team_of(&session.game()).finance;
+    let squad_before = user_squad(&session.game()).len();
+    let signing = agree_a_signing(&session);
+    assert!(
+        !user_squad(&session.game())
+            .iter()
+            .any(|p| p.id == signing.player_id),
+        "the player joined before his registration date"
+    );
+    for _ in 0..40 {
+        if user_squad(&session.game())
+            .iter()
+            .any(|p| p.id == signing.player_id)
+        {
+            break;
+        }
+        advance_time_with_mode(&session.state, "delegate").expect("a day advances");
+    }
+    let signed = session.game();
+    assert!(user_squad(&signed)
+        .iter()
+        .any(|p| p.id == signing.player_id));
+    assert!(
+        user_squad(&signed).len() > squad_before,
+        "the signing is in the squad"
+    );
+    assert!(
+        team_of(&signed).finance < cash_before,
+        "the signing cost money"
+    );
+    assert_eq!(
+        count_posts(&signed, &user, CashKind::TransferFeeOut),
+        fee_posts_before + 1,
+        "the fee of {} was booked exactly once",
+        signing.fee
+    );
+    assert_no_duplicate_bookkeeping(&signed, "after the signing");
+
+    // 7-8. Calendar to match day, match preparation (a full eleven is set again: the squad moved).
+    // The pre-season friendlies sit in the league's fixture list but not in its table; they are
+    // played through quickly so the interactive match is the first one the table counts.
+    loop {
+        advance_until_user_match(&session.state, "live");
+        if next_user_fixture_counts_for_the_table(&session.game()) {
+            break;
+        }
+        play_interactive_match(&session.state);
+    }
+    let eleven = eleven_for(&session.game(), "4-3-3");
+    set_starting_xi_internal(&session.state, eleven).expect("the eleven is set for the match");
+    let completed_before = own_completed(&session.game());
+    let played_before = own_played(&session.game());
+
+    // 9. Interactive match: watch, pause, tactical order and substitution.
+    start_interactive_match_internal(&session.state).expect("the match starts");
+    let watch = |state: &StateManager, seconds: u32| {
+        advance_interactive_match_internal(
+            state,
+            AdvanceRequest {
+                target: AdvanceTarget::ForSeconds(seconds),
+                stop_at_key_events: false,
+            },
+            0,
+            true,
+        )
+        .expect("the match advances with frames")
+    };
+    let first = watch(&session.state, 600);
+    assert!(!first.frames.is_empty());
+    let paused = set_interactive_pause_internal(&session.state, true, 0).expect("the match pauses");
+    let view = paused.view;
+    let tactics = submit_match_command_internal(
+        &session.state,
+        UserCommand {
+            command_id: "journey-tactics".into(),
+            expected_revision: view.session.revision,
+            order: UserOrder::Tactics(TacticalChange {
+                style: Some(PlayStyle::Attacking),
+                ..Default::default()
+            }),
+        },
+        0,
+    )
+    .expect("the tactical order is taken");
+    assert!(tactics.receipt.accepted, "{:?}", tactics.receipt);
+    let (off, on) = legal_swap_for_the_manager(&tactics.snapshot.view);
+    let swap = submit_match_command_internal(
+        &session.state,
+        UserCommand {
+            command_id: "journey-swap".into(),
+            expected_revision: tactics.snapshot.view.session.revision,
+            order: UserOrder::Substitute {
+                player_off_id: off.clone(),
+                player_on_id: on.clone(),
+            },
+        },
+        0,
+    )
+    .expect("the substitution is taken");
+    assert!(swap.receipt.accepted, "{:?}", swap.receipt);
+    set_interactive_pause_internal(&session.state, false, 0).expect("the match resumes");
+
+    // 10. Save in the middle of the match; exit; reload; the match is waiting.
+    persist_active_game(&session.state, &mut session.saves).expect("a save mid-match succeeds");
+    let save_id = session.state.get_save_id().expect("the career has a save");
+    let mut reopened = SaveManager::init(session.dir.path()).expect("the folder reopens");
+    let mut stored = reopened.load_game(&save_id).expect("the save loads");
+    let stats = reopened.load_stats_state(&save_id).expect("stats load");
+    ofm_core::ai_hiring::seed_ai_managers(&mut stored);
+    ofm_core::season_context::refresh_game_context(&mut stored);
+    let resumed = StateManager::new();
+    install_career(&resumed, stored, stats, Some(save_id.clone()));
+    restore_saved_match(&resumed, &mut reopened, &save_id);
+    assert!(
+        resumed.with_interactive_match(|_| ()).is_some(),
+        "the match under way was restored"
+    );
+    assert_eq!(
+        stored_dossier(&resumed),
+        dossier_json,
+        "the dossier changed on reload"
+    );
+    assert_eq!(
+        own_completed(&resumed.get_game(|g| g.clone()).unwrap()),
+        completed_before,
+        "a match in progress is not a result"
+    );
+    session.state = resumed;
+    session.saves = reopened;
+
+    // 11. Play to full time; finish exactly once.
+    start_interactive_match_internal(&session.state).expect("the screen takes the match over");
+    let mut ended = false;
+    let mut last_view = None;
+    for _ in 0..MATCH_GUARD {
+        let out = watch(&session.state, 900);
+        last_view = Some(out.snapshot.view.clone());
+        if out.stop == StopReason::Finished {
+            ended = true;
+            break;
+        }
+    }
+    assert!(ended, "the resumed match never reached full time");
+    let end = last_view.expect("a view of the end");
+    let side = if format!("{:?}", end.user_side.expect("a side")) == "Home" {
+        &end.session.home
+    } else {
+        &end.session.away
+    };
+    assert!(
+        side.on_pitch.iter().any(|p| p.id.0 == on),
+        "the substitute is on"
+    );
+    assert!(
+        side.used.iter().any(|p| p.id.0 == off),
+        "the starter has gone off"
+    );
+    finish_interactive_match_internal(&session.state).expect("the match is finalised");
+    finish_interactive_match_internal(&session.state).expect_err("a second finish is refused");
+    let after_match = session.game();
+    assert_eq!(
+        own_completed(&after_match),
+        completed_before + 1,
+        "the result counts once"
+    );
+    assert_eq!(
+        own_played(&after_match),
+        played_before + 1,
+        "the league match moved the club's table row once"
+    );
+    assert_no_duplicate_bookkeeping(&after_match, "after the match");
+
+    // 12-14. Season completion, rollover, and the next season after a reload.
+    play_season_delegated(&session.state);
+    let finished = session.game();
+    assert_no_duplicate_bookkeeping(&finished, "end of season");
+    session.save_close_and_reopen();
+    advance_to_next_season_internal(&session.state).expect("the season rolls over");
+    let next = session.game();
+    assert!(next.manager.team_id.is_some(), "the manager was dismissed");
+    assert!(!is_season_complete(&next));
+    assert_eq!(
+        own_played(&next),
+        0,
+        "the new season starts with an empty table"
+    );
+    assert_no_duplicate_bookkeeping(&next, "after the rollover");
+    for _ in 0..30 {
+        advance_time_with_mode(&session.state, "delegate").expect("a day advances");
+    }
+    session.save_close_and_reopen();
+    assert_no_duplicate_bookkeeping(&session.game(), "next season after a reload");
 }
