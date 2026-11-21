@@ -7,7 +7,9 @@ import type { ScoutAvailability } from "./PlayerProfile.scouting";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, options?: { free?: number; total?: number; active?: number }) => {
+      if (key === "scouting.profileAvailability")
+        return `${options?.free} free of ${options?.total}, ${options?.active} active`;
       if (key === "scouting.noScoutsHint") return "Hire a scout first";
       if (key === "scouting.scoutingInProgress") return "Scouting in progress";
       if (key === "scouting.scoutBtn") return "Scout";
@@ -44,6 +46,8 @@ describe("PlayerProfileScoutAction", () => {
       alreadyScouting: false,
       allBusy: false,
       canScout: true,
+      freeScoutCount: 1,
+      activeAssignmentCount: 0,
       ...overrides,
     };
   }
@@ -95,5 +99,54 @@ describe("PlayerProfileScoutAction", () => {
     );
 
     expect(screen.getByText("Scouting in progress")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a club with two scouts, one of them already on an assignment
+   * When the manager opens a player profile
+   * Then the profile says how many scouts are free and how many assignments are running.
+   */
+  it("shows scout availability next to the button", () => {
+    render(
+      <PlayerProfileScoutAction
+        availability={buildAvailability({
+          scouts: [scout, { ...scout, id: "scout-2" }],
+          freeScoutCount: 1,
+          activeAssignmentCount: 1,
+        })}
+        scoutStatus="idle"
+        scoutError={null}
+        onScout={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 free of 2, 1 active")).toBeTruthy();
+  });
+
+  /**
+   * Given every scout is busy
+   * When the profile renders
+   * Then the button is disabled and the reason is on screen, not just a greyed control.
+   */
+  it("explains a disabled button when every scout is busy", () => {
+    render(
+      <PlayerProfileScoutAction
+        availability={buildAvailability({
+          availableScout: null,
+          allBusy: true,
+          canScout: false,
+          freeScoutCount: 0,
+          activeAssignmentCount: 1,
+        })}
+        scoutStatus="idle"
+        scoutError={null}
+        onScout={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByRole("button", { name: "Scout" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.getByText("0 free of 1, 1 active")).toBeTruthy();
   });
 });

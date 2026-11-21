@@ -29,6 +29,16 @@ export default function PlayerProfileScoutAction({
     );
   }
 
+  const availabilityLine = (
+    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      {t("scouting.profileAvailability", {
+        free: availability.freeScoutCount,
+        total: availability.scouts.length,
+        active: availability.activeAssignmentCount,
+      })}
+    </p>
+  );
+
   return (
     <>
       <button
@@ -40,6 +50,7 @@ export default function PlayerProfileScoutAction({
         <ScanSearch className="w-3.5 h-3.5" />
         {scoutStatus === "sending" ? t("scouting.scoutingInProgress") : t("scouting.scoutBtn")}
       </button>
+      {availabilityLine}
       {scoutError ? <p className="text-xs text-red-400 mt-1">{scoutError}</p> : null}
     </>
   );

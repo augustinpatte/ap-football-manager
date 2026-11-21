@@ -22,7 +22,6 @@ use std::collections::HashSet;
 
 use domain::delegation::Duty;
 use domain::player::{Player, Position};
-use domain::staff::{StaffPost, StaffRole};
 
 use super::assistant::{self, RecKind};
 use super::delegation::{date, log, param, stamp};
@@ -64,7 +63,7 @@ fn idle_scouts(game: &Game, team_id: &str) -> Vec<String> {
         .collect();
     team_staff(game, team_id)
         .iter()
-        .filter(|s| s.role == StaffRole::Scout && s.post() != StaffPost::Analyst)
+        .filter(|s| crate::scouting::is_field_scout(s))
         .filter(|s| !busy.contains(s.id.as_str()))
         .map(|s| s.id.clone())
         .collect()

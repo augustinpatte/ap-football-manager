@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isFieldScout, teamFieldScouts } from "../../lib/scoutEligibility";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { useGameStore } from "../../store/gameStore";
 import { useFetchedSquad } from "../../hooks/useFetchedSquad";
@@ -86,8 +87,8 @@ export default function YouthAcademyTab({
 
   const team = sessionState?.team ?? gameState?.teams.find((tm) => tm.id === teamId) ?? null;
   const scouts =
-    fetchedStaff?.team_staff.filter((s) => s.role === "Scout") ??
-    gameState?.staff.filter((s) => s.role === "Scout" && s.team_id === teamId) ??
+    fetchedStaff?.team_staff.filter(isFieldScout) ??
+    (gameState ? teamFieldScouts(gameState.staff, teamId) : null) ??
     [];
   const youthAssignments =
     fetchedStaff?.youth_scouting_assignments ?? gameState?.youth_scouting_assignments ?? [];

@@ -1,7 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type { GameStateData } from "../store/gameStore";
-import type { ScoutingAssignment, StaffData, YouthScoutingAssignment } from "../store/types";
+import type {
+  ScoutingAssignment,
+  StaffData,
+  StaffPost,
+  YouthScoutingAssignment,
+} from "../store/types";
 
 export interface StaffSlice {
   team_staff: StaffData[];
@@ -19,19 +24,6 @@ export async function releaseStaff(staffId: string): Promise<GameStateData> {
 }
 
 // --- Staff management (posts, contracts, budget, delegation, assistant) -------------------------
-
-export type StaffPost =
-  | "AssistantManager"
-  | "FirstTeamCoach"
-  | "FitnessCoach"
-  | "GoalkeepingCoach"
-  | "YouthCoach"
-  | "HeadOfYouth"
-  | "Scout"
-  | "HeadOfScouting"
-  | "Analyst"
-  | "Physio"
-  | "HeadOfMedical";
 
 export type Duty =
   | "Training"

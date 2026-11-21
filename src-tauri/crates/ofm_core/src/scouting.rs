@@ -57,6 +57,13 @@ fn scout_assignment_count(game: &Game, scout_id: &str) -> usize {
             .count()
 }
 
+/// Whether this person can take a scouting assignment: the Scout role, but not the Analyst post.
+/// FM24 imports file recruitment analysts under `StaffRole::Scout`, so the role alone over-counts.
+/// The frontend mirrors this in `src/lib/scoutEligibility.ts`; change both together.
+pub fn is_field_scout(staff: &domain::staff::Staff) -> bool {
+    staff.role == StaffRole::Scout && staff.post() != domain::staff::StaffPost::Analyst
+}
+
 fn resolve_user_scout<'a>(
     game: &'a Game,
     scout_id: &str,
@@ -72,7 +79,7 @@ fn resolve_user_scout<'a>(
         .iter()
         .find(|staff_member| staff_member.id == scout_id)
         .ok_or(ERR_SCOUT_NOT_FOUND)?;
-    if scout.role != StaffRole::Scout || scout.post() == domain::staff::StaffPost::Analyst {
+    if !is_field_scout(scout) {
         return Err(ERR_STAFF_MEMBER_NOT_SCOUT.to_string());
     }
     if scout.team_id.as_ref() != Some(user_team_id) {

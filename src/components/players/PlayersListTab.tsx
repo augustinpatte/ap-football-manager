@@ -1,5 +1,6 @@
 import ReadableRating from "./ReadableRating";
 import { useCallback, useState } from "react";
+import { teamFieldScouts } from "../../lib/scoutEligibility";
 import type { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { Card, CardBody, Badge, Select, CountryFlag, PlayerAvatar } from "../ui";
@@ -139,9 +140,7 @@ export default function PlayersListTab({
     gameState,
     onGameUpdate: handleGameUpdate,
   });
-  const scouts = gameState.staff.filter(
-    (staffMember) => staffMember.role === "Scout" && staffMember.team_id === managerTeamId,
-  );
+  const scouts = teamFieldScouts(gameState.staff, managerTeamId);
   const scoutingAssignments = gameState.scouting_assignments || [];
   const allScoutingAssignments = [
     ...scoutingAssignments,

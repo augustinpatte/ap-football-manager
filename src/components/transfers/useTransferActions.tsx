@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { teamFieldScouts } from "../../lib/scoutEligibility";
 import type { GameStateData } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { toggleLoanList, toggleTransferList } from "../../services/transfersService";
@@ -16,9 +17,7 @@ export function useTransferActions({ gameState, userTeamId, onGameUpdate, t }: I
   const [scoutingPlayerId, setScoutingPlayerId] = useState<string | null>(null);
   const [scoutError, setScoutError] = useState<string | null>(null);
   const [listingError, setListingError] = useState<string | null>(null);
-  const scouts = gameState.staff.filter(
-    (staffMember) => staffMember.role === "Scout" && staffMember.team_id === userTeamId,
-  );
+  const scouts = teamFieldScouts(gameState.staff, userTeamId);
   const scoutingAssignments = gameState.scouting_assignments || [];
   const allScoutingAssignments = [
     ...scoutingAssignments,

@@ -2201,6 +2201,7 @@
     "daysLeft": "{{days}} giorni rimanenti",
     "noScouts": "Non hai ancora osservatori.",
     "noScoutsHint": "Assumi un osservatore dalla pagina Staff per iniziare a valutare i giocatori.",
+    "profileAvailability": "Osservatori: {{free}} liberi su {{total}} · {{active}} incarichi attivi",
     "findPlayers": "Trova giocatori da osservare",
     "searchPlaceholder": "Cerca per nome, nazionalità o squadra...",
     "player": "Giocatore",

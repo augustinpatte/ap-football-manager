@@ -2175,6 +2175,7 @@
     "daysLeft": "剩余 {{days}} 天",
     "noScouts": "你还没有任何球探。",
     "noScoutsHint": "前往员工页面聘请球探，开始评估球员。",
+    "profileAvailability": "球探：{{total}} 人中 {{free}} 人空闲 · {{active}} 项进行中的任务",
     "findPlayers": "寻找考察对象",
     "searchPlaceholder": "按姓名、国籍或球队搜索……",
     "player": "球员",

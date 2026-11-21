@@ -2175,6 +2175,7 @@
     "daysLeft": "{{days}} hari tersisa",
     "noScouts": "Kamu belum punya scout.",
     "noScoutsHint": "Rekrut scout dari halaman Staf untuk mulai mengevaluasi pemain.",
+    "profileAvailability": "Scout: {{free}} bebas dari {{total}} · {{active}} penugasan aktif",
     "findPlayers": "Cari Pemain untuk Di-scout",
     "searchPlaceholder": "Cari berdasarkan nama, kewarganegaraan, atau tim...",
     "player": "Pemain",

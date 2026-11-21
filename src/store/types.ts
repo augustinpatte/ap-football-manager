@@ -490,6 +490,19 @@ export interface ActiveLoanData {
   development_reported_appearances?: number;
 }
 
+export type StaffPost =
+  | "AssistantManager"
+  | "FirstTeamCoach"
+  | "FitnessCoach"
+  | "GoalkeepingCoach"
+  | "YouthCoach"
+  | "HeadOfYouth"
+  | "Scout"
+  | "HeadOfScouting"
+  | "Analyst"
+  | "Physio"
+  | "HeadOfMedical";
+
 export interface StaffData {
   id: string;
   first_name: string;
@@ -502,6 +515,11 @@ export interface StaffData {
   birth_country?: string | null;
   known_as?: string | null;
   role: "AssistantManager" | "Coach" | "Scout" | "Physio";
+  /**
+   * The seat they fill when finer than `role` (an analyst has role Scout). The backend omits it
+   * when it can be derived from role and specialization, so absence is not "unknown".
+   */
+  post?: StaffPost;
   attributes: {
     coaching: number;
     judgingAbility: number;

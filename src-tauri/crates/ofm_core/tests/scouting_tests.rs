@@ -2,13 +2,13 @@ use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
 use domain::message::*;
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::staff::{Staff, StaffAttributes, StaffRole};
+use domain::staff::{Staff, StaffAttributes, StaffPost, StaffRole};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::{Game, YouthScoutingObjective, YouthScoutingRegion};
 use ofm_core::scouting::{
-    apply_youth_recruitment_response, process_scouting, scout_max_assignments, send_scout,
-    start_youth_scouting,
+    apply_youth_recruitment_response, is_field_scout, process_scouting, scout_max_assignments,
+    send_scout, start_youth_scouting,
 };
 
 // ---------------------------------------------------------------------------
@@ -184,6 +184,43 @@ fn send_scout_rejects_non_scout_staff() {
     game.staff[0].role = StaffRole::Coach;
     let result = send_scout(&mut game, "scout1", "p2");
     assert_eq!(result.unwrap_err(), "be.error.scouting.staffMemberNotScout");
+}
+
+/// Given every seat an FM24 import can give a person
+/// When asked who can take a scouting assignment
+/// Then only the Scout and Head of Scouting seats can — the Analyst, filed under role Scout, cannot.
+#[test]
+fn only_scout_and_head_of_scouting_posts_are_field_scouts() {
+    for post in StaffPost::ALL {
+        let mut member = make_scout("s", "team1", 60, 60);
+        member.role = post.role();
+        member.post = Some(post);
+        let expected = matches!(post, StaffPost::Scout | StaffPost::HeadOfScouting);
+        assert_eq!(is_field_scout(&member), expected, "{post:?}");
+    }
+}
+
+/// Given an imported recruitment analyst (role Scout, post Analyst) on the user's team
+/// When the manager sends them to scout a player
+/// Then the send is refused with the not-a-scout key and no assignment is created.
+#[test]
+fn send_scout_rejects_an_analyst_filed_under_the_scout_role() {
+    let mut game = make_game();
+    game.staff[0].post = Some(StaffPost::Analyst);
+    let result = send_scout(&mut game, "scout1", "p2");
+    assert_eq!(result.unwrap_err(), "be.error.scouting.staffMemberNotScout");
+    assert!(game.scouting_assignments.is_empty());
+}
+
+/// Given a head of scouting (role Scout, post HeadOfScouting)
+/// When the manager sends them to scout a player
+/// Then the assignment is created.
+#[test]
+fn send_scout_accepts_a_head_of_scouting() {
+    let mut game = make_game();
+    game.staff[0].post = Some(StaffPost::HeadOfScouting);
+    send_scout(&mut game, "scout1", "p2").unwrap();
+    assert_eq!(game.scouting_assignments.len(), 1);
 }
 
 #[test]

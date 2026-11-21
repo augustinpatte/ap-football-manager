@@ -2175,6 +2175,7 @@
     "daysLeft": "{{days}} days left",
     "noScouts": "You don't have any scouts yet.",
     "noScoutsHint": "Hire a scout from the Staff page to start evaluating players.",
+    "profileAvailability": "Scouts: {{free}} free of {{total}} · {{active}} active assignments",
     "findPlayers": "Find Players to Scout",
     "searchPlaceholder": "Search by name, nationality, or team...",
     "player": "Player",

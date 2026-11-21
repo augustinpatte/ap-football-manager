@@ -2174,6 +2174,7 @@
     "daysLeft": "{{days}} días restantes",
     "noScouts": "Aún no tienes ojeadores.",
     "noScoutsHint": "Contrata un ojeador desde la página de Staff para empezar a evaluar jugadores.",
+    "profileAvailability": "Ojeadores: {{free}} libres de {{total}} · {{active}} asignaciones activas",
     "findPlayers": "Buscar Jugadores para Ojear",
     "searchPlaceholder": "Buscar por nombre, nacionalidad o equipo...",
     "player": "Jugador",

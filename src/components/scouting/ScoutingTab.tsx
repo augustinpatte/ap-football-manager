@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { teamFieldScouts } from "../../lib/scoutEligibility";
 import type { GameStateData, PlayerData } from "../../store/gameStore";
 import type { PlayersPageQuery } from "../../services/playersService";
 import { usePlayersPage } from "../../hooks/usePlayersPage";
@@ -142,7 +143,7 @@ export default function ScoutingTab({
   });
 
   const myTeamId = gameState.manager.team_id ?? "";
-  const scouts = gameState.staff.filter((s) => s.role === "Scout" && s.team_id === myTeamId);
+  const scouts = teamFieldScouts(gameState.staff, myTeamId);
   const assignments = gameState.scouting_assignments || [];
   const youthAssignments = gameState.youth_scouting_assignments || [];
   const allAssignments = [...assignments, ...youthAssignments];

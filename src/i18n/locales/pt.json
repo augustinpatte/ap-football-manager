@@ -2174,6 +2174,7 @@
     "daysLeft": "{{days}} dias restantes",
     "noScouts": "Ainda não tens olheiros.",
     "noScoutsHint": "Contrata um olheiro na página de Staff para começar a avaliar jogadores.",
+    "profileAvailability": "Olheiros: {{free}} livres de {{total}} · {{active}} missões ativas",
     "findPlayers": "Encontrar Jogadores para Observar",
     "searchPlaceholder": "Procurar por nome, nacionalidade ou equipa...",
     "player": "Jogador",

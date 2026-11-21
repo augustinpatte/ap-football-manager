@@ -117,4 +117,42 @@ describe("PlayerProfile scouting helpers", () => {
     expect(availability.allBusy).toBe(true);
     expect(availability.canScout).toBe(false);
   });
+
+  /**
+   * Given a club whose only "Scout"-role staff member is an FM24 recruitment analyst
+   * When the profile works out who can be sent
+   * Then there are no scouts, so the button is never offered and the backend never rejects it.
+   */
+  it("does not count an analyst as a scout", () => {
+    const availability = getScoutAvailability({
+      staff: [createScout({ id: "analyst", post: "Analyst" })],
+      scoutingAssignments: [],
+      youthScoutingAssignments: [],
+      managerTeamId: "team-1",
+      playerId: "player-1",
+      scoutStatus: "idle",
+    });
+
+    expect(availability.scouts).toHaveLength(0);
+    expect(availability.availableScout).toBeNull();
+    expect(availability.canScout).toBe(false);
+  });
+
+  /**
+   * Given an analyst listed ahead of a real scout
+   * When the profile picks the scout to send
+   * Then it picks the real scout.
+   */
+  it("sends the real scout when an analyst comes first", () => {
+    const availability = getScoutAvailability({
+      staff: [createScout({ id: "analyst", post: "Analyst" }), createScout({ id: "real" })],
+      scoutingAssignments: [],
+      youthScoutingAssignments: [],
+      managerTeamId: "team-1",
+      playerId: "player-1",
+      scoutStatus: "idle",
+    });
+
+    expect(availability.availableScout?.id).toBe("real");
+  });
 });

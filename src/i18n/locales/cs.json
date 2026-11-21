@@ -2175,6 +2175,7 @@
     "daysLeft": "Zbývá dní: {{days}}",
     "noScouts": "Zatím nemáte žádné skauty.",
     "noScoutsHint": "Najměte skauta na stránce Realizační tým a začněte hodnotit hráče.",
+    "profileAvailability": "Skauti: {{free}} volných z {{total}} · aktivních úkolů: {{active}}",
     "findPlayers": "Najít hráče ke skautování",
     "searchPlaceholder": "Hledat podle jména, národnosti nebo týmu...",
     "player": "Hráč",

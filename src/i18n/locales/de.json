@@ -2174,6 +2174,7 @@
     "daysLeft": "{{days}} Tage verbleibend",
     "noScouts": "Du hast noch keine Scouts.",
     "noScoutsHint": "Stelle einen Scout über die Staff-Seite ein, um Spieler zu bewerten.",
+    "profileAvailability": "Scouts: {{free}} von {{total}} frei · {{active}} aktive Aufträge",
     "findPlayers": "Spieler zum Scouten finden",
     "searchPlaceholder": "Nach Name, Nationalität oder Team suchen...",
     "player": "Spieler",

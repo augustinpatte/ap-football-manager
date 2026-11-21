@@ -2174,6 +2174,7 @@
     "daysLeft": "{{days}} jours restants",
     "noScouts": "Vous n'avez pas encore de recruteurs.",
     "noScoutsHint": "Engagez un recruteur depuis la page Staff pour commencer à évaluer les joueurs.",
+    "profileAvailability": "Recruteurs : {{free}} libres sur {{total}} · {{active}} missions en cours",
     "findPlayers": "Trouver des Joueurs à Observer",
     "searchPlaceholder": "Rechercher par nom, nationalité ou équipe...",
     "player": "Joueur",
