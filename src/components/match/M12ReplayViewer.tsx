@@ -190,6 +190,9 @@ export default function M12ReplayViewer({
       contentClassName="px-6 py-4"
     >
       <section className="mx-auto max-w-7xl rounded border border-line bg-panel p-4 text-fg">
+        <p role="note" className="mb-3 rounded bg-sunken px-3 py-2 text-body text-fg-muted">
+          {t(readOnly ? "match.replayBanner.completed" : "match.replayBanner.pending")}
+        </p>
         {recentGoal ? (
           <p
             role="status"

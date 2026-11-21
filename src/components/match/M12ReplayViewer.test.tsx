@@ -110,6 +110,29 @@ describe("M12ReplayViewer", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Given a match the engine has already simulated, shown before its result is applied
+   * When the replay opens
+   * Then it says it is a replay of a simulation, not a live match, and that nothing here changes it.
+   */
+  it("says a pending replay is a simulation that has already been played", () => {
+    render(<M12ReplayViewer replayJson={replay} onFinish={vi.fn()} />);
+
+    expect(screen.getByRole("note")).toHaveTextContent("match.replayBanner.pending");
+    expect(screen.queryByText("match.replayBanner.completed")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a completed match's stored replay
+   * When it opens read-only
+   * Then it says it is the replay of a completed match.
+   */
+  it("says a stored replay is the replay of a completed match", () => {
+    render(<M12ReplayViewer replayJson={replay} readOnly onFinish={vi.fn()} />);
+
+    expect(screen.getByRole("note")).toHaveTextContent("match.replayBanner.completed");
+  });
+
   /** Given a replay paused away from kick-off, when its parent rerenders unchanged, then it keeps the selected time. */
   it("does not reset a sought replay to kickoff on an unchanged rerender", () => {
     const { rerender } = render(<M12ReplayViewer replayJson={replay} onFinish={vi.fn()} />);

@@ -2288,7 +2288,7 @@
   },
   "match": {
     "simulateWithM12": "Simulasi cepat",
-    "watchWithM12": "Tonton 2D",
+    "watchWithM12": "Tonton simulasi",
     "m12SimulationFailed": "Pertandingan tidak dapat disimulasikan. Tidak ada yang diubah.",
     "replayUnavailable": "Tayangan ulang ini tidak tersedia atau rusak.",
     "replayPitch": "Lapangan pertandingan 2D",
@@ -2301,10 +2301,14 @@
     "viewMode": {
       "heading": "Pilih cara memainkan pertandingan ini",
       "liveDesc": "Ikuti pertandingan menit demi menit dengan komentar dan lakukan perubahan saat berlangsung. Mode ini memakai mesin klasik: tidak ada lapangan 2D.",
-      "watchDesc": "Tonton ke-22 pemain dan bola bergerak di lapangan. Hasil baru berlaku setelah Anda memilih Ke hasil.",
+      "watchDesc": "Pertandingan disimulasikan lebih dulu, lalu diputar ulang di lapangan 2D. Anda bisa menjeda dan menggeser lini masa, tetapi tidak bisa mengubah taktik atau melakukan pergantian pemain. Hasil baru berlaku setelah Anda memilih Ke hasil.",
       "quickDesc": "Mainkan pertandingan seketika dan langsung ke hasilnya. Tayangan ulang 2D disimpan sehingga tetap bisa ditonton setelahnya."
     },
-    "replayNotRecorded": "Tidak ada tayangan ulang 2D yang direkam untuk pertandingan ini. Hanya pertandingan yang dimainkan lewat Tonton 2D atau Simulasi cepat yang menyimpannya; pertandingan langsung dan yang didelegasikan tidak.",
+    "replayNotRecorded": "Tidak ada tayangan ulang 2D yang direkam untuk pertandingan ini. Hanya pertandingan yang dimainkan lewat Tonton simulasi atau Simulasi cepat yang menyimpannya; pertandingan yang dikelola di 2D, langsung, dan yang didelegasikan tidak.",
+    "replayBanner": {
+      "pending": "Tayangan ulang simulasi. Mesin sudah memainkan pertandingan ini: Anda bisa menjeda dan berpindah waktu, tetapi tidak ada yang Anda lakukan di sini yang mengubahnya. Pilih Ke hasil untuk menerapkannya.",
+      "completed": "Tayangan ulang pertandingan yang sudah selesai. Anda bisa menjeda dan berpindah waktu; tidak ada yang di sini mengubah hasil."
+    },
     "replayUnsupportedSchema": "Tayangan ulang ini disimpan dalam format yang tidak bisa diputar oleh versi ini.",
     "replayNoFrames": "Pertandingan ini tidak memiliki data pergerakan pemain, sehingga tidak dapat ditampilkan dalam 2D. Hasil dan statistiknya tidak terpengaruh.",
     "replayPlayersOnPitch": "Pemain di lapangan: {{home}} tuan rumah · {{away}} tamu (total {{total}})",
@@ -2680,7 +2684,7 @@
     "penaltyTaker": "Eksekutor Penalti",
     "freeKickTaker": "Eksekutor Tendangan Bebas",
     "cornerTaker": "Eksekutor Tendangan Sudut",
-    "startMatch": "Mulai Pertandingan",
+    "startMatch": "Mulai pertandingan klasik",
     "notAssigned": "Belum ditentukan",
     "keyStats": "Statistik Kunci",
     "continueDashboard": "Lanjut ke Dashboard",
@@ -3028,8 +3032,9 @@
     },
     "interactive": {
       "heading": "Manajemen pertandingan",
-      "manage": "Kelola pertandingan",
-      "manageDesc": "Tonton pertandingan langsung di lapangan 2D dan buat sendiri keputusan taktik dan pergantian pemain. Hasil baru dihitung setelah Anda menyelesaikannya.",
+      "manage": "Kelola pertandingan di 2D",
+      "manageDesc": "Mainkan pertandingan langsung di lapangan 2D dan ambil semua keputusan sendiri: taktik, pergantian pemain, tempo, dan melanjutkan setelah setiap jeda permainan. Waktu hanya bergerak maju — tidak bisa diputar mundur. Hasil baru dihitung setelah Anda menyelesaikannya.",
+      "liveBadge": "Pertandingan interaktif: waktu hanya bergerak maju, tidak bisa diputar mundur.",
       "play": "Main",
       "resume": "Lanjutkan",
       "toEnd": "Main sampai akhir",

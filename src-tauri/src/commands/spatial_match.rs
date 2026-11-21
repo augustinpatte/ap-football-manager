@@ -347,6 +347,47 @@ pub(crate) mod tests {
             .expect("production M12 simulation and projection")
     }
 
+    /// Given a prepared M12 replay for the 2D viewer,
+    /// When its first frame is read,
+    /// Then it is the kick-off at time zero: the ball dead on the centre spot, eleven players a
+    /// side on the pitch (the bench flagged off it) and each side in its own half. This is the
+    /// frame the "Watch simulation" screen opens on.
+    #[test]
+    fn a_prepared_replay_opens_on_a_proper_kickoff() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        prepare_session(&state);
+        let prepared = prepared_replay(&state);
+        let doc: serde_json::Value = serde_json::from_str(&prepared.replay_json).expect("replay");
+        let first = &doc["frames"][0];
+        assert_eq!(first["t_ms"], 0);
+        assert_eq!(first["ball_in_play"], false);
+        assert_eq!(
+            (first["ball"]["x"].as_f64(), first["ball"]["y"].as_f64()),
+            (Some(52.5), Some(34.0))
+        );
+        let on_pitch: Vec<(usize, f64)> = first["players"]
+            .as_array()
+            .expect("players")
+            .iter()
+            .enumerate()
+            .filter(|(_, player)| player["on_pitch"] == true)
+            .map(|(index, player)| (index, player["x"].as_f64().expect("x")))
+            .collect();
+        assert_eq!(on_pitch.len(), 22);
+        // The roster lists the home squad first: the first squad's players belong to the home side.
+        let roster = doc["roster"].as_array().expect("roster");
+        let home_squad = roster
+            .iter()
+            .take_while(|id| id.as_str().is_some_and(|id| id.starts_with("home")))
+            .count();
+        let (home, away): (Vec<_>, Vec<_>) =
+            on_pitch.iter().partition(|(index, _)| *index < home_squad);
+        assert_eq!((home.len(), away.len()), (11, 11));
+        assert!(home.iter().all(|(_, x)| *x <= 52.5));
+        assert!(away.iter().all(|(_, x)| *x >= 52.5));
+    }
+
     /// Given a complete saved career and an M12 report,
     /// when the official finalisation path writes the replay and the career is reloaded,
     /// then the fixture, score, standings, cumulative player statistics and exact replay survive.

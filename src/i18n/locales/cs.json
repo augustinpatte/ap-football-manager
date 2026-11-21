@@ -2288,7 +2288,7 @@
   },
   "match": {
     "simulateWithM12": "Rychlá simulace",
-    "watchWithM12": "Sledovat ve 2D",
+    "watchWithM12": "Sledovat simulaci",
     "m12SimulationFailed": "Zápas se nepodařilo nasimulovat. Nic se nezměnilo.",
     "replayUnavailable": "Záznam není dostupný nebo je poškozený.",
     "replayPitch": "Hřiště zápasu ve 2D",
@@ -2301,10 +2301,14 @@
     "viewMode": {
       "heading": "Vyberte, jak chcete tento zápas odehrát",
       "liveDesc": "Sledujte zápas minutu po minutě s komentářem a během hry provádějte změny. Používá se klasický engine: 2D hřiště není k dispozici.",
-      "watchDesc": "Sledujte všech 22 hráčů a míč na hřišti. Výsledek se počítá, až když zvolíte Přejít na výsledek.",
+      "watchDesc": "Zápas se nejprve nasimuluje a poté přehraje na 2D hřišti. Můžete pozastavit a posouvat časovou osu, ale nemůžete měnit taktiku ani střídat. Výsledek se počítá, až když zvolíte Přejít na výsledek.",
       "quickDesc": "Odehrajte zápas okamžitě a přejděte rovnou na výsledek. 2D záznam se uloží, takže si ho můžete pustit později."
     },
-    "replayNotRecorded": "Pro tento zápas nebyl zaznamenán žádný 2D záznam. Uchovávají ho jen zápasy odehrané přes Sledovat ve 2D nebo Rychlá simulace; živé a delegované zápasy ne.",
+    "replayNotRecorded": "Pro tento zápas nebyl zaznamenán žádný 2D záznam. Uchovávají ho jen zápasy odehrané přes Sledovat simulaci nebo Rychlá simulace; zápasy řízené ve 2D, živé a delegované ne.",
+    "replayBanner": {
+      "pending": "Záznam simulace. Engine už tento zápas odehrál: můžete pozastavit a posouvat se v čase, ale nic z toho, co zde uděláte, ho nezmění. Zvolte Přejít na výsledek a zápas se použije.",
+      "completed": "Záznam odehraného zápasu. Můžete pozastavit a posouvat se v čase; nic zde nemění výsledek."
+    },
     "replayUnsupportedSchema": "Tento záznam byl uložen ve formátu, který tato verze nedokáže přehrát.",
     "replayNoFrames": "Tento zápas neobsahuje data o pohybu hráčů, a nelze jej proto zobrazit ve 2D. Výsledek ani statistiky to neovlivní.",
     "replayPlayersOnPitch": "Hráči na hřišti: {{home}} domácí · {{away}} hosté (celkem {{total}})",
@@ -2680,7 +2684,7 @@
     "penaltyTaker": "Exekutor penalt",
     "freeKickTaker": "Exekutor přímých kopů",
     "cornerTaker": "Exekutor rohových kopů",
-    "startMatch": "Spustit zápas",
+    "startMatch": "Spustit klasický zápas",
     "notAssigned": "Nepřiřazeno",
     "keyStats": "Klíčové statistiky",
     "continueDashboard": "Pokračovat na hlavní panel",
@@ -3028,8 +3032,9 @@
     },
     "interactive": {
       "heading": "Řízení zápasu",
-      "manage": "Řídit zápas",
-      "manageDesc": "Sledujte zápas živě na 2D hřišti a rozhodujte o taktice a střídání. Výsledek se započítá, až zápas dokončíte.",
+      "manage": "Řídit zápas ve 2D",
+      "manageDesc": "Hrajte zápas živě na 2D hřišti a rozhodujte o všem sami: taktika, střídání, tempo i pokračování po každém přerušení hry. Čas běží jen dopředu – nelze se vracet. Výsledek se započítá, až zápas dokončíte.",
+      "liveBadge": "Interaktivní zápas: čas běží jen dopředu, nelze se vracet.",
       "play": "Hrát",
       "resume": "Pokračovat",
       "toEnd": "Hrát do konce",

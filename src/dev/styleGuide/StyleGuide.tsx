@@ -12,6 +12,7 @@ import {
   DatePicker,
   Dialog,
   DialogCloseButton,
+  DialogFooter,
   InjuryBadge,
   SuspensionBadge,
   JerseyIcon,
@@ -529,12 +530,12 @@ function DialogSection({ open }: { open: boolean }) {
           <p className="mt-2 text-body text-fg-muted">
             Matchday 8 · Brussels FC v Sporting Waregem
           </p>
-          <div className="mt-4 flex justify-end gap-2">
+          <DialogFooter className="justify-end">
             <Button variant="ghost" onClick={() => setIsOpen(false)}>
               cancel
             </Button>
             <Button onClick={() => setIsOpen(false)}>confirm</Button>
-          </div>
+          </DialogFooter>
         </Dialog>
       ) : null}
     </Section>

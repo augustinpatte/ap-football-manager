@@ -2145,7 +2145,7 @@
   },
   "match": {
     "simulateWithM12": "Simulação rápida",
-    "watchWithM12": "Assistir em 2D",
+    "watchWithM12": "Assistir à simulação",
     "m12SimulationFailed": "Não foi possível simular a partida. Nada foi alterado.",
     "replayUnavailable": "Esta repetição não está disponível ou está corrompida.",
     "replayPitch": "Campo da partida em 2D",
@@ -2158,10 +2158,14 @@
     "viewMode": {
       "heading": "Escolha como jogar esta partida",
       "liveDesc": "Acompanhe a partida minuto a minuto com comentários e faça mudanças enquanto ela acontece. Usa o motor clássico: não há campo em 2D.",
-      "watchDesc": "Veja os 22 jogadores e a bola se movendo no campo. O resultado só vale quando você escolhe «Ir ao resultado».",
+      "watchDesc": "A partida é simulada primeiro e depois reproduzida em um campo 2D. Você pode pausar e mover a linha do tempo, mas não pode mudar a tática nem fazer substituições. O resultado só vale quando você escolhe «Ir ao resultado».",
       "quickDesc": "Jogue a partida instantaneamente e vá direto ao resultado. A reprise em 2D fica salva, então você ainda pode assisti-la depois."
     },
-    "replayNotRecorded": "Nenhuma reprise em 2D foi gravada para esta partida. Só as partidas jogadas com «Assistir em 2D» ou «Simulação rápida» guardam uma; partidas ao vivo e delegadas não.",
+    "replayNotRecorded": "Nenhuma reprise em 2D foi gravada para esta partida. Só as partidas jogadas com «Assistir à simulação» ou «Simulação rápida» guardam uma; partidas gerenciadas em 2D, ao vivo e delegadas não.",
+    "replayBanner": {
+      "pending": "Reprise de uma simulação. O motor já jogou esta partida: você pode pausar e navegar no tempo, mas nada do que fizer aqui a altera. Escolha «Ir ao resultado» para aplicá-la.",
+      "completed": "Reprise de uma partida encerrada. Você pode pausar e navegar no tempo; nada aqui altera o resultado."
+    },
     "replayUnsupportedSchema": "Esta reprise foi salva em um formato que esta versão não consegue reproduzir.",
     "replayNoFrames": "Esta partida não tem dados de movimento dos jogadores, então não pode ser exibida em 2D. O resultado e as estatísticas não são afetados.",
     "replayPlayersOnPitch": "Jogadores em campo: {{home}} da casa · {{away}} visitantes ({{total}} no total)",
@@ -2503,7 +2507,7 @@
     "penaltyTaker": "Cobrador de Pênalti",
     "freeKickTaker": "Cobrador de Falta",
     "cornerTaker": "Cobrador de Escanteio",
-    "startMatch": "Iniciar Partida",
+    "startMatch": "Iniciar partida clássica",
     "notAssigned": "Não atribuído",
     "keyStats": "Estatísticas-Chave",
     "continueDashboard": "Continuar para o Painel",
@@ -2885,8 +2889,9 @@
     },
     "interactive": {
       "heading": "Gestão da partida",
-      "manage": "Gerenciar a partida",
-      "manageDesc": "Assista à partida ao vivo em um campo 2D e tome as decisões táticas e de substituição por conta própria. O resultado só vale quando terminar.",
+      "manage": "Gerenciar a partida em 2D",
+      "manageDesc": "Jogue a partida ao vivo em um campo 2D e tome todas as decisões por conta própria: tática, substituições, ritmo e retomada após cada paralisação. O tempo só avança: não dá para voltar. O resultado só vale quando você terminar.",
+      "liveBadge": "Partida interativa: o tempo só avança, não dá para voltar.",
       "play": "Jogar",
       "resume": "Retomar",
       "toEnd": "Jogar até o fim",

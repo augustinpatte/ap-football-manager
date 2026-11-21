@@ -2288,7 +2288,7 @@
   },
   "match": {
     "simulateWithM12": "Schnellsimulation",
-    "watchWithM12": "In 2D ansehen",
+    "watchWithM12": "Simulation ansehen",
     "m12SimulationFailed": "Das Spiel konnte nicht simuliert werden. Es wurde nichts verändert.",
     "replayUnavailable": "Dieses Replay ist nicht verfügbar oder beschädigt.",
     "replayPitch": "2D-Spielfeld",
@@ -2301,10 +2301,14 @@
     "viewMode": {
       "heading": "Wähle, wie du dieses Spiel spielst",
       "liveDesc": "Verfolge das Spiel Minute für Minute mit Kommentar und nimm Änderungen währenddessen vor. Das nutzt die klassische Engine: Es gibt kein 2D-Spielfeld.",
-      "watchDesc": "Sieh alle 22 Spieler und den Ball auf dem Platz. Das Ergebnis zählt erst, wenn du „Zum Ergebnis“ wählst.",
+      "watchDesc": "Das Spiel wird zuerst simuliert und dann auf einem 2D-Spielfeld wiedergegeben. Du kannst pausieren und die Zeitleiste verschieben, aber weder die Taktik ändern noch auswechseln. Das Ergebnis zählt erst, wenn du „Zum Ergebnis“ wählst.",
       "quickDesc": "Spiele das Spiel sofort und springe direkt zum Ergebnis. Die 2D-Wiederholung wird gespeichert, du kannst sie also später ansehen."
     },
-    "replayNotRecorded": "Für dieses Spiel wurde keine 2D-Wiederholung aufgezeichnet. Nur Spiele mit „In 2D ansehen“ oder „Schnellsimulation“ behalten eine; Live- und delegierte Spiele nicht.",
+    "replayNotRecorded": "Für dieses Spiel wurde keine 2D-Wiederholung aufgezeichnet. Nur Spiele mit „Simulation ansehen“ oder „Schnellsimulation“ behalten eine; in 2D gesteuerte, Live- und delegierte Spiele nicht.",
+    "replayBanner": {
+      "pending": "Wiederholung einer Simulation. Die Engine hat dieses Spiel bereits gespielt: Du kannst pausieren und springen, aber nichts, was du hier tust, ändert es. Wähle „Zum Ergebnis“, um es zu übernehmen.",
+      "completed": "Wiederholung eines abgeschlossenen Spiels. Du kannst pausieren und springen; nichts hier ändert das Ergebnis."
+    },
     "replayUnsupportedSchema": "Diese Wiederholung wurde in einem Format gespeichert, das diese Version nicht abspielen kann.",
     "replayNoFrames": "Dieses Spiel enthält keine Bewegungsdaten der Spieler und kann daher nicht in 2D gezeigt werden. Ergebnis und Statistiken bleiben unberührt.",
     "replayPlayersOnPitch": "Spieler auf dem Platz: {{home}} Heim · {{away}} Gast ({{total}} insgesamt)",
@@ -2646,7 +2650,7 @@
     "penaltyTaker": "Elfmeterschütze",
     "freeKickTaker": "Freistoßschütze",
     "cornerTaker": "Eckballschütze",
-    "startMatch": "Spiel starten",
+    "startMatch": "Klassisches Spiel starten",
     "notAssigned": "Nicht zugewiesen",
     "keyStats": "Wichtige Stats",
     "continueDashboard": "Weiter zum Dashboard",
@@ -3028,8 +3032,9 @@
     },
     "interactive": {
       "heading": "Spielsteuerung",
-      "manage": "Spiel steuern",
-      "manageDesc": "Verfolge das Spiel live auf einem 2D-Spielfeld und triff die taktischen Entscheidungen und Auswechslungen selbst. Das Ergebnis zählt, sobald du das Spiel beendest.",
+      "manage": "Spiel in 2D steuern",
+      "manageDesc": "Spiele das Spiel live auf einem 2D-Spielfeld und triff alle Entscheidungen selbst: Taktik, Auswechslungen, Tempo und das Fortsetzen nach jeder Unterbrechung. Die Zeit läuft nur vorwärts – zurückspulen ist nicht möglich. Das Ergebnis zählt, sobald du das Spiel beendest.",
+      "liveBadge": "Interaktives Spiel: Die Zeit läuft nur vorwärts, Zurückspulen ist nicht möglich.",
       "play": "Spielen",
       "resume": "Fortsetzen",
       "toEnd": "Bis zum Abpfiff spielen",

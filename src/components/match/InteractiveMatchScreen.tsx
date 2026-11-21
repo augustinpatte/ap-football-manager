@@ -154,6 +154,9 @@ export default function InteractiveMatchScreen<TFinish>({
         onFinish={() => void live.finish()}
       />
 
+      <p role="note" className="bg-sunken px-6 py-2 text-body text-fg-muted">
+        {t("match.interactive.liveBadge")}
+      </p>
       {finished && (
         <p className="bg-positive-tint px-6 py-2 text-body text-positive">
           {t("match.interactive.fullTimeHint")}

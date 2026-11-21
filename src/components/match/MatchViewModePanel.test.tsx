@@ -93,4 +93,35 @@ describe("MatchViewModePanel", () => {
       screen.queryByRole("button", { name: "match.interactive.manage" }),
     ).not.toBeInTheDocument();
   });
+
+  /**
+   * Given a manager who can run the match
+   * When the panel lists the ways to play
+   * Then managing it in 2D comes first, and every option carries its own explanation as its
+   *      accessible description so a screen reader hears what it can and cannot do.
+   */
+  it("lists managing in 2D first and describes every option on its button", () => {
+    render(
+      <MatchViewModePanel
+        busy={null}
+        error={null}
+        onWatchIn2d={vi.fn()}
+        onQuickSimulation={vi.fn()}
+        onManage={vi.fn()}
+      />,
+    );
+
+    const firstOption = screen.getAllByRole("listitem")[0];
+    expect(firstOption).toHaveTextContent("match.interactive.manageDesc");
+
+    expect(
+      screen.getByRole("button", { name: "match.interactive.manage" }),
+    ).toHaveAccessibleDescription("match.interactive.manageDesc");
+    expect(screen.getByRole("button", { name: "match.watchWithM12" })).toHaveAccessibleDescription(
+      "match.viewMode.watchDesc",
+    );
+    expect(
+      screen.getByRole("button", { name: "match.simulateWithM12" }),
+    ).toHaveAccessibleDescription("match.viewMode.quickDesc");
+  });
 });

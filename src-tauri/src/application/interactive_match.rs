@@ -1528,6 +1528,55 @@ mod tests {
         );
     }
 
+    /// Given a match about to kick off, watched on the 2D screen,
+    /// When the first frame is read,
+    /// Then each side stands in its own half in a full eleven (the kicker on the centre line), the
+    /// goalkeepers are on their goal lines and the ball is on the centre spot, still: the opening
+    /// picture the manager sees is a kick-off, not a scramble.
+    #[test]
+    fn the_opening_frame_is_a_proper_kickoff() {
+        let state = StateManager::new();
+        state.set_game(game_with_spatial_fixture());
+        begin(&state);
+        let out = watch(&state, 0);
+        let json = serde_json::to_value(&out).expect("json");
+        let roster = json["snapshot"]["view"]["roster"]
+            .as_array()
+            .expect("roster");
+        let frame = &json["frames"][0];
+        let ball = frame["ball"].as_array().expect("ball");
+        assert_eq!(
+            (ball[0].as_f64(), ball[1].as_f64(), ball[2].as_f64()),
+            (Some(52.5), Some(34.0), Some(0.0)),
+            "the ball is on the centre spot"
+        );
+        let (mut home, mut away) = (Vec::new(), Vec::new());
+        for sample in frame["players"].as_array().expect("players") {
+            let sample = sample.as_array().expect("[roster, x, y, heading]");
+            let index = sample[0].as_u64().expect("roster index") as usize;
+            let x = sample[1].as_f64().expect("x");
+            match roster[index]["side"].as_str().expect("side") {
+                "home" => home.push(x),
+                _ => away.push(x),
+            }
+        }
+        assert_eq!((home.len(), away.len()), (11, 11));
+        assert!(
+            home.iter().all(|x| *x <= 52.5),
+            "home stay in their half: {home:?}"
+        );
+        assert!(
+            away.iter().all(|x| *x >= 52.5),
+            "away stay in their half: {away:?}"
+        );
+        let home_keeper = home.iter().cloned().fold(f64::MAX, f64::min);
+        let away_keeper = away.iter().cloned().fold(f64::MIN, f64::max);
+        assert!(
+            home_keeper <= 6.0 && away_keeper >= 99.0,
+            "keepers on their lines"
+        );
+    }
+
     /// The 2D screen's way of playing: seconds at a time, frames captured.
     fn watch(state: &StateManager, seconds: u32) -> AdvanceSnapshot {
         advance_interactive_match_internal(

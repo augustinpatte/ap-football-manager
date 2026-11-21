@@ -49,6 +49,18 @@ describe("InteractiveMatchScreen (live 2D)", () => {
     expect(drawn.arcs).toBe(arcs);
   });
 
+  /**
+   * Given a managed match
+   * When the screen opens
+   * Then it says time only moves forward and offers no timeline to drag: seeking back is a replay's
+   *      privilege, not a live match's.
+   */
+  it("says there is no rewinding and offers no timeline", async () => {
+    await opened();
+    expect(screen.getByText(tr("match.interactive.liveBadge"))).toBeInTheDocument();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  });
+
   /** Given play, then the picture and clock follow the engine, orders are not possible while it runs, and the score changes only when the picture reaches the goal. */
   it("plays the engine's frames and shows the goal when the picture reaches it", async () => {
     await opened();

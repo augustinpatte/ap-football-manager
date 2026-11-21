@@ -2288,7 +2288,7 @@
   },
   "match": {
     "simulateWithM12": "快速模拟",
-    "watchWithM12": "观看 2D 比赛",
+    "watchWithM12": "观看模拟",
     "m12SimulationFailed": "无法模拟这场比赛，未做任何更改。",
     "replayUnavailable": "此回放不可用或已损坏。",
     "replayPitch": "2D 比赛球场",
@@ -2301,10 +2301,14 @@
     "viewMode": {
       "heading": "选择这场比赛的进行方式",
       "liveDesc": "通过文字解说逐分钟跟进比赛，并可随时调整。此模式使用经典引擎，没有 2D 球场。",
-      "watchDesc": "观看全部 22 名球员和足球在球场上的移动。只有选择“查看结果”后，结果才会生效。",
+      "watchDesc": "比赛会先被模拟，然后在 2D 球场上回放。你可以暂停并拖动时间轴，但不能更改战术或换人。只有选择“查看结果”后，结果才会生效。",
       "quickDesc": "立即完成比赛并直接查看结果。2D 回放会被保存，之后仍可观看。"
     },
-    "replayNotRecorded": "这场比赛没有记录 2D 回放。只有通过“观看 2D 比赛”或“快速模拟”进行的比赛才会保留回放；实时比赛和委托比赛没有。",
+    "replayNotRecorded": "这场比赛没有记录 2D 回放。只有通过“观看模拟”或“快速模拟”进行的比赛才会保留回放；2D 管理、实时和委托的比赛没有。",
+    "replayBanner": {
+      "pending": "模拟回放。引擎已经踢完了这场比赛：你可以暂停和拖动时间，但这里的任何操作都不会改变它。选择“查看结果”以应用比赛结果。",
+      "completed": "已结束比赛的回放。你可以暂停和拖动时间；这里的任何操作都不会改变结果。"
+    },
     "replayUnsupportedSchema": "此回放的保存格式无法被当前版本播放。",
     "replayNoFrames": "这场比赛没有球员移动数据，因此无法以 2D 显示。比赛结果和统计数据不受影响。",
     "replayPlayersOnPitch": "场上球员：主队 {{home}} 人 · 客队 {{away}} 人（共 {{total}} 人）",
@@ -2646,7 +2650,7 @@
     "penaltyTaker": "点球主罚",
     "freeKickTaker": "任意球主罚",
     "cornerTaker": "角球主罚",
-    "startMatch": "开始比赛",
+    "startMatch": "开始经典比赛",
     "notAssigned": "未指定",
     "keyStats": "关键数据",
     "continueDashboard": "返回主界面",
@@ -3028,8 +3032,9 @@
     },
     "interactive": {
       "heading": "比赛管理",
-      "manage": "管理比赛",
-      "manageDesc": "在 2D 球场上实时观看比赛，并亲自做出战术和换人决定。你结束比赛后，结果才会生效。",
+      "manage": "在 2D 中管理比赛",
+      "manageDesc": "在 2D 球场上实时进行比赛，并亲自做出所有决定：战术、换人、节奏，以及每次比赛中断后的继续。时间只会向前，无法倒退。你结束比赛后，结果才会生效。",
+      "liveBadge": "互动比赛：时间只会向前，无法倒退。",
       "play": "开始",
       "resume": "继续",
       "toEnd": "直接踢到终场",
