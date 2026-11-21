@@ -2486,6 +2486,9 @@
     "skipConference": "Skip Conference →",
     "submitting": "Submitting...",
     "leaveConference": "Leave Conference",
+    "pressSubmitFailed": "The press conference was not recorded: {{reason}}",
+    "pressRetry": "Try again",
+    "pressLeaveUnrecorded": "Leave without recording",
     "nextQuestion": "Next Question",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Manager: {{quote}}",

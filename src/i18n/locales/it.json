@@ -2478,6 +2478,9 @@
     "skipConference": "Salta conferenza →",
     "submitting": "Invio in corso...",
     "leaveConference": "Lascia conferenza",
+    "pressSubmitFailed": "La conferenza stampa non è stata registrata: {{reason}}",
+    "pressRetry": "Riprova",
+    "pressLeaveUnrecorded": "Esci senza registrare",
     "nextQuestion": "Prossima domanda",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Allenatore: {{quote}}",

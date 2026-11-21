@@ -2486,6 +2486,9 @@
     "skipConference": "Toplantıyı Geç →",
     "submitting": "Gönderiliyor...",
     "leaveConference": "Toplantıdan Ayrıl",
+    "pressSubmitFailed": "Basın toplantısı kaydedilemedi: {{reason}}",
+    "pressRetry": "Tekrar dene",
+    "pressLeaveUnrecorded": "Kaydetmeden çık",
     "nextQuestion": "Sonraki Soru",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Menajeri: {{quote}}",

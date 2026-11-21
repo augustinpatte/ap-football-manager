@@ -44,6 +44,8 @@ function renderHero(face?: string) {
         alreadyScouting: false,
         allBusy: false,
         canScout: false,
+        freeScoutCount: 0,
+        activeAssignmentCount: 0,
       }}
       scoutStatus="idle"
       scoutError={null}
@@ -99,6 +101,8 @@ function renderHeroAtOvr(ovr: number) {
         alreadyScouting: false,
         allBusy: false,
         canScout: false,
+        freeScoutCount: 0,
+        activeAssignmentCount: 0,
       }}
       scoutStatus="idle"
       scoutError={null}
@@ -145,6 +149,8 @@ function renderHeroWith(rating: RatingView | null) {
         alreadyScouting: false,
         allBusy: false,
         canScout: false,
+        freeScoutCount: 0,
+        activeAssignmentCount: 0,
       }}
       scoutStatus="idle"
       scoutError={null}

@@ -2452,6 +2452,9 @@
     "skipConference": "Saltar Conferência →",
     "submitting": "A enviar...",
     "leaveConference": "Sair da Conferência",
+    "pressSubmitFailed": "A conferência de imprensa não foi registada: {{reason}}",
+    "pressRetry": "Tentar novamente",
+    "pressLeaveUnrecorded": "Sair sem registar",
     "nextQuestion": "Próxima Pergunta",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Treinador: {{quote}}",

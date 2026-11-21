@@ -2452,6 +2452,9 @@
     "skipConference": "Passer la Conférence →",
     "submitting": "Envoi...",
     "leaveConference": "Quitter la Conférence",
+    "pressSubmitFailed": "La conférence de presse n'a pas été enregistrée : {{reason}}",
+    "pressRetry": "Réessayer",
+    "pressLeaveUnrecorded": "Quitter sans enregistrer",
     "nextQuestion": "Question Suivante",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Entraîneur: {{quote}}",

@@ -2452,6 +2452,9 @@
     "skipConference": "Пропустить пресс-конференцию →",
     "submitting": "Отправляем...",
     "leaveConference": "Покинуть пресс-конференцию",
+    "pressSubmitFailed": "Пресс-конференция не сохранена: {{reason}}",
+    "pressRetry": "Повторить",
+    "pressLeaveUnrecorded": "Выйти без сохранения",
     "nextQuestion": "Следующий вопрос",
     "pressReport": {
       "headlineManagerQuote": "{{team}}: {{quote}} — слова тренера",

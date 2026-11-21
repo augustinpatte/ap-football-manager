@@ -13,6 +13,7 @@ import type {
   CupRoundSummary,
   RoundSummary,
 } from "../components/match/types";
+import { settleSnapshot } from "../components/match/finalResult";
 import { resolveMatchFixture } from "../components/match/helpers";
 import { resetMatchCommands } from "../components/match/matchCommands";
 import PreMatchSetup from "../components/match/PreMatchSetup";
@@ -515,6 +516,19 @@ export default function MatchSimulation() {
   }
 
   const currentFixture = resolveMatchFixture(gameState, snapshot, routeState ?? undefined);
+  // What the screens after full time read: the match that was played, not the page's last snapshot.
+  const settledSnapshot = settleSnapshot(snapshot, {
+    fixture: currentFixture,
+    finalized: hasFinalizedMatch,
+    spatialResult,
+  });
+  // A managed match returns no event list; its goals are in the stored fixture result.
+  const postMatchResult = spatialResult
+    ? {
+        ...spatialResult,
+        events: spatialResult.events.length > 0 ? spatialResult.events : settledSnapshot.events,
+      }
+    : null;
   if (managing) {
     return (
       <InteractiveMatchScreen<FinishLiveMatchResponse>
@@ -642,12 +656,12 @@ export default function MatchSimulation() {
             </p>
           )}
           <PostMatchScreen
-            snapshot={snapshot}
+            snapshot={settledSnapshot}
             gameState={gameState}
             userSide={userSide}
             isSpectator={isSpectator}
             importantEvents={importantEvents}
-            spatialResult={spatialResult}
+            spatialResult={postMatchResult}
             onContinue={handlePostMatchContinue}
             onFinish={handleFinishMatch}
             onWatchReplay={
@@ -660,7 +674,7 @@ export default function MatchSimulation() {
     case "digest": {
       return (
         <RoundDigestScreen
-          snapshot={snapshot}
+          snapshot={settledSnapshot}
           gameState={gameState}
           currentFixture={currentFixture}
           userSide={userSide}
@@ -676,7 +690,7 @@ export default function MatchSimulation() {
       if (!userSide) return null;
       return (
         <PressConference
-          snapshot={snapshot}
+          snapshot={settledSnapshot}
           gameState={gameState}
           userSide={userSide}
           onFinish={handleFinishMatch}

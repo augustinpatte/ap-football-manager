@@ -2309,6 +2309,9 @@
     "skipConference": "Pular Coletiva →",
     "submitting": "Enviando...",
     "leaveConference": "Encerrar Coletiva",
+    "pressSubmitFailed": "A coletiva de imprensa não foi registrada: {{reason}}",
+    "pressRetry": "Tentar novamente",
+    "pressLeaveUnrecorded": "Sair sem registrar",
     "nextQuestion": "Próxima Pergunta",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Técnico: {{quote}}",

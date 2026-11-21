@@ -2486,6 +2486,9 @@
     "skipConference": "Lewati Konferensi →",
     "submitting": "Mengirim...",
     "leaveConference": "Tinggalkan Konferensi",
+    "pressSubmitFailed": "Konferensi pers tidak tercatat: {{reason}}",
+    "pressRetry": "Coba lagi",
+    "pressLeaveUnrecorded": "Keluar tanpa mencatat",
     "nextQuestion": "Pertanyaan Berikutnya",
     "pressReport": {
       "headlineManagerQuote": "Manajer {{team}}: {{quote}}",

@@ -3,8 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { GameStateData } from "../../store/gameStore";
+import { resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import type { MatchSnapshot } from "./types";
-import { Badge, ThemeToggle } from "../ui";
+import { Badge, Button, ThemeToggle } from "../ui";
 import { ChevronRight, Mic, MessageSquare } from "lucide-react";
 
 interface PressConferenceProps {
@@ -227,6 +228,7 @@ export default function PressConference({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const currentQ = questions[currentIdx];
   const isLastQuestion = currentIdx === questions.length - 1;
@@ -238,7 +240,9 @@ export default function PressConference({
   };
 
   const submitToBackend = async () => {
+    if (submitting) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const payloads: AnswerPayload[] = questions
         .map((q) => {
@@ -266,11 +270,14 @@ export default function PressConference({
       if (result.game && onGameUpdate) {
         onGameUpdate(result.game);
       }
-    } catch (err) {
-      console.error("Failed to submit press conference:", err);
-    } finally {
       setSubmitting(false);
       onFinish();
+    } catch (err) {
+      // The backend refused or could not record it: the manager decides what happens next, the
+      // conference is never closed on their behalf as if it had been held.
+      console.error("Failed to submit press conference:", err);
+      setSubmitError(resolveTranslatedErrorMessage(err, t));
+      setSubmitting(false);
     }
   };
 
@@ -373,13 +380,31 @@ export default function PressConference({
               })}
             </div>
 
+            {submitError ? (
+              <div
+                role="alert"
+                className="mt-6 ml-16 rounded-xl bg-danger-tint p-4 text-body text-danger"
+              >
+                <p>{t("match.pressSubmitFailed", { reason: submitError })}</p>
+                <div className="mt-3 flex gap-3">
+                  <Button variant="primary" size="sm" onClick={() => void submitToBackend()}>
+                    {t("match.pressRetry")}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={onFinish}>
+                    {t("match.pressLeaveUnrecorded")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             {/* Next button */}
             {hasAnswered && (
               <div className="flex justify-end mt-6 ml-16">
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
+                  disabled={submitting}
+                  className="disabled:opacity-50 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
                 >
                   {submitting
                     ? t("match.submitting")

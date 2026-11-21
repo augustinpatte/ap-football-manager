@@ -2486,6 +2486,9 @@
     "skipConference": "Přeskočit tiskovou konferenci →",
     "submitting": "Odesílání...",
     "leaveConference": "Opustit tiskovou konferenci",
+    "pressSubmitFailed": "Tisková konference nebyla zaznamenána: {{reason}}",
+    "pressRetry": "Zkusit znovu",
+    "pressLeaveUnrecorded": "Odejít bez záznamu",
     "nextQuestion": "Další otázka",
     "pressReport": {
       "headlineManagerQuote": "Manažer týmu {{team}}: „{{quote}}“",

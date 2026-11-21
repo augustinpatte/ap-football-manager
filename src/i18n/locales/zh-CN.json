@@ -2452,6 +2452,9 @@
     "skipConference": "跳过发布会 →",
     "submitting": "提交中……",
     "leaveConference": "离开发布会",
+    "pressSubmitFailed": "新闻发布会未能记录：{{reason}}",
+    "pressRetry": "重试",
+    "pressLeaveUnrecorded": "不记录并离开",
     "nextQuestion": "下一个问题",
     "pressReport": {
       "headlineManagerQuote": "{{team}} 经理：{{quote}}",

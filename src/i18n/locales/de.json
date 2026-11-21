@@ -2452,6 +2452,9 @@
     "skipConference": "Konferenz überspringen →",
     "submitting": "Wird gesendet...",
     "leaveConference": "Konferenz verlassen",
+    "pressSubmitFailed": "Die Pressekonferenz wurde nicht gespeichert: {{reason}}",
+    "pressRetry": "Erneut versuchen",
+    "pressLeaveUnrecorded": "Ohne Speichern verlassen",
     "nextQuestion": "Nächste Frage",
     "pressReport": {
       "headlineManagerQuote": "{{team}} Trainer: {{quote}}",
