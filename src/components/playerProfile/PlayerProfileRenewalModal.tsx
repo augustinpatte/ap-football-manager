@@ -1,6 +1,6 @@
-import DashboardModalFrame from "../dashboard/DashboardModalFrame";
+import { useId } from "react";
 import NegotiationFeedbackPanel from "../NegotiationFeedbackPanel";
-import { Button } from "../ui";
+import { Button, Dialog, DialogFooter } from "../ui";
 import { formatPlayerWage } from "./PlayerProfile.helpers";
 import type { NegotiationFeedbackData, RenewalProjection } from "./PlayerProfile.renewal";
 
@@ -51,15 +51,25 @@ export default function PlayerProfileRenewalModal({
   onDelegate,
   onSubmit,
 }: PlayerProfileRenewalModalProps) {
+  const titleId = useId();
   if (!show) {
     return null;
   }
 
   return (
-    <DashboardModalFrame maxWidthClassName="max-w-md">
+    <Dialog
+      labelledBy={titleId}
+      onClose={onClose}
+      overlayClassName="bg-black/50 p-4 backdrop-blur-sm"
+      surfaceClassName="bg-white dark:bg-navy-800"
+      className="w-full max-w-md rounded-2xl p-6"
+    >
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100">
+          <h3
+            id={titleId}
+            className="text-lg font-heading font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100"
+          >
             {t("playerProfile.renewalTitle")}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{playerName}</p>
@@ -182,7 +192,7 @@ export default function PlayerProfileRenewalModal({
           tensionKey="playerProfile.renewalTension"
         />
 
-        <div className="flex gap-3">
+        <DialogFooter>
           {renewalIsTerminal ? (
             <Button className="flex-1" onClick={onClose}>
               {t("common.done")}
@@ -205,8 +215,8 @@ export default function PlayerProfileRenewalModal({
               </Button>
             </>
           )}
-        </div>
+        </DialogFooter>
       </div>
-    </DashboardModalFrame>
+    </Dialog>
   );
 }

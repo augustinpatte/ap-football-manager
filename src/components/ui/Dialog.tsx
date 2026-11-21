@@ -35,6 +35,9 @@ type DialogProps = (NamedBy | Labelled) & {
 /**
  * The one modal shell: role, name, focus on open, focus back to the opener, Escape and a Tab trap.
  * Dialogs differ in what they show, never in how they behave for a keyboard or a screen reader.
+ *
+ * The panel is bound to the window (`max-h-full` of the padded overlay) and scrolls inside itself,
+ * so a dialog taller than a 640px-high window never pushes its last controls off the screen.
  */
 export function Dialog({
   labelledBy,
@@ -88,7 +91,7 @@ export function Dialog({
         aria-describedby={describedBy}
         aria-busy={busy}
         tabIndex={-1}
-        className={`${surfaceClassName} relative border border-line shadow-2xl focus:outline-none ${className}`}
+        className={`${surfaceClassName} relative max-h-full overflow-y-auto overscroll-contain border border-line shadow-2xl focus:outline-none ${className}`}
       >
         {children}
       </div>
@@ -116,5 +119,28 @@ export function DialogCloseButton({
         ✕
       </span>
     </button>
+  );
+}
+
+/**
+ * The action row of a form that may be taller than its window: it stays pinned to the bottom of
+ * whatever scrolls (the dialog panel, or the deal workspace when the same form is shown inline),
+ * so Submit and Close are reachable however tall the form above them grows. It takes its
+ * parent's background (`bg-inherit`) so content scrolls under it, not through it.
+ */
+export function DialogFooter({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  /** Layout only, such as `justify-end`; the pinning is not negotiable. */
+  className?: string;
+}) {
+  return (
+    <div
+      className={`sticky bottom-0 z-10 mt-3 flex gap-2 border-t border-line bg-inherit py-3 ${className}`}
+    >
+      {children}
+    </div>
   );
 }

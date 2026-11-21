@@ -1,5 +1,5 @@
-import DashboardModalFrame from "../dashboard/DashboardModalFrame";
-import { Button } from "../ui";
+import { useId } from "react";
+import { Button, Dialog, DialogFooter } from "../ui";
 import { formatExactMoney } from "../../lib/helpers";
 import type { ContractTerminationPreviewData } from "../../services/contractService";
 
@@ -31,15 +31,29 @@ export default function PlayerProfileTerminationModal({
   onCancel,
   onConfirm,
 }: PlayerProfileTerminationModalProps) {
+  const titleId = useId();
   if (!show) {
     return null;
   }
 
   return (
-    <DashboardModalFrame maxWidthClassName="max-w-lg">
+    <Dialog
+      labelledBy={titleId}
+      onClose={() => {
+        // A release in flight cannot be taken back by pressing Escape.
+        if (!submitting) onCancel();
+      }}
+      busy={submitting}
+      overlayClassName="bg-black/50 p-4 backdrop-blur-sm"
+      surfaceClassName="bg-white dark:bg-navy-800"
+      className="w-full max-w-lg rounded-2xl p-6"
+    >
       <div className="space-y-4">
         <div>
-          <h2 className="font-heading text-lg font-bold text-gray-900 dark:text-gray-100">
+          <h2
+            id={titleId}
+            className="font-heading text-lg font-bold text-gray-900 dark:text-gray-100"
+          >
             {t("playerProfile.terminateContractTitle")}
           </h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
@@ -79,7 +93,7 @@ export default function PlayerProfileTerminationModal({
           <p className="text-sm text-red-600 dark:text-red-300">{errorMessage}</p>
         ) : null}
 
-        <div className="flex justify-end gap-2">
+        <DialogFooter className="justify-end">
           <Button variant="ghost" onClick={onCancel} disabled={submitting}>
             {t("common.cancel")}
           </Button>
@@ -91,8 +105,8 @@ export default function PlayerProfileTerminationModal({
           >
             {t("playerProfile.confirmTerminateContract")}
           </Button>
-        </div>
+        </DialogFooter>
       </div>
-    </DashboardModalFrame>
+    </Dialog>
   );
 }

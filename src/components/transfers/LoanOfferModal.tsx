@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { PlayerData, TeamData } from "../../store/gameStore";
 import { formatExactMoney, formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { formatDate } from "../../lib/dateFormatting";
-import { Badge, Dialog } from "../ui";
+import { Badge, Dialog, DialogFooter } from "../ui";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
 import DealRestrictionNotice from "./DealRestrictionNotice";
@@ -296,7 +296,7 @@ export function LoanOfferForm({
         </p>
       ) : null}
 
-      <div className="flex gap-2">
+      <DialogFooter>
         <button
           type="button"
           onClick={onSubmit}
@@ -312,7 +312,7 @@ export function LoanOfferForm({
         >
           {t("transfers.close")}
         </button>
-      </div>
+      </DialogFooter>
     </>
   );
 }

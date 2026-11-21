@@ -4,7 +4,7 @@ import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { FreeAgentContractProjection } from "../../services/freeAgentService";
 import FreeAgentTalkPanel from "./FreeAgentTalkPanel";
 import type { FreeAgentTalkPanelData } from "./useFreeAgentContractFlow";
-import { Badge, Checkbox, Dialog } from "../ui";
+import { Badge, Checkbox, Dialog, DialogFooter } from "../ui";
 import { formatExactMoney, formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
@@ -229,7 +229,7 @@ export function FreeAgentContractForm({
         </div>
       ) : null}
 
-      <div className="flex gap-2">
+      <DialogFooter>
         <button
           type="button"
           onClick={onSubmit}
@@ -249,7 +249,7 @@ export function FreeAgentContractForm({
         >
           {t("transfers.close")}
         </button>
-      </div>
+      </DialogFooter>
     </>
   );
 }

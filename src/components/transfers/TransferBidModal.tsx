@@ -16,7 +16,7 @@ import type {
 import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
-import { Badge, Checkbox, Dialog, Select } from "../ui";
+import { Badge, Checkbox, Dialog, DialogFooter, Select } from "../ui";
 import {
   MAX_INSTALMENTS,
   MAX_PLAYER_CONTRACT_YEARS,
@@ -461,7 +461,7 @@ export function TransferBidForm({
                   : bidError}
         </div>
       ) : null}
-      <div className="flex gap-2">
+      <DialogFooter>
         {talksResumeOn ? null : (
           <button
             type="button"
@@ -485,7 +485,7 @@ export function TransferBidForm({
         >
           {t("transfers.close")}
         </button>
-      </div>
+      </DialogFooter>
     </>
   );
 }

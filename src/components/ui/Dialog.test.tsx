@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Dialog, DialogCloseButton } from "./Dialog";
+import { Dialog, DialogCloseButton, DialogFooter } from "./Dialog";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -272,5 +272,46 @@ describe("DialogCloseButton", () => {
     render(<DialogCloseButton onClose={() => {}} disabled />);
 
     expect(screen.getByRole("button", { name: "common.close" })).toBeDisabled();
+  });
+});
+
+describe("Dialog height", () => {
+  /**
+   * Given a dialog whose content is taller than the window
+   * When it opens
+   * Then the panel is bound to the window and scrolls inside itself, so no control is pushed
+   *      below the screen. (A browser lays this out; jsdom only shows the contract is declared.
+   *      The real measurement is in the UX1 report.)
+   */
+  it("is bound to the window and scrolls inside itself", () => {
+    render(
+      <Dialog label="Tall" onClose={vi.fn()} className="p-4">
+        <p>Body</p>
+      </Dialog>,
+    );
+
+    const panel = screen.getByRole("dialog");
+    expect(panel.className).toContain("max-h-full");
+    expect(panel.className).toContain("overflow-y-auto");
+    expect(panel.className).toContain("overscroll-contain");
+  });
+
+  /**
+   * Given a dialog with an action row
+   * When the row is a DialogFooter
+   * Then it sticks to the bottom of the scrolling panel so Submit and Close stay reachable.
+   */
+  it("keeps a DialogFooter pinned to the bottom of the panel", () => {
+    render(
+      <Dialog label="Tall" onClose={vi.fn()} className="p-6">
+        <DialogFooter>
+          <button type="button">Submit</button>
+        </DialogFooter>
+      </Dialog>,
+    );
+
+    const footer = screen.getByRole("button", { name: "Submit" }).parentElement;
+    expect(footer?.className).toContain("sticky");
+    expect(footer?.className).toContain("bottom-0");
   });
 });

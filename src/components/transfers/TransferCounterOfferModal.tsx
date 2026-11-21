@@ -8,7 +8,7 @@ import type { TransferNegotiationResponseData } from "../../services/transfersSe
 import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
-import { Badge, Dialog } from "../ui";
+import { Badge, Dialog, DialogFooter } from "../ui";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { naturalPositionOf } from "../../lib/positions";
 import TransferNegotiationHistory from "./TransferNegotiationHistory";
@@ -151,7 +151,7 @@ export default function TransferCounterOfferModal({
           {counterError}
         </div>
       ) : null}
-      <div className="flex gap-2">
+      <DialogFooter>
         <button
           type="button"
           onClick={onSubmit}
@@ -167,7 +167,7 @@ export default function TransferCounterOfferModal({
         >
           {t("transfers.close")}
         </button>
-      </div>
+      </DialogFooter>
     </Dialog>
   );
 }
