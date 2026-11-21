@@ -19,7 +19,7 @@ use crate::game_database::GameDatabase;
 use crate::game_persistence::{GamePersistenceReader, GamePersistenceWriter};
 use crate::repositories::{league_repo, meta_repo};
 use crate::save_index::{SaveEntry, compute_checksum, save_entry_metadata_from_game};
-use crate::save_index_manager::SaveIndexManager;
+use crate::save_index_manager::{IndexDurability, SaveIndexManager};
 use crate::save_load_error::SaveLoadError;
 
 /// Manages save sessions: creating, loading, saving, deleting, and listing.
@@ -759,12 +759,28 @@ impl SaveManager {
             None => return Ok(false),
         };
 
-        let db_path = self.saves_dir.join(&entry.db_filename);
-        if db_path.exists() {
-            fs::remove_file(&db_path).map_err(|_| SAVE_DELETE_ERROR.to_string())?;
-        }
+        // The index goes first. Removing the file first meant a failed index write reported a
+        // failure while the durable index still listed a career whose only database was gone.
+        let (_, durability) = self.save_index.remove_save(save_id)?;
 
-        self.save_index.remove_save(save_id)?;
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        if durability == IndexDurability::Unconfirmed {
+            // A power cut could still bring the old index back, listing this file. Keeping it
+            // costs some disk; deleting it could cost the only copy of a career.
+            log::warn!(
+                "[save_manager] kept {db_path:?}: its removal from the index is not confirmed durable"
+            );
+            return Ok(true);
+        }
+        if db_path.exists() && fs::remove_file(&db_path).is_err() {
+            // The file is still there, so the career must still be listed for a retry to work.
+            if let Err(error) = self.save_index.record_new_save(entry) {
+                log::warn!(
+                    "[save_manager] could not relist {save_id} after a failed delete: {error}"
+                );
+            }
+            return Err(SAVE_DELETE_ERROR.to_string());
+        }
         Ok(true)
     }
 
@@ -3863,6 +3879,50 @@ mod tests {
         // File should be gone
         let db_path = saves_dir.join(format!("{}.db", save_id));
         assert!(!db_path.exists());
+    }
+
+    /// Given an index write that is replaced but not confirmed durable, when a career is
+    /// deleted, then the database is kept: a power cut could restore an index that lists it.
+    #[test]
+    fn an_unconfirmed_index_removal_keeps_the_career_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let save_id = sm.create_save(&sample_game(), "Career").unwrap();
+        crate::atomic_write::fail_directory_sync_on_this_thread(true);
+
+        let deleted = sm.delete_save(&save_id);
+        crate::atomic_write::fail_directory_sync_on_this_thread(false);
+
+        assert_eq!(deleted, Ok(true));
+        assert!(sm.list_saves().is_empty());
+        assert!(saves_dir.join(format!("{save_id}.db")).exists());
+        // A fresh reader of the index file sees the removal that was written before the sync failed.
+        let on_disk = crate::save_index::load_index(&saves_dir.join("save_index.json"))
+            .unwrap()
+            .unwrap();
+        assert!(on_disk.saves.is_empty());
+    }
+
+    /// Given the same ambiguous write on create, then the new career stays listed and its database
+    /// is not deleted: removing it would leave the index pointing at nothing.
+    #[test]
+    fn an_unconfirmed_index_write_on_create_keeps_the_database_and_lists_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        assert!(sm.load_saves().unwrap().is_empty());
+        crate::atomic_write::fail_directory_sync_on_this_thread(true);
+
+        let created = sm.create_save(&sample_game(), "Career");
+        crate::atomic_write::fail_directory_sync_on_this_thread(false);
+
+        let save_id = created.unwrap();
+        assert_eq!(sm.list_saves().len(), 1);
+        assert!(saves_dir.join(format!("{save_id}.db")).exists());
+        let restarted = SaveManager::init(&saves_dir).unwrap();
+        assert_eq!(restarted.list_saves().len(), 1);
+        assert_eq!(restarted.list_saves()[0].id, save_id);
     }
 
     #[test]

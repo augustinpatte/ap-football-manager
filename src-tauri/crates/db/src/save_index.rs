@@ -156,10 +156,36 @@ fn set_damaged_index_aside(index_path: &Path) -> Result<(), String> {
 
 /// Write save index to a JSON file.
 pub fn write_index(index_path: &Path, index: &SaveIndex) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(index).map_err(|_| save_index_write_error())?;
+    write_index_classified(index_path, index).map_err(|_| save_index_write_error())
+}
+
+/// Why [`write_index_classified`] failed, in terms of what a reader of the file now sees.
+#[derive(Debug, PartialEq, Eq)]
+pub enum IndexWriteFailure {
+    /// The durable index is still the old one.
+    NotWritten,
+    /// The new index replaced the old one, but the sync that makes it survive a power cut failed.
+    /// Readers see the new index now; whether it persists is unknown.
+    WrittenNotConfirmedDurable,
+}
+
+/// [`write_index`], telling a write that did not happen from one that happened but is not
+/// confirmed durable. A caller keeping its own copy of the index needs the difference: rolling
+/// back after the second would disagree with the file it just wrote.
+pub fn write_index_classified(
+    index_path: &Path,
+    index: &SaveIndex,
+) -> Result<(), IndexWriteFailure> {
+    let data = serde_json::to_string_pretty(index).map_err(|_| IndexWriteFailure::NotWritten)?;
     // Replaced whole or not at all: a write cut short must never leave the live index truncated.
-    crate::atomic_write::write_atomically(index_path, data.as_bytes())
-        .map_err(|_| save_index_write_error())
+    crate::atomic_write::write_atomically_classified(index_path, data.as_bytes()).map_err(|error| {
+        match error {
+            crate::atomic_write::AtomicWriteError::NotReplaced(_) => IndexWriteFailure::NotWritten,
+            crate::atomic_write::AtomicWriteError::ReplacedNotConfirmedDurable(_) => {
+                IndexWriteFailure::WrittenNotConfirmedDurable
+            }
+        }
+    })
 }
 
 /// Result of validating a single database file during rebuild.
