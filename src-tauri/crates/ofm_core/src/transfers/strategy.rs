@@ -915,9 +915,6 @@ mod tests {
                 1_000_000 * (index as i64 + 1) * 40
             };
             team.transfer_budget = team.finance.max(0) / 2;
-            // Odd clubs pay far more than their wage budget allows; the others have room to spare:
-            // the wage bill is what separates them (a club in debt is overstretched either way).
-            team.wage_budget = if index % 2 == 1 { 20_000 } else { 50_000_000 };
             game.teams.push(team);
         }
         for (index, id) in ids.iter().enumerate() {
@@ -951,6 +948,19 @@ mod tests {
                 }
                 game.players.push(player);
             }
+        }
+        // Each club's wage budget sits one point either side of the line at which the profile calls
+        // it overstretched (a bill over 120% of the budget), so a bill read even a little wrong tips
+        // a club over or back. A club in debt is overstretched whatever its bill.
+        for (index, id) in ids.iter().enumerate() {
+            let bill = crate::finances::calc_wages(&game, id);
+            let at_the_line = bill * 100 / 120;
+            let team = game.teams.iter_mut().find(|team| &team.id == id).unwrap();
+            team.wage_budget = if index % 2 == 1 {
+                at_the_line - 1
+            } else {
+                at_the_line + 1
+            };
         }
         let standings: Vec<StandingEntry> = ids
             .iter()

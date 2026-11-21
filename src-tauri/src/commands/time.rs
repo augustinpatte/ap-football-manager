@@ -1743,4 +1743,64 @@ mod tests {
         assert_ne!(clock_date(&state), before);
         assert_ne!(response["days_skipped"], 0);
     }
+
+    /// A game with one season of career history on a player, so a response that carries the whole
+    /// game can be told from one that carries the screen's copy.
+    fn game_with_a_player_career() -> (Game, String) {
+        // The user plays today, so skip and continue stop at once and arrive (a day played first
+        // would end in a blocker, which already carries the screen's copy).
+        let mut game = make_game_with_competition_matchday();
+        let player = game.players.first_mut().expect("the game has players");
+        player.career.push(domain::player::CareerEntry {
+            season: 2025,
+            team_id: "t".to_string(),
+            team_name: "T".to_string(),
+            appearances: 20,
+            goals: 2,
+            assists: 3,
+            synthetic: false,
+        });
+        let id = player.id.clone();
+        (game, id)
+    }
+
+    fn career_in(response: &Value, player_id: &str) -> usize {
+        response["game"]["players"]
+            .as_array()
+            .expect("the response carries the players")
+            .iter()
+            .find(|player| player["id"] == player_id)
+            .and_then(|player| player["career"].as_array().map(Vec::len))
+            .expect("the player is in the response")
+    }
+
+    /// Given a career with history on a player,
+    /// When skip-to-match-day and then "continue to the next event" arrive,
+    /// Then each response carries the screen's copy (no per-season history), while the game the
+    ///      server keeps still holds it.
+    #[test]
+    fn the_skip_and_continue_responses_send_the_screens_copy_without_player_history() {
+        let (game, id) = game_with_a_player_career();
+        let state = StateManager::new();
+        state.set_game(game);
+        state.set_stats_state(StatsState::default());
+
+        let skipped = super::skip_to_match_day_internal(&state, true).unwrap();
+        let continued = super::advance_to_next_event_internal(&state).unwrap();
+
+        // Both arrive at once, on the user's match day: the response that carries the whole game.
+        assert_eq!(skipped["action"], "arrived");
+        assert_eq!(continued["action"], "arrived");
+        assert_eq!(career_in(&skipped, &id), 0, "skip_to_match_day");
+        assert_eq!(career_in(&continued, &id), 0, "advance_to_next_event");
+        let kept = state
+            .get_game(|game| {
+                game.players
+                    .iter()
+                    .find(|player| player.id == id)
+                    .map(|player| player.career.len())
+            })
+            .flatten();
+        assert_eq!(kept, Some(1), "the server's game keeps the history");
+    }
 }

@@ -150,15 +150,25 @@ these careers (the gate career plays 20 rollovers).
 | --- | --- |
 | `the_one_pass_registration_gate_agrees_with_the_four_pass_original` (random worlds, every club on the edge of the limit, every player excepted in turn, three counts asserted to occur) | retired check dropped; the incoming player no longer excepted; pending loans not counted |
 | `graduating_with_the_place_check_only_at_graduations_agrees_with_checking_every_player` | the place check removed |
-| `a_clubs_profile_read_alone_is_the_one_the_whole_world_reading_gives` | the club's wage bill read as zero; another club's squad read |
+| `a_clubs_profile_read_alone_is_the_one_the_whole_world_reading_gives` | the club's wage bill read as zero or at 9/10 (each club's budget sits one point either side of the overstretched line); another club's squad read |
 | `the_direct_date_reader_agrees_with_chronos_parser_on_every_shape` | month and day swapped |
 | `continuing_a_day_sends_the_screens_copy_without_player_history` | the whole game sent again |
-| `a_club_whose_places_are_spoken_for_signs_no_one_to_improve_itself` (+ its control) | the place check before the improvement pass removed |
+| `a_club_whose_places_are_spoken_for_signs_no_one_to_improve_itself` (+ its control) | the place check before the improvement pass removed (also moved after the plan, or placed only before the covers loop) |
+| `the_skip_and_continue_responses_send_the_screens_copy_without_player_history` | `skip_to_match_day` or `advance_to_next_event` arriving with the whole game |
 
-Two mutations **survived** at first and exposed weak tests, which were then repaired: the registration
-differential (its sampled `incoming` ids rarely held a reservation) and the profile differential (no club was
-overstretched, so the wage bill never mattered). The old four-pass counts stay in the code under `#[cfg(test)]`
+Three mutations **survived** at first and exposed weak tests, which were then repaired: the registration
+differential (its sampled `incoming` ids rarely held a reservation), the profile differential (no club was
+overstretched, then none sat near the line, so a bill read at 9/10 passed) and the skip/continue response test
+(its fixture ended in a blocker, which already sent the screen's copy). The old four-pass counts stay in the code under `#[cfg(test)]`
 as the reference the fast gate is checked against.
+
+### Reviewers (architecture, test, dedup; run on `585949d6..HEAD`)
+
+| Reviewer | Result | Action |
+| --- | --- | --- |
+| `ofm-architecture-reviewer` | proved by reading the code that a failed free-agent attempt writes nothing (both `Err` returns precede every mutation), that graduation and `profile_of` are equivalent to what they replaced, and that the `ui_clone` copy drops only `career` and the `movement_history` entries; no boundary or save-format change | added a `debug_assert!` of the precondition of `sign_free_agent_for_with_a_place` (the full workspace passed with it active), `SquadCapacity::seniors_only`, and moved `perf_baseline` to `commands/` (application must not import commands). **Not done:** `perf_baseline()` is ~230 lines (test-only, ignored) |
+| `ofm-test-reviewer` | the gate, graduation, improvement-guard and date tests bite (9 gate mutations, 4 guard placements and 3 date mutations all killed; a 3 M-input fuzz of the date reader found no difference); gaps: wage-bill value, three untested `ui_clone` edits, no positive control in the graduation test | all three fixed (table above). **Not done:** a test that a failed attempt leaves `Game` unchanged (argued from code only), the `profile_of` branch for a club in no league, a known-vector test of `fingerprint_hash`; the fingerprint comparison between builds is run by hand, not pinned by the suite |
+| `ofm-dedup-reviewer` | `parse_iso_date` is the right canonical date reader but only two of about 130 `%Y-%m-%d` sites use it; the FNV-1a helper was copied into two examples | the helper now lives once in `season-harness/src/fingerprint.rs`. **Not done:** routing the other date sites through `parse_iso_date` (chrono's parser is 0.8% of a day after this work, so it is not worth the churn; recorded for epic #589) |
 
 ## 8. Phase 4 — do the AI clubs use hidden values in recruitment?
 
@@ -226,4 +236,15 @@ and take a baseline from a `git worktree` with its own `CARGO_TARGET_DIR`.
 
 ## 11. Validation and final state
 
-See the end of this file.
+| Check | Result |
+| --- | --- |
+| `cargo test --workspace` (code state `3240b436`) | 5319 passed, 0 failed (135 ignored: displays, the nightly, the long studies) |
+| After the last test additions: `-p domain -p ofm_core --lib`, root `--lib`, root `--lib --features mcp` | 130 + 2408, 620, 707 passed, 0 failed |
+| `cargo clippy --locked --workspace --all-targets -- -D warnings`, default and `--features mcp` | clean |
+| `cargo fmt --check` | clean |
+| Frontend | not touched by this mission (no `src/` change), so not re-run |
+| Benchmarks | section 4, one quiet-machine set per build; fingerprints of the final build equal to the baseline's on the gate windows and season |
+
+**Not verified:** the desktop app was not run, so the webview's cost of ~28 MB a day is unmeasured; the shipped
+world was run for three seasons only; the machine was shared with desktop applications; the shipped-world memory
+figures are inconclusive (section 9).

@@ -1684,6 +1684,9 @@ mod tests {
     #[test]
     fn graduating_with_the_place_check_only_at_graduations_agrees_with_checking_every_player() {
         let today = world().clock.current_date.date_naive();
+        // The case must be a real one: somewhere an overage player graduates and somewhere the
+        // club's list is full and he stays, or both implementations could agree on nothing.
+        let (mut graduated_somewhere, mut held_back_somewhere) = (false, false);
         for seniors_short in 0..6usize {
             for rotation in 0..5 {
                 let mut game = world();
@@ -1749,8 +1752,18 @@ mod tests {
                     roles(&every),
                     "short {seniors_short}, rotation {rotation}"
                 );
+                for player in lazy.players.iter().filter(|p| p.id.starts_with("over-")) {
+                    match player.squad_role {
+                        domain::player::SquadRole::Senior => graduated_somewhere = true,
+                        domain::player::SquadRole::Youth => held_back_somewhere = true,
+                    }
+                }
             }
         }
+        assert!(
+            graduated_somewhere && held_back_somewhere,
+            "graduated {graduated_somewhere}, held back {held_back_somewhere}"
+        );
     }
 
     /// Given a club already at its senior limit and an academy player past the academy age
