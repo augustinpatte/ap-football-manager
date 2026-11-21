@@ -883,6 +883,10 @@ pub(crate) fn sign_free_agent_for_with_a_place(
     better_than: Option<BetterThan>,
     context: &mut SigningContext,
 ) -> Option<BroughtIn> {
+    debug_assert!(
+        crate::transfers::signing_place_refusal(game, &team.id, "").is_none(),
+        "the caller must have asked the place question and signed no one since"
+    );
     let current_date = game.clock.current_date.date_naive();
     let (index, wage) = best_signing(
         game,

@@ -66,6 +66,12 @@ impl SquadCapacity {
     /// the players; a caller that has already counted the seniors itself (a registration check made
     /// in one pass over the world) builds the same figure here, so the limit and its error are
     /// still one rule.
+    /// The capacity as far as the senior list is concerned: the limit, the free places and the error
+    /// text. The other counts (youth, loans) read zero; a caller that needs them counts them itself.
+    pub(crate) fn seniors_only(registered_seniors: usize) -> SquadCapacity {
+        Self::from_counts(registered_seniors, 0, 0, 0)
+    }
+
     pub(crate) fn from_counts(
         registered_seniors: usize,
         youth: usize,

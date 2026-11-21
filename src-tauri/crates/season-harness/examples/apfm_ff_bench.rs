@@ -16,7 +16,7 @@ use ofm_core::end_of_season;
 use ofm_core::fast_forward::{FastForward, FastForwardRequest, InterruptPolicy, StopReason};
 use ofm_core::game::Game;
 use ofm_core::{matchday, turn};
-use season_harness::fingerprint::fingerprint;
+use season_harness::fingerprint::{fingerprint, fingerprint_hash};
 use season_harness::worlds::WorldSpec;
 use serde_json::json;
 
@@ -26,14 +26,6 @@ use serde_json::json;
 fn keep_employed(game: &mut Game) {
     game.manager.satisfaction = game.manager.satisfaction.max(60);
     game.manager.warning_stage = 0;
-}
-
-/// FNV-1a over the fingerprint's bytes: the same world gives the same number in any build, so two
-/// binaries' output can be compared without keeping the fingerprints themselves.
-fn fnv1a(text: &str) -> u64 {
-    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
-    })
 }
 
 fn today(game: &Game) -> NaiveDate {
@@ -157,7 +149,7 @@ fn main() {
                     "ui_state_ms": ui_ms,
                     "rollovers": rollovers,
                     "players": a.players.len(),
-                    "fingerprint": format!("{:016x}", fnv1a(&fa)),
+                    "fingerprint": format!("{:016x}", fingerprint_hash(&fa)),
                     "fingerprint_lines": fa.lines().count(),
                 })
             );

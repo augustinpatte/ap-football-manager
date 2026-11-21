@@ -9,6 +9,17 @@ use ofm_core::game::Game;
 
 use crate::driver::SeasonObserver;
 
+/// FNV-1a over a fingerprint's bytes: stable across builds and toolchains (unlike `DefaultHasher`),
+/// so the same world gives the same number in any binary and two builds' output can be compared
+/// without keeping the fingerprints themselves.
+pub fn fingerprint_hash(fingerprint: &str) -> u64 {
+    fingerprint
+        .bytes()
+        .fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
+        })
+}
+
 /// Everything a day's dice and a rollover's people decide, one line per fact, in a fixed order.
 ///
 /// Not the whole `Game`: ids still minted at random for inbox messages, news and bids differ

@@ -12,16 +12,10 @@ use std::time::Instant;
 use ofm_core::end_of_season::EndOfSeasonSummary;
 use ofm_core::game::Game;
 use season_harness::driver::{RunOptions, SeasonObserver, run_seasons};
-use season_harness::fingerprint::fingerprint;
+use season_harness::fingerprint::{fingerprint, fingerprint_hash};
 use season_harness::invariants::Invariants;
 use season_harness::worlds::WorldSpec;
 use serde_json::json;
-
-fn fnv1a(text: &str) -> u64 {
-    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
-    })
-}
 
 struct Watch {
     invariants: Invariants,
@@ -60,7 +54,7 @@ impl SeasonObserver for Watch {
             "{}",
             json!({
                 "season": season,
-                "fingerprint": format!("{:016x}", fnv1a(&print)),
+                "fingerprint": format!("{:016x}", fingerprint_hash(&print)),
                 "lines": print.lines().count(),
                 "clubs_in_debt": in_debt,
                 "total_cash": cash,

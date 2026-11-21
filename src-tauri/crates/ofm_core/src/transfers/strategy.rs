@@ -903,7 +903,7 @@ mod tests {
 
         let mut game = acceptance_game("team1", false);
         let ids: Vec<String> = (1..=8).map(|n| format!("club{n}")).collect();
-        let mut template = game.teams[0].clone();
+        let template = game.teams[0].clone();
         game.teams.clear();
         for (index, id) in ids.iter().enumerate() {
             let mut team = template.clone();
@@ -920,8 +920,6 @@ mod tests {
             team.wage_budget = if index % 2 == 1 { 20_000 } else { 50_000_000 };
             game.teams.push(team);
         }
-        template = game.teams[0].clone();
-        let _ = template;
         for (index, id) in ids.iter().enumerate() {
             for n in 0..(14 + index) {
                 let mut player = Player::new(

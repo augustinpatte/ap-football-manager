@@ -13,6 +13,8 @@ pub mod live_match;
 pub mod messages;
 pub mod package_csv;
 pub mod package_editor;
+#[cfg(test)]
+mod perf_baseline;
 pub mod portraits;
 pub mod profiles;
 pub mod registry;

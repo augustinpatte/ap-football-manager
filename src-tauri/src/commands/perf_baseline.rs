@@ -24,8 +24,8 @@ use ofm_core::state::StateManager;
 use season_harness::worlds::WorldSpec;
 use serde_json::json;
 
-use crate::commands::fast_forward::fast_forward_to_date_internal;
-use crate::commands::time::{
+use super::fast_forward::fast_forward_to_date_internal;
+use super::time::{
     advance_time_internal, advance_to_next_event_internal, skip_to_match_day_internal,
 };
 
@@ -137,7 +137,7 @@ fn perf_baseline() {
         .iter()
         .map(|(key, value)| (key.clone(), bytes_of(value)))
         .collect();
-    parts.sort_by(|a, b| b.1.cmp(&a.1));
+    parts.sort_by_key(|part| std::cmp::Reverse(part.1));
     parts.truncate(10);
     report("ui_payload_by_field", &world, seed, json!(parts));
     if let Ok(path) = std::env::var("PERF_DUMP_UI") {

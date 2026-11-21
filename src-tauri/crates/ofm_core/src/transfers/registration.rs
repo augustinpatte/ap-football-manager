@@ -51,6 +51,10 @@ pub(crate) fn pending_wage_commitments(game: &Game, team_id: &str) -> i64 {
     }
     reserved
 }
+
+// The next three counts are the plain statement of what a club's promised places are, one pass each.
+// The gate (`signing_place_refusal`) sums the same three in a single pass; they stay, for the tests
+// only, as the reference that pass is checked against.
 #[cfg(test)]
 /// The players `team_id` has agreed to buy that wait to register, other than `except_player_id`:
 /// each will take a place on its senior list. Derived from the saved offers like the wage and the
@@ -73,8 +77,8 @@ pub(crate) fn pending_incoming_purchases(
         })
         .count()
 }
-#[cfg(test)]
 
+#[cfg(test)]
 /// The players `team_id` has agreed to take on loan that wait to register, other than
 /// `except_player_id`: each will take a place on its senior list exactly as a purchase does. A
 /// player already registered at the club (a loan that has started) is counted by the squad
@@ -94,7 +98,6 @@ pub(crate) fn pending_incoming_loans(game: &Game, team_id: &str, except_player_i
         .count()
 }
 #[cfg(test)]
-
 /// The club's own seniors who are out on loan elsewhere, other than `except_player_id`. Each
 /// returns to the club's list and takes a place there, so the club cannot promise that place to a
 /// signing while he is away: a club that lent a senior out and signed his replacement would be over
@@ -153,7 +156,7 @@ pub(crate) fn signing_place_refusal(
             promised += reserved;
         }
     }
-    let capacity = crate::contracts::SquadCapacity::from_counts(registered_seniors, 0, 0, 0);
+    let capacity = crate::contracts::SquadCapacity::seniors_only(registered_seniors);
     (capacity.free_places <= promised).then(|| capacity.full_error())
 }
 
