@@ -138,22 +138,127 @@ real `M12ReplayViewer` in Chrome. The owner's screenshot itself was not availabl
 something else (for example a frame a few seconds in, since the replay starts playing at once), that
 is not what was checked.
 
+## Reproduced and corrected
+
+| # | Reproduced (before) | Corrected (after) |
+|---|---|---|
+| 1 | `PlayerProfile.scouting.test.ts`: an analyst (role Scout, post Analyst) listed before a real scout is picked as the scout, and a club with only an analyst offers the button. | The analyst is never picked or counted, on the profile, scouting tab, players list, transfers actions, youth academy and staff page. `scoutEligibility.usage.test.ts` fails if any screen compares the Scout role itself (mutation-checked). |
+| 2 | `MatchSimulation.finalResult.test.tsx`: after an M12 quick simulation that ends 4-2, the digest and the press conference receive 0-0 and no goals. | Both receive 4-2 with six goals; the same holds after a managed match whose finish returns no events (goals come from the stored fixture). Removing either wiring fails the tests (mutation-checked). |
+| 3 | Headless Chrome, real CSS: the bid panel spans -362 to 1002 in a 640px window; Submit and Close are unreachable. | Panel 16 to 624, Submit and Close reachable (tables below). |
+| 4 | The 2D replay opens on a bare pitch with a free-seek timeline and nothing says the match was already played; the manage option is the fourth card. | Manage Match in 2D leads; Watch simulation says what it can't do; the replay and the interactive screen each carry a note. |
+
+## Browser measurements
+
+Headless Chrome through the repo's own CDP helper, on a scratch page mounting the real components
+on the real app CSS (not the packaged Tauri app). "Before" is the layout with the new rules removed.
+
+Round 1, before the reviewers' fixes (reachable = on screen and not covered, at rest and after
+scrolling the panel to its end):
+
+| Dialog | Window | Before: panel spans / Submit reachable | After: panel spans / Submit and Close reachable |
+|---|---|---|---|
+| Bid | 960×640 | -362..1002 / no | 16..624 / yes |
+| Bid | 1280×800 | -282..1082 / no | 16..784 / yes |
+| Bid | 800×600 | -382..982 / no | 16..584 / yes |
+| Bid | 1024×600 | -382..982 / no | 16..584 / yes |
+| Counter-offer | 960×640 | -18..658 / no | 16..624 / yes |
+| Counter-offer | 800×600 | -38..638 / no | 16..584 / yes |
+| Renewal | 960×640 | -58..698 / no | 16..624 / yes |
+| Renewal | 800×600 | -78..678 / no | 16..584 / yes |
+
+(At 1280×800 the counter-offer and renewal already fitted before and still do.) The deal workspace,
+which embeds the bid form, was measured at 960×640, 1280×800 and 1024×600: the page does not scroll
+and the action row is reachable.
+
+Round 2, after the reviewers found the pinned footer transparent in the two contract modals (the
+footer took its background from a wrapper with none). Renewal, termination and counter-offer, light
+and dark, at 960×640 and 1280×800 (12 cases): the footer is a direct child of the panel, its computed
+background is opaque (`rgb(255,255,255)` light, `rgb(19,27,51)` dark), and every footer button is
+reachable at rest and after scrolling. This measures the fix; it does not show the transparent
+footer overlapping text before it, which the reviewers inferred from the code.
+
+## Reviewer findings
+
+The five read-only reviewers were run on `82543118..45517de4`. None found a P0.
+
+| Reviewer | Finding | Disposition |
+|---|---|---|
+| accessibility P1, architecture P2 | `DialogFooter` transparent in the renewal and termination modals. | Fixed (`25274510`); structural test; Chrome round 2. |
+| test P1 | Analyst eligibility unguarded on four UI surfaces. | Fixed: source guard (mutation-checked), analyst tests on the scouting tab and staff page. |
+| test P1 | Profile free/active counts untested. | Fixed: computation test (busy, youth, analyst's stale assignment). |
+| dedup P2 | A third copy of the predicate in `playable_journey.rs`; `StaffTab` still treated an analyst as a scout; a second definition of "free scout". | Fixed: all use the shared rule. |
+| test P2 | Delegated scouting not guarded against an analyst. | Fixed: `delegated_scouting_never_sends_an_analyst`. |
+| test P2 | Managed-match and post-match wiring untested at page level; press conference tests weak (reason, retry payload, double submit). | Fixed; mutation-checked. |
+| accessibility P2 | Focus lost after a failed submit; highlight reused the focus-ring token; `px-4` overlay on the digest dialog. | Fixed. |
+| i18n P2 | pt/pt-BR used a different word for "assignment" than their Scouting tab. | Fixed. |
+| i18n P2 | pt mixes formal and familiar forms across `match.*`; id mixes "Anda" and "kamu". | Not changed: predates this work. |
+| architecture P2 | The date-picker dropdown inside `FastForwardDialog` might be clipped by the dialog's new scroll area. | Not verified in a browser. The dropdown extends the scroll area rather than being cut, so it stays reachable by scrolling; open. |
+| architecture note | `MatchSimulation` is about 610 lines against a 200-line ceiling. | Predates this work and grew by about 14 lines; the natural extraction is a finalisation hook; open. |
+| dedup, accessibility | `DashboardModalFrame` duplicates `Dialog` without role, name, focus or Escape; nine modals still use it. | Predates this work; now bounded in height only; open. |
+| accessibility P2 | Contrast of `danger` on `danger-tint`, gray-500/400 on the hero card, and the Next button's missing focus ring were not checked. | Open: needs a person in both themes. |
+| test P2 | Dialog height tests assert class names only (jsdom has no layout). | Accepted; the Chrome measurements are the evidence. |
+| test P2 | The opening-frame Rust tests are characterisation, not fix guards. | Accepted; labelled so in section 4. |
+| test P2 | Matching English wording in `matchModeWording.test.ts` is a copy test and is brittle. | Accepted. |
+
+One reviewer note was wrong for this repo: the claim that `simulate_spatial_match` is never called
+by the frontend. It is (`matchReplayService`), and the negative assertion on it is valid.
+
 ## Verification
 
-Run: `tsc`, Biome lint and format, knip, the full vitest suite, `cargo fmt --check`, clippy at
-`-D warnings` (default features) and the Rust workspace tests. Not run: the read-only reviewer agents
-(`ofm-architecture-reviewer`, `i18n-auditor`, `ofm-test-reviewer`, `ui-accessibility-reviewer`,
-`ofm-dedup-reviewer`), clippy with `--features mcp`, and nothing was clicked through in the real
-Tauri app (no display here). The Chrome measurements use the
-app's own CSS and components on a scratch page, not the packaged app.
+Code under test: `eefb949f`. The commit after it changes this file only. Frontend gates ran on
+`25274510`; the only code change since is a test helper in Rust (`world_io.rs`), so they were not rerun.
+
+| Gate | Result |
+|---|---|
+| `cargo fmt --check` | pass |
+| Clippy `-D warnings`, default features, workspace, all targets | pass |
+| Clippy `-D warnings`, `--features mcp` | pass |
+| `cargo test --workspace` (default) | **5,347 passed, 0 failed**, 135 ignored (167 test targets) |
+| `cargo test --workspace --features mcp` | **5,434 passed, 0 failed**, 135 ignored (167 test targets) |
+| Vitest (`npm test`) | **3,272 passed, 0 failed**, 4 skipped (373 files) |
+| `tsc --noEmit` | pass |
+| `npm run build` | pass |
+| Biome lint (`--error-on-warnings`) / format check | pass (3 pre-existing infos) / pass |
+| Knip | pass (two configuration hints, as before) |
+| i18n gate (`src/i18n`, `src/utils`) | pass: 13 files, 110 tests, all 12 locales |
+
+How the results came about, because two runs did not simply pass:
+
+- The first complete Rust run, on the code at `45517de4`, passed: 5,346 passed, 0 failed.
+- The next run, after the reviewers' fixes, failed. `world_io`'s
+  `a_manifest_whose_shards_do_not_parse_is_an_error_not_an_empty_world` failed with
+  `worldReadFileFailed`. It is a pre-existing flaky test: its helper named its temp directory by a
+  timestamp alone, so tests shared a directory and one's cleanup deleted another's file. It failed in 3
+  of 8 isolated runs before any change of mine and none of my commits touch that code. The helper now
+  uses a per-test name (`eefb949f`): 0 failures in 15 runs.
+- The same run's MCP pass reported the `openfootmanager` bin target as failed with no output. Run
+  alone, the target passes (0 tests, exit 0), and it passed in both full runs on `eefb949f`. **The cause
+  of that one failure is not known.**
+- One vitest run failed once in `GlobalMarketTab.test.tsx` (keyboard focus) while a Cargo build was
+  running. It passed alone and in every later full run, including one on an idle machine. Treated as
+  load-induced timing; not investigated further.
+
+
+## GUI statement
+
+The real Tauri application was **not** manually operated. There is no display in this environment.
+Everything above is automated tests, or a headless Chrome page that mounts the real components on the
+real CSS with the backend mocked. The owner's full flows (profile → Scout, a match through to the press
+conference, an offer through to its counter-offer) have not been walked by a person, and the owner's
+2D screenshot was not available.
 
 ## Still open
 
-- No GUI session of the real app: the owner's full flow (profile → Scout, a match to the press
-  conference, an offer through to its counter) has not been walked end to end by a person.
-- `DashboardModalFrame` confirmation modals are bounded but still lack a role and a name; only the
-  two contract modals were moved onto `Dialog`.
+- A person must walk the four flows in the real app, in light and dark, at 960×640 and 1280×800.
+- Contrast and focus-ring checks listed above (accessibility reviewer).
+- `FastForwardDialog`'s date-picker dropdown inside the new scrolling panel (not seen in a browser).
+- `DashboardModalFrame` confirmation modals still lack a role, a name, focus handling and Escape; nine
+  files use it. Canonical home for the fix: `src/components/ui/Dialog.tsx`.
+- `MatchSimulation` is over the function-size ceiling; extract a finalisation hook.
 - Spectators are offered Watch and Quick simulation, not Manage, because they run no club.
 - Interactive matches store no replay (so no *Replay in 2D* afterwards), as before.
-- The scouting eligibility rule exists twice (Rust and TypeScript) and is kept in step by tests,
-  not by generation.
+- The scouting eligibility rule exists in Rust and TypeScript, kept in step by tests and a source
+  guard, not generated. Candidate for epic #589: expose the rule as a flag on `StaffData`.
+- The backend picks the press conference's match by latest date, so two completed fixtures on one
+  date could be confused; predates this work.
+- Locale register splits in pt and id (above).
