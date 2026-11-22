@@ -1161,6 +1161,25 @@ mod tests {
         assert!(!game.players[0].career[0].synthetic);
     }
 
+    /// Given a real player (earlier career unavailable) carrying big numbers from the season in
+    /// progress and no recorded past,
+    /// When history is generated,
+    /// Then those numbers are not read as a past season: they win no first-season award.
+    #[test]
+    fn the_current_stats_of_an_unavailable_career_do_not_win_a_backfilled_season_award() {
+        let mut game = make_game();
+        game.players[0].date_of_birth = "1995-03-15".to_string();
+        game.players[0].provenance.earlier_career = domain::player::EarlierCareer::Unavailable;
+        game.players[0].stats.appearances = 38;
+        game.players[0].stats.goals = 999;
+
+        generate_past_world_history(&mut game, 2032, 1);
+
+        let awards = serde_json::to_string(&game.world_history.season_awards).expect("serialise");
+        assert!(!awards.contains("\"player-1\""), "{awards}");
+        assert!(game.players[0].career.is_empty());
+    }
+
     #[test]
     fn a_birthday_on_the_season_start_counts_across_a_leap_year() {
         let mut game = make_game();

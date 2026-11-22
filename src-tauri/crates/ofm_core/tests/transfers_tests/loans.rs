@@ -307,6 +307,8 @@ fn accepted_loan_offer_moves_player_until_return_date() {
     assert_eq!(loan.loan_team_id, "team-1");
     assert_eq!(loan.end_date, "2027-01-01");
     assert_eq!(loan.wage_contribution_pct, 100);
+    // A loan agreed in the game says so: its terms are this game's facts, not an import's estimate.
+    assert_eq!(loan.terms_source, domain::player::LoanTermsSource::Agreed);
     assert_eq!(loan.loan_start_minutes, 180);
     assert_eq!(loan.loan_start_appearances, 2);
     assert_eq!(loan.development_reported_minutes, 180);

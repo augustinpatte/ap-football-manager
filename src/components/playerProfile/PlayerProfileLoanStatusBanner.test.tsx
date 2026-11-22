@@ -102,6 +102,19 @@ describe("PlayerProfileLoanStatusBanner", () => {
   });
 
   /**
+   * Given a loan whose terms a data source carries
+   * When the banner renders
+   * Then they are stated plainly with no note, like agreed terms.
+   */
+  it("states sourced terms plainly", () => {
+    renderBanner({ ...baseLoan, terms_source: "sourced" });
+
+    expect(screen.getByText("playerProfile.loanUntil")).toBeInTheDocument();
+    expect(screen.queryByText("playerProfile.loanTermsEstimatedNote")).not.toBeInTheDocument();
+    expect(screen.queryByText("playerProfile.loanTermsUnrecordedNote")).not.toBeInTheDocument();
+  });
+
+  /**
    * Given a loan from a save written before terms had a source (the field is absent)
    * When the banner renders
    * Then it is neither called agreed nor estimated: a note says where its terms came from was not

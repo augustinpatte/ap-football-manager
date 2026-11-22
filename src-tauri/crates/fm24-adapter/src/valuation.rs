@@ -748,9 +748,12 @@ mod tests {
         let valuation = model.value(&player(120, Source::Missing));
 
         assert_eq!(valuation.provenance, Provenance::Estimate);
+        // The oracle is the estimate asked for directly, not the value's own field.
         assert_eq!(
             valuation.value_eur,
-            valuation.estimate_eur.max(cfg().minimum_value_eur)
+            model
+                .estimate(&player(120, Source::Missing))
+                .max(cfg().minimum_value_eur)
         );
     }
 
@@ -770,6 +773,10 @@ mod tests {
         assert_eq!(better.provenance, Provenance::Capped);
     }
 
+    /// Given a ceiling with a knee at 60% of it,
+    /// When values below and far above it are squeezed,
+    /// Then nothing changes below the knee, the order is strictly kept above it, and two and three
+    /// times the ceiling still differ.
     #[test]
     fn the_ceiling_is_unchanged_below_its_knee_and_strictly_increasing_above() {
         assert_eq!(squeeze_below(500_000, 1_000_000, 0.6), 500_000);
@@ -845,6 +852,10 @@ mod tests {
         assert!(inversions * 100 < pairs * 3, "{inversions} of {pairs}");
     }
 
+    /// Given FM position codes,
+    /// When mapped to the valuation's groups,
+    /// Then goalkeepers, defenders (wing-backs included), midfielders and forwards (attacking
+    /// midfielders included) are told apart.
     #[test]
     fn position_groups_follow_the_fm_codes() {
         assert_eq!(Group::from_fm_code("GK"), Group::Goalkeeper);
@@ -856,10 +867,162 @@ mod tests {
         assert_eq!(Group::from_fm_code("STC"), Group::Forward);
     }
 
+    /// Given values of different magnitudes,
+    /// When rounded for the world file,
+    /// Then they keep three significant figures, and anything under one euro is zero.
     #[test]
     fn three_significant_figures() {
         assert_eq!(round_significant(123_456.0), 123_000.0);
         assert_eq!(round_significant(98_765_432.0), 98_800_000.0);
         assert_eq!(round_significant(0.4), 0.0);
+    }
+
+    fn source_row(value_gbp: Option<i64>, source: Option<&str>) -> PlayerRow {
+        let mut row = crate::source::sample_row(150, 170, "MC", &[]);
+        row.birth_date = Some("2000-06-01".into());
+        row.club_reputation = 8_500;
+        row.value_gbp = value_gbp;
+        row.value_source = source.map(str::to_string);
+        row
+    }
+
+    fn on() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()
+    }
+
+    /// Given source rows with a stored value, a generated value and none,
+    /// When their inputs are read,
+    /// Then each is the matching kind, converted to euros: a generated value is never read as stored.
+    #[test]
+    fn the_kind_of_a_source_value_follows_its_label_and_is_converted_to_euros() {
+        let cfg = crate::config::Config::default_config();
+        let read = |value, label| {
+            Inputs::from_row(
+                &source_row(value, label),
+                "MC",
+                Some("2029-06-30"),
+                on(),
+                &cfg,
+            )
+            .source
+        };
+
+        assert_eq!(read(Some(1_000), Some("save")), Source::Save(1_170));
+        assert_eq!(read(Some(1_000), Some("générée")), Source::Estimated(1_170));
+        assert_eq!(read(None, None), Source::Missing);
+        assert_eq!(read(Some(0), Some("save")), Source::Missing);
+    }
+
+    /// Given a row with no birth date,
+    /// When its inputs are read,
+    /// Then he is 27, the age at which the model asks for neither a youth premium nor a decline; and
+    /// the years left and age of a dated row are measured on the start date.
+    #[test]
+    fn age_and_years_left_are_measured_on_the_start_date() {
+        let cfg = crate::config::Config::default_config();
+        let mut undated = source_row(Some(1), Some("save"));
+        undated.birth_date = None;
+
+        let unknown = Inputs::from_row(&undated, "MC", Some("2027-06-01"), on(), &cfg);
+        let known = Inputs::from_row(&source_row(Some(1), Some("save")), "MC", None, on(), &cfg);
+
+        assert_eq!(unknown.age, AGE_DECLINE);
+        assert!(
+            (unknown.years_left - 1.0).abs() < 0.01,
+            "{}",
+            unknown.years_left
+        );
+        assert!((known.age - 26.0).abs() < 0.01, "{}", known.age);
+        assert_eq!(known.years_left, 0.0, "no contract, nothing left on it");
+    }
+
+    /// Given source rows whose contract end is missing, before its start, or fine,
+    /// When the contract end the world carries is read,
+    /// Then only a usable end is kept; otherwise the configured fallback stands in.
+    #[test]
+    fn an_unusable_contract_end_is_replaced_by_the_configured_one() {
+        let cfg = crate::config::Config::default_config();
+        let with = |start: Option<&str>, end: Option<&str>| {
+            let mut row = source_row(None, None);
+            row.start_date = start.map(str::to_string);
+            row.end_date = end.map(str::to_string);
+            contract_end_for(&row, &cfg)
+        };
+
+        assert_eq!(with(Some("2025-07-01"), Some("2029-06-30")), "2029-06-30");
+        assert_eq!(with(None, Some("2029-06-30")), "2029-06-30");
+        assert_eq!(with(Some("2025-07-01"), None), cfg.contracts.missing_end);
+        assert_eq!(
+            with(Some("2029-07-01"), Some("2025-06-30")),
+            cfg.contracts.missing_end
+        );
+    }
+
+    /// Given a budget in pounds and the configured share,
+    /// When the ceiling is computed,
+    /// Then it is that share of the budget in euros, and a world with no budget has none.
+    #[test]
+    fn the_ceiling_is_the_configured_share_of_the_richest_budget_in_euros() {
+        let mut cfg = crate::config::Config::default_config();
+        cfg.valuation.affordability_cap_share = 0.5;
+
+        assert_eq!(
+            affordability_cap_from_budget(Some(1_000_000), &cfg),
+            Some(585_000)
+        );
+        assert_eq!(affordability_cap_from_budget(None, &cfg), None);
+        assert_eq!(affordability_cap_from_budget(Some(0), &cfg), None);
+    }
+
+    /// Given a stored value and a generated value that deviate from the estimate by the same
+    /// amount, inside the stored band but outside the generated one,
+    /// When valued,
+    /// Then the stored value is kept and the generated one is pulled in: a generated value is
+    /// trusted strictly less.
+    #[test]
+    fn a_deviation_inside_the_stored_band_but_outside_the_generated_one_is_pulled_only_when_generated()
+     {
+        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let estimate = model.estimate(&player(140, Source::Missing)) as f64;
+        // Between the two bands, above the estimate: wider than the generated band, narrower than the stored one.
+        let between = (model.band_estimated + model.band_save_above) / 2.0;
+        let source = (estimate * between.exp()) as u64;
+
+        let stored = model.value(&player(140, Source::Save(source)));
+        let generated = model.value(&player(140, Source::Estimated(source)));
+
+        assert_eq!(stored.provenance, Provenance::Source);
+        assert_eq!(generated.provenance, Provenance::PulledToEstimate);
+        assert!(generated.value_eur < stored.value_eur);
+    }
+
+    /// Given a stored value of zero (the save's "no value"),
+    /// When valued,
+    /// Then it is treated as missing and takes the estimate.
+    #[test]
+    fn a_stored_zero_is_a_missing_value() {
+        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+
+        assert_eq!(
+            model.value(&player(120, Source::Save(0))),
+            model.value(&player(120, Source::Missing))
+        );
+        assert_eq!(
+            model.value(&player(120, Source::Save(0))).provenance,
+            Provenance::Estimate
+        );
+    }
+
+    /// Given the fitted model,
+    /// When two otherwise identical players differ by 120 ability points,
+    /// Then the stronger is worth strictly more: the estimate is not flat.
+    #[test]
+    fn the_estimate_rises_strictly_with_ability() {
+        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+
+        assert!(
+            model.estimate(&player(190, Source::Missing))
+                > 10 * model.estimate(&player(70, Source::Missing))
+        );
     }
 }

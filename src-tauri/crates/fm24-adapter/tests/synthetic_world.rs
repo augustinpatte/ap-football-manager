@@ -551,6 +551,14 @@ fn registered_teams_decide_senior_academy_and_loans() {
     assert_eq!(loan.loan_team_name.as_deref(), Some("Outside FC"));
     assert_eq!(outside.contract_club_id(), Some("fm-c-498"));
     assert_eq!(run.loans_applied.len(), 2);
+    // The save records where he plays, not the terms: every one is marked as estimated.
+    assert!(
+        run.world
+            .players
+            .iter()
+            .filter_map(|p| p.active_loan.as_ref())
+            .all(|l| l.terms_source == domain::player::LoanTermsSource::Estimated)
+    );
     // Nobody else is on loan.
     assert_eq!(
         run.world
@@ -580,5 +588,184 @@ fn a_short_club_promotes_its_own_reserve_before_a_filler_is_generated() {
     assert!(
         !run.promoted_academy_players
             .contains(&"fm-p-2100".to_string())
+    );
+}
+
+/// Given the synthetic world, which carries no career records,
+/// When it is built,
+/// Then every imported player and pool free agent has an unavailable earlier career, and nothing
+/// else does (a generated filler keeps the default).
+#[test]
+fn every_imported_player_has_an_unavailable_earlier_career() {
+    use domain::player::EarlierCareer;
+    let dir = tempfile::tempdir().unwrap();
+    let run = run_once(dir.path());
+
+    let imported: Vec<_> = run
+        .world
+        .players
+        .iter()
+        .filter(|p| p.id.starts_with("fm-p-"))
+        .collect();
+
+    assert!(!imported.is_empty());
+    assert!(
+        imported
+            .iter()
+            .all(|p| p.provenance.earlier_career == EarlierCareer::Unavailable)
+    );
+    assert!(
+        run.world
+            .players
+            .iter()
+            .filter(|p| !p.id.starts_with("fm-p-"))
+            .all(|p| p.provenance.earlier_career == EarlierCareer::Generated)
+    );
+}
+
+/// Given the synthetic world and a configuration that lets a small world be calibrated on,
+/// When it is built,
+/// Then the valuation model is fitted, every imported player carries the estimate and a provenance
+/// label, and the integrity checks agree with the values written.
+#[test]
+fn the_valuation_pass_is_wired_into_the_pipeline() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("world.db");
+    build_db(&db);
+    let mut cfg = Config::default_config();
+    cfg.valuation.min_samples = 3;
+
+    let run = pipeline::run(&db, &dir.path().join("package"), &cfg).expect("imports");
+
+    assert!(run.valuation.fitted);
+    assert!(run.valuation.fitted_on >= 3);
+    assert!(
+        run.plans
+            .iter()
+            .all(|p| p.value_estimate_eur.is_some() && p.def.value.is_some())
+    );
+    // The label and the value agree: a value labelled as the save's is the save's, and one labelled
+    // as moved by the model is not (the pass writes the value, not only the label).
+    let moved: Vec<_> = run
+        .plans
+        .iter()
+        .filter(|p| p.value_source != "save")
+        .collect();
+    assert!(
+        !moved.is_empty(),
+        "the model must move at least one value of a noisy world"
+    );
+    assert!(
+        moved.iter().all(|p| p.def.value != p.value_in_source_eur),
+        "a moved value differs from the save's"
+    );
+    assert!(
+        run.plans
+            .iter()
+            .filter(|p| p.value_source == "save")
+            .all(|p| p.def.value == p.value_in_source_eur)
+    );
+    let labels: std::collections::BTreeSet<&str> =
+        run.valuation.by_provenance.keys().copied().collect();
+    assert!(
+        labels.iter().all(|l| [
+            "save",
+            "save (ramenée à l'estimation)",
+            "estimée (modèle)",
+            "plafonnée (capacité d'achat)"
+        ]
+        .contains(l)),
+        "{labels:?}"
+    );
+    let failed: Vec<_> = checks::run_checks(&run)
+        .into_iter()
+        .filter(|c| c.blocking && !c.ok)
+        .map(|c| c.name)
+        .collect();
+    assert_eq!(failed, vec!["perimeter.clubs", "perimeter.competitions"]);
+}
+
+/// Given a finished run corrupted in each way the coherence check guards against,
+/// When the checks run,
+/// Then `squads.academy_and_loans_coherent` fails, blocking, and names the problem: an over-age
+/// academy player, a loan whose borrower is not where he plays, a loan to his own club, a borrower
+/// that is neither a team nor named, and a loanee still in his owner's lineup.
+#[test]
+fn the_academy_and_loan_check_fails_for_each_incoherence_it_guards() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut run = run_once(dir.path());
+    let loanee = run
+        .world
+        .players
+        .iter()
+        .position(|p| p.id == "fm-p-2101")
+        .expect("the loanee");
+    let youth = run
+        .world
+        .players
+        .iter()
+        .position(|p| p.id == "fm-p-2100")
+        .expect("an academy player");
+    let detail = |run: &pipeline::Run| {
+        let check = checks::run_checks(run)
+            .into_iter()
+            .find(|c| c.name == "squads.academy_and_loans_coherent")
+            .expect("the check exists");
+        (check.blocking, check.ok, check.detail)
+    };
+    assert!(
+        detail(&run).1,
+        "the premise: the untouched world is coherent"
+    );
+
+    let original = run.world.players[loanee].clone();
+    let original_youth = run.world.players[youth].clone();
+
+    run.world.players[youth].date_of_birth = "1990-01-01".into();
+    let (blocking, ok, text) = detail(&run);
+    assert!(
+        blocking && !ok && text.contains("past the academy age"),
+        "{text}"
+    );
+    run.world.players[youth] = original_youth;
+
+    run.world.players[loanee].team_id = Some("fm-c-498".into());
+    let (blocking, ok, text) = detail(&run);
+    assert!(blocking && !ok && text.contains("but plays for"), "{text}");
+    run.world.players[loanee] = original.clone();
+
+    if let Some(loan) = run.world.players[loanee].active_loan.as_mut() {
+        loan.loan_team_id = "fm-c-9999".into();
+    }
+    run.world.players[loanee].team_id = Some("fm-c-9999".into());
+    let (blocking, ok, text) = detail(&run);
+    assert!(
+        blocking && !ok && text.contains("neither a team of the world nor named"),
+        "{text}"
+    );
+    run.world.players[loanee] = original.clone();
+
+    if let Some(loan) = run.world.players[loanee].active_loan.as_mut() {
+        loan.loan_team_id = loan.parent_team_id.clone();
+    }
+    run.world.players[loanee].team_id = Some("fm-c-498".into());
+    let (blocking, ok, text) = detail(&run);
+    assert!(
+        blocking && !ok && text.contains("on loan to his own club"),
+        "{text}"
+    );
+    run.world.players[loanee] = original;
+
+    let owner = run
+        .world
+        .teams
+        .iter_mut()
+        .find(|t| t.id == "fm-c-498")
+        .expect("the owner");
+    owner.starting_xi_ids.push("fm-p-2101".into());
+    let (blocking, ok, text) = detail(&run);
+    assert!(
+        blocking && !ok && text.contains("still in his owner's lineup"),
+        "{text}"
     );
 }

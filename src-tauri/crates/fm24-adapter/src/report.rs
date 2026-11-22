@@ -633,10 +633,11 @@ fn adapter_report(
         let _ = writeln!(
             r,
             "Modèle log-linéaire ajusté sur {} valeurs de la save (résidu absolu médian {:.3} en unités log). \
-             La valeur de la save est gardée telle quelle tant qu'elle reste dans ±{} fois ce résidu de l'estimation, \
+             La valeur de la save est gardée telle quelle tant qu'elle reste entre -{} et +{} fois ce résidu autour de l'estimation, \
              ramenée au bord de cette bande au-delà ; plafond de capacité d'achat : {} €.\n",
             run.valuation.fitted_on,
             run.valuation.residual_mad,
+            run.cfg.valuation.trust_save_below,
             run.cfg.valuation.trust_save,
             run.valuation
                 .cap_eur

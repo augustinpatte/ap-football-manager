@@ -1,6 +1,7 @@
 //! DATA2 regression tests on the player's own `world.db` (`APFM_WORLD_DB`).
 //!
-//! Skipped (they pass) without that variable: the data never lives in the repository. Players are
+//! Ignored by default (they show as ignored, not as passing): the data never lives in the repository.
+//! Run them with `APFM_WORLD_DB=<path> cargo test -p fm24-adapter --test data2_named_players -- --include-ignored`. Players are
 //! named by their source person id, never by name, because two Mbappés and two Tielemans exist.
 //! The expectations are bounds with an explanation, not fixed prices: the valuation is a model of
 //! the save's own values and these tests state what it must never do to them.
@@ -44,6 +45,7 @@ fn value(run: &pipeline::Run, person: i64) -> u64 {
 /// When the world is built,
 /// Then the stronger player is valued above the weaker, and the weaker is the one the model moved.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn a_much_stronger_player_is_not_valued_below_a_weaker_one_of_the_same_context() {
     let Some(run) = run() else { return };
 
@@ -63,6 +65,7 @@ fn a_much_stronger_player_is_not_valued_below_a_weaker_one_of_the_same_context()
 /// When valued,
 /// Then each is reduced, but never below the model's own estimate: the source is not discarded.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn inflated_values_are_reduced_towards_the_estimate_and_not_past_it() {
     let Some(run) = run() else { return };
 
@@ -82,6 +85,7 @@ fn inflated_values_are_reduced_towards_the_estimate_and_not_past_it() {
 /// When valued,
 /// Then the stored value is kept to the euro.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn a_stored_value_that_agrees_with_comparable_players_is_kept_exactly() {
     let Some(run) = run() else { return };
 
@@ -98,6 +102,7 @@ fn a_stored_value_that_agrees_with_comparable_players_is_kept_exactly() {
 /// stored values, and under one pair in a hundred; and nobody is worth more than the richest club's
 /// transfer budget.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn comparable_players_are_not_systematically_inverted() {
     let Some(run) = run() else { return };
     let cfg = &run.cfg;
@@ -159,6 +164,7 @@ fn comparable_players_are_not_systematically_inverted() {
 /// Then he is in the academy: the importer follows the save, and every signal in the save agrees
 /// (this is the cause of the owner's observation, not an importer defect).
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn godts_is_in_the_academy_because_every_signal_in_the_save_says_so() {
     let Some(run) = run() else { return };
 
@@ -191,6 +197,7 @@ fn godts_is_in_the_academy_because_every_signal_in_the_save_says_so() {
 /// Then every blocking integrity check passes: viable squads, one effective club per player, no
 /// over-age academy player, no loaned player in his owner's lineup, nobody dropped or duplicated.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn every_blocking_integrity_check_passes_for_all_clubs() {
     let Some(run) = run() else { return };
 
@@ -210,6 +217,7 @@ fn every_blocking_integrity_check_passes_for_all_clubs() {
 /// Then no imported player has an invented season, club, appearance or award, and each carries the
 /// "earlier career unavailable" provenance; generated fillers are not affected.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn imported_players_get_no_invented_history_when_a_career_starts() {
     let Some(run) = run() else { return };
     use domain::player::EarlierCareer;
@@ -287,6 +295,7 @@ fn imported_players_get_no_invented_history_when_a_career_starts() {
 /// Then each keeps the owner's name as the save states it, plays for the borrower, and has no loan
 /// that could return him to a club the game does not contain.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn an_owner_outside_the_world_is_kept_as_identity_and_never_as_a_loan_return() {
     let Some(run) = run() else { return };
     use domain::player::EarlierCareer;
@@ -328,6 +337,7 @@ fn an_owner_outside_the_world_is_kept_as_identity_and_never_as_a_loan_return() {
 /// When the world is built,
 /// Then the loan names owner and borrower, and its terms are marked as estimated, not agreed.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn moscardos_loan_names_both_clubs_and_marks_its_terms_as_estimated() {
     let Some(run) = run() else { return };
     use domain::player::LoanTermsSource;
@@ -362,6 +372,7 @@ fn moscardos_loan_names_both_clubs_and_marks_its_terms_as_estimated() {
 /// Then every player of the world has the same market value in the registry: one model, one rule,
 /// so a player is worth the same wherever he is looked up.
 #[test]
+#[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn the_registry_and_the_world_value_every_player_alike() {
     let Some(run) = run() else { return };
     let source = PathBuf::from(std::env::var_os("APFM_WORLD_DB").expect("set, since run() built"));

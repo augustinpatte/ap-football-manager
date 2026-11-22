@@ -804,7 +804,11 @@ describe("PlayerProfile contract surfaces", () => {
     );
 
     const owner = screen.getByText("Contract owner").parentElement as HTMLElement;
+    const playing = screen.getByText("Playing for").parentElement as HTMLElement;
     expect(within(owner).getByText("Outside FC")).toBeInTheDocument();
+    // He plays for the club of the world he is registered with: the owner is not shown there.
+    expect(within(playing).getByText("Alpha FC")).toBeInTheDocument();
+    expect(within(playing).queryByText("Outside FC")).not.toBeInTheDocument();
     expect(screen.queryByText("Loan Status")).not.toBeInTheDocument();
   });
 
@@ -813,6 +817,37 @@ describe("PlayerProfile contract surfaces", () => {
    * When the profile renders
    * Then the career card says no verified record exists instead of the ordinary empty line.
    */
+  /**
+   * Given a player who has both an active loan and an outside owner recorded
+   * When the profile renders
+   * Then only the loan banner shows: a loan between clubs of the world is the fact in force.
+   */
+  it("shows the loan, not the outside owner, when a player has both", () => {
+    const player = createPlayer({
+      team_id: "team-1",
+      provenance: {
+        outside_owner: { club_id: "fm-c-1", club_name: "Outside FC" },
+      },
+      active_loan: {
+        parent_team_id: "team-2",
+        loan_team_id: "team-1",
+        start_date: "2026-08-01",
+        end_date: "2027-01-01",
+        wage_contribution_pct: 75,
+        terms_source: "agreed",
+      },
+    });
+    const gameState = createGameState(player);
+    gameState.teams.push(createTeam({ id: "team-2", name: "Beta FC", short_name: "BET" }));
+
+    render(
+      <PlayerProfile player={player} gameState={gameState} isOwnClub onGameUpdate={vi.fn()} />,
+    );
+
+    expect(screen.getByText("Loan Status")).toBeInTheDocument();
+    expect(screen.queryByText("Outside FC")).not.toBeInTheDocument();
+  });
+
   it("says a real player's earlier career is unavailable instead of showing an empty one", () => {
     const player = createPlayer({ provenance: { earlier_career: "unavailable" } });
     const gameState = createGameState(player);

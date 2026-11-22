@@ -778,4 +778,94 @@ mod tests {
         assert_eq!(floors.get(&498), Some(&110)); // sorted 100, 110, ... 170: index 7 * 25 / 100 = 1
         assert!(!floors.contains_key(&490));
     }
+
+    /// Given the status rule switched off in the configuration and a reserve player who would
+    /// otherwise qualify,
+    /// When placed,
+    /// Then registration alone decides and he stays in the academy.
+    #[test]
+    fn switching_the_status_rule_off_leaves_registration_the_only_signal() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+        let off = RoleEvidence {
+            senior_status_promotion: false,
+            ..evidence_for(&floors)
+        };
+
+        let p = place(
+            &reserve_player(150, Some(7)),
+            &world(),
+            &BTreeSet::new(),
+            day(),
+            21,
+            &off,
+        )
+        .unwrap();
+
+        assert_eq!((p.role, p.senior_on_status), (SquadRole::Youth, false));
+    }
+
+    /// Given a reserve player with a senior status whose ability equals his club's floor exactly,
+    /// When placed,
+    /// Then he is senior: the floor is inclusive ("reaches" it).
+    #[test]
+    fn an_ability_exactly_at_the_floor_reaches_it() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(127, Some(7)), &floors),
+            (SquadRole::Senior, true)
+        );
+        assert_eq!(
+            role_with(&reserve_player(126, Some(7)), &floors),
+            (SquadRole::Youth, false)
+        );
+    }
+
+    /// Given a reserve player of first-team level whose status is unset (none, or code 0),
+    /// When placed,
+    /// Then he stays in the academy: an unset status is no evidence.
+    #[test]
+    fn an_unset_squad_status_is_no_evidence() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(160, None), &floors).0,
+            SquadRole::Youth
+        );
+        assert_eq!(
+            role_with(&reserve_player(160, Some(0)), &floors).0,
+            SquadRole::Youth
+        );
+    }
+
+    /// Given a loanee registered with a reserve side of the club he plays for (Espanyol), owned by PSG,
+    /// When placed with a floor for each club,
+    /// Then the level is judged against the club whose side he is registered with, not his owner's.
+    #[test]
+    fn a_loanee_is_judged_against_the_floor_of_the_club_he_is_registered_with() {
+        let mut r = row(498, Some((1107, 1)), "2005-06-07");
+        r.ca = 128;
+        r.squad_status_code = Some(7);
+        let low_borrower: BTreeMap<i64, i64> = [(1107, 120), (498, 190)].into_iter().collect();
+        let high_borrower: BTreeMap<i64, i64> = [(1107, 140), (498, 100)].into_iter().collect();
+
+        assert_eq!(role_with(&r, &low_borrower), (SquadRole::Senior, true));
+        assert_eq!(role_with(&r, &high_borrower), (SquadRole::Youth, false));
+    }
+
+    /// Given first-team registrations with a club that is not in the perimeter,
+    /// When floors are computed,
+    /// Then that club has none: only clubs of the world can promote.
+    #[test]
+    fn a_club_outside_the_perimeter_has_no_floor() {
+        let rows: Vec<PlayerRow> = (0..9)
+            .map(|i| {
+                let mut r = row(498, Some((8888, 0)), "1998-01-01");
+                r.ca = 100 + i;
+                r
+            })
+            .collect();
+
+        assert!(senior_floors(&rows, &world(), 25, 8).is_empty());
+    }
 }

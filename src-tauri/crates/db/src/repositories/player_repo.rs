@@ -1421,6 +1421,44 @@ mod tests {
         );
     }
 
+    /// Given a player with an outside owner who is saved, then renews (which drops the owner), then is
+    /// saved again (the UPDATE path of the upsert, which every save of an existing game takes),
+    /// When he is read back by club and in full,
+    /// Then the owner is gone and the unavailable earlier career is kept: the cleared value was
+    /// written back, not left as it was first stored.
+    #[test]
+    fn test_a_cleared_outside_owner_is_written_back_when_the_player_is_saved_again() {
+        let db = test_db();
+        let mut player = sample_player("p-moved", Some("team-001"));
+        player.provenance = PlayerProvenance {
+            earlier_career: domain::player::EarlierCareer::Unavailable,
+            outside_owner: Some(domain::player::OutsideOwner {
+                club_id: "fm-c-1".into(),
+                club_name: "Outside FC".into(),
+            }),
+        };
+        upsert_player(db.conn(), &player).unwrap();
+        let by_team = load_players_by_team(db.conn(), "team-001").unwrap();
+        let before = by_team.iter().find(|p| p.id == "p-moved").unwrap();
+        assert_eq!(before.provenance, player.provenance, "read by club too");
+
+        player
+            .record_movement(domain::player::PlayerMovementEntry::new(
+                "2026-09-01",
+                domain::player::PlayerMovementKind::Renewal,
+            ))
+            .unwrap();
+        upsert_player(db.conn(), &player).unwrap();
+
+        let after = load_all_players(db.conn()).unwrap();
+        let moved = after.iter().find(|p| p.id == "p-moved").unwrap();
+        assert_eq!(moved.provenance.outside_owner, None);
+        assert_eq!(
+            moved.provenance.earlier_career,
+            domain::player::EarlierCareer::Unavailable
+        );
+    }
+
     /// Given a save written before the provenance column existed (NULL) and a loan written before
     /// `terms_source` existed,
     /// When loaded,
