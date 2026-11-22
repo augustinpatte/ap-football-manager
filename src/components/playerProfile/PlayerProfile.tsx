@@ -24,6 +24,7 @@ import PlayerProfileContractCard from "./PlayerProfileContractCard";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
 import PlayerProfileInjuryBanner from "./PlayerProfileInjuryBanner";
 import PlayerProfileLoanStatusBanner from "./PlayerProfileLoanStatusBanner";
+import PlayerProfileOutsideOwnerBanner from "./PlayerProfileOutsideOwnerBanner";
 import PlayerProfileMovementHistoryCard from "./PlayerProfileMovementHistoryCard";
 import PlayerProfileRecentMatchesCard from "./PlayerProfileRecentMatchesCard";
 import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
@@ -100,7 +101,6 @@ export default function PlayerProfile({
         ? t("finances.contractRiskWarning")
         : t("finances.contractRiskStable");
   const {
-    managerTeamId,
     isManagerOwnedProfile,
     isManagerSquadProfile,
     isFreeAgent,
@@ -274,8 +274,13 @@ export default function PlayerProfile({
         <PlayerProfileLoanStatusBanner
           loan={player.active_loan}
           teams={gameState.teams}
-          managerTeamId={managerTeamId}
           language={i18n.language}
+          t={t}
+        />
+      ) : player.provenance?.outside_owner ? (
+        <PlayerProfileOutsideOwnerBanner
+          ownerName={player.provenance.outside_owner.club_name}
+          teamName={playerTeam?.name ?? t("common.unknown")}
           t={t}
         />
       ) : null}
@@ -372,7 +377,11 @@ export default function PlayerProfile({
 
         <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
 
-        <PlayerProfileCareerHistoryCard career={history.career} t={t} />
+        <PlayerProfileCareerHistoryCard
+          career={history.career}
+          earlierCareer={player.provenance?.earlier_career}
+          t={t}
+        />
 
         <PlayerProfileMovementHistoryCard movementHistory={history.movement_history} t={t} />
 

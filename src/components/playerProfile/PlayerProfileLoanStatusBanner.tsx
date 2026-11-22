@@ -1,4 +1,4 @@
-import { ArrowRightLeft, BadgeEuro, CalendarDays, Percent } from "lucide-react";
+import { ArrowRight, ArrowRightLeft, BadgeEuro, CalendarDays, Percent } from "lucide-react";
 import type { TOptions } from "i18next";
 
 import { formatDate } from "../../lib/dateFormatting";
@@ -6,21 +6,33 @@ import { formatExactMoney } from "../../lib/helpers";
 import type { ActiveLoanData, TeamData } from "../../store/gameStore";
 import { Card, CardBody } from "../ui";
 import { getPlayerTeamName } from "./PlayerProfile.helpers";
+import PlayerProfileOwnerToClub from "./PlayerProfileOwnerToClub";
 
 type TranslateFn = (key: string, options?: TOptions) => string;
 
 interface PlayerProfileLoanStatusBannerProps {
   loan: ActiveLoanData;
   teams: TeamData[];
-  managerTeamId: string | null;
   language: string;
   t: TranslateFn;
+}
+
+/** Terms the importer configured, or that nobody recorded the source of, are not contract facts. */
+function termsNote(loan: ActiveLoanData): "estimated" | "unrecorded" | null {
+  switch (loan.terms_source) {
+    case "estimated":
+      return "estimated";
+    case "agreed":
+    case "sourced":
+      return null;
+    default:
+      return "unrecorded";
+  }
 }
 
 export default function PlayerProfileLoanStatusBanner({
   loan,
   teams,
-  managerTeamId,
   language,
   t,
 }: PlayerProfileLoanStatusBannerProps) {
@@ -32,15 +44,8 @@ export default function PlayerProfileLoanStatusBanner({
   const loanTeamName = teams.some((team) => team.id === loan.loan_team_id)
     ? getPlayerTeamName(teams, loan.loan_team_id, labels)
     : (loan.loan_team_name ?? getPlayerTeamName(teams, loan.loan_team_id, labels));
-  const relationship =
-    managerTeamId === loan.parent_team_id
-      ? t("playerProfile.loanedOutTo", { team: loanTeamName })
-      : managerTeamId === loan.loan_team_id
-        ? t("playerProfile.loanedInFrom", { team: parentTeamName })
-        : t("playerProfile.loanBetweenClubs", {
-            parent: parentTeamName,
-            loanTeam: loanTeamName,
-          });
+  const note = termsNote(loan);
+  const estimated = loan.terms_source === "estimated";
 
   return (
     <Card accent="primary" className="mb-5">
@@ -54,23 +59,27 @@ export default function PlayerProfileLoanStatusBanner({
               <p className="font-heading text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("playerProfile.loanStatus")}
               </p>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                {relationship}
-              </p>
+              <PlayerProfileOwnerToClub
+                ownerName={parentTeamName}
+                clubName={loanTeamName}
+                separator={<ArrowRight aria-hidden="true" className="h-4 w-4 text-gray-400" />}
+                t={t}
+              />
             </div>
           </div>
           <div className="grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-3 sm:text-right">
             <span className="inline-flex items-center gap-1 sm:justify-end">
               <CalendarDays className="h-3.5 w-3.5" />
-              {t("playerProfile.loanUntil", {
+              {t(estimated ? "playerProfile.loanUntilEstimate" : "playerProfile.loanUntil", {
                 date: formatDate(loan.end_date, language),
               })}
             </span>
             <span className="inline-flex items-center gap-1 sm:justify-end">
               <Percent className="h-3.5 w-3.5" />
-              {t("playerProfile.loanWageSplit", {
-                percent: loan.wage_contribution_pct,
-              })}
+              {t(
+                estimated ? "playerProfile.loanWageSplitEstimate" : "playerProfile.loanWageSplit",
+                { percent: loan.wage_contribution_pct },
+              )}
             </span>
             {loan.buy_option_fee ? (
               <span className="inline-flex items-center gap-1 sm:justify-end">
@@ -82,6 +91,15 @@ export default function PlayerProfileLoanStatusBanner({
             ) : null}
           </div>
         </div>
+        {note ? (
+          <p className="mt-3 text-caption text-fg-muted">
+            {t(
+              note === "estimated"
+                ? "playerProfile.loanTermsEstimatedNote"
+                : "playerProfile.loanTermsUnrecordedNote",
+            )}
+          </p>
+        ) : null}
       </CardBody>
     </Card>
   );

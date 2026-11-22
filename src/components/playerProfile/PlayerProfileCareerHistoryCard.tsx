@@ -1,17 +1,21 @@
-import type { CareerEntry } from "../../store/gameStore";
+import type { CareerEntry, EarlierCareerData } from "../../store/gameStore";
 import { Badge, Card, CardBody, CardHeader } from "../ui";
 
 type TranslateFn = (key: string, options?: Record<string, string | number>) => string;
 
 interface PlayerProfileCareerHistoryCardProps {
   career: CareerEntry[];
+  /** `unavailable`: the data has no career for this player before this game, and none is invented. */
+  earlierCareer?: EarlierCareerData;
   t: TranslateFn;
 }
 
 export default function PlayerProfileCareerHistoryCard({
   career,
+  earlierCareer,
   t,
 }: PlayerProfileCareerHistoryCardProps) {
+  const unavailable = earlierCareer === "unavailable";
   return (
     <Card>
       <CardHeader>{t("playerProfile.careerHistory")}</CardHeader>
@@ -65,7 +69,16 @@ export default function PlayerProfileCareerHistoryCard({
                 {t("playerProfile.careerSimulatedNote")}
               </p>
             )}
+            {unavailable && (
+              <p className="mt-3 text-caption text-fg-muted">
+                {t("playerProfile.careerUnavailable")}
+              </p>
+            )}
           </>
+        ) : unavailable ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+            {t("playerProfile.careerUnavailable")}
+          </p>
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
             {t("playerProfile.noCareer")}

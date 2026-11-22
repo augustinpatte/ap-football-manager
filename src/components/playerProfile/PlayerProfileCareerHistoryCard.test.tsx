@@ -33,4 +33,46 @@ describe("PlayerProfileCareerHistoryCard", () => {
     expect(screen.queryByText("playerProfile.careerSimulated")).not.toBeInTheDocument();
     expect(screen.queryByText("playerProfile.careerSimulatedNote")).not.toBeInTheDocument();
   });
+
+  /**
+   * Given a real player whose earlier career is unavailable and who has no season in this game yet
+   * When the card renders
+   * Then it states that no verified record exists, instead of the empty "first season" line or a table.
+   */
+  it("states that no verified earlier career exists, rather than showing none silently", () => {
+    render(<PlayerProfileCareerHistoryCard career={[]} earlierCareer="unavailable" t={t} />);
+
+    expect(screen.getByText("playerProfile.careerUnavailable")).toBeInTheDocument();
+    expect(screen.queryByText("playerProfile.noCareer")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a player whose earlier career is unavailable and a season he played in this game
+   * When the card renders
+   * Then the played season is listed and the unavailable note stays, so the table is not read as his whole career.
+   */
+  it("keeps the unavailable note beside seasons played in this game", () => {
+    render(
+      <PlayerProfileCareerHistoryCard
+        career={[entry(2026, false)]}
+        earlierCareer="unavailable"
+        t={t}
+      />,
+    );
+
+    expect(screen.getByText("2026/2027")).toBeInTheDocument();
+    expect(screen.getByText("playerProfile.careerUnavailable")).toBeInTheDocument();
+  });
+
+  /**
+   * Given a player of a generated world (or a save from before provenance)
+   * When the card renders with no provenance
+   * Then the empty state is the ordinary one and no unavailable note appears.
+   */
+  it("keeps the ordinary empty state for a generated career", () => {
+    render(<PlayerProfileCareerHistoryCard career={[]} t={t} />);
+
+    expect(screen.getByText("playerProfile.noCareer")).toBeInTheDocument();
+    expect(screen.queryByText("playerProfile.careerUnavailable")).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach } from "vitest";
 import { describe, expect, it, vi } from "vitest";
@@ -125,10 +125,8 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.renewalFeedbackFirmDetail")
         return "The discussion is still open, but wage level and contract length need to feel clearly worthwhile from their side.";
       if (key === "playerProfile.loanStatus") return "Loan Status";
-      if (key === "playerProfile.loanedInFrom") return `On loan from ${params?.team}`;
-      if (key === "playerProfile.loanedOutTo") return `On loan at ${params?.team}`;
-      if (key === "playerProfile.loanBetweenClubs")
-        return `On loan from ${params?.parent} to ${params?.loanTeam}`;
+      if (key === "playerProfile.loanOwnerLabel") return "Contract owner";
+      if (key === "playerProfile.loanPlayingForLabel") return "Playing for";
       if (key === "playerProfile.loanUntil") return `Until ${params?.date}`;
       if (key === "playerProfile.loanWageSplit")
         return `${params?.percent}% wages covered by loan club`;
@@ -727,7 +725,11 @@ describe("PlayerProfile contract surfaces", () => {
     );
 
     expect(screen.getByText("Loan Status")).toBeInTheDocument();
-    expect(screen.getByText("On loan from Beta FC")).toBeInTheDocument();
+    // Loaned in by the manager's club: the owner is Beta FC and the club he plays for is the manager's.
+    const owner = screen.getByText("Contract owner").parentElement as HTMLElement;
+    const playing = screen.getByText("Playing for").parentElement as HTMLElement;
+    expect(within(owner).getByText("Beta FC")).toBeInTheDocument();
+    expect(within(playing).queryByText("Beta FC")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Renew Contract" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Let Expire" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Terminate Now" })).not.toBeInTheDocument();
@@ -770,13 +772,56 @@ describe("PlayerProfile contract surfaces", () => {
     );
 
     expect(screen.getByText("Loan Status")).toBeInTheDocument();
-    expect(screen.getByText("On loan at Beta FC")).toBeInTheDocument();
+    // Loaned out by the manager's club: Beta FC is the club he plays for, not the owner.
+    const owner = screen.getByText("Contract owner").parentElement as HTMLElement;
+    const playing = screen.getByText("Playing for").parentElement as HTMLElement;
+    expect(within(playing).getByText("Beta FC")).toBeInTheDocument();
+    expect(within(owner).queryByText("Beta FC")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Renew Contract" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Let Expire" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Terminate Now" })).toBeInTheDocument();
     expect(screen.queryByText("Hire a scout first")).not.toBeInTheDocument();
     expect(screen.queryByText("playerProfile.attributesHidden")).not.toBeInTheDocument();
     expect(screen.queryAllByText("??")).toHaveLength(0);
+  });
+
+  /**
+   * Given a player the data has owned by a club outside the simulated leagues and playing for the manager's club
+   * When the profile renders
+   * Then the owner is named under "Contract owner" and no loan banner claims a loan that could return him.
+   */
+  it("names an owner outside the simulated leagues without showing a loan", () => {
+    const player = createPlayer({
+      provenance: {
+        earlier_career: "unavailable",
+        outside_owner: { club_id: "fm-c-1", club_name: "Outside FC" },
+      },
+    });
+    const gameState = createGameState(player);
+
+    render(
+      <PlayerProfile player={player} gameState={gameState} isOwnClub onGameUpdate={vi.fn()} />,
+    );
+
+    const owner = screen.getByText("Contract owner").parentElement as HTMLElement;
+    expect(within(owner).getByText("Outside FC")).toBeInTheDocument();
+    expect(screen.queryByText("Loan Status")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given a real player whose earlier career is unavailable
+   * When the profile renders
+   * Then the career card says no verified record exists instead of the ordinary empty line.
+   */
+  it("says a real player's earlier career is unavailable instead of showing an empty one", () => {
+    const player = createPlayer({ provenance: { earlier_career: "unavailable" } });
+    const gameState = createGameState(player);
+
+    render(
+      <PlayerProfile player={player} gameState={gameState} isOwnClub onGameUpdate={vi.fn()} />,
+    );
+
+    expect(screen.getByText("playerProfile.careerUnavailable")).toBeInTheDocument();
   });
 
   it("allows selecting the player's team from the hero header", () => {

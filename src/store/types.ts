@@ -362,6 +362,7 @@ export interface PlayerMediaData {
 }
 
 export interface PlayerData {
+  provenance?: PlayerProvenanceData;
   /** Computed by the backend squad projection; never stored in a save. */
   match_day_eligible?: boolean;
   birth_country?: string | null;
@@ -488,6 +489,23 @@ export interface ActiveLoanData {
   loan_start_appearances?: number;
   development_reported_minutes?: number;
   development_reported_appearances?: number;
+  /** Where the end date, wage share and option come from. Absent in saves from before it existed. */
+  terms_source?: LoanTermsSource;
+}
+
+/**
+ * How much is known about a loan's terms: `estimated` terms were configured by the importer because
+ * the data records the loan but not its terms, and must not be shown as contract facts.
+ */
+export type LoanTermsSource = "unrecorded" | "agreed" | "sourced" | "estimated";
+
+/** `unavailable`: a real player the data has no earlier career for; none is shown or invented. */
+export type EarlierCareerData = "generated" | "unavailable";
+
+export interface PlayerProvenanceData {
+  earlier_career?: EarlierCareerData;
+  /** A club outside the simulated leagues that holds this player's contract, as the data states it. */
+  outside_owner?: { club_id: string; club_name: string } | null;
 }
 
 export type StaffPost =

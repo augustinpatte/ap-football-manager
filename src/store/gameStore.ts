@@ -129,6 +129,7 @@ export type {
   FreeAgentTalkReason,
   LoanOfferData,
   ActiveLoanData,
+  EarlierCareerData,
   StaffData,
   MessageAction,
   MessageActionOption,
