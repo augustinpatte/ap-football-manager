@@ -136,6 +136,9 @@ fn comparable_players_are_not_systematically_inverted() {
     let (pairs, raw) = valuation::strict_inversions(&mut comparables(true));
     let (same_pairs, after) = valuation::strict_inversions(&mut comparables(false));
 
+    eprintln!(
+        "clearly-ordered comparable pairs: {pairs}; inverted in the stored values: {raw}; after valuation: {after}"
+    );
     assert_eq!(pairs, same_pairs);
     assert!(
         pairs > 50_000,
