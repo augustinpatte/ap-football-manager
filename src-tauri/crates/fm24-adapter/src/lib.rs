@@ -29,6 +29,7 @@ pub mod report;
 pub mod rules;
 pub mod source;
 pub mod staff;
+pub mod valuation;
 
 pub use config::Config;
 pub use journal::Journal;

@@ -342,11 +342,19 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
                 run.cfg.to_eur(row.wage_gbp_week)
             ));
         }
-        if let Some(value) = row.value_gbp
+        if Some(player.market_value) != plan.def.value {
+            field_failures.push(format!(
+                "{id} value {} != planned {:?}",
+                player.market_value, plan.def.value
+            ));
+        }
+        // A value labelled as the save's own must be the save's, to the euro.
+        if plan.value_source == "save"
+            && let Some(value) = row.value_gbp
             && player.market_value as i64 != run.cfg.to_eur(value)
         {
             field_failures.push(format!(
-                "{id} value {} != {}",
+                "{id} value {} is labelled as the save's but the save says {}",
                 player.market_value,
                 run.cfg.to_eur(value)
             ));

@@ -23,7 +23,8 @@ use crate::ids;
 use crate::journal::Journal;
 use crate::pipeline::convert_player;
 use crate::refs::Refs;
-use crate::source::Source;
+use crate::source::{PlayerRow, Source};
+use crate::valuation::{Inputs, Model};
 use chrono::NaiveDate;
 use domain::player::{Footedness, PlayerAttributes, Position};
 use ofm_core::external_registry::{ExternalClub, ExternalPlayer, MAX_EXTERNAL_AGE, asking_price};
@@ -157,17 +158,16 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
     let source = Source::open(world_db)?;
     let facts = source.schema_facts()?;
     let source_sha256 = Source::sha256(world_db)?;
-    let perimeter: HashSet<i64> = source
-        .perimeter(facts.start_season)?
-        .into_iter()
-        .map(|(_, club)| club)
-        .collect();
+    let perimeter_pairs = source.perimeter(facts.start_season)?;
+    let perimeter: HashSet<i64> = perimeter_pairs.iter().map(|(_, club)| *club).collect();
     let cfg = Config::default_config();
     let refs = Refs::embedded()?;
     let built_on = NaiveDate::parse_from_str(&cfg.start.date, "%Y-%m-%d")
         .map_err(|_| "be.error.fm24.registryBuildFailed".to_string())?;
     let rows = source.every_player()?;
     let players_seen = rows.len();
+    let valuation_model =
+        fit_valuation(&source, &perimeter_pairs, &rows, &perimeter, &cfg, built_on)?;
 
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
@@ -306,17 +306,35 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
                     ),
                 };
 
-                let (market_value, value_source) = match row.value_gbp {
-                    Some(value) if value > 0 => (
-                        cfg.to_eur(value).max(0) as u64,
-                        row.value_source
-                            .clone()
-                            .unwrap_or_else(|| "save".to_string()),
-                    ),
-                    _ => (
-                        estimate_market_value(ovr, potential, age.unwrap_or(30)),
-                        "estimated".to_string(),
-                    ),
+                let (market_value, value_source) = match (&valuation_model, &converted) {
+                    // The same model as the imported world, so a player has one value wherever he is.
+                    (Some(model), Some(converted)) => {
+                        let end = crate::valuation::contract_end_for(row, &cfg);
+                        let mut inputs = Inputs::from_row(
+                            row,
+                            converted.natural_code,
+                            (row.club_id > 0).then_some(end.as_str()),
+                            built_on,
+                            &cfg,
+                        );
+                        if row.club_id <= 0 {
+                            inputs.club_reputation = model.neutral_reputation();
+                        }
+                        let valued = model.value(&inputs);
+                        (valued.value_eur, valued.provenance.label().to_string())
+                    }
+                    _ => match row.value_gbp {
+                        Some(value) if value > 0 => (
+                            cfg.to_eur(value).max(0) as u64,
+                            row.value_source
+                                .clone()
+                                .unwrap_or_else(|| "save".to_string()),
+                        ),
+                        _ => (
+                            estimate_market_value(ovr, potential, age.unwrap_or(30)),
+                            "estimated".to_string(),
+                        ),
+                    },
                 };
                 let wage_eur = cfg.to_eur(row.wage_gbp_week).max(0) as u64;
                 let club_name = if row.club_id > 0 {
@@ -512,6 +530,45 @@ pub(crate) fn footedness_name(foot: &Footedness) -> &'static str {
         Footedness::Right => "Right",
         Footedness::Both => "Both",
     }
+}
+
+/// The valuation model of the imported world, fitted on the same population (a contract or a
+/// registration inside the perimeter, in person-id order) with the same ceiling, so the registry and
+/// the world cannot disagree about a player. `None` when the source is too small to calibrate on.
+fn fit_valuation(
+    source: &Source,
+    perimeter_pairs: &[(i64, i64)],
+    rows: &[PlayerRow],
+    perimeter: &HashSet<i64>,
+    cfg: &Config,
+    on: NaiveDate,
+) -> crate::Result<Option<Model>> {
+    let club_ids: Vec<i64> = perimeter_pairs.iter().map(|(_, club)| *club).collect();
+    let cap = crate::valuation::affordability_cap_from_budget(
+        source.largest_transfer_budget_gbp(&club_ids)?,
+        cfg,
+    );
+    let samples: Vec<Inputs> = rows
+        .iter()
+        .filter(|row| {
+            perimeter.contains(&row.club_id)
+                || row
+                    .registered_club_id
+                    .is_some_and(|club| perimeter.contains(&club))
+        })
+        .filter_map(|row| {
+            let converted = convert_player(row, cfg, &mut Journal::default())?;
+            let end = crate::valuation::contract_end_for(row, cfg);
+            Some(Inputs::from_row(
+                row,
+                converted.natural_code,
+                Some(end.as_str()),
+                on,
+                cfg,
+            ))
+        })
+        .collect();
+    Ok(Model::fit(&samples, cap, &cfg.valuation))
 }
 
 /// A deterministic value for the source rows that carry none. It is a valuation, never an identity:

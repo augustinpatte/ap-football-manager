@@ -628,6 +628,31 @@ fn adapter_report(
         "\nLes valeurs « importée » viennent de `club_finance_start`, elle-même **générée par l'importeur** (`source = générée`, ordres de grandeur à vérifier) ; la capacité du stade est tirée par OFM (absente de world.db)."
     );
 
+    let _ = writeln!(r, "\n## Valeur marchande estimée (joueurs importés)\n");
+    if run.valuation.fitted {
+        let _ = writeln!(
+            r,
+            "Modèle log-linéaire ajusté sur {} valeurs de la save (résidu absolu médian {:.3} en unités log). \
+             La valeur de la save est gardée telle quelle tant qu'elle reste dans ±{} fois ce résidu de l'estimation, \
+             ramenée au bord de cette bande au-delà ; plafond de capacité d'achat : {} €.\n",
+            run.valuation.fitted_on,
+            run.valuation.residual_mad,
+            run.cfg.valuation.trust_save,
+            run.valuation
+                .cap_eur
+                .map_or_else(|| "aucun".to_string(), |cap| cap.to_string()),
+        );
+    } else {
+        let _ = writeln!(
+            r,
+            "Aucun modèle ajusté (moins de {} valeurs de la save) : les valeurs de la save sont gardées telles quelles.\n",
+            run.cfg.valuation.min_samples
+        );
+    }
+    let _ = writeln!(r, "| Provenance | Joueurs |\n|---|---|");
+    for (label, count) in &run.valuation.by_provenance {
+        let _ = writeln!(r, "| {label} | {count} |");
+    }
     let _ = writeln!(r, "\n## Distribution des notes OFM (joueurs importés)\n");
     let _ = writeln!(
         r,

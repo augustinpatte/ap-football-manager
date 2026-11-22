@@ -18,8 +18,36 @@ pub struct Config {
     pub squad: SquadCfg,
     pub finance: FinanceCfg,
     pub free_agents: FreeAgentsCfg,
+    pub valuation: ValuationCfg,
     #[serde(default)]
     pub competitions: CompetitionsCfg,
+}
+
+/// How an imported player's estimated market value is set (`valuation.rs`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct ValuationCfg {
+    /// Fewer `save` values than this and no model is fitted: the source values are kept as they are.
+    pub min_samples: usize,
+    /// Ridge added to the normal equations; only there to keep the solve well-posed.
+    pub ridge: f64,
+    /// Rows whose residual is further than this many standard deviations from the first fit are left
+    /// out of the second.
+    pub trim_sd: f64,
+    /// The half-width of the band in which a stored (`save`) value is kept as it is, in median
+    /// absolute deviations of the fit's residuals, for a value *above* the estimate.
+    pub trust_save: f64,
+    /// The same for a value the save stores *below* the estimate; wider, because the estimate is
+    /// least reliable where it would raise a star or a prospect.
+    pub trust_save_below: f64,
+    /// The same for a value the save generated itself (`générée`).
+    pub trust_estimated: f64,
+    /// A player of the world is never valued below this (euros).
+    pub minimum_value_eur: u64,
+    /// No value exceeds this share of the largest transfer budget of any club of the world.
+    pub affordability_cap_share: f64,
+    /// Below this share of the ceiling a value is untouched; above it values are bent towards the
+    /// ceiling without ever reaching it, so the best players do not tie.
+    pub affordability_knee_share: f64,
 }
 
 /// How the competitions are built.

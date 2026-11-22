@@ -103,3 +103,25 @@ pool_size = 3000
 # (un agent libre négocie plus faiblement qu'un joueur en poste).
 wage_quantile = 0.30
 ca_window = 4
+
+[valuation]
+# Estimated market value (src/valuation.rs). The save stores a value per player but it is noisy: among
+# players of the same ability, age and position the saved values of a comparable group span a factor of
+# about eight, so a 28-year-old of CA 161 could be priced above a 27-year-old of CA 191. A log-linear model
+# (ability, age, potential gap, contract, club reputation, position) is fitted on the world's own saved
+# values; a saved value is kept exactly while it lies within `trust_save` median absolute deviations of
+# the model's estimate and is pulled to the edge of that band beyond it.
+min_samples = 500
+ridge = 1e-6
+trim_sd = 2.0
+trust_save = 0.75
+# Below the estimate the band is wider: the model is least reliable at the very top and for prospects.
+trust_save_below = 1.5
+# A value the save generated from its own regression is a model output, not an observation.
+trust_estimated = 0.25
+minimum_value_eur = 10000
+# Financial affordability: a price no club of the world could pay is not a market value. The richest
+# transfer budget of the save is about 181 M EUR; the game never spends more than 60 % of a budget on one
+# player and asks up to 1.5x the value, so the whole budget is already a generous ceiling.
+affordability_cap_share = 1.0
+affordability_knee_share = 0.7

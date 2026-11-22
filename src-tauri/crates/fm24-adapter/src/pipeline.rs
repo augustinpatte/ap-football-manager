@@ -45,6 +45,23 @@ pub struct PlayerPlan {
     pub nationality_source: &'static str,
     pub contract_end_source: &'static str,
     pub value_source: &'static str,
+    /// The value the save stores, converted to euros, and the model's own estimate. Both are kept so
+    /// the report can say how far a value moved and why (`valuation`).
+    pub value_in_source_eur: Option<u64>,
+    pub value_estimate_eur: Option<u64>,
+}
+
+/// What the valuation pass did, for the report and the checks.
+#[derive(Debug, Clone, Default)]
+pub struct ValuationSummary {
+    /// Whether a model was fitted. `false` leaves every source value as it was (a world too small to
+    /// calibrate on, `valuation.min_samples`).
+    pub fitted: bool,
+    pub fitted_on: usize,
+    pub residual_mad: f64,
+    pub cap_eur: Option<u64>,
+    /// Players by provenance label.
+    pub by_provenance: BTreeMap<&'static str, usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +104,7 @@ pub struct Run {
     pub plans: Vec<PlayerPlan>,
     pub free_agent_plans: Vec<FreeAgentPlan>,
     pub free_agent_stats: PoolStats,
+    pub valuation: ValuationSummary,
     pub staff_plans: Vec<(ofm_core::generator::StaffDef, i64)>,
     pub managers: Vec<(String, i64)>,
     pub manager_clubs_missing: Vec<i64>,
@@ -262,13 +280,24 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     }
 
     // --- free agents: a bounded pool of the save's unattached players ----------------------------
-    let (free_agent_plans, free_agent_stats) = if cfg.free_agents.enabled {
+    let (mut free_agent_plans, free_agent_stats) = if cfg.free_agents.enabled {
         let unattached = source.unattached_players()?;
         let pool = free_agents::select(&unattached, &players, cfg, &refs);
         (pool.plans, pool.stats)
     } else {
         (Vec::new(), PoolStats::default())
     };
+
+    // --- estimated market values -----------------------------------------------------------------
+    let valuation = apply_valuation(
+        &mut plans,
+        &mut free_agent_plans,
+        &players,
+        &clubs,
+        cfg,
+        start_day,
+        &mut journal,
+    );
 
     // --- staff and managers --------------------------------------------------------------------
     let country_of = |club_id: i64| club_country.get(&club_id).cloned();
@@ -402,6 +431,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         plans,
         free_agent_plans,
         free_agent_stats,
+        valuation,
         staff_plans,
         managers,
         manager_clubs_missing,
@@ -570,25 +600,21 @@ fn plan_player(
         );
     }
 
-    let (contract_end, contract_end_source) = match &row.end_date {
-        Some(end)
-            if row
-                .start_date
-                .as_deref()
-                .is_none_or(|start| end.as_str() > start) =>
-        {
-            (end.clone(), "save")
-        }
-        Some(end) => {
-            journal.warn(
-                "player.contract_end_not_after_start",
-                &id,
-                format!("contract end {end} is not after its start; configured fallback end used"),
-            );
-            (cfg.contracts.missing_end.clone(), "générée")
-        }
-        None => (cfg.contracts.missing_end.clone(), "générée"),
+    let contract_end = crate::valuation::contract_end_for(row, cfg);
+    let contract_end_source = if row.end_date.as_deref() == Some(contract_end.as_str()) {
+        "save"
+    } else {
+        "générée"
     };
+    if let Some(end) = &row.end_date
+        && contract_end_source == "générée"
+    {
+        journal.warn(
+            "player.contract_end_not_after_start",
+            &id,
+            format!("contract end {end} is not after its start; configured fallback end used"),
+        );
+    }
 
     let (value, value_source) = match (row.value_gbp, row.value_source.as_deref()) {
         (Some(v), Some("save")) => (Some(cfg.to_eur(v).max(0) as u64), "save"),
@@ -638,6 +664,8 @@ fn plan_player(
         nationality_source,
         contract_end_source,
         value_source,
+        value_in_source_eur: value,
+        value_estimate_eur: None,
     })
 }
 
@@ -887,6 +915,96 @@ fn trim_generated_players(
     }
     promoted.sort();
     (before - world.players.len(), promoted)
+}
+
+/// Replaces the value the save stores with the estimated market value (`valuation`): the model is
+/// fitted on the placed players' own saved values, then every imported player and every free agent of
+/// the pool is valued by it. A world too small to calibrate on keeps the source values untouched.
+fn apply_valuation(
+    plans: &mut [PlayerPlan],
+    free_agent_plans: &mut [FreeAgentPlan],
+    rows: &[PlayerRow],
+    clubs: &[ClubRow],
+    cfg: &Config,
+    on: chrono::NaiveDate,
+    journal: &mut Journal,
+) -> ValuationSummary {
+    use crate::valuation::{self, Inputs, Model, Source};
+    let by_person: BTreeMap<i64, &PlayerRow> = rows.iter().map(|r| (r.person_id, r)).collect();
+    // Plans are in person-id order (the source query sorts by it), which fixes the fitting order.
+    let inputs: Vec<Option<Inputs>> = plans
+        .iter()
+        .map(|plan| {
+            by_person.get(&plan.person_id).map(|row| {
+                Inputs::from_row(
+                    row,
+                    plan.natural_code,
+                    plan.def.contract_end.as_deref(),
+                    on,
+                    cfg,
+                )
+            })
+        })
+        .collect();
+    let samples: Vec<Inputs> = inputs.iter().flatten().copied().collect();
+    let cap = valuation::affordability_cap(clubs, cfg);
+    let mut summary = ValuationSummary {
+        cap_eur: cap,
+        ..ValuationSummary::default()
+    };
+    let Some(model) = Model::fit(&samples, cap, &cfg.valuation) else {
+        journal.warn(
+            "valuation.not_fitted",
+            "world",
+            format!(
+                "fewer than {} saved values: no model fitted, the values of the save are kept as they are",
+                cfg.valuation.min_samples
+            ),
+        );
+        for plan in plans.iter() {
+            *summary.by_provenance.entry(plan.value_source).or_default() += 1;
+        }
+        return summary;
+    };
+    summary.fitted = true;
+    summary.fitted_on = model.fitted_on;
+    summary.residual_mad = model.residual_mad;
+    for (plan, input) in plans.iter_mut().zip(&inputs) {
+        let Some(input) = input else { continue };
+        let valued = model.value(input);
+        plan.def.value = Some(valued.value_eur);
+        plan.value_source = valued.provenance.label();
+        plan.value_estimate_eur = Some(valued.estimate_eur);
+        *summary.by_provenance.entry(plan.value_source).or_default() += 1;
+    }
+    // A free agent has no club and no contract: he is valued at the median club of the fit, with
+    // nothing left on a contract. What the pool estimated for him stands in for a missing value.
+    for fa in free_agent_plans.iter_mut() {
+        let mut input = Inputs::from_row(&fa.source, fa.natural_code, None, on, cfg);
+        input.club_reputation = model.neutral_reputation();
+        input.source = match (fa.def.value, fa.value_source) {
+            (Some(value), "save") => Source::Save(value),
+            (Some(value), _) => Source::Estimated(value),
+            (None, _) => Source::Missing,
+        };
+        let valued = model.value(&input);
+        fa.def.value = Some(valued.value_eur);
+        fa.value_source = valued.provenance.label();
+    }
+    journal.info(
+        "valuation.fitted",
+        "world",
+        format!(
+            "model fitted on {} saved values (median absolute residual {:.3} in log units); \
+             ceiling {:?} EUR; {} players valued, by provenance: {:?}",
+            model.fitted_on,
+            model.residual_mad,
+            cap,
+            plans.len() + free_agent_plans.len(),
+            summary.by_provenance
+        ),
+    );
+    summary
 }
 
 /// OFM's own builder seeds each club's academy with its three youngest outfield players aged 21 or
