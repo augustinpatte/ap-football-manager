@@ -30,8 +30,10 @@ mod buyer_view;
 mod consent;
 mod consts;
 mod deadline;
+mod deal_log;
 mod execution;
 mod inbox_actions;
+mod interest;
 mod lifecycle;
 mod loans;
 mod market;
@@ -59,8 +61,10 @@ pub use deadline::{
     DeadlineDeal, DeadlineItem, DeadlineItemKind, DeadlineItemState, DeadlineSummary,
     expire_negotiations_at_deadline, transfer_deadline_summary,
 };
+pub use deal_log::*;
 pub use execution::*;
 pub use inbox_actions::{TransferOfferResponseEffect, apply_transfer_offer_response};
+pub use interest::{FUNNEL_NAMES, FUNNEL_STAGES, market_funnel, reset_market_funnel};
 use lifecycle::*;
 pub use loans::*;
 pub use market::*;
@@ -224,9 +228,18 @@ pub(crate) struct MarketTarget {
     contract_days: Option<i64>,
     /// What he is to his club today.
     status: PlayerStatus,
+    /// A user's player on the shortlist for his ability alone, not as a bargain.
+    sporting_only: bool,
 }
 
 impl MarketTarget {
+    /// Whether a buyer must make a sporting and financial case for him: every AI club's player, and
+    /// a user's player who is there on appeal alone. A user's player who is a bargain (listed, a
+    /// contract running out) is offered for as he always was.
+    fn needs_a_case(&self) -> bool {
+        !self.is_user_owned || self.sporting_only
+    }
+
     /// His rating a year on, which is what a club planning its squad is buying.
     fn planned_ovr(&self) -> u8 {
         let potential = (i32::from(self.ovr) + self.potential_gap).clamp(1, 100) as u8;

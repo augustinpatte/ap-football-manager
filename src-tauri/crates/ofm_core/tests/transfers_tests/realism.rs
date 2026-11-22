@@ -6,7 +6,7 @@ use ofm_core::transfers::{LoanOfferDecision, TransferNegotiationDecision};
 
 /// A club of `country`, with cash and a wage budget that is never the obstacle unless a test makes
 /// it one. Its squad is the inert depth `give_every_club_squad_depth` adds.
-fn club(id: &str, country: &str, reputation: u32, cash: i64) -> Team {
+pub(super) fn club(id: &str, country: &str, reputation: u32, cash: i64) -> Team {
     let mut team = make_ai_team(id, id, cash, cash);
     team.country = country.to_string();
     team.reputation = reputation;
@@ -15,7 +15,7 @@ fn club(id: &str, country: &str, reputation: u32, cash: i64) -> Team {
 }
 
 /// A forward of the given rating who is for sale at `club`.
-fn forward(id: &str, club: &str, ovr: u8, value: u64) -> Player {
+pub(super) fn forward(id: &str, club: &str, ovr: u8, value: u64) -> Player {
     let mut player = make_player(id);
     player.team_id = Some(club.to_string());
     player.ovr = ovr;
@@ -29,7 +29,7 @@ fn forward(id: &str, club: &str, ovr: u8, value: u64) -> Player {
 
 /// The user's club and a seller of a worthless player, plus whatever clubs the test adds. Only the
 /// clubs the test funds can buy: the rest have nothing to spend.
-fn world(clubs: Vec<Team>, players: Vec<Player>) -> Game {
+pub(super) fn world(clubs: Vec<Team>, players: Vec<Player>) -> Game {
     let mut dummy = make_player("dummy");
     dummy.market_value = 0;
     dummy.transfer_listed = false;
@@ -50,7 +50,7 @@ fn world(clubs: Vec<Team>, players: Vec<Player>) -> Game {
     game
 }
 
-fn set_days_left(game: &mut Game, days: i64) {
+pub(super) fn set_days_left(game: &mut Game, days: i64) {
     let date = game.clock.current_date.date_naive() + chrono::Duration::days(days);
     game.season_context.transfer_window.days_remaining = Some(days);
     game.season_context.transfer_window.closes_on = Some(date.format("%Y-%m-%d").to_string());
@@ -61,14 +61,14 @@ fn set_days_left(game: &mut Game, days: i64) {
     };
 }
 
-fn owner(game: &Game, id: &str) -> Option<String> {
+pub(super) fn owner(game: &Game, id: &str) -> Option<String> {
     game.players
         .iter()
         .find(|player| player.id == id)
         .and_then(|player| player.team_id.clone())
 }
 
-fn only_buyer_funded(game: &mut Game, buyer: &str) {
+pub(super) fn only_buyer_funded(game: &mut Game, buyer: &str) {
     for team in &mut game.teams {
         if team.id != buyer && team.id != "team-1" {
             team.finance = 0;

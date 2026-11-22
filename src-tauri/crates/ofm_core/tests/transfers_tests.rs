@@ -4,6 +4,8 @@ mod bid_money;
 mod external;
 #[path = "transfers_tests/finance_integrity.rs"]
 mod finance_integrity;
+#[path = "transfers_tests/incoming_interest.rs"]
+mod incoming_interest;
 #[path = "transfers_tests/loans.rs"]
 mod loans;
 #[path = "transfers_tests/realism.rs"]
