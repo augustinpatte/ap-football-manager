@@ -71,6 +71,16 @@ calibrate_generated_to_division = true
 # Before inventing a filler, a club short of the floor promotes players of its own academy side (the save's
 # reserve and youth teams) to its senior squad, best rated first. Only what is still missing is generated.
 promote_academy_before_generating = true
+# Squad status (`contract.squad_status_code`) is undocumented in the save. 10, 11 and 13 are read as youth
+# statuses because, on the 2026-27 save, 99 % of the players registered with a club's own reserve or youth
+# side carry one of them and their mean ages are 19 to 20. Registration decides senior or academy; a
+# reserve-registered player of academy age whose status is another code AND whose ability reaches the
+# floor of his club's first team (the percentile below of its first-team registrations) is read as a
+# first-team player whose registration lags. Ability alone never promotes: elite prospects stay in academies.
+youth_status_codes = [10, 11, 13]
+senior_status_promotion = true
+senior_floor_percentile = 25
+senior_floor_min_players = 8
 
 [finance]
 # Une valeur FM n'est restaurée que si elle est compatible (budget salaires >= masse salariale hebdomadaire).

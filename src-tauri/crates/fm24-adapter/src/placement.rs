@@ -22,11 +22,21 @@
 //! * registered with any other club outside the perimeter: loan to a club the world does not contain;
 //! * contract outside the perimeter, registered with a club of the perimeter: he plays for that
 //!   club and is imported as its player (his owner is not in the world, so no loan can return him).
+//!
+//! # Senior or academy
+//!
+//! Registration decides: the first team is the senior squad, a reserve or youth side is the academy,
+//! and a player past the academy's age is senior. The save's **squad status** is the one other signal,
+//! and it is used only against the grain of the registration and only with evidence of level: a
+//! reserve-registered player of academy age whose status is *not* a youth status, and whose current
+//! ability reaches the floor of his club's first team, is read as a first-team player whose
+//! registration lags the status (`RoleEvidence`). Ability alone never promotes anybody: elite
+//! prospects belong to an academy, and nine in ten reserve-registered players carry a youth status.
 
 use crate::source::PlayerRow;
 use chrono::NaiveDate;
 use domain::player::SquadRole;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -68,6 +78,64 @@ pub struct Placement {
     pub role: SquadRole,
     /// Name of the borrower, kept for loans to clubs the world does not contain.
     pub borrower_name: Option<String>,
+    /// The role is senior although the player is registered with a reserve or youth side, because
+    /// his squad status and level say so (`RoleEvidence`). Reported, never silent.
+    pub senior_on_status: bool,
+}
+
+/// What the registration cannot say about a reserve-registered player of academy age.
+#[derive(Debug, Clone, Copy)]
+pub struct RoleEvidence<'a> {
+    /// Squad status codes read as youth statuses (`[squad] youth_status_codes`).
+    pub youth_status_codes: &'a [i64],
+    /// Switches the status rule off (`[squad] senior_status_promotion`).
+    pub senior_status_promotion: bool,
+    /// Per club, the current ability a first-team player of that club has at least. Absent when the
+    /// club has too few first-team registrations to say.
+    pub senior_floor_ca: &'a BTreeMap<i64, i64>,
+}
+
+impl RoleEvidence<'_> {
+    /// Does a player registered with `club`'s reserve or youth side look like a first-teamer?
+    fn reads_as_senior(&self, row: &PlayerRow, club: i64) -> bool {
+        self.senior_status_promotion
+            && row
+                .squad_status_code
+                .is_some_and(|code| code > 0 && !self.youth_status_codes.contains(&code))
+            && self
+                .senior_floor_ca
+                .get(&club)
+                .is_some_and(|floor| row.ca >= *floor)
+    }
+}
+
+/// The current ability a first-team player of each club of the perimeter has at least: the
+/// `percentile`th of the CA of the players registered with its first team (slot 0), for clubs with at
+/// least `min_players` of them.
+pub fn senior_floors(
+    rows: &[PlayerRow],
+    perimeter: &BTreeSet<i64>,
+    percentile: usize,
+    min_players: usize,
+) -> BTreeMap<i64, i64> {
+    let mut first_team: BTreeMap<i64, Vec<i64>> = BTreeMap::new();
+    for row in rows {
+        if let Some(club) = row.registered_club_id
+            && row.registered_slot == Some(0)
+            && perimeter.contains(&club)
+        {
+            first_team.entry(club).or_default().push(row.ca);
+        }
+    }
+    first_team
+        .into_iter()
+        .filter(|(_, abilities)| abilities.len() >= min_players)
+        .map(|(club, mut abilities)| {
+            abilities.sort_unstable();
+            let index = (abilities.len() - 1) * percentile.min(100) / 100;
+            (club, abilities[index])
+        })
+        .collect()
 }
 
 impl Placement {
@@ -216,6 +284,7 @@ pub fn place(
     affiliates: &BTreeSet<(i64, i64)>,
     on: NaiveDate,
     academy_max_age: i32,
+    evidence: &RoleEvidence<'_>,
 ) -> Option<Placement> {
     let contract = row.club_id;
     let contract_in = perimeter.contains(&contract);
@@ -226,11 +295,15 @@ pub fn place(
             .as_deref()
             .is_none_or(|dob| domain::age::age_on_or_unknown(on, dob) > academy_max_age)
     };
-    let role_at = |slot: Option<i64>| {
+    // The role of a player registered with `slot` of `club`'s teams, and whether the status rule (not
+    // the registration) made him senior.
+    let role_at = |slot: Option<i64>, club: i64| {
         if slot.is_none_or(|s| s == 0) || overage() {
-            SquadRole::Senior
+            (SquadRole::Senior, false)
+        } else if evidence.reads_as_senior(row, club) {
+            (SquadRole::Senior, true)
         } else {
-            SquadRole::Youth
+            (SquadRole::Youth, false)
         }
     };
     match registered {
@@ -242,21 +315,27 @@ pub fn place(
             } else {
                 row.team_slot
             };
+            let (role, senior_on_status) = role_at(slot, contract);
             Some(Placement {
                 kind: Kind::Own,
                 playing_club: contract,
                 owner_club: None,
-                role: role_at(slot),
+                role,
                 borrower_name: None,
+                senior_on_status,
             })
         }
-        Some(r) if contract_in && registered_in => Some(Placement {
-            kind: Kind::LoanInsideWorld,
-            playing_club: r,
-            owner_club: Some(contract),
-            role: role_at(row.registered_slot),
-            borrower_name: None,
-        }),
+        Some(r) if contract_in && registered_in => {
+            let (role, senior_on_status) = role_at(row.registered_slot, r);
+            Some(Placement {
+                kind: Kind::LoanInsideWorld,
+                playing_club: r,
+                owner_club: Some(contract),
+                role,
+                borrower_name: None,
+                senior_on_status,
+            })
+        }
         Some(r) if contract_in && affiliates.contains(&(contract, r)) && !overage() => {
             Some(Placement {
                 kind: Kind::AffiliateAcademy,
@@ -264,6 +343,7 @@ pub fn place(
                 owner_club: None,
                 role: SquadRole::Youth,
                 borrower_name: None,
+                senior_on_status: false,
             })
         }
         Some(r) if contract_in && affiliates.contains(&(contract, r)) => Some(Placement {
@@ -272,21 +352,30 @@ pub fn place(
             owner_club: Some(contract),
             role: SquadRole::Senior,
             borrower_name: row.registered_club_name.clone(),
+            senior_on_status: false,
         }),
-        Some(r) if contract_in => Some(Placement {
-            kind: Kind::LoanToOutsideClub,
-            playing_club: r,
-            owner_club: Some(contract),
-            role: role_at(row.registered_slot),
-            borrower_name: row.registered_club_name.clone(),
-        }),
-        Some(r) if registered_in => Some(Placement {
-            kind: Kind::LoanedInFromOutside,
-            playing_club: r,
-            owner_club: None,
-            role: role_at(row.registered_slot),
-            borrower_name: None,
-        }),
+        Some(r) if contract_in => {
+            let (role, senior_on_status) = role_at(row.registered_slot, r);
+            Some(Placement {
+                kind: Kind::LoanToOutsideClub,
+                playing_club: r,
+                owner_club: Some(contract),
+                role,
+                borrower_name: row.registered_club_name.clone(),
+                senior_on_status,
+            })
+        }
+        Some(r) if registered_in => {
+            let (role, senior_on_status) = role_at(row.registered_slot, r);
+            Some(Placement {
+                kind: Kind::LoanedInFromOutside,
+                playing_club: r,
+                owner_club: None,
+                role,
+                borrower_name: None,
+                senior_on_status,
+            })
+        }
         _ => None,
     }
 }
@@ -296,6 +385,16 @@ mod tests {
     use super::*;
     use crate::source::PlayerRow;
     use std::collections::BTreeMap;
+
+    /// No squad-status evidence at all: registration decides, as before the status rule existed.
+    fn no_evidence() -> RoleEvidence<'static> {
+        static EMPTY: BTreeMap<i64, i64> = BTreeMap::new();
+        RoleEvidence {
+            youth_status_codes: &[10, 11, 13],
+            senior_status_promotion: false,
+            senior_floor_ca: &EMPTY,
+        }
+    }
 
     fn day() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()
@@ -356,6 +455,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -374,6 +474,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!((p.kind, p.role), (Kind::Own, SquadRole::Youth));
@@ -388,6 +489,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(p.role, SquadRole::Senior);
@@ -403,6 +505,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -421,6 +524,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -439,6 +543,7 @@ mod tests {
             &BTreeSet::new(),
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -458,6 +563,7 @@ mod tests {
             &affiliates,
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -471,6 +577,7 @@ mod tests {
             &affiliates,
             day(),
             21,
+            &no_evidence(),
         )
         .unwrap();
         assert_eq!(
@@ -515,7 +622,8 @@ mod tests {
                 &world(),
                 &BTreeSet::new(),
                 day(),
-                21
+                21,
+                &no_evidence()
             )
             .is_none()
         );
@@ -526,15 +634,148 @@ mod tests {
     fn without_registration_the_contract_team_decides() {
         let mut r = row(498, None, "2000-01-01");
         r.team_slot = Some(1);
-        let p = place(&r, &world(), &BTreeSet::new(), day(), 21).unwrap();
+        let p = place(&r, &world(), &BTreeSet::new(), day(), 21, &no_evidence()).unwrap();
         assert_eq!((p.kind, p.role), (Kind::Own, SquadRole::Senior)); // 26 years old
         let mut young = row(498, None, "2007-01-01");
         young.team_slot = Some(1);
         assert_eq!(
-            place(&young, &world(), &BTreeSet::new(), day(), 21)
-                .unwrap()
-                .role,
+            place(
+                &young,
+                &world(),
+                &BTreeSet::new(),
+                day(),
+                21,
+                &no_evidence()
+            )
+            .unwrap()
+            .role,
             SquadRole::Youth
         );
+    }
+
+    /// A player registered with PSG's under-21 side (slot 1) at CA `ca`, with squad status `status`,
+    /// born in June 2005 (20 on the day the world starts).
+    fn reserve_player(ca: i64, status: Option<i64>) -> PlayerRow {
+        let mut r = row(498, Some((498, 1)), "2005-06-07");
+        r.ca = ca;
+        r.squad_status_code = status;
+        r
+    }
+
+    fn evidence_for(floors: &BTreeMap<i64, i64>) -> RoleEvidence<'_> {
+        RoleEvidence {
+            youth_status_codes: &[10, 11, 13],
+            senior_status_promotion: true,
+            senior_floor_ca: floors,
+        }
+    }
+
+    fn role_with(row: &PlayerRow, floors: &BTreeMap<i64, i64>) -> (SquadRole, bool) {
+        let p = place(
+            row,
+            &world(),
+            &BTreeSet::new(),
+            day(),
+            21,
+            &evidence_for(floors),
+        )
+        .unwrap();
+        (p.role, p.senior_on_status)
+    }
+
+    /// Given a 20-year-old registered with PSG's under-21 side whose status is a youth status and
+    /// whose ability is below the first team's floor (Mika Godts, CA 106, status 11, floor 127),
+    /// When placed,
+    /// Then he is an academy player: every signal agrees.
+    #[test]
+    fn a_reserve_player_with_a_youth_status_below_the_floor_stays_in_the_academy() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(106, Some(11)), &floors),
+            (SquadRole::Youth, false)
+        );
+    }
+
+    /// Given a reserve-registered 20-year-old with a youth status whose ability is above the floor,
+    /// When placed,
+    /// Then he is still an academy player: ability alone never promotes (elite prospects stay).
+    #[test]
+    fn a_high_ability_prospect_with_a_youth_status_is_not_promoted_by_ability_alone() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(150, Some(13)), &floors),
+            (SquadRole::Youth, false)
+        );
+    }
+
+    /// Given a reserve-registered 20-year-old with a non-youth status and a first-team level,
+    /// When placed,
+    /// Then he is a senior and the placement says the status made him one.
+    #[test]
+    fn a_reserve_player_with_a_senior_status_at_first_team_level_is_senior() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(128, Some(7)), &floors),
+            (SquadRole::Senior, true)
+        );
+    }
+
+    /// Given a reserve-registered teenager with a non-youth status code but a level far below the
+    /// first team's (status 21 in the save: CA 53 at 18),
+    /// When placed,
+    /// Then he stays in the academy: the code is not understood well enough to act on alone.
+    #[test]
+    fn a_senior_status_without_the_level_does_not_promote() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+
+        assert_eq!(
+            role_with(&reserve_player(53, Some(21)), &floors),
+            (SquadRole::Youth, false)
+        );
+    }
+
+    /// Given a club the floors cannot describe (too few first-team registrations),
+    /// When a reserve player has a senior status,
+    /// Then registration decides and he stays in the academy.
+    #[test]
+    fn without_a_floor_for_the_club_registration_decides() {
+        assert_eq!(
+            role_with(&reserve_player(140, Some(7)), &BTreeMap::new()),
+            (SquadRole::Youth, false)
+        );
+    }
+
+    /// Given a first-team registration with a youth status,
+    /// When placed,
+    /// Then he is senior: registration decides, the status rule only ever lifts.
+    #[test]
+    fn a_first_team_registration_with_a_youth_status_stays_senior() {
+        let floors: BTreeMap<i64, i64> = [(498, 127)].into_iter().collect();
+        let mut r = row(498, Some((498, 0)), "2005-06-07");
+        r.squad_status_code = Some(13);
+
+        assert_eq!(role_with(&r, &floors), (SquadRole::Senior, false));
+    }
+
+    /// Given the first-team registrations of a club, the floor is the configured percentile and a
+    /// club with too few has none.
+    #[test]
+    fn the_floor_is_a_percentile_of_the_first_team_and_needs_enough_players() {
+        let first_team = |club: i64, ca: i64| {
+            let mut r = row(club, Some((club, 0)), "1998-01-01");
+            r.ca = ca;
+            r
+        };
+        let mut rows: Vec<PlayerRow> = (0..8).map(|i| first_team(498, 100 + 10 * i)).collect();
+        rows.extend((0..3).map(|i| first_team(490, 150 + i)));
+        rows.push(reserve_player(60, Some(11))); // not first team: not counted
+
+        let floors = senior_floors(&rows, &world(), 25, 8);
+
+        assert_eq!(floors.get(&498), Some(&110)); // sorted 100, 110, ... 170: index 7 * 25 / 100 = 1
+        assert!(!floors.contains_key(&490));
     }
 }

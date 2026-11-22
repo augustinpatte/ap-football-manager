@@ -247,6 +247,17 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     let start_day = chrono::NaiveDate::parse_from_str(&cfg.start.date, "%Y-%m-%d")
         .map_err(|e| format!("start.date: {e}"))?;
     let affiliates = placement::affiliated_sides(&players, &unique_clubs);
+    let senior_floors = placement::senior_floors(
+        &players,
+        &unique_clubs,
+        cfg.squad.senior_floor_percentile,
+        cfg.squad.senior_floor_min_players,
+    );
+    let role_evidence = placement::RoleEvidence {
+        youth_status_codes: &cfg.squad.youth_status_codes,
+        senior_status_promotion: cfg.squad.senior_status_promotion,
+        senior_floor_ca: &senior_floors,
+    };
     for row in &players {
         let Some(placement) = placement::place(
             row,
@@ -254,6 +265,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
             &affiliates,
             start_day,
             ofm_core::roster::YOUTH_ACADEMY_MAX_AGE,
+            &role_evidence,
         ) else {
             journal.error(
                 "player.not_placed",
@@ -277,6 +289,23 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         if let Some(plan) = plan_player(row, placement, club, country, cfg, &refs, &mut journal) {
             plans.push(plan);
         }
+    }
+
+    let on_status: Vec<String> = plans
+        .iter()
+        .filter(|plan| plan.placement.senior_on_status)
+        .map(|plan| plan.def.id.clone())
+        .collect();
+    if !on_status.is_empty() {
+        journal.warn(
+            "squad.senior_on_status",
+            "world",
+            format!(
+                "{} reserve-registered players of academy age are senior because their squad status is not a youth status and their ability reaches their club's first-team floor: {}",
+                on_status.len(),
+                on_status.join(" ")
+            ),
+        );
     }
 
     // --- free agents: a bounded pool of the save's unattached players ----------------------------

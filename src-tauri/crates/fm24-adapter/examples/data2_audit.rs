@@ -464,6 +464,11 @@ fn main() -> Result<(), String> {
             "players_in_source": [run.total_players_in_source.0, run.total_players_in_source.1],
         },
         "placement_kinds": kinds,
+        "senior_on_status": run.plans.iter().filter(|p| p.placement.senior_on_status).map(|p| {
+            let row = source_of.get(p.def.id.as_str());
+            json!({"id": p.def.id, "name": p.def.last_name, "club": club_name.get(&fm24_adapter::ids::club(p.placement.playing_club)),
+                   "ca": row.map(|r| r.ca), "status": row.and_then(|r| r.squad_status_code)})
+        }).collect::<Vec<_>>(),
         "value_sources": value_sources,
         "contract_end_sources": end_sources,
         "imported_with_zero_value": missing_value,

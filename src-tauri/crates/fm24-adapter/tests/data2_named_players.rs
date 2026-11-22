@@ -152,3 +152,54 @@ fn comparable_players_are_not_systematically_inverted() {
             .all(|p| p.def.value.is_some_and(|v| v <= cap))
     );
 }
+
+/// Given the real save, where Mika Godts is registered with Paris Saint-Germain's under-21 side with
+/// a youth squad status and an ability (CA 106) below PSG's first-team floor,
+/// When the world is built,
+/// Then he is in the academy: the importer follows the save, and every signal in the save agrees
+/// (this is the cause of the owner's observation, not an importer defect).
+#[test]
+fn godts_is_in_the_academy_because_every_signal_in_the_save_says_so() {
+    let Some(run) = run() else { return };
+
+    let row = run
+        .players
+        .iter()
+        .find(|r| r.person_id == GODTS)
+        .expect("his source row");
+    let p = plan(run, GODTS);
+
+    assert_eq!(row.registered_slot, Some(1));
+    assert!(row.registered_is_youth);
+    assert_eq!(row.squad_status_code, Some(11));
+    assert_eq!(p.placement.role, domain::player::SquadRole::Youth);
+    assert!(!p.placement.senior_on_status);
+    let first_team_cas: Vec<i64> = run
+        .players
+        .iter()
+        .filter(|r| r.registered_club_id == row.registered_club_id && r.registered_slot == Some(0))
+        .map(|r| r.ca)
+        .collect();
+    assert!(
+        first_team_cas.iter().all(|ca| *ca > row.ca),
+        "below every first-teamer of his club"
+    );
+}
+
+/// Given every club of the real save,
+/// When the world is built,
+/// Then every blocking integrity check passes: viable squads, one effective club per player, no
+/// over-age academy player, no loaned player in his owner's lineup, nobody dropped or duplicated.
+#[test]
+fn every_blocking_integrity_check_passes_for_all_clubs() {
+    let Some(run) = run() else { return };
+
+    let failed: Vec<String> = fm24_adapter::checks::run_checks(run)
+        .into_iter()
+        .filter(|c| c.blocking && !c.ok)
+        .map(|c| format!("{}: {}", c.name, c.detail))
+        .collect();
+
+    assert!(failed.is_empty(), "{failed:?}");
+    assert_eq!(run.clubs.len(), 240);
+}

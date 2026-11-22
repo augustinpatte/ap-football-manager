@@ -438,7 +438,10 @@ impl Model {
                 self.band_estimated,
             ),
         };
-        value_eur = value_eur.max(self.minimum_value_eur);
+        // The floor is for values the model decides; a stored value kept as it is stays exact.
+        if provenance != Provenance::Source {
+            value_eur = value_eur.max(self.minimum_value_eur);
+        }
         if let Some(cap) = self.cap_eur {
             let squeezed = squeeze_below(value_eur, cap, self.cap_knee_share);
             if squeezed < value_eur {
@@ -701,6 +704,32 @@ mod tests {
         let stronger = model.value(&player(190, Source::Save(stronger_source)));
 
         assert!(stronger.value_eur > weaker.value_eur);
+    }
+
+    /// Given a stored value under the minimum that agrees with the estimate,
+    /// When valuing,
+    /// Then it is kept to the euro: the minimum only applies to values the model decides.
+    #[test]
+    fn the_minimum_never_overrides_a_stored_value_that_is_kept() {
+        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let weak = player(1, Source::Missing);
+        let estimate = model.estimate(&weak);
+        assert!(
+            estimate > 0 && estimate < cfg().minimum_value_eur,
+            "the premise: the estimate itself is under the minimum ({estimate})"
+        );
+
+        let kept = model.value(&Inputs {
+            source: Source::Save(estimate),
+            ..weak
+        });
+        let decided = model.value(&weak);
+
+        assert_eq!(
+            (kept.value_eur, kept.provenance),
+            (estimate, Provenance::Source)
+        );
+        assert_eq!(decided.value_eur, cfg().minimum_value_eur);
     }
 
     /// Given a player with no source value,

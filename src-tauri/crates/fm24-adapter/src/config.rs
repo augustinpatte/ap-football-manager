@@ -126,6 +126,15 @@ pub struct SquadCfg {
     pub trim_generated_to_floor: bool,
     pub calibrate_generated_to_division: bool,
     pub promote_academy_before_generating: bool,
+    /// FM squad status codes read as youth statuses (`placement::RoleEvidence`).
+    pub youth_status_codes: Vec<i64>,
+    /// Lets a non-youth squad status at first-team level lift a reserve-registered player of academy
+    /// age to the senior squad. `false` leaves registration the only signal.
+    pub senior_status_promotion: bool,
+    /// The floor of a club's first team is this percentile of its first-team registrations' ability.
+    pub senior_floor_percentile: usize,
+    /// A club with fewer first-team registrations than this has no floor, so no status promotion.
+    pub senior_floor_min_players: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]

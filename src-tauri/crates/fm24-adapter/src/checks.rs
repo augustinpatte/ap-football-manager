@@ -544,6 +544,59 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         "every club has >= 15 seniors and OFM's per-group floor",
     ));
 
+    // --- academy and loans: one effective club per player -------------------------------------------
+    let mut coherence_failures = Vec::new();
+    if let Ok(on) = chrono::NaiveDate::parse_from_str(&run.cfg.start.date, "%Y-%m-%d") {
+        for p in world.players.iter().filter(|p| p.id.starts_with("fm-p-")) {
+            if p.squad_role == SquadRole::Youth
+                && p.team_id.is_some()
+                && domain::age::age_on_or_unknown(on, &p.date_of_birth)
+                    > ofm_core::roster::YOUTH_ACADEMY_MAX_AGE
+            {
+                coherence_failures.push(format!(
+                    "{} is past the academy age but in the academy",
+                    p.id
+                ));
+            }
+            let Some(loan) = &p.active_loan else { continue };
+            if p.team_id.as_deref() != Some(loan.loan_team_id.as_str()) {
+                coherence_failures.push(format!(
+                    "{} is on loan to {} but plays for {:?}",
+                    p.id, loan.loan_team_id, p.team_id
+                ));
+            }
+            if loan.parent_team_id == loan.loan_team_id {
+                coherence_failures.push(format!("{} is on loan to his own club", p.id));
+            }
+            match world.teams.iter().find(|t| t.id == loan.parent_team_id) {
+                None => coherence_failures.push(format!(
+                    "{} has an owner ({}) that is not in the world",
+                    p.id, loan.parent_team_id
+                )),
+                Some(owner) => {
+                    let still_listed = owner.starting_xi_ids.contains(&p.id)
+                        || owner.player_roles.contains_key(&p.id)
+                        || owner
+                            .training_groups
+                            .iter()
+                            .any(|g| g.player_ids.contains(&p.id));
+                    if still_listed {
+                        coherence_failures.push(format!(
+                            "{} is on loan but still in his owner's lineup, roles or training",
+                            p.id
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    checks.push(check(
+        "squads.academy_and_loans_coherent",
+        true,
+        coherence_failures,
+        "no imported academy player is past the academy age; a loaned player plays for exactly one club (the borrower) and is in none of his owner's lineups",
+    ));
+
     let generated_marked: Vec<String> = world
         .players
         .iter()
