@@ -33,6 +33,7 @@ use crate::development::develop_one_season;
 use crate::external_registry::{ExternalClub, ExternalPlayer};
 use crate::player_rating::{natural_ovr, refresh_player_derived};
 use crate::seed::rng_for_seed;
+use crate::value_scale::{Standing, ValueScale};
 
 /// The largest number of new professional players one season may add to the market.
 ///
@@ -167,34 +168,26 @@ fn body_of(player: &ExternalPlayer, on: NaiveDate) -> Player {
 /// Market value at a season: a projection of current ability, ceiling and age, so a player cannot
 /// inflate by being valued once at 20 and then ageing without a revaluation.
 pub fn projected_market_value(ovr: u8, potential: u8, age: i32) -> u64 {
-    if ovr == 0 {
-        return 0;
-    }
-    let ability = f64::from(ovr);
-    let ceiling = f64::from(potential.max(ovr));
-    let youth = if age <= 21 {
-        1.6
-    } else if age <= 25 {
-        1.3
-    } else if age <= 29 {
-        1.0
-    } else if age <= 32 {
-        0.6
-    } else {
-        0.25
-    };
-    let growth = 1.0 + (ceiling - ability).max(0.0) / 100.0;
-    let value = (ability / 50.0).powi(3) * 2_000_000.0 * youth * growth;
-    value.max(0.0) as u64
+    crate::value_scale::native_value(ovr, potential, age)
 }
 
 /// The weekly wage a club of this level pays a player of this ability and age. Kept in one place so
 /// a renewal, a generated contract and the preview screen cannot disagree.
 pub fn projected_wage(ovr: u8, age: i32, club_reputation: i64) -> u32 {
+    projected_wage_on(&ValueScale::native(), ovr, age, club_reputation)
+}
+
+/// [`projected_wage`] on a world's own value scale: the pay of a player is a share of what he is
+/// worth, so a world whose values are on another scale has wages on that scale too.
+pub fn projected_wage_on(scale: &ValueScale, ovr: u8, age: i32, club_reputation: i64) -> u32 {
     if ovr == 0 {
         return 0;
     }
-    let value = projected_market_value(ovr, ovr, age) as f64;
+    let value = scale.value(Standing {
+        ovr,
+        potential: ovr,
+        age,
+    }) as f64;
     let youth = if age <= 21 {
         0.65
     } else if age <= 24 {
@@ -205,9 +198,16 @@ pub fn projected_wage(ovr: u8, age: i32, club_reputation: i64) -> u32 {
         1.05
     };
     let level = 0.75 + (club_reputation.clamp(0, 1000) as f64) / 2000.0;
+    // The floor is a minimum wage; the ceiling is the native world's top pay, and a world with a scale
+    // of its own (whose best players already earn more) gets room for its own.
+    let ceiling = if scale.is_calibrated() {
+        2_000_000.0
+    } else {
+        400_000.0
+    };
     (value / 420.0 * youth * level)
         .round()
-        .clamp(500.0, 400_000.0) as u32
+        .clamp(500.0, ceiling) as u32
 }
 
 /// The ability a club of this reputation is built around, used to decide whether a player is
@@ -405,6 +405,7 @@ fn evolve_contract(
     key: ExternalCareerKey,
     season: i32,
     clubs: &[ExternalClubRef],
+    scale: &ValueScale,
 ) -> Option<ExternalClub> {
     let end = season_end(season);
     let age = age_on(end, &player.date_of_birth);
@@ -429,7 +430,7 @@ fn evolve_contract(
                                 .format("%Y-%m-%d")
                                 .to_string(),
                         ),
-                        weekly_wage: projected_wage(body.ovr, age, choice.reputation),
+                        weekly_wage: projected_wage_on(scale, body.ovr, age, choice.reputation),
                         reputation: choice.reputation,
                     }
                 })
@@ -449,7 +450,8 @@ fn evolve_contract(
                             .format("%Y-%m-%d")
                             .to_string(),
                     );
-                    current.weekly_wage = projected_wage(body.ovr, age, current.reputation);
+                    current.weekly_wage =
+                        projected_wage_on(scale, body.ovr, age, current.reputation);
                     return Some(current);
                 }
                 return None;
@@ -469,7 +471,7 @@ fn evolve_contract(
                                 .format("%Y-%m-%d")
                                 .to_string(),
                         ),
-                        weekly_wage: projected_wage(body.ovr, age, choice.reputation),
+                        weekly_wage: projected_wage_on(scale, body.ovr, age, choice.reputation),
                         reputation: choice.reputation,
                     });
                 }
@@ -488,6 +490,7 @@ pub fn project_from(
     season: i32,
     clubs: &[ExternalClubRef],
     newgen: bool,
+    scale: &ValueScale,
 ) -> ProjectedExternalPlayer {
     let from = from_season.clamp(key.start_season, season);
     let to = season.clamp(from, from.saturating_add(MAX_CAREER_SEASONS));
@@ -512,20 +515,66 @@ pub fn project_from(
             retired = true;
             break;
         }
-        current = evolve_contract(player, &body, current, key, replay, clubs);
+        current = evolve_contract(player, &body, current, key, replay, clubs, scale);
     }
 
     let on = season_start(to);
     let age = age_on(on, &player.date_of_birth);
-    let market_value = projected_market_value(body.ovr, body.potential, age);
+    // He is carried, not re-priced: a value keeps the position it had on its world's scale and moves
+    // with what he has become. With no season replayed nothing has happened to him. Without a value
+    // (a newgen not yet priced) he takes the scale's value for a player like him.
+    let before = Standing {
+        ovr: player.ovr,
+        potential: player.potential,
+        age: age_on(season_start(from), &player.date_of_birth),
+    };
+    let after = Standing {
+        ovr: body.ovr,
+        potential: body.potential.max(body.ovr),
+        age,
+    };
+    let market_value = if to == from {
+        player.market_value
+    } else if player.market_value == 0 {
+        scale.value(after)
+    } else {
+        scale.carry(player.market_value, before, after)
+    };
     let mut projected = player.clone();
     projected.attributes = body.attributes;
     projected.ovr = body.ovr;
     projected.potential = body.potential.max(body.ovr);
     projected.market_value = market_value;
-    projected.club = current.map(|club| ExternalClub {
-        weekly_wage: projected_wage(body.ovr, age, club.reputation),
-        ..club
+    projected.club = current.map(|club| {
+        let unchanged = player
+            .club
+            .as_ref()
+            .is_some_and(|source| source.id == club.id && source.contract_end == club.contract_end);
+        // A contract that has not been renewed or replaced keeps its own pay, moved by the same
+        // ratio the formula gives between then and now; a new one was priced when it was signed.
+        let weekly_wage = match (&player.club, unchanged, to == from) {
+            (Some(source), true, false) if source.weekly_wage > 0 => {
+                let then = f64::from(projected_wage_on(
+                    scale,
+                    before.ovr,
+                    before.age,
+                    club.reputation,
+                ));
+                let now = f64::from(projected_wage_on(scale, body.ovr, age, club.reputation));
+                if then > 0.0 {
+                    (f64::from(source.weekly_wage) * now / then)
+                        .round()
+                        .max(1.0) as u32
+                } else {
+                    club.weekly_wage
+                }
+            }
+            _ => club.weekly_wage,
+        };
+        ExternalClub {
+            weekly_wage,
+            ..club
+        }
     });
     ProjectedExternalPlayer {
         player: projected,
@@ -541,8 +590,9 @@ pub fn project_player(
     key: ExternalCareerKey,
     season: i32,
     clubs: &[ExternalClubRef],
+    scale: &ValueScale,
 ) -> ProjectedExternalPlayer {
-    project_from(player, key, key.start_season, season, clubs, false)
+    project_from(player, key, key.start_season, season, clubs, false, scale)
 }
 
 const NEWGEN_POSITIONS: [Position; 10] = [
@@ -588,6 +638,7 @@ pub fn newgen_cohort(
     season: i32,
     clubs: &[ExternalClubRef],
     intake: usize,
+    scale: &ValueScale,
 ) -> Vec<ExternalPlayer> {
     let fallback;
     let pool = if clubs.is_empty() {
@@ -598,7 +649,7 @@ pub fn newgen_cohort(
     };
     let elite = elite_newgens_for(intake);
     (0..intake)
-        .filter_map(|index| newgen_one(key, season, index, pool, index < elite))
+        .filter_map(|index| newgen_one(key, season, index, pool, index < elite, scale))
         .collect()
 }
 
@@ -615,6 +666,7 @@ fn newgen_one(
     index: usize,
     clubs: &[ExternalClubRef],
     elite: bool,
+    scale: &ValueScale,
 ) -> Option<ExternalPlayer> {
     let mut rng = rng_for_seed(
         key.seed,
@@ -663,7 +715,7 @@ fn newgen_one(
                     .format("%Y-%m-%d")
                     .to_string(),
             ),
-            weekly_wage: projected_wage(player.ovr, age, club.reputation),
+            weekly_wage: projected_wage_on(scale, player.ovr, age, club.reputation),
             reputation: club.reputation,
         })
     } else {
@@ -683,7 +735,11 @@ fn newgen_one(
         attributes: player.attributes,
         ovr: player.ovr,
         potential: player.potential,
-        market_value: projected_market_value(player.ovr, player.potential, age),
+        market_value: scale.value(Standing {
+            ovr: player.ovr,
+            potential: player.potential,
+            age,
+        }),
         club: contract,
     })
 }
@@ -696,6 +752,7 @@ pub fn projected_market(
     key: ExternalCareerKey,
     season: i32,
     clubs: &[ExternalClubRef],
+    scale: &ValueScale,
 ) -> Vec<ProjectedExternalPlayer> {
     let mut market: Vec<(ExternalPlayer, bool)> = sources
         .iter()
@@ -706,7 +763,7 @@ pub fn projected_market(
     for replay in (start + 1)..=season {
         let mut retired = 0;
         market.retain_mut(|(external, newgen)| {
-            let projected = project_from(external, key, replay - 1, replay, clubs, *newgen);
+            let projected = project_from(external, key, replay - 1, replay, clubs, *newgen, scale);
             if projected.retired {
                 retired += 1;
                 return false;
@@ -714,7 +771,7 @@ pub fn projected_market(
             *external = projected.player;
             true
         });
-        for newgen in newgen_cohort(key, replay, clubs, newgen_intake_for(retired)) {
+        for newgen in newgen_cohort(key, replay, clubs, newgen_intake_for(retired), scale) {
             market.push((newgen, true));
         }
     }
@@ -814,8 +871,20 @@ mod tests {
     #[test]
     fn a_projection_is_identical_when_repeated() {
         let key = ExternalCareerKey::new(7, 2026);
-        let one = project_player(&player("fm-p-1", "2000-01-01", 65, 80), key, 2030, &clubs());
-        let two = project_player(&player("fm-p-1", "2000-01-01", 65, 80), key, 2030, &clubs());
+        let one = project_player(
+            &player("fm-p-1", "2000-01-01", 65, 80),
+            key,
+            2030,
+            &clubs(),
+            &ValueScale::native(),
+        );
+        let two = project_player(
+            &player("fm-p-1", "2000-01-01", 65, 80),
+            key,
+            2030,
+            &clubs(),
+            &ValueScale::native(),
+        );
         assert_eq!(one.player.ovr, two.player.ovr);
         assert_eq!(one.player.potential, two.player.potential);
         assert_eq!(one.player.market_value, two.player.market_value);
@@ -828,8 +897,20 @@ mod tests {
     #[test]
     fn two_careers_with_different_seeds_diverge() {
         let source = player("fm-p-1", "2000-01-01", 65, 80);
-        let a = project_player(&source, ExternalCareerKey::new(1, 2026), 2032, &clubs());
-        let b = project_player(&source, ExternalCareerKey::new(2, 2026), 2032, &clubs());
+        let a = project_player(
+            &source,
+            ExternalCareerKey::new(1, 2026),
+            2032,
+            &clubs(),
+            &ValueScale::native(),
+        );
+        let b = project_player(
+            &source,
+            ExternalCareerKey::new(2, 2026),
+            2032,
+            &clubs(),
+            &ValueScale::native(),
+        );
         assert!(
             a.player.ovr != b.player.ovr
                 || a.player.club != b.player.club
@@ -843,7 +924,13 @@ mod tests {
     #[test]
     fn a_young_player_develops_within_his_ceiling() {
         let source = player("fm-p-2", "2010-01-01", 52, 88);
-        let projected = project_player(&source, ExternalCareerKey::new(11, 2026), 2033, &clubs());
+        let projected = project_player(
+            &source,
+            ExternalCareerKey::new(11, 2026),
+            2033,
+            &clubs(),
+            &ValueScale::native(),
+        );
         assert!(projected.player.ovr > source.ovr);
         assert!(projected.player.ovr <= projected.player.potential);
         assert!(projected.player.potential >= source.potential.saturating_sub(4));
@@ -854,10 +941,31 @@ mod tests {
     #[test]
     fn an_old_player_declines_and_retires() {
         let source = player("fm-p-3", "1990-01-01", 72, 72);
-        let early = project_player(&source, ExternalCareerKey::new(3, 2026), 2029, &clubs());
-        let late = project_player(&source, ExternalCareerKey::new(3, 2026), 2034, &clubs());
+        let early = project_player(
+            &source,
+            ExternalCareerKey::new(3, 2026),
+            2029,
+            &clubs(),
+            &ValueScale::native(),
+        );
+        let late = project_player(
+            &source,
+            ExternalCareerKey::new(3, 2026),
+            2034,
+            &clubs(),
+            &ValueScale::native(),
+        );
         assert!(late.retired || late.player.ovr <= early.player.ovr);
-        assert!(project_player(&source, ExternalCareerKey::new(3, 2026), 2040, &clubs()).retired);
+        assert!(
+            project_player(
+                &source,
+                ExternalCareerKey::new(3, 2026),
+                2040,
+                &clubs(),
+                &ValueScale::native()
+            )
+            .retired
+        );
     }
 
     /// Given a retirement at one season, when the same player is projected further, then he never
@@ -868,7 +976,7 @@ mod tests {
         let source = player("fm-p-4", "1989-01-01", 70, 70);
         let mut saw_retired = false;
         for season in 2026..=2040 {
-            let projected = project_player(&source, key, season, &clubs());
+            let projected = project_player(&source, key, season, &clubs(), &ValueScale::native());
             if projected.retired {
                 saw_retired = true;
             } else {
@@ -947,8 +1055,8 @@ mod tests {
     fn newgens_are_unique_and_repeatable() {
         let key = ExternalCareerKey::new(21, 2026);
         let intake = 400;
-        let first = newgen_cohort(key, 2027, &clubs(), intake);
-        let second = newgen_cohort(key, 2027, &clubs(), intake);
+        let first = newgen_cohort(key, 2027, &clubs(), intake, &ValueScale::native());
+        let second = newgen_cohort(key, 2027, &clubs(), intake, &ValueScale::native());
         assert_eq!(first.len(), intake);
         assert_eq!(
             first.iter().map(|p| p.id.clone()).collect::<Vec<_>>(),
@@ -1003,7 +1111,7 @@ mod tests {
                 )
             })
             .collect();
-        let market = projected_market(&sources, key, 2056, &clubs());
+        let market = projected_market(&sources, key, 2056, &clubs(), &ValueScale::native());
         assert!(
             market.len() >= sources.len() * 9 / 10,
             "market collapsed: {} players",
@@ -1075,6 +1183,165 @@ mod tests {
         player
     }
 
+    fn calibrated() -> ValueScale {
+        crate::value_scale::sample_imported_scale()
+    }
+
+    /// A source player on an imported world's scale: his own value and pay, as the import gave them.
+    fn priced(
+        id: &str,
+        born: &str,
+        ovr: u8,
+        potential: u8,
+        value: u64,
+        wage: u32,
+    ) -> ExternalPlayer {
+        let mut p = player(id, born, ovr, potential);
+        p.market_value = value;
+        if let Some(club) = p.club.as_mut() {
+            club.weekly_wage = wage;
+            club.contract_end = Some("2031-06-30".to_string());
+        }
+        p
+    }
+
+    /// Given a star of an imported world (120 M, paid 400 k a week) on a long contract,
+    /// When he is projected one season on,
+    /// Then he keeps most of his value and pay: projection to another season is not a revaluation.
+    /// (Re-pricing him by the native formula gave him about a seventh of it.)
+    #[test]
+    fn a_star_of_an_imported_world_keeps_his_value_and_pay_when_projected() {
+        let star = priced("fm-p-star", "1999-03-01", 90, 92, 120_000_000, 400_000);
+        let key = ExternalCareerKey::new(7, 2026);
+
+        let next = project_from(&star, key, 2026, 2027, &clubs(), false, &calibrated());
+
+        assert!(!next.retired);
+        assert!(
+            next.player.market_value >= 60_000_000,
+            "{}",
+            next.player.market_value
+        );
+        assert!(
+            next.player.market_value <= 160_000_000,
+            "{}",
+            next.player.market_value
+        );
+        let wage = next.player.club.as_ref().map_or(0, |club| club.weekly_wage);
+        assert!((200_000..=700_000).contains(&wage), "{wage}");
+    }
+
+    /// Given an ordinary player of an imported world (300 k, paid 700 a week),
+    /// When he is projected a season on,
+    /// Then he is not inflated by orders of magnitude: the native formula would value him in millions.
+    #[test]
+    fn an_ordinary_player_of_an_imported_world_is_not_inflated_when_projected() {
+        let ordinary = priced("fm-p-ordinary", "1998-03-01", 62, 66, 300_000, 200);
+        let key = ExternalCareerKey::new(7, 2026);
+
+        let next = project_from(&ordinary, key, 2026, 2027, &clubs(), false, &calibrated());
+
+        assert!(
+            next.player.market_value <= 1_000_000,
+            "{}",
+            next.player.market_value
+        );
+        // Paid 200 a week, well under the formula's figure for a player of his level: he is still
+        // paid about that, not what the formula says (about four times as much).
+        let wage = next.player.club.as_ref().map_or(0, |club| club.weekly_wage);
+        assert!((150..=300).contains(&wage), "{wage}");
+        assert!(
+            crate::value_scale::native_value(62, 66, 28) > 2_000_000,
+            "the premise"
+        );
+    }
+
+    /// Given a world with no scale of its own (an older registry),
+    /// When a star is projected,
+    /// Then he still keeps his position on his own value, rather than falling to the native formula.
+    #[test]
+    fn a_world_without_a_scale_still_does_not_collapse_a_star() {
+        let star = priced("fm-p-star", "1999-03-01", 90, 92, 120_000_000, 400_000);
+        let key = ExternalCareerKey::new(7, 2026);
+
+        let next = project_from(
+            &star,
+            key,
+            2026,
+            2027,
+            &clubs(),
+            false,
+            &ValueScale::native(),
+        );
+
+        assert!(
+            next.player.market_value >= 60_000_000,
+            "{}",
+            next.player.market_value
+        );
+    }
+
+    /// Given a projection that replays no season (the snapshot's own season),
+    /// When it is read,
+    /// Then the value and the pay are exactly the source's.
+    #[test]
+    fn projecting_no_seasons_changes_neither_value_nor_pay() {
+        let star = priced("fm-p-star", "1999-03-01", 90, 92, 120_000_000, 400_000);
+        let key = ExternalCareerKey::new(7, 2026);
+
+        let same = project_from(&star, key, 2026, 2026, &clubs(), false, &calibrated());
+
+        assert_eq!(same.player.market_value, 120_000_000);
+        assert_eq!(
+            same.player.club.as_ref().map(|c| c.weekly_wage),
+            Some(400_000)
+        );
+    }
+
+    /// Given the same source and seed,
+    /// When projected five seasons on twice,
+    /// Then the value is the same: continuity is deterministic.
+    #[test]
+    fn a_projected_value_is_deterministic() {
+        let star = priced("fm-p-star", "1999-03-01", 90, 92, 120_000_000, 400_000);
+        let key = ExternalCareerKey::new(7, 2026);
+
+        let one = project_from(&star, key, 2026, 2031, &clubs(), false, &calibrated());
+        let two = project_from(&star, key, 2026, 2031, &clubs(), false, &calibrated());
+
+        assert_eq!(one.player.market_value, two.player.market_value);
+        assert_eq!(one.retired, two.retired);
+    }
+
+    /// Given a cohort of newgens in an imported world,
+    /// When they are generated,
+    /// Then each is worth what the world's scale says of a player like him, and as a group far
+    /// less than the native formula would have priced the same youth at.
+    #[test]
+    fn newgens_enter_on_the_worlds_scale() {
+        let key = ExternalCareerKey::new(7, 2026);
+        let scale = calibrated();
+
+        let cohort = newgen_cohort(key, 2027, &clubs(), 60, &scale);
+
+        assert!(!cohort.is_empty());
+        for newgen in &cohort {
+            let age = age_on(season_start(2027), &newgen.date_of_birth);
+            let standing = Standing {
+                ovr: newgen.ovr,
+                potential: newgen.potential,
+                age,
+            };
+            assert_eq!(newgen.market_value, scale.value(standing), "{}", newgen.id);
+        }
+        let on_scale: u64 = cohort.iter().map(|n| n.market_value).sum();
+        let native: u64 = newgen_cohort(key, 2027, &clubs(), 60, &ValueScale::native())
+            .iter()
+            .map(|n| n.market_value)
+            .sum();
+        assert!(on_scale * 3 < native, "{on_scale} vs {native}");
+    }
+
     fn advance_market(
         market: &mut Vec<ExternalPlayer>,
         key: ExternalCareerKey,
@@ -1090,6 +1357,7 @@ mod tests {
                 season,
                 clubs,
                 external.id.starts_with("fm-n-"),
+                &ValueScale::native(),
             );
             if projected.retired {
                 retirements += 1;
@@ -1098,8 +1366,9 @@ mod tests {
             *external = projected.player;
             true
         });
-        for newgen in newgen_cohort(key, season, clubs, newgen_intake_for(retirements)) {
-            let projected = project_from(&newgen, key, season, season, clubs, true);
+        let scale = ValueScale::native();
+        for newgen in newgen_cohort(key, season, clubs, newgen_intake_for(retirements), &scale) {
+            let projected = project_from(&newgen, key, season, season, clubs, true, &scale);
             if !projected.retired {
                 market.push(projected.player);
             }

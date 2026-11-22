@@ -17,7 +17,7 @@ use crate::finance::{self, FinanceRecord};
 use crate::free_agents::{self, FreeAgentPlan, PoolStats};
 use crate::ids;
 use crate::journal::Journal;
-use crate::passes::{apply_provenance, apply_valuation};
+use crate::passes::{apply_provenance, apply_valuation, fit_world_value_scale};
 use crate::placement::{self, Kind, Placement};
 use crate::positions;
 use crate::refs::{Refs, ShortCodes};
@@ -95,6 +95,9 @@ pub struct Run {
     pub free_agent_plans: Vec<FreeAgentPlan>,
     pub free_agent_stats: PoolStats,
     pub valuation: ValuationSummary,
+    /// The world's value scale, fitted from the players this import valued; the native one when the
+    /// world is too small to fit.
+    pub value_scale: ofm_core::value_scale::ValueScale,
     pub staff_plans: Vec<(ofm_core::generator::StaffDef, i64)>,
     pub managers: Vec<(String, i64)>,
     pub manager_clubs_missing: Vec<i64>,
@@ -312,11 +315,11 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         &mut plans,
         &mut free_agent_plans,
         &players,
-        &clubs,
         cfg,
         start_day,
         &mut journal,
     );
+    let value_scale = fit_world_value_scale(&plans, cfg, start_day).unwrap_or_default();
 
     // --- staff and managers --------------------------------------------------------------------
     let country_of = |club_id: i64| club_country.get(&club_id).cloned();
@@ -426,6 +429,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     if cfg.squad.calibrate_generated_to_division {
         calibrate_generated_players(&mut world, &clubs, &mut journal);
     }
+    reprice_generated_players(&mut world, &value_scale, start_day);
     apply_free_agent_wages(&mut world, &free_agent_plans);
     apply_staff_contracts(&mut world, &staff_rows, cfg);
     apply_managers(&mut world, &chosen_managers, &refs, cfg, &mut journal);
@@ -458,6 +462,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         free_agent_plans,
         free_agent_stats,
         valuation,
+        value_scale,
         staff_plans,
         managers,
         manager_clubs_missing,
@@ -1043,6 +1048,26 @@ fn apply_loans(
         ),
     );
     applied
+}
+
+/// A filler OFM generated is priced by OFM's own formula, a few million for a middling player, on a
+/// world whose ordinary players are worth a few hundred thousand. Once he is calibrated to his
+/// division he is valued on the world's own scale, like the players around him.
+fn reprice_generated_players(
+    world: &mut WorldData,
+    scale: &ofm_core::value_scale::ValueScale,
+    on: chrono::NaiveDate,
+) {
+    if !scale.is_calibrated() {
+        return;
+    }
+    for player in world.players.iter_mut().filter(|p| !is_imported(&p.id)) {
+        player.market_value = scale.value(ofm_core::value_scale::Standing {
+            ovr: player.ovr,
+            potential: player.potential.max(player.ovr),
+            age: domain::age::age_on_or_unknown(on, &player.date_of_birth),
+        });
+    }
 }
 
 /// The level and pay of OFM's generated fillers, brought down to the division they play in.

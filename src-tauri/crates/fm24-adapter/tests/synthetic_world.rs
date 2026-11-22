@@ -655,9 +655,11 @@ fn the_valuation_pass_is_wired_into_the_pipeline() {
         !moved.is_empty(),
         "the model must move at least one value of a noisy world"
     );
+    // At least one moved value really differs from the save's: the pass writes the value, not only
+    // the label (a world whose stored values are all alike may leave others within rounding).
     assert!(
-        moved.iter().all(|p| p.def.value != p.value_in_source_eur),
-        "a moved value differs from the save's"
+        moved.iter().any(|p| p.def.value != p.value_in_source_eur),
+        "no moved value differs from the save's"
     );
     assert!(
         run.plans
@@ -668,13 +670,9 @@ fn the_valuation_pass_is_wired_into_the_pipeline() {
     let labels: std::collections::BTreeSet<&str> =
         run.valuation.by_provenance.keys().copied().collect();
     assert!(
-        labels.iter().all(|l| [
-            "save",
-            "save (ramenée à l'estimation)",
-            "estimée (modèle)",
-            "plafonnée (capacité d'achat)"
-        ]
-        .contains(l)),
+        labels
+            .iter()
+            .all(|l| ["save", "save (ramenée à l'estimation)", "estimée (modèle)"].contains(l)),
         "{labels:?}"
     );
     let failed: Vec<_> = checks::run_checks(&run)

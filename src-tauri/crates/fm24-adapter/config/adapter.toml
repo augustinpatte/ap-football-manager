@@ -130,8 +130,19 @@ trust_save_below = 1.5
 # A value the save generated from its own regression is a model output, not an observation.
 trust_estimated = 0.25
 minimum_value_eur = 10000
-# Financial affordability: a price no club of the world could pay is not a market value. The richest
-# transfer budget of the save is about 181 M EUR; the game never spends more than 60 % of a budget on one
-# player and asks up to 1.5x the value, so the whole budget is already a generous ceiling.
-affordability_cap_share = 1.0
-affordability_knee_share = 0.7
+# A player's value is his own, not a club's: no budget bounds it. Whether a club can afford him is judged
+# per buyer by the game (cash, transfer budget, wage room), which is where affordability belongs.
+
+[value_scale]
+# The world's value scale (src/valuation.rs `fit_value_scale`), fitted from the players this import has valued:
+# the median value of prime-age players at ratings 30, 35 ... 95, and the median value of each age against that
+# curve. Every price made later (a newgen's, a renewed contract's wage) is read from it, and a value carried from
+# one season to the next moves by its ratio, so a projection no longer re-prices a player on another scale.
+first_anchor = 30
+last_anchor = 95
+anchor_step = 5
+window = 2
+min_per_anchor = 5
+min_per_age = 20
+prime_age_from = 26
+prime_age_to = 29

@@ -9,7 +9,7 @@ use crate::ids;
 use crate::journal::Journal;
 use crate::pipeline::PlayerPlan;
 use crate::placement::Kind;
-use crate::source::{ClubRow, PlayerRow};
+use crate::source::PlayerRow;
 use ofm_core::generator::WorldData;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -21,7 +21,6 @@ pub struct ValuationSummary {
     pub fitted: bool,
     pub fitted_on: usize,
     pub residual_mad: f64,
-    pub cap_eur: Option<u64>,
     /// Players by provenance label.
     pub by_provenance: BTreeMap<&'static str, usize>,
 }
@@ -33,12 +32,11 @@ pub(crate) fn apply_valuation(
     plans: &mut [PlayerPlan],
     free_agent_plans: &mut [FreeAgentPlan],
     rows: &[PlayerRow],
-    clubs: &[ClubRow],
     cfg: &Config,
     on: chrono::NaiveDate,
     journal: &mut Journal,
 ) -> ValuationSummary {
-    use crate::valuation::{self, Inputs, Model, Source};
+    use crate::valuation::{Inputs, Model, Source};
     let by_person: BTreeMap<i64, &PlayerRow> = rows.iter().map(|r| (r.person_id, r)).collect();
     // Plans are in person-id order (the source query sorts by it), which fixes the fitting order.
     let inputs: Vec<Option<Inputs>> = plans
@@ -56,12 +54,8 @@ pub(crate) fn apply_valuation(
         })
         .collect();
     let samples: Vec<Inputs> = inputs.iter().flatten().copied().collect();
-    let cap = valuation::affordability_cap(clubs, cfg);
-    let mut summary = ValuationSummary {
-        cap_eur: cap,
-        ..ValuationSummary::default()
-    };
-    let Some(model) = Model::fit(&samples, cap, &cfg.valuation) else {
+    let mut summary = ValuationSummary::default();
+    let Some(model) = Model::fit(&samples, &cfg.valuation) else {
         journal.warn(
             "valuation.not_fitted",
             "world",
@@ -105,15 +99,39 @@ pub(crate) fn apply_valuation(
         "world",
         format!(
             "model fitted on {} saved values (median absolute residual {:.3} in log units); \
-             ceiling {:?} EUR; {} players valued, by provenance: {:?}",
+             {} players valued, by provenance: {:?}",
             model.fitted_on,
             model.residual_mad,
-            cap,
             plans.len() + free_agent_plans.len(),
             summary.by_provenance
         ),
     );
     summary
+}
+
+/// The world's value scale (`valuation::fit_value_scale`), fitted on the players this import has just
+/// valued whose owner is a club of the world (a player loaned in from outside is left out: the
+/// registry fits the same population, so the world and its external market share one scale).
+/// `None` for a world too small to place anchors, which then keeps the native formula.
+pub(crate) fn fit_world_value_scale(
+    plans: &[PlayerPlan],
+    cfg: &Config,
+    on: chrono::NaiveDate,
+) -> Option<ofm_core::value_scale::ValueScale> {
+    use crate::valuation::{ScaleSample, fit_value_scale};
+    let samples: Vec<ScaleSample> = plans
+        .iter()
+        .filter(|plan| plan.placement.kind != Kind::LoanedInFromOutside)
+        .filter_map(|plan| {
+            Some(ScaleSample {
+                ovr: plan.ovr_expected,
+                potential: plan.def.potential?,
+                age: domain::age::age_on_or_unknown(on, plan.def.date_of_birth.as_deref()?),
+                value_eur: plan.def.value?,
+            })
+        })
+        .collect();
+    fit_value_scale(&samples, &cfg.value_scale)
 }
 
 /// Records what the save can and cannot say about each imported player.

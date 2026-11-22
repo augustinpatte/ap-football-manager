@@ -28,6 +28,7 @@ use ofm_core::external_world::{
     ExternalCareerKey, ExternalClubRef, MAX_NEWGEN_INTAKE_PER_SEASON, newgen_cohort,
     newgen_intake_for, project_from, projection_season,
 };
+use ofm_core::value_scale::ValueScale;
 use rusqlite::{Connection, OpenFlags, params};
 
 use crate::ids;
@@ -137,6 +138,13 @@ pub fn ensure_career_cache(
     }
 
     let clubs = source_clubs(&source)?;
+    // The registry's own value scale, so a projection carries every price on the world's scale. A
+    // registry from before scales existed has none and reads as the native one, which still anchors
+    // every player at his own value.
+    let value_scale: ValueScale = source_meta
+        .get("value_scale")
+        .and_then(|json| serde_json::from_str(json).ok())
+        .unwrap_or_default();
     let staging = staging_path(&path);
     let _ = std::fs::remove_file(&staging);
     let rebuilt = existing.is_none_or(|cached| cached > season);
@@ -153,7 +161,7 @@ pub fn ensure_career_cache(
 
     if season > advanced_from {
         let mut conn = open_write(&staging)?;
-        advance(&mut conn, key, advanced_from, season, &clubs)?;
+        advance(&mut conn, key, advanced_from, season, &clubs, &value_scale)?;
         drop(conn);
     }
     // A cache shrinks as source players retire; without this the file keeps the free pages of
@@ -593,6 +601,7 @@ fn advance(
     from_season: i32,
     to_season: i32,
     clubs: &[ExternalClubRef],
+    scale: &ValueScale,
 ) -> crate::Result<()> {
     for season in (from_season + 1)..=to_season {
         let rows = read_rows(conn)?;
@@ -608,7 +617,8 @@ fn advance(
                 continue;
             };
             let is_newgen = row.ofm_id.starts_with("fm-n-");
-            let projected = project_from(&external, key, season - 1, season, clubs, is_newgen);
+            let projected =
+                project_from(&external, key, season - 1, season, clubs, is_newgen, scale);
             if projected.retired {
                 retirements += 1;
                 continue;
@@ -619,11 +629,12 @@ fn advance(
         // One-for-one replacement: the market is a population, so a season that lost players gets
         // the same number of new ones. The fixed D7B2 intake shrank the searchable market by ~77%
         // over thirty seasons; sizing births to deaths keeps it stable without inflating quality.
-        for (index, newgen) in newgen_cohort(key, season, clubs, newgen_intake_for(retirements))
-            .into_iter()
-            .enumerate()
+        for (index, newgen) in
+            newgen_cohort(key, season, clubs, newgen_intake_for(retirements), scale)
+                .into_iter()
+                .enumerate()
         {
-            let projected = project_from(&newgen, key, season, season, clubs, true);
+            let projected = project_from(&newgen, key, season, season, clubs, true, scale);
             if projected.retired {
                 continue;
             }

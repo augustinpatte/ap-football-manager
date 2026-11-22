@@ -382,32 +382,6 @@ impl Source {
             .map_err(|e| e.to_string())
     }
 
-    /// The largest starting transfer budget (GBP) among `club_ids`, if the save records any. A source
-    /// with no finance table has none, which only means there is no affordability ceiling to apply.
-    pub fn largest_transfer_budget_gbp(&self, club_ids: &[i64]) -> Result<Option<i64>> {
-        let has_table: i64 = self
-            .conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'club_finance_start'",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())?;
-        if has_table == 0 {
-            return Ok(None);
-        }
-        let list = id_list(club_ids);
-        self.conn
-            .query_row(
-                &format!(
-                    "SELECT MAX(transfer_budget_gbp) FROM club_finance_start WHERE club_id IN ({list})"
-                ),
-                [],
-                |r| r.get(0),
-            )
-            .map_err(|e| e.to_string())
-    }
-
     pub fn competitions(&self, ids: &[i64]) -> Result<Vec<CompetitionRow>> {
         let list = id_list(ids);
         let sql = format!(

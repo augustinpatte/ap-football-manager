@@ -109,6 +109,7 @@ mod test_support;
 pub mod training;
 pub mod transfers;
 pub mod turn;
+pub mod value_scale;
 pub mod world;
 pub mod world_cup;
 pub mod world_integrity;

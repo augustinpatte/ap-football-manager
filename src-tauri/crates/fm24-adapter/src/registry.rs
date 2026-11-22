@@ -24,7 +24,7 @@ use crate::journal::Journal;
 use crate::pipeline::convert_player;
 use crate::refs::Refs;
 use crate::source::{PlayerRow, Source};
-use crate::valuation::{Inputs, Model};
+use crate::valuation::{Inputs, Model, ScaleSample, fit_value_scale};
 use chrono::NaiveDate;
 use domain::player::{Footedness, PlayerAttributes, Position};
 use ofm_core::external_registry::{ExternalClub, ExternalPlayer, MAX_EXTERNAL_AGE, asking_price};
@@ -158,16 +158,18 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
     let source = Source::open(world_db)?;
     let facts = source.schema_facts()?;
     let source_sha256 = Source::sha256(world_db)?;
-    let perimeter_pairs = source.perimeter(facts.start_season)?;
-    let perimeter: HashSet<i64> = perimeter_pairs.iter().map(|(_, club)| *club).collect();
+    let perimeter: HashSet<i64> = source
+        .perimeter(facts.start_season)?
+        .into_iter()
+        .map(|(_, club)| club)
+        .collect();
     let cfg = Config::default_config();
     let refs = Refs::embedded()?;
     let built_on = NaiveDate::parse_from_str(&cfg.start.date, "%Y-%m-%d")
         .map_err(|_| "be.error.fm24.registryBuildFailed".to_string())?;
     let rows = source.every_player()?;
     let players_seen = rows.len();
-    let valuation_model =
-        fit_valuation(&source, &perimeter_pairs, &rows, &perimeter, &cfg, built_on)?;
+    let valuation_model = fit_valuation(&rows, &perimeter, &cfg, built_on);
 
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
@@ -198,6 +200,7 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
         elapsed_ms: 0,
     };
     let mut journal = Journal::default();
+    let mut scale_samples: Vec<ScaleSample> = Vec::new();
     {
         let transaction = conn
             .transaction()
@@ -340,6 +343,18 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
                         ),
                     },
                 };
+                // The world's value scale is fitted on the players of its clubs, as the import fits it.
+                if perimeter.contains(&row.club_id)
+                    && market_value > 0
+                    && let (Some(converted), Some(birth)) = (&converted, row.birth_date.as_deref())
+                {
+                    scale_samples.push(ScaleSample {
+                        ovr: converted.ovr,
+                        potential: converted.potential,
+                        age: domain::age::age_on_or_unknown(built_on, birth),
+                        value_eur: market_value,
+                    });
+                }
                 let wage_eur = cfg.to_eur(row.wage_gbp_week).max(0) as u64;
                 let club_name = if row.club_id > 0 {
                     row.club_name.clone()
@@ -435,8 +450,14 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
             .map_err(|_| "be.error.fm24.registryBuildFailed".to_string())?;
     }
 
+    let value_scale = fit_value_scale(&scale_samples, &cfg.value_scale).unwrap_or_default();
     let meta = [
         ("schema_version", REGISTRY_SCHEMA_VERSION.to_string()),
+        (
+            "value_scale",
+            serde_json::to_string(&value_scale)
+                .map_err(|_| "be.error.fm24.registryBuildFailed".to_string())?,
+        ),
         ("source_sha256", source_sha256),
         ("source_game_version", facts.game_version.clone()),
         ("source_importer_version", facts.importer_version.clone()),
@@ -537,21 +558,14 @@ pub(crate) fn footedness_name(foot: &Footedness) -> &'static str {
 }
 
 /// The valuation model of the imported world, fitted on the same population (a contract or a
-/// registration inside the perimeter, in person-id order) with the same ceiling, so the registry and
+/// registration inside the perimeter, in person-id order) so the registry and
 /// the world cannot disagree about a player. `None` when the source is too small to calibrate on.
 fn fit_valuation(
-    source: &Source,
-    perimeter_pairs: &[(i64, i64)],
     rows: &[PlayerRow],
     perimeter: &HashSet<i64>,
     cfg: &Config,
     on: NaiveDate,
-) -> crate::Result<Option<Model>> {
-    let club_ids: Vec<i64> = perimeter_pairs.iter().map(|(_, club)| *club).collect();
-    let cap = crate::valuation::affordability_cap_from_budget(
-        source.largest_transfer_budget_gbp(&club_ids)?,
-        cfg,
-    );
+) -> Option<Model> {
     let samples: Vec<Inputs> = rows
         .iter()
         .filter(|row| {
@@ -572,7 +586,7 @@ fn fit_valuation(
             ))
         })
         .collect();
-    Ok(Model::fit(&samples, cap, &cfg.valuation))
+    Model::fit(&samples, &cfg.valuation)
 }
 
 /// Accent-folded lowercase text for substring search. Stored, so a search never needs a custom

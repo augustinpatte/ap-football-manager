@@ -42,8 +42,9 @@
 //! source, configuration and build give the same world file", not more.
 
 use crate::config::{Config, ValuationCfg};
-use crate::source::{ClubRow, PlayerRow};
+use crate::source::PlayerRow;
 use chrono::NaiveDate;
+use ofm_core::value_scale::{FIRST_AGE, VALUE_SCALE_VERSION, ValueScale, quality};
 
 /// The position group a value is modelled on. A goalkeeper's market is not an outfielder's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,22 +152,105 @@ pub fn contract_end_for(row: &PlayerRow, cfg: &Config) -> String {
     }
 }
 
-/// What the richest club of the world could pay for one player: its largest transfer budget (GBP,
-/// as the save states it) in euros, times `cfg.valuation.affordability_cap_share`. `None` when no
-/// club has a budget.
-pub fn affordability_cap_from_budget(richest_gbp: Option<i64>, cfg: &Config) -> Option<u64> {
-    let richest = cfg.to_eur(richest_gbp?).max(0);
-    (richest > 0).then_some((richest as f64 * cfg.valuation.affordability_cap_share) as u64)
+/// One player the value scale is fitted on: what he is and what the import valued him at.
+#[derive(Debug, Clone, Copy)]
+pub struct ScaleSample {
+    pub ovr: u8,
+    pub potential: u8,
+    pub age: i32,
+    pub value_eur: u64,
 }
 
-/// [`affordability_cap_from_budget`] for the clubs already read from the source.
-pub fn affordability_cap(clubs: &[ClubRow], cfg: &Config) -> Option<u64> {
-    let richest = clubs
+fn median_ln(mut values: Vec<f64>) -> f64 {
+    values.sort_by(f64::total_cmp);
+    values[values.len() / 2]
+}
+
+/// Fits the world's value scale from the players the import has valued: the prime-age value at each
+/// anchor rating (the median of the logarithms of the values within the window, made
+/// non-decreasing), and, for each age, the median of each player's value over the curve's value
+/// for him. `None` when there are too few prime-age players to place four anchors, in which case the
+/// world keeps the native formula. Deterministic: medians of sorted values, in a fixed order.
+pub fn fit_value_scale(
+    samples: &[ScaleSample],
+    cfg: &crate::config::ValueScaleCfg,
+) -> Option<ValueScale> {
+    let prime: Vec<&ScaleSample> = samples
         .iter()
-        .filter_map(|club| club.finance.as_ref())
-        .map(|finance| finance.transfer_budget_gbp)
-        .max();
-    affordability_cap_from_budget(richest, cfg)
+        .filter(|s| s.value_eur > 0 && (cfg.prime_age_from..=cfg.prime_age_to).contains(&s.age))
+        .collect();
+    let mut anchors: Vec<(u8, f64)> = Vec::new();
+    let mut rating = cfg.first_anchor;
+    while rating <= cfg.last_anchor {
+        let near: Vec<f64> = prime
+            .iter()
+            .filter(|s| s.ovr.abs_diff(rating) <= cfg.window)
+            .map(|s| (s.value_eur as f64).ln())
+            .collect();
+        if near.len() >= cfg.min_per_anchor {
+            let floor = anchors.last().map_or(f64::MIN, |(_, ln)| *ln);
+            anchors.push((rating, median_ln(near).max(floor)));
+        }
+        rating = rating.saturating_add(cfg.anchor_step.max(1));
+        if rating == u8::MAX {
+            break;
+        }
+    }
+    if anchors.len() < 4 {
+        return None;
+    }
+    let curve_only = ValueScale {
+        version: VALUE_SCALE_VERSION,
+        anchors: anchors
+            .iter()
+            .map(|(rating, ln)| (*rating, round_three_figures(ln.exp())))
+            .collect(),
+        age_factors: vec![1000],
+    };
+    // Each age's factor: the median of value / curve over the players of that age.
+    let ages = (FIRST_AGE..=FIRST_AGE + 24).collect::<Vec<i32>>();
+    let mut factors: Vec<Option<f64>> = Vec::with_capacity(ages.len());
+    for age in &ages {
+        let ratios: Vec<f64> = samples
+            .iter()
+            .filter(|s| s.value_eur > 0 && s.age == *age)
+            .filter_map(|s| {
+                let priced = curve_only.prime_value(quality(s.ovr, s.potential, s.age));
+                (priced > 0.0).then(|| (s.value_eur as f64 / priced).ln())
+            })
+            .collect();
+        factors.push((ratios.len() >= cfg.min_per_age).then(|| median_ln(ratios).exp()));
+    }
+    // An age with too few players takes the nearest age that has enough.
+    let known: Vec<(usize, f64)> = factors
+        .iter()
+        .enumerate()
+        .filter_map(|(i, f)| f.map(|f| (i, f)))
+        .collect();
+    if known.is_empty() {
+        return None;
+    }
+    let age_factors = (0..ages.len())
+        .map(|i| {
+            let nearest = known
+                .iter()
+                .min_by_key(|(j, _)| j.abs_diff(i))
+                .map_or(1.0, |(_, f)| *f);
+            (nearest * 1000.0).round().clamp(20.0, 3000.0) as u32
+        })
+        .collect();
+    Some(ValueScale {
+        age_factors,
+        ..curve_only
+    })
+}
+
+fn round_three_figures(value: f64) -> u64 {
+    if value < 1.0 {
+        return 0;
+    }
+    let magnitude = 10f64.powi(value.log10().floor() as i32 - 2);
+    ((value / magnitude).round() * magnitude) as u64
 }
 
 /// Where a value came from, for the import report.
@@ -178,8 +262,6 @@ pub enum Provenance {
     PulledToEstimate,
     /// No usable source value: the estimate.
     Estimate,
-    /// Reduced to what the richest club of the world could pay.
-    Capped,
 }
 
 impl Provenance {
@@ -188,7 +270,6 @@ impl Provenance {
             Provenance::Source => "save",
             Provenance::PulledToEstimate => "save (ramenée à l'estimation)",
             Provenance::Estimate => "estimée (modèle)",
-            Provenance::Capped => "plafonnée (capacité d'achat)",
         }
     }
 }
@@ -314,23 +395,6 @@ fn round_significant(value: f64) -> f64 {
     (value / magnitude).round() * magnitude
 }
 
-/// Keeps `value` below `cap` without making the best players tie at it: unchanged up to the knee
-/// (`knee_share` of the cap), then bent towards the cap, which it only approaches. The bend is
-/// rational (`x / (1 + x)`), not exponential: it saturates slowly enough that a value twice the
-/// ceiling and one three times it still differ. Strictly increasing, so it never reorders players.
-fn squeeze_below(value: u64, cap: u64, knee_share: f64) -> u64 {
-    let knee = (cap as f64 * knee_share).floor();
-    let value = value as f64;
-    if value <= knee {
-        return value as u64;
-    }
-    let room = cap as f64 - knee;
-    let excess = (value - knee) / room;
-    (knee + room * excess / (1.0 + excess))
-        .floor()
-        .min(cap as f64) as u64
-}
-
 /// A fitted valuation model.
 #[derive(Debug, Clone)]
 pub struct Model {
@@ -340,8 +404,6 @@ pub struct Model {
     band_save_above: f64,
     band_save_below: f64,
     band_estimated: f64,
-    cap_eur: Option<u64>,
-    cap_knee_share: f64,
     minimum_value_eur: u64,
     /// How many rows the fit used and the median absolute residual of the save values: the
     /// reliability of the source, in log units.
@@ -354,7 +416,7 @@ impl Model {
     /// Fits the model on the rows that carry a `save` value. `None` when there are fewer than
     /// `cfg.min_samples` of them (or the fit is degenerate): the caller keeps the source values.
     /// `cap_eur` is the largest sum a club of the world could pay.
-    pub fn fit(samples: &[Inputs], cap_eur: Option<u64>, cfg: &ValuationCfg) -> Option<Self> {
+    pub fn fit(samples: &[Inputs], cfg: &ValuationCfg) -> Option<Self> {
         let known: Vec<(Row, f64)> = samples
             .iter()
             .filter_map(|inputs| match inputs.source {
@@ -403,8 +465,6 @@ impl Model {
             band_save_above: cfg.trust_save * residual_mad,
             band_save_below: cfg.trust_save_below * residual_mad,
             band_estimated: cfg.trust_estimated * residual_mad,
-            cap_eur,
-            cap_knee_share: cfg.affordability_knee_share,
             minimum_value_eur: cfg.minimum_value_eur,
             fitted_on: rows.len(),
             residual_mad,
@@ -427,7 +487,7 @@ impl Model {
     pub fn value(&self, inputs: &Inputs) -> Valuation {
         let log_estimate = dot(&self.coefficients, &features(inputs));
         let estimate_eur = round_significant(log_estimate.exp()) as u64;
-        let (mut value_eur, mut provenance) = match inputs.source {
+        let (mut value_eur, provenance) = match inputs.source {
             Source::Missing | Source::Save(0) | Source::Estimated(0) => {
                 (estimate_eur, Provenance::Estimate)
             }
@@ -447,13 +507,6 @@ impl Model {
         // The floor is for values the model decides; a stored value kept as it is stays exact.
         if provenance != Provenance::Source {
             value_eur = value_eur.max(self.minimum_value_eur);
-        }
-        if let Some(cap) = self.cap_eur {
-            let squeezed = squeeze_below(value_eur, cap, self.cap_knee_share);
-            if squeezed < value_eur {
-                value_eur = squeezed;
-                provenance = Provenance::Capped;
-            }
         }
         Valuation {
             value_eur,
@@ -597,8 +650,8 @@ mod tests {
     fn the_same_rows_give_the_same_values() {
         let rows = population(1_500);
 
-        let first = Model::fit(&rows, None, &cfg()).expect("fits");
-        let second = Model::fit(&rows, None, &cfg()).expect("fits");
+        let first = Model::fit(&rows, &cfg()).expect("fits");
+        let second = Model::fit(&rows, &cfg()).expect("fits");
 
         for row in rows.iter().take(200) {
             assert_eq!(first.value(row), second.value(row));
@@ -610,7 +663,7 @@ mod tests {
     /// Then there is no model and the caller keeps the source values.
     #[test]
     fn too_few_rows_give_no_model() {
-        assert!(Model::fit(&population(20), None, &cfg()).is_none());
+        assert!(Model::fit(&population(20), &cfg()).is_none());
     }
 
     /// Given a fitted model,
@@ -618,7 +671,7 @@ mod tests {
     /// Then his estimate is never lower, whatever his ability (the estimate has no inversions).
     #[test]
     fn the_estimate_never_falls_as_ability_rises() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
 
         let mut previous = 0;
         for ca in (70..=190).step_by(10) {
@@ -633,7 +686,7 @@ mod tests {
     /// Then the source value is returned exactly and labelled as such.
     #[test]
     fn a_source_value_near_the_estimate_is_kept_exactly() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(140, Source::Missing));
         let near = estimate + estimate / 20;
 
@@ -649,7 +702,7 @@ mod tests {
     /// was pulled in.
     #[test]
     fn an_inflated_source_value_is_pulled_to_the_edge_of_the_trusted_band() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(150, Source::Missing));
         let source = estimate * 5;
 
@@ -664,7 +717,7 @@ mod tests {
     /// Then the value is raised to the edge of the band, never past the estimate.
     #[test]
     fn a_deflated_source_value_is_raised_but_not_to_the_estimate() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(150, Source::Missing));
 
         let valuation = model.value(&player(150, Source::Save(estimate / 8)));
@@ -679,7 +732,7 @@ mod tests {
     /// Then it is kept as it is: a deflated value is raised only when severely deflated.
     #[test]
     fn a_moderately_deflated_source_value_is_kept() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(150, Source::Missing));
         let source = estimate * 6 / 10;
 
@@ -695,7 +748,7 @@ mod tests {
     /// Then the stronger is worth more: the order of the source's noise does not survive.
     #[test]
     fn a_source_inversion_between_comparable_players_is_resolved_by_ability() {
-        let model = Model::fit(&population(4_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(4_000), &cfg()).expect("fits");
         let weaker_estimate = model.estimate(&player(155, Source::Missing));
         let stronger_estimate = model.estimate(&player(190, Source::Missing));
 
@@ -717,7 +770,7 @@ mod tests {
     /// Then it is kept to the euro: the minimum only applies to values the model decides.
     #[test]
     fn the_minimum_never_overrides_a_stored_value_that_is_kept() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let weak = player(1, Source::Missing);
         let estimate = model.estimate(&weak);
         assert!(
@@ -743,7 +796,7 @@ mod tests {
     /// Then he gets the estimate, labelled as one.
     #[test]
     fn a_missing_value_takes_the_estimate() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
 
         let valuation = model.value(&player(120, Source::Missing));
 
@@ -757,47 +810,12 @@ mod tests {
         );
     }
 
-    /// Given a cap and values above it,
-    /// When valuing,
-    /// Then every value stays under the cap, the label says so, and a better player is still worth
-    /// more than a lesser one (the cap bends the top, it does not flatten it into a tie).
-    #[test]
-    fn no_value_exceeds_what_the_richest_club_can_pay_and_stars_do_not_tie() {
-        let model = Model::fit(&population(3_000), Some(1_000_000), &cfg()).expect("fits");
-
-        let lesser = model.value(&player(160, Source::Missing));
-        let better = model.value(&player(190, Source::Missing));
-
-        assert!(better.value_eur <= 1_000_000 && lesser.value_eur <= 1_000_000);
-        assert!(better.value_eur > lesser.value_eur);
-        assert_eq!(better.provenance, Provenance::Capped);
-    }
-
-    /// Given a ceiling with a knee at 60% of it,
-    /// When values below and far above it are squeezed,
-    /// Then nothing changes below the knee, the order is strictly kept above it, and two and three
-    /// times the ceiling still differ.
-    #[test]
-    fn the_ceiling_is_unchanged_below_its_knee_and_strictly_increasing_above() {
-        assert_eq!(squeeze_below(500_000, 1_000_000, 0.6), 500_000);
-        let mut previous = 0;
-        for value in (600_000..=20_000_000).step_by(400_000) {
-            let squeezed = squeeze_below(value, 1_000_000, 0.6);
-            assert!(squeezed > previous && squeezed <= 1_000_000, "{value}");
-            previous = squeezed;
-        }
-        // Two and three times the ceiling still differ by a visible amount.
-        let two = squeeze_below(2_000_000, 1_000_000, 0.6);
-        let three = squeeze_below(3_000_000, 1_000_000, 0.6);
-        assert!(three - two > 20_000, "{two} {three}");
-    }
-
     /// Given a value the save generated itself,
     /// When it disagrees with the estimate by the same amount as a stored one,
     /// Then it is pulled in harder: it is trusted less.
     #[test]
     fn a_generated_source_value_is_trusted_less_than_a_stored_one() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(140, Source::Missing));
         let source = estimate * 2;
 
@@ -814,7 +832,7 @@ mod tests {
     #[test]
     fn valuation_removes_most_inversions_between_comparable_players() {
         let rows = population(6_000);
-        let model = Model::fit(&rows, None, &cfg()).expect("fits");
+        let model = Model::fit(&rows, &cfg()).expect("fits");
         let as_source = |rows: &[Inputs]| -> Vec<Comparable> {
             rows.iter()
                 .enumerate()
@@ -958,22 +976,6 @@ mod tests {
         );
     }
 
-    /// Given a budget in pounds and the configured share,
-    /// When the ceiling is computed,
-    /// Then it is that share of the budget in euros, and a world with no budget has none.
-    #[test]
-    fn the_ceiling_is_the_configured_share_of_the_richest_budget_in_euros() {
-        let mut cfg = crate::config::Config::default_config();
-        cfg.valuation.affordability_cap_share = 0.5;
-
-        assert_eq!(
-            affordability_cap_from_budget(Some(1_000_000), &cfg),
-            Some(585_000)
-        );
-        assert_eq!(affordability_cap_from_budget(None, &cfg), None);
-        assert_eq!(affordability_cap_from_budget(Some(0), &cfg), None);
-    }
-
     /// Given a stored value and a generated value that deviate from the estimate by the same
     /// amount, inside the stored band but outside the generated one,
     /// When valued,
@@ -982,7 +984,7 @@ mod tests {
     #[test]
     fn a_deviation_inside_the_stored_band_but_outside_the_generated_one_is_pulled_only_when_generated()
      {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
         let estimate = model.estimate(&player(140, Source::Missing)) as f64;
         // Between the two bands, above the estimate: wider than the generated band, narrower than the stored one.
         let between = (model.band_estimated + model.band_save_above) / 2.0;
@@ -1001,7 +1003,7 @@ mod tests {
     /// Then it is treated as missing and takes the estimate.
     #[test]
     fn a_stored_zero_is_a_missing_value() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
 
         assert_eq!(
             model.value(&player(120, Source::Save(0))),
@@ -1018,11 +1020,118 @@ mod tests {
     /// Then the stronger is worth strictly more: the estimate is not flat.
     #[test]
     fn the_estimate_rises_strictly_with_ability() {
-        let model = Model::fit(&population(3_000), None, &cfg()).expect("fits");
+        let model = Model::fit(&population(3_000), &cfg()).expect("fits");
 
         assert!(
             model.estimate(&player(190, Source::Missing))
                 > 10 * model.estimate(&player(70, Source::Missing))
         );
+    }
+
+    fn scale_cfg() -> crate::config::ValueScaleCfg {
+        crate::config::Config::default_config().value_scale
+    }
+
+    /// Players whose value follows a known law: e^(8 + 0.12 * rating) at prime age, halved at 33, a
+    /// third at 19 for a player with no ceiling. Deterministic, with a little multiplicative scatter.
+    fn scale_population() -> Vec<ScaleSample> {
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = move || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 33) as f64 / (1u64 << 31) as f64
+        };
+        let mut out = Vec::new();
+        for _ in 0..30_000 {
+            let ovr = 35 + (next() * 60.0) as u8;
+            let age = 17 + (next() * 20.0) as i32;
+            let law = (8.0 + 0.12 * f64::from(ovr)).exp()
+                * match age {
+                    ..=19 => 0.33,
+                    20..=25 => 0.8,
+                    26..=29 => 1.0,
+                    30..=32 => 0.7,
+                    _ => 0.5,
+                };
+            let scatter = ((next() - 0.5) * 0.3).exp();
+            out.push(ScaleSample {
+                ovr,
+                potential: ovr,
+                age,
+                value_eur: (law * scatter) as u64,
+            });
+        }
+        out
+    }
+
+    /// Given players valued by a known law,
+    /// When the scale is fitted,
+    /// Then each anchor recovers the law's prime-age value within the scatter, anchors rise with
+    /// rating, and the age factors fall for the very young and for veterans.
+    #[test]
+    fn the_fitted_scale_recovers_the_law_it_was_given() {
+        let scale = fit_value_scale(&scale_population(), &scale_cfg()).expect("fits");
+
+        assert!(scale.is_calibrated());
+        // (The anchors on the population's edges see a window of one side only.)
+        for (rating, value) in scale
+            .anchors
+            .iter()
+            .filter(|(rating, _)| (40..=90).contains(rating))
+        {
+            let law = (8.0 + 0.12 * f64::from(*rating)).exp();
+            assert!(
+                (*value as f64 / law - 1.0).abs() < 0.12,
+                "{rating}: {value} vs {law}"
+            );
+        }
+        assert!(scale.anchors.windows(2).all(|w| w[0].1 <= w[1].1));
+        let factor = |age: i32| f64::from(scale.age_factors[(age - FIRST_AGE) as usize]) / 1000.0;
+        assert!((factor(27) - 1.0).abs() < 0.1, "{}", factor(27));
+        assert!(factor(18) < 0.5, "{}", factor(18));
+        assert!(factor(35) < 0.65, "{}", factor(35));
+    }
+
+    /// Given the same samples in any order,
+    /// When the scale is fitted twice,
+    /// Then it is identical: a world file and a registry built apart share one scale.
+    #[test]
+    fn the_fit_does_not_depend_on_the_order_of_the_samples() {
+        let samples = scale_population();
+        let mut reversed = samples.clone();
+        reversed.reverse();
+
+        assert_eq!(
+            fit_value_scale(&samples, &scale_cfg()),
+            fit_value_scale(&reversed, &scale_cfg())
+        );
+    }
+
+    /// Given too few prime-age players to place four anchors,
+    /// When the scale is fitted,
+    /// Then there is none and the world keeps the native formula.
+    #[test]
+    fn too_few_players_give_no_scale() {
+        let few: Vec<ScaleSample> = scale_population().into_iter().take(40).collect();
+
+        assert_eq!(fit_value_scale(&few, &scale_cfg()), None);
+    }
+
+    /// Given the fitted scale and a player of the law,
+    /// When he is valued on it,
+    /// Then the value is close to the law's: the scale reproduces the world it was fitted on.
+    #[test]
+    fn the_scale_values_a_player_like_the_world_it_came_from() {
+        let scale = fit_value_scale(&scale_population(), &scale_cfg()).expect("fits");
+
+        let value = scale.value(ofm_core::value_scale::Standing {
+            ovr: 80,
+            potential: 80,
+            age: 27,
+        });
+        let law = (8.0 + 0.12 * 80.0_f64).exp();
+
+        assert!((value as f64 / law - 1.0).abs() < 0.15, "{value} vs {law}");
     }
 }

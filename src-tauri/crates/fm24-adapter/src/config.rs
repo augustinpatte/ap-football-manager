@@ -19,8 +19,28 @@ pub struct Config {
     pub finance: FinanceCfg,
     pub free_agents: FreeAgentsCfg,
     pub valuation: ValuationCfg,
+    pub value_scale: ValueScaleCfg,
     #[serde(default)]
     pub competitions: CompetitionsCfg,
+}
+
+/// How the world's value scale is fitted from its own players (`valuation::fit_value_scale`): the
+/// curve every later price of a world's player (a newgen's, a renewed contract's) is read from.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ValueScaleCfg {
+    /// Ratings at which the prime-age value is read, from `first_anchor` to `last_anchor` every `anchor_step`.
+    pub first_anchor: u8,
+    pub last_anchor: u8,
+    pub anchor_step: u8,
+    /// Players within this many rating points of an anchor inform it.
+    pub window: u8,
+    /// An anchor needs this many prime-age players; a rating with fewer is skipped.
+    pub min_per_anchor: usize,
+    /// An age's factor needs this many players of that age; a lacking age takes its neighbour's.
+    pub min_per_age: usize,
+    /// Prime age, inclusive: the ages whose players fix the curve.
+    pub prime_age_from: i32,
+    pub prime_age_to: i32,
 }
 
 /// How an imported player's estimated market value is set (`valuation.rs`).
@@ -43,11 +63,6 @@ pub struct ValuationCfg {
     pub trust_estimated: f64,
     /// A player of the world is never valued below this (euros).
     pub minimum_value_eur: u64,
-    /// No value exceeds this share of the largest transfer budget of any club of the world.
-    pub affordability_cap_share: f64,
-    /// Below this share of the ceiling a value is untouched; above it values are bent towards the
-    /// ceiling without ever reaching it, so the best players do not tie.
-    pub affordability_knee_share: f64,
 }
 
 /// How the competitions are built.

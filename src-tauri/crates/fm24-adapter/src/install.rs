@@ -22,7 +22,11 @@ use std::path::{Path, PathBuf};
 /// imported player is marked as having no earlier career, and a club outside the world that owns a
 /// player's contract is kept by name. These change the players of a new career, not those of a career
 /// already saved, which keeps what it was given.
-pub const WORLD_REVISION: u32 = 7;
+/// Revision 8 (REALISM3): no budget bounds a player's value any more (a value is the player's, and a
+/// club's capacity is judged per buyer); the world carries no scale of its own in the file, but the
+/// registry carries the value scale fitted from the world's players, so the external market is
+/// projected, and its newgens priced, on the same scale; generated fillers are valued on it too.
+pub const WORLD_REVISION: u32 = 8;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]
@@ -172,7 +176,7 @@ mod tests {
         let status = install_status(&databases);
 
         assert!(status.installed && status.outdated);
-        assert_eq!((status.revision, status.current_revision), (Some(6), 7));
+        assert_eq!((status.revision, status.current_revision), (Some(6), 8));
         assert_eq!(
             std::fs::read_to_string(&installed).unwrap(),
             "world of revision 6"

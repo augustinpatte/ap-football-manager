@@ -99,8 +99,7 @@ fn a_stored_value_that_agrees_with_comparable_players_is_kept_exactly() {
 /// Given the whole real save,
 /// When every imported player is valued,
 /// Then clearly-ordered comparable pairs are inverted at least five times less often than in the
-/// stored values, and under one pair in a hundred; and nobody is worth more than the richest club's
-/// transfer budget.
+/// stored values, and under one pair in a hundred; and the best players are not squeezed to a common value.
 #[test]
 #[ignore = "needs APFM_WORLD_DB: the real world.db, never in the repository"]
 fn comparable_players_are_not_systematically_inverted() {
@@ -150,14 +149,15 @@ fn comparable_players_are_not_systematically_inverted() {
     );
     assert!(after * 5 < raw, "{after} inversions after, {raw} before");
     assert!(after * 100 < pairs, "{after} of {pairs}");
-    let cap = run
-        .valuation
-        .cap_eur
-        .expect("the save carries transfer budgets");
-    assert!(
-        run.plans
-            .iter()
-            .all(|p| p.def.value.is_some_and(|v| v <= cap))
+    // No club's budget bounds a value: the best players are not squeezed to a common figure.
+    let mut top: Vec<u64> = run.plans.iter().filter_map(|p| p.def.value).collect();
+    top.sort_unstable_by(|a, b| b.cmp(a));
+    let top: Vec<u64> = top.into_iter().take(10).collect();
+    let distinct: std::collections::BTreeSet<&u64> = top.iter().collect();
+    assert_eq!(
+        distinct.len(),
+        top.len(),
+        "the ten best values are all different: {top:?}"
     );
 }
 

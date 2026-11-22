@@ -634,20 +634,32 @@ fn adapter_report(
             r,
             "Modèle log-linéaire ajusté sur {} valeurs de la save (résidu absolu médian {:.3} en unités log). \
              La valeur de la save est gardée telle quelle tant qu'elle reste entre -{} et +{} fois ce résidu autour de l'estimation, \
-             ramenée au bord de cette bande au-delà ; plafond de capacité d'achat : {} €.\n",
+             ramenée au bord de cette bande au-delà. Aucun budget de club ne borne une valeur.\n",
             run.valuation.fitted_on,
             run.valuation.residual_mad,
             run.cfg.valuation.trust_save_below,
             run.cfg.valuation.trust_save,
-            run.valuation
-                .cap_eur
-                .map_or_else(|| "aucun".to_string(), |cap| cap.to_string()),
         );
     } else {
         let _ = writeln!(
             r,
             "Aucun modèle ajusté (moins de {} valeurs de la save) : les valeurs de la save sont gardées telles quelles.\n",
             run.cfg.valuation.min_samples
+        );
+    }
+    if run.value_scale.is_calibrated() {
+        let _ = writeln!(
+            r,
+            "Échelle de valeur du monde : {} points d'ancrage (de {} à {} de note), {} facteurs d'âge. Les valeurs sont portées d'une saison à l'autre par le rapport de cette échelle, et les recrues générées y sont évaluées.\n",
+            run.value_scale.anchors.len(),
+            run.value_scale.anchors.first().map_or(0, |a| a.0),
+            run.value_scale.anchors.last().map_or(0, |a| a.0),
+            run.value_scale.age_factors.len(),
+        );
+    } else {
+        let _ = writeln!(
+            r,
+            "Aucune échelle de valeur ajustée (monde trop petit) : la formule native sert d'échelle.\n"
         );
     }
     let _ = writeln!(r, "| Provenance | Joueurs |\n|---|---|");
