@@ -76,6 +76,9 @@ fn main() -> Result<(), String> {
     let [world_db, scratch, out] = args.as_slice() else {
         return Err("usage: data2_audit <world.db> <scratch-dir> <out.json>".to_string());
     };
+    if Path::new(out) == Path::new(world_db) || Path::new(scratch) == Path::new(world_db) {
+        return Err("the output and scratch paths must not be the source database".to_string());
+    }
     let mut cfg = Config::default_config();
     // Exploration only: `DATA2_TRUST_SAVE=1.0` re-runs the audit with another trust band.
     if let Some(trust) = std::env::var("DATA2_TRUST_SAVE")

@@ -19,6 +19,7 @@ pub mod free_agents;
 pub mod ids;
 pub mod install;
 pub mod journal;
+pub mod passes;
 pub mod pipeline;
 pub mod placement;
 pub mod positions;

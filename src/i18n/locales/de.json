@@ -1919,7 +1919,7 @@
     "loanTermsEstimatedNote": "Die Daten halten fest, dass der Spieler ausgeliehen ist, aber nicht die Konditionen. Enddatum und Gehaltsanteil sind Schätzungen, keine Vertragsfakten.",
     "loanTermsUnrecordedNote": "Woher die Konditionen dieser Leihe stammen, wurde nicht festgehalten.",
     "outsideOwnerNote": "Vertrag gehalten von {{owner}}, einem Klub außerhalb der simulierten Ligen. Der Spieler bleibt bei {{team}}: {{owner}} wird nicht simuliert, daher ist keine Rückkehr geplant.",
-    "careerUnavailable": "In den Daten, aus denen APFM gebaut wurde, gibt es keinen belegten Werdegang dieses Spielers vor diesem Spiel, daher wird keiner angezeigt. In diesem Spiel gespielte Saisons erscheinen hier.",
+    "careerUnavailable": "In den Daten, aus denen AP Football Manager gebaut wurde, gibt es keinen belegten Werdegang dieses Spielers vor diesem Spiel, daher wird keiner angezeigt. In diesem Spiel gespielte Saisons erscheinen hier.",
     "attributes": "Attribute",
     "attributesHidden": "Attribute verborgen",
     "scoutToView": "Scoute oder verpflichte diesen Spieler, um die Attribute zu sehen.",

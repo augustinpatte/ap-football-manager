@@ -565,6 +565,14 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
                     p.id, loan.loan_team_id, p.team_id
                 ));
             }
+            if !world.teams.iter().any(|t| t.id == loan.loan_team_id)
+                && loan.loan_team_name.is_none()
+            {
+                coherence_failures.push(format!(
+                    "{} is on loan to {} which is neither a team of the world nor named",
+                    p.id, loan.loan_team_id
+                ));
+            }
             if loan.parent_team_id == loan.loan_team_id {
                 coherence_failures.push(format!("{} is on loan to his own club", p.id));
             }

@@ -269,6 +269,12 @@ impl Player {
                 entry.kind,
                 PlayerMovementKind::Released | PlayerMovementKind::Retired
             );
+        // The source's claim that a club outside the world owns him described the world as it was
+        // imported. Any real movement supersedes it; the opening contract the game writes when a
+        // career starts is not a movement.
+        if entry.kind != PlayerMovementKind::InitialContract {
+            self.provenance.outside_owner = None;
+        }
         self.movement_history.entries.push(entry);
         // Only an entry that can change the contract may replace a staged one: a loan
         // passing through must leave it as it is.
@@ -503,6 +509,53 @@ mod tests {
             ..PlayerMovementEntry::new(date, kind)
         })
         .unwrap();
+    }
+
+    fn owned_from_outside(p: &mut Player) {
+        p.provenance.outside_owner = Some(crate::player::OutsideOwner {
+            club_id: "fm-c-1".to_string(),
+            club_name: "Outside FC".to_string(),
+        });
+    }
+
+    /// Given a player the source has owned by a club outside the world,
+    /// When any real movement is recorded (a renewal, a transfer, a release),
+    /// Then the source's claim about his owner is dropped: it described the world as it was
+    /// imported, and a profile must not keep asserting it once he has moved or signed anew.
+    #[test]
+    fn a_recorded_movement_ends_the_sources_outside_owner() {
+        for kind in [
+            PlayerMovementKind::Renewal,
+            PlayerMovementKind::PermanentTransfer,
+            PlayerMovementKind::Released,
+            PlayerMovementKind::FreeAgentSigning,
+        ] {
+            let mut p = player();
+            owned_from_outside(&mut p);
+
+            p.record_movement(entry("2026-09-01", kind.clone(), None))
+                .unwrap();
+
+            assert_eq!(p.provenance.outside_owner, None, "{kind:?}");
+        }
+    }
+
+    /// Given the same player,
+    /// When only the opening contract is recorded (the game writes one when a career starts),
+    /// Then the owner is kept: nothing has happened to him yet.
+    #[test]
+    fn the_opening_contract_does_not_end_the_sources_outside_owner() {
+        let mut p = player();
+        owned_from_outside(&mut p);
+
+        p.record_movement(entry(
+            "2026-06-01",
+            PlayerMovementKind::InitialContract,
+            None,
+        ))
+        .unwrap();
+
+        assert!(p.provenance.outside_owner.is_some());
     }
 
     /// Given a player who moved to club B, then renewed there, and was loaned out and came back

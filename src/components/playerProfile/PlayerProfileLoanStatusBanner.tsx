@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowRightLeft, BadgeEuro, CalendarDays, Percent } from "lucide-react";
+import { ArrowRightLeft, BadgeEuro, CalendarDays, Percent } from "lucide-react";
 import type { TOptions } from "i18next";
 
 import { formatDate } from "../../lib/dateFormatting";
@@ -59,12 +59,7 @@ export default function PlayerProfileLoanStatusBanner({
               <p className="font-heading text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("playerProfile.loanStatus")}
               </p>
-              <PlayerProfileOwnerToClub
-                ownerName={parentTeamName}
-                clubName={loanTeamName}
-                separator={<ArrowRight aria-hidden="true" className="h-4 w-4 text-gray-400" />}
-                t={t}
-              />
+              <PlayerProfileOwnerToClub ownerName={parentTeamName} clubName={loanTeamName} t={t} />
             </div>
           </div>
           <div className="grid gap-2 text-xs text-gray-500 dark:text-gray-400 sm:grid-cols-3 sm:text-right">
@@ -92,7 +87,7 @@ export default function PlayerProfileLoanStatusBanner({
           </div>
         </div>
         {note ? (
-          <p className="mt-3 text-caption text-fg-muted">
+          <p className="mt-3 text-body text-fg-muted">
             {t(
               note === "estimated"
                 ? "playerProfile.loanTermsEstimatedNote"

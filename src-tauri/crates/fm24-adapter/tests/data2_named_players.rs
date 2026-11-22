@@ -356,3 +356,49 @@ fn moscardos_loan_names_both_clubs_and_marks_its_terms_as_estimated() {
         "every loan the importer made is marked as estimated"
     );
 }
+
+/// Given the real save,
+/// When both the imported world and the external registry are built from it,
+/// Then every player of the world has the same market value in the registry: one model, one rule,
+/// so a player is worth the same wherever he is looked up.
+#[test]
+fn the_registry_and_the_world_value_every_player_alike() {
+    let Some(run) = run() else { return };
+    let source = PathBuf::from(std::env::var_os("APFM_WORLD_DB").expect("set, since run() built"));
+    let dir = tempfile::tempdir().expect("temp dir");
+    let registry = dir.path().join("registry.db");
+    fm24_adapter::registry::build_registry(&source, &registry).expect("the registry builds");
+    let conn = rusqlite::Connection::open_with_flags(
+        &registry,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .expect("opens the registry");
+
+    let mut compared = 0;
+    let mut differing = Vec::new();
+    for plan in &run.plans {
+        let stored: Option<i64> = conn
+            .query_row(
+                "SELECT market_value_eur FROM registry_player WHERE person_id = ?1",
+                [plan.person_id],
+                |r| r.get(0),
+            )
+            .ok();
+        let Some(stored) = stored else { continue };
+        compared += 1;
+        if Some(stored as u64) != plan.def.value {
+            differing.push(format!(
+                "{}: registry {stored}, world {:?}",
+                plan.def.id, plan.def.value
+            ));
+        }
+    }
+
+    assert!(compared > 9_000, "compared {compared}");
+    assert!(
+        differing.is_empty(),
+        "{} of {compared} differ, e.g. {:?}",
+        differing.len(),
+        &differing[..differing.len().min(5)]
+    );
+}

@@ -1,4 +1,4 @@
-import { ArrowRight, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import type { TOptions } from "i18next";
 
 import { Card, CardBody } from "../ui";
@@ -28,14 +28,9 @@ export default function PlayerProfileOutsideOwnerBanner({
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-500/10">
             <Building2 className="h-5 w-5 text-primary-500" />
           </div>
-          <PlayerProfileOwnerToClub
-            ownerName={ownerName}
-            clubName={teamName}
-            separator={<ArrowRight aria-hidden="true" className="h-4 w-4 text-gray-400" />}
-            t={t}
-          />
+          <PlayerProfileOwnerToClub ownerName={ownerName} clubName={teamName} t={t} />
         </div>
-        <p className="mt-3 text-caption text-fg-muted">
+        <p className="mt-3 text-body text-fg-muted">
           {t("playerProfile.outsideOwnerNote", { owner: ownerName, team: teamName })}
         </p>
       </CardBody>

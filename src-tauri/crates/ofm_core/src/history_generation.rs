@@ -544,14 +544,6 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
             continue;
         }
 
-        // A real player the source has no career for: nothing is invented about him, neither a
-        // season at his current club, nor stats (which would let him win a historical award), nor
-        // a trophy. A season a world file did record is kept below, as for anyone else.
-        if player.provenance.earlier_career == domain::player::EarlierCareer::Unavailable {
-            player.stats = PlayerSeasonStats::default();
-            continue;
-        }
-
         // A season the world file recorded is a fact about this player, possibly at another club:
         // it is neither replaced by the club he is at now nor re-rolled. Awards still see its
         // real numbers (the rest of the stat line was not recorded, so it stays empty).
@@ -566,6 +558,14 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
                 assists: recorded.assists,
                 ..PlayerSeasonStats::default()
             };
+            continue;
+        }
+
+        // A real player the source has no career for: nothing is invented about him, neither a
+        // season at his current club, nor stats (which would let him win a historical award), nor
+        // a trophy. A season a world file did record was kept above, as for anyone else.
+        if player.provenance.earlier_career == domain::player::EarlierCareer::Unavailable {
+            player.stats = PlayerSeasonStats::default();
             continue;
         }
 

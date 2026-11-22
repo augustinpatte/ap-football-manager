@@ -76,9 +76,7 @@ export default function PlayerProfileCareerHistoryCard({
             )}
           </>
         ) : unavailable ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
-            {t("playerProfile.careerUnavailable")}
-          </p>
+          <p className="text-body text-fg-muted py-4">{t("playerProfile.careerUnavailable")}</p>
         ) : (
           <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
             {t("playerProfile.noCareer")}

@@ -34,9 +34,12 @@
 //! missing value takes the estimate. Finally no value exceeds what the richest club of the world could
 //! pay: a price no buyer can meet is not a market value.
 //!
-//! Everything is deterministic: rows are fitted in the order they are given, the solve is a fixed
-//! elimination, and a value the model decides is rounded to three significant figures so that a
-//! last-bit difference of a platform's `ln`/`exp` cannot change the world file.
+//! Everything is deterministic for a given toolchain and platform: rows are fitted in the order they
+//! are given, the solve is a fixed elimination, and a value the model decides is rounded to three
+//! significant figures. `ln` and `exp` come from the platform's libm, so a different operating system
+//! could in principle differ in the last bit; the rounding makes that vanishingly unlikely to change a
+//! value (a flip at a band or trim boundary is the residual hazard), but the guarantee is "same
+//! source, configuration and build give the same world file", not more.
 
 use crate::config::{Config, ValuationCfg};
 use crate::source::{ClubRow, PlayerRow};
@@ -52,8 +55,10 @@ pub enum Group {
 }
 
 impl Group {
-    /// The group of an FM position code (`GK`, `DC`, `AMC`, `STC`...). An unknown code is a midfielder,
-    /// the group the model treats as its baseline after the forwards.
+    /// The group of an FM position code (`GK`, `DC`, `AMC`, `STC`...). This is the valuation's own
+    /// projection, not `Position::to_group_position`: the market prices an attacking midfielder with
+    /// the forwards (the fit separates AMC from DM/MC by a clear margin), where the domain groups him
+    /// with the midfielders. An unknown code is a midfielder.
     pub fn from_fm_code(code: &str) -> Self {
         match code {
             "GK" => Self::Goalkeeper,
@@ -407,7 +412,8 @@ impl Model {
         })
     }
 
-    /// The club reputation a player without a club is estimated at: the median of the fitted rows.
+    /// The club reputation a player without a club is estimated at: the median club reputation of all
+    /// the samples the model was given (before the fit keeps only its stored values and trims).
     pub fn neutral_reputation(&self) -> i64 {
         self.neutral_reputation
     }
@@ -845,6 +851,8 @@ mod tests {
         assert_eq!(Group::from_fm_code("WBL"), Group::Defender);
         assert_eq!(Group::from_fm_code("DM"), Group::Midfielder);
         assert_eq!(Group::from_fm_code("AML"), Group::Forward);
+        // Deliberately not the domain's grouping (Midfielder): see `from_fm_code`.
+        assert_eq!(Group::from_fm_code("AMC"), Group::Forward);
         assert_eq!(Group::from_fm_code("STC"), Group::Forward);
     }
 

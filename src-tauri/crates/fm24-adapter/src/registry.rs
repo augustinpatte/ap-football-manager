@@ -331,7 +331,11 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
                                 .unwrap_or_else(|| "save".to_string()),
                         ),
                         _ => (
-                            estimate_market_value(ovr, potential, age.unwrap_or(30)),
+                            ofm_core::external_world::projected_market_value(
+                                ovr,
+                                potential,
+                                age.unwrap_or(30),
+                            ),
                             "estimated".to_string(),
                         ),
                     },
@@ -569,31 +573,6 @@ fn fit_valuation(
         })
         .collect();
     Ok(Model::fit(&samples, cap, &cfg.valuation))
-}
-
-/// A deterministic value for the source rows that carry none. It is a valuation, never an identity:
-/// the player's name and dates are untouched. The curve is deliberately conservative (a 50 OVR
-/// player is worth about €2m, an 80 OVR about €8m before the youth/ceiling factors).
-fn estimate_market_value(ovr: u8, potential: u8, age: i32) -> u64 {
-    if ovr == 0 {
-        return 0;
-    }
-    let ability = f64::from(ovr);
-    let ceiling = f64::from(potential.max(ovr));
-    let youth = if age <= 21 {
-        1.6
-    } else if age <= 25 {
-        1.3
-    } else if age <= 29 {
-        1.0
-    } else if age <= 32 {
-        0.6
-    } else {
-        0.25
-    };
-    let growth = 1.0 + (ceiling - ability).max(0.0) / 100.0;
-    let value = (ability / 50.0).powi(3) * 2_000_000.0 * youth * growth;
-    value.max(0.0) as u64
 }
 
 /// Accent-folded lowercase text for substring search. Stored, so a search never needs a custom
