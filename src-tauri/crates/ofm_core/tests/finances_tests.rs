@@ -726,6 +726,7 @@ fn monday_payday_splits_loan_wages_between_parent_and_loanee() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let mut game = Game::new(
         clock,

@@ -892,6 +892,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: crate::player::LoanTermsSource::Agreed,
         });
 
         p.adopt_legacy_contract();
@@ -1189,6 +1190,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: crate::player::LoanTermsSource::Agreed,
         });
         assert_eq!(
             p.contract_club_id(),

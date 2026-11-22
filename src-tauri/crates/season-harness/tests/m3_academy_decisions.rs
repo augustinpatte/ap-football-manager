@@ -174,6 +174,7 @@ fn lend_one_academy_player(game: &mut Game, watch: &mut Watch) {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     watch.lent.push(id);
 }

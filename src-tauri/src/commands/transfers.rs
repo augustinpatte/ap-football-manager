@@ -1205,6 +1205,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         state.set_game(game);
 

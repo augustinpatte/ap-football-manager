@@ -417,6 +417,13 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
 
     enforce_squad_roles(&mut world, &plans, &mut journal);
     let loans_applied = apply_loans(&mut world, &plans, cfg, &mut journal);
+    apply_provenance(
+        &mut world,
+        &plans,
+        &free_agent_plans,
+        &players,
+        &mut journal,
+    );
     let (removed, promoted_academy_players) = if cfg.squad.trim_generated_to_floor {
         trim_generated_players(
             &mut world,
@@ -1119,6 +1126,7 @@ fn apply_loans(
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Estimated,
         });
         let id = plan.def.id.clone();
         if let Some(team) = world.teams.iter_mut().find(|t| t.id == owner) {
@@ -1135,6 +1143,62 @@ fn apply_loans(
         ),
     );
     applied
+}
+
+/// Records what the save can and cannot say about each imported player.
+///
+/// * The save carries no career records, so every imported player and every pool free agent has an
+///   `Unavailable` earlier career: the game must not invent one for a real person.
+/// * A player the save has owned by a club outside the world and playing for a club of it stays the
+///   borrower's player (nothing could return him to a club the game does not contain), but the
+///   owner's identity is kept as the save states it.
+fn apply_provenance(
+    world: &mut WorldData,
+    plans: &[PlayerPlan],
+    free_agent_plans: &[FreeAgentPlan],
+    rows: &[PlayerRow],
+    journal: &mut Journal,
+) {
+    use domain::player::{EarlierCareer, OutsideOwner};
+    let by_person: BTreeMap<i64, &PlayerRow> = rows.iter().map(|r| (r.person_id, r)).collect();
+    let outside_owner: BTreeMap<&str, OutsideOwner> = plans
+        .iter()
+        .filter(|plan| plan.placement.kind == Kind::LoanedInFromOutside)
+        .filter_map(|plan| {
+            let row = by_person.get(&plan.person_id)?;
+            (row.club_id > 0 && !row.club_name.trim().is_empty()).then(|| {
+                (
+                    plan.def.id.as_str(),
+                    OutsideOwner {
+                        club_id: ids::club(row.club_id),
+                        club_name: row.club_name.clone(),
+                    },
+                )
+            })
+        })
+        .collect();
+    let imported: BTreeSet<&str> = plans
+        .iter()
+        .map(|plan| plan.def.id.as_str())
+        .chain(free_agent_plans.iter().map(|fa| fa.def.id.as_str()))
+        .collect();
+    let mut marked = 0;
+    for player in world.players.iter_mut() {
+        if !imported.contains(player.id.as_str()) {
+            continue;
+        }
+        player.provenance.earlier_career = EarlierCareer::Unavailable;
+        player.provenance.outside_owner = outside_owner.get(player.id.as_str()).cloned();
+        marked += 1;
+    }
+    journal.info(
+        "provenance.earlier_career_unavailable",
+        "world",
+        format!(
+            "{marked} imported players have no earlier career: the save carries none and none is invented; {} of them are owned by a club outside the world",
+            outside_owner.len()
+        ),
+    );
 }
 
 /// The level and pay of OFM's generated fillers, brought down to the division they play in.

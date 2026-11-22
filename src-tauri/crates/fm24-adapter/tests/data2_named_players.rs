@@ -203,3 +203,156 @@ fn every_blocking_integrity_check_passes_for_all_clubs() {
     assert!(failed.is_empty(), "{failed:?}");
     assert_eq!(run.clubs.len(), 240);
 }
+
+/// Given the real save, which carries no career records,
+/// When a career is started with generated history (two seasons here: the property does not depend on
+/// depth, and twelve, the new-game default, take two minutes of league simulation),
+/// Then no imported player has an invented season, club, appearance or award, and each carries the
+/// "earlier career unavailable" provenance; generated fillers are not affected.
+#[test]
+fn imported_players_get_no_invented_history_when_a_career_starts() {
+    let Some(run) = run() else { return };
+    use domain::player::EarlierCareer;
+
+    let manager = domain::manager::Manager::new(
+        "m".to_string(),
+        "A".to_string(),
+        "B".to_string(),
+        "1980-01-01".to_string(),
+        "England".to_string(),
+    );
+    let clock = ofm_core::clock::GameClock::new(
+        ofm_core::world::start_date_for_year(2026).expect("a start date"),
+    );
+    let started = std::time::Instant::now();
+    let (game, _) = ofm_core::world::build::build_game_from_imported_world(
+        clock,
+        manager,
+        ofm_core::world::build::PastHistory {
+            start_year: 2026,
+            depth_years: 2,
+        },
+        run.world.clone(),
+        ofm_core::generator::ReputationBasis::Stored,
+    );
+    eprintln!(
+        "career start with 2 years of history: {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
+
+    let imported: Vec<_> = game
+        .players
+        .iter()
+        .filter(|p| p.id.starts_with("fm-p-"))
+        .collect();
+    assert!(imported.len() > 10_000);
+    assert!(
+        imported.iter().all(|p| p.career.is_empty()),
+        "no invented entry for a real player"
+    );
+    assert!(
+        imported
+            .iter()
+            .all(|p| p.provenance.earlier_career == EarlierCareer::Unavailable)
+    );
+    for person in [
+        RASHFORD,
+        MBAPPE_KYLIAN,
+        MAINOO,
+        TIELEMANS_YOURI,
+        GODTS,
+        MOSCARDO,
+    ] {
+        let p = game
+            .players
+            .iter()
+            .find(|p| p.id == format!("fm-p-{person}"))
+            .expect("in the game");
+        assert!(p.career.is_empty(), "person {person}");
+    }
+    let fillers: Vec<_> = game
+        .players
+        .iter()
+        .filter(|p| !p.id.starts_with("fm-p-"))
+        .collect();
+    assert!(
+        fillers
+            .iter()
+            .all(|p| p.provenance.earlier_career == EarlierCareer::Generated)
+    );
+}
+
+/// Given the real save, where 81 players are owned by a club outside the 240 and play for one inside,
+/// When the world is built,
+/// Then each keeps the owner's name as the save states it, plays for the borrower, and has no loan
+/// that could return him to a club the game does not contain.
+#[test]
+fn an_owner_outside_the_world_is_kept_as_identity_and_never_as_a_loan_return() {
+    let Some(run) = run() else { return };
+    use domain::player::EarlierCareer;
+
+    let outside: Vec<_> = run
+        .plans
+        .iter()
+        .filter(|p| p.placement.kind == fm24_adapter::placement::Kind::LoanedInFromOutside)
+        .collect();
+
+    assert!(outside.len() > 50, "{}", outside.len());
+    for plan in outside {
+        let player = run
+            .world
+            .players
+            .iter()
+            .find(|p| p.id == plan.def.id)
+            .expect("in the world");
+        let owner = player
+            .provenance
+            .outside_owner
+            .as_ref()
+            .expect("owner identity kept");
+        assert!(!owner.club_name.is_empty());
+        assert!(
+            !run.world.teams.iter().any(|t| t.id == owner.club_id),
+            "never a team of the world"
+        );
+        assert!(
+            player.active_loan.is_none(),
+            "no return to a club that does not exist"
+        );
+        assert_eq!(player.provenance.earlier_career, EarlierCareer::Unavailable);
+    }
+}
+
+/// Given the real save, where Gabriel Moscardo is owned by PSG and registered with Espanyol, both
+/// clubs of the world, and the save records no loan terms,
+/// When the world is built,
+/// Then the loan names owner and borrower, and its terms are marked as estimated, not agreed.
+#[test]
+fn moscardos_loan_names_both_clubs_and_marks_its_terms_as_estimated() {
+    let Some(run) = run() else { return };
+    use domain::player::LoanTermsSource;
+
+    let player = run
+        .world
+        .players
+        .iter()
+        .find(|p| p.id == format!("fm-p-{MOSCARDO}"))
+        .expect("in the world");
+    let loan = player.active_loan.as_ref().expect("on loan");
+
+    assert_eq!(loan.parent_team_id, "fm-c-498");
+    assert_eq!(loan.loan_team_id, "fm-c-1107");
+    assert_eq!(player.team_id.as_deref(), Some("fm-c-1107"));
+    assert_eq!(loan.terms_source, LoanTermsSource::Estimated);
+    assert!(
+        run.loans_applied.iter().all(|id| {
+            run.world
+                .players
+                .iter()
+                .find(|p| &p.id == id)
+                .and_then(|p| p.active_loan.as_ref())
+                .is_some_and(|l| l.terms_source == LoanTermsSource::Estimated)
+        }),
+        "every loan the importer made is marked as estimated"
+    );
+}

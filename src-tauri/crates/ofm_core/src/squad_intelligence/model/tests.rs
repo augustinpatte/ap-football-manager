@@ -104,6 +104,7 @@ fn a_loaned_player_is_read_as_the_signing_he_would_be() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let mut owned = loaned.clone();
     owned.active_loan = None;
@@ -907,6 +908,7 @@ fn on_loan_until(mut signing: domain::player::Player, days_left: i64) -> domain:
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     signing.team_id = Some("club".to_string());
     signing

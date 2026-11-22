@@ -119,6 +119,7 @@ fn a_player_on_loan_elsewhere_cannot_be_loaned_and_his_availability_is_known() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let result = make_loan_offer(&mut game, PLAYER_ID, END, 100, OPTION);

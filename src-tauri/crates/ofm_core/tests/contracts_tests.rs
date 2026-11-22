@@ -298,6 +298,7 @@ fn borrowed_player_contract_actions_are_not_owned_by_borrowing_club() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let renewal_error = propose_renewal(
@@ -340,6 +341,7 @@ fn loaned_out_player_termination_is_blocked_until_loan_ends() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let projection = project_renewal_financial_impact(&game, "player-1", 15_000)
@@ -1377,6 +1379,7 @@ fn a_renewal_of_a_loaned_player_by_the_borrower_is_refused_and_writes_nothing() 
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let before = game.players[0].movement_history.len();
 
@@ -1460,6 +1463,7 @@ fn a_renewal_of_a_loaned_out_player_by_the_parent_belongs_to_the_parent() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     propose_renewal(
@@ -1504,6 +1508,7 @@ fn a_contract_that_runs_out_during_a_loan_releases_him_from_the_parent() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     ofm_core::contracts::process_contract_expiries(&mut game);
@@ -1671,6 +1676,7 @@ fn a_loanee_whose_parent_contract_expires_is_reported_to_the_borrower() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     game.players = vec![loanee];
 

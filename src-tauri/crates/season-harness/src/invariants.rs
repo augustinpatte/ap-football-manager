@@ -817,6 +817,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         assert_eq!(referential_integrity(&game), Vec::<String>::new());
         // Without the club's name, or with another club in the loan, it is a fault again.

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use domain::player::{Footedness, Player, PlayerAttributes, PlayerMedia, Position, SquadRole};
+use domain::player::{
+    Footedness, Player, PlayerAttributes, PlayerMedia, PlayerProvenance, Position, SquadRole,
+};
 use domain::team::TrainingFocus;
 use rusqlite::{Connection, params};
 
@@ -35,6 +37,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let media_json =
         serde_json::to_string(&p.media).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let provenance_json = serde_json::to_string(&p.provenance)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let position_str = format!("{:?}", p.position);
     let natural_position_str = format!("{:?}", p.natural_position);
     let alt_positions_json = serde_json::to_string(&p.alternate_positions)
@@ -52,8 +56,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
           ovr, potential, media_json, jersey_number, loan_offers, active_loan, movement_history,
-          contract_start, suspended_matches)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40)
+          contract_start, suspended_matches, provenance)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41)
          ON CONFLICT(id) DO UPDATE SET
            match_name = excluded.match_name,
            full_name = excluded.full_name,
@@ -93,7 +97,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
            loan_offers = excluded.loan_offers,
            active_loan = excluded.active_loan,
            movement_history = excluded.movement_history,
-           suspended_matches = excluded.suspended_matches",
+           suspended_matches = excluded.suspended_matches,
+           provenance = excluded.provenance",
     )
     .and_then(|mut statement| {
         statement.execute(params![
@@ -137,6 +142,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             movement_history_json,
             p.contract_start(),
             i64::from(p.suspended_matches),
+            provenance_json,
         ])
     })
     .map_err(|error| {
@@ -269,7 +275,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start, COALESCE(suspended_matches, 0)
+                    contract_start, COALESCE(suspended_matches, 0), provenance
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -297,7 +303,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start, COALESCE(suspended_matches, 0)
+                    contract_start, COALESCE(suspended_matches, 0), provenance
              FROM players WHERE team_id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -359,6 +365,14 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let loan_offers_json: String = row.get(35).unwrap_or_else(|_| "[]".to_string());
     let active_loan_json: Option<String> = row.get(36).unwrap_or(None);
     let movement_history_json: String = row.get(37).unwrap_or_else(|_| "[]".to_string());
+    // NULL (a save from before the column) and unreadable JSON both read as the default: an old save
+    // is never reclassified, and a damaged value never stops the career loading.
+    let provenance: PlayerProvenance = row
+        .get::<_, Option<String>>(40)
+        .ok()
+        .flatten()
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_default();
     let transfer_listed_int: i32 = row.get(20)?;
     let loan_listed_int: i32 = row.get(21)?;
     let market_value_i64: i64 = row.get(17)?;
@@ -435,6 +449,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         active_loan: active_loan_json.and_then(|json| serde_json::from_str(&json).ok()),
         morale_core: serde_json::from_str(&morale_core_json).unwrap_or_default(),
         jersey_number,
+        provenance,
     };
     // The flat contract fields are derived from the ledger, so a save from before
     // the ledger needs its one entry made before anything reads them.
@@ -1027,6 +1042,7 @@ mod tests {
             loan_start_appearances: 2,
             development_reported_minutes: 360,
             development_reported_appearances: 4,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
 
         upsert_player(db.conn(), &player).unwrap();
@@ -1359,6 +1375,85 @@ mod tests {
         assert_eq!(loaded[0].career.len(), 1);
         assert_eq!(loaded[0].career[0].appearances, 9);
         assert!(!loaded[0].career[0].synthetic);
+    }
+
+    /// Given a player whose earlier career is unavailable and who is owned by a club outside the
+    /// world, and another on a loan whose terms the importer estimated,
+    /// When they are saved and reloaded,
+    /// Then the non-default provenance and loan-terms source survive (non-default values at the
+    /// persistence boundary: a default round trip would pass even if the columns were dropped).
+    #[test]
+    fn test_provenance_and_loan_terms_source_roundtrip() {
+        let db = test_db();
+        let mut outside = sample_player("p-outside", Some("team-001"));
+        outside.provenance = PlayerProvenance {
+            earlier_career: domain::player::EarlierCareer::Unavailable,
+            outside_owner: Some(domain::player::OutsideOwner {
+                club_id: "fm-c-1".into(),
+                club_name: "Outside FC".into(),
+            }),
+        };
+        let mut loaned = sample_player("p-loan", Some("team-002"));
+        loaned.active_loan = Some(domain::player::ActiveLoan {
+            parent_team_id: "team-001".into(),
+            loan_team_id: "team-002".into(),
+            loan_team_name: None,
+            start_date: "2026-06-01".into(),
+            end_date: "2027-06-30".into(),
+            wage_contribution_pct: 0,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Estimated,
+        });
+
+        upsert_player(db.conn(), &outside).unwrap();
+        upsert_player(db.conn(), &loaned).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+        let find = |id: &str| loaded.iter().find(|p| p.id == id).unwrap();
+
+        assert_eq!(find("p-outside").provenance, outside.provenance);
+        assert_eq!(
+            find("p-loan").active_loan.as_ref().unwrap().terms_source,
+            domain::player::LoanTermsSource::Estimated
+        );
+    }
+
+    /// Given a save written before the provenance column existed (NULL) and a loan written before
+    /// `terms_source` existed,
+    /// When loaded,
+    /// Then the player reads as the default provenance (not reclassified as having no history) and
+    /// the loan as `Unrecorded` (not presented as agreed terms).
+    #[test]
+    fn test_a_save_from_before_provenance_loads_as_the_default() {
+        let db = test_db();
+        let player = sample_player("p-old", Some("team-002"));
+        upsert_player(db.conn(), &player).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE players SET provenance = NULL, active_loan = ?1 WHERE id = 'p-old'",
+                [r#"{"parent_team_id":"team-001","loan_team_id":"team-002","start_date":"2025-08-01","end_date":"2026-06-30","wage_contribution_pct":50}"#],
+            )
+            .unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].provenance, PlayerProvenance::default());
+        assert_eq!(
+            loaded[0].provenance.earlier_career,
+            domain::player::EarlierCareer::Generated
+        );
+        let loan = loaded[0]
+            .active_loan
+            .as_ref()
+            .expect("the loan still loads");
+        assert_eq!(
+            loan.terms_source,
+            domain::player::LoanTermsSource::Unrecorded
+        );
+        assert_eq!(loan.wage_contribution_pct, 50);
     }
 
     #[test]

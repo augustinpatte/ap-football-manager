@@ -105,6 +105,43 @@ pub struct Player {
     /// Jersey/squad number (1–99). None means unassigned.
     #[serde(default)]
     pub jersey_number: Option<u8>,
+
+    /// Where the facts about this player came from, for what a profile may state as fact.
+    #[serde(default)]
+    pub provenance: PlayerProvenance,
+}
+
+/// What is known of a player's career before this game's own records begin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EarlierCareer {
+    /// Whatever his `career` holds: seasons a world generator wrote (each flagged `synthetic`),
+    /// seasons a world file authored, or the game's own. This is the reading of every save written
+    /// before provenance existed, and it is deliberately not a claim that they are real.
+    #[default]
+    Generated,
+    /// A real player whose source has no record of his earlier career. Nothing before the game's own
+    /// seasons is known about him and none is invented: no clubs, years, appearances or trophies.
+    Unavailable,
+}
+
+/// A club that owns a player's contract but is not part of the simulated world.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutsideOwner {
+    /// The source's identifier of the club (never a team of the world).
+    pub club_id: String,
+    pub club_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PlayerProvenance {
+    #[serde(default)]
+    pub earlier_career: EarlierCareer,
+    /// The source records this player as owned by a club outside the world and playing here. He is
+    /// the borrower's player in the game (no loan can return him to a club that does not exist);
+    /// the owner's identity is kept so a profile can say what the source says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outside_owner: Option<OutsideOwner>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -807,6 +844,25 @@ pub struct ActiveLoan {
     pub development_reported_minutes: u32,
     #[serde(default)]
     pub development_reported_appearances: u32,
+    /// Where the terms above (end, wage share, option) come from. Absent in saves written before it
+    /// existed, which read as `Unrecorded`.
+    #[serde(default)]
+    pub terms_source: LoanTermsSource,
+}
+
+/// How much is known about a loan's terms. A profile must not present an estimate as a contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoanTermsSource {
+    /// Nobody recorded it: every loan of a save written before this field.
+    #[default]
+    Unrecorded,
+    /// Agreed inside the game, by a negotiation or an AI club's deal.
+    Agreed,
+    /// Read from a data source that carries the terms.
+    Sourced,
+    /// The source records that the player is on loan but not its terms; the importer configured them.
+    Estimated,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -1000,6 +1056,7 @@ impl Player {
             active_loan: None,
             morale_core: PlayerMoraleCore::default(),
             jersey_number: None,
+            provenance: PlayerProvenance::default(),
         }
     }
 }
@@ -1196,5 +1253,68 @@ mod tests {
             .expect("a release is recordable");
         assert!(!released.is_national_pool_filler());
         assert!(released.is_on_free_market());
+    }
+
+    /// Given a player with an unavailable earlier career and an outside owner, and a loan whose
+    /// terms are estimated,
+    /// When serialised (the shape the frontend's types rely on),
+    /// Then the keys and snake_case values are exactly `provenance.earlier_career`,
+    /// `provenance.outside_owner` and `active_loan.terms_source`.
+    #[test]
+    fn provenance_and_loan_terms_source_serialise_as_the_frontend_reads_them() {
+        let mut player = bare_player("p");
+        player.provenance = PlayerProvenance {
+            earlier_career: EarlierCareer::Unavailable,
+            outside_owner: Some(OutsideOwner {
+                club_id: "fm-c-1".into(),
+                club_name: "Outside FC".into(),
+            }),
+        };
+        player.active_loan = Some(ActiveLoan {
+            parent_team_id: "a".into(),
+            loan_team_id: "b".into(),
+            loan_team_name: None,
+            start_date: "2026-06-01".into(),
+            end_date: "2027-06-30".into(),
+            wage_contribution_pct: 0,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+            terms_source: LoanTermsSource::Estimated,
+        });
+
+        let json = serde_json::to_value(&player).expect("serialises");
+
+        assert_eq!(json["provenance"]["earlier_career"], "unavailable");
+        assert_eq!(
+            json["provenance"]["outside_owner"]["club_name"],
+            "Outside FC"
+        );
+        assert_eq!(json["active_loan"]["terms_source"], "estimated");
+    }
+
+    /// Given the JSON of a player and a loan written before either field existed,
+    /// When deserialised,
+    /// Then the earlier career is the generator's reading (not "unavailable": an old save is not
+    /// reclassified) and the loan's terms are unrecorded (not "agreed").
+    #[test]
+    fn json_from_before_provenance_reads_as_the_default() {
+        let mut json = serde_json::to_value(bare_player("p")).expect("serialises");
+        json.as_object_mut().expect("object").remove("provenance");
+        json["active_loan"] = serde_json::json!({
+            "parent_team_id": "a", "loan_team_id": "b",
+            "start_date": "2025-08-01", "end_date": "2026-06-30", "wage_contribution_pct": 50
+        });
+
+        let player: Player = serde_json::from_value(json).expect("an old player still loads");
+
+        assert_eq!(player.provenance, PlayerProvenance::default());
+        assert_eq!(player.provenance.earlier_career, EarlierCareer::Generated);
+        assert_eq!(
+            player.active_loan.expect("the loan loads").terms_source,
+            LoanTermsSource::Unrecorded
+        );
     }
 }

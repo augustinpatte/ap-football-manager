@@ -110,6 +110,7 @@ pub(super) fn execute_loan(
         loan_start_appearances: player.stats.appearances,
         development_reported_minutes: player.stats.minutes_played,
         development_reported_appearances: player.stats.appearances,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     // A loan is a movement, not a contract: he stays on his parent club's agreement.
     record_movement(
@@ -965,6 +966,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         game.players[0].team_id = Some("team1".to_string());
         process_pending_transfer_registrations(&mut game);

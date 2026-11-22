@@ -1518,6 +1518,7 @@ fn accepting_pending_offer_for_active_loan_player_does_not_mutate_offer() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);

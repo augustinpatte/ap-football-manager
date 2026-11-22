@@ -699,6 +699,7 @@ fn the_market_scope_leaves_out_own_loaned_and_already_agreed_players() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let mut agreed = PlayerSpec::new("agreed", "Agreed", Some("other")).build();
     agreed.transfer_offers.push(TransferOffer {
@@ -905,6 +906,7 @@ fn the_user_listed_scope_leaves_out_a_player_out_on_loan() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let game = game_managing_mine(0, 0, vec![away]);
     let mut q = baseline_query();

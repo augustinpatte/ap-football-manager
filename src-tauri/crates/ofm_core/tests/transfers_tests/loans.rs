@@ -678,6 +678,7 @@ fn loan_offer_counts_existing_loan_wages_against_borrower_budget() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     game.players.push(existing_loan);
 
@@ -865,6 +866,7 @@ fn loan_development_report_is_generated_for_parent_club() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -913,6 +915,7 @@ fn loan_development_only_counts_minutes_since_last_report() {
         loan_start_appearances: 8,
         development_reported_minutes: 900,
         development_reported_appearances: 8,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1006,6 +1009,7 @@ fn ai_loan_club_can_exercise_buy_option_when_loan_expires() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1085,6 +1089,7 @@ fn ai_loan_club_cannot_exercise_buy_option_when_window_is_closed() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1154,6 +1159,7 @@ fn ai_loan_club_does_not_exercise_buy_option_from_pre_loan_minutes() {
         loan_start_appearances: 12,
         development_reported_minutes: 1_080,
         development_reported_appearances: 12,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1571,6 +1577,7 @@ fn permanent_bid_is_rejected_for_active_loan_player() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1743,6 +1750,7 @@ fn a_buy_option_sale_credits_the_parent_club_the_same_as_a_permanent_sale() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
 
     let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
@@ -1968,6 +1976,7 @@ fn a_loan_that_ends_replaces_the_loanee_in_his_slot_of_the_borrowers_saved_eleve
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let mut game = make_game_with_player(loanee, vec![], 5_000_000, 2_000_000);
     attach_transfer_log_league(&mut game);
@@ -2070,6 +2079,7 @@ fn a_loanee_who_retires_is_replaced_in_his_slot_of_the_borrowers_saved_eleven() 
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let mut game = make_game_with_player(loanee, vec![], 5_000_000, 2_000_000);
     let mates: Vec<String> = game

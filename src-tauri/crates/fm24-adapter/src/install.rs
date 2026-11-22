@@ -17,7 +17,12 @@ use std::path::{Path, PathBuf};
 /// the academy, loans carry their owner, affiliated B sides are the owner's reserve (roster audit).
 /// Revision 6: a player's level follows his FM Current Ability (Run F2) instead of the mean of his
 /// converted attributes, which had squeezed the whole hierarchy into the 55-70 band.
-pub const WORLD_REVISION: u32 = 6;
+/// Revision 7 (DATA2): market values come from a model of the save's own values instead of the save's
+/// stored value alone (`valuation`); loans are marked with where their terms come from; every
+/// imported player is marked as having no earlier career, and a club outside the world that owns a
+/// player's contract is kept by name. These change the players of a new career, not those of a career
+/// already saved, which keeps what it was given.
+pub const WORLD_REVISION: u32 = 7;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]
@@ -147,6 +152,31 @@ mod tests {
         assert!(!install_status(&databases).outdated);
         std::fs::write(marker_path(&databases), "{\"revision\":1}").unwrap();
         assert!(install_status(&databases).outdated);
+    }
+
+    /// Given a world installed under revision 6, the one before DATA2 (values, loan terms and earlier
+    /// careers changed in 7),
+    /// When the status is read,
+    /// Then it is reported outdated and the installed file is left exactly as it was: nothing
+    /// replaces a world except an explicit install.
+    #[test]
+    fn a_world_installed_under_revision_6_is_outdated_and_is_left_alone() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let databases = dir.path().join("databases");
+        std::fs::create_dir_all(&databases).unwrap();
+        let id = Config::default_config().world.id;
+        let installed = databases.join(format!("{id}.json"));
+        std::fs::write(&installed, "world of revision 6").unwrap();
+        std::fs::write(marker_path(&databases), "{\"revision\":6}").unwrap();
+
+        let status = install_status(&databases);
+
+        assert!(status.installed && status.outdated);
+        assert_eq!((status.revision, status.current_revision), (Some(6), 7));
+        assert_eq!(
+            std::fs::read_to_string(&installed).unwrap(),
+            "world of revision 6"
+        );
     }
 
     /// Given a source that is not a database

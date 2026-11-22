@@ -704,6 +704,7 @@ fn lend_a_senior_out(game: &mut Game, parent: &str, borrower: &str) -> String {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     let id = player.id.clone();
     game.players.push(player);
@@ -790,6 +791,7 @@ fn the_one_pass_registration_gate_agrees_with_the_four_pass_original() {
                     loan_start_appearances: 0,
                     development_reported_minutes: 0,
                     development_reported_appearances: 0,
+                    terms_source: domain::player::LoanTermsSource::Agreed,
                 });
             }
             // Most players promise nothing; one in six holds an offer or two in some state.

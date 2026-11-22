@@ -544,6 +544,14 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
             continue;
         }
 
+        // A real player the source has no career for: nothing is invented about him, neither a
+        // season at his current club, nor stats (which would let him win a historical award), nor
+        // a trophy. A season a world file did record is kept below, as for anyone else.
+        if player.provenance.earlier_career == domain::player::EarlierCareer::Unavailable {
+            player.stats = PlayerSeasonStats::default();
+            continue;
+        }
+
         // A season the world file recorded is a fact about this player, possibly at another club:
         // it is neither replaced by the club he is at now nor re-rolled. Awards still see its
         // real numbers (the rest of the stat line was not recorded, so it stays empty).
@@ -1096,6 +1104,61 @@ mod tests {
             .map(|entry| entry.season)
             .collect();
         assert_eq!(invented, vec![2029, 2031]);
+    }
+
+    /// Given a real player whose earlier career is unavailable (no source has one) and a generated
+    /// one in the same world,
+    /// When history is generated,
+    /// Then the real player gets no invented season, no invented stats and no invented award, while
+    /// the generated player's history is exactly what it was without him.
+    #[test]
+    fn a_player_with_an_unavailable_earlier_career_gets_no_invented_history() {
+        let mut with_real = make_game();
+        with_real.players[0].provenance.earlier_career = domain::player::EarlierCareer::Unavailable;
+        let mut baseline = make_game();
+
+        generate_past_world_history(&mut with_real, 2032, 3);
+        generate_past_world_history(&mut baseline, 2032, 3);
+
+        assert!(with_real.players[0].career.is_empty());
+        assert!(
+            !baseline.players[0].career.is_empty(),
+            "the premise: he would have had one"
+        );
+        let awards = serde_json::to_string(&with_real.world_history.season_awards)
+            .expect("awards serialise");
+        assert!(
+            !awards.contains("\"player-1\""),
+            "an unavailable career cannot win a historical award: {awards}"
+        );
+        assert_eq!(
+            career_seasons(&with_real, "player-2"),
+            career_seasons(&baseline, "player-2")
+        );
+    }
+
+    /// Given an unavailable earlier career with a season a world file recorded,
+    /// When history is generated,
+    /// Then the recorded season is kept untouched and nothing else is added.
+    #[test]
+    fn a_recorded_season_of_an_unavailable_career_is_kept_and_nothing_is_added() {
+        let mut game = make_game();
+        game.players[0].date_of_birth = "1995-03-15".to_string();
+        game.players[0].provenance.earlier_career = domain::player::EarlierCareer::Unavailable;
+        game.players[0].career.push(CareerEntry {
+            season: 2030,
+            team_id: "former-club".to_string(),
+            team_name: "Former FC".to_string(),
+            appearances: 12,
+            goals: 4,
+            assists: 3,
+            synthetic: false,
+        });
+
+        generate_past_world_history(&mut game, 2032, 3);
+
+        assert_eq!(career_seasons(&game, "player-1"), vec![2030]);
+        assert!(!game.players[0].career[0].synthetic);
     }
 
     #[test]

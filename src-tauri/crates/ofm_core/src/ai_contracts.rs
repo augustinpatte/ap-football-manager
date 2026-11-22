@@ -1322,6 +1322,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         game.players.push(borrowed);
         let facts = SquadFacts::of(&game, "ai");
@@ -1590,6 +1591,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         game.players
             .push(player("old_keeper", "ai", Position::Goalkeeper, 50, 34, 90));
@@ -1730,6 +1732,7 @@ mod tests {
                     loan_start_appearances: 0,
                     development_reported_minutes: 0,
                     development_reported_appearances: 0,
+                    terms_source: domain::player::LoanTermsSource::Agreed,
                 });
                 youths.push(lent);
                 youths.rotate_left(rotation);
@@ -2007,6 +2010,7 @@ mod tests {
                 loan_start_appearances: 0,
                 development_reported_minutes: 0,
                 development_reported_appearances: 0,
+                terms_source: domain::player::LoanTermsSource::Agreed,
             });
             game.players.push(away);
         }

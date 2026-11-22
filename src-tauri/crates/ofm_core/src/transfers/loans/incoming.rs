@@ -526,6 +526,7 @@ mod tests {
             loan_start_appearances: 0,
             development_reported_minutes: 0,
             development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
         });
         game.players.push(loaned);
         assert_eq!(calc_wages(&game, "team2"), 30_000);

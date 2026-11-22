@@ -136,6 +136,7 @@ fn weekly_planning_covers_a_loss_in_the_middle_of_a_season() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     assert_eq!(registered(&game, "team2"), 15);
     add_free_agent_pool(&mut game, "a");

@@ -402,6 +402,7 @@ fn exercising_a_loan_buy_option_settles_a_sell_on_clause_the_parent_holds() {
         loan_start_appearances: 0,
         development_reported_minutes: 0,
         development_reported_appearances: 0,
+        terms_source: domain::player::LoanTermsSource::Agreed,
     });
     game.transfer_obligations.push(TransferObligation::SellOn {
         id: "clause".to_string(),
