@@ -144,7 +144,8 @@ impl ValueScale {
 
     /// The value of a player who was worth `anchor` when he was in `from`, now that he is in `to`:
     /// his own value, moved by the scale's ratio between the two. A player whose state has not
-    /// changed keeps his value exactly; one whose state is not on the scale (a zero) is left as he is.
+    /// changed keeps his value exactly; a player with no value yet (a zero anchor) is left as he is, and one
+    /// whose old state the scale cannot price takes the scale's price for his new one.
     pub fn carry(&self, anchor: u64, from: Standing, to: Standing) -> u64 {
         if from == to || anchor == 0 {
             return anchor;
@@ -226,9 +227,10 @@ mod tests {
     fn a_player_who_has_not_changed_keeps_his_value_exactly() {
         let s = scale();
 
+        // Four significant figures that the scale's own rounding to three would change.
         assert_eq!(
-            s.carry(121_000_000, standing(87, 89, 28), standing(87, 89, 28)),
-            121_000_000
+            s.carry(121_456_789, standing(87, 89, 28), standing(87, 89, 28)),
+            121_456_789
         );
     }
 
@@ -239,7 +241,8 @@ mod tests {
     fn a_star_carried_a_season_keeps_his_position_on_the_scale() {
         let s = scale();
 
-        let next = s.carry(120_000_000, standing(90, 92, 27), standing(90, 92, 28));
+        // Thirty is past the plateau: the age factor falls, so this is a real (small) revaluation.
+        let next = s.carry(120_000_000, standing(90, 92, 29), standing(90, 92, 30));
 
         assert!(next > 100_000_000 && next <= 120_000_000, "{next}");
         // The native formula would have given him a different order of magnitude altogether.

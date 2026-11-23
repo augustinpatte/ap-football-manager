@@ -476,6 +476,7 @@ Competitions are the most complex entity. A competition defines a league, cup, o
 | `calendar.division.tier` | positive integer | absent | Explicit tier within that family. Names and participant overlap never supply this identity. |
 | `calendar.division.phase` | enum | `"annual"` | `"annual"`, `"opening"` or `"closing"`. Opening/closing declarations require `windowEnd`. |
 | `calendar.windowEnd` | object | absent | Optional valid `{ "month": 6, "day": 30 }` end date. An end before the opener belongs to the following year. |
+| `calendar.matchdayPattern` | object | absent | Optional, league tables only. Dates the same round-robin pairings across the week instead of one weekday seven days apart: `weekend` and `midweek` are seven relative weights, Monday first (`[0,0,0,0,2,3,4]` is Friday, Saturday, Sunday in the ratio 2:3:4); `midweekRounds` is the minimum number of rounds played midweek (the scheduler adds the ones `windowEnd` requires). A club always keeps at least three days between rounds. All-zero `weekend` weights mean no pattern. The dates are generated, not an official fixture list. |
 | `nameKey` | string or null | `null` | i18n key for a translated competition name. |
 | `logo` | string or null | `null` | Relative path to the competition's badge image inside the package. |
 

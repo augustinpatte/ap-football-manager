@@ -800,6 +800,12 @@ export interface TransferRumourData {
 export interface CompetitionCalendarData {
   division?: { familyId: string; tier: number; phase: "annual" | "opening" | "closing" } | null;
   windowEnd?: { month: number; day: number } | null;
+  /** How a league table's rounds fall across the week (weights Monday first); absent is the one-day-a-week cadence. */
+  matchdayPattern?: {
+    weekend: number[];
+    midweek: number[];
+    midweekRounds: number;
+  } | null;
 }
 
 /** What moves between two divisions: direct places, a play-off, a barrage. */

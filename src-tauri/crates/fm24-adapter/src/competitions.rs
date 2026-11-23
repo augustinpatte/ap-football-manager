@@ -266,55 +266,68 @@ mod tests {
         }
     }
 
-    /// Given a calendar configuration with a French top-tier entry,
-    /// When the leagues are built,
-    /// Then Ligue 1 carries that weekday pattern and window end, and a league the configuration does
-    /// not name carries none (the legacy cadence).
+    /// Given the shipped calendar configuration,
+    /// When Ligue 1 is built,
+    /// Then it carries exactly the French top-tier pattern and window end the configuration states;
+    /// and when the configuration names only other leagues (France's second tier, England's first),
+    /// Ligue 1 carries none: the lookup keys on both country and tier.
     #[test]
     fn a_configured_league_carries_its_weekday_pattern() {
+        use crate::config::{CalendarCfg, LeagueCalendarCfg};
+        use domain::competition_calendar::{CalendarDate, MatchdayPattern};
         let refs = Refs::embedded().unwrap();
         let members = BTreeMap::from([(12, vec![464, 498])]);
-        let calendar = crate::config::Config::default_config().calendar;
+        let shipped = crate::config::Config::default_config().calendar;
+        let others = CalendarCfg {
+            league: ["FR", "ENG"]
+                .into_iter()
+                .zip([2, 1])
+                .map(|(country, tier)| LeagueCalendarCfg {
+                    country: country.into(),
+                    tier,
+                    weekend: [0, 0, 0, 0, 1, 1, 1],
+                    midweek: [0, 0, 1, 0, 0, 0, 0],
+                    midweek_rounds: 9,
+                    season_end_month: 1,
+                    season_end_day: 1,
+                })
+                .collect(),
+        };
         let reputation = BTreeMap::new();
-        let context = |calendar| RuleContext {
-            authored: false,
-            reserve_pairs: &[],
-            reputation: &reputation,
-            calendar,
+        let leagues = |calendar| {
+            let context = RuleContext {
+                authored: false,
+                reserve_pairs: &[],
+                reputation: &reputation,
+                calendar,
+            };
+            build(
+                &[ligue_1_row()],
+                &members,
+                &refs,
+                &mut Journal::default(),
+                &context,
+            )
+            .unwrap()
         };
 
-        let configured = build(
-            &[ligue_1_row()],
-            &members,
-            &refs,
-            &mut Journal::default(),
-            &context(&calendar),
-        )
-        .unwrap();
-        let bare = build(
-            &[ligue_1_row()],
-            &members,
-            &refs,
-            &mut Journal::default(),
-            &context(&crate::config::CalendarCfg::default()),
-        )
-        .unwrap();
+        let configured = leagues(&shipped);
+        let unrelated = leagues(&others);
 
-        let pattern = &configured[0].calendar.as_ref().unwrap().matchday_pattern;
-        let weekend = pattern.as_ref().unwrap().weekend;
-        assert!(
-            weekend[4] > 0 && weekend[5] > 0 && weekend[6] > 0,
-            "{weekend:?}"
+        let calendar = configured[0].calendar.as_ref().unwrap();
+        assert_eq!(
+            calendar.matchday_pattern,
+            Some(MatchdayPattern {
+                weekend: [0, 0, 0, 0, 2, 3, 4],
+                midweek: [0, 0, 1, 0, 0, 0, 0],
+                midweek_rounds: 4,
+            })
         );
-        assert!(
-            configured[0]
-                .calendar
-                .as_ref()
-                .unwrap()
-                .window_end
-                .is_some()
+        assert_eq!(
+            calendar.window_end,
+            Some(CalendarDate { month: 5, day: 17 })
         );
-        assert!(bare[0].calendar.is_none());
+        assert!(unrelated[0].calendar.is_none());
     }
 
     #[test]

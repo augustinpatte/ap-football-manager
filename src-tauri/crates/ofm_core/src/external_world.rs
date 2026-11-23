@@ -1231,6 +1231,36 @@ mod tests {
         assert!((200_000..=700_000).contains(&wage), "{wage}");
     }
 
+    /// Given a rising teenager paid 150 k a week at the source, on a contract that runs on,
+    /// When he is projected a season on,
+    /// Then his pay is the source wage moved by the pay scale's ratio between the state he was in and
+    /// the one he is in (a raise, as he improves and ages), not the source wage left untouched and
+    /// not a wage re-priced from nothing.
+    #[test]
+    fn a_projected_wage_moves_by_the_pay_scales_ratio_from_the_source_wage() {
+        let young = priced("fm-p-wage", "2007-03-01", 70, 90, 20_000_000, 150_000);
+        let key = ExternalCareerKey::new(7, 2026);
+        let scale = calibrated();
+
+        let next = project_from(&young, key, 2026, 2027, &clubs(), false, &scale);
+
+        let club = next.player.club.as_ref().unwrap();
+        let wage_at =
+            |ovr: u8, age: i32| f64::from(projected_wage_on(&scale, ovr, age, club.reputation));
+        let then = wage_at(70, age_on(season_start(2026), &young.date_of_birth));
+        let now = wage_at(
+            next.player.ovr,
+            age_on(season_start(2027), &young.date_of_birth),
+        );
+        let expected = (150_000.0 * now / then).round() as u32;
+        assert!(
+            then > 0.0 && (now - then).abs() > 1.0,
+            "the fixture must change his pay scale"
+        );
+        assert_eq!(club.weekly_wage, expected);
+        assert_ne!(club.weekly_wage, 150_000);
+    }
+
     /// Given an ordinary player of an imported world (300 k, paid 700 a week),
     /// When he is projected a season on,
     /// Then he is not inflated by orders of magnitude: the native formula would value him in millions.

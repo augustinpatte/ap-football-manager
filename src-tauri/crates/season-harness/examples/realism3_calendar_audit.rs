@@ -174,10 +174,10 @@ fn world_checks(game: &Game) -> Value {
             let gap = (pair[1].0 - pair[0].0).num_days();
             if gap == 0 {
                 double += 1;
-            } else if gap < 3 {
+            } else if gap < ofm_core::calendar_booking::MIN_GAP_DAYS {
                 short += 1;
             }
-            if gap < 3 {
+            if gap < ofm_core::calendar_booking::MIN_GAP_DAYS {
                 let who = if side.starts_with("fm-c-") {
                     "club"
                 } else {

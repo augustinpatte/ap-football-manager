@@ -799,7 +799,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         // A player an AI club has put up for sale is a target whatever his score: the score
         // measures appeal to a club shopping for a bargain, and his price already is one. So is a
         // spare it would let go.
-        if score < 35 && (is_user_owned || !(player.transfer_listed || is_spare)) {
+        if score < VISIBLE_APPEAL && (is_user_owned || !(player.transfer_listed || is_spare)) {
             if is_user_owned {
                 count(Funnel::UserBelowThreshold);
             }

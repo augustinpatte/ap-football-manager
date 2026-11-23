@@ -1,5 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
-use domain::competition_calendar::MatchdayPattern;
+use domain::competition_calendar::{MatchdayPattern, SeasonCalendar};
 use domain::league::{
     CompetitionFormat, CompetitionRules, CompetitionScope, CompetitionType, Fixture,
     FixtureCompetition, FixtureStatus, KnockoutRoundState, League, StandingEntry,
@@ -165,6 +165,40 @@ pub fn build_round_robin_fixtures_with(
     fixtures
 }
 
+/// A league table's fixtures: dated by the pattern the season calendar carries, else on the legacy
+/// cadence. The first edition and every renewal go through here, so a league is dated alike in both.
+pub(crate) fn build_league_fixtures(
+    competition_id: &str,
+    team_ids: &[String],
+    start_date: DateTime<Utc>,
+    fixture_competition: FixtureCompetition,
+    legs: u8,
+    season: Option<&SeasonCalendar>,
+) -> Vec<Fixture> {
+    let Some(pattern) = season.and_then(|season| season.matchday_pattern.as_ref()) else {
+        return build_round_robin_fixtures_with(
+            competition_id,
+            team_ids,
+            start_date,
+            fixture_competition,
+            legs,
+            LEAGUE_MATCHDAY_GAP_DAYS.into(),
+        );
+    };
+    let window_end = season
+        .and_then(|season| season.window_end)
+        .and_then(|end| crate::schedule_pattern::window_end_date(start_date.date_naive(), end));
+    build_patterned_fixtures(
+        competition_id,
+        team_ids,
+        start_date,
+        fixture_competition,
+        legs,
+        window_end,
+        pattern,
+    )
+}
+
 /// The same round robin as [`build_round_robin_fixtures_with`], dated by a [`MatchdayPattern`]
 /// instead of one fixed gap: the rounds fall across the week, some midweek when the season needs
 /// them, and a club never plays inside [`crate::schedule_pattern::MIN_REST_DAYS`] of itself.
@@ -290,28 +324,28 @@ pub fn regenerate_league_for_season(league: &mut League, season: u32, start_date
     if team_ids.len() < 2 {
         return;
     }
-    let authored = league
+    let season_calendar = league
         .calendar
         .as_ref()
-        .map(|calendar| &calendar.season)
-        .and_then(|season| Some((season.matchday_pattern.clone()?, season.window_end)));
-    match authored {
-        Some((pattern, window_end)) if pattern.is_authored() => {
-            let window_end = window_end.and_then(|end| {
-                crate::schedule_pattern::window_end_date(start_date.date_naive(), end)
-            });
-            league.fixtures = build_patterned_fixtures(
-                &league.id,
-                &team_ids,
-                start_date,
-                FixtureCompetition::League,
-                2,
-                window_end,
-                &pattern,
-            );
-        }
-        _ => append_round_robin_fixtures(league, &team_ids, start_date),
-    }
+        .map(|calendar| calendar.season.clone());
+    let patterned = season_calendar
+        .as_ref()
+        .and_then(|season| season.matchday_pattern.as_ref())
+        .is_some_and(MatchdayPattern::is_authored);
+    // A patterned league renews with the leg count it was built with. The legacy path has always
+    // renewed as a double round robin, whatever the league's legs, and keeps doing so.
+    let legs = match (&league.calendar, patterned) {
+        (Some(calendar), true) => calendar.league_legs.unwrap_or(2),
+        _ => 2,
+    };
+    league.fixtures = build_league_fixtures(
+        &league.id,
+        &team_ids,
+        start_date,
+        FixtureCompetition::League,
+        legs,
+        season_calendar.as_ref().filter(|_| patterned),
+    );
 }
 
 /// Reset a knockout competition for a new season in place, preserving identity

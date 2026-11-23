@@ -25,7 +25,14 @@ pub(crate) const MIN_REST_DAYS: i64 = crate::calendar_booking::MIN_GAP_DAYS;
 /// The date a season's window ends on: the first `end` on or after the opener (an end before the
 /// opener's month and day belongs to the following year).
 pub(crate) fn window_end_date(start: NaiveDate, end: CalendarDate) -> Option<NaiveDate> {
-    let in_year = |year: i32| NaiveDate::from_ymd_opt(year, end.month.into(), end.day.into());
+    // 29 February in a year that has none is 28 February, as the opener's own date is clamped.
+    let in_year = |year: i32| {
+        NaiveDate::from_ymd_opt(year, end.month.into(), end.day.into()).or_else(|| {
+            (end.month == 2 && end.day == 29)
+                .then(|| NaiveDate::from_ymd_opt(year, 2, 28))
+                .flatten()
+        })
+    };
     in_year(start.year())
         .filter(|d| *d >= start)
         .or_else(|| in_year(start.year() + 1))
@@ -235,7 +242,16 @@ mod tests {
     }
 
     fn build(n: usize, pattern: &MatchdayPattern, end: Option<NaiveDate>) -> Vec<Fixture> {
-        let start = chrono::Utc.from_utc_datetime(&day(2026, 8, 21).and_hms_opt(0, 0, 0).unwrap());
+        build_from(day(2026, 8, 21), n, pattern, end)
+    }
+
+    fn build_from(
+        opener: NaiveDate,
+        n: usize,
+        pattern: &MatchdayPattern,
+        end: Option<NaiveDate>,
+    ) -> Vec<Fixture> {
+        let start = chrono::Utc.from_utc_datetime(&opener.and_hms_opt(0, 0, 0).unwrap());
         build_patterned_fixtures(
             "league",
             &teams(n),
@@ -352,6 +368,7 @@ mod tests {
     #[test]
     fn no_club_keeps_the_weekday_of_the_opening_round() {
         let fixtures = build(18, &weekend_pattern(), None);
+        assert_eq!(club_dates(&fixtures).len(), 18);
 
         for (club, dates) in club_dates(&fixtures) {
             let weekdays: BTreeSet<u32> = dates
@@ -412,6 +429,7 @@ mod tests {
     fn every_club_has_the_minimum_rest_between_fixtures() {
         for (teams_n, end) in [(18, None), (24, Some(day(2027, 5, 8)))] {
             let fixtures = build(teams_n, &weekend_pattern(), end);
+            assert_eq!(club_dates(&fixtures).len(), teams_n);
 
             for (club, dates) in club_dates(&fixtures) {
                 for pair in dates.windows(2) {
@@ -426,10 +444,11 @@ mod tests {
         }
     }
 
-    /// Given a 24-club division (46 rounds) and a window of 37 weeks,
+    /// Given a 24-club division (46 rounds) and a window with 38 weekend weeks, and no midweek round
+    /// asked for,
     /// When its calendar is built,
-    /// Then the season fits the window by playing the rounds it lacks weeks for midweek, and every
-    /// fixture of a midweek round is on a midweek weekday.
+    /// Then the season fits the window by playing the eight rounds it lacks weeks for midweek: all
+    /// 8 x 12 fixtures of those rounds are on Wednesdays and nothing else is.
     #[test]
     fn a_long_division_plays_midweek_rounds_to_fit_its_window() {
         let end = day(2027, 5, 8);
@@ -446,7 +465,7 @@ mod tests {
         let wednesdays = weekday_counts(&fixtures).get(&2).copied().unwrap_or(0);
 
         assert!(last <= end, "ends {last}");
-        assert!(wednesdays > 0, "no midweek round was needed?");
+        assert_eq!(wednesdays, 8 * 12);
         let rounds: BTreeSet<u32> = fixtures.iter().map(|f| f.matchday).collect();
         assert_eq!(rounds.len(), 46);
     }
@@ -468,10 +487,12 @@ mod tests {
         let bounded = build(18, &weekend_pattern(), Some(end));
         let open = build(18, &weekend_pattern(), None);
 
+        // Six pauses are planned; one that falls next to a midweek round shares that round's week
+        // instead of leaving it empty.
+        let paused = weeks_without_a_round(&bounded);
         assert!(
-            weeks_without_a_round(&bounded) >= 4,
-            "{}",
-            weeks_without_a_round(&bounded)
+            (MAX_BREAKS as usize - 1..=MAX_BREAKS as usize).contains(&paused),
+            "{paused}"
         );
         assert_eq!(weeks_without_a_round(&open), 0);
         assert!(bounded.iter().map(date_of).max().unwrap() <= end);
@@ -499,14 +520,22 @@ mod tests {
         assert_eq!(ids.len(), fixtures.len());
     }
 
-    /// Given an opening on a Friday,
+    /// Given an opening on a Sunday, with a Friday-Saturday-Sunday pattern,
     /// When the first round is read,
-    /// Then no fixture is dated before the opener.
+    /// Then it is played on the opener alone: the Friday and Saturday before it are not offered.
     #[test]
     fn the_first_round_is_not_before_the_opening_date() {
-        let fixtures = build(18, &weekend_pattern(), None);
+        let opener = day(2026, 8, 23);
 
-        assert!(fixtures.iter().map(date_of).min().unwrap() >= day(2026, 8, 21));
+        let fixtures = build_from(opener, 18, &weekend_pattern(), None);
+
+        let first_round: BTreeSet<NaiveDate> = fixtures
+            .iter()
+            .filter(|f| f.matchday == 1)
+            .map(date_of)
+            .collect();
+        assert_eq!(first_round, BTreeSet::from([opener]));
+        assert!(fixtures.iter().map(date_of).min().unwrap() >= opener);
     }
 
     /// Given an opener in August and a window ending 31 May (before the opener's month and day),
@@ -528,6 +557,11 @@ mod tests {
         assert_eq!(
             window_end_date(day(2026, 8, 21), CalendarDate { month: 2, day: 30 }),
             None
+        );
+        // 29 February in a year without one is 28 February, not no window at all.
+        assert_eq!(
+            window_end_date(day(2026, 8, 21), CalendarDate { month: 2, day: 29 }),
+            Some(day(2027, 2, 28))
         );
     }
 
@@ -554,16 +588,17 @@ mod tests {
     /// league without one is renewed on the legacy cadence: all on one weekday.
     #[test]
     fn a_renewed_league_keeps_its_stored_pattern() {
-        let patterned = regenerated(
-            Some(weekend_pattern()),
-            Some(CalendarDate { month: 5, day: 24 }),
-        );
+        // A window tighter than the season's natural end (mid-March), so that ignoring it shows.
+        let window = CalendarDate { month: 3, day: 1 };
+        let patterned = regenerated(Some(weekend_pattern()), Some(window));
+        let unbounded = regenerated(Some(weekend_pattern()), None);
         let legacy = regenerated(None, None);
 
         assert!(weekday_counts(&patterned).len() >= 4);
         assert_eq!(weekday_counts(&legacy).len(), 1);
         assert!(patterned.iter().map(date_of).min().unwrap() >= day(2027, 8, 20));
-        assert!(patterned.iter().map(date_of).max().unwrap() <= day(2028, 5, 24));
+        assert!(patterned.iter().map(date_of).max().unwrap() <= day(2028, 3, 1));
+        assert!(unbounded.iter().map(date_of).max().unwrap() > day(2028, 3, 1));
     }
 
     /// Given a pattern whose weights sit on one weekday only,
@@ -581,9 +616,10 @@ mod tests {
         assert!(dates.iter().all(|d| *d == day(2026, 8, 22)));
     }
 
-    /// Given weights 1 : 3 : 5 and nine fixtures,
+    /// Given weights 1 : 3 : 5 and eight fixtures (exact shares 0.9, 2.7 and 4.4),
     /// When they are allocated,
-    /// Then the days get 1, 3 and 5 of them (exact quotas, not random draws).
+    /// Then the days get 1, 3 and 4: the two fixtures the floors leave over go to the largest
+    /// remainders, not to chance.
     #[test]
     fn a_round_is_allocated_by_exact_quotas() {
         let round = RoundPlan {
@@ -597,13 +633,13 @@ mod tests {
 
         let dates = allocate_dates(
             &round,
-            &(0..9u64).map(|i| i * 7919 % 13).collect::<Vec<_>>(),
+            &(0..8u64).map(|i| i * 7919 % 13).collect::<Vec<_>>(),
         );
 
         let mut counts: BTreeMap<NaiveDate, usize> = BTreeMap::new();
         dates
             .iter()
             .for_each(|d| *counts.entry(*d).or_default() += 1);
-        assert_eq!(counts.values().copied().collect::<Vec<_>>(), vec![1, 3, 5]);
+        assert_eq!(counts.values().copied().collect::<Vec<_>>(), vec![1, 3, 4]);
     }
 }

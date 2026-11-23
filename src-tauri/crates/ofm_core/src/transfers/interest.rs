@@ -228,6 +228,32 @@ mod tests {
         AppealBench::new(world.iter().map(|p| (p, 27)))
     }
 
+    /// Given the world of seniors plus a thousand rated-99 players who are not in it (retired, with
+    /// no club, or academy players),
+    /// When a star's appeal is read,
+    /// Then it is what it was without them: only a club's active seniors are the field he is read
+    /// against.
+    #[test]
+    fn only_active_club_seniors_make_up_the_field() {
+        let mut world: Vec<Player> = (50..=99u8)
+            .flat_map(|o| (0..20).map(move |_| player(o, o)))
+            .collect();
+        for n in 0..1000 {
+            let mut outsider = player(99, 99);
+            match n % 3 {
+                0 => outsider.retired = true,
+                1 => outsider.team_id = None,
+                _ => outsider.squad_role = SquadRole::Youth,
+            }
+            world.push(outsider);
+        }
+        let diluted = AppealBench::new(world.iter().map(|p| (p, 27)));
+        let star = player(92, 92);
+
+        assert_eq!(diluted.appeal(&star, 27), bench().appeal(&star, 27));
+        assert!(diluted.appeal(&star, 27) >= VISIBLE_APPEAL);
+    }
+
     /// Given a world of seniors,
     /// When a star in his prime is read for appeal (no listing, contract or morale is even an input),
     /// Then he clears the shortlist's bar; and an ordinary player does not.

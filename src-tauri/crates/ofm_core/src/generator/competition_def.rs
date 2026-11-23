@@ -1129,34 +1129,14 @@ fn build_competition(
     let mut competition = match def.format.kind {
         CompetitionFormat::LeagueTable => {
             let mut league = League::new(def.id.clone(), def.name.clone(), season, team_ids);
-            league.fixtures = match def
-                .calendar
-                .as_ref()
-                .and_then(|calendar| calendar.matchday_pattern.as_ref())
-            {
-                Some(pattern) => crate::schedule::build_patterned_fixtures(
-                    &def.id,
-                    team_ids,
-                    season_start,
-                    fixture_competition,
-                    def.format.league_table_legs(),
-                    def.calendar
-                        .as_ref()
-                        .and_then(|calendar| calendar.window_end)
-                        .and_then(|end| {
-                            crate::schedule_pattern::window_end_date(season_start.date_naive(), end)
-                        }),
-                    pattern,
-                ),
-                None => crate::schedule::build_round_robin_fixtures_with(
-                    &def.id,
-                    team_ids,
-                    season_start,
-                    fixture_competition,
-                    def.format.league_table_legs(),
-                    crate::schedule::LEAGUE_MATCHDAY_GAP_DAYS.into(),
-                ),
-            };
+            league.fixtures = crate::schedule::build_league_fixtures(
+                &def.id,
+                team_ids,
+                season_start,
+                fixture_competition,
+                def.format.league_table_legs(),
+                def.calendar.as_ref(),
+            );
             league
         }
         CompetitionFormat::Knockout => {
@@ -1396,7 +1376,7 @@ mod tests {
 
     /// Given a league definition that carries a weekday pattern and a window end,
     /// When it is built,
-    /// Then its fixtures fall on several weekdays and end inside the window; the same definition
+    /// Then its fixtures fall on several weekdays and end inside its (tight) window; the same definition
     /// without the pattern is built on the one-day-a-week cadence.
     #[test]
     fn a_definition_with_a_matchday_pattern_builds_a_patterned_calendar() {
@@ -1407,7 +1387,8 @@ mod tests {
         let start = chrono::Utc.with_ymd_and_hms(2026, 8, 21, 0, 0, 0).unwrap();
         let mut patterned = explicit("fr-1", &names);
         patterned.calendar = Some(SeasonCalendar {
-            window_end: Some(CalendarDate { month: 5, day: 17 }),
+            // Tighter than the season's natural end (mid-March), so that ignoring it shows.
+            window_end: Some(CalendarDate { month: 3, day: 1 }),
             matchday_pattern: Some(MatchdayPattern {
                 weekend: [0, 0, 0, 0, 2, 3, 4],
                 midweek: [0, 0, 1, 0, 0, 0, 0],
@@ -1432,7 +1413,13 @@ mod tests {
         assert!(
             with.fixtures
                 .iter()
-                .all(|f| f.date.as_str() <= "2027-05-17")
+                .all(|f| f.date.as_str() <= "2027-03-01")
+        );
+        assert!(
+            without
+                .fixtures
+                .iter()
+                .any(|f| f.date.as_str() > "2027-03-01")
         );
     }
 
