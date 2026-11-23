@@ -190,15 +190,11 @@ pub(crate) fn allocate_dates(round: &RoundPlan, keys: &[u64]) -> Vec<NaiveDate> 
             (i, (exact / total) as usize, exact % total)
         })
         .collect();
-    let mut assigned: usize = quotas.iter().map(|q| q.1).sum();
+    let unassigned = n.saturating_sub(quotas.iter().map(|q| q.1).sum::<usize>());
     let mut by_remainder: Vec<usize> = (0..quotas.len()).collect();
     by_remainder.sort_by(|a, b| quotas[*b].2.cmp(&quotas[*a].2).then(a.cmp(b)));
-    for index in by_remainder {
-        if assigned >= n {
-            break;
-        }
+    for index in by_remainder.into_iter().take(unassigned) {
         quotas[index].1 += 1;
-        assigned += 1;
     }
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by_key(|i| (keys[*i], *i));

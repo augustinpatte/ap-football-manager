@@ -180,7 +180,10 @@ mod tests {
         let status = install_status(&databases);
 
         assert!(status.installed && status.outdated);
-        assert_eq!((status.revision, status.current_revision), (Some(6), 8));
+        assert_eq!(
+            (status.revision, status.current_revision),
+            (Some(6), WORLD_REVISION)
+        );
         assert_eq!(
             std::fs::read_to_string(&installed).unwrap(),
             "world of revision 6"

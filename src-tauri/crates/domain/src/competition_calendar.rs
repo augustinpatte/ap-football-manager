@@ -65,8 +65,9 @@ pub struct SeasonCalendar {
     /// An end before the opener's month/day belongs to the following year.
     #[serde(default)]
     pub window_end: Option<CalendarDate>,
-    /// How the table's rounds fall across the week; absent keeps the legacy cadence.
-    #[serde(default)]
+    /// How the table's rounds fall across the week; absent keeps the legacy cadence. Not written when
+    /// absent, so a league without one serializes exactly as it did before the field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub matchday_pattern: Option<MatchdayPattern>,
 }
 
@@ -105,7 +106,7 @@ pub struct CalendarMetadata {
 
 #[cfg(test)]
 mod tests {
-    use super::EditionBasis;
+    use super::{EditionBasis, MatchdayPattern, SeasonCalendar};
     use serde_json::json;
 
     /// Given tip JSON, when loaded and saved, then the old counter gets its precise name.
@@ -147,5 +148,45 @@ mod tests {
         ] {
             assert!(serde_json::from_value::<EditionBasis>(raw).is_err());
         }
+    }
+    /// Given a season calendar saved before weekday patterns existed,
+    /// When it is loaded and saved again,
+    /// Then it has no pattern and writes none: the legacy cadence, and the same JSON as before.
+    #[test]
+    fn a_calendar_without_a_matchday_pattern_loads_and_saves_unchanged() {
+        let old = json!({"windowEnd": {"month": 5, "day": 31}});
+
+        let calendar: SeasonCalendar = serde_json::from_value(old.clone()).unwrap();
+
+        assert!(calendar.matchday_pattern.is_none());
+        assert_eq!(
+            serde_json::to_value(&calendar).unwrap()["windowEnd"],
+            old["windowEnd"]
+        );
+        assert!(
+            serde_json::to_value(&calendar)
+                .unwrap()
+                .get("matchdayPattern")
+                .is_none()
+        );
+    }
+
+    /// Given a pattern,
+    /// When it is saved and loaded,
+    /// Then every weight and the midweek minimum survive, and an all-zero pattern says nothing.
+    #[test]
+    fn a_matchday_pattern_round_trips_and_an_empty_one_is_not_authored() {
+        let pattern = MatchdayPattern {
+            weekend: [0, 0, 0, 0, 2, 3, 4],
+            midweek: [0, 0, 1, 0, 0, 0, 0],
+            midweek_rounds: 4,
+        };
+
+        let back: MatchdayPattern =
+            serde_json::from_value(serde_json::to_value(&pattern).unwrap()).unwrap();
+
+        assert_eq!(back, pattern);
+        assert!(pattern.is_authored());
+        assert!(!MatchdayPattern::default().is_authored());
     }
 }
