@@ -146,3 +146,126 @@ min_per_anchor = 5
 min_per_age = 20
 prime_age_from = 26
 prime_age_to = 29
+
+# --- Calendriers nationaux -----------------------------------------------------------------------
+# La forme d'une semaine de football par ligue, pas les calendriers officiels (qui sont sous licence
+# et que cette importation ne reproduit pas). `weekend` : poids relatif de chaque jour, du lundi au
+# dimanche, pour une journée ordinaire; `midweek` : idem pour une journée en semaine;
+# `midweek_rounds` : journées jouées en semaine au minimum (le planificateur en ajoute autant que la
+# fenêtre de la saison en exige); la saison doit être finie à `season_end_*`. Un club garde au moins
+# trois jours de repos entre deux matchs. Une ligue absente garde la cadence d'un jour par semaine.
+# Dates générées: PAS des dates officielles.
+
+# England: Saturday afternoon first, a Sunday slot, a few Friday/Monday kick-offs; Tuesday/Wednesday
+# rounds, many more in the 46-game divisions.
+[[calendar.league]]
+country = "ENG"
+tier = 1
+weekend = [1, 0, 0, 0, 1, 12, 6]
+midweek = [0, 1, 1, 0, 0, 0, 0]
+midweek_rounds = 4
+season_end_month = 5
+season_end_day = 24
+
+[[calendar.league]]
+country = "ENG"
+tier = 2
+weekend = [0, 0, 0, 0, 2, 14, 1]
+midweek = [0, 3, 3, 0, 0, 0, 0]
+midweek_rounds = 8
+season_end_month = 5
+season_end_day = 3
+
+[[calendar.league]]
+country = "ENG"
+tier = 3
+weekend = [0, 0, 0, 0, 1, 15, 0]
+midweek = [0, 3, 3, 0, 0, 0, 0]
+midweek_rounds = 8
+season_end_month = 5
+season_end_day = 3
+
+# France: Friday evening, Saturday, and mostly Sunday; Ligue 1 is not played on one day of the week.
+[[calendar.league]]
+country = "FR"
+tier = 1
+weekend = [0, 0, 0, 0, 2, 3, 4]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 4
+season_end_month = 5
+season_end_day = 17
+
+[[calendar.league]]
+country = "FR"
+tier = 2
+weekend = [1, 0, 0, 0, 3, 4, 1]
+midweek = [0, 1, 1, 0, 0, 0, 0]
+midweek_rounds = 4
+season_end_month = 5
+season_end_day = 17
+
+[[calendar.league]]
+country = "FR"
+tier = 3
+weekend = [0, 0, 0, 0, 3, 8, 1]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 3
+season_end_month = 5
+season_end_day = 24
+
+# Germany: a Friday match, most of the round on Saturday, a Sunday slot.
+[[calendar.league]]
+country = "DE"
+tier = 1
+weekend = [0, 0, 0, 0, 1, 6, 2]
+midweek = [0, 1, 1, 0, 0, 0, 0]
+midweek_rounds = 5
+season_end_month = 5
+season_end_day = 17
+
+[[calendar.league]]
+country = "DE"
+tier = 2
+weekend = [0, 0, 0, 0, 3, 4, 2]
+midweek = [0, 1, 1, 0, 0, 0, 0]
+midweek_rounds = 5
+season_end_month = 5
+season_end_day = 24
+
+# Italy: Friday, Saturday, a heavy Sunday, a Monday match.
+[[calendar.league]]
+country = "IT"
+tier = 1
+weekend = [1, 0, 0, 0, 1, 3, 5]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 4
+season_end_month = 5
+season_end_day = 24
+
+[[calendar.league]]
+country = "IT"
+tier = 2
+weekend = [1, 0, 0, 0, 2, 4, 3]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 5
+season_end_month = 5
+season_end_day = 31
+
+# Spain: Friday to Monday, the Sunday afternoon and evening the busiest.
+[[calendar.league]]
+country = "ES"
+tier = 1
+weekend = [1, 0, 0, 0, 1, 3, 4]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 4
+season_end_month = 5
+season_end_day = 24
+
+[[calendar.league]]
+country = "ES"
+tier = 2
+weekend = [1, 0, 0, 0, 2, 4, 3]
+midweek = [0, 0, 1, 0, 0, 0, 0]
+midweek_rounds = 5
+season_end_month = 6
+season_end_day = 7

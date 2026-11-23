@@ -31,6 +31,31 @@ pub struct CalendarDate {
     pub day: u8,
 }
 
+/// How a league table's rounds fall across the week, the way a real league's do: a few fixtures on
+/// Friday, most on Saturday and Sunday, a midweek round now and then when the season would not
+/// otherwise fit. Absent (or with no weight at all): the legacy cadence, every fixture of a round on
+/// one day, seven days after the last. The dates are generated, never official.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchdayPattern {
+    /// Relative weight of each weekday (Monday first) for the fixtures of an ordinary round.
+    #[serde(default)]
+    pub weekend: [u8; 7],
+    /// The same for a midweek round.
+    #[serde(default)]
+    pub midweek: [u8; 7],
+    /// Rounds played midweek at least; the scheduler adds more when the season window needs them.
+    #[serde(default)]
+    pub midweek_rounds: u32,
+}
+
+impl MatchdayPattern {
+    /// Whether the pattern says anything: an all-zero one is the legacy cadence.
+    pub fn is_authored(&self) -> bool {
+        self.weekend.iter().any(|weight| *weight > 0)
+    }
+}
+
 /// Optional authored bounds. The opener remains League's existing month/day fields.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +65,9 @@ pub struct SeasonCalendar {
     /// An end before the opener's month/day belongs to the following year.
     #[serde(default)]
     pub window_end: Option<CalendarDate>,
+    /// How the table's rounds fall across the week; absent keeps the legacy cadence.
+    #[serde(default)]
+    pub matchday_pattern: Option<MatchdayPattern>,
 }
 
 /// Interpretation of the existing `League::season`, without changing old counters.

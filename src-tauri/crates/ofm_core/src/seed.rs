@@ -141,13 +141,7 @@ fn expand_to_rng(mut word: u64, chain_salt: u64) -> ChaCha12Rng {
 /// of a day's fixtures can depend on. It has the shape of a v4 UUID, so everything that treats
 /// ids as opaque strings is unaffected.
 pub fn derived_id(parts: &[&str]) -> String {
-    // Each part is written with its length, so no part can run into the next whatever it
-    // contains: ("a|b", "c") and ("a", "b|c") are different bytes.
-    let mut joined: Vec<u8> = Vec::new();
-    for part in parts {
-        joined.extend_from_slice(&(part.len() as u64).to_le_bytes());
-        joined.extend_from_slice(part.as_bytes());
-    }
+    let joined = length_prefixed(parts);
     let high = stable_hash(&joined, DERIVED_ID_SALT);
     let low = stable_hash(&joined, high);
     let mut bytes = [0u8; 16];
@@ -157,6 +151,26 @@ pub fn derived_id(parts: &[&str]) -> String {
         .into_uuid()
         .to_string()
 }
+
+/// Each part is written with its length, so no part can run into the next whatever it contains:
+/// ("a|b", "c") and ("a", "b|c") are different bytes.
+fn length_prefixed(parts: &[&str]) -> Vec<u8> {
+    let mut joined: Vec<u8> = Vec::new();
+    for part in parts {
+        joined.extend_from_slice(&(part.len() as u64).to_le_bytes());
+        joined.extend_from_slice(part.as_bytes());
+    }
+    joined
+}
+
+/// A number derived from `parts` alone, for ordering or sharing out things that have no seed of
+/// their own (which fixture of a round gets which day): the same parts always give the same number.
+pub(crate) fn derived_key(parts: &[&str]) -> u64 {
+    stable_hash(&length_prefixed(parts), DERIVED_KEY_SALT)
+}
+
+/// Keeps a derived key from being the same number as a derived id or any other `stable_hash` use.
+const DERIVED_KEY_SALT: u64 = 0x1d1d_1d1d_5eed_0004;
 
 /// Keeps a derived id from being the same number as any other use of `stable_hash`.
 const DERIVED_ID_SALT: u64 = 0x1d1d_1d1d_5eed_0003;

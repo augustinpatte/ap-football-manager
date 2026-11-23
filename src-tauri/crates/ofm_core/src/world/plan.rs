@@ -203,6 +203,7 @@ pub(super) fn build_foundation_competition_plan(
                             } else {
                                 CalendarDate { month: 1, day: 31 }
                             }),
+                            matchday_pattern: None,
                         }),
                         rules: None,
                     }
@@ -291,6 +292,7 @@ pub(super) fn build_foundation_competition_plan(
                                 phase: SeasonPhase::Annual,
                             }),
                             window_end: None,
+                            matchday_pattern: None,
                         }),
                         rules: None,
                     },

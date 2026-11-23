@@ -361,6 +361,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         authored: cfg.competitions.authored_rules,
         reserve_pairs: &reserve_pairs,
         reputation: &reputation,
+        calendar: &cfg.calendar,
     };
 
     // --- package on disk, then OFM's own loader and validator ----------------------------------

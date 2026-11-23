@@ -22,6 +22,42 @@ pub struct Config {
     pub value_scale: ValueScaleCfg,
     #[serde(default)]
     pub competitions: CompetitionsCfg,
+    #[serde(default)]
+    pub calendar: CalendarCfg,
+}
+
+/// How each league's rounds fall across the week. Generated, not the official fixture lists: the
+/// shape of a football week in that country (which days, in what proportion, how many midweek
+/// rounds), not any season's dates.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CalendarCfg {
+    /// One entry per league that has a pattern; a league with none keeps the one-day-a-week cadence.
+    #[serde(default)]
+    pub league: Vec<LeagueCalendarCfg>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LeagueCalendarCfg {
+    /// The country's OFM code (`ENG`, `FR`, ...) and the division within it (1 = top).
+    pub country: String,
+    pub tier: i64,
+    /// Relative weight of each weekday, Monday first, for an ordinary round.
+    pub weekend: [u8; 7],
+    /// The same for a midweek round.
+    pub midweek: [u8; 7],
+    /// Rounds played midweek at least; the scheduler adds the ones the window needs.
+    pub midweek_rounds: u32,
+    /// The month and day the regular season should be over by.
+    pub season_end_month: u8,
+    pub season_end_day: u8,
+}
+
+impl CalendarCfg {
+    pub fn league(&self, country: &str, tier: i64) -> Option<&LeagueCalendarCfg> {
+        self.league
+            .iter()
+            .find(|entry| entry.country == country && entry.tier == tier)
+    }
 }
 
 /// How the world's value scale is fitted from its own players (`valuation::fit_value_scale`): the

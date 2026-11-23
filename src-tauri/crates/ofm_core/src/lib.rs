@@ -84,6 +84,7 @@ pub mod reputation;
 pub mod retirees;
 pub mod roster;
 pub mod schedule;
+mod schedule_pattern;
 pub mod scouting;
 pub mod scouting_dossier;
 pub mod scouting_view;

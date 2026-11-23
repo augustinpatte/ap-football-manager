@@ -1129,14 +1129,34 @@ fn build_competition(
     let mut competition = match def.format.kind {
         CompetitionFormat::LeagueTable => {
             let mut league = League::new(def.id.clone(), def.name.clone(), season, team_ids);
-            league.fixtures = crate::schedule::build_round_robin_fixtures_with(
-                &def.id,
-                team_ids,
-                season_start,
-                fixture_competition,
-                def.format.league_table_legs(),
-                crate::schedule::LEAGUE_MATCHDAY_GAP_DAYS.into(),
-            );
+            league.fixtures = match def
+                .calendar
+                .as_ref()
+                .and_then(|calendar| calendar.matchday_pattern.as_ref())
+            {
+                Some(pattern) => crate::schedule::build_patterned_fixtures(
+                    &def.id,
+                    team_ids,
+                    season_start,
+                    fixture_competition,
+                    def.format.league_table_legs(),
+                    def.calendar
+                        .as_ref()
+                        .and_then(|calendar| calendar.window_end)
+                        .and_then(|end| {
+                            crate::schedule_pattern::window_end_date(season_start.date_naive(), end)
+                        }),
+                    pattern,
+                ),
+                None => crate::schedule::build_round_robin_fixtures_with(
+                    &def.id,
+                    team_ids,
+                    season_start,
+                    fixture_competition,
+                    def.format.league_table_legs(),
+                    crate::schedule::LEAGUE_MATCHDAY_GAP_DAYS.into(),
+                ),
+            };
             league
         }
         CompetitionFormat::Knockout => {
@@ -1372,6 +1392,48 @@ mod tests {
             competitions: vec![explicit("tr-1", &["team-a", "team-b"])],
         };
         assert!(validate_definitions(&file, &ctx()).is_empty());
+    }
+
+    /// Given a league definition that carries a weekday pattern and a window end,
+    /// When it is built,
+    /// Then its fixtures fall on several weekdays and end inside the window; the same definition
+    /// without the pattern is built on the one-day-a-week cadence.
+    #[test]
+    fn a_definition_with_a_matchday_pattern_builds_a_patterned_calendar() {
+        use chrono::{Datelike, TimeZone};
+        use domain::competition_calendar::{CalendarDate, MatchdayPattern, SeasonCalendar};
+        let teams: Vec<String> = (0..18).map(|n| format!("t{n:02}")).collect();
+        let names: Vec<&str> = teams.iter().map(String::as_str).collect();
+        let start = chrono::Utc.with_ymd_and_hms(2026, 8, 21, 0, 0, 0).unwrap();
+        let mut patterned = explicit("fr-1", &names);
+        patterned.calendar = Some(SeasonCalendar {
+            window_end: Some(CalendarDate { month: 5, day: 17 }),
+            matchday_pattern: Some(MatchdayPattern {
+                weekend: [0, 0, 0, 0, 2, 3, 4],
+                midweek: [0, 0, 1, 0, 0, 0, 0],
+                midweek_rounds: 3,
+            }),
+            ..Default::default()
+        });
+        let weekdays = |league: &League| -> std::collections::BTreeSet<u32> {
+            league
+                .fixtures
+                .iter()
+                .filter_map(|f| chrono::NaiveDate::parse_from_str(&f.date, "%Y-%m-%d").ok())
+                .map(|d| d.weekday().num_days_from_monday())
+                .collect()
+        };
+
+        let with = build_explicit_competition(&patterned, 2026, start).unwrap();
+        let without = build_explicit_competition(&explicit("fr-1", &names), 2026, start).unwrap();
+
+        assert!(weekdays(&with).len() >= 4, "{:?}", weekdays(&with));
+        assert_eq!(weekdays(&without).len(), 1);
+        assert!(
+            with.fixtures
+                .iter()
+                .all(|f| f.date.as_str() <= "2027-05-17")
+        );
     }
 
     /// Two divisions of one country at the same rank are peers, and the ladder

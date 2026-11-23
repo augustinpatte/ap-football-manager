@@ -26,7 +26,11 @@ use std::path::{Path, PathBuf};
 /// club's capacity is judged per buyer); the world carries no scale of its own in the file, but the
 /// registry carries the value scale fitted from the world's players, so the external market is
 /// projected, and its newgens priced, on the same scale; generated fillers are valued on it too.
-pub const WORLD_REVISION: u32 = 8;
+/// Revision 9 (REALISM3): each league carries a generated weekday pattern and season window
+/// (`[[calendar.league]]` in the adapter config), so its rounds fall on Friday, Saturday and Sunday in
+/// the proportions of its country and never all on the weekday of the opener. The dates are generated,
+/// not the official fixture lists. A career already saved keeps the calendar it was given.
+pub const WORLD_REVISION: u32 = 9;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]

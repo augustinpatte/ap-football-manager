@@ -27,6 +27,8 @@ pub struct RuleContext<'a> {
     pub reserve_pairs: &'a [(i64, i64)],
     /// Club id -> reputation, to seed the first edition of each cup.
     pub reputation: &'a BTreeMap<i64, i64>,
+    /// The weekday pattern of each league (`config::CalendarCfg`).
+    pub calendar: &'a crate::config::CalendarCfg,
 }
 
 /// Builds the league and cup definitions. `members` maps competition id -> club ids (sorted).
@@ -37,6 +39,7 @@ pub fn build(
     journal: &mut Journal,
     context: &RuleContext<'_>,
 ) -> Result<Vec<CompetitionDefinition>> {
+    let calendar = context.calendar;
     let mut definitions = Vec::new();
     for competition in competitions {
         let clubs = members
@@ -74,6 +77,16 @@ pub fn build(
                 &id,
                 format!("{}: no confirmed season start in the save's rules; OFM's default (1 August) is kept", competition.name),
             ),
+        }
+        if let Some(pattern) = calendar.league(&country, level) {
+            value["calendar"] = json!({
+                "windowEnd": { "month": pattern.season_end_month, "day": pattern.season_end_day },
+                "matchdayPattern": {
+                    "weekend": pattern.weekend,
+                    "midweek": pattern.midweek,
+                    "midweekRounds": pattern.midweek_rounds,
+                },
+            });
         }
         let mut definition: CompetitionDefinition = serde_json::from_value(value)
             .map_err(|e| format!("competition {} definition: {e}", competition.id))?;
@@ -238,6 +251,72 @@ mod tests {
         assert_eq!(display_name("Ligue 1"), "Ligue 1");
     }
 
+    fn ligue_1_row() -> CompetitionRow {
+        CompetitionRow {
+            id: 12,
+            fm_uid: Some(16),
+            name: "Ligue 1".into(),
+            nation: Some("France".into()),
+            playable: true,
+            simulated: false,
+            level: Some(1),
+            target_key: Some("fr_ligue1".into()),
+            season_start: Some("2026-08-21".into()),
+            tiebreak: Some("pts>gd>gf".into()),
+        }
+    }
+
+    /// Given a calendar configuration with a French top-tier entry,
+    /// When the leagues are built,
+    /// Then Ligue 1 carries that weekday pattern and window end, and a league the configuration does
+    /// not name carries none (the legacy cadence).
+    #[test]
+    fn a_configured_league_carries_its_weekday_pattern() {
+        let refs = Refs::embedded().unwrap();
+        let members = BTreeMap::from([(12, vec![464, 498])]);
+        let calendar = crate::config::Config::default_config().calendar;
+        let reputation = BTreeMap::new();
+        let context = |calendar| RuleContext {
+            authored: false,
+            reserve_pairs: &[],
+            reputation: &reputation,
+            calendar,
+        };
+
+        let configured = build(
+            &[ligue_1_row()],
+            &members,
+            &refs,
+            &mut Journal::default(),
+            &context(&calendar),
+        )
+        .unwrap();
+        let bare = build(
+            &[ligue_1_row()],
+            &members,
+            &refs,
+            &mut Journal::default(),
+            &context(&crate::config::CalendarCfg::default()),
+        )
+        .unwrap();
+
+        let pattern = &configured[0].calendar.as_ref().unwrap().matchday_pattern;
+        let weekend = pattern.as_ref().unwrap().weekend;
+        assert!(
+            weekend[4] > 0 && weekend[5] > 0 && weekend[6] > 0,
+            "{weekend:?}"
+        );
+        assert!(
+            configured[0]
+                .calendar
+                .as_ref()
+                .unwrap()
+                .window_end
+                .is_some()
+        );
+        assert!(bare[0].calendar.is_none());
+    }
+
     #[test]
     fn a_league_is_a_domestic_double_round_robin_with_explicit_members() {
         let refs = Refs::embedded().unwrap();
@@ -259,6 +338,7 @@ mod tests {
             authored: true,
             reserve_pairs: &[],
             reputation: &BTreeMap::new(),
+            calendar: &crate::config::CalendarCfg::default(),
         };
         let defs = build(&[row], &members, &refs, &mut journal, &context).unwrap();
         assert_eq!(defs.len(), 1);

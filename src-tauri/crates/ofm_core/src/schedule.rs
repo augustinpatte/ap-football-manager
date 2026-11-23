@@ -1,4 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
+use domain::competition_calendar::MatchdayPattern;
 use domain::league::{
     CompetitionFormat, CompetitionRules, CompetitionScope, CompetitionType, Fixture,
     FixtureCompetition, FixtureStatus, KnockoutRoundState, League, StandingEntry,
@@ -71,6 +72,67 @@ pub fn round_robin_matchdays(n: usize, legs: usize) -> usize {
     (slots - 1) * legs
 }
 
+/// The pairings of each round of a round robin, as `(home, away)` indices into the club list: the
+/// circle method, even legs reversing home and away. An odd club count plays against a phantom slot,
+/// which gives each club one bye per leg and leaves that round one pairing short.
+fn round_pairings(n: usize, legs: u8) -> Vec<Vec<(usize, usize)>> {
+    if n < 2 || legs == 0 {
+        return Vec::new();
+    }
+    let slots = if n.is_multiple_of(2) { n } else { n + 1 };
+    let rounds = round_robin_matchdays(n, 1);
+    let half = slots / 2;
+    let mut all = Vec::with_capacity(rounds * usize::from(legs));
+    for leg in 0..legs {
+        let mut indices: Vec<usize> = (0..slots).collect();
+        for _round in 0..rounds {
+            let mut pairs = Vec::with_capacity(half);
+            for i in 0..half {
+                let (mut home, mut away) = (indices[i], indices[slots - 1 - i]);
+                if leg % 2 == 1 {
+                    std::mem::swap(&mut home, &mut away);
+                }
+                if home < n && away < n {
+                    pairs.push((home, away));
+                }
+            }
+            all.push(pairs);
+            let last = indices.pop().unwrap();
+            indices.insert(1, last);
+        }
+    }
+    all
+}
+
+fn scheduled_fixture(
+    competition_id: &str,
+    fixture_competition: &FixtureCompetition,
+    matchday: u32,
+    date: &str,
+    home: &str,
+    away: &str,
+) -> Fixture {
+    Fixture {
+        postponement: None,
+        id: crate::seed::derived_id(&[
+            "fixture",
+            competition_id,
+            &matchday.to_string(),
+            date,
+            home,
+            away,
+        ]),
+        competition_id: competition_id.to_string(),
+        matchday,
+        date: date.to_string(),
+        home_team_id: home.to_string(),
+        away_team_id: away.to_string(),
+        competition: fixture_competition.clone(),
+        status: FixtureStatus::Scheduled,
+        result: None,
+    }
+}
+
 /// Build a round-robin fixture list with a configurable number of legs (even
 /// legs reverse home and away) and days between matchdays. Uses the circle
 /// method; an odd club count plays against a phantom slot, giving each club
@@ -83,54 +145,84 @@ pub fn build_round_robin_fixtures_with(
     legs: u8,
     matchday_gap_days: i64,
 ) -> Vec<Fixture> {
-    let n = team_ids.len();
-    if n < 2 || legs == 0 {
-        return Vec::new();
-    }
-    let slots = if n.is_multiple_of(2) { n } else { n + 1 };
-    let rounds = round_robin_matchdays(n, 1);
-    let half = slots / 2;
     let mut fixtures = Vec::new();
-    let mut matchday: u32 = 1;
+    for (round, pairs) in round_pairings(team_ids.len(), legs).iter().enumerate() {
+        let matchday = round as u32 + 1;
+        let date_str = (start_date + Duration::days(round as i64 * matchday_gap_days))
+            .format("%Y-%m-%d")
+            .to_string();
+        for &(home, away) in pairs {
+            fixtures.push(scheduled_fixture(
+                competition_id,
+                &fixture_competition,
+                matchday,
+                &date_str,
+                &team_ids[home],
+                &team_ids[away],
+            ));
+        }
+    }
+    fixtures
+}
 
-    // Even-numbered legs reverse home and away.
-    for leg in 0..legs {
-        let mut indices: Vec<usize> = (0..slots).collect();
-        for _round in 0..rounds {
-            let date_str = (start_date + Duration::days((matchday as i64 - 1) * matchday_gap_days))
-                .format("%Y-%m-%d")
-                .to_string();
-            for i in 0..half {
-                let (mut home, mut away) = (indices[i], indices[slots - 1 - i]);
-                if leg % 2 == 1 {
-                    std::mem::swap(&mut home, &mut away);
-                }
-                if home >= n || away >= n {
-                    continue; // Paired with the phantom slot: a bye.
-                }
-                fixtures.push(Fixture {
-                    postponement: None,
-                    id: crate::seed::derived_id(&[
-                        "fixture",
-                        competition_id,
-                        &matchday.to_string(),
-                        &date_str,
-                        &team_ids[home],
-                        &team_ids[away],
-                    ]),
-                    competition_id: competition_id.to_string(),
-                    matchday,
-                    date: date_str.clone(),
-                    home_team_id: team_ids[home].clone(),
-                    away_team_id: team_ids[away].clone(),
-                    competition: fixture_competition.clone(),
-                    status: FixtureStatus::Scheduled,
-                    result: None,
-                });
-            }
-            matchday += 1;
-            let last = indices.pop().unwrap();
-            indices.insert(1, last);
+/// The same round robin as [`build_round_robin_fixtures_with`], dated by a [`MatchdayPattern`]
+/// instead of one fixed gap: the rounds fall across the week, some midweek when the season needs
+/// them, and a club never plays inside [`crate::schedule_pattern::MIN_REST_DAYS`] of itself.
+/// `window_end` is the date the season should be over by. A pattern that says nothing gives the
+/// legacy calendar exactly.
+pub(crate) fn build_patterned_fixtures(
+    competition_id: &str,
+    team_ids: &[String],
+    start_date: DateTime<Utc>,
+    fixture_competition: FixtureCompetition,
+    legs: u8,
+    window_end: Option<chrono::NaiveDate>,
+    pattern: &MatchdayPattern,
+) -> Vec<Fixture> {
+    if !pattern.is_authored() {
+        return build_round_robin_fixtures_with(
+            competition_id,
+            team_ids,
+            start_date,
+            fixture_competition,
+            legs,
+            LEAGUE_MATCHDAY_GAP_DAYS.into(),
+        );
+    }
+    let rounds = round_pairings(team_ids.len(), legs);
+    let plans = crate::schedule_pattern::plan_rounds(
+        rounds.len() as u32,
+        start_date.date_naive(),
+        window_end,
+        pattern,
+    );
+    let mut fixtures = Vec::new();
+    for (round, (pairs, plan)) in rounds.iter().zip(&plans).enumerate() {
+        let matchday = round as u32 + 1;
+        // Keyed by the pairing, so the same list of clubs always gets the same dates.
+        let keys: Vec<u64> = pairs
+            .iter()
+            .map(|&(home, away)| {
+                crate::seed::derived_key(&[
+                    competition_id,
+                    &matchday.to_string(),
+                    &team_ids[home],
+                    &team_ids[away],
+                ])
+            })
+            .collect();
+        for (&(home, away), date) in pairs
+            .iter()
+            .zip(crate::schedule_pattern::allocate_dates(plan, &keys))
+        {
+            fixtures.push(scheduled_fixture(
+                competition_id,
+                &fixture_competition,
+                matchday,
+                &date.format("%Y-%m-%d").to_string(),
+                &team_ids[home],
+                &team_ids[away],
+            ));
         }
     }
     fixtures
@@ -195,8 +287,30 @@ pub fn regenerate_league_for_season(league: &mut League, season: u32, start_date
         .map(|id| StandingEntry::new(id.clone()))
         .collect();
 
-    if team_ids.len() >= 2 {
-        append_round_robin_fixtures(league, &team_ids, start_date);
+    if team_ids.len() < 2 {
+        return;
+    }
+    let authored = league
+        .calendar
+        .as_ref()
+        .map(|calendar| &calendar.season)
+        .and_then(|season| Some((season.matchday_pattern.clone()?, season.window_end)));
+    match authored {
+        Some((pattern, window_end)) if pattern.is_authored() => {
+            let window_end = window_end.and_then(|end| {
+                crate::schedule_pattern::window_end_date(start_date.date_naive(), end)
+            });
+            league.fixtures = build_patterned_fixtures(
+                &league.id,
+                &team_ids,
+                start_date,
+                FixtureCompetition::League,
+                2,
+                window_end,
+                &pattern,
+            );
+        }
+        _ => append_round_robin_fixtures(league, &team_ids, start_date),
     }
 }
 
