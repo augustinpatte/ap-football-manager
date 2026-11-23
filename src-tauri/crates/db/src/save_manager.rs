@@ -658,6 +658,19 @@ impl SaveManager {
             needs_resave = true;
         }
 
+        // A career saved before values were revalued has no basis for any player. Each is anchored
+        // to the value, rating, ceiling and age stored right now (after the rating backfill above,
+        // so the anchor reads a real rating): nothing is repriced, and only genuine development
+        // after this load moves a value.
+        let anchored = ofm_core::revaluation::anchor_missing_bases(&mut game, today);
+        if anchored > 0 {
+            info!(
+                "[save_manager] anchored the value basis of {} players in save {}",
+                anchored, save_id
+            );
+            needs_resave = true;
+        }
+
         // The wonderkid tag is a rule, not a stored fact: apply the current rule to every player,
         // so a save written under an older one is judged by this one.
         let retagged = game
@@ -1545,6 +1558,137 @@ mod tests {
             .unwrap();
 
         assert_eq!(stored(&fresh_reader(&sm, &save_id)), i64::from(derived));
+    }
+
+    /// A veteran and a prospect, each worth 30 M and with a rating consistent with their attributes,
+    /// on a roster written by a build that had no value basis.
+    fn game_with_unanchored_values() -> Game {
+        use chrono::Datelike;
+        let mut game = sample_game();
+        let today = game.clock.current_date.date_naive();
+        for (id, age, potential_gap) in [("vet", 34, 0u8), ("kid", 18, 15)] {
+            let mut player = game.players[0].clone();
+            player.id = id.to_string();
+            player.date_of_birth = format!("{}-01-01", today.year() - age);
+            player.team_id = Some("team-001".to_string());
+            let derived = ofm_core::player_rating::natural_ovr(&player).round() as u8;
+            player.ovr = derived;
+            player.potential = derived.saturating_add(potential_gap).min(99);
+            player.market_value = 30_000_000;
+            player.value_basis = None;
+            game.players.push(player);
+        }
+        game
+    }
+
+    /// Given a career saved before values were revalued (no value basis on any player),
+    /// When it is loaded,
+    /// Then every player is anchored to the value, rating, ceiling and age already stored, no value
+    /// is repriced, and the anchor is written back so the next load reads the same basis.
+    #[test]
+    fn loading_a_legacy_save_anchors_every_value_without_repricing_any() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let game = game_with_unanchored_values();
+        let mut sm = SaveManager::init(&saves).unwrap();
+        let save_id = sm.create_save(&game, "Career").unwrap();
+
+        let loaded = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+
+        for id in ["vet", "kid"] {
+            let player = loaded.players.iter().find(|p| p.id == id).unwrap();
+            let basis = player.value_basis.expect("anchored on load");
+            assert_eq!(player.market_value, 30_000_000, "{id} was repriced");
+            assert_eq!(
+                (basis.value, basis.ovr, basis.potential, basis.revalued_year),
+                (30_000_000, player.ovr, player.potential, 0),
+                "{id}"
+            );
+        }
+        let stored: i64 = fresh_reader(&sm, &save_id)
+            .query_row(
+                "SELECT COUNT(*) FROM players WHERE id IN ('vet', 'kid') AND value_basis IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, 2, "the anchor is written back with the load");
+    }
+
+    /// Given a legacy career loaded, a season rolled over, saved, closed, loaded and saved again,
+    /// When the same season's end is run a second time on the reloaded game,
+    /// Then the veteran lost value and the prospect gained it at the first rollover, both survive
+    /// the save and reload exactly, and the repeated season's end changes nothing.
+    #[test]
+    fn a_rollover_revalues_once_and_survives_save_and_reload() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves = dir.path().join("saves");
+        let mut sm = SaveManager::init(&saves).unwrap();
+        let save_id = sm
+            .create_save(&game_with_unanchored_values(), "Career")
+            .unwrap();
+        let mut game = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+        let season_end = chrono::NaiveDate::from_ymd_opt(2027, 5, 31).unwrap();
+
+        ofm_core::aging::apply_seasonal_aging(&mut game, season_end, 2027);
+        let value_of = |game: &Game, id: &str| {
+            game.players
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.market_value)
+        };
+        let (vet, kid) = (value_of(&game, "vet"), value_of(&game, "kid"));
+        // The veteran may retire, but then he has no value to lose; the prospect never does.
+        if let Some(vet) = vet {
+            assert!(vet < 30_000_000, "the veteran kept his value: {vet}");
+        }
+        assert!(
+            kid.unwrap() > 30_000_000,
+            "the prospect gained nothing: {kid:?}"
+        );
+        let mut writer = SaveManager::init(&saves).unwrap();
+        writer.save_game(&game, &save_id).unwrap();
+
+        let mut reloaded = SaveManager::init(&saves)
+            .unwrap()
+            .load_game(&save_id)
+            .unwrap();
+
+        assert_eq!(value_of(&reloaded, "vet"), vet);
+        assert_eq!(value_of(&reloaded, "kid"), kid);
+        let basis = |game: &Game, id: &str| {
+            game.players
+                .iter()
+                .find(|p| p.id == id)
+                .and_then(|p| p.value_basis)
+        };
+        assert_eq!(basis(&reloaded, "kid"), basis(&game, "kid"));
+        assert_eq!(basis(&reloaded, "kid").unwrap().revalued_year, 2027);
+
+        // The same season's end again, on the reloaded game, after the ratings have moved further
+        // (a retried rollover): only the season's marker, read back from the file, stops the
+        // revaluation from paying for that movement a second time.
+        let ids = ["vet", "kid"];
+        for player in reloaded.players.iter_mut() {
+            player.ovr = if player.id == "kid" {
+                player.ovr + 5
+            } else {
+                player.ovr.saturating_sub(5)
+            };
+        }
+        let before: Vec<_> = ids.iter().map(|id| value_of(&reloaded, id)).collect();
+        let scale = reloaded.value_scale.clone();
+        for player in reloaded.players.iter_mut() {
+            ofm_core::revaluation::revalue_after_season(player, &scale, season_end, 2027);
+        }
+        let after: Vec<_> = ids.iter().map(|id| value_of(&reloaded, id)).collect();
+        assert_eq!(before, after, "a repeated season's end repriced a player");
     }
 
     /// Given a saved career whose young prospect has an S-tier ceiling but no wonderkid tag, and

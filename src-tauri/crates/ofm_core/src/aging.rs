@@ -223,6 +223,10 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
     let world_seed = game.seed;
     let market = FreeAgentMarket::of(game);
     let matches_recorded = matches_recorded_by_club(&game.players);
+    let scale = &game.value_scale;
+    // The year the season ends in: unlike the user's league label it cannot repeat after a change of
+    // club or league, and a retried rollover of the same season shares it.
+    let revaluation_year = u32::try_from(chrono::Datelike::year(&current_date)).unwrap_or(0);
     // (club, player) of everyone who retires, settled once the whole squad has aged: a retiring
     // starter's slot in the saved eleven is refilled from the players who are left.
     let mut retiring: Vec<(String, String)> = Vec::new();
@@ -234,8 +238,15 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
             &iso(current_date),
         );
         let load = season_load(player, &matches_recorded);
+        // His value stands for the state he is in before the season changes it: a player nobody
+        // anchored is anchored now, so the revaluation below prices the season's change and not
+        // a state he was never valued in.
+        if player.value_basis.is_none() {
+            crate::revaluation::anchor_value(player, scale, current_date);
+        }
         crate::development::develop_season(player, age, world_seed, &mut stream, load);
         crate::player_rating::refresh_player_derived(player, current_date);
+        crate::revaluation::revalue_after_season(player, scale, current_date, revaluation_year);
 
         let drifts_out = {
             let chance = drifting_out_chance(player, age, current_date, &market);
@@ -730,6 +741,113 @@ mod tests {
             })
             .sum::<f64>()
             / 80.0
+    }
+
+    /// A cohort of `count` players born on `born`, each worth `value`, one season of ageing on:
+    /// each survivor's rating and value before and after.
+    fn value_and_rating_through_a_season(
+        born: &str,
+        potential: u8,
+        value: u64,
+        count: usize,
+    ) -> Vec<((u8, u64), (u8, u64))> {
+        let players: Vec<Player> = (0..count)
+            .map(|n| {
+                let mut player = make_player(&format!("valued-{n}"), born);
+                player.stage_contract_end(Some("2030-06-30".to_string()));
+                player.stats.appearances = 20;
+                crate::player_rating::refresh_player_derived(
+                    &mut player,
+                    NaiveDate::from_ymd_opt(2026, 5, 20).unwrap(),
+                );
+                player.potential = potential;
+                player.market_value = value;
+                player
+            })
+            .collect();
+        let before: std::collections::HashMap<String, (u8, u64)> = players
+            .iter()
+            .map(|p| (p.id.clone(), (p.ovr, p.market_value)))
+            .collect();
+        let mut game = make_game(players);
+        let date = game.clock.current_date.date_naive();
+
+        apply_seasonal_aging(&mut game, date, 1);
+
+        game.players
+            .iter()
+            .map(|after| (before[&after.id], (after.ovr, after.market_value)))
+            .collect()
+    }
+
+    /// Given veterans of 34 worth 40 M each, whose ratings wear down over the season,
+    /// When the season turns,
+    /// Then every one of them who lost rating is worth less, and none is worth more: a market value
+    /// follows what the player has become (the REALISM3 audit found 0% of values ever moved).
+    #[test]
+    fn a_veteran_whose_rating_falls_is_worth_less_after_the_season() {
+        let outcomes = value_and_rating_through_a_season("1992-01-01", 70, 40_000_000, 200);
+
+        let fallen: Vec<_> = outcomes
+            .iter()
+            .filter(|((ovr, _), (after, _))| after < ovr)
+            .collect();
+        assert!(
+            fallen.len() > 50,
+            "the cohort must decline: {}",
+            fallen.len()
+        );
+        assert!(
+            fallen.iter().all(|(_, (_, after))| *after < 40_000_000),
+            "a veteran who lost rating kept his value"
+        );
+        assert!(outcomes.iter().all(|(_, (_, after))| *after <= 40_000_000));
+    }
+
+    /// Given a game whose two consecutive season's ends carry the same season label (a manager
+    /// who changed league between them),
+    /// When both rollovers run,
+    /// Then each is revalued in its own calendar year: the marker is the year, not the label.
+    #[test]
+    fn two_season_ends_with_the_same_label_are_each_revalued() {
+        let mut kid = make_player("kid", "2009-03-01");
+        kid.potential = 90;
+        kid.market_value = 2_000_000;
+        kid.stage_contract_end(Some("2031-06-30".to_string()));
+        let mut game = make_game(vec![kid]);
+
+        apply_seasonal_aging(
+            &mut game,
+            NaiveDate::from_ymd_opt(2026, 5, 31).unwrap(),
+            2027,
+        );
+        let first = game.players[0].value_basis.expect("anchored and revalued");
+        apply_seasonal_aging(
+            &mut game,
+            NaiveDate::from_ymd_opt(2027, 5, 31).unwrap(),
+            2027,
+        );
+        let second = game.players[0].value_basis.expect("revalued again");
+
+        assert_eq!((first.revalued_year, second.revalued_year), (2026, 2027));
+    }
+
+    /// Given teenagers of 17 with room to grow, each worth 2 M,
+    /// When the season turns,
+    /// Then every one whose rating rose is worth more: growth is paid for.
+    #[test]
+    fn a_prospect_whose_rating_rises_is_worth_more_after_the_season() {
+        let outcomes = value_and_rating_through_a_season("2009-03-01", 90, 2_000_000, 80);
+
+        let grown: Vec<_> = outcomes
+            .iter()
+            .filter(|((ovr, _), (after, _))| after > ovr)
+            .collect();
+        assert!(grown.len() > 40, "the cohort must grow: {}", grown.len());
+        assert!(
+            grown.iter().all(|(_, (_, after))| *after > 2_000_000),
+            "a prospect who gained rating kept his value"
+        );
     }
 
     /// Given an academy player who has played no senior football

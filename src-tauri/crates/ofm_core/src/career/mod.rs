@@ -142,6 +142,10 @@ pub fn begin_career(
     );
 
     upgrade_game_player_identities(game);
+    // Last, after the identity upgrade has settled every rating: each value the world opens with
+    // stands for the state its player is in now, so a season's development revalues it and nothing
+    // before it does.
+    crate::revaluation::anchor_missing_bases(game, game.clock.current_date.date_naive());
     Ok(stats_state)
 }
 

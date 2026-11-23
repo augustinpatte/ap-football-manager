@@ -924,6 +924,9 @@ fn complete_external_transfer(
     if external.potential > 0 {
         player.potential = player.potential.max(external.potential).max(player.ovr);
     }
+    // The registry has already carried his value to this season: it is anchored as it is, and only
+    // development after he joins revalues him (never a second repricing at the door).
+    crate::revaluation::anchor_value(&mut player, &game.value_scale, today);
     game.players.push(player);
     let index = game.players.len() - 1;
 
@@ -1292,6 +1295,33 @@ mod tests {
             entry.kind == PlayerMovementKind::FreeAgentSigning
                 && entry.to_team_id.as_deref() == Some("team-1")
         }));
+    }
+
+    /// Given a registry player whose value the registry has already carried to this season, and a
+    /// career on a calibrated scale,
+    /// When he is recruited,
+    /// Then he joins at exactly that value with a basis anchored on it (the door never reprices
+    /// him), and a revaluation of an unchanged state leaves him there.
+    #[test]
+    fn a_recruit_keeps_the_registrys_value_and_is_anchored_on_it() {
+        let mut game = game();
+        game.value_scale = crate::value_scale::sample_imported_scale();
+
+        recruit_external_player(&mut game, &external_contracted("fm-p-47")).unwrap();
+
+        let today = game.clock.current_date.date_naive();
+        let scale = game.value_scale.clone();
+        let player = game.players.iter_mut().find(|p| p.id == "fm-p-47").unwrap();
+        assert_eq!(player.market_value, 2_000_000);
+        let basis = player.value_basis.expect("anchored at the door");
+        assert_eq!(
+            (basis.value, basis.ovr, basis.potential, basis.revalued_year),
+            (2_000_000, player.ovr, player.potential, 0)
+        );
+        assert!(!crate::revaluation::revalue_after_season(
+            player, &scale, today, 2027
+        ));
+        assert_eq!(player.market_value, 2_000_000);
     }
 
     /// Given a player under contract outside the world, when he is bought, then the asking price

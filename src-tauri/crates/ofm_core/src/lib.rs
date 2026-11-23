@@ -99,6 +99,7 @@ pub mod spatial_runner;
 pub mod squad_floor;
 mod squad_intelligence;
 pub use squad_intelligence::lineup_gap::{LineupGap, lineup_gaps};
+pub mod revaluation;
 mod squad_outlook;
 pub mod squad_safety;
 pub(crate) mod stable_hash;

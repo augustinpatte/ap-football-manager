@@ -309,6 +309,11 @@ fn sign_until_refused(
         end,
     } in recruits
     {
+        // The generator prices a youngster on the native formula, which in an imported world is ten
+        // to a hundred times the going price: he enters at the price of players like him on the
+        // world's scale, before the wage policy judges him on it. Anchored the same day, so a
+        // teenager's first year of growth is paid for at the season's end.
+        crate::revaluation::enter_the_market(&mut recruit, &game.value_scale, date);
         let team = &game.teams[team_index];
         let Some(wage) = agreed_wage(game, team, &recruit, asking) else {
             break;
@@ -517,6 +522,64 @@ mod tests {
                 "{club} took nobody into its academy"
             );
         }
+    }
+
+    /// Given a club's youth intake,
+    /// When the recruits join,
+    /// Then each is anchored on the value, rating, ceiling and age he arrives with, so his first
+    /// year of growth is priced at the next season's end.
+    #[test]
+    fn a_recruit_arrives_with_a_value_basis() {
+        let before = world([1, 3, 3, 2], [0, 1, 1, 0]);
+        let after = intake(&before);
+
+        let recruits = newcomers(&before, &after, "user");
+        assert!(!recruits.is_empty());
+        for recruit in recruits {
+            let basis = recruit.value_basis.expect("anchored on arrival");
+            assert_eq!(
+                (basis.value, basis.ovr, basis.potential, basis.revalued_year),
+                (recruit.market_value, recruit.ovr, recruit.potential, 0),
+                "{}",
+                recruit.id
+            );
+        }
+    }
+
+    /// Given a club's intake in a world on a calibrated scale, and the same intake on the native
+    /// formula,
+    /// When the recruits join,
+    /// Then on the calibrated scale each is priced as players like him are there (far below the
+    /// generator's native price), and on the native formula the generator's price is kept.
+    #[test]
+    fn a_recruit_enters_at_the_price_of_the_worlds_scale() {
+        let native = world([1, 3, 3, 2], [0, 1, 1, 0]);
+        let mut imported = native.clone();
+        imported.value_scale = crate::value_scale::sample_imported_scale();
+        let (native_after, imported_after) = (intake(&native), intake(&imported));
+
+        let native_recruits = newcomers(&native, &native_after, "user");
+        let imported_recruits = newcomers(&imported, &imported_after, "user");
+
+        assert!(!imported_recruits.is_empty() && !native_recruits.is_empty());
+        let on = season_end();
+        for recruit in &imported_recruits {
+            let expected = imported.value_scale.value(crate::value_scale::Standing {
+                ovr: recruit.ovr,
+                potential: recruit.potential.max(recruit.ovr),
+                age: domain::age::age_on_or_unknown(on, &recruit.date_of_birth),
+            });
+            assert_eq!(recruit.market_value, expected, "{}", recruit.id);
+        }
+        let mean = |players: &[&Player]| {
+            players.iter().map(|p| p.market_value as f64).sum::<f64>() / players.len() as f64
+        };
+        assert!(
+            mean(&imported_recruits) * 3.0 < mean(&native_recruits),
+            "calibrated {} vs native {}",
+            mean(&imported_recruits),
+            mean(&native_recruits)
+        );
     }
 
     #[test]

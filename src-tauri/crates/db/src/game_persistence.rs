@@ -20,6 +20,19 @@ use crate::repositories::{
 
 pub struct GamePersistenceWriter;
 
+/// The career's value scale from its stored text. Empty is the native scale; text that cannot be
+/// read is also native (a damaged scale must not stop a career opening), but it is said aloud
+/// because the next save writes the native scale over it.
+fn read_value_scale(stored: &str) -> ofm_core::value_scale::ValueScale {
+    if stored.is_empty() {
+        return Default::default();
+    }
+    serde_json::from_str(stored).unwrap_or_else(|error| {
+        log::warn!("[game_persistence] the stored value scale is unreadable ({error}); reading the native scale");
+        Default::default()
+    })
+}
+
 fn game_persistence_write_error() -> String {
     "be.error.gamePersistence.writeFailed".to_string()
 }
@@ -136,6 +149,14 @@ fn write_game_to_connection(
             legacy_world_cup_draw: game.legacy_world_cup_draw,
             legacy_tactics_imported: game.legacy_tactics_imported,
             days_since_last_job_offer: game.days_since_last_job_offer,
+            // A native scale is stored as nothing: a career on the native formula writes what it
+            // always wrote.
+            value_scale_json: if game.value_scale.is_calibrated() {
+                serde_json::to_string(&game.value_scale)
+                    .map_err(|_| game_persistence_write_error())?
+            } else {
+                String::new()
+            },
             available_staff_market_last_activity_date: game
                 .available_staff_market_last_activity_date
                 .clone(),
@@ -405,6 +426,9 @@ impl GamePersistenceReader {
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: meta.days_since_last_job_offer,
+            // Unreadable or absent reads as native: a damaged scale never stops a career loading,
+            // and an old one is never given a newer world's.
+            value_scale: read_value_scale(&meta.value_scale_json),
             available_staff_market_last_activity_date: meta
                 .available_staff_market_last_activity_date,
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
@@ -570,6 +594,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: None,
+            value_scale_json: String::new(),
         }
     }
 
@@ -647,6 +672,60 @@ mod tests {
         let loaded = GamePersistenceReader::read_game(&db).unwrap();
 
         assert_eq!(loaded.seed, 0xDEAD_BEEF_DEAD_BEEF);
+    }
+
+    /// Given a career on a calibrated world scale,
+    /// When it is saved and loaded,
+    /// Then it keeps that scale (the career never depends on the installed world to read its
+    /// values), and a career on the native formula still loads as native.
+    #[test]
+    fn a_careers_value_scale_survives_a_save_and_load() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut game = sample_game_with_clock(2026, 1);
+        game.value_scale = ofm_core::value_scale::ValueScale {
+            version: ofm_core::value_scale::VALUE_SCALE_VERSION,
+            anchors: vec![(40, 25_000), (90, 120_000_000)],
+            age_factors: vec![500, 800, 1000],
+        };
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+
+        let loaded = GamePersistenceReader::read_game(&db).unwrap();
+
+        assert_eq!(loaded.value_scale, game.value_scale);
+        assert!(loaded.value_scale.is_calibrated());
+
+        let native = GameDatabase::open_in_memory().unwrap();
+        let plain = sample_game_with_clock(2026, 1);
+        GamePersistenceWriter::write_game(&native, &plain, "save-2", "Career").unwrap();
+        assert!(
+            !GamePersistenceReader::read_game(&native)
+                .unwrap()
+                .value_scale
+                .is_calibrated()
+        );
+    }
+
+    /// Given a save from before scales were stored (NULL) or one whose scale is damaged,
+    /// When it is loaded,
+    /// Then the career is on the native formula: it never adopts a newer world's scale.
+    #[test]
+    fn a_save_without_a_stored_scale_loads_as_native() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let game = sample_game_with_clock(2026, 1);
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+
+        for stored in [None, Some("garbage")] {
+            db.conn()
+                .execute("UPDATE game_meta SET value_scale = ?1", [stored])
+                .unwrap();
+
+            let loaded = GamePersistenceReader::read_game(&db).unwrap();
+
+            assert_eq!(
+                loaded.value_scale,
+                ofm_core::value_scale::ValueScale::native()
+            );
+        }
     }
 
     /// Given a game that draws its World Cups the old way, and one that does not,

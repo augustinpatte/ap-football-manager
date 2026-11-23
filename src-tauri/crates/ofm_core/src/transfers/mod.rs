@@ -260,4 +260,6 @@ pub(crate) struct LoanMarketCandidate {
 }
 
 #[cfg(test)]
+mod revaluation_tests;
+#[cfg(test)]
 mod tests;

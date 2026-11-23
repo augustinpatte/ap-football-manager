@@ -54,6 +54,10 @@ pub struct GameMeta {
     /// from before the column holds.
     #[serde(default)]
     pub days_since_last_job_offer: Option<u32>,
+    /// `Game::value_scale` as JSON. Empty is the native scale, which is also what a save from
+    /// before the column holds.
+    #[serde(default)]
+    pub value_scale_json: String,
 }
 
 fn default_vacant_team_days_json() -> String {
@@ -111,8 +115,8 @@ fn default_package_lockfile_json() -> String {
 /// Insert or replace the singleton game_meta row.
 pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
     conn.execute(
-        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer)
-         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
+        "INSERT OR REPLACE INTO game_meta (id, save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer, value_scale)
+         VALUES ('singleton', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
         params![
             meta.save_id,
             meta.save_name,
@@ -138,6 +142,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
             meta.legacy_world_cup_draw,
             meta.legacy_tactics_imported,
             meta.days_since_last_job_offer,
+            meta.value_scale_json,
         ],
     )
     .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -148,7 +153,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
 pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer
+            "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json, world_history_json, available_staff_market_last_activity_date, save_format_version, world_format_version, app_version, source_world_id, source_world_kind, active_region_ids_json, active_competition_ids_json, extra_translations_json, package_lockfile_json, emitted_events_json, seed, legacy_world_cup_draw, legacy_tactics_imported, days_since_last_job_offer, value_scale
              FROM game_meta WHERE id = 'singleton'",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -194,6 +199,8 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
                 days_since_last_job_offer: row
                     .get::<_, Option<i64>>(23)?
                     .and_then(|days| u32::try_from(days).ok()),
+                // NULL: a save from before the column. Read as native, never as a newer scale.
+                value_scale_json: row.get::<_, Option<String>>(24)?.unwrap_or_default(),
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -242,6 +249,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: None,
+            value_scale_json: String::new(),
         };
 
         upsert_meta(db.conn(), &meta).unwrap();
@@ -285,6 +293,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: clock,
+            value_scale_json: String::new(),
         }
     }
 
@@ -398,6 +407,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: None,
+            value_scale_json: String::new(),
         };
         upsert_meta(db.conn(), &meta1).unwrap();
 
@@ -426,6 +436,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: None,
+            value_scale_json: String::new(),
         };
         upsert_meta(db.conn(), &meta2).unwrap();
 
@@ -467,6 +478,7 @@ mod tests {
             legacy_world_cup_draw: false,
             legacy_tactics_imported: false,
             days_since_last_job_offer: None,
+            value_scale_json: String::new(),
         };
 
         let result = upsert_meta(&conn, &meta);

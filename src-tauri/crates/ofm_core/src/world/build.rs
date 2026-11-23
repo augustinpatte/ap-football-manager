@@ -125,6 +125,8 @@ pub fn build_game_from_world_data(
     // A career begun by this build owns no browser library of tactics; unmarked, it would copy in
     // the library of another career begun the same year (same manager id and start date).
     game.legacy_tactics_imported = true;
+    // The world's own value scale, kept with the career from here on.
+    game.value_scale = metadata.value_scale.clone();
     // Stored on the game, which is the one place the day's dice come from.
     game.seed = seed;
     // In place before `generate_past_world_history` below, which seeds a roster-baseline world's
@@ -247,6 +249,53 @@ mod tests {
         assert!(game.players.len() >= players);
         assert!(!game.competitions.is_empty());
         assert!(game.teams.iter().all(|team| team.history.len() == 2));
+    }
+
+    /// Given a world that carries a calibrated value scale (an imported world) and one that does
+    /// not (a generated world),
+    /// When a game is built from each,
+    /// Then the first career keeps the scale and the second is on the native formula; and the scale
+    /// reads back from the world's own JSON, while a native world writes no scale at all.
+    #[test]
+    fn a_career_keeps_the_value_scale_of_the_world_it_began_in() {
+        let sources = DefinitionSources::embedded_only();
+        let mut world = generate_world_data_seeded_with(5, &WorldGenConfig::compact(), &sources);
+        let plain_json = serde_json::to_string(&world.metadata).unwrap();
+        assert!(!plain_json.contains("value_scale"), "{plain_json}");
+        world.metadata.value_scale = crate::value_scale::sample_imported_scale();
+        let json = serde_json::to_string(&world.metadata).unwrap();
+        let read: crate::generator::WorldDataMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            read.value_scale,
+            crate::value_scale::sample_imported_scale()
+        );
+        let clock = || GameClock::new(start_date_for_year(2033).unwrap());
+        let history = || PastHistory {
+            start_year: 2033,
+            depth_years: 1,
+        };
+
+        let (imported, _) = build_game_from_world_data(
+            clock(),
+            manager(),
+            history(),
+            world.clone(),
+            ReputationBasis::Stored,
+        );
+        world.metadata.value_scale = crate::value_scale::ValueScale::native();
+        let (generated, _) = build_game_from_world_data(
+            clock(),
+            manager(),
+            history(),
+            world,
+            ReputationBasis::Stored,
+        );
+
+        assert_eq!(
+            imported.value_scale,
+            crate::value_scale::sample_imported_scale()
+        );
+        assert!(!generated.value_scale.is_calibrated());
     }
 
     /// Given a roster-baseline world that carries a real manager for one club (an imported world),

@@ -567,6 +567,7 @@ mod tests {
                 legacy_world_cup_draw: false,
                 legacy_tactics_imported: false,
                 days_since_last_job_offer: None,
+                value_scale_json: String::new(),
             },
         )
         .unwrap();
@@ -695,6 +696,7 @@ mod tests {
                 legacy_world_cup_draw: false,
                 legacy_tactics_imported: false,
                 days_since_last_job_offer: None,
+                value_scale_json: String::new(),
             },
         )
         .unwrap();

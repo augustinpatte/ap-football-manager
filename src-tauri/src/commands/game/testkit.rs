@@ -407,6 +407,7 @@ pub(super) fn make_historical_snapshot_world() -> WorldData {
             kind: WorldDataKind::HistoricalSnapshot,
             base_year: Some(2031),
             snapshot_date: Some("2031-11-20T00:00:00Z".to_string()),
+            value_scale: Default::default(),
         },
         extra_translations: std::collections::HashMap::new(),
         build_notices: Vec::new(),

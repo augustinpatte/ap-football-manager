@@ -76,6 +76,43 @@ fn competitions_only_of(game: &Game, country_prefix: &str) -> Vec<String> {
         .collect()
 }
 
+// ── Scenario: values ────────────────────────────────────────────────────────
+
+/// Given a world whose players carry values and no basis,
+/// When a manager takes a club,
+/// Then every player is anchored on the value, rating, ceiling and age he has that day, and no
+/// value changes: the world opens with the values it was built with.
+#[test]
+fn beginning_a_career_anchors_every_value_without_changing_any() {
+    let mut game = world_awaiting_a_manager();
+    for (index, player) in game.players.iter_mut().enumerate() {
+        player.market_value = 1_000_000 + index as u64 * 250_000;
+        player.ovr = 60 + index as u8;
+        player.potential = 70 + index as u8;
+        player.value_basis = None;
+    }
+    let values: Vec<_> = game
+        .players
+        .iter()
+        .map(|p| (p.id.clone(), p.market_value))
+        .collect();
+
+    begin(&mut game, "eng-a").expect("the career begins");
+
+    for (id, value) in values {
+        let player = game.players.iter().find(|p| p.id == id).expect("kept");
+        let basis = player
+            .value_basis
+            .unwrap_or_else(|| panic!("{id} was not anchored"));
+        assert_eq!(player.market_value, value, "{id} was repriced");
+        assert_eq!(
+            (basis.value, basis.ovr, basis.potential, basis.revalued_year),
+            (value, player.ovr, player.potential, 0),
+            "{id}"
+        );
+    }
+}
+
 // ── Scenario: the clock ─────────────────────────────────────────────────────
 
 /// Given a club whose season starts after the game's clock,

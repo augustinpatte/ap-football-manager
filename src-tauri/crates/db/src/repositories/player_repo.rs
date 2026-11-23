@@ -39,6 +39,13 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
         serde_json::to_string(&p.media).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let provenance_json = serde_json::to_string(&p.provenance)
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    // NULL when nobody has anchored him yet; a value he has is never lost to a save.
+    let value_basis_json = p
+        .value_basis
+        .as_ref()
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let position_str = format!("{:?}", p.position);
     let natural_position_str = format!("{:?}", p.natural_position);
     let alt_positions_json = serde_json::to_string(&p.alternate_positions)
@@ -56,8 +63,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
           ovr, potential, media_json, jersey_number, loan_offers, active_loan, movement_history,
-          contract_start, suspended_matches, provenance)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41)
+          contract_start, suspended_matches, provenance, value_basis)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42)
          ON CONFLICT(id) DO UPDATE SET
            match_name = excluded.match_name,
            full_name = excluded.full_name,
@@ -98,7 +105,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
            active_loan = excluded.active_loan,
            movement_history = excluded.movement_history,
            suspended_matches = excluded.suspended_matches,
-           provenance = excluded.provenance",
+           provenance = excluded.provenance,
+           value_basis = excluded.value_basis",
     )
     .and_then(|mut statement| {
         statement.execute(params![
@@ -143,6 +151,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             p.contract_start(),
             i64::from(p.suspended_matches),
             provenance_json,
+            value_basis_json,
         ])
     })
     .map_err(|error| {
@@ -275,7 +284,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start, COALESCE(suspended_matches, 0), provenance
+                    contract_start, COALESCE(suspended_matches, 0), provenance, value_basis
              FROM players",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -303,7 +312,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     ovr, potential, COALESCE(media_json, '{}'), jersey_number,
                     COALESCE(loan_offers, '[]'), active_loan,
                     COALESCE(movement_history, '[]'),
-                    contract_start, COALESCE(suspended_matches, 0), provenance
+                    contract_start, COALESCE(suspended_matches, 0), provenance, value_basis
              FROM players WHERE team_id = ?1",
         )
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -373,6 +382,13 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         .flatten()
         .and_then(|json| serde_json::from_str(&json).ok())
         .unwrap_or_default();
+    // NULL (a save from before the column) and unreadable JSON both read as no basis: the load
+    // anchors him at the value he has, so an old career is never repriced.
+    let value_basis = row
+        .get::<_, Option<String>>(41)
+        .ok()
+        .flatten()
+        .and_then(|json| serde_json::from_str(&json).ok());
     let transfer_listed_int: i32 = row.get(20)?;
     let loan_listed_int: i32 = row.get(21)?;
     let market_value_i64: i64 = row.get(17)?;
@@ -450,6 +466,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         morale_core: serde_json::from_str(&morale_core_json).unwrap_or_default(),
         jersey_number,
         provenance,
+        value_basis,
     };
     // The flat contract fields are derived from the ledger, so a save from before
     // the ledger needs its one entry made before anything reads them.
@@ -1457,6 +1474,71 @@ mod tests {
             moved.provenance.earlier_career,
             domain::player::EarlierCareer::Unavailable
         );
+    }
+
+    /// Given a player whose value basis is not the default (a stale revaluation season, a model),
+    /// When he is saved, reloaded, saved again and reloaded,
+    /// Then the basis is the same each time: the column neither drops nor rewrites it.
+    #[test]
+    fn test_value_basis_roundtrip_survives_two_saves() {
+        let db = test_db();
+        let mut player = sample_player("p-basis", Some("team-001"));
+        player.market_value = 31_400_000;
+        player.value_basis = Some(domain::player::ValueBasis {
+            value: 31_400_000,
+            ovr: 78,
+            potential: 83,
+            age: 24,
+            revalued_year: 2027,
+            model: 1,
+        });
+        upsert_player(db.conn(), &player).unwrap();
+        let first = load_all_players(db.conn()).unwrap();
+        // The second save changes the basis: the update path, not only the insert, must write it.
+        let mut revalued = first[0].clone();
+        revalued.market_value = 36_000_000;
+        revalued.value_basis = revalued
+            .value_basis
+            .map(|basis| domain::player::ValueBasis {
+                value: 36_000_000,
+                revalued_year: 2028,
+                ..basis
+            });
+        upsert_player(db.conn(), &revalued).unwrap();
+
+        let second = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(first[0].value_basis, player.value_basis);
+        assert_eq!(second[0].value_basis, revalued.value_basis);
+        assert_eq!(second[0].value_basis.map(|b| b.revalued_year), Some(2028));
+        assert_eq!(second[0].market_value, 36_000_000);
+    }
+
+    /// Given a save written before the value-basis column existed (NULL) or one holding damaged
+    /// JSON,
+    /// When it is loaded,
+    /// Then the player has no basis and keeps the value he had: the load never reprices him and
+    /// never refuses to open.
+    #[test]
+    fn test_a_save_from_before_the_value_basis_loads_without_one() {
+        let db = test_db();
+        let mut player = sample_player("p-old", Some("team-001"));
+        player.market_value = 4_200_000;
+        upsert_player(db.conn(), &player).unwrap();
+
+        for stored in [None, Some("{not json")] {
+            db.conn()
+                .execute(
+                    "UPDATE players SET value_basis = ?1 WHERE id = 'p-old'",
+                    [stored],
+                )
+                .unwrap();
+
+            let loaded = load_all_players(db.conn()).unwrap();
+
+            assert_eq!(loaded[0].value_basis, None, "stored {stored:?}");
+            assert_eq!(loaded[0].market_value, 4_200_000);
+        }
     }
 
     /// Given a save written before the provenance column existed (NULL) and a loan written before

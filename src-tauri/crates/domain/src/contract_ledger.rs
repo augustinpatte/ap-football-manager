@@ -248,9 +248,12 @@ impl<'de> Deserialize<'de> for MovementLedger {
 impl Player {
     /// Make this copy light for the screen: no season-by-season career, no movement
     /// entries on the wire. The screen asks for them when it opens one profile
-    /// (`get_player_history`). Wage and contract dates still serialize.
+    /// (`get_player_history`). Wage and contract dates still serialize. The value basis is the
+    /// revaluation's own bookkeeping: no screen reads it, and on every player of a world it would
+    /// add about a megabyte to each payload.
     pub fn elide_history_for_wire(&mut self) {
         self.career = Vec::new();
+        self.value_basis = None;
         self.movement_history.wire_without_entries = true;
     }
 

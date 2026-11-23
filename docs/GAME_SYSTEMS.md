@@ -555,6 +555,31 @@ The `TransfersTab` provides 4 views:
 - **Loans** — Loan-listed players
 - **Offers** — Incoming and outgoing transfer offers
 
+### Market value over time (REALISM3B)
+
+A player's `market_value` is an estimate of what he is worth, not money: it is read by negotiations that
+begin after it changes (asking prices, offers, renewal wages) and by nothing that moves cash. It is
+**carried** on the world's value scale (`ofm_core::value_scale`), not recomputed from a formula.
+
+- Each player remembers the state his value was last set against, a `ValueBasis`
+  (`domain::player`): the value, rating, ceiling and age then, the calendar year of the season's end that last revalued him and
+  the model (the scale's version) in force. It is anchored, never repriced, when a career begins, when a
+  legacy save loads (so an old career opens with every value it had), when a youth recruit joins and when
+  a registry player is signed.
+- At each season's end, in the one pass of `aging::apply_seasonal_aging`, after development has moved
+  rating, ceiling and age, `revaluation::revalue_after_season` carries the value from the basis to the new
+  state with `ValueScale::carry` and replaces the basis. A season's end revalues once; a basis of another
+  model, or one his value no longer matches, is re-anchored without a ratio.
+- The scale belongs to the career: `Game::value_scale`, taken from the world's metadata when the career
+  begins and saved in `game_meta.value_scale`. A native (generated) world carries none and uses the
+  native formula. A career never reads a scale from an installed file.
+- Contracts, wages, pending offers, completed fees, loans, cash and budgets are not rewritten by a
+  revaluation. A stepping-stone promise is the one standing term that reads the live value: its fee floor
+  is a share of `market_value` at the time of the offer, so it moves with a revaluation. A recruit from a generator that prices on the native formula takes the price of players
+  like him on the world's scale (`revaluation::enter_the_market`).
+
+Measured results are in `docs/APFM_REALISM3B_ACTIVE_VALUATION_AUDIT.md`.
+
 ### Squad Intelligence (Run F5.4)
 
 One reading of a squad, used by every club that manages one: the AI clubs' market, listing and renewal

@@ -215,6 +215,12 @@ pub struct Game {
     /// (tests), which is still a fixed seed and so still reproducible.
     #[serde(default)]
     pub seed: u64,
+    /// The scale this career's market values sit on, fitted from the world it began in and kept
+    /// with the save so a value is read the same way whatever world is installed later. Native
+    /// (empty) for a generated world and for any career begun before scales were stored: those
+    /// carry values by the native formula. Persistence is `game_meta.value_scale`.
+    #[serde(default)]
+    pub value_scale: crate::value_scale::ValueScale,
     /// True for a career that began before World Cups were drawn from the game's seed: its
     /// field and groups keep being drawn from the cup year alone, as they were, so a draw
     /// already made is not contradicted by the next. Never set on a new game.
@@ -325,6 +331,7 @@ impl Game {
             extra_translations: std::collections::HashMap::new(),
             package_lockfile: vec![],
             seed: 0,
+            value_scale: crate::value_scale::ValueScale::native(),
             legacy_world_cup_draw: false,
             cash_journal: CashJournal::default(),
             transfer_obligations: Vec::new(),
@@ -576,6 +583,35 @@ mod tests {
             &["team1".to_string(), "team2".to_string()],
         ));
         game
+    }
+
+    /// Given a game whose players each carry a value basis,
+    /// When the copy for the screen is made,
+    /// Then the copy has none (no screen reads it, and it would ride on every payload) and the game
+    /// itself keeps every one: the wire copy is lighter, never the state.
+    #[test]
+    fn the_screens_copy_leaves_out_the_value_basis_and_the_game_keeps_it() {
+        let mut game = game_with_only_a_legacy_league();
+        let mut player = domain::player::Player::new(
+            "p1".to_string(),
+            "P".to_string(),
+            "P One".to_string(),
+            "2000-01-01".to_string(),
+            "England".to_string(),
+            domain::player::Position::Midfielder,
+            crate::test_support::uniform_attributes(60),
+        );
+        crate::revaluation::anchor_value(
+            &mut player,
+            &game.value_scale,
+            chrono::NaiveDate::from_ymd_opt(2025, 6, 15).unwrap(),
+        );
+        game.players.push(player);
+
+        let wire = game.ui_clone();
+
+        assert!(wire.players[0].value_basis.is_none());
+        assert!(game.players[0].value_basis.is_some());
     }
 
     #[test]

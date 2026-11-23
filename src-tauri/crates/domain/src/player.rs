@@ -109,6 +109,39 @@ pub struct Player {
     /// Where the facts about this player came from, for what a profile may state as fact.
     #[serde(default)]
     pub provenance: PlayerProvenance,
+
+    /// What `market_value` was last set against, so the next season's revaluation can move it by
+    /// what the player has become since. `None` until the first valuation pass anchors it (a save
+    /// from before the field existed, a player no creator anchored).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_basis: Option<ValueBasis>,
+}
+
+/// The state in which a player's market value was last set: the market value itself, the rating,
+/// ceiling and age he had then, and when and under which model it was last revalued.
+///
+/// A revaluation moves `market_value` by the world's value scale between this state and the one the
+/// player is in now, then replaces the basis with the new state. Kept per player because the value
+/// of a player who has not been revalued yet cannot be told from his rating and age alone: a
+/// world's values are carried, not recomputed from a formula.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ValueBasis {
+    /// The market value the player had when this basis was taken. If his `market_value` no longer
+    /// equals it, something priced him since and the basis is out of date.
+    pub value: u64,
+    pub ovr: u8,
+    pub potential: u8,
+    /// Whole years old when the basis was taken.
+    pub age: i32,
+    /// The calendar year of the season's end that last revalued him; 0 when he has only been
+    /// anchored. A season's end revalues him once, however many times it is run. A year, not the
+    /// user's league label: labels differ between leagues, so a change of club could repeat one.
+    #[serde(default)]
+    pub revalued_year: u32,
+    /// The valuation model the basis was taken under (the value scale's version, 0 for the native
+    /// formula). A basis of another model is re-anchored, never carried across.
+    #[serde(default)]
+    pub model: u32,
 }
 
 /// What is known of a player's career before this game's own records begin.
@@ -1057,6 +1090,7 @@ impl Player {
             morale_core: PlayerMoraleCore::default(),
             jersey_number: None,
             provenance: PlayerProvenance::default(),
+            value_basis: None,
         }
     }
 }

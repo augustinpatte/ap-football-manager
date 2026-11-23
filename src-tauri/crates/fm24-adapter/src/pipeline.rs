@@ -406,6 +406,8 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     world.metadata.kind = WorldDataKind::RosterBaseline;
     world.metadata.base_year = Some(cfg.world.base_year);
     world.metadata.snapshot_date = None;
+    // The scale this world's values were fitted on travels with it into every career.
+    world.metadata.value_scale = value_scale.clone();
     world.name = cfg.world.name.clone();
     world.description = cfg.world.description.clone();
 

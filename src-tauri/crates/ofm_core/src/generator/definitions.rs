@@ -394,6 +394,15 @@ pub struct WorldDataMetadata {
     pub base_year: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snapshot_date: Option<String>,
+    /// The scale this world's market values sit on, when it has one of its own (an imported world
+    /// whose values come from a source). A career begun from the world keeps it, so its values are
+    /// carried on the same scale for as long as it lasts. Absent for a generated world.
+    #[serde(default, skip_serializing_if = "scale_is_native")]
+    pub value_scale: crate::value_scale::ValueScale,
+}
+
+fn scale_is_native(scale: &crate::value_scale::ValueScale) -> bool {
+    !scale.is_calibrated()
 }
 
 impl Default for WorldDataMetadata {
@@ -404,6 +413,7 @@ impl Default for WorldDataMetadata {
             kind: WorldDataKind::RosterBaseline,
             base_year: None,
             snapshot_date: None,
+            value_scale: crate::value_scale::ValueScale::native(),
         }
     }
 }
