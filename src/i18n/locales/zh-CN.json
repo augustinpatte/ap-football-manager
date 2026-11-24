@@ -1826,7 +1826,10 @@
       "secondDivision": "{{country}}乙级联赛",
       "nationalCup": "{{country}}杯",
       "continentalChampionsCup": "洲际冠军杯",
-      "premierDivision": "超级联赛"
+      "premierDivision": "超级联赛",
+      "championsLeague": "欧冠联赛",
+      "europaLeague": "欧联杯",
+      "conferenceLeague": "欧协联"
     },
     "history": {
       "tab": "历史",
@@ -1888,7 +1891,16 @@
       "legScore": "第 {{n}} 回合：{{goals}}",
       "legNotPlayed": "第 {{n}} 回合：未进行",
       "aggregateScore": "总比分：{{goals}}",
-      "penaltiesScore": "点球：{{goals}}"
+      "penaltiesScore": "点球：{{goals}}",
+      "drawByGame": "本次抽签由游戏完成，并非欧足联的官方抽签。",
+      "seededByReputation": "按俱乐部声望排种子：本生涯尚未进行过任何欧战赛季。",
+      "seededByCoefficient": "按游戏自身的俱乐部系数排种子，系数根据本生涯已进行的欧战赛季计算。",
+      "potAdjustment": "为使抽签得以进行，{{moved}}与{{exchanged}}互换了档次：同一协会有太多俱乐部处于同一档。",
+      "neutralVenue": "中立场地",
+      "neutralFinalNote": "决赛在中立场地进行：双方都没有主场优势。",
+      "yourPosition": "你的俱乐部：第{{position}}名（共{{total}}队），{{points}}分",
+      "cutoffPoints": "淘汰赛附加赛的最后一个名额（第{{position}}名）为{{points}}分。",
+      "prizeNote": "奖金是游戏平衡性的假设值，并非欧足联的分配方案。"
     }
   },
   "news": {
@@ -3341,7 +3353,9 @@
         "leaguePhaseRulesOnOtherFormat": "联赛阶段规则只适用于采用联赛阶段赛制的赛事。",
         "leaguePhaseRulesMissing": "采用联赛阶段的赛事需要联赛阶段规则。",
         "leaguePhaseNeedsClubCompetition": "联赛阶段只能由洲际或国际俱乐部赛事使用。",
-        "leaguePhaseFieldSize": "联赛阶段需要恰好 {{expected}} 家俱乐部，但列出了 {{found}} 家。"
+        "leaguePhaseFieldSize": "联赛阶段需要恰好 {{expected}} 家俱乐部，但列出了 {{found}} 家。",
+        "berthRequiresLeaguePhase": "“现有参赛者”或“卫冕冠军”名额只能设置在含联赛阶段的赛事上。",
+        "berthNoPlaces": "欧战表现名额至少要授予一个席位。"
       },
       "worldParseFailed": "解析世界数据库文件失败。",
       "worldWriteFileFailed": "导出世界数据库文件失败。",
@@ -4288,6 +4302,34 @@
           "subject": "已收到 {{player}} 的分期款",
           "body": "{{player}} 第 {{number}}/{{of}} 期：已收到 {{club}} 支付的 {{amount}}。"
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}：抽签已完成",
+        "body": "游戏已完成{{competition}}抽签（这不是欧足联的官方抽签）。你的俱乐部将在联赛阶段踢{{matches}}场比赛，首战对阵{{opponent}}，时间为{{date}}。\n\n赛程已加入你的日历。"
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}：直接晋级十六强",
+        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，直接晋级十六强。\n\n干得漂亮：这能少踢两场比赛。"
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}：进入淘汰赛附加赛",
+        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，将踢淘汰赛附加赛。\n\n两回合对决将决定谁晋级十六强。"
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}：联赛阶段被淘汰",
+        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，已被淘汰出局。\n\n只有前24名才能继续。"
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}：战胜{{opponent}}晋级",
+        "body": "你的俱乐部击败了{{opponent}}（{{result}}），在{{competition}}中晋级。\n\n括号内的比分为点球大战比分。"
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}：被{{opponent}}淘汰",
+        "body": "你的俱乐部不敌{{opponent}}（{{result}}），已被淘汰出{{competition}}。\n\n括号内的比分为点球大战比分。"
+      },
+      "europeanChampion": {
+        "subject": "{{competition}}冠军！",
+        "body": "{{club}}夺得了{{competition}}冠军。\n\n这是俱乐部历史上最伟大的夜晚，董事会和球迷欣喜若狂。"
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}}将主办{{year}}年世界杯",
         "body": "{{nation}}赢得了{{year}}年世界杯的主办权。全国上下开始为这场足球盛宴倒计时。"
+      },
+      "europeanChampion": {
+        "headline": "{{club}}夺得{{competition}}冠军",
+        "body": "{{club}}加冕{{competition}}冠军。"
       }
     },
     "competition": {

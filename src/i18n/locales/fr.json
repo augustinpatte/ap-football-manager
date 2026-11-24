@@ -1826,7 +1826,10 @@
       "secondDivision": "Deuxième Division de {{country}}",
       "nationalCup": "Coupe de {{country}}",
       "continentalChampionsCup": "Coupe Continentale des Champions",
-      "premierDivision": "Première Division"
+      "premierDivision": "Première Division",
+      "championsLeague": "Ligue des champions",
+      "europaLeague": "Ligue Europa",
+      "conferenceLeague": "Ligue Europa Conférence"
     },
     "history": {
       "tab": "Palmarès",
@@ -1888,7 +1891,16 @@
       "legScore": "Match {{n}} : {{goals}}",
       "legNotPlayed": "Match {{n}} : pas encore joué",
       "aggregateScore": "Cumul : {{goals}}",
-      "penaltiesScore": "Tirs au but : {{goals}}"
+      "penaltiesScore": "Tirs au but : {{goals}}",
+      "drawByGame": "Ce tirage a été effectué par le jeu. Ce n'est pas le tirage officiel de l'UEFA.",
+      "seededByReputation": "Têtes de série selon la réputation des clubs : aucune saison européenne n'a encore été jouée dans cette carrière.",
+      "seededByCoefficient": "Têtes de série selon les coefficients de club propres au jeu, calculés d'après les saisons européennes jouées dans cette carrière.",
+      "potAdjustment": "Pour rendre le tirage possible, {{moved}} et {{exchanged}} ont échangé leur chapeau : trop de clubs d'une même association partageaient un chapeau.",
+      "neutralVenue": "Terrain neutre",
+      "neutralFinalNote": "La finale se joue sur terrain neutre : aucune des deux équipes n'a l'avantage de recevoir.",
+      "yourPosition": "Votre club : {{position}}e sur {{total}}, {{points}} points",
+      "cutoffPoints": "La dernière place en barrages (rang {{position}}) compte {{points}} points.",
+      "prizeNote": "Les primes sont une hypothèse d'équilibrage du jeu, pas la répartition de l'UEFA."
     }
   },
   "news": {
@@ -3341,7 +3353,9 @@
         "leaguePhaseRulesOnOtherFormat": "Les règles de phase de ligue ne sont valables que pour une compétition au format phase de ligue.",
         "leaguePhaseRulesMissing": "Une compétition à phase de ligue a besoin de règles de phase de ligue.",
         "leaguePhaseNeedsClubCompetition": "Une phase de ligue ne peut servir qu'à une compétition continentale ou internationale de clubs.",
-        "leaguePhaseFieldSize": "Une phase de ligue exige exactement {{expected}} clubs, mais {{found}} sont indiqués."
+        "leaguePhaseFieldSize": "Une phase de ligue exige exactement {{expected}} clubs, mais {{found}} sont indiqués.",
+        "berthRequiresLeaguePhase": "Une place de club sortant ou de tenant du titre ne peut être définie que dans une compétition à phase de ligue.",
+        "berthNoPlaces": "Une place de performance européenne doit attribuer au moins une place."
       },
       "worldParseFailed": "Impossible d'interpréter le fichier de base de données du monde.",
       "worldWriteFileFailed": "Impossible d'exporter le fichier de base de données du monde.",
@@ -4288,6 +4302,34 @@
           "subject": "Échéance reçue pour {{player}}",
           "body": "Échéance {{number}} sur {{of}} pour {{player}} : {{amount}} reçus de {{club}}."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}} : le tirage est effectué",
+        "body": "Le jeu a effectué le tirage de la {{competition}} (ce n'est pas le tirage officiel de l'UEFA). Votre club joue {{matches}} matchs en phase de ligue. Le premier est contre {{opponent}} le {{date}}.\n\nLes rencontres figurent dans votre calendrier."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}} : directement en huitièmes de finale",
+        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et se qualifie directement pour les huitièmes de finale.\n\nBravo : cela économise deux matchs."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}} : barrages à élimination directe",
+        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et disputera les barrages à élimination directe.\n\nUne double confrontation désigne qui atteint les huitièmes de finale."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}} : éliminés en phase de ligue",
+        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et est éliminé de la compétition.\n\nSeuls les 24 premiers poursuivent."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}} : qualifiés face à {{opponent}}",
+        "body": "Votre club a battu {{opponent}} ({{result}}) et se qualifie en {{competition}}.\n\nLe score entre parenthèses est celui des tirs au but."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}} : éliminés par {{opponent}}",
+        "body": "Votre club a perdu face à {{opponent}} ({{result}}) et est éliminé de la {{competition}}.\n\nLe score entre parenthèses est celui des tirs au but."
+      },
+      "europeanChampion": {
+        "subject": "Champions de la {{competition}} !",
+        "body": "{{club}} a remporté la {{competition}}.\n\nC'est la plus belle soirée de l'histoire du club. Le conseil d'administration et les supporters sont aux anges."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}} accueillera la Coupe du Monde {{year}}",
         "body": "{{nation}} a obtenu le droit d'organiser la Coupe du Monde {{year}}. Tout un pays entame le compte à rebours vers la plus grande fête du football."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} remporte la {{competition}}",
+        "body": "{{club}} est sacré champion de la {{competition}}."
       }
     },
     "competition": {

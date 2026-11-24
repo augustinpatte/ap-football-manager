@@ -186,6 +186,110 @@ describe("LeaguePhaseView table", () => {
   });
 });
 
+describe("LeaguePhaseView manager information", () => {
+  /**
+   * Given the managed club sits fifth in a league phase still being played
+   * When the view is shown
+   * Then it says where the club stands and how many points the last play-off place has now.
+   */
+  it("shows the managed club's position and the play-off cut-off while the table is open", () => {
+    render_(state());
+
+    const text = screen.getByTestId("leaguephase-standing").textContent ?? "";
+    expect(text).toContain("tournaments.leaguePhase.yourPosition");
+    expect(text).toContain('"position":4');
+    expect(text).toContain('"total":36');
+    // The rules of this fixture put the last play-off place at 4 + 8 = 12.
+    expect(text).toContain("tournaments.leaguePhase.cutoffPoints");
+    expect(text).toContain('"position":12');
+  });
+
+  /**
+   * Given a league phase whose outcome is fixed
+   * When the view is shown
+   * Then the cut-off is no longer offered: the table is final and the zones say it.
+   */
+  it("drops the cut-off once the outcome is fixed", () => {
+    render_(
+      state({
+        stage: "KnockoutPlayoffs",
+        outcome: { ranking: [], direct: [], playoff: [], eliminated: [], coefficient_fallback_used: false },
+      }),
+    );
+    expect(screen.getByTestId("leaguephase-standing").textContent).not.toContain("cutoffPoints");
+  });
+
+  /**
+   * Given an edition seeded by reputation, then one seeded by coefficients, then one with a pot trade
+   * When each is shown
+   * Then the game's own draw is always declared, the seeding basis is the true one, and the trade
+   *      names both clubs.
+   */
+  it("declares the draw as the game's, the seeding basis and any pot trade", () => {
+    const { unmount } = render_(state());
+    let notes = screen.getByTestId("leaguephase-notes").textContent ?? "";
+    expect(notes).toContain("tournaments.leaguePhase.drawByGame");
+    expect(notes).toContain("tournaments.leaguePhase.seededByReputation");
+    expect(notes).not.toContain("seededByCoefficient");
+    expect(notes).toContain("tournaments.leaguePhase.prizeNote");
+    unmount();
+
+    render_(
+      state({
+        coefficients: { "club-01": 4000 },
+        pot_adjustments: [
+          { moved_club_id: "club-04", exchanged_club_id: "club-09", from_pot: 0, to_pot: 1 },
+        ],
+      }),
+    );
+    notes = screen.getByTestId("leaguephase-notes").textContent ?? "";
+    expect(notes).toContain("tournaments.leaguePhase.seededByCoefficient");
+    expect(notes).not.toContain("seededByReputation");
+    expect(notes).toContain("Name of club-04");
+    expect(notes).toContain("Name of club-09");
+  });
+
+  /**
+   * Given a final that has been drawn
+   * When the bracket is shown
+   * Then the final is marked as played at a neutral venue, in words, and a two-legged round is not.
+   */
+  it("marks only the final as a neutral venue", () => {
+    const finalTie: KnockoutTieData = {
+      id: "final",
+      stage: "Final",
+      slot: 0,
+      path: 1,
+      seeded_team_id: "club-01",
+      unseeded_team_id: "club-02",
+      fixture_ids: ["f"],
+      resolution: null,
+    };
+    const semi: KnockoutTieData = {
+      ...finalTie,
+      id: "semi",
+      stage: "SemiFinals",
+      fixture_ids: ["s1", "s2"],
+    };
+    render_(state({ stage: "Final", ties: [semi, finalTie] }), [
+      fixture("f", "club-01", "club-02"),
+      fixture("s1", "club-02", "club-01"),
+      fixture("s2", "club-01", "club-02"),
+    ]);
+
+    expect(
+      within(screen.getByTestId("leaguephase-tie-final")).getByText(
+        "tournaments.leaguePhase.neutralVenue",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("leaguephase-tie-semi")).queryByText(
+        "tournaments.leaguePhase.neutralVenue",
+      ),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("LeaguePhaseView before and after", () => {
   /**
    * Given a competition whose draw could not be made

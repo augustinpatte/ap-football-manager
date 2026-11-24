@@ -146,7 +146,10 @@
     "staff.posts.Analyst",
     "staff.delegation.title",
     "staff.delegation.duties.Training",
-    "match.replayStats.fouls"
+    "match.replayStats.fouls",
+    "tournaments.competitions.championsLeague",
+    "tournaments.competitions.europaLeague",
+    "tournaments.competitions.conferenceLeague"
   ],
   "fr": [
     "globalMarket.club",
@@ -350,7 +353,10 @@
     "worldEditor.staffClub",
     "worldEditor.staffRole.Scout",
     "worldEditor.staffSpecialization.Fitness",
-    "teamSelect.regionLabels.africa"
+    "teamSelect.regionLabels.africa",
+    "tournaments.competitions.europaLeague",
+    "tournaments.competitions.championsLeague",
+    "tournaments.competitions.conferenceLeague"
   ],
   "es": [
     "globalMarket.club",
@@ -513,8 +519,13 @@
     "staff.delegation.mode.full",
     "tournaments.leaguePhase.stages.final"
   ],
-  "ru": ["dashboard.recapTransferLine"],
-  "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
+  "ru": [
+    "dashboard.recapTransferLine"
+  ],
+  "zh-CN": [
+    "be.news.roundup.resultLine",
+    "be.news.preseasonDigest.resultLine"
+  ],
   "tr": [
     "dashboard.recapTransferLine",
     "common.vs",

@@ -651,12 +651,31 @@ mod tests {
             draw_error: Some("be.error.leaguePhase.draw.infeasible".into()),
             next_entrants: vec!["b".into(), "a".into()],
             payments_posted: vec!["champion:a".into()],
+            pot_adjustments: vec![PotAdjustment {
+                moved_club_id: "a".into(),
+                exchanged_club_id: "b".into(),
+                from_pot: 0,
+                to_pot: 1,
+            }],
         };
 
         let back: LeaguePhaseState =
             serde_json::from_value(serde_json::to_value(&state).unwrap()).unwrap();
 
         assert_eq!(back, state);
+    }
+
+    /// Given a league-phase state saved before pot adjustments existed (no such key)
+    /// When it is loaded
+    /// Then it loads with none, and a state without any is written without the key, so old saves
+    ///      serialise byte-identically.
+    #[test]
+    fn a_state_saved_before_pot_adjustments_loads_and_writes_the_same() {
+        let old = serde_json::json!({"stage": "LeaguePhaseScheduled", "draw_seed": 3});
+        let state: LeaguePhaseState = serde_json::from_value(old).unwrap();
+        assert!(state.pot_adjustments.is_empty());
+        let written = serde_json::to_value(&state).unwrap();
+        assert!(written.get("pot_adjustments").is_none());
     }
 
     /// Given a competition saved before the league phase existed

@@ -338,12 +338,20 @@ fn build_db(path: &Path) {
     }
 }
 
+/// The default configuration without the European competitions: their mapping names real clubs of
+/// the real source by id, which a synthetic source does not have.
+fn synthetic_config() -> Config {
+    let mut cfg = Config::default_config();
+    cfg.competitions.european = false;
+    cfg
+}
+
 fn run_once(dir: &Path) -> pipeline::Run {
     let db = dir.join("world.db");
     if !db.exists() {
         build_db(&db);
     }
-    pipeline::run(&db, &dir.join("package"), &Config::default_config())
+    pipeline::run(&db, &dir.join("package"), &synthetic_config())
         .expect("the synthetic world imports")
 }
 
@@ -632,7 +640,7 @@ fn the_valuation_pass_is_wired_into_the_pipeline() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("world.db");
     build_db(&db);
-    let mut cfg = Config::default_config();
+    let mut cfg = synthetic_config();
     cfg.valuation.min_samples = 3;
 
     let run = pipeline::run(&db, &dir.path().join("package"), &cfg).expect("imports");

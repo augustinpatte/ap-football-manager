@@ -1826,7 +1826,10 @@
       "secondDivision": "{{country}} — 2. liga",
       "nationalCup": "{{country}} — pohár",
       "continentalChampionsCup": "Kontinentální Liga mistrů",
-      "premierDivision": "Premier Division"
+      "premierDivision": "Premier Division",
+      "championsLeague": "Liga mistrů",
+      "europaLeague": "Evropská liga",
+      "conferenceLeague": "Konferenční liga"
     },
     "history": {
       "tab": "Historie",
@@ -1888,7 +1891,16 @@
       "legScore": "Zápas {{n}}: {{goals}}",
       "legNotPlayed": "Zápas {{n}}: neodehráno",
       "aggregateScore": "Celkem: {{goals}}",
-      "penaltiesScore": "Penalty: {{goals}}"
+      "penaltiesScore": "Penalty: {{goals}}",
+      "drawByGame": "Tento los provedla hra. Nejde o oficiální los UEFA.",
+      "seededByReputation": "Nasazení podle reputace klubů: v této kariéře se zatím nehrála žádná evropská sezóna.",
+      "seededByCoefficient": "Nasazení podle vlastních klubových koeficientů hry, vypočtených z evropských sezón odehraných v této kariéře.",
+      "potAdjustment": "Aby bylo možné losovat, si {{moved}} a {{exchanged}} vyměnily bubny: v jednom bubnu bylo příliš mnoho klubů jedné asociace.",
+      "neutralVenue": "Neutrální hřiště",
+      "neutralFinalNote": "Finále se hraje na neutrálním hřišti: žádný z týmů nemá výhodu domácího prostředí.",
+      "yourPosition": "Váš klub: {{position}}. z {{total}}, {{points}} bodů",
+      "cutoffPoints": "Poslední místo pro vyřazovací play-off ({{position}}. pozice) má {{points}} bodů.",
+      "prizeNote": "Prémie jsou předpoklad herní rovnováhy, nikoli rozdělení UEFA."
     }
   },
   "news": {
@@ -3384,7 +3396,9 @@
         "leaguePhaseRulesOnOtherFormat": "Pravidla ligové fáze platí jen pro soutěž ve formátu ligové fáze.",
         "leaguePhaseRulesMissing": "Soutěž s ligovou fází potřebuje pravidla ligové fáze.",
         "leaguePhaseNeedsClubCompetition": "Ligovou fázi může používat jen kontinentální nebo mezinárodní klubová soutěž.",
-        "leaguePhaseFieldSize": "Ligová fáze potřebuje přesně {{expected}} klubů, ale uvedeno je {{found}}."
+        "leaguePhaseFieldSize": "Ligová fáze potřebuje přesně {{expected}} klubů, ale uvedeno je {{found}}.",
+        "berthRequiresLeaguePhase": "Místo pro stávajícího účastníka nebo držitele titulu lze nastavit jen u soutěže s ligovou fází.",
+        "berthNoPlaces": "Místo za evropskou výkonnost musí přidělit alespoň jedno místo."
       },
       "worldParseFailed": "Nepodařilo se zpracovat databázový soubor světa.",
       "worldWriteFileFailed": "Nepodařilo se exportovat databázový soubor světa.",
@@ -4288,6 +4302,34 @@
           "subject": "Splátka za hráče {{player}} přijata",
           "body": "Splátka {{number}} z {{of}} za {{player}}: {{amount}} přijato od klubu {{club}}."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}: los je hotov",
+        "body": "Hra provedla los soutěže {{competition}} (nejde o oficiální los UEFA). Váš klub odehraje v ligové fázi {{matches}} zápasů. První je proti {{opponent}} dne {{date}}.\n\nZápasy jsou ve vašem kalendáři."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}: přímo do osmifinále",
+        "body": "Váš klub skončil v ligové fázi soutěže {{competition}} na {{rank}}. místě a postupuje přímo do osmifinále.\n\nDobrá práce: ušetří to dva zápasy."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}: do vyřazovacích play-off",
+        "body": "Váš klub skončil v ligové fázi soutěže {{competition}} na {{rank}}. místě a zahraje vyřazovací play-off.\n\nDvojzápas rozhodne, kdo postoupí do osmifinále."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}: vyřazeni v ligové fázi",
+        "body": "Váš klub skončil v ligové fázi soutěže {{competition}} na {{rank}}. místě a z soutěže vypadl.\n\nDál postupuje jen prvních 24."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}: postupujeme přes {{opponent}}",
+        "body": "Váš klub porazil soupeře {{opponent}} ({{result}}) a postupuje v soutěži {{competition}}.\n\nVýsledek v závorce je penaltový rozstřel."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}: vyřazeni soupeřem {{opponent}}",
+        "body": "Váš klub prohrál se soupeřem {{opponent}} ({{result}}) a z {{competition}} vypadl.\n\nVýsledek v závorce je penaltový rozstřel."
+      },
+      "europeanChampion": {
+        "subject": "Vítězové soutěže {{competition}}!",
+        "body": "{{club}} vyhrál soutěž {{competition}}.\n\nJe to největší večer v historii klubu. Představenstvo i fanoušci jsou nadšeni."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "Mistrovství světa {{year}} bude hostit {{nation}}",
         "body": "Země {{nation}} získala právo pořádat Mistrovství světa {{year}}. Celý národ začíná odpočítávat dny do zahájení největšího fotbalového svátku."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} vyhrává soutěž {{competition}}",
+        "body": "{{club}} se stal vítězem soutěže {{competition}}."
       }
     },
     "competition": {

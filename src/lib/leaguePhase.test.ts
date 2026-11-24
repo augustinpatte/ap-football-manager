@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateSoFar,
+  clubStanding,
   drawnStages,
   isLeaguePhaseCompetition,
   isTableProvisional,
@@ -170,5 +171,36 @@ describe("a tie's aggregate", () => {
     );
 
     expect(aggregateSoFar(tie, legs)).toEqual([4, 2]);
+  });
+});
+
+describe("clubStanding", () => {
+  const competition = {
+    rules: { format: "LeaguePhaseAndKnockout", league_phase: { direct_places: 8, playoff_places: 16 } },
+  } as unknown as LeagueData;
+  const table = Array.from({ length: 36 }, (_, index) => ({
+    team_id: `c${index + 1}`,
+    position: index + 1,
+    points: 20 - index / 2,
+  }));
+  const state = { table } as unknown as LeaguePhaseData;
+
+  /**
+   * Given a 36-club table with the last play-off place at 24th
+   * When the standing of the 30th club is read
+   * Then it carries that club's own place and points and the points of the 24th, never its own as
+   *      the cut-off.
+   */
+  it("reads the club's own row and the points of the last play-off place", () => {
+    expect(clubStanding(competition, state, "c30")).toEqual({
+      position: 30,
+      points: 5.5,
+      total: 36,
+      cutoff: { position: 24, points: 8.5 },
+    });
+  });
+
+  it("is null for a club that is not in the table", () => {
+    expect(clubStanding(competition, state, "absent")).toBeNull();
   });
 });

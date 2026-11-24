@@ -38,6 +38,7 @@ pub(crate) fn renew(
     competition: &mut League,
     teams: &[Team],
     archive: &[CompletedEdition],
+    coefficients: &std::collections::BTreeMap<String, u32>,
     salt: u64,
     (season, start): (u32, DateTime<Utc>),
 ) {
@@ -52,7 +53,9 @@ pub(crate) fn renew(
         );
         return;
     }
-    if let Err(error) = super::renew_from_teams(competition, teams, salt, season, start) {
+    if let Err(error) =
+        super::renew_with_coefficients(competition, teams, coefficients, salt, season, start)
+    {
         log::error!(
             "[rollover] {} has no next edition: {}",
             competition.id,

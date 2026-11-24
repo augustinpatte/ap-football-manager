@@ -662,6 +662,7 @@ fn regenerate_competitions_for_new_season(
     let refreshed_cup_entrants =
         crate::cup_entrants::refreshed_entrants(&game.competitions, &game.teams);
     let seed = game.seed;
+    let european_coefficients = crate::league_phase::coefficient::european_coefficients(game);
     for competition in game.competitions.iter_mut() {
         // A surviving mid-campaign qualifying competition must not be rebuilt
         // as a plain league — its groups and played results carry over; the
@@ -701,6 +702,7 @@ fn regenerate_competitions_for_new_season(
                 competition,
                 &game.teams,
                 &game.edition_archive,
+                &european_coefficients,
                 seed,
                 (comp_next_season, comp_next_start),
             ),

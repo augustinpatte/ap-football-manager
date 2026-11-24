@@ -283,6 +283,9 @@ where
     country_renewal::renew_due_countries(game, today);
     // Prize money for what today's results settled, before any renewal replaces the edition.
     crate::league_phase::prize::post_pending(game);
+    // What the manager is told about their European competition, before a renewal replaces the
+    // edition it reads.
+    crate::league_phase::announce::announce(game, today);
     cup_renewal::renew_finished_cups(game, today);
     cup_renewal::renew_finished_league_phases(game, today);
 

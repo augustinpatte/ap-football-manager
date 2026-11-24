@@ -41,6 +41,52 @@ pub fn stage_bonus_millis(priority: u32) -> u32 {
     }
 }
 
+/// The league-phase editions on record, plus the ones finished but not yet archived (the rollover
+/// reads qualification before the daily renewal archives them).
+pub(crate) fn european_editions(
+    game: &crate::game::Game,
+) -> Vec<domain::edition_archive::CompletedEdition> {
+    let mut editions: Vec<_> = game
+        .edition_archive
+        .iter()
+        .filter(|edition| edition.league_phase.is_some())
+        .cloned()
+        .collect();
+    for competition in &game.competitions {
+        if crate::league_phase::rules_of(competition).is_some()
+            && competition.league_phase.as_ref().is_some_and(|state| {
+                state.stage == domain::league_phase::CompetitionStage::Completed
+            })
+        {
+            // Same proof as the archive: an edition that does not prove complete is not counted.
+            let _ = crate::edition_archive::archive_completed_edition(&mut editions, competition);
+        }
+    }
+    editions
+}
+
+/// The game's APFM coefficient of every club, from the European editions it has archived (and the
+/// ones just finished). Empty until a first edition has been played: nothing is invented.
+pub fn european_coefficients(game: &crate::game::Game) -> BTreeMap<String, u32> {
+    let nation_of: std::collections::HashMap<&str, &str> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.football_nation.as_str()))
+        .collect();
+    let association_of = |club: &str| nation_of.get(club).map(|nation| (*nation).to_string());
+    let bonus_of = |competition_id: &str| {
+        game.competitions
+            .iter()
+            .find(|competition| {
+                competition.id == competition_id && super::rules_of(competition).is_some()
+            })
+            .map(|competition| stage_bonus_millis(competition.priority))
+    };
+    let records = season_records(&european_editions(game), &bonus_of);
+    let clubs: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
+    club_coefficients(&records, &clubs, &association_of)
+}
+
 /// What one season's European editions gave each club, and who was there.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SeasonRecord {

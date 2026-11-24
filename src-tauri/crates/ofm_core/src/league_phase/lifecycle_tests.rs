@@ -354,7 +354,14 @@ fn the_rollover_never_renews_a_played_edition_that_is_not_on_record() {
     let before = serde_json::to_string(&kept).unwrap();
     let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2027, 8, 1, 0, 0, 0).unwrap();
 
-    super::rollover::renew(&mut kept, &game.teams, &[], 5, (2027, start));
+    super::rollover::renew(
+        &mut kept,
+        &game.teams,
+        &[],
+        &Default::default(),
+        5,
+        (2027, start),
+    );
     assert_eq!(
         serde_json::to_string(&kept).unwrap(),
         before,
@@ -363,7 +370,14 @@ fn the_rollover_never_renews_a_played_edition_that_is_not_on_record() {
 
     let mut archive = Vec::new();
     archive_completed_edition(&mut archive, &kept).unwrap();
-    super::rollover::renew(&mut kept, &game.teams, &archive, 5, (2027, start));
+    super::rollover::renew(
+        &mut kept,
+        &game.teams,
+        &archive,
+        &Default::default(),
+        5,
+        (2027, start),
+    );
     assert_eq!(kept.season, 2027);
     assert_eq!(kept.fixtures.len(), 144);
 }

@@ -1826,7 +1826,10 @@
       "secondDivision": "{{country}} Zweite Division",
       "nationalCup": "{{country}} Pokal",
       "continentalChampionsCup": "Kontinentaler Meisterpokal",
-      "premierDivision": "Erste Division"
+      "premierDivision": "Erste Division",
+      "championsLeague": "Champions League",
+      "europaLeague": "Europa League",
+      "conferenceLeague": "Conference League"
     },
     "history": {
       "tab": "Historie",
@@ -1888,7 +1891,16 @@
       "legScore": "Spiel {{n}}: {{goals}}",
       "legNotPlayed": "Spiel {{n}}: noch nicht gespielt",
       "aggregateScore": "Gesamt: {{goals}}",
-      "penaltiesScore": "Elfmeterschießen: {{goals}}"
+      "penaltiesScore": "Elfmeterschießen: {{goals}}",
+      "drawByGame": "Diese Auslosung hat das Spiel vorgenommen. Es ist nicht die offizielle UEFA-Auslosung.",
+      "seededByReputation": "Gesetzt nach Vereinsruf: In dieser Karriere wurde noch keine europäische Saison gespielt.",
+      "seededByCoefficient": "Gesetzt nach den spieleigenen Vereinskoeffizienten, berechnet aus den in dieser Karriere gespielten europäischen Saisons.",
+      "potAdjustment": "Damit die Auslosung möglich wurde, tauschten {{moved}} und {{exchanged}} die Töpfe: Zu viele Vereine eines Verbands lagen im selben Topf.",
+      "neutralVenue": "Neutraler Platz",
+      "neutralFinalNote": "Das Finale wird auf neutralem Platz gespielt: Keine Seite hat Heimvorteil.",
+      "yourPosition": "Dein Verein: Platz {{position}} von {{total}}, {{points}} Punkte",
+      "cutoffPoints": "Der letzte Platz für die K.-o.-Play-offs (Platz {{position}}) hat {{points}} Punkte.",
+      "prizeNote": "Die Prämien sind eine Annahme zur Spielbalance, nicht die Verteilung der UEFA."
     }
   },
   "news": {
@@ -3341,7 +3353,9 @@
         "leaguePhaseRulesOnOtherFormat": "Ligaphasen-Regeln sind nur für einen Wettbewerb im Ligaphasen-Format gültig.",
         "leaguePhaseRulesMissing": "Ein Wettbewerb mit Ligaphase braucht Ligaphasen-Regeln.",
         "leaguePhaseNeedsClubCompetition": "Eine Ligaphase kann nur ein kontinentaler oder internationaler Klubwettbewerb nutzen.",
-        "leaguePhaseFieldSize": "Eine Ligaphase braucht genau {{expected}} Klubs, aufgeführt sind aber {{found}}."
+        "leaguePhaseFieldSize": "Eine Ligaphase braucht genau {{expected}} Klubs, aufgeführt sind aber {{found}}.",
+        "berthRequiresLeaguePhase": "Ein Platz für Stammteilnehmer oder Titelhalter kann nur bei einem Wettbewerb mit Ligaphase festgelegt werden.",
+        "berthNoPlaces": "Ein Platz für europäische Leistung muss mindestens einen Platz vergeben."
       },
       "worldParseFailed": "Die Weltdatenbankdatei konnte nicht verarbeitet werden.",
       "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
@@ -4288,6 +4302,34 @@
           "subject": "Rate für {{player}} erhalten",
           "body": "Rate {{number}} von {{of}} für {{player}}: {{amount}} von {{club}} erhalten."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}: Die Auslosung ist erfolgt",
+        "body": "Das Spiel hat die Auslosung der {{competition}} vorgenommen (es ist nicht die offizielle UEFA-Auslosung). Dein Verein bestreitet {{matches}} Spiele in der Ligaphase. Das erste ist gegen {{opponent}} am {{date}}.\n\nDie Spiele stehen in deinem Kalender."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}: direkt ins Achtelfinale",
+        "body": "Dein Verein hat die Ligaphase der {{competition}} auf Platz {{rank}} beendet und zieht direkt ins Achtelfinale ein.\n\nGut gemacht: Das spart zwei Spiele."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}: in die K.-o.-Play-offs",
+        "body": "Dein Verein hat die Ligaphase der {{competition}} auf Platz {{rank}} beendet und spielt in den K.-o.-Play-offs.\n\nEin Duell mit Hin- und Rückspiel entscheidet, wer ins Achtelfinale kommt."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}: in der Ligaphase ausgeschieden",
+        "body": "Dein Verein hat die Ligaphase der {{competition}} auf Platz {{rank}} beendet und ist aus dem Wettbewerb ausgeschieden.\n\nNur die ersten 24 kommen weiter."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}: weiter gegen {{opponent}}",
+        "body": "Dein Verein hat {{opponent}} geschlagen ({{result}}) und kommt in der {{competition}} weiter.\n\nDas Ergebnis in Klammern ist das Elfmeterschießen."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}: gegen {{opponent}} ausgeschieden",
+        "body": "Dein Verein hat gegen {{opponent}} verloren ({{result}}) und ist aus der {{competition}} ausgeschieden.\n\nDas Ergebnis in Klammern ist das Elfmeterschießen."
+      },
+      "europeanChampion": {
+        "subject": "Sieger der {{competition}}!",
+        "body": "{{club}} hat die {{competition}} gewonnen.\n\nEs ist die größte Nacht der Vereinsgeschichte. Vorstand und Fans sind begeistert."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}} richtet die WM {{year}} aus",
         "body": "{{nation}} hat den Zuschlag für die Weltmeisterschaft {{year}} erhalten. Die ganze Nation beginnt den Countdown zum größten Fest des Fußballs."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} gewinnt die {{competition}}",
+        "body": "{{club}} ist Sieger der {{competition}}."
       }
     },
     "competition": {

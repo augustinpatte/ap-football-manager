@@ -946,6 +946,15 @@ export interface LeaguePhaseData {
   champion_id: string | null;
   /** A translation key: why the draw could not be made. */
   draw_error: string | null;
+  /** Club coefficients the pots were seeded by; empty for an edition seeded by reputation. */
+  coefficients?: Record<string, number>;
+  /** Clubs that traded places across a pot boundary to make the draw possible. */
+  pot_adjustments?: {
+    moved_club_id: string;
+    exchanged_club_id: string;
+    from_pot: number;
+    to_pot: number;
+  }[];
 }
 
 export interface LeagueData {

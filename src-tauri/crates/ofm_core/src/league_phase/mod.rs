@@ -9,6 +9,7 @@
 //! * [`table`]: the Article 18 ranking, rebuilt from the fixtures.
 //! * [`bracket`]: the knockout paths. [`flow`]: the stage machine that moves an edition along.
 
+pub(crate) mod announce;
 pub(crate) mod bracket;
 pub(crate) mod calendar;
 pub mod coefficient;
@@ -149,11 +150,31 @@ pub fn regenerate_for_season(
 /// read from its football nation. A club the world does not know has no association, and the draw
 /// refuses it rather than guessing.
 pub fn field_from_teams(teams: &[domain::team::Team], participants: &[String], salt: u64) -> Field {
+    field_from_teams_with(teams, participants, &BTreeMap::new(), salt)
+}
+
+/// [`field_from_teams`] seeded by the game's own coefficients ([`coefficient`]) when it has any:
+/// a higher coefficient is seeded higher, reputation then the id break ties, and a club with no
+/// coefficient (an association with no European history) is seeded after those that have one. With
+/// no coefficients at all the seeding is the reputation order, exactly as before: the first edition
+/// of a career, which has no archived season behind it.
+pub fn field_from_teams_with(
+    teams: &[domain::team::Team],
+    participants: &[String],
+    coefficients: &BTreeMap<String, u32>,
+    salt: u64,
+) -> Field {
     let by_id: BTreeMap<&str, &domain::team::Team> =
         teams.iter().map(|team| (team.id.as_str(), team)).collect();
     let reputation = |id: &String| by_id.get(id.as_str()).map_or(0, |team| team.reputation);
+    let coefficient = |id: &String| coefficients.get(id.as_str()).copied().unwrap_or(0);
     let mut seeding = participants.to_vec();
-    seeding.sort_by(|a, b| reputation(b).cmp(&reputation(a)).then_with(|| a.cmp(b)));
+    seeding.sort_by(|a, b| {
+        coefficient(b)
+            .cmp(&coefficient(a))
+            .then_with(|| reputation(b).cmp(&reputation(a)))
+            .then_with(|| a.cmp(b))
+    });
     let associations = seeding
         .iter()
         .filter_map(|id| {
@@ -163,9 +184,12 @@ pub fn field_from_teams(teams: &[domain::team::Team], participants: &[String], s
         })
         .collect();
     Field {
+        coefficients: seeding
+            .iter()
+            .filter_map(|id| coefficients.get(id).map(|value| (id.clone(), *value)))
+            .collect(),
         seeding,
         associations,
-        coefficients: BTreeMap::new(),
         salt,
     }
 }
@@ -178,7 +202,19 @@ pub fn renew_from_teams(
     season: u32,
     start: DateTime<Utc>,
 ) -> Result<(), BuildError> {
-    let field = field_from_teams(teams, &league.participant_ids.clone(), salt);
+    renew_with_coefficients(league, teams, &BTreeMap::new(), salt, season, start)
+}
+
+/// [`renew_from_teams`] seeded by the game's coefficients; see [`field_from_teams_with`].
+pub fn renew_with_coefficients(
+    league: &mut League,
+    teams: &[domain::team::Team],
+    coefficients: &BTreeMap<String, u32>,
+    salt: u64,
+    season: u32,
+    start: DateTime<Utc>,
+) -> Result<(), BuildError> {
+    let field = field_from_teams_with(teams, &league.participant_ids.clone(), coefficients, salt);
     regenerate_for_season(league, &field, season, start)
 }
 

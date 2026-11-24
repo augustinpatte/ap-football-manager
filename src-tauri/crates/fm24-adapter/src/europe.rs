@@ -29,6 +29,14 @@ pub const COMPETITIONS: [(&str, &str, &str); 3] = [
     ("UECL", "uecl", "UEFA Conference League"),
 ];
 
+/// The translation key of each competition's name, in the order of [`COMPETITIONS`]: a player
+/// reads the name in their own language, the `name` above is only the fallback.
+pub const NAME_KEYS: [&str; 3] = [
+    "tournaments.competitions.championsLeague",
+    "tournaments.competitions.europaLeague",
+    "tournaments.competitions.conferenceLeague",
+];
+
 /// One participant: a club UEFA names, and the source club it is when there is one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Participant {

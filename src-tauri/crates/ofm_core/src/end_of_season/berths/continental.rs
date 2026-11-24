@@ -284,7 +284,7 @@ fn european_performance_place(
             })
             .map(|competition| coefficient::stage_bonus_millis(competition.priority))
     };
-    let records = coefficient::season_records(&european_editions(game), &bonus_of);
+    let records = coefficient::season_records(&coefficient::european_editions(game), &bonus_of);
     let best: Vec<String> = coefficient::association_ranking(&records, &association_of)
         .into_iter()
         .map(|(association, _)| association)
@@ -298,28 +298,6 @@ fn european_performance_place(
         .into_iter()
         .nth((position as usize).saturating_sub(1))
         .map(|entry| entry.team_id)
-}
-
-/// The league-phase editions on record, plus the ones finished but not yet archived (the rollover
-/// reads qualification before the daily renewal archives them).
-pub(crate) fn european_editions(game: &Game) -> Vec<domain::edition_archive::CompletedEdition> {
-    let mut editions: Vec<_> = game
-        .edition_archive
-        .iter()
-        .filter(|edition| edition.league_phase.is_some())
-        .cloned()
-        .collect();
-    for competition in &game.competitions {
-        if crate::league_phase::rules_of(competition).is_some()
-            && competition.league_phase.as_ref().is_some_and(|state| {
-                state.stage == domain::league_phase::CompetitionStage::Completed
-            })
-        {
-            // Same proof as the archive: an edition that does not prove complete is not counted.
-            let _ = crate::edition_archive::archive_completed_edition(&mut editions, competition);
-        }
-    }
-    editions
 }
 
 /// Teams a single competition's results award to `target` via its berths.

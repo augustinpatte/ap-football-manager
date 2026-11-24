@@ -1826,7 +1826,10 @@
       "secondDivision": "{{country}} Second Division",
       "nationalCup": "{{country}} Cup",
       "continentalChampionsCup": "Continental Champions Cup",
-      "premierDivision": "Premier Division"
+      "premierDivision": "Premier Division",
+      "championsLeague": "Champions League",
+      "europaLeague": "Europa League",
+      "conferenceLeague": "Conference League"
     },
     "history": {
       "tab": "History",
@@ -1888,7 +1891,16 @@
       "legScore": "Leg {{n}}: {{goals}}",
       "legNotPlayed": "Leg {{n}}: not played",
       "aggregateScore": "Aggregate: {{goals}}",
-      "penaltiesScore": "Penalties: {{goals}}"
+      "penaltiesScore": "Penalties: {{goals}}",
+      "drawByGame": "This draw was made by the game. It is not UEFA's official draw.",
+      "seededByReputation": "Seeded by club reputation: no European season has been played in this career yet.",
+      "seededByCoefficient": "Seeded by the game's own club coefficients, worked out from the European seasons played in this career.",
+      "potAdjustment": "To make the draw possible, {{moved}} and {{exchanged}} swapped pots: too many clubs of one association shared a pot.",
+      "neutralVenue": "Neutral venue",
+      "neutralFinalNote": "The final is played at a neutral venue: neither side has home advantage.",
+      "yourPosition": "Your club: {{position}} of {{total}}, {{points}} points",
+      "cutoffPoints": "The last knockout play-off place (position {{position}}) has {{points}} points.",
+      "prizeNote": "Prize money is a game balance assumption, not UEFA's distribution."
     }
   },
   "news": {
@@ -3384,7 +3396,9 @@
         "leaguePhaseRulesOnOtherFormat": "League-phase rules are only valid on a competition with the league-phase format.",
         "leaguePhaseRulesMissing": "A league-phase competition needs league-phase rules.",
         "leaguePhaseNeedsClubCompetition": "A league phase can only be used by a continental or international club competition.",
-        "leaguePhaseFieldSize": "A league phase needs exactly {{expected}} clubs, but {{found}} are listed."
+        "leaguePhaseFieldSize": "A league phase needs exactly {{expected}} clubs, but {{found}} are listed.",
+        "berthRequiresLeaguePhase": "An incumbent or titleholder berth can only be set on a league-phase competition.",
+        "berthNoPlaces": "A European performance berth must award at least one place."
       },
       "worldParseFailed": "Failed to parse the world database file.",
       "worldWriteFileFailed": "Failed to export the world database file.",
@@ -4288,6 +4302,34 @@
           "subject": "Instalment received for {{player}}",
           "body": "Instalment {{number}} of {{of}} for {{player}}: {{amount}} received from {{club}}."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}: the draw is made",
+        "body": "The {{competition}} draw has been made by the game (it is not UEFA's official draw). Your club plays {{matches}} league-phase matches. The first is against {{opponent}} on {{date}}.\n\nThe fixtures are in your calendar."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}: straight to the round of 16",
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes straight to the round of 16.\n\nWell done: that saves two matches."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}: into the knockout play-offs",
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes into the knockout play-offs.\n\nA two-legged tie decides who reaches the round of 16."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}: eliminated in the league phase",
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and is out of the competition.\n\nOnly the top 24 go on."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}: through against {{opponent}}",
+        "body": "Your club beat {{opponent}} ({{result}}) and goes through in the {{competition}}.\n\nA result in brackets is the penalty shoot-out."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}: knocked out by {{opponent}}",
+        "body": "Your club lost to {{opponent}} ({{result}}) and is out of the {{competition}}.\n\nA result in brackets is the penalty shoot-out."
+      },
+      "europeanChampion": {
+        "subject": "Champions of the {{competition}}!",
+        "body": "{{club}} have won the {{competition}}.\n\nIt is the greatest night in the club's history. The board and the supporters are delighted."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}} Will Host the {{year}} World Cup",
         "body": "{{nation}} has won the right to stage the {{year}} World Cup. The whole nation begins the countdown to football's greatest festival."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} win the {{competition}}",
+        "body": "{{club}} have been crowned champions of the {{competition}}."
       }
     },
     "competition": {

@@ -138,6 +138,7 @@ fn build_european(fields: &crate::europe::EuropeanFields) -> Result<Vec<Competit
         let value = json!({
             "id": id,
             "name": name,
+            "nameKey": crate::europe::NAME_KEYS[index],
             "type": "ContinentalClub",
             "scope": "Continental",
             "requiredRegionIds": ["europe"],
@@ -353,6 +354,7 @@ mod tests {
                 reserve_pairs: &[],
                 reputation: &reputation,
                 calendar,
+                european: None,
             };
             build(
                 &[ligue_1_row()],
@@ -405,6 +407,7 @@ mod tests {
             reserve_pairs: &[],
             reputation: &BTreeMap::new(),
             calendar: &crate::config::CalendarCfg::default(),
+            european: None,
         };
         let defs = build(&[row], &members, &refs, &mut journal, &context).unwrap();
         assert_eq!(defs.len(), 1);

@@ -1826,7 +1826,10 @@
       "secondDivision": "Divisi Kedua {{country}}",
       "nationalCup": "Piala {{country}}",
       "continentalChampionsCup": "Piala Champions Kontinental",
-      "premierDivision": "Divisi Premier"
+      "premierDivision": "Divisi Premier",
+      "championsLeague": "Liga Champions",
+      "europaLeague": "Liga Europa",
+      "conferenceLeague": "Liga Konferensi"
     },
     "history": {
       "tab": "Riwayat",
@@ -1888,7 +1891,16 @@
       "legScore": "Laga {{n}}: {{goals}}",
       "legNotPlayed": "Laga {{n}}: belum dimainkan",
       "aggregateScore": "Agregat: {{goals}}",
-      "penaltiesScore": "Penalti: {{goals}}"
+      "penaltiesScore": "Penalti: {{goals}}",
+      "drawByGame": "Undian ini dilakukan oleh game. Ini bukan undian resmi UEFA.",
+      "seededByReputation": "Pemeringkatan berdasarkan reputasi klub: belum ada musim Eropa yang dimainkan dalam karier ini.",
+      "seededByCoefficient": "Pemeringkatan berdasarkan koefisien klub milik game, dihitung dari musim Eropa yang dimainkan dalam karier ini.",
+      "potAdjustment": "Agar undian dapat dilakukan, {{moved}} dan {{exchanged}} bertukar pot: terlalu banyak klub dari satu asosiasi berada di pot yang sama.",
+      "neutralVenue": "Tempat netral",
+      "neutralFinalNote": "Final dimainkan di tempat netral: tidak ada tim yang punya keuntungan bermain di kandang.",
+      "yourPosition": "Klub Anda: peringkat {{position}} dari {{total}}, {{points}} poin",
+      "cutoffPoints": "Tempat terakhir play-off sistem gugur (peringkat {{position}}) memiliki {{points}} poin.",
+      "prizeNote": "Uang hadiah adalah asumsi keseimbangan game, bukan pembagian UEFA."
     }
   },
   "news": {
@@ -3384,7 +3396,9 @@
         "leaguePhaseRulesOnOtherFormat": "Aturan fase liga hanya berlaku untuk kompetisi berformat fase liga.",
         "leaguePhaseRulesMissing": "Kompetisi dengan fase liga membutuhkan aturan fase liga.",
         "leaguePhaseNeedsClubCompetition": "Fase liga hanya dapat dipakai oleh kompetisi klub benua atau internasional.",
-        "leaguePhaseFieldSize": "Fase liga membutuhkan tepat {{expected}} klub, tetapi yang terdaftar {{found}}."
+        "leaguePhaseFieldSize": "Fase liga membutuhkan tepat {{expected}} klub, tetapi yang terdaftar {{found}}.",
+        "berthRequiresLeaguePhase": "Kuota peserta bertahan atau juara bertahan hanya dapat ditetapkan pada kompetisi dengan fase liga.",
+        "berthNoPlaces": "Kuota kinerja Eropa harus memberikan setidaknya satu tempat."
       },
       "worldParseFailed": "Gagal mengurai berkas basis data dunia.",
       "worldWriteFileFailed": "Gagal mengekspor berkas basis data dunia.",
@@ -4288,6 +4302,34 @@
           "subject": "Cicilan untuk {{player}} diterima",
           "body": "Cicilan {{number}} dari {{of}} untuk {{player}}: {{amount}} diterima dari {{club}}."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}: undian sudah dilakukan",
+        "body": "Game telah melakukan undian {{competition}} (ini bukan undian resmi UEFA). Klub Anda memainkan {{matches}} pertandingan di fase liga. Yang pertama melawan {{opponent}} pada {{date}}.\n\nJadwalnya sudah ada di kalender Anda."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}: langsung ke babak 16 besar",
+        "body": "Klub Anda finis di peringkat {{rank}} fase liga {{competition}} dan langsung lolos ke babak 16 besar.\n\nBagus sekali: itu menghemat dua pertandingan."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}: ke play-off sistem gugur",
+        "body": "Klub Anda finis di peringkat {{rank}} fase liga {{competition}} dan masuk ke play-off sistem gugur.\n\nDua pertandingan kandang-tandang akan menentukan siapa yang lolos ke babak 16 besar."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}: tersingkir di fase liga",
+        "body": "Klub Anda finis di peringkat {{rank}} fase liga {{competition}} dan tersingkir dari kompetisi.\n\nHanya 24 besar yang melaju."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}: lolos atas {{opponent}}",
+        "body": "Klub Anda mengalahkan {{opponent}} ({{result}}) dan melaju di {{competition}}.\n\nSkor dalam tanda kurung adalah adu penalti."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}: disingkirkan oleh {{opponent}}",
+        "body": "Klub Anda kalah dari {{opponent}} ({{result}}) dan tersingkir dari {{competition}}.\n\nSkor dalam tanda kurung adalah adu penalti."
+      },
+      "europeanChampion": {
+        "subject": "Juara {{competition}}!",
+        "body": "{{club}} menjuarai {{competition}}.\n\nIni malam terbesar dalam sejarah klub. Manajemen dan para suporter sangat gembira."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}} Akan Menjadi Tuan Rumah Piala Dunia {{year}}",
         "body": "{{nation}} memenangkan hak untuk menjadi tuan rumah Piala Dunia {{year}}. Seluruh negara memulai hitung mundur menuju festival sepak bola terbesar."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} juara {{competition}}",
+        "body": "{{club}} dinobatkan sebagai juara {{competition}}."
       }
     },
     "competition": {

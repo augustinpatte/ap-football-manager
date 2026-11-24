@@ -104,3 +104,30 @@ export function backendRoundName(stage: KnockoutStageData): string {
       return "Final";
   }
 }
+
+/** The managed club's place in the table, and the points of the last knockout play-off place. */
+export interface ClubStanding {
+  position: number;
+  points: number;
+  total: number;
+  /** Position and points of the last place that still plays on (a play-off). */
+  cutoff: { position: number; points: number } | null;
+}
+
+/** Where `clubId` stands and what the play-off cut-off is; `null` for a club not in the table. */
+export function clubStanding(
+  competition: LeagueData,
+  state: LeaguePhaseData,
+  clubId: string,
+): ClubStanding | null {
+  const row = state.table.find((candidate) => candidate.team_id === clubId);
+  if (!row) return null;
+  const places = leaguePhasePlaces(competition);
+  const last = state.table.find((candidate) => candidate.position === places.direct + places.playoff);
+  return {
+    position: row.position,
+    points: row.points,
+    total: state.table.length,
+    cutoff: last ? { position: last.position, points: last.points } : null,
+  };
+}

@@ -1826,7 +1826,10 @@
       "secondDivision": "{{country}} Второй дивизион",
       "nationalCup": "{{country}} Кубок",
       "continentalChampionsCup": "Континентальный кубок чемпионов",
-      "premierDivision": "Премьер-дивизион"
+      "premierDivision": "Премьер-дивизион",
+      "championsLeague": "Лига чемпионов",
+      "europaLeague": "Лига Европы",
+      "conferenceLeague": "Лига конференций"
     },
     "history": {
       "tab": "История",
@@ -1888,7 +1891,16 @@
       "legScore": "Матч {{n}}: {{goals}}",
       "legNotPlayed": "Матч {{n}}: не сыгран",
       "aggregateScore": "Сумма: {{goals}}",
-      "penaltiesScore": "Пенальти: {{goals}}"
+      "penaltiesScore": "Пенальти: {{goals}}",
+      "drawByGame": "Эту жеребьёвку провела игра. Это не официальная жеребьёвка УЕФА.",
+      "seededByReputation": "Рассев по репутации клубов: в этой карьере ещё не сыграно ни одного европейского сезона.",
+      "seededByCoefficient": "Рассев по собственным клубным коэффициентам игры, рассчитанным по европейским сезонам этой карьеры.",
+      "potAdjustment": "Чтобы жеребьёвка стала возможной, {{moved}} и {{exchanged}} поменялись корзинами: в одной корзине оказалось слишком много клубов одной ассоциации.",
+      "neutralVenue": "Нейтральное поле",
+      "neutralFinalNote": "Финал проходит на нейтральном поле: ни у одной из команд нет преимущества своего поля.",
+      "yourPosition": "Ваш клуб: {{position}}-е место из {{total}}, очков: {{points}}",
+      "cutoffPoints": "Последнее место в стыковых матчах (позиция {{position}}) — {{points}} очков.",
+      "prizeNote": "Призовые — допущение игрового баланса, а не распределение УЕФА."
     }
   },
   "news": {
@@ -3376,7 +3388,9 @@
         "leaguePhaseRulesOnOtherFormat": "Правила лигового этапа действительны только для турнира с форматом лигового этапа.",
         "leaguePhaseRulesMissing": "Турниру с лиговым этапом нужны правила лигового этапа.",
         "leaguePhaseNeedsClubCompetition": "Лиговый этап могут использовать только континентальные или международные клубные турниры.",
-        "leaguePhaseFieldSize": "Для лигового этапа нужно ровно {{expected}} клубов, а указано {{found}}."
+        "leaguePhaseFieldSize": "Для лигового этапа нужно ровно {{expected}} клубов, а указано {{found}}.",
+        "berthRequiresLeaguePhase": "Место для постоянного участника или действующего победителя можно задать только в турнире с лиговым этапом.",
+        "berthNoPlaces": "Место за европейские результаты должно давать хотя бы одну путёвку."
       },
       "worldParseFailed": "Не удалось проанализировать файл мировой базы данных.",
       "worldWriteFileFailed": "Не удалось экспортировать файл мировой базы данных.",
@@ -4288,6 +4302,34 @@
           "subject": "Платёж по {{player}} получен",
           "body": "Платёж {{number}} из {{of}} за {{player}}: {{amount}} получено от клуба {{club}}."
         }
+      },
+      "europeanDraw": {
+        "subject": "{{competition}}: жеребьёвка проведена",
+        "body": "Игра провела жеребьёвку {{competition}} (это не официальная жеребьёвка УЕФА). Ваш клуб сыграет {{matches}} матчей в лиговом этапе. Первый — против {{opponent}}, {{date}}.\n\nМатчи уже в вашем календаре."
+      },
+      "europeanLeaguePhaseDirect": {
+        "subject": "{{competition}}: сразу в 1/8 финала",
+        "body": "Ваш клуб занял {{rank}}-е место в лиговом этапе {{competition}} и выходит сразу в 1/8 финала.\n\nОтличная работа: это экономит два матча."
+      },
+      "europeanLeaguePhasePlayoff": {
+        "subject": "{{competition}}: в стыковые матчи плей-офф",
+        "body": "Ваш клуб занял {{rank}}-е место в лиговом этапе {{competition}} и сыграет в стыковых матчах плей-офф.\n\nДвухматчевое противостояние решит, кто выйдет в 1/8 финала."
+      },
+      "europeanLeaguePhaseEliminated": {
+        "subject": "{{competition}}: вылет в лиговом этапе",
+        "body": "Ваш клуб занял {{rank}}-е место в лиговом этапе {{competition}} и выбыл из турнира.\n\nДальше проходят только первые 24."
+      },
+      "europeanTieWon": {
+        "subject": "{{competition}}: проходим {{opponent}}",
+        "body": "Ваш клуб обыграл {{opponent}} ({{result}}) и проходит дальше в {{competition}}.\n\nСчёт в скобках — серия пенальти."
+      },
+      "europeanTieLost": {
+        "subject": "{{competition}}: вылет от {{opponent}}",
+        "body": "Ваш клуб проиграл {{opponent}} ({{result}}) и выбыл из {{competition}}.\n\nСчёт в скобках — серия пенальти."
+      },
+      "europeanChampion": {
+        "subject": "Победители {{competition}}!",
+        "body": "{{club}} выиграл {{competition}}.\n\nЭто самая великая ночь в истории клуба. Совет директоров и болельщики в восторге."
       }
     },
     "news": {
@@ -4456,6 +4498,10 @@
       "worldCupHostChosen": {
         "headline": "{{nation}} примет чемпионат мира {{year}} года",
         "body": "{{nation}} получила право провести чемпионат мира {{year}} года. Вся страна начинает обратный отсчёт до главного футбольного праздника."
+      },
+      "europeanChampion": {
+        "headline": "{{club}} выигрывает {{competition}}",
+        "body": "{{club}} стал победителем {{competition}}."
       }
     },
     "competition": {

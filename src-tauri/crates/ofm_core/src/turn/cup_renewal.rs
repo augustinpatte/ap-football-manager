@@ -223,6 +223,7 @@ pub(crate) fn renew_finished_league_phases(game: &mut Game, today: &str) -> usiz
             .map(|state| state.next_entrants.clone())
             .filter(|entrants| entrants.len() == field_size);
         let seed = game.seed;
+        let coefficients = crate::league_phase::coefficient::european_coefficients(game);
         let competition = &mut game.competitions[index];
         if let Some(entrants) = waiting {
             competition.participant_ids = entrants;
@@ -231,9 +232,10 @@ pub(crate) fn renew_finished_league_phases(game: &mut Game, today: &str) -> usiz
             "[league-phase-renewal] {} season {} finished; renewing as season {}",
             competition.id, competition.season, edition.season
         );
-        match crate::league_phase::renew_from_teams(
+        match crate::league_phase::renew_with_coefficients(
             competition,
             &game.teams,
+            &coefficients,
             seed,
             edition.season,
             edition.start,

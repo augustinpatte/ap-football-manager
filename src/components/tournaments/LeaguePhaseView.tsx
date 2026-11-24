@@ -5,7 +5,12 @@ import { useTranslation } from "react-i18next";
 import { competitionDisplayName } from "../../lib/competitionName";
 import { findNextFixture } from "../../lib/fixtures";
 import { formatMatchDate } from "../../lib/helpers";
-import { isTableProvisional, leaguePhasePlaces, stageKey } from "../../lib/leaguePhase";
+import {
+  clubStanding,
+  isTableProvisional,
+  leaguePhasePlaces,
+  stageKey,
+} from "../../lib/leaguePhase";
 import type { LeagueData, LeaguePhaseData } from "../../store/types";
 import { Badge, Card, CardBody, CardHeader } from "../ui";
 import LeaguePhaseBracket from "./LeaguePhaseBracket";
@@ -29,6 +34,10 @@ export function LeaguePhaseStatus({
     ? findNextFixture(competition.fixtures, teams.userTeamId)
     : undefined;
   const stage = t(`tournaments.leaguePhase.stages.${stageKey(state.stage)}`);
+  const standing =
+    teams.userTeamId && state.stage !== "Created"
+      ? clubStanding(competition, state, teams.userTeamId)
+      : null;
   return (
     <div className="flex flex-col gap-2" data-testid="leaguephase-status">
       <div className="flex flex-wrap items-center gap-2">
@@ -60,6 +69,24 @@ export function LeaguePhaseStatus({
               : t("tournaments.leaguePhase.noNextMatch")}
           </p>
         )}
+      {standing && state.stage !== "Completed" && (
+        <p className="text-sm text-gray-600 dark:text-gray-300" data-testid="leaguephase-standing">
+          {t("tournaments.leaguePhase.yourPosition", {
+            position: standing.position,
+            total: standing.total,
+            points: standing.points,
+          })}
+          {standing.cutoff && state.outcome == null && (
+            <>
+              {" "}
+              {t("tournaments.leaguePhase.cutoffPoints", {
+                position: standing.cutoff.position,
+                points: standing.cutoff.points,
+              })}
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -150,6 +177,26 @@ export default function LeaguePhaseView({
               {t("tournaments.leaguePhase.provisional")}
             </p>
           )}
+          <ul
+            className="border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400 flex flex-col gap-1"
+            data-testid="leaguephase-notes"
+          >
+            <li>{t("tournaments.leaguePhase.drawByGame")}</li>
+            <li>
+              {Object.keys(state.coefficients ?? {}).length > 0
+                ? t("tournaments.leaguePhase.seededByCoefficient")
+                : t("tournaments.leaguePhase.seededByReputation")}
+            </li>
+            {(state.pot_adjustments ?? []).map((adjustment) => (
+              <li key={`${adjustment.moved_club_id}-${adjustment.exchanged_club_id}`}>
+                {t("tournaments.leaguePhase.potAdjustment", {
+                  moved: teams.resolveTeamName(adjustment.moved_club_id),
+                  exchanged: teams.resolveTeamName(adjustment.exchanged_club_id),
+                })}
+              </li>
+            ))}
+            <li>{t("tournaments.leaguePhase.prizeNote")}</li>
+          </ul>
           {state.outcome?.coefficient_fallback_used && (
             <p className="border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400">
               {t("tournaments.leaguePhase.coefficientFallback")}
