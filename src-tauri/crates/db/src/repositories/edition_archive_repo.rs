@@ -93,6 +93,7 @@ mod tests {
             knockout_rounds: Vec::new(),
             fixtures: Vec::new(),
             movements: None,
+            league_phase: None,
         }
     }
 

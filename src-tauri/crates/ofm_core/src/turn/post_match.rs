@@ -186,8 +186,7 @@ pub(super) fn apply_match_report_in<F>(
         }
 
         fixture.result = Some(result);
-        crate::group_stage::process_completed_fixture(league, fixture_index);
-        crate::schedule::advance_knockout_competition_round(league);
+        crate::competition_flow::after_result(league, fixture_index);
     }
 
     // Where the two clubs' players stand, found once for every step below. None of them moves a

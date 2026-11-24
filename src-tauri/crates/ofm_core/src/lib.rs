@@ -27,6 +27,7 @@ pub mod clock;
 pub mod club;
 pub mod club_economy;
 pub mod competition_completion;
+pub mod competition_flow;
 #[cfg(test)]
 pub(crate) mod competition_test_support;
 pub mod contract_wage_policy;
@@ -57,6 +58,7 @@ pub mod interactive_match;
 pub mod job_offers;
 pub mod knockout_dates;
 pub mod ladder_rules;
+pub mod league_phase;
 pub mod live_match_manager;
 pub(crate) mod manager_identity;
 pub mod manager_retirement;

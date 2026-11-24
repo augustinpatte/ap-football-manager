@@ -101,6 +101,10 @@ pub struct AuthoredRules {
     /// Ties of one round played on the same day (a cup weekend); one tie a day when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub knockout_matches_per_day: Option<u32>,
+    /// The league phase of a `LeaguePhaseAndKnockout` competition: pots, opponents per pot,
+    /// advancement, calendar. Required for that format and refused for any other.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub league_phase: Option<domain::league_phase::LeaguePhaseRules>,
 }
 
 /// Format-specific configuration. `kind` selects the shape; the other fields
@@ -642,6 +646,67 @@ fn validate_format(competition: &CompetitionDefinition, errors: &mut Vec<Definit
             &competition.id,
         ));
     }
+    validate_league_phase(competition, errors);
+}
+
+/// A league phase is refused, not defaulted, when its rules are missing or impossible, when its
+/// field is not the size the rules need, or when another format carries league-phase rules.
+fn validate_league_phase(competition: &CompetitionDefinition, errors: &mut Vec<DefinitionError>) {
+    let authored = competition
+        .rules
+        .as_ref()
+        .and_then(|rules| rules.league_phase.as_ref());
+    if competition.format.kind != CompetitionFormat::LeaguePhaseAndKnockout {
+        if authored.is_some() {
+            errors.push(DefinitionError::new(
+                "be.error.competitionDef.leaguePhaseRulesOnOtherFormat",
+                &competition.id,
+            ));
+        }
+        return;
+    }
+    let Some(rules) = authored else {
+        errors.push(DefinitionError::new(
+            "be.error.competitionDef.leaguePhaseRulesMissing",
+            &competition.id,
+        ));
+        return;
+    };
+    if let Err(reason_key) = rules.validate() {
+        // The reason is itself a translation key naming which rule is impossible.
+        errors.push(DefinitionError::new(reason_key, &competition.id));
+        return;
+    }
+    if !matches!(
+        competition.r#type,
+        CompetitionType::ContinentalClub | CompetitionType::InternationalClub
+    ) {
+        errors.push(DefinitionError::new(
+            "be.error.competitionDef.leaguePhaseNeedsClubCompetition",
+            &competition.id,
+        ));
+    }
+    // The dates must exist and match the matchdays the draw produces, or the competition could
+    // never be dated: a refusal now beats an edition that stays undrawn for a whole career.
+    if let Err(error) = crate::league_phase::calendar::edition_dates(
+        &rules.calendar,
+        rules.calendar.reference_season as i32,
+        rules.matches_per_club(),
+    ) {
+        errors.push(DefinitionError::new(error.key(), &competition.id));
+    }
+    if let Some(explicit) = competition.participants.explicit.as_ref()
+        && explicit.len() != rules.field_size()
+    {
+        errors.push(
+            DefinitionError::new(
+                "be.error.competitionDef.leaguePhaseFieldSize",
+                &competition.id,
+            )
+            .with("expected", rules.field_size().to_string())
+            .with("found", explicit.len().to_string()),
+        );
+    }
 }
 
 /// Qualification must be attainable in every balanced group. Extra qualifiers
@@ -1113,6 +1178,7 @@ fn apply_authored_rules(competition: &mut League, def: &CompetitionDefinition) {
     if let Some(per_day) = rules.knockout_matches_per_day {
         competition.rules.knockout_matches_per_day = per_day;
     }
+    competition.rules.league_phase = rules.league_phase.clone();
 }
 
 fn build_competition(
@@ -1166,6 +1232,14 @@ fn build_competition(
             );
             reassign_competition_id(&mut cup, &def.id);
             cup
+        }
+        CompetitionFormat::LeaguePhaseAndKnockout => {
+            // Built undrawn: the draw needs each club's association, which only the world knows.
+            // `world::foundations` draws it when the world's clubs are at hand.
+            let mut league = League::new(def.id.clone(), def.name.clone(), season, team_ids);
+            league.rules.format = CompetitionFormat::LeaguePhaseAndKnockout;
+            league.league_phase = Some(domain::league_phase::LeaguePhaseState::default());
+            league
         }
     };
 

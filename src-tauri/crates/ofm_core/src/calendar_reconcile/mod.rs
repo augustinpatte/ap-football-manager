@@ -202,9 +202,28 @@ impl<'a> Settling<'a> {
         self.settled.insert(item.key(), date);
     }
 
+    /// The earliest a match may be played: [`Self::not_before_round`], and for the second leg of a
+    /// league-phase tie also the rest window after its first leg, wherever that was settled.
+    fn not_before(&self, item: &Item<'a>) -> NaiveDate {
+        let round_bound = self.not_before_round(item);
+        let first_leg = item
+            .competition
+            .league_phase
+            .as_ref()
+            .and_then(|state| state.tie_of_fixture(&item.fixture.id))
+            .filter(|tie| tie.fixture_ids.get(1) == Some(&item.fixture.id))
+            .and_then(|tie| tie.fixture_ids.first())
+            .and_then(|first| {
+                self.settled
+                    .get(&(item.competition.id.as_str(), first.as_str()))
+            })
+            .and_then(|date| date.checked_add_days(Days::new(MIN_GAP_DAYS as u64)));
+        first_leg.map_or(round_bound, |date| date.max(round_bound))
+    }
+
     /// A knockout match cannot be played before the last match of the round that feeds it, plus
     /// the cup's round gap.
-    fn not_before(&self, item: &Item<'a>) -> NaiveDate {
+    fn not_before_round(&self, item: &Item<'a>) -> NaiveDate {
         let tomorrow = self
             .today
             .checked_add_days(Days::new(1))

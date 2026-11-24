@@ -787,6 +787,7 @@ fn archived_edition(competition_id: &str, season: u32, clubs: &[&str]) -> Comple
         knockout_rounds: Vec::new(),
         fixtures: Vec::new(),
         movements: None,
+        league_phase: None,
     }
 }
 

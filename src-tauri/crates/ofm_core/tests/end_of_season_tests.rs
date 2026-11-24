@@ -423,6 +423,7 @@ fn renewed_cup_with_archived_winner(game: &mut Game, cup: &mut League, winner: &
             knockout_rounds: vec![],
             fixtures: vec![],
             movements: None,
+            league_phase: None,
         });
     cup.season += 1;
     for fixture in &mut cup.fixtures {
@@ -1191,6 +1192,7 @@ fn archive_cup_edition(game: &mut Game, cup_id: &str, champion: &str, entrants: 
             knockout_rounds: vec![],
             fixtures: cup.fixtures.clone(),
             movements: None,
+            league_phase: None,
         });
     game.competitions.push(cup);
 }

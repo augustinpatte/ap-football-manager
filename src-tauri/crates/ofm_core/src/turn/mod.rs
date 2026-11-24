@@ -281,7 +281,10 @@ where
     // A cup whose last tie was played today starts its next edition, so the sweep below settles
     // the new ties too.
     country_renewal::renew_due_countries(game, today);
+    // Prize money for what today's results settled, before any renewal replaces the edition.
+    crate::league_phase::prize::post_pending(game);
     cup_renewal::renew_finished_cups(game, today);
+    cup_renewal::renew_finished_league_phases(game, today);
 
     // Last, so a round drawn or a postponement caused by today's results is settled before the
     // next day's fixtures are looked up.

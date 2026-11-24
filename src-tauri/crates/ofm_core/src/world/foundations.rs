@@ -91,6 +91,21 @@ pub fn rebuild_competitions_for_management_date(game: &mut Game, management_date
             CompetitionFormat::Knockout => {
                 crate::schedule::regenerate_knockout_for_season(competition, season, start)
             }
+            CompetitionFormat::LeaguePhaseAndKnockout => {
+                if let Err(error) = crate::league_phase::renew_from_teams(
+                    competition,
+                    &game.teams,
+                    seed,
+                    season,
+                    start,
+                ) {
+                    log::error!(
+                        "[foundations] {} cannot be drawn: {}",
+                        competition.id,
+                        error.key
+                    );
+                }
+            }
         }
         if is_mid_season {
             let mut rng = crate::seed::rng_for_seed(

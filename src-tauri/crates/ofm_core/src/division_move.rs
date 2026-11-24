@@ -185,6 +185,7 @@ mod tests {
                 relegated_direct: vec![down.to_string()],
                 ..Default::default()
             }),
+            league_phase: None,
         };
         let mut game = Game::new(
             crate::clock::GameClock::new(Utc.with_ymd_and_hms(2027, 7, 1, 12, 0, 0).unwrap()),

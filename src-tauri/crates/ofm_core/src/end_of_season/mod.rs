@@ -98,6 +98,9 @@ pub fn is_regenerated_at_rollover(competition: &League) -> bool {
         CompetitionFormat::Knockout | CompetitionFormat::GroupAndKnockout => {
             is_cup_edition_finished(competition)
         }
+        CompetitionFormat::LeaguePhaseAndKnockout => {
+            crate::league_phase::edition_is_finished(competition)
+        }
     }
 }
 
@@ -587,7 +590,7 @@ fn regenerate_competitions_for_new_season(
     // regeneration resets those standings.
     let berth_fields = resolve_continental_fields(game);
     let domestic_berth_fields = resolve_domestic_berth_fields(game);
-    let continental_entrants: std::collections::HashMap<String, Vec<String>> = game
+    let mut continental_entrants: std::collections::HashMap<String, Vec<String>> = game
         .competitions
         .iter()
         .filter(|competition| {
@@ -605,6 +608,9 @@ fn regenerate_competitions_for_new_season(
             (competition.id.clone(), entrants)
         })
         .collect();
+    // Inferred fields offer the same strongest clubs to every league-phase competition; a club
+    // holds one European place, the higher competition's.
+    crate::league_phase::exclusivity::make_fields_exclusive(game, &mut continental_entrants);
 
     let movements = {
         let mut ties = crate::playoff_sim::SquadTies {
@@ -629,8 +635,15 @@ fn regenerate_competitions_for_new_season(
     // season's field leaves a table scoring clubs that are no longer in it and
     // fixtures between clubs it no longer lists.
     for competition in game.competitions.iter_mut() {
-        if let Some(entrants) = continental_entrants.get(&competition.id)
-            && entrants.len() >= 2
+        let Some(entrants) = continental_entrants.get(&competition.id) else {
+            continue;
+        };
+        if crate::league_phase::rules_of(competition).is_some() {
+            let renewing = is_regenerated_at_rollover(competition);
+            crate::league_phase::rollover::offer_field(competition, entrants, renewing);
+            continue;
+        }
+        if entrants.len() >= 2
             && (competition.fixtures.is_empty() || is_regenerated_at_rollover(competition))
         {
             competition.participant_ids = entrants.clone();
@@ -684,6 +697,13 @@ fn regenerate_competitions_for_new_season(
                     comp_next_start,
                 );
             }
+            CompetitionFormat::LeaguePhaseAndKnockout => crate::league_phase::rollover::renew(
+                competition,
+                &game.teams,
+                &game.edition_archive,
+                seed,
+                (comp_next_season, comp_next_start),
+            ),
             CompetitionFormat::Knockout => {
                 if let Some(entrants) = refreshed_cup_entrants.get(&competition.id) {
                     competition.participant_ids = entrants.clone();

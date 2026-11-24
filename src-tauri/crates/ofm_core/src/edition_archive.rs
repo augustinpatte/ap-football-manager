@@ -39,6 +39,7 @@ pub fn archive_completed_edition(
         knockout_rounds: competition.knockout_rounds.clone(),
         fixtures: competition.fixtures.clone(),
         movements: None,
+        league_phase: competition.league_phase.clone(),
     });
     Ok(ArchiveOutcome::Archived)
 }
@@ -292,6 +293,7 @@ mod tests {
             knockout_rounds: vec![],
             fixtures: vec![],
             movements: None,
+            league_phase: None,
         }
     }
 

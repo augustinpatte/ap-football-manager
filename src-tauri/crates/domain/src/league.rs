@@ -27,6 +27,10 @@ pub enum CompetitionFormat {
     LeagueTable,
     Knockout,
     GroupAndKnockout,
+    /// A UEFA-style league phase (one shared ranking, each club meeting only some of the others)
+    /// followed by two-legged knockout rounds. Its rules and state live in
+    /// [`crate::league_phase`]; it is neither a round-robin nor a set of groups.
+    LeaguePhaseAndKnockout,
 }
 
 /// Smallest supported group; authored values below this are rejected.
@@ -79,6 +83,10 @@ pub struct CompetitionRules {
     /// Knockout cups: feeding, draw and dates.
     #[serde(default)]
     pub cup: CupRules,
+    /// League-phase competitions only. Absent in every other format, and not written when absent,
+    /// so existing competitions serialize exactly as they did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub league_phase: Option<crate::league_phase::LeaguePhaseRules>,
 }
 
 fn default_knockout_matches_per_day() -> u32 {
@@ -102,6 +110,7 @@ impl Default for CompetitionRules {
             reserve_sides: Vec::new(),
             withdrawn_sides: Vec::new(),
             cup: CupRules::default(),
+            league_phase: None,
         }
     }
 }
@@ -203,6 +212,10 @@ pub struct League {
     /// Durable authoring identity and edition provenance. Absent in legacy saves.
     #[serde(default)]
     pub calendar: Option<crate::competition_calendar::CalendarMetadata>,
+    /// League-phase competitions only: pots, draw, ranking inputs, stage and knockout ties. Not
+    /// written when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub league_phase: Option<crate::league_phase::LeaguePhaseState>,
 }
 
 fn default_season_start_month() -> u8 {
@@ -237,6 +250,7 @@ impl Default for League {
             season_start_day: default_season_start_day(),
             name_key: None,
             calendar: None,
+            league_phase: None,
         }
     }
 }
@@ -576,6 +590,7 @@ impl League {
             season_start_day: default_season_start_day(),
             name_key: None,
             calendar: None,
+            league_phase: None,
         }
     }
 
@@ -592,6 +607,15 @@ impl League {
     /// clubs by them (head-to-head included, read from this competition's own results);
     /// otherwise by points, goal difference and goals scored.
     pub fn sorted_standings(&self) -> Vec<StandingEntry> {
+        // A league phase is ranked by Article 18, which the generic order cannot reproduce: its
+        // own table is already in finishing order.
+        if let Some(state) = self
+            .league_phase
+            .as_ref()
+            .filter(|state| !state.table.is_empty())
+        {
+            return state.table.iter().map(|row| row.standing()).collect();
+        }
         if self.rules.tiebreakers.is_empty() {
             return sort_standings(self.standings.clone());
         }

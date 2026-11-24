@@ -97,9 +97,84 @@ pub(crate) fn renew_finished_cups(game: &mut Game, today: &str) -> usize {
             CompetitionFormat::GroupAndKnockout => {
                 crate::group_stage::regenerate_for_season(cup, edition.season, edition.start)
             }
-            CompetitionFormat::LeagueTable => continue,
+            CompetitionFormat::LeagueTable | CompetitionFormat::LeaguePhaseAndKnockout => continue,
         }
         renewed += 1;
+    }
+    renewed
+}
+
+/// Archives and renews every finished league-phase competition whose next edition is near, and
+/// returns how many it renewed. The rollover renews the ones it finds finished; this is the way
+/// out for one that was still being played at the rollover (its final falls in June, after most
+/// domestic seasons end). It draws the next edition from the field the rollover set aside, and
+/// leaves an edition that cannot be archived exactly as it is: renewing it would lose it.
+pub(crate) fn renew_finished_league_phases(game: &mut Game, today: &str) -> usize {
+    let Some(earliest_start) = NaiveDate::parse_from_str(today, "%Y-%m-%d")
+        .ok()
+        .and_then(|day| day.checked_add_days(Days::new(BREAK_BETWEEN_EDITIONS_DAYS)))
+        .and_then(|day| day.and_hms_opt(0, 0, 0))
+        .map(|day| DateTime::<Utc>::from_naive_utc_and_offset(day, Utc))
+    else {
+        return 0;
+    };
+    let today_start = earliest_start - Days::new(BREAK_BETWEEN_EDITIONS_DAYS);
+    let mut renewed = 0;
+    for index in 0..game.competitions.len() {
+        let competition = &game.competitions[index];
+        if crate::league_phase::rules_of(competition).is_none()
+            || !crate::league_phase::edition_is_finished(competition)
+            || !next_edition_is_near(competition, &game.clock, today_start, earliest_start)
+        {
+            continue;
+        }
+        // An edition that was never played (its draw was refused) has nothing to archive; it is
+        // skipped and the next one is drawn, so a field the world has since fixed gets its draw.
+        if crate::league_phase::edition_was_played(competition)
+            && let Err(failure) = archive_completed_edition(&mut game.edition_archive, competition)
+        {
+            warn!(
+                "[league-phase-renewal] {} season {} not renewed, its edition cannot be archived: {failure:?}",
+                competition.id, competition.season
+            );
+            continue;
+        }
+        let edition = next_edition(competition, &game.clock, earliest_start);
+        let field_size =
+            crate::league_phase::rules_of(competition).map_or(0, |rules| rules.field_size());
+        let waiting = competition
+            .league_phase
+            .as_ref()
+            .map(|state| state.next_entrants.clone())
+            .filter(|entrants| entrants.len() == field_size);
+        let seed = game.seed;
+        let competition = &mut game.competitions[index];
+        if let Some(entrants) = waiting {
+            competition.participant_ids = entrants;
+        }
+        debug!(
+            "[league-phase-renewal] {} season {} finished; renewing as season {}",
+            competition.id, competition.season, edition.season
+        );
+        match crate::league_phase::renew_from_teams(
+            competition,
+            &game.teams,
+            seed,
+            edition.season,
+            edition.start,
+        ) {
+            Ok(()) => renewed += 1,
+            // The edition is archived and the competition says why it has no next one.
+            Err(error) => warn!(
+                "[league-phase-renewal] {} has no next edition: {}",
+                competition.id, error.key
+            ),
+        }
+    }
+    if renewed > 0 {
+        // The renewed fields may now include the manager's club: their matches must be played, not
+        // settled by scoreline, so the competition joins the ones they follow.
+        crate::end_of_season::refresh_user_competition_scope(game);
     }
     renewed
 }

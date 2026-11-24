@@ -81,10 +81,14 @@ pub fn fixture_allows_extra_time(game: &Game, fixture_index: usize) -> bool {
     game.league
         .as_ref()
         .and_then(|league| {
-            league
-                .fixtures
-                .get(fixture_index)
-                .map(|fixture| league.is_knockout_fixture(&fixture.id))
+            league.fixtures.get(fixture_index).map(|fixture| {
+                // A league-phase competition's first leg never goes to extra time, its second leg
+                // and final do: the tie, not the match, is what must be decided.
+                match crate::league_phase::knockout_leg(league, &fixture.id) {
+                    Some(leg) => leg.allows_extra_time,
+                    None => league.is_knockout_fixture(&fixture.id),
+                }
+            })
         })
         .unwrap_or(false)
 }

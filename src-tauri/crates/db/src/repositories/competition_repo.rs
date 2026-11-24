@@ -83,9 +83,17 @@ pub fn replace_competitions(
             .transpose()
             .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
+        // NULL for every format but the league phase, so other competitions are stored as before.
+        let league_phase_json = competition
+            .league_phase
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+
         conn.execute(
-            "INSERT INTO competitions (id, name, kind, scope, season, region_id, country_id, required_region_ids_json, participant_ids_json, rules_json, fixtures_json, standings_json, groups_json, knockout_rounds_json, transfer_log_json, transfer_rumours_json, priority, berths_json, season_start_month, season_start_day, calendar_json, name_key)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+            "INSERT INTO competitions (id, name, kind, scope, season, region_id, country_id, required_region_ids_json, participant_ids_json, rules_json, fixtures_json, standings_json, groups_json, knockout_rounds_json, transfer_log_json, transfer_rumours_json, priority, berths_json, season_start_month, season_start_day, calendar_json, name_key, league_phase_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 competition.id,
                 competition.name,
@@ -109,6 +117,7 @@ pub fn replace_competitions(
                 competition.season_start_day as i64,
                 calendar_json,
                 competition.name_key,
+                league_phase_json,
             ],
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
@@ -119,7 +128,7 @@ pub fn replace_competitions(
 
 pub fn load_competitions(conn: &Connection) -> Result<Vec<CompetitionState>, String> {
     let mut stmt = match conn.prepare(
-        "SELECT id, name, kind, scope, season, region_id, country_id, required_region_ids_json, participant_ids_json, rules_json, fixtures_json, standings_json, groups_json, knockout_rounds_json, transfer_log_json, transfer_rumours_json, priority, berths_json, season_start_month, season_start_day, calendar_json, name_key
+        "SELECT id, name, kind, scope, season, region_id, country_id, required_region_ids_json, participant_ids_json, rules_json, fixtures_json, standings_json, groups_json, knockout_rounds_json, transfer_log_json, transfer_rumours_json, priority, berths_json, season_start_month, season_start_day, calendar_json, name_key, league_phase_json
          FROM competitions
          ORDER BY priority ASC, season DESC, name ASC",
     ) {
@@ -183,6 +192,19 @@ pub fn load_competitions(conn: &Connection) -> Result<Vec<CompetitionState>, Str
                 season_start_month: row.get::<_, i64>(18).unwrap_or(8) as u8,
                 season_start_day: row.get::<_, i64>(19).unwrap_or(1) as u8,
                 name_key: row.get(21)?,
+                // A state that is stored but cannot be read is a failed load, never a quiet reset
+                // to "no state": the competition would be replayed from nothing.
+                league_phase: row
+                    .get::<_, Option<String>>(22)?
+                    .map(|raw| serde_json::from_str::<domain::league_phase::LeaguePhaseState>(&raw))
+                    .transpose()
+                    .map_err(|error| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            22,
+                            rusqlite::types::Type::Text,
+                            Box::new(error),
+                        )
+                    })?,
             })
         })
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
@@ -230,6 +252,114 @@ mod tests {
                 "{corrupt}"
             );
         }
+    }
+
+    /// A drawn league-phase competition with its league phase played out, so it holds a draw, a
+    /// final table and the first knockout round.
+    fn league_phase_competition() -> League {
+        use chrono::TimeZone;
+        use domain::league::{
+            CompetitionFormat, CompetitionScope, CompetitionType, FixtureStatus, MatchResult,
+        };
+        use ofm_core::league_phase::{Field, profiles, regenerate_for_season, settle};
+
+        let seeding: Vec<String> = (0..36).map(|i| format!("club-{i:02}")).collect();
+        let associations = seeding
+            .iter()
+            .enumerate()
+            .map(|(i, club)| (club.clone(), format!("assoc-{}", i % 18)))
+            .collect();
+        let mut league = League::new("cl".into(), "Champions".into(), 2026, &[]);
+        league.kind = CompetitionType::ContinentalClub;
+        league.scope = CompetitionScope::Continental;
+        league.rules.format = CompetitionFormat::LeaguePhaseAndKnockout;
+        league.rules.league_phase = Some(profiles::champions_league_2026());
+        let field = Field {
+            seeding,
+            associations,
+            coefficients: Default::default(),
+            salt: 7,
+        };
+        let start = chrono::Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
+        regenerate_for_season(&mut league, &field, 2026, start).expect("a feasible field draws");
+        for index in 0..league.fixtures.len() {
+            let fixture = &mut league.fixtures[index];
+            fixture.status = FixtureStatus::Completed;
+            fixture.result = Some(MatchResult {
+                home_goals: (index % 4) as u8,
+                away_goals: (index % 3) as u8,
+                ..Default::default()
+            });
+            settle(&mut league);
+        }
+        league
+    }
+
+    /// Given a league-phase competition with its draw, table and first knockout round
+    /// When it is saved and loaded
+    /// Then every part comes back identical: the pots, the table, the ranking and the ties.
+    #[test]
+    fn a_league_phase_competition_survives_a_save_whole() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let league = league_phase_competition();
+        let state = league.league_phase.as_ref().unwrap();
+        assert_eq!(state.ties.len(), 8, "the play-offs are drawn");
+        replace_competitions(db.conn(), std::slice::from_ref(&league)).unwrap();
+
+        let loaded = load_competitions(db.conn()).unwrap();
+
+        let [back] = loaded.as_slice() else {
+            panic!("one competition, got {}", loaded.len());
+        };
+        assert_eq!(back.league_phase, league.league_phase);
+        assert_eq!(back.fixtures.len(), league.fixtures.len());
+        assert_eq!(back.rules.format, league.rules.format);
+        assert_eq!(back.rules.league_phase, league.rules.league_phase);
+        assert_eq!(back.knockout_rounds, league.knockout_rounds);
+        let mut again = back.clone();
+        ofm_core::league_phase::settle(&mut again);
+        assert_eq!(
+            again.league_phase, league.league_phase,
+            "settling a loaded competition changes nothing"
+        );
+    }
+
+    /// Given a stored league-phase state that cannot be read
+    /// When competitions are loaded
+    /// Then the load fails: the competition is never quietly replayed from nothing.
+    #[test]
+    fn a_corrupt_league_phase_state_fails_the_load() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        replace_competitions(db.conn(), &[league_phase_competition()]).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE competitions SET league_phase_json = '{not json'",
+                [],
+            )
+            .unwrap();
+
+        assert_eq!(
+            load_competitions(db.conn()).unwrap_err(),
+            "be.error.gamePersistence.loadFailed"
+        );
+    }
+
+    /// Given competitions of other formats
+    /// When they are saved
+    /// Then no league-phase state is stored for them.
+    #[test]
+    fn other_formats_store_no_league_phase_state() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        replace_competitions(db.conn(), &[competition_named("cup-1", None)]).unwrap();
+
+        let stored: Option<String> = db
+            .conn()
+            .query_row("SELECT league_phase_json FROM competitions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+
+        assert_eq!(stored, None);
     }
 
     fn competition_named(id: &str, name_key: Option<&str>) -> League {

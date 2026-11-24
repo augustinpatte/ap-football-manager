@@ -27,6 +27,9 @@ pub fn verify_completed_edition(
     competition: &League,
     league_legs: Option<u8>,
 ) -> Result<CompletionProof, CompletionFailure> {
+    if competition.rules.format == CompetitionFormat::LeaguePhaseAndKnockout {
+        return crate::league_phase::verify::verify_completed(competition);
+    }
     let table = competition.rules.format == CompetitionFormat::LeagueTable;
     let legs = if table {
         Some(

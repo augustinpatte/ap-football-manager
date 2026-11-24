@@ -22,6 +22,10 @@ pub struct CompletedEdition {
     /// rules existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub movements: Option<BoundaryMovements>,
+    /// League-phase competitions: the frozen draw, final ranking and knockout ties. `None` for
+    /// every other format and for editions recorded before the format existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub league_phase: Option<crate::league_phase::LeaguePhaseState>,
 }
 
 impl CompletedEdition {

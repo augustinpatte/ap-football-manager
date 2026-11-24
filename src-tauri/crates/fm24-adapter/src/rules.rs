@@ -324,6 +324,7 @@ pub fn cup_rules(
         knockout_round_gap_days: Some(7),
         // All the ties of a round are played on its date.
         knockout_matches_per_day: Some(64),
+        league_phase: None,
     }
 }
 
@@ -350,6 +351,7 @@ pub fn league_rules(
         cup: CupRules::default(),
         knockout_round_gap_days: None,
         knockout_matches_per_day: None,
+        league_phase: None,
     }
 }
 

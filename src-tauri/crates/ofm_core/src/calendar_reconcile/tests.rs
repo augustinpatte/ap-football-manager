@@ -1150,3 +1150,99 @@ fn a_played_feeder_long_ago_still_holds_back_its_successor() {
 
     assert_eq!(date_of(&world, "cup", "c2"), day(2033, 2, 9));
 }
+
+/// A league-phase competition holding one two-legged tie, its legs on `first` and `second`.
+fn league_phase_tie(first: NaiveDate, second: NaiveDate) -> League {
+    use domain::league_phase::{KnockoutStage, KnockoutTie, LeaguePhaseState};
+    let mut europe = competition(
+        "europe",
+        1,
+        vec![
+            fx(
+                "europe",
+                "leg1",
+                first,
+                "seed",
+                "underdog",
+                Kind::ContinentalClub,
+            ),
+            fx(
+                "europe",
+                "leg2",
+                second,
+                "underdog",
+                "seed",
+                Kind::ContinentalClub,
+            ),
+        ],
+    );
+    europe.rules.format = CompetitionFormat::LeaguePhaseAndKnockout;
+    europe.rules.knockout_round_gap_days = 3;
+    europe.knockout_rounds = vec![KnockoutRoundState {
+        id: "europe-round-1".into(),
+        fixture_ids: vec!["leg1".into(), "leg2".into()],
+        ..Default::default()
+    }];
+    europe.league_phase = Some(LeaguePhaseState {
+        ties: vec![KnockoutTie {
+            id: "tie".into(),
+            stage: KnockoutStage::Playoffs,
+            seeded_team_id: "underdog".into(),
+            unseeded_team_id: "seed".into(),
+            fixture_ids: vec!["leg1".into(), "leg2".into()],
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    europe
+}
+
+/// Given a two-legged tie whose first leg falls inside an international window that ends after
+///       the date the second leg was authored for
+/// When the calendar is settled
+/// Then the second leg is never played before its first, nor inside its rest window.
+#[test]
+fn a_second_leg_never_falls_before_its_first_leg() {
+    let blackout: BTreeSet<NaiveDate> = (9..=18).map(march).collect();
+    let mut world = vec![league_phase_tie(march(10), march(17))];
+
+    reconcile(&mut world, &blackout, today(), true).unwrap();
+
+    let (leg1, leg2) = (
+        date_of(&world, "europe", "leg1"),
+        date_of(&world, "europe", "leg2"),
+    );
+    assert!(leg1 > march(18), "the first leg left the window: {leg1}");
+    assert!(
+        (leg2 - leg1).num_days() >= crate::calendar_booking::MIN_GAP_DAYS,
+        "leg 2 on {leg2} is too close to leg 1 on {leg1}"
+    );
+}
+
+/// Given a domestic league match on the day of a continental second leg
+/// When the calendar is settled
+/// Then the league match moves, and both legs keep their authored dates.
+#[test]
+fn a_league_match_gives_way_to_a_european_second_leg() {
+    let mut world = vec![
+        league_phase_tie(march(10), march(17)),
+        competition(
+            "league",
+            5,
+            vec![fx(
+                "league",
+                "clash",
+                march(17),
+                "seed",
+                "other",
+                Kind::League,
+            )],
+        ),
+    ];
+
+    run(&mut world);
+
+    assert_eq!(date_of(&world, "europe", "leg1"), march(10));
+    assert_eq!(date_of(&world, "europe", "leg2"), march(17));
+    assert!(date_of(&world, "league", "clash") > march(17));
+}

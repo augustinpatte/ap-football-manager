@@ -9,6 +9,7 @@ pub mod finance;
 pub mod free_agent_talk;
 pub mod identity;
 pub mod league;
+pub mod league_phase;
 pub mod manager;
 pub mod message;
 pub mod national_team;

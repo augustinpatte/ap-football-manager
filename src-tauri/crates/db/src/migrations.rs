@@ -15,7 +15,7 @@ pub const MIGRATION_COUNT: usize = MIGRATIONS.len();
 /// **Lowering this is almost always wrong.** A save written by a release with N migrations
 /// reports `user_version = N` and expects every column those migrations added; a build with
 /// fewer can neither open it nor recreate it.
-const EXPECTED_MIGRATION_COUNT: usize = 72;
+const EXPECTED_MIGRATION_COUNT: usize = 73;
 
 // Compile-time rather than a test: adding or removing a migration should fail the build, not
 // merely turn a suite red.
@@ -198,6 +198,8 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("v071_player_provenance.sql", include_str!("sql/v071_player_provenance.sql")),
     // V72: The value basis of a player and the career's value scale, for seasonal revaluation
     ("v072_value_basis.sql", include_str!("sql/v072_value_basis.sql")),
+    // V73: The state of a league-phase competition (pots, draw, ranking, knockout ties, stage)
+    ("v073_league_phase.sql", include_str!("sql/v073_league_phase.sql")),
 ];
 
 /// All migrations for a per-save game database.
@@ -1105,6 +1107,7 @@ mod tests {
     ("v070_scouting_dossier.sql", 0x908f34894e0b47e8),
     ("v071_player_provenance.sql", 0x2374d57da7eb56d5),
     ("v072_value_basis.sql", 0xd5b3b5fd7cf1e8f4),
+    ("v073_league_phase.sql", 0xf7dadb757fdc9821),
     ];
 
     /// Given the two feature branches that both first called their migration `v062`

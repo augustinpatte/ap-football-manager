@@ -4546,6 +4546,7 @@ mod tests {
                 knockout_rounds: Vec::new(),
                 fixtures: Vec::new(),
                 movements: None,
+                league_phase: None,
             });
         let id = manager.create_save(&game, "Archive").unwrap();
 
@@ -4650,6 +4651,7 @@ mod tests {
                     reserves_forced_down: vec![],
                     reserves_readmitted: vec![],
                 }),
+                league_phase: None,
             });
         let id = manager.create_save(&game, "Rules").unwrap();
         let loaded = manager.load_game(&id).unwrap();

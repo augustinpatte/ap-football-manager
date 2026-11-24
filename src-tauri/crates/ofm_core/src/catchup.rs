@@ -81,8 +81,13 @@ pub(crate) fn resolve_fixture_with_strengths(
         crate::national_team::simulate_scoreline(home_strength, away_strength, rng);
     // Level knockout ties are settled by a simulated shootout so the bracket
     // advances with a real winner instead of defaulting to home.
-    let penalties = (home_goals == away_goals && competition.is_knockout_fixture(&fixture_id))
-        .then(|| crate::national_team::simulate_shootout(home_strength, away_strength, rng));
+    let penalties = crate::competition_flow::shootout_required(
+        competition,
+        &fixture_id,
+        home_goals,
+        away_goals,
+    )
+    .then(|| crate::national_team::simulate_shootout(home_strength, away_strength, rng));
     apply_simulated_result(
         competition,
         fixture_index,
@@ -135,8 +140,7 @@ fn apply_simulated_result(
             entry.record_result(away_goals, home_goals);
         }
     }
-    crate::group_stage::process_completed_fixture(competition, fixture_index);
-    crate::schedule::advance_knockout_competition_round(competition);
+    crate::competition_flow::after_result(competition, fixture_index);
 }
 
 /// Simulate all fixtures in `competition` whose date is before `cutoff`,

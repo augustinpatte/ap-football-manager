@@ -474,6 +474,11 @@ fn create_live_match_with(
         away_bench,
         allows_extra_time,
     );
+    // A second leg is level, goes to extra time and then to penalties, on the aggregate of the
+    // tie, not on its own score: the engine is told the first leg's goals as two plain numbers.
+    if let Some(leg) = crate::league_phase::knockout_leg(league, &fixture.id) {
+        match_state.set_first_leg_goals(leg.first_leg_goals.0, leg.first_leg_goals.1);
+    }
     apply_saved_match_roles(
         &mut match_state,
         Side::Home,

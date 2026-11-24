@@ -412,7 +412,7 @@ pub(crate) fn reseed_unstarted_cups(game: &mut Game, country: &str, today: &str)
             CompetitionFormat::GroupAndKnockout => {
                 crate::group_stage::regenerate_for_season(competition, season, start);
             }
-            CompetitionFormat::LeagueTable => {}
+            CompetitionFormat::LeagueTable | CompetitionFormat::LeaguePhaseAndKnockout => {}
         }
     }
 }
