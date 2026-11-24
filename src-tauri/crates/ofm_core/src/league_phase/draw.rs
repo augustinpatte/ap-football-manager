@@ -980,4 +980,99 @@ mod tests {
 
         assert!(matches!(error, DrawError::Infeasible { .. }), "{error:?}");
     }
+
+    /// Club counts per association of the three 2026/27 fields as UEFA published them
+    /// (uefa.com pages of 4 and 23 November 2026): CL has five English and five Spanish clubs,
+    /// four German, four Italian and three French; the Europa and Conference fields are flatter.
+    const CL_2026_27: [usize; 16] = [5, 5, 4, 4, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1];
+    const EL_2026_27: [usize; 22] = [
+        3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    ];
+    const ECL_2026_27: [usize; 30] = [
+        4, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    ];
+
+    /// Pots of a field whose clubs are ranked in a random order (the ranking is independent of the
+    /// association, which is what a coefficient order is to the real field).
+    fn shuffled_field(
+        sizes: &[usize],
+        pot_size: usize,
+        shuffle_seed: u64,
+    ) -> (Vec<String>, BTreeMap<String, String>) {
+        use rand::SeedableRng;
+        use rand::seq::SliceRandom;
+        let mut order: Vec<usize> = Vec::new();
+        for (association, size) in sizes.iter().enumerate() {
+            order.extend(std::iter::repeat_n(association, *size));
+        }
+        assert_eq!(order.len(), 36);
+        assert_eq!(36 % pot_size, 0);
+        order.shuffle(&mut rand::rngs::StdRng::seed_from_u64(shuffle_seed));
+        let clubs: Vec<String> = (0..36).map(|i| format!("club-{i:02}")).collect();
+        let map = clubs
+            .iter()
+            .zip(&order)
+            .map(|(club, association)| (club.clone(), format!("assoc-{association}")))
+            .collect();
+        (clubs, map)
+    }
+
+    /// Given the complete 2026/27 fields of all three competitions, with the invented
+    ///       whole-edition association cap removed
+    /// When each is drawn under 300 different rankings
+    /// Then no legitimately qualified club is dropped: every draw succeeds and passes the
+    ///      independent verification, with no same-association pair and at most two opponents
+    ///      from one other association, relaxing the pots (by recorded trades) only where the
+    ///      ranking leaves no other draw.
+    #[test]
+    fn the_real_2026_27_fields_draw_under_every_ranking_without_a_cap() {
+        use crate::league_phase::pots;
+        let cases: [(LeaguePhaseRules, &[usize]); 3] = [
+            (LeaguePhaseRules::four_pots_of_nine(), &CL_2026_27),
+            (LeaguePhaseRules::four_pots_of_nine(), &EL_2026_27),
+            (LeaguePhaseRules::six_pots_of_six(), &ECL_2026_27),
+        ];
+        let mut traded_fields = 0;
+        for (mut rules, sizes) in cases {
+            rules.max_clubs_per_association = 0;
+            assert_eq!(rules.validate(), Ok(()));
+            for shuffle_seed in 0..300u64 {
+                let (clubs, map) = shuffled_field(sizes, rules.pot_size(), shuffle_seed);
+                let (seeding, trades) = pots::relax(&clubs, &map, &rules);
+                traded_fields += usize::from(!trades.is_empty());
+                let pots: Vec<Vec<String>> = seeding
+                    .chunks(rules.pot_size())
+                    .map(<[String]>::to_vec)
+                    .collect();
+                let graph = draw_field(&rules, &pots, &map, shuffle_seed)
+                    .unwrap_or_else(|e| panic!("seed {shuffle_seed}, {sizes:?}: {e:?}"));
+                let input = DrawInput {
+                    pots: &pots,
+                    associations: &map,
+                    rules: &rules,
+                    seed: shuffle_seed,
+                    tag: "test",
+                };
+                assert_eq!(verify(&graph, &input), Ok(()));
+                assert!(trades.len() <= 2, "{trades:?}");
+            }
+        }
+        // The relaxation is the exception, not the rule: a few fields out of 900 need a trade.
+        assert!(traded_fields < 30, "{traded_fields} of 900 needed a trade");
+    }
+
+    /// Given the 2026/27 Champions League field of five English and five Spanish clubs
+    /// When the whole-edition limit is read from the rules
+    /// Then the shipped profile admits all ten (no cap), where the old stand-in capped it at four.
+    #[test]
+    fn the_shipped_champions_league_profile_has_no_whole_edition_cap() {
+        let rules = crate::league_phase::profiles::champions_league_2026();
+        assert_eq!(rules.max_clubs_per_association, 0);
+        let mut capped = LeaguePhaseRules::four_pots_of_nine();
+        capped.max_clubs_per_association = 5;
+        assert!(
+            capped.validate().is_err(),
+            "a cap above half a pot is still refused"
+        );
+    }
 }

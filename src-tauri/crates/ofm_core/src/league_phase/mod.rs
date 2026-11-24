@@ -15,6 +15,7 @@ pub mod draw;
 pub(crate) mod exclusivity;
 pub(crate) mod flow;
 pub mod matchdays;
+pub(crate) mod pots;
 pub(crate) mod prize;
 pub mod profiles;
 pub(crate) mod rollover;
@@ -91,9 +92,11 @@ pub fn regenerate_for_season(
     // Rounds follow each other as the regulations date them, a rest window apart at least; the
     // generic cup gap (two weeks) would push every round past its published window.
     league.rules.knockout_round_gap_days = crate::calendar_booking::MIN_GAP_DAYS as u32;
-    league.participant_ids = field.seeding.clone();
-    let pots: Vec<Vec<String>> = field
-        .seeding
+    // The pots are the ranking, unless the ranking leaves no possible draw: then the smallest
+    // trade across a pot boundary (recorded, never silent) makes one possible.
+    let (seeding, pot_adjustments) = pots::relax(&field.seeding, &field.associations, &rules);
+    league.participant_ids = seeding.clone();
+    let pots: Vec<Vec<String>> = seeding
         .chunks(rules.pot_size())
         .map(<[String]>::to_vec)
         .collect();
@@ -110,7 +113,7 @@ pub fn regenerate_for_season(
     };
     let plan = match matchdays::schedule(
         &graph,
-        field.seeding.len(),
+        seeding.len(),
         rules.matches_per_club(),
         field.salt,
         &tag,
@@ -124,16 +127,17 @@ pub fn regenerate_for_season(
             Ok(dates) => dates,
             Err(error) => return Err(fail(league, error.key())),
         };
-    league.fixtures = league_fixtures(league, &plan, &field.seeding, &dates, season);
+    league.fixtures = league_fixtures(league, &plan, &seeding, &dates, season);
     league.league_phase = Some(LeaguePhaseState {
         stage: CompetitionStage::LeaguePhaseScheduled,
         calendar_year,
         draw_seed: field.salt,
-        seeding: field.seeding.clone(),
+        seeding: seeding.clone(),
         pots,
+        pot_adjustments,
         associations: field.associations.clone(),
         coefficients: field.coefficients.clone(),
-        table: initial_table(field),
+        table: initial_table(&seeding, &field.coefficients),
         ..Default::default()
     });
     Ok(())
@@ -177,12 +181,8 @@ pub fn renew_from_teams(
     regenerate_for_season(league, &field, season, start)
 }
 
-fn initial_table(field: &Field) -> Vec<LeaguePhaseRow> {
-    table::ranked_rows(
-        std::iter::empty::<&Fixture>(),
-        &field.seeding,
-        &field.coefficients,
-    )
+fn initial_table(seeding: &[String], coefficients: &BTreeMap<String, u32>) -> Vec<LeaguePhaseRow> {
+    table::ranked_rows(std::iter::empty::<&Fixture>(), seeding, coefficients)
 }
 
 /// The league-phase fixtures: each matchday's matches dealt across that matchday's dates (every

@@ -43,10 +43,15 @@ pub struct LeaguePhaseRules {
     /// Whether two clubs of one association may be drawn together. The regulations say "in
     /// principle" not; relaxing it is an explicit, separate decision of the authored rules.
     pub allow_same_association: bool,
-    /// Most clubs one association may send to an edition. A **game-balance stand-in for UEFA's
-    /// association access lists**, which the game does not have: without it a field built by
-    /// strength alone can hold more clubs of one association than any draw can place. At most
-    /// half a pot ([`Self::validate`]), which is what keeps every such field drawable.
+    /// Most clubs one association may send to an edition, or `0` for no whole-edition limit.
+    ///
+    /// This is **not a UEFA rule**: UEFA limits who qualifies through each association's access
+    /// list, not how many clubs of one association an edition may hold (2026/27 has five English
+    /// and five Spanish Champions League clubs). It exists only as a game-balance stand-in for
+    /// worlds that infer a field from reputation, where a strength-ordered field could hold more
+    /// clubs of one association than any draw can place. A non-zero value is at most half a pot
+    /// ([`Self::validate`]), which keeps every such field drawable. A field with a real access
+    /// list carries `0`; whether it can be drawn is then decided by the draw itself, pot by pot.
     pub max_clubs_per_association: u8,
     /// The season's matchday and knockout dates.
     pub calendar: LeaguePhaseCalendar,
@@ -151,6 +156,7 @@ impl LeaguePhaseRules {
         // half its places from one association. Bounding the whole edition's share by that makes
         // every field the limit admits pot-feasible, whatever its ranking does to the pots.
         if !self.allow_same_association
+            && self.max_clubs_per_association != 0
             && usize::from(self.max_clubs_per_association) > self.pot_size() / 2
         {
             return Err("be.error.leaguePhase.rules.associationLimitExceedsPotCapacity");
@@ -462,6 +468,24 @@ pub struct LeaguePhaseState {
     /// Prize and participation postings already made this edition, by stable key, so a payment
     /// posts once and only once.
     pub payments_posted: Vec<String>,
+    /// Clubs that traded places across a pot boundary because the pots as ranked clustered one
+    /// association too tightly for any draw to satisfy the same-association rule. Empty when the
+    /// pots stand as ranked, which is every normal edition. See `ofm_core::league_phase::pots`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub pot_adjustments: Vec<PotAdjustment>,
+}
+
+/// One swap of two clubs between adjacent pots, recorded so the departure from the strict
+/// ranking is visible and checkable, never silent.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PotAdjustment {
+    /// The club of the crowded association that moved to `to_pot`.
+    pub moved_club_id: String,
+    /// The club of another association that took its place in `from_pot`.
+    pub exchanged_club_id: String,
+    /// Zero-based pot the moved club left.
+    pub from_pot: u8,
+    pub to_pot: u8,
 }
 
 impl LeaguePhaseState {

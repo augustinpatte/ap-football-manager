@@ -42,12 +42,17 @@ pub fn europe_spec(seed: u64) -> WorldSpec {
     }
 }
 
+/// The shipped profiles carry no whole-edition cap (real access lists decide). This world infers
+/// its fields from reputation, which can cluster an association beyond any draw, so it keeps the
+/// game-balance stand-in cap explicitly: half a pot.
 fn rules_of(id: &str) -> LeaguePhaseRules {
-    match id {
-        "europe-cl" => profiles::champions_league_2026(),
-        "europe-el" => profiles::europa_league_2026(),
-        _ => profiles::conference_league_2026(),
-    }
+    let (mut rules, cap) = match id {
+        "europe-cl" => (profiles::champions_league_2026(), 4),
+        "europe-el" => (profiles::europa_league_2026(), 4),
+        _ => (profiles::conference_league_2026(), 3),
+    };
+    rules.max_clubs_per_association = cap;
+    rules
 }
 
 /// The world with its own continental competition replaced by the three league-phase ones, each

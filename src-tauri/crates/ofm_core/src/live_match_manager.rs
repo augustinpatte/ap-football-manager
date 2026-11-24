@@ -406,6 +406,16 @@ pub fn adapt_spatial_fixture(
     .map_err(|error| format!("spatial adapter: {error}"))
 }
 
+/// The engine configuration of a match. The home multiplier stands for the home ground, so a match
+/// at a neutral venue (a final, whose "home" side is a bracket label) plays without it.
+fn match_config_for(leg: Option<&crate::league_phase::KnockoutLeg>) -> MatchConfig {
+    let mut config = MatchConfig::default();
+    if leg.is_some_and(|leg| leg.neutral_venue) {
+        config.home_advantage = 1.0;
+    }
+    config
+}
+
 /// [`create_live_match`] for a matchday that has already found the clubs with a match soon
 /// (`lookups`: where each club's players stand, and who plays again soon).
 fn create_live_match_with(
@@ -464,7 +474,8 @@ fn create_live_match_with(
         return Err(LIVE_MATCH_EMPTY_SQUAD_ERROR.to_string());
     }
 
-    let config = MatchConfig::default();
+    let leg = crate::league_phase::knockout_leg(league, &fixture.id);
+    let config = match_config_for(leg.as_ref());
 
     let mut match_state = LiveMatchState::new(
         home_xi,
@@ -476,7 +487,7 @@ fn create_live_match_with(
     );
     // A second leg is level, goes to extra time and then to penalties, on the aggregate of the
     // tie, not on its own score: the engine is told the first leg's goals as two plain numbers.
-    if let Some(leg) = crate::league_phase::knockout_leg(league, &fixture.id) {
+    if let Some(leg) = leg {
         match_state.set_first_leg_goals(leg.first_leg_goals.0, leg.first_leg_goals.1);
     }
     apply_saved_match_roles(
@@ -711,7 +722,9 @@ fn derive_personality(
 
 #[cfg(test)]
 mod tests {
-    use super::{MatchMode, ai_profile_for, create_live_match, derive_personality};
+    use super::{
+        MatchMode, ai_profile_for, create_live_match, derive_personality, match_config_for,
+    };
     use crate::clock::GameClock;
     use crate::game::Game;
     use crate::manager_identity::ManagerIdentity;
@@ -719,6 +732,25 @@ mod tests {
     use domain::league::{Fixture, FixtureStatus, League};
     use domain::manager::Manager;
     use engine::ai::AiPersonality;
+
+    /// Given a final at a neutral venue, a two-legged tie and an ordinary league match
+    /// When the engine's configuration is chosen for each
+    /// Then only the final loses the home multiplier; the others keep the default advantage.
+    #[test]
+    fn a_neutral_final_plays_without_the_home_ground_advantage() {
+        use crate::league_phase::KnockoutLeg;
+        let leg = |neutral_venue| KnockoutLeg {
+            allows_extra_time: true,
+            first_leg_goals: (0, 0),
+            neutral_venue,
+        };
+        let default = engine::MatchConfig::default().home_advantage;
+
+        assert!(default > 1.0, "the default carries a home advantage");
+        assert_eq!(match_config_for(Some(&leg(true))).home_advantage, 1.0);
+        assert_eq!(match_config_for(Some(&leg(false))).home_advantage, default);
+        assert_eq!(match_config_for(None).home_advantage, default);
+    }
 
     /// A manager id whose identity satisfies `wanted`: identities are derived from the id, so a
     /// test that needs a bold or a cautious manager has to find one.

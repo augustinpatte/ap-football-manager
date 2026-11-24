@@ -1188,6 +1188,9 @@ fn recent_home_matches_by_club(game: &Game) -> HashMap<&str, i64> {
                 && fixture.result.is_some()
                 && fixture.date.as_str() > week_ago.as_str()
                 && fixture.date.as_str() <= today.as_str()
+                // A neutral final's "home" side owns no gate: the ground is not its own.
+                && !crate::league_phase::knockout_leg(competition, &fixture.id)
+                    .is_some_and(|leg| leg.neutral_venue)
             {
                 *counts.entry(fixture.home_team_id.as_str()).or_default() += 1;
             }
@@ -1658,6 +1661,62 @@ mod tests {
             .points = 18;
         game.league = Some(league);
         game
+    }
+
+    /// Given a Champions League final and a league-phase match, both completed today
+    /// When the clubs' recent home matches are counted for the gate
+    /// Then the league-phase home side has one, and the final's nominal home side has none: a
+    ///      neutral venue is nobody's home ground.
+    #[test]
+    fn a_neutral_final_pays_no_gate_to_its_nominal_home_side() {
+        use domain::league::{Fixture, FixtureCompetition, FixtureStatus, MatchResult};
+        use domain::league_phase::{KnockoutStage, KnockoutTie, LeaguePhaseState};
+
+        let mut game = make_game();
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        let played = |id: &str, home: &str, away: &str| Fixture {
+            id: id.to_string(),
+            competition_id: "eu".to_string(),
+            matchday: 1,
+            date: today.clone(),
+            home_team_id: home.to_string(),
+            away_team_id: away.to_string(),
+            competition: FixtureCompetition::ContinentalClub,
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 1,
+                away_goals: 0,
+                home_scorers: vec![],
+                away_scorers: vec![],
+                report: None,
+                home_penalties: None,
+                away_penalties: None,
+            }),
+            postponement: None,
+        };
+        let mut european = League::new("eu".into(), "Eu".into(), 2026, &[]);
+        european.fixtures = vec![
+            played("league-phase-match", "team1", "team2"),
+            played("the-final", "team2", "team1"),
+        ];
+        let mut state = LeaguePhaseState::default();
+        state.ties.push(KnockoutTie {
+            id: "final".into(),
+            stage: KnockoutStage::Final,
+            slot: 0,
+            path: 1,
+            seeded_team_id: "team2".into(),
+            unseeded_team_id: "team1".into(),
+            fixture_ids: vec!["the-final".into()],
+            resolution: None,
+        });
+        european.league_phase = Some(state);
+        game.competitions = vec![european];
+
+        let counts = super::recent_home_matches_by_club(&game);
+
+        assert_eq!(counts.get("team1"), Some(&1));
+        assert_eq!(counts.get("team2"), None);
     }
 
     #[test]

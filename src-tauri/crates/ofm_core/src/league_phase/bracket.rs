@@ -8,10 +8,15 @@
 //! allows one. Article 19's text names no such restriction for the knockout draws, so it is a
 //! preference, not a rule (recorded as an approximation in the audit).
 //!
-//! The quarter-final and semi-final layout is the published one, expressed as data below. Annex B
-//! is an image the implementation could not read: the layout is checked against Article 19.04
-//! (seeds 1–4 sit in different quarter-finals, seeds 1 and 2 in different semi-finals) and must be
-//! verified against the Annex B image.
+//! The quarter-final and semi-final layout is expressed as data below and was checked against the
+//! Annex B diagram of the 2026/27 regulations (read from the image in INTEGRATION5): the round of
+//! 16 pairs seeds 1/2 with the play-off winners of 15/16 v 17/18, 3/4 with 13/14 v 19/20, 5/6
+//! with 11/12 v 21/22 and 7/8 with 9/10 v 23/24; a quarter-final joins the tie of seed pair 5/6
+//! with that of 3/4, or 7/8 with 1/2; the two quarter-finals of a side meet in its semi-final; and
+//! the silver side's finalist is the nominal home team. The diagram labels each side's slots
+//! "X/Y" (silver) and "Y/X" (blue), so *which* seed of a pair sits on which side is the draw's;
+//! this module fixes one arrangement (seeds 1, 3, 5 and 8 silver), the one UEFA's 2024/25
+//! bracket followed, which is one valid reading of the labels, not the only one.
 
 use domain::league_phase::{KnockoutStage, KnockoutTie, LeaguePhaseOutcome};
 use rand::{Rng, RngExt};
@@ -239,6 +244,51 @@ mod tests {
                 penalties: None,
                 decision: TieDecision::Aggregate,
             }),
+        }
+    }
+
+    /// Given the Annex B diagram of the 2026/27 regulations, read from the image: every quarter-final
+    ///       joins a tie of seed pair 5/6 with one of 3/4, or one of 7/8 with one of 1/2, each side
+    ///       holds one quarter-final of each kind, and the two seeds of a pair sit on opposite sides
+    /// When the layout constants are checked against that structure (stated here independently of
+    ///      the constants)
+    /// Then they agree, so a mis-keyed path fails this test rather than passing silently.
+    #[test]
+    fn the_layout_matches_the_annex_b_diagram() {
+        let pair_of = |seed: u8| (seed - 1) / 2; // 0: 1/2, 1: 3/4, 2: 5/6, 3: 7/8
+        // Which sides of the diagram a quarter-final may combine: (1/2 + 7/8) or (3/4 + 5/6).
+        let kind_of = |quarter: &[u8; 2]| {
+            let mut pairs = [pair_of(quarter[0]), pair_of(quarter[1])];
+            pairs.sort_unstable();
+            pairs
+        };
+        let upper = [0, 3];
+        let lower = [1, 2];
+        let kinds: Vec<[u8; 2]> = QUARTER_FINAL_PATHS.iter().map(kind_of).collect();
+        assert_eq!(kinds.iter().filter(|k| **k == upper).count(), 2);
+        assert_eq!(kinds.iter().filter(|k| **k == lower).count(), 2);
+        // Every seed appears exactly once among the eight round-of-16 winners' places.
+        let mut seeds: Vec<u8> = QUARTER_FINAL_PATHS.iter().flatten().copied().collect();
+        seeds.sort_unstable();
+        assert_eq!(seeds, (1..=8).collect::<Vec<u8>>());
+        // A semi-final joins one quarter-final of each kind.
+        for semi in SEMI_FINAL_QUARTERS {
+            let (a, b) = (kinds[semi[0]], kinds[semi[1]]);
+            assert!(a != b, "a side holds one quarter-final of each kind");
+        }
+        // The two seeds of a pair are on opposite sides, so seeds 1 and 2 cannot meet before the
+        // final.
+        let side_of = |seed: u8| {
+            SEMI_FINAL_QUARTERS
+                .iter()
+                .position(|semi| {
+                    semi.iter()
+                        .any(|quarter| QUARTER_FINAL_PATHS[*quarter].contains(&seed))
+                })
+                .unwrap()
+        };
+        for pair in 0..4 {
+            assert_ne!(side_of(2 * pair + 1), side_of(2 * pair + 2), "pair {pair}");
         }
     }
 

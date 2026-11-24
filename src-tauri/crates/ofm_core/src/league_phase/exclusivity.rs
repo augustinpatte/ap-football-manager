@@ -65,10 +65,12 @@ pub fn make_fields_exclusive(game: &Game, fields: &mut HashMap<String, Vec<Strin
         let Some(rules) = crate::league_phase::rules_of(competition) else {
             continue;
         };
-        let (size, limit) = (
-            rules.field_size(),
-            usize::from(rules.max_clubs_per_association),
-        );
+        let size = rules.field_size();
+        // Zero is "no whole-edition limit" (a real access list governs), not "no club".
+        let limit = match rules.max_clubs_per_association {
+            0 => usize::MAX,
+            limit => usize::from(limit),
+        };
         let association_of = |club: &str| {
             game.teams
                 .iter()
@@ -179,7 +181,10 @@ mod tests {
     /// Then no association sends more than its access limit, and the field is still full.
     #[test]
     fn no_association_exceeds_its_access_limit() {
-        let mut game = game_with(120, vec![named("cl", 1, profiles::champions_league_2026())]);
+        // An explicit stand-in limit: the shipped profile carries none (access lists decide).
+        let mut rules = profiles::champions_league_2026();
+        rules.max_clubs_per_association = 4;
+        let mut game = game_with(120, vec![named("cl", 1, rules)]);
         for team in game.teams.iter_mut().take(30) {
             team.football_nation = "DOM".into();
         }
@@ -201,6 +206,24 @@ mod tests {
             })
             .count();
         assert_eq!(dominant, 4, "the Champions Cup's limit is four");
+    }
+
+    /// Given the shipped profile, which carries no whole-edition limit
+    /// When a field of thirty clubs of one association is built
+    /// Then nothing is dropped for being too many of one association: the draw, not a game-balance
+    ///      cap, decides whether such a field can be played.
+    #[test]
+    fn a_zero_limit_drops_no_club_for_its_association() {
+        let mut game = game_with(120, vec![named("cl", 1, profiles::champions_league_2026())]);
+        for team in game.teams.iter_mut().take(30) {
+            team.football_nation = "DOM".into();
+        }
+        let offered: Vec<String> = (0..36).map(|i| format!("c{i:03}")).collect();
+        let mut fields = HashMap::from([("cl".to_string(), offered.clone())]);
+
+        make_fields_exclusive(&game, &mut fields);
+
+        assert_eq!(fields["cl"], offered);
     }
 
     /// Given a world too small to fill the lower competitions

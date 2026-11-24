@@ -32,6 +32,10 @@ pub struct KnockoutLeg {
     pub allows_extra_time: bool,
     /// Goals this fixture's home and away sides scored in the first leg (zero outside a second leg).
     pub first_leg_goals: (u8, u8),
+    /// Whether the match is played at a neutral venue: the final. Its home side is only the one
+    /// the bracket names (Article 19.05 "nominal home team for administrative purposes"), so it
+    /// takes none of the home ground's advantages.
+    pub neutral_venue: bool,
 }
 
 impl KnockoutLeg {
@@ -54,12 +58,14 @@ pub fn knockout_leg(league: &League, fixture_id: &str) -> Option<KnockoutLeg> {
         return Some(KnockoutLeg {
             allows_extra_time: true,
             first_leg_goals: (0, 0),
+            neutral_venue: tie.stage == KnockoutStage::Final,
         });
     }
     if position == 0 {
         return Some(KnockoutLeg {
             allows_extra_time: false,
             first_leg_goals: (0, 0),
+            neutral_venue: false,
         });
     }
     // The first leg's home side is this leg's away side.
@@ -72,6 +78,7 @@ pub fn knockout_leg(league: &League, fixture_id: &str) -> Option<KnockoutLeg> {
     Some(KnockoutLeg {
         allows_extra_time: true,
         first_leg_goals,
+        neutral_venue: false,
     })
 }
 
@@ -454,5 +461,48 @@ pub(super) fn fixture_competition(league: &League) -> FixtureCompetition {
     match league.kind {
         CompetitionType::InternationalClub => FixtureCompetition::InternationalClub,
         _ => FixtureCompetition::ContinentalClub,
+    }
+}
+
+#[cfg(test)]
+mod neutral_venue_tests {
+    use super::*;
+    use domain::league_phase::KnockoutTie;
+
+    fn league_with_ties(stages: &[(KnockoutStage, &[&str])]) -> League {
+        let mut league = League::new("eu".into(), "Eu".into(), 2026, &[]);
+        let mut state = LeaguePhaseState::default();
+        for (index, (stage, fixtures)) in stages.iter().enumerate() {
+            state.ties.push(KnockoutTie {
+                id: format!("tie-{index}"),
+                stage: *stage,
+                slot: index as u8,
+                path: 1,
+                seeded_team_id: "a".into(),
+                unseeded_team_id: "b".into(),
+                fixture_ids: fixtures.iter().map(|id| (*id).to_string()).collect(),
+                resolution: None,
+            });
+        }
+        league.league_phase = Some(state);
+        league
+    }
+
+    /// Given a final (one match) and a two-legged semi-final
+    /// When each match's role is read
+    /// Then only the final is at a neutral venue; neither leg of the semi-final is.
+    #[test]
+    fn only_the_final_is_played_at_a_neutral_venue() {
+        let league = league_with_ties(&[
+            (KnockoutStage::SemiFinals, &["sf-1", "sf-2"]),
+            (KnockoutStage::Final, &["final"]),
+        ]);
+
+        let neutral = |id: &str| knockout_leg(&league, id).map(|leg| leg.neutral_venue);
+
+        assert_eq!(neutral("final"), Some(true));
+        assert_eq!(neutral("sf-1"), Some(false));
+        assert_eq!(neutral("sf-2"), Some(false));
+        assert_eq!(neutral("a-league-phase-match"), None);
     }
 }
