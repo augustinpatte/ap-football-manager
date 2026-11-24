@@ -623,3 +623,61 @@ fn psg_european_matches_play_through_the_managers_live_matchday() {
     assert_eq!(psg_row.played, 8);
     assert!(state.stage != CompetitionStage::LeaguePhaseScheduled);
 }
+
+/// Prints what a career costs in the world named by `APFM_WORLD_JSON`: building the game, one full
+/// season, saving to SQLite (size and time) and loading it back. Run it on the European world and
+/// on the `--no-european` control world and compare; it asserts nothing about the numbers.
+#[test]
+#[ignore = "measurement: run by hand on both worlds with /usr/bin/time -l"]
+fn what_a_career_costs() {
+    use db::save_manager::SaveManager;
+    use domain::stats::StatsState;
+    use std::time::Instant;
+
+    let Some(path) = world_or_skip() else {
+        return;
+    };
+    let started = Instant::now();
+    let mut game = build_fm24_career(&path, PSG, 7).expect("the career builds");
+    let build = started.elapsed();
+    let (teams, players) = (game.teams.len(), game.players.len());
+
+    let started = Instant::now();
+    let mut quiet = Quiet;
+    run_seasons(&mut game, RunOptions::seasons(1), &mut quiet).expect("a season plays");
+    let season = started.elapsed();
+
+    let dir = tempfile::tempdir().expect("a directory");
+    let mut manager = SaveManager::init(dir.path()).expect("a save manager");
+    let started = Instant::now();
+    let id = manager
+        .create_save_with_stats(&game, &StatsState::default(), "perf")
+        .expect("the save");
+    let save = started.elapsed();
+    let bytes: u64 = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .flat_map(|entry| {
+            let path = entry.path();
+            if path.is_dir() {
+                std::fs::read_dir(path)
+                    .map(|inner| inner.filter_map(Result::ok).map(|e| e.path()).collect())
+                    .unwrap_or_default()
+            } else {
+                vec![path]
+            }
+        })
+        .filter_map(|file| std::fs::metadata(file).ok())
+        .map(|meta| meta.len())
+        .sum();
+    let started = Instant::now();
+    let _loaded = SaveManager::init(dir.path())
+        .expect("a fresh manager")
+        .load_game(&id)
+        .expect("the load");
+    let load = started.elapsed();
+    eprintln!(
+        "PERF world={} teams={teams} players={players} build={build:.1?} season={season:.1?} save={save:.1?} load={load:.1?} save_bytes={bytes}",
+        path.display()
+    );
+}

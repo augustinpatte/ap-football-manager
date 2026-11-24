@@ -443,6 +443,9 @@ fn cascade_fields<S, E>(
 ) -> std::collections::HashMap<String, Vec<String>> {
     let mut fields = std::collections::HashMap::new();
     let mut cut_from_above: Vec<String> = Vec::new();
+    // Every club a field takes, including the ones picked to fill a vacancy, is placed for the
+    // fields after it: otherwise two competitions short of clubs pick the same strongest one.
+    let mut placed = all_placed.clone();
     for target in &targets {
         let mut qualified = raw.remove(&target.id).unwrap_or_default();
         // The clubs the competition above had no room for are offered this one.
@@ -452,13 +455,9 @@ fn cascade_fields<S, E>(
             }
         }
         let field = if options.fill {
-            let (field, cut) = seed_cap_and_fill_keeping(
-                game,
-                target,
-                qualified,
-                all_placed.clone(),
-                titleholders,
-            );
+            let (field, cut) =
+                seed_cap_and_fill_keeping(game, target, qualified, placed.clone(), titleholders);
+            placed.extend(field.iter().cloned());
             cut_from_above = cut;
             field
         } else {

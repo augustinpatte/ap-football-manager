@@ -362,6 +362,26 @@ fn a_european_titleholder_moves_up_one_competition() {
     assert_every_field_full_and_disjoint(&fields);
 }
 
+/// Given the Europa League and the Conference League both left short of clubs (nobody keeps a
+///       place by incumbency), so each must be refilled from the clubs nobody has placed
+/// When the next fields are resolved
+/// Then the two competitions never refill themselves with the same club: a club taken to fill one
+///      field is placed for the next (a club once held two European places).
+#[test]
+fn two_competitions_refilling_from_one_pool_never_pick_the_same_club() {
+    let mut world = World::new();
+    for id in ["eu-uel", "eu-uecl"] {
+        world
+            .competition_mut(id)
+            .berths
+            .retain(|berth| berth.rule != BerthRule::Incumbent);
+    }
+
+    let fields = world.fields();
+
+    assert_every_field_full_and_disjoint(&fields);
+}
+
 /// Given a club that finishes in a Champions League place, wins its cup and wins the Europa League
 /// When the next fields are resolved
 /// Then it holds one place, in the Champions League, and every other competition is still full.
