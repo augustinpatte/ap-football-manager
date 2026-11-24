@@ -17,6 +17,7 @@ pub mod config;
 pub mod europe;
 pub mod finance;
 pub mod free_agents;
+pub mod generated_squads;
 pub mod ids;
 pub mod install;
 pub mod journal;

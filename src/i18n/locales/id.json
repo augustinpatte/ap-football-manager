@@ -1893,8 +1893,8 @@
       "aggregateScore": "Agregat: {{goals}}",
       "penaltiesScore": "Penalti: {{goals}}",
       "drawByGame": "Undian ini dilakukan oleh game. Ini bukan undian resmi UEFA.",
-      "seededByReputation": "Pemeringkatan berdasarkan reputasi klub: belum ada musim Eropa yang dimainkan dalam karier ini.",
-      "seededByCoefficient": "Pemeringkatan berdasarkan koefisien klub milik game, dihitung dari musim Eropa yang dimainkan dalam karier ini.",
+      "seededByReputation": "Pengundian unggulan berdasarkan reputasi klub: belum ada musim Eropa yang dimainkan dalam karier ini.",
+      "seededByCoefficient": "Pengundian unggulan berdasarkan koefisien klub milik game, dihitung dari musim Eropa yang dimainkan dalam karier ini.",
       "potAdjustment": "Agar undian dapat dilakukan, {{moved}} dan {{exchanged}} bertukar pot: terlalu banyak klub dari satu asosiasi berada di pot yang sama.",
       "neutralVenue": "Tempat netral",
       "neutralFinalNote": "Final dimainkan di tempat netral: tidak ada tim yang punya keuntungan bermain di kandang.",
@@ -4321,11 +4321,11 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: lolos atas {{opponent}}",
-        "body": "Klub Anda mengalahkan {{opponent}} ({{result}}) dan melaju di {{competition}}.\n\nSkor dalam tanda kurung adalah adu penalti."
+        "body": "Klub Anda mengalahkan {{opponent}} ({{result}}) dan melaju di {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: disingkirkan oleh {{opponent}}",
-        "body": "Klub Anda kalah dari {{opponent}} ({{result}}) dan tersingkir dari {{competition}}.\n\nSkor dalam tanda kurung adalah adu penalti."
+        "body": "Klub Anda kalah dari {{opponent}} ({{result}}) dan tersingkir dari {{competition}}."
       },
       "europeanChampion": {
         "subject": "Juara {{competition}}!",

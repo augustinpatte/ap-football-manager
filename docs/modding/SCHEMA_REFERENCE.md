@@ -594,6 +594,9 @@ A league awarding several berths at once — a continental place and a relegatio
 | `"positionRange"` | League finishers from position `from` to `to` (1-based, inclusive) |
 | `"cupWinner"` | The winner of this cup |
 | `"playoffWinner"` | The winner of a playoff contested by league finishers in `[from, to]` (1-based, inclusive) |
+| `"incumbent"` | On a `LeaguePhaseAndKnockout` competition, targeting itself: the clubs of its current edition that no domestic league of the world carries keep their place (their league is not simulated, so no domestic result can requalify them) |
+| `"titleholder"` | On a `LeaguePhaseAndKnockout` competition: the winner of its finished edition qualifies for the berth's target (itself, or the competition one tier up). A titleholder is never the club an oversubscribed field cuts |
+| `"europeanPerformance"` (`position`, `places`) | On a league table: the club finishing `position` qualifies when its association is one of the `places` best performers of the previous European season among the associations the world simulates, by the game's own coefficient points per club |
 
 ### Full Example
 

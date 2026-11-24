@@ -904,33 +904,48 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
     checks
 }
 
+type Teams<'a> = BTreeMap<&'a str, &'a domain::team::Team>;
+type Definitions<'a> = Vec<&'a ofm_core::generator::CompetitionDefinition>;
+
+/// The explicit participants a competition definition lists.
+fn explicit_of(def: &ofm_core::generator::CompetitionDefinition) -> Vec<String> {
+    serde_json::to_value(def)
+        .ok()
+        .and_then(|value| value["participants"]["explicit"].as_array().cloned())
+        .map(|list| {
+            list.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// The European competitions against the mapping and the teams actually in the world: three
-/// disjoint fields of 36 whose every club exists, carries the source's identity and name, and plays
-/// in no domestic league.
+/// disjoint fields of 36 whose every club exists, carries the source's identity and name, plays in
+/// no domestic league and can field a squad, and whose competitions carry their berths.
 fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Check> {
     let world = &run.world;
-    let teams: BTreeMap<&str, &domain::team::Team> = world
+    let teams: Teams = world
         .teams
         .iter()
         .map(|team| (team.id.as_str(), team))
         .collect();
-    let explicit_of = |def: &ofm_core::generator::CompetitionDefinition| -> Vec<String> {
-        serde_json::to_value(def)
-            .ok()
-            .and_then(|value| value["participants"]["explicit"].as_array().cloned())
-            .map(|list| {
-                list.iter()
-                    .filter_map(|v| v.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default()
-    };
-    let definitions: Vec<&ofm_core::generator::CompetitionDefinition> = world
+    let definitions: Definitions = world
         .competition_definitions
         .iter()
         .flat_map(|d| d.competitions.iter())
         .collect();
+    let mut checks = field_checks(facts, &teams, &definitions);
+    checks.extend(identity_checks(facts, &teams, &definitions));
+    checks.extend(berth_and_squad_checks(run, facts, &definitions));
+    checks
+}
 
+fn field_checks(
+    facts: &crate::pipeline::EuropeanFacts,
+    teams: &Teams,
+    definitions: &Definitions,
+) -> Vec<Check> {
     let mut field_failures = Vec::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
     for (key, short, _) in crate::europe::COMPETITIONS {
@@ -956,13 +971,20 @@ fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Che
             }
         }
     }
-    let mut checks = vec![check(
+    vec![check(
         "europe.fields",
         true,
         field_failures,
         "three disjoint fields of 36, every club a team of the world",
-    )];
+    )]
+}
 
+fn identity_checks(
+    facts: &crate::pipeline::EuropeanFacts,
+    teams: &Teams,
+    definitions: &Definitions,
+) -> Vec<Check> {
+    let mut out = Vec::new();
     let mut identity_failures = Vec::new();
     for participant in &facts.fields.participants {
         let Some(team) = teams.get(participant.club_id().as_str()) else {
@@ -986,7 +1008,7 @@ fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Che
             _ => {}
         }
     }
-    checks.push(check(
+    out.push(check(
         "europe.identity",
         true,
         identity_failures,
@@ -998,13 +1020,8 @@ fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Che
         .filter(|d| d.r#type == domain::league::CompetitionType::League)
         .flat_map(|d| explicit_of(d))
         .collect();
-    let only: Vec<String> = facts
-        .continental_only
-        .iter()
-        .map(|id| ids::club(*id))
-        .chain(facts.generated_clubs.iter().cloned())
-        .collect();
-    checks.push(check(
+    let only = european_only(facts);
+    out.push(check(
         "europe.no_domestic_league",
         true,
         only.iter()
@@ -1016,9 +1033,80 @@ fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Che
             only.len()
         ),
     ));
+    out
+}
+
+/// The clubs that exist only for the European competitions: the continental-only source clubs and
+/// the generated ones.
+fn european_only(facts: &crate::pipeline::EuropeanFacts) -> Vec<String> {
+    facts
+        .continental_only
+        .iter()
+        .map(|id| ids::club(*id))
+        .chain(facts.generated_clubs.iter().cloned())
+        .collect()
+}
+
+fn berth_and_squad_checks(
+    run: &Run,
+    facts: &crate::pipeline::EuropeanFacts,
+    definitions: &Definitions,
+) -> Vec<Check> {
+    let world = &run.world;
+    let mut checks = Vec::new();
+    // The qualification rules of later seasons need their berths in the shipped world: each
+    // European competition keeps its unsimulated clubs and sends its winner up, and the first
+    // divisions award the places.
+    let mut berth_failures = Vec::new();
+    let berths_of = |id: &str| -> Vec<(String, domain::league::BerthRule)> {
+        definitions
+            .iter()
+            .find(|d| d.id == id)
+            .map(|d| {
+                d.berths
+                    .iter()
+                    .map(|b| (b.target.clone(), b.rule.clone()))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    for (_, short, _) in crate::europe::COMPETITIONS {
+        let id = ids::european_competition(short);
+        let berths = berths_of(&id);
+        if !berths.contains(&(id.clone(), domain::league::BerthRule::Incumbent)) {
+            berth_failures.push(format!("{id} has no incumbent berth"));
+        }
+        if !berths
+            .iter()
+            .any(|(_, rule)| *rule == domain::league::BerthRule::Titleholder)
+        {
+            berth_failures.push(format!("{id} has no titleholder berth"));
+        }
+    }
+    let fed_leagues = definitions
+        .iter()
+        .filter(|d| {
+            d.berths
+                .iter()
+                .any(|b| b.target == ids::european_competition("ucl"))
+                && d.r#type == domain::league::CompetitionType::League
+        })
+        .count();
+    if fed_leagues != crate::europe::ACCESS.len() {
+        berth_failures.push(format!(
+            "{fed_leagues} leagues feed the Champions League, expected {}",
+            crate::europe::ACCESS.len()
+        ));
+    }
+    checks.push(check(
+        "europe.berths",
+        true,
+        berth_failures,
+        "the European competitions carry their incumbent and titleholder berths and five first divisions feed them",
+    ));
 
     let mut unmanned = Vec::new();
-    for club in &only {
+    for club in &european_only(facts) {
         let players = world
             .players
             .iter()

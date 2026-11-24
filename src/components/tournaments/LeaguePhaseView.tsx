@@ -70,22 +70,26 @@ export function LeaguePhaseStatus({
           </p>
         )}
       {standing && state.stage !== "Completed" && (
-        <p className="text-sm text-gray-600 dark:text-gray-300" data-testid="leaguephase-standing">
-          {t("tournaments.leaguePhase.yourPosition", {
-            position: standing.position,
-            total: standing.total,
-            points: standing.points,
-          })}
+        <div
+          className="flex flex-col gap-0.5 text-sm text-gray-600 dark:text-gray-300"
+          data-testid="leaguephase-standing"
+        >
+          <span>
+            {t("tournaments.leaguePhase.yourPosition", {
+              position: standing.position,
+              total: standing.total,
+              points: standing.points,
+            })}
+          </span>
           {standing.cutoff && state.outcome == null && (
-            <>
-              {" "}
+            <span>
               {t("tournaments.leaguePhase.cutoffPoints", {
                 position: standing.cutoff.position,
                 points: standing.cutoff.points,
               })}
-            </>
+            </span>
           )}
-        </p>
+        </div>
       )}
     </div>
   );
@@ -172,15 +176,12 @@ export default function LeaguePhaseView({
               })}
             </span>
           </div>
-          {isTableProvisional(state) && (
-            <p className="border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400">
-              {t("tournaments.leaguePhase.provisional")}
-            </p>
-          )}
+          {/* One list for every note, so a screen reader meets one structure. */}
           <ul
             className="border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400 flex flex-col gap-1"
             data-testid="leaguephase-notes"
           >
+            {isTableProvisional(state) && <li>{t("tournaments.leaguePhase.provisional")}</li>}
             <li>{t("tournaments.leaguePhase.drawByGame")}</li>
             <li>
               {Object.keys(state.coefficients ?? {}).length > 0
@@ -195,13 +196,11 @@ export default function LeaguePhaseView({
                 })}
               </li>
             ))}
+            {state.outcome?.coefficient_fallback_used && (
+              <li>{t("tournaments.leaguePhase.coefficientFallback")}</li>
+            )}
             <li>{t("tournaments.leaguePhase.prizeNote")}</li>
           </ul>
-          {state.outcome?.coefficient_fallback_used && (
-            <p className="border-t border-gray-100 px-4 py-2.5 text-xs text-gray-500 dark:border-navy-600 dark:text-gray-400">
-              {t("tournaments.leaguePhase.coefficientFallback")}
-            </p>
-          )}
         </Card>
       )}
 

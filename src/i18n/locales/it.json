@@ -1921,7 +1921,7 @@
       "drawByGame": "Questo sorteggio è stato effettuato dal gioco. Non è il sorteggio ufficiale UEFA.",
       "seededByReputation": "Teste di serie per reputazione del club: in questa carriera non è ancora stata giocata alcuna stagione europea.",
       "seededByCoefficient": "Teste di serie in base ai coefficienti di club del gioco, calcolati sulle stagioni europee giocate in questa carriera.",
-      "potAdjustment": "Per rendere possibile il sorteggio, {{moved}} e {{exchanged}} si sono scambiate di fascia: troppi club della stessa federazione condividevano una fascia.",
+      "potAdjustment": "Per rendere possibile il sorteggio, {{moved}} e {{exchanged}} hanno scambiato fascia: troppi club della stessa federazione condividevano una fascia.",
       "neutralVenue": "Campo neutro",
       "neutralFinalNote": "La finale si gioca in campo neutro: nessuna delle due squadre ha il vantaggio del fattore campo.",
       "yourPosition": "Il tuo club: {{position}}º su {{total}}, {{points}} punti",
@@ -4321,11 +4321,11 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: passiamo il turno contro {{opponent}}",
-        "body": "Il tuo club ha battuto {{opponent}} ({{result}}) e passa il turno in {{competition}}.\n\nIl risultato tra parentesi è quello dei calci di rigore."
+        "body": "Il tuo club ha battuto {{opponent}} ({{result}}) e passa il turno in {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: eliminati da {{opponent}}",
-        "body": "Il tuo club ha perso contro {{opponent}} ({{result}}) ed è fuori dalla {{competition}}.\n\nIl risultato tra parentesi è quello dei calci di rigore."
+        "body": "Il tuo club ha perso contro {{opponent}} ({{result}}) ed è fuori dalla {{competition}}."
       },
       "europeanChampion": {
         "subject": "Campioni della {{competition}}!",
@@ -4500,8 +4500,8 @@
         "body": "{{nation}} ha conquistato il diritto di organizzare la Coppa del Mondo {{year}}. L'intera nazione inizia il conto alla rovescia per la più grande festa del calcio."
       },
       "europeanChampion": {
-        "headline": "{{club}} vince la {{competition}}",
-        "body": "{{club}} è stato incoronato campione della {{competition}}."
+        "headline": "{{club}} conquista la {{competition}}",
+        "body": "Il titolo della {{competition}} va a {{club}}."
       }
     },
     "competition": {

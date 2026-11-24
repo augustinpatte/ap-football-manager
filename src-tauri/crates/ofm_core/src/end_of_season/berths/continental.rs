@@ -258,7 +258,6 @@ fn european_performance_place(
     places: u32,
 ) -> Option<String> {
     use crate::league_phase::coefficient;
-    use std::collections::HashMap;
     let association = source.country_id.as_deref()?;
     let mut simulated: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for competition in &game.competitions {
@@ -269,28 +268,14 @@ fn european_performance_place(
             simulated.insert(country);
         }
     }
-    let nation_of: HashMap<&str, &str> = game
-        .teams
-        .iter()
-        .map(|team| (team.id.as_str(), team.football_nation.as_str()))
-        .collect();
-    let association_of = |club: &str| nation_of.get(club).map(|nation| (*nation).to_string());
-    let bonus_of = |competition_id: &str| {
-        game.competitions
-            .iter()
-            .find(|competition| {
-                competition.id == competition_id
-                    && crate::league_phase::rules_of(competition).is_some()
-            })
-            .map(|competition| coefficient::stage_bonus_millis(competition.priority))
-    };
-    let records = coefficient::season_records(&coefficient::european_editions(game), &bonus_of);
-    let best: Vec<String> = coefficient::association_ranking(&records, &association_of)
-        .into_iter()
-        .map(|(association, _)| association)
-        .filter(|association| simulated.contains(association.as_str()))
-        .take(places as usize)
-        .collect();
+    let history = coefficient::EuropeanHistory::of(game);
+    let best: Vec<String> =
+        coefficient::association_ranking(&history.records, &|club| history.association_of(club))
+            .into_iter()
+            .map(|(association, _)| association)
+            .filter(|association| simulated.contains(association.as_str()))
+            .take(places as usize)
+            .collect();
     if !best.iter().any(|candidate| candidate == association) {
         return None;
     }
@@ -427,9 +412,14 @@ where
         }
     }
 
-    // A titleholder holds its place by right: it is never the club an oversubscribed field cuts.
-    let titleholders: HashSet<String> = game
-        .competitions
+    let titleholders = titleholders_of(game);
+    cascade_fields(game, &options, targets, raw, &all_placed, &titleholders)
+}
+
+/// The clubs that hold a place by right as a competition's titleholder: never the club an
+/// oversubscribed field cuts.
+fn titleholders_of(game: &Game) -> std::collections::HashSet<String> {
+    game.competitions
         .iter()
         .flat_map(|source| {
             source
@@ -438,9 +428,20 @@ where
                 .filter(|berth| berth.rule == BerthRule::Titleholder)
                 .flat_map(move |berth| evaluate_berth_rule(game, source, &berth.rule))
         })
-        .collect();
+        .collect()
+}
 
-    let mut fields = HashMap::new();
+/// Builds each target's field from the clubs its berths placed, most prestigious target first. The
+/// clubs a competition has no room for are offered the next one down, so none is stranded.
+fn cascade_fields<S, E>(
+    game: &Game,
+    options: &BerthFieldOptions<S, E>,
+    targets: Vec<&League>,
+    mut raw: std::collections::HashMap<String, Vec<String>>,
+    all_placed: &std::collections::HashSet<String>,
+    titleholders: &std::collections::HashSet<String>,
+) -> std::collections::HashMap<String, Vec<String>> {
+    let mut fields = std::collections::HashMap::new();
     let mut cut_from_above: Vec<String> = Vec::new();
     for target in &targets {
         let mut qualified = raw.remove(&target.id).unwrap_or_default();
@@ -456,7 +457,7 @@ where
                 target,
                 qualified,
                 all_placed.clone(),
-                &titleholders,
+                titleholders,
             );
             cut_from_above = cut;
             field

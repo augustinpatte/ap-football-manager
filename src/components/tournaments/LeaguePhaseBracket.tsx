@@ -149,8 +149,17 @@ function Tie({
           className="px-2 py-0.5 text-caption text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-navy-900/40"
           data-testid="leaguephase-neutral-venue"
         >
-          <span className="font-semibold">{t("tournaments.leaguePhase.neutralVenue")}</span>
-          <span className="sr-only"> {t("tournaments.leaguePhase.neutralFinalNote")}</span>
+          <span
+            className="font-semibold"
+            aria-hidden="true"
+            title={t("tournaments.leaguePhase.neutralFinalNote")}
+          >
+            {t("tournaments.leaguePhase.neutralVenue")}
+          </span>
+          <span className="sr-only">
+            {t("tournaments.leaguePhase.neutralVenue")}.{" "}
+            {t("tournaments.leaguePhase.neutralFinalNote")}
+          </span>
         </div>
       )}
       {decision && decision !== "Aggregate" && (

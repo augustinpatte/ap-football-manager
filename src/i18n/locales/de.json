@@ -1895,7 +1895,7 @@
       "drawByGame": "Diese Auslosung hat das Spiel vorgenommen. Es ist nicht die offizielle UEFA-Auslosung.",
       "seededByReputation": "Gesetzt nach Vereinsruf: In dieser Karriere wurde noch keine europäische Saison gespielt.",
       "seededByCoefficient": "Gesetzt nach den spieleigenen Vereinskoeffizienten, berechnet aus den in dieser Karriere gespielten europäischen Saisons.",
-      "potAdjustment": "Damit die Auslosung möglich wurde, tauschten {{moved}} und {{exchanged}} die Töpfe: Zu viele Vereine eines Verbands lagen im selben Topf.",
+      "potAdjustment": "Damit die Auslosung möglich wurde, tauschten {{moved}} und {{exchanged}} die Lostöpfe: Zu viele Vereine eines Verbands lagen im selben Lostopf.",
       "neutralVenue": "Neutraler Platz",
       "neutralFinalNote": "Das Finale wird auf neutralem Platz gespielt: Keine Seite hat Heimvorteil.",
       "yourPosition": "Dein Verein: Platz {{position}} von {{total}}, {{points}} Punkte",
@@ -4321,11 +4321,11 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: weiter gegen {{opponent}}",
-        "body": "Dein Verein hat {{opponent}} geschlagen ({{result}}) und kommt in der {{competition}} weiter.\n\nDas Ergebnis in Klammern ist das Elfmeterschießen."
+        "body": "Dein Verein hat {{opponent}} geschlagen ({{result}}) und kommt in der {{competition}} weiter."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: gegen {{opponent}} ausgeschieden",
-        "body": "Dein Verein hat gegen {{opponent}} verloren ({{result}}) und ist aus der {{competition}} ausgeschieden.\n\nDas Ergebnis in Klammern ist das Elfmeterschießen."
+        "body": "Dein Verein hat gegen {{opponent}} verloren ({{result}}) und ist aus der {{competition}} ausgeschieden."
       },
       "europeanChampion": {
         "subject": "Sieger der {{competition}}!",

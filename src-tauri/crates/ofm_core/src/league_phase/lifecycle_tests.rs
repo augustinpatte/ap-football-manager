@@ -303,6 +303,75 @@ fn a_renewal_that_cannot_draw_says_so() {
     assert_eq!(game.edition_archive.len(), 1);
 }
 
+fn drawn_as(id: &str, salt: u64) -> League {
+    let mut league = competition(profiles::champions_league_2026());
+    league.id = id.into();
+    let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 8, 1, 0, 0, 0).unwrap();
+    regenerate_for_season(&mut league, &field(salt), 2026, start).expect("a feasible field draws");
+    league
+}
+
+/// Given three editions: one finished, one renewed and not begun, and one in the middle of its
+///       league phase
+/// When it is asked whether any edition is in progress
+/// Then only the one being played counts, so a finished or waiting edition never blocks a renewal.
+#[test]
+fn only_an_edition_being_played_is_in_progress() {
+    let mut finished = drawn_as("a", 1);
+    play_everything(&mut finished);
+    let waiting = drawn_as("b", 2);
+    let mut playing = drawn_as("c", 3);
+    let first = playing
+        .fixtures
+        .iter()
+        .position(|f| f.status == FixtureStatus::Scheduled)
+        .unwrap();
+    super::tests::play(&mut playing, first, None);
+
+    assert!(!any_edition_in_progress(&[
+        finished.clone(),
+        waiting.clone()
+    ]));
+    assert!(any_edition_in_progress(&[finished, waiting, playing]));
+}
+
+/// Given a finished edition due for renewal and a sibling still being played
+/// When the daily renewal runs, and again once the sibling has finished
+/// Then nothing is renewed (and nothing archived) while the sibling is played, so its titleholder
+///      can still move up; both are renewed together, and archived once each, afterwards.
+#[test]
+fn no_edition_renews_while_a_sibling_is_still_being_played() {
+    let mut finished = drawn_as("a", 1);
+    play_everything(&mut finished);
+    let mut playing = drawn_as("b", 2);
+    let first = playing
+        .fixtures
+        .iter()
+        .position(|f| f.status == FixtureStatus::Scheduled)
+        .unwrap();
+    super::tests::play(&mut playing, first, None);
+    let mut game = world_with(finished);
+    game.competitions.push(playing);
+
+    let renewed = crate::turn::cup_renewal::renew_finished_league_phases(&mut game, "2027-07-10");
+
+    assert_eq!(renewed, 0, "the sibling is still being played");
+    assert!(game.edition_archive.is_empty(), "nothing is archived early");
+    assert_eq!(
+        game.competitions[0].league_phase.as_ref().unwrap().stage,
+        CompetitionStage::Completed,
+        "the finished edition keeps its bracket"
+    );
+
+    let mut done = game.competitions.remove(1);
+    play_everything(&mut done);
+    game.competitions.push(done);
+    let renewed = crate::turn::cup_renewal::renew_finished_league_phases(&mut game, "2027-07-10");
+
+    assert_eq!(renewed, 2);
+    assert_eq!(game.edition_archive.len(), 2);
+}
+
 /// Given a game built from a world whose European competitions were authored but never drawn, one
 ///       whose edition is already drawn, and one with no league-phase competition at all (a career
 ///       saved before the format existed)

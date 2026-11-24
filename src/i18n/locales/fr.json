@@ -1898,7 +1898,7 @@
       "potAdjustment": "Pour rendre le tirage possible, {{moved}} et {{exchanged}} ont échangé leur chapeau : trop de clubs d'une même association partageaient un chapeau.",
       "neutralVenue": "Terrain neutre",
       "neutralFinalNote": "La finale se joue sur terrain neutre : aucune des deux équipes n'a l'avantage de recevoir.",
-      "yourPosition": "Votre club : {{position}}e sur {{total}}, {{points}} points",
+      "yourPosition": "Votre club : n°{{position}} sur {{total}}, {{points}} points",
       "cutoffPoints": "La dernière place en barrages (rang {{position}}) compte {{points}} points.",
       "prizeNote": "Les primes sont une hypothèse d'équilibrage du jeu, pas la répartition de l'UEFA."
     }
@@ -4309,23 +4309,23 @@
       },
       "europeanLeaguePhaseDirect": {
         "subject": "{{competition}} : directement en huitièmes de finale",
-        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et se qualifie directement pour les huitièmes de finale.\n\nBravo : cela économise deux matchs."
+        "body": "Votre club termine à la place n°{{rank}} de la phase de ligue de la {{competition}} et se qualifie directement pour le tour suivant.\n\nBravo : cela économise deux matchs."
       },
       "europeanLeaguePhasePlayoff": {
         "subject": "{{competition}} : barrages à élimination directe",
-        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et disputera les barrages à élimination directe.\n\nUne double confrontation désigne qui atteint les huitièmes de finale."
+        "body": "Votre club termine à la place n°{{rank}} de la phase de ligue de la {{competition}} et disputera les barrages à élimination directe.\n\nUne double confrontation désigne qui poursuit."
       },
       "europeanLeaguePhaseEliminated": {
         "subject": "{{competition}} : éliminés en phase de ligue",
-        "body": "Votre club termine {{rank}}e de la phase de ligue de la {{competition}} et est éliminé de la compétition.\n\nSeuls les 24 premiers poursuivent."
+        "body": "Votre club termine à la place n°{{rank}} de la phase de ligue de la {{competition}} et est éliminé de la compétition.\n\nSeuls les meilleurs poursuivent."
       },
       "europeanTieWon": {
         "subject": "{{competition}} : qualifiés face à {{opponent}}",
-        "body": "Votre club a battu {{opponent}} ({{result}}) et se qualifie en {{competition}}.\n\nLe score entre parenthèses est celui des tirs au but."
+        "body": "Votre club a battu {{opponent}} ({{result}}) et poursuit sa route en {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}} : éliminés par {{opponent}}",
-        "body": "Votre club a perdu face à {{opponent}} ({{result}}) et est éliminé de la {{competition}}.\n\nLe score entre parenthèses est celui des tirs au but."
+        "body": "Votre club a perdu face à {{opponent}} ({{result}}) et est éliminé de la {{competition}}."
       },
       "europeanChampion": {
         "subject": "Champions de la {{competition}} !",

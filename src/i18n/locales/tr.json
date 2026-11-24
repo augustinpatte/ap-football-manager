@@ -1893,8 +1893,8 @@
       "aggregateScore": "Toplam: {{goals}}",
       "penaltiesScore": "Penaltılar: {{goals}}",
       "drawByGame": "Bu kurayı oyun çekti. UEFA'nın resmî kurası değildir.",
-      "seededByReputation": "Kulüp itibarına göre sıralandı: bu kariyerde henüz bir Avrupa sezonu oynanmadı.",
-      "seededByCoefficient": "Oyunun kendi kulüp katsayılarına göre sıralandı; katsayılar bu kariyerde oynanan Avrupa sezonlarından hesaplanır.",
+      "seededByReputation": "Torbalara kulüp itibarına göre yerleştirildi: bu kariyerde henüz bir Avrupa sezonu oynanmadı.",
+      "seededByCoefficient": "Torbalara oyunun kendi kulüp katsayılarına göre yerleştirildi; katsayılar bu kariyerde oynanan Avrupa sezonlarından hesaplanır.",
       "potAdjustment": "Kuranın yapılabilmesi için {{moved}} ve {{exchanged}} torbalarını değiştirdi: aynı torbada tek bir federasyonun çok fazla kulübü vardı.",
       "neutralVenue": "Tarafsız saha",
       "neutralFinalNote": "Final tarafsız sahada oynanır: iki takımın da evinde oynama avantajı yoktur.",
@@ -4309,7 +4309,7 @@
       },
       "europeanLeaguePhaseDirect": {
         "subject": "{{competition}}: doğrudan son 16 turuna",
-        "body": "Kulübünüz {{competition}} lig aşamasını {{rank}}. sırada tamamladı ve doğrudan son 16 turuna yükseldi.\n\nAferin: bu iki maç kazandırır."
+        "body": "Kulübünüz {{competition}} lig aşamasını {{rank}}. sırada tamamladı ve doğrudan bir sonraki tura yükseldi.\n\nTebrikler: bu iki maç kazandırır."
       },
       "europeanLeaguePhasePlayoff": {
         "subject": "{{competition}}: eleme play-off'larına",
@@ -4321,11 +4321,11 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: {{opponent}} karşısında tur atladık",
-        "body": "Kulübünüz {{opponent}} takımını geçti ({{result}}) ve {{competition}} yoluna devam ediyor.\n\nParantez içindeki skor penaltı atışlarıdır."
+        "body": "Kulübünüz {{opponent}} takımını geçti ({{result}}) ve {{competition}} yoluna devam ediyor."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: {{opponent}} tarafından elendik",
-        "body": "Kulübünüz {{opponent}} karşısında kaybetti ({{result}}) ve {{competition}} turnuvasına veda etti.\n\nParantez içindeki skor penaltı atışlarıdır."
+        "body": "Kulübünüz {{opponent}} karşısında kaybetti ({{result}}) ve {{competition}} turnuvasına veda etti."
       },
       "europeanChampion": {
         "subject": "{{competition}} şampiyonu olduk!",

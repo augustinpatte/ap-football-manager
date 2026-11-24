@@ -1895,7 +1895,7 @@
       "drawByGame": "本次抽签由游戏完成，并非欧足联的官方抽签。",
       "seededByReputation": "按俱乐部声望排种子：本生涯尚未进行过任何欧战赛季。",
       "seededByCoefficient": "按游戏自身的俱乐部系数排种子，系数根据本生涯已进行的欧战赛季计算。",
-      "potAdjustment": "为使抽签得以进行，{{moved}}与{{exchanged}}互换了档次：同一协会有太多俱乐部处于同一档。",
+      "potAdjustment": "为使抽签得以进行，{{moved}} 与 {{exchanged}} 互换了档次：同一协会有太多俱乐部处于同一档。",
       "neutralVenue": "中立场地",
       "neutralFinalNote": "决赛在中立场地进行：双方都没有主场优势。",
       "yourPosition": "你的俱乐部：第{{position}}名（共{{total}}队），{{points}}分",
@@ -4305,27 +4305,27 @@
       },
       "europeanDraw": {
         "subject": "{{competition}}：抽签已完成",
-        "body": "游戏已完成{{competition}}抽签（这不是欧足联的官方抽签）。你的俱乐部将在联赛阶段踢{{matches}}场比赛，首战对阵{{opponent}}，时间为{{date}}。\n\n赛程已加入你的日历。"
+        "body": "游戏已完成{{competition}}抽签（这不是欧足联的官方抽签）。您的俱乐部将在联赛阶段踢{{matches}}场比赛，首战对阵{{opponent}}，时间为{{date}}。\n\n赛程已加入您的日历。"
       },
       "europeanLeaguePhaseDirect": {
         "subject": "{{competition}}：直接晋级十六强",
-        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，直接晋级十六强。\n\n干得漂亮：这能少踢两场比赛。"
+        "body": "您的俱乐部在{{competition}}联赛阶段排名第{{rank}}，直接晋级十六强。\n\n干得漂亮：这能少踢两场比赛。"
       },
       "europeanLeaguePhasePlayoff": {
         "subject": "{{competition}}：进入淘汰赛附加赛",
-        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，将踢淘汰赛附加赛。\n\n两回合对决将决定谁晋级十六强。"
+        "body": "您的俱乐部在{{competition}}联赛阶段排名第{{rank}}，将踢淘汰赛附加赛。\n\n两回合对决将决定谁晋级十六强。"
       },
       "europeanLeaguePhaseEliminated": {
         "subject": "{{competition}}：联赛阶段被淘汰",
-        "body": "你的俱乐部在{{competition}}联赛阶段排名第{{rank}}，已被淘汰出局。\n\n只有前24名才能继续。"
+        "body": "您的俱乐部在{{competition}}联赛阶段排名第{{rank}}，已被淘汰出局。\n\n只有前24名才能继续。"
       },
       "europeanTieWon": {
         "subject": "{{competition}}：战胜{{opponent}}晋级",
-        "body": "你的俱乐部击败了{{opponent}}（{{result}}），在{{competition}}中晋级。\n\n括号内的比分为点球大战比分。"
+        "body": "您的俱乐部击败了{{opponent}}（{{result}}），在{{competition}}中晋级。"
       },
       "europeanTieLost": {
         "subject": "{{competition}}：被{{opponent}}淘汰",
-        "body": "你的俱乐部不敌{{opponent}}（{{result}}），已被淘汰出{{competition}}。\n\n括号内的比分为点球大战比分。"
+        "body": "您的俱乐部不敌{{opponent}}（{{result}}），已被淘汰出{{competition}}。"
       },
       "europeanChampion": {
         "subject": "{{competition}}冠军！",

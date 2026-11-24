@@ -104,23 +104,6 @@ pub(crate) fn renew_finished_cups(game: &mut Game, today: &str) -> usize {
     renewed
 }
 
-/// Whether any league-phase competition is in the middle of an edition (drawn and begun, not yet
-/// completed). A finished one, or one renewed and not yet begun, is not.
-fn european_edition_in_progress(game: &Game) -> bool {
-    use domain::league_phase::CompetitionStage;
-    game.competitions.iter().any(|competition| {
-        crate::league_phase::rules_of(competition).is_some()
-            && competition.league_phase.as_ref().is_some_and(|state| {
-                !matches!(
-                    state.stage,
-                    CompetitionStage::Created
-                        | CompetitionStage::LeaguePhaseScheduled
-                        | CompetitionStage::Completed
-                )
-            })
-    })
-}
-
 /// Archives every finished league-phase edition and resolves, together, the fields the berths
 /// give the next editions (domestic results, cup winners, the titleholders, the European
 /// performance places and the places kept by clubs whose league is not simulated). The result is
@@ -190,7 +173,7 @@ pub(crate) fn renew_finished_league_phases(game: &mut Game, today: &str) -> usiz
     // The next fields depend on every edition's result (a titleholder moves up a competition, a
     // European performance place needs the whole season), so no competition renews while another
     // is still being played, and the three fields are settled together before any renews.
-    if european_edition_in_progress(game) {
+    if crate::league_phase::any_edition_in_progress(&game.competitions) {
         return 0;
     }
     settle_continental_fields(game);

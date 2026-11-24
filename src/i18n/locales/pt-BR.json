@@ -3354,7 +3354,7 @@
         "leaguePhaseRulesMissing": "Uma competição com fase de liga precisa de regras de fase de liga.",
         "leaguePhaseNeedsClubCompetition": "Uma fase de liga só pode ser usada por uma competição continental ou internacional de clubes.",
         "leaguePhaseFieldSize": "Uma fase de liga precisa de exatamente {{expected}} clubes, mas {{found}} estão listados.",
-        "berthRequiresLeaguePhase": "Uma vaga de incumbente ou de detentor do título só pode ser definida em uma competição com fase de liga.",
+        "berthRequiresLeaguePhase": "Uma vaga de clube já participante ou de detentor do título só pode ser definida em uma competição com fase de liga.",
         "berthNoPlaces": "Uma vaga por desempenho europeu precisa conceder pelo menos uma vaga."
       },
       "worldParseFailed": "Falha ao interpretar o arquivo do banco de dados do mundo.",
@@ -4321,15 +4321,15 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: passamos contra {{opponent}}",
-        "body": "Seu clube eliminou {{opponent}} ({{result}}) e segue em frente na {{competition}}.\n\nO resultado entre parênteses é a disputa de pênaltis."
+        "body": "Seu clube eliminou {{opponent}} ({{result}}) e segue em frente na {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: eliminados por {{opponent}}",
-        "body": "Seu clube perdeu para {{opponent}} ({{result}}) e está fora da {{competition}}.\n\nO resultado entre parênteses é a disputa de pênaltis."
+        "body": "Seu clube perdeu para {{opponent}} ({{result}}) e está fora da {{competition}}."
       },
       "europeanChampion": {
         "subject": "Campeões da {{competition}}!",
-        "body": "O {{club}} conquistou a {{competition}}.\n\nÉ a maior noite da história do clube. A diretoria e os torcedores estão radiantes."
+        "body": "{{club}} conquistou a {{competition}}.\n\nÉ a maior noite da história do clube. A diretoria e os torcedores estão radiantes."
       }
     },
     "news": {
@@ -4501,7 +4501,7 @@
       },
       "europeanChampion": {
         "headline": "{{club}} vence a {{competition}}",
-        "body": "O {{club}} sagrou-se campeão da {{competition}}."
+        "body": "{{club}} sagrou-se campeão da {{competition}}."
       }
     },
     "competition": {

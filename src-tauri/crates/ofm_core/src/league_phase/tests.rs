@@ -543,3 +543,111 @@ fn other_formats_are_untouched() {
 
     assert_eq!(serde_json::to_string(&cup).unwrap(), before);
 }
+
+/// Given participants of three clubs with and without coefficients, and equal reputations
+/// When the field is built with coefficients
+/// Then a higher coefficient is seeded first, reputation then the id break ties, a club without a
+///      coefficient comes after those that have one, and the coefficients are carried on the field
+///      only for the clubs that have one.
+#[test]
+fn coefficients_seed_before_reputation_and_a_club_without_one_comes_last() {
+    let team = |id: &str, reputation: u32| {
+        let mut team = domain::team::Team::new(
+            id.into(),
+            id.into(),
+            id.into(),
+            "ENG".into(),
+            "C".into(),
+            "G".into(),
+            1,
+        );
+        team.reputation = reputation;
+        team.football_nation = "ENG".into();
+        team
+    };
+    let teams = vec![
+        team("a", 900),
+        team("b", 500),
+        team("c", 500),
+        team("d", 100),
+    ];
+    let participants: Vec<String> = ["d", "c", "b", "a"].map(String::from).to_vec();
+    let coefficients: BTreeMap<String, u32> = [
+        ("d".to_string(), 9_000),
+        ("b".to_string(), 4_000),
+        ("c".to_string(), 4_000),
+    ]
+    .into();
+
+    let field = field_from_teams_with(&teams, &participants, &coefficients, 1);
+
+    // d has the highest coefficient; b and c tie on it and on reputation, so the id decides; a has
+    // none and is last, whatever its reputation.
+    assert_eq!(
+        field.seeding,
+        ["d", "b", "c", "a"].map(String::from).to_vec()
+    );
+    assert_eq!(field.coefficients.len(), 3);
+    assert!(!field.coefficients.contains_key("a"));
+    // With no coefficients the order is the reputation order, exactly as before.
+    let plain = field_from_teams(&teams, &participants, 1);
+    assert_eq!(
+        plain.seeding,
+        ["a", "b", "c", "d"].map(String::from).to_vec()
+    );
+    assert!(plain.coefficients.is_empty());
+}
+
+/// Given a ranking that puts five clubs of one association in the top pot (no draw exists for it)
+/// When the edition is built
+/// Then it is built, one trade across the pot boundary is recorded in the state, the seeding the
+///      state keeps is the traded one, and the draw is verified: a refused field would have been a
+///      competition that never starts.
+#[test]
+fn a_crowded_pot_is_traded_and_the_trade_is_recorded_in_the_edition() {
+    let mut crowded = field(3);
+    // The five strongest clubs all belong to one association, the others to distinct ones.
+    for (index, club) in crowded.seeding.clone().iter().enumerate() {
+        let association = if index < 5 {
+            "crowded".to_string()
+        } else {
+            format!("other-{index}")
+        };
+        crowded.associations.insert(club.clone(), association);
+    }
+    let mut league = competition(profiles::champions_league_2026());
+    let start = chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 8, 1, 0, 0, 0).unwrap();
+
+    regenerate_for_season(&mut league, &crowded, 2026, start).expect("the crowded pot is repaired");
+
+    let state = league.league_phase.as_ref().unwrap();
+    assert_eq!(
+        state.pot_adjustments.len(),
+        1,
+        "{:?}",
+        state.pot_adjustments
+    );
+    let trade = &state.pot_adjustments[0];
+    assert_eq!((trade.from_pot, trade.to_pot), (0, 1));
+    let pot_of = |club: &str| {
+        state
+            .pots
+            .iter()
+            .position(|pot| pot.iter().any(|c| c == club))
+    };
+    assert_eq!(
+        pot_of(&trade.moved_club_id),
+        Some(1),
+        "the crowded club moved down"
+    );
+    assert_eq!(
+        pot_of(&trade.exchanged_club_id),
+        Some(0),
+        "the other club moved up"
+    );
+    assert_eq!(
+        state.seeding.iter().position(|c| *c == trade.moved_club_id),
+        Some(9)
+    );
+    assert_eq!(league.fixtures.len(), 144);
+}

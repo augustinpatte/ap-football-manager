@@ -83,6 +83,8 @@ fn berth(target: &str, rule: BerthRule) -> Berth {
 fn access_berths(country: &str) -> Vec<Berth> {
     let (cl, eps, el, ecl) = match country {
         "FR" => ((1, 3), 4, (4, 5), (6, 6)),
+        // Spain, as the adapter authors it: Europa 5th, Conference 6th (England has 5-6 and 7th).
+        "ES" => ((1, 4), 5, (5, 5), (6, 6)),
         _ => ((1, 4), 5, (5, 6), (7, 7)),
     };
     let range = |(from, to): (u32, u32)| BerthRule::PositionRange { from, to };
@@ -145,12 +147,10 @@ fn cup(country: &str, winner: &str, loser: &str) -> League {
 }
 
 fn european(id: &str, priority: u32, participants: Vec<String>) -> League {
-    let (short, titleholder_target) = match id {
-        "eu-ucl" => ("ucl", "eu-ucl"),
-        "eu-uel" => ("uel", "eu-ucl"),
-        _ => ("uecl", "eu-uel"),
+    let titleholder_target = match id {
+        "eu-ucl" | "eu-uel" => "eu-ucl",
+        _ => "eu-uel",
     };
-    let _ = short;
     League {
         id: id.to_string(),
         name: id.to_string(),
@@ -198,12 +198,12 @@ impl World {
             }
             clubs.insert(country, ids);
         }
-        // External clubs: 25 in the Champions League, 27 in the Europa League, 33 in the
+        // External clubs: 25 in the Champions League, 28 in the Europa League, 33 in the
         // Conference League (what is left of 36 after the domestic places). Reputation falls with the index so the last one is the weakest.
         let external = |prefix: &str, count: usize| -> Vec<String> {
             (0..count).map(|n| format!("{prefix}{n:02}")).collect()
         };
-        let (cl_x, el_x, ecl_x) = (external("xc", 25), external("xe", 27), external("xk", 33));
+        let (cl_x, el_x, ecl_x) = (external("xc", 25), external("xe", 28), external("xk", 33));
         for (group, base) in [(&cl_x, 400), (&el_x, 300), (&ecl_x, 200)] {
             for (n, id) in group.iter().enumerate() {
                 teams.push(club(id, "PT", base - n as u32));
@@ -237,12 +237,10 @@ impl World {
             &cl_x,
         );
         let el = pad(
-            names(&[
-                "en5", "en6", "en8", "es5", "es6", "es8", "fr4", "fr5", "fr8",
-            ]),
+            names(&["en5", "en6", "en8", "es5", "es8", "fr4", "fr5", "fr8"]),
             &el_x,
         );
-        let ecl = pad(names(&["en7", "es7", "fr6"]), &ecl_x);
+        let ecl = pad(names(&["en7", "es6", "fr6"]), &ecl_x);
         assert_eq!((cl.len(), el.len(), ecl.len()), (36, 36, 36));
         competitions.push(european("eu-ucl", 1, cl));
         competitions.push(european("eu-uel", 2, el));
@@ -321,6 +319,14 @@ fn domestic_finishes_and_cup_winners_decide_the_perimeter_places() {
         !el.contains(eng[6].as_str()),
         "the 7th goes to the Conference League"
     );
+    // The Conference League takes its modelled places: England 7th, Spain 6th, France 6th.
+    let ecl = set(&fields["eu-uecl"]);
+    for expected in ["en7", "es6", "fr6"] {
+        assert!(
+            ecl.contains(expected),
+            "{expected} earned a Conference League place"
+        );
+    }
     assert_every_field_full_and_disjoint(&fields);
 }
 
@@ -341,6 +347,18 @@ fn a_european_titleholder_moves_up_one_competition() {
     assert!(!set(&fields["eu-uel"]).contains("xe00"));
     assert!(set(&fields["eu-uel"]).contains("xk00"));
     assert!(!set(&fields["eu-uecl"]).contains("xk00"));
+    // The cascade: the Champions League's weakest club (xc24) has no room and is offered the
+    // Europa League; the Europa League's weakest (xe27) is then offered the Conference League.
+    assert!(!set(&fields["eu-ucl"]).contains("xc24"));
+    assert!(
+        set(&fields["eu-uel"]).contains("xc24"),
+        "cut clubs drop one competition"
+    );
+    assert!(!set(&fields["eu-uel"]).contains("xe27"));
+    assert!(
+        set(&fields["eu-uecl"]).contains("xe27"),
+        "and again one further down"
+    );
     assert_every_field_full_and_disjoint(&fields);
 }
 
@@ -350,7 +368,7 @@ fn a_european_titleholder_moves_up_one_competition() {
 #[test]
 fn a_club_with_three_routes_in_holds_one_place_in_the_top_competition() {
     let mut world = World::new();
-    // en8 (the cup winner) also wins the Europa League; en1 is Champions League by league finish.
+    // en1 is Champions League by league finish, wins the cup and wins the Europa League.
     world.finish("eu-uel", "en1");
     world.competition_mut("ENG-cup").fixtures[0].home_team_id = "en1".to_string();
     let fields = world.fields();
@@ -374,7 +392,7 @@ fn clubs_of_unsimulated_leagues_keep_their_places() {
 
     for (competition, prefix, count) in [
         ("eu-ucl", "xc", 25),
-        ("eu-uel", "xe", 27),
+        ("eu-uel", "xe", 28),
         ("eu-uecl", "xk", 33),
     ] {
         let kept = set(&fields[competition])

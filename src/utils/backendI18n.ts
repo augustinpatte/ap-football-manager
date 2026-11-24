@@ -518,6 +518,29 @@ function normalizeReportCompetitionName(
   };
 }
 
+/**
+ * A European message or story names its competition by the stored English name and carries the
+ * name's translation key beside it: the player reads it in their own language, as every other
+ * screen names it.
+ */
+function normalizeEuropeanCompetitionName(
+  key: string | null | undefined,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  const isEuropean =
+    !!key && (key.startsWith("be.msg.european") || key.startsWith("be.news.europeanChampion"));
+  if (!isEuropean || !params?.competitionKey) {
+    return params;
+  }
+  return {
+    ...params,
+    competition: competitionDisplayName(
+      { name: params.competition, name_key: params.competitionKey },
+      (translationKey, options) => i18n.t(translationKey, options),
+    ),
+  };
+}
+
 function normalizeMatchReportParams(
   article: NewsArticle,
   params?: Record<string, string>,
@@ -641,7 +664,7 @@ function normalizeTransferRoundupParams(
  */
 export function resolveMessage(msg: MessageData): MessageData {
   const inferredParams = msg.i18n_params ?? inferLegacyDelegatedRenewalsParams(msg);
-  const p = resolveParamValues(inferredParams);
+  const p = resolveParamValues(normalizeEuropeanCompetitionName(msg.body_key, inferredParams));
   const resolved = {
     ...msg,
     i18n_params: inferredParams,
@@ -730,6 +753,7 @@ const ARTICLE_PARAM_NORMALIZERS: ArticleParamNormalizer[] = [
   normalizeStandingsParams,
   normalizeMatchReportParams,
   normalizeReportCompetitionName,
+  (article, params) => normalizeEuropeanCompetitionName(article.body_key, params),
   normalizePressConferenceParams,
   normalizeTransferRoundupParams,
 ];

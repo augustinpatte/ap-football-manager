@@ -589,6 +589,14 @@ fn regenerate_competitions_for_new_season(
     // continental field from final domestic standings and cup winners before
     // regeneration resets those standings.
     let berth_fields = resolve_continental_fields(game);
+    // A finished European edition waits for a sibling still being played: renewing it now would
+    // draw its next edition before the sibling's titleholder is known, and the place would be lost.
+    // It keeps its edition and the field set aside; the daily renewal settles all three together.
+    let defer_european = crate::league_phase::any_edition_in_progress(&game.competitions);
+    let regenerates = |competition: &League| {
+        is_regenerated_at_rollover(competition)
+            && !(defer_european && crate::league_phase::rules_of(competition).is_some())
+    };
     let domestic_berth_fields = resolve_domestic_berth_fields(game);
     let mut continental_entrants: std::collections::HashMap<String, Vec<String>> = game
         .competitions
@@ -639,7 +647,7 @@ fn regenerate_competitions_for_new_season(
             continue;
         };
         if crate::league_phase::rules_of(competition).is_some() {
-            let renewing = is_regenerated_at_rollover(competition);
+            let renewing = regenerates(competition);
             crate::league_phase::rollover::offer_field(competition, entrants, renewing);
             continue;
         }
@@ -655,7 +663,7 @@ fn regenerate_competitions_for_new_season(
     let retained: std::collections::HashSet<String> = game
         .competitions
         .iter()
-        .filter(|competition| !is_regenerated_at_rollover(competition))
+        .filter(|competition| !regenerates(competition))
         .map(|competition| competition.id.clone())
         .collect();
     // The cups fed by divisions read their entrants now that the divisions have moved.
@@ -670,7 +678,7 @@ fn regenerate_competitions_for_new_season(
         if crate::world_cup::is_world_cup_competition(competition) {
             continue;
         }
-        if !is_regenerated_at_rollover(competition) {
+        if !regenerates(competition) {
             // A competition still playing, or one the daily country hook has already renewed for
             // its next edition. A foreign league whose own opener is still ahead is renewed here
             // on that opener (the rollover only does it early), so it never drifts off its

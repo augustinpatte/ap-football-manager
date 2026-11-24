@@ -328,6 +328,24 @@ pub fn edition_is_finished(league: &League) -> bool {
     }
 }
 
+/// Whether any league-phase competition is in the middle of an edition (drawn and begun, not yet
+/// completed). A finished one, or one renewed and not yet begun, is not. The next fields depend on
+/// every edition's result (a titleholder moves up a competition), so no competition is renewed
+/// while another is still being played.
+pub(crate) fn any_edition_in_progress(competitions: &[League]) -> bool {
+    competitions.iter().any(|competition| {
+        rules_of(competition).is_some()
+            && competition.league_phase.as_ref().is_some_and(|state| {
+                !matches!(
+                    state.stage,
+                    CompetitionStage::Created
+                        | CompetitionStage::LeaguePhaseScheduled
+                        | CompetitionStage::Completed
+                )
+            })
+    })
+}
+
 /// Whether the edition has results worth archiving before it is renewed: it was played.
 pub fn edition_was_played(league: &League) -> bool {
     !league.fixtures.is_empty()

@@ -142,8 +142,11 @@ pub(crate) fn plan_rounds(
     } else {
         BTreeSet::new()
     };
-    let clashes_with_europe = |date: NaiveDate| {
-        (-1..=1).any(|offset| european.contains(&(date + Duration::days(offset))))
+    // A midweek round keeps a day either side clear; an ordinary round keeps the rest window
+    // clear (a Sunday before a Tuesday matchday, a Saturday after a Thursday one), but only where
+    // its week has another weighted day: a round is never pushed out of its weekend for this.
+    let near_europe = |date: NaiveDate, radius: i64| {
+        (-radius..=radius).any(|offset| european.contains(&(date + Duration::days(offset))))
     };
 
     let mut plans = Vec::with_capacity(rounds as usize);
@@ -171,15 +174,27 @@ pub(crate) fn plan_rounds(
         let (days, used_week) = (0..52)
             .find_map(|extra| {
                 let monday = first_monday + Duration::days((week + extra) * 7);
-                let days: Vec<(NaiveDate, u8)> = (0..7)
+                let offered: Vec<(NaiveDate, u8)> = (0..7)
                     .map(|d| (monday + Duration::days(d), weights[d as usize]))
                     .filter(|(date, weight)| {
                         *weight > 0
                             && *date >= earliest
                             && window_end.is_none_or(|end| *date <= end)
-                            && !(midweek && clashes_with_europe(*date))
                     })
                     .collect();
+                let calm: Vec<(NaiveDate, u8)> = offered
+                    .iter()
+                    .copied()
+                    .filter(|(date, _)| {
+                        !near_europe(*date, if midweek { 1 } else { MIN_REST_DAYS - 1 })
+                    })
+                    .collect();
+                // A midweek round waits for a calm week; an ordinary one falls back to its week.
+                let days = if midweek || !calm.is_empty() {
+                    calm
+                } else {
+                    offered
+                };
                 (!days.is_empty()).then_some((days, week + extra))
             })
             .unwrap_or_else(|| (vec![(earliest, 1)], week));
@@ -329,21 +344,27 @@ mod tests {
 
     /// Given a pattern that asks to keep clear of the European weeks
     /// When a league's calendar is planned for several seasons
-    /// Then no midweek round falls within a day of a European matchday, the same pairings are
-    ///      played, and a pattern that does not ask is planned exactly as before.
+    /// Then no midweek round falls within a day of a European matchday, ordinary rounds meet far
+    ///      fewer matchdays inside the rest window than the plain pattern's, the same number of
+    ///      rounds is planned, and a pattern that does not ask is the plain plan.
     #[test]
-    fn a_league_can_keep_its_midweek_rounds_off_the_european_weeks() {
+    fn a_league_can_keep_its_rounds_off_the_european_weeks() {
         let careful = MatchdayPattern {
             avoid_european_weeks: true,
             ..weekend_pattern()
         };
+        let plain = weekend_pattern();
+        let (mut plain_clashes, mut careful_clashes) = (0, 0);
         for year in 2026..=2031 {
             let opener = day(year, 8, 21);
             let end = Some(day(year + 1, 5, 17));
             let european = crate::league_phase::calendar::european_matchday_dates(year);
             assert!(european.len() > 40, "{year}: the three calendars are known");
-            let plans = plan_rounds(38, opener, end, &careful);
-            let midweek: Vec<NaiveDate> = plans
+            let near = |date: NaiveDate, radius: i64| {
+                (-radius..=radius).any(|o| european.contains(&(date + Duration::days(o))))
+            };
+            let careful_plans = plan_rounds(38, opener, end, &careful);
+            let midweek: Vec<NaiveDate> = careful_plans
                 .iter()
                 .filter(|plan| plan.midweek)
                 .flat_map(|plan| plan.days.iter().map(|(date, _)| *date))
@@ -352,31 +373,45 @@ mod tests {
                 midweek.len() >= 4,
                 "{year}: the midweek rounds are still played"
             );
-            for date in midweek {
-                for offset in -1..=1 {
-                    assert!(
-                        !european.contains(&(date + Duration::days(offset))),
-                        "{year}: a midweek round on {date} meets a European matchday"
-                    );
-                }
-            }
-            assert_eq!(plans.len(), 38);
+            assert!(midweek.iter().all(|date| !near(*date, 1)), "{year}");
+            assert_eq!(careful_plans.len(), 38);
+            let count = |plans: &[RoundPlan]| {
+                plans
+                    .iter()
+                    .flat_map(|plan| plan.days.iter())
+                    .filter(|(date, _)| near(*date, 2))
+                    .count()
+            };
+            plain_clashes += count(&plan_rounds(38, opener, end, &plain));
+            careful_clashes += count(&careful_plans);
         }
-        // Not asking changes nothing: byte-identical plans to the plain pattern.
-        let plain = plan_rounds(
-            38,
-            day(2026, 8, 21),
-            Some(day(2027, 5, 17)),
-            &weekend_pattern(),
+        assert!(
+            plain_clashes > 20,
+            "the plain plan meets Europe: {plain_clashes}"
         );
+        assert!(
+            careful_clashes * 3 < plain_clashes,
+            "careful {careful_clashes} against plain {plain_clashes}"
+        );
+        // Not asking changes nothing: the flag false is the plain plan.
         let unflagged = MatchdayPattern {
             avoid_european_weeks: false,
             ..weekend_pattern()
         };
         assert_eq!(
-            plain,
+            plan_rounds(38, day(2026, 8, 21), Some(day(2027, 5, 17)), &plain),
             plan_rounds(38, day(2026, 8, 21), Some(day(2027, 5, 17)), &unflagged)
         );
+    }
+
+    /// Given a calendar saved before the option existed (no such key)
+    /// When it is read
+    /// Then the option is off: an old league keeps its plain calendar.
+    #[test]
+    fn a_pattern_saved_before_the_option_loads_with_it_off() {
+        let old = serde_json::json!({"weekend": [0,0,0,0,1,3,5], "midweek": [0,0,1,0,0,0,0], "midweekRounds": 4});
+        let pattern: MatchdayPattern = serde_json::from_value(old).unwrap();
+        assert!(!pattern.avoid_european_weeks);
     }
 
     /// Given a league with no pattern,

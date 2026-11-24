@@ -3354,7 +3354,7 @@
         "leaguePhaseRulesMissing": "Una competición con fase de liga necesita reglas de fase de liga.",
         "leaguePhaseNeedsClubCompetition": "Una fase de liga solo puede usarla una competición continental o internacional de clubes.",
         "leaguePhaseFieldSize": "Una fase de liga necesita exactamente {{expected}} clubes, pero hay {{found}}.",
-        "berthRequiresLeaguePhase": "Un cupo de club incumbente o de campeón vigente solo puede definirse en una competición con fase de liga.",
+        "berthRequiresLeaguePhase": "Un cupo de club ya participante o de campeón vigente solo puede definirse en una competición con fase de liga.",
         "berthNoPlaces": "Un cupo por rendimiento europeo debe otorgar al menos una plaza."
       },
       "worldParseFailed": "No se pudo interpretar el archivo de la base de datos del mundo.",
@@ -4305,31 +4305,31 @@
       },
       "europeanDraw": {
         "subject": "{{competition}}: el sorteo está hecho",
-        "body": "El juego ha realizado el sorteo de {{competition}} (no es el sorteo oficial de la UEFA). Tu club disputa {{matches}} partidos en la fase de liga. El primero es contra {{opponent}} el {{date}}.\n\nLos partidos ya están en tu calendario."
+        "body": "El juego ha realizado el sorteo de la {{competition}} (no es el sorteo oficial de la UEFA). Tu club disputa {{matches}} partidos en la fase de liga. El primero es contra {{opponent}} el {{date}}.\n\nLos partidos ya están en tu calendario."
       },
       "europeanLeaguePhaseDirect": {
         "subject": "{{competition}}: directo a octavos de final",
-        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de {{competition}} y pasa directamente a octavos de final.\n\nBuen trabajo: os ahorráis dos partidos."
+        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de la {{competition}} y pasa directamente a la siguiente ronda.\n\nBuen trabajo: te ahorras dos partidos."
       },
       "europeanLeaguePhasePlayoff": {
         "subject": "{{competition}}: a la eliminatoria de play-off",
-        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de {{competition}} y juega la eliminatoria de play-off.\n\nUna eliminatoria a doble partido decide quién llega a octavos de final."
+        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de la {{competition}} y juega la eliminatoria de play-off.\n\nUna eliminatoria a doble partido decide quién sigue adelante."
       },
       "europeanLeaguePhaseEliminated": {
         "subject": "{{competition}}: eliminados en la fase de liga",
-        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de {{competition}} y queda fuera de la competición.\n\nSolo pasan los 24 primeros."
+        "body": "Tu club ha terminado en el puesto {{rank}} de la fase de liga de la {{competition}} y queda fuera de la competición.\n\nSolo continúan los mejor clasificados."
       },
       "europeanTieWon": {
         "subject": "{{competition}}: pasamos ante {{opponent}}",
-        "body": "Tu club ha eliminado a {{opponent}} ({{result}}) y sigue adelante en {{competition}}.\n\nEl resultado entre paréntesis es la tanda de penaltis."
+        "body": "Tu club ha eliminado a {{opponent}} ({{result}}) y sigue adelante en la {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: eliminados por {{opponent}}",
-        "body": "Tu club ha perdido ante {{opponent}} ({{result}}) y queda fuera de {{competition}}.\n\nEl resultado entre paréntesis es la tanda de penaltis."
+        "body": "Tu club ha perdido ante {{opponent}} ({{result}}) y queda fuera de la {{competition}}."
       },
       "europeanChampion": {
-        "subject": "¡Campeones de {{competition}}!",
-        "body": "{{club}} ha ganado {{competition}}.\n\nEs la mejor noche de la historia del club. La directiva y la afición están eufóricas."
+        "subject": "¡Campeones de la {{competition}}!",
+        "body": "{{club}} ha ganado la {{competition}}.\n\nEs la mejor noche de la historia del club. La directiva y la afición están eufóricas."
       }
     },
     "news": {
@@ -4500,8 +4500,8 @@
         "body": "{{nation}} ha ganado el derecho a organizar la Copa del Mundo {{year}}. Todo el país comienza la cuenta atrás para la mayor fiesta del fútbol."
       },
       "europeanChampion": {
-        "headline": "{{club}} gana {{competition}}",
-        "body": "{{club}} se ha proclamado campeón de {{competition}}."
+        "headline": "{{club}} gana la {{competition}}",
+        "body": "{{club}} se ha proclamado campeón de la {{competition}}."
       }
     },
     "competition": {

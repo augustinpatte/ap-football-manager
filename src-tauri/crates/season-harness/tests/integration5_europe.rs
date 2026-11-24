@@ -28,6 +28,18 @@ use season_harness::invariants::Invariants;
 use season_harness::lifecycle::Lifecycle;
 
 const PSG: &str = "fm-c-498";
+
+/// The world file, or a visible SKIPPED line: a test that returns here has verified nothing about
+/// the real source, and its green must not be read as coverage.
+fn world_or_skip() -> Option<std::path::PathBuf> {
+    let path = world_path_from_env();
+    if path.is_none() {
+        eprintln!(
+            "SKIPPED: APFM_WORLD_JSON is not set, so nothing was checked against the real world"
+        );
+    }
+    path
+}
 const EUROPEAN_IDS: [&str; 3] = ["eu-ucl", "eu-uel", "eu-uecl"];
 
 /// Given the real FM 2026/27 world and a new Paris Saint-Germain career in June 2026
@@ -37,7 +49,7 @@ const EUROPEAN_IDS: [&str; 3] = ["eu-ucl", "eu-uel", "eu-uecl"];
 ///      and the competition is one the manager follows.
 #[test]
 fn a_new_psg_career_opens_with_the_champions_league_drawn() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let game = build_fm24_career(&path, PSG, 7).expect("the career builds");
@@ -81,7 +93,7 @@ fn a_new_psg_career_opens_with_the_champions_league_drawn() {
 ///      is archived once with a champion, and the next edition is drawn.
 #[test]
 fn the_first_european_season_is_played_to_its_finals_and_archived() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let mut game = build_fm24_career(&path, PSG, 7).expect("the career builds");
@@ -112,6 +124,7 @@ fn the_first_european_season_is_played_to_its_finals_and_archived() {
     assert!(lifecycle.is_clean(), "{}", lifecycle.report());
     assert_editions_archived(&game, &EUROPEAN_IDS, &[2026]);
     assert_prize_money_posted_once(&game, 2026);
+    assert_next_fields_follow_the_season(&game, 2026);
 }
 
 /// What a season's calendar looked like against the one it was generated with, and how busy the
@@ -152,6 +165,60 @@ impl CalendarReport {
         }
         eprintln!("matches per month of {}: {:?}", self.club, self.months);
     }
+}
+
+/// The 2027/28 fields follow from the 2026/27 season: the Premier League's top four are in the
+/// Champions League, the Champions League's and the Europa League's champions are there, the
+/// Conference League's champion is at least in the Europa League, every field is full and no club
+/// holds two places. Read from the archive, not from the qualification code.
+fn assert_next_fields_follow_the_season(game: &Game, season: u32) {
+    let archived = |id: &str| {
+        game.edition_archive
+            .iter()
+            .find(|edition| edition.is_edition_of(id, season))
+            .unwrap_or_else(|| panic!("{id} {season} is not archived"))
+    };
+    let field = |id: &str| -> Vec<String> {
+        game.competitions
+            .iter()
+            .find(|c| c.id == id)
+            .unwrap_or_else(|| panic!("{id} is missing"))
+            .participant_ids
+            .clone()
+    };
+    let (ucl, uel, uecl) = (field("eu-ucl"), field("eu-uel"), field("eu-uecl"));
+    for (id, clubs) in [("eu-ucl", &ucl), ("eu-uel", &uel), ("eu-uecl", &uecl)] {
+        assert_eq!(clubs.len(), 36, "{id}");
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for club in ucl.iter().chain(&uel).chain(&uecl) {
+        assert!(seen.insert(club), "{club} holds two European places");
+    }
+    let premier_league = game
+        .edition_archive
+        .iter()
+        .find(|edition| edition.is_edition_of("fm-k-8", season))
+        .expect("the Premier League season is archived");
+    for entry in premier_league.standings.iter().take(4) {
+        assert!(
+            ucl.contains(&entry.team_id),
+            "{} finished in the Premier League's top four and is not in the Champions League",
+            entry.team_id
+        );
+    }
+    assert!(
+        ucl.contains(&archived("eu-ucl").champion_id),
+        "the CL champion keeps its place"
+    );
+    assert!(
+        ucl.contains(&archived("eu-uel").champion_id),
+        "the EL champion moves up"
+    );
+    let conference_champion = &archived("eu-uecl").champion_id;
+    assert!(
+        uel.contains(conference_champion) || ucl.contains(conference_champion),
+        "the ECL champion moves up"
+    );
 }
 
 /// How many payments an archived edition must have posted, counted from its fixtures and ties alone
@@ -212,7 +279,7 @@ fn assert_prize_money_posted_once(game: &Game, season: u32) {
 ///      domestic league finishes more than a month after it was planned to.
 #[test]
 fn european_dates_displace_domestic_fixtures_by_a_measured_amount() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let mut game = build_fm24_career(&path, PSG, 7).expect("the career builds");
@@ -266,7 +333,7 @@ fn european_competitions_of(game: &Game, club: &str) -> Vec<String> {
 #[test]
 #[ignore = "minutes: four full careers; run by hand for the audit"]
 fn each_kind_of_club_plays_exactly_its_own_european_season() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     // PSG (CL), Marseille (EL), Monaco (ECL) and a Ligue 1 club in none of the three fields.
@@ -349,7 +416,7 @@ fn each_kind_of_club_plays_exactly_its_own_european_season() {
 #[test]
 #[ignore = "about ten minutes; run by hand for the audit"]
 fn three_european_seasons_survive_a_reload_at_every_stage() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let seed = std::env::var("I5_SEED")
@@ -442,7 +509,7 @@ fn a_mid_season_european_career_survives_the_sqlite_save() {
     use domain::stats::StatsState;
     use season_harness::fingerprint::{fingerprint, first_difference};
 
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let mut original = build_fm24_career(&path, PSG, 7).expect("the career builds");
@@ -491,7 +558,14 @@ fn a_mid_season_european_career_survives_the_sqlite_save() {
         play_day(&mut original, options, 1, day, &mut Quiet).expect("plays");
         play_day(&mut twin, options, 1, day, &mut Quiet).expect("plays");
     }
-    let (left, right) = (fingerprint(&original), fingerprint(&twin));
+    // Line by line and sorted: the save lists competitions by id, so only a difference in content
+    // (not in the order competitions are listed in) is a difference in play.
+    let sorted = |text: String| {
+        let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+        lines.sort();
+        lines.join("\n")
+    };
+    let (left, right) = (sorted(fingerprint(&original)), sorted(fingerprint(&twin)));
     assert!(
         left == right,
         "the reloaded career plays differently: {:?}",
@@ -507,7 +581,7 @@ fn a_mid_season_european_career_survives_the_sqlite_save() {
 ///      competition's table following the results and no home advantage given to a neutral venue.
 #[test]
 fn psg_european_matches_play_through_the_managers_live_matchday() {
-    let Some(path) = world_path_from_env() else {
+    let Some(path) = world_or_skip() else {
         return;
     };
     let mut game = build_fm24_career(&path, PSG, 7).expect("the career builds");

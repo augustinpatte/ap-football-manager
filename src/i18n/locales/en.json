@@ -4308,24 +4308,24 @@
         "body": "The {{competition}} draw has been made by the game (it is not UEFA's official draw). Your club plays {{matches}} league-phase matches. The first is against {{opponent}} on {{date}}.\n\nThe fixtures are in your calendar."
       },
       "europeanLeaguePhaseDirect": {
-        "subject": "{{competition}}: straight to the round of 16",
-        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes straight to the round of 16.\n\nWell done: that saves two matches."
+        "subject": "{{competition}}: straight through to the next round",
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes straight to the next round.\n\nWell done: that saves two matches."
       },
       "europeanLeaguePhasePlayoff": {
         "subject": "{{competition}}: into the knockout play-offs",
-        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes into the knockout play-offs.\n\nA two-legged tie decides who reaches the round of 16."
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and goes into the knockout play-offs.\n\nA two-legged tie decides who goes through."
       },
       "europeanLeaguePhaseEliminated": {
         "subject": "{{competition}}: eliminated in the league phase",
-        "body": "Your club finished {{rank}} in the {{competition}} league phase and is out of the competition.\n\nOnly the top 24 go on."
+        "body": "Your club finished {{rank}} in the {{competition}} league phase and is out of the competition.\n\nOnly the best-placed clubs go on."
       },
       "europeanTieWon": {
         "subject": "{{competition}}: through against {{opponent}}",
-        "body": "Your club beat {{opponent}} ({{result}}) and goes through in the {{competition}}.\n\nA result in brackets is the penalty shoot-out."
+        "body": "Your club beat {{opponent}} ({{result}}) and goes through in the {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: knocked out by {{opponent}}",
-        "body": "Your club lost to {{opponent}} ({{result}}) and is out of the {{competition}}.\n\nA result in brackets is the penalty shoot-out."
+        "body": "Your club lost to {{opponent}} ({{result}}) and is out of the {{competition}}."
       },
       "europeanChampion": {
         "subject": "Champions of the {{competition}}!",

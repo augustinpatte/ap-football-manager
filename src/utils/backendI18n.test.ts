@@ -800,6 +800,43 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  // Given a European message and a European champion story that carry the competition's stored
+  // English name and its translation key, when they are resolved in French,
+  // then the competition is named in French, not "UEFA Champions League".
+  it("names a European competition in the player's language", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("fr");
+
+    try {
+      const params = {
+        competition: "UEFA Champions League",
+        competitionKey: "tournaments.competitions.championsLeague",
+        club: "Paris SG",
+      };
+      const message = resolveMessage({
+        ...makeMessage(),
+        subject_key: "be.msg.europeanChampion.subject",
+        body_key: "be.msg.europeanChampion.body",
+        i18n_params: params,
+      });
+      const news = resolveNewsArticle(
+        makeNewsArticle({
+          headline_key: "be.news.europeanChampion.headline",
+          body_key: "be.news.europeanChampion.body",
+          source_key: "be.source.sportsGazette",
+          i18n_params: params,
+        }),
+      );
+
+      expect(message.subject).toBe("Champions de la Ligue des champions !");
+      expect(message.body).toContain("Paris SG a remporté la Ligue des champions.");
+      expect(news.headline).toBe("Paris SG remporte la Ligue des champions");
+      expect(news.headline).not.toContain("UEFA");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   // Given a generated national cup, whose stored name is the English template "Germany Cup",
   // when its report is resolved in German,
   // then the competition is named the way every other screen names it: from its key.

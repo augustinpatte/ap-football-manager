@@ -1895,7 +1895,7 @@
       "drawByGame": "Tento los provedla hra. Nejde o oficiální los UEFA.",
       "seededByReputation": "Nasazení podle reputace klubů: v této kariéře se zatím nehrála žádná evropská sezóna.",
       "seededByCoefficient": "Nasazení podle vlastních klubových koeficientů hry, vypočtených z evropských sezón odehraných v této kariéře.",
-      "potAdjustment": "Aby bylo možné losovat, si {{moved}} a {{exchanged}} vyměnily bubny: v jednom bubnu bylo příliš mnoho klubů jedné asociace.",
+      "potAdjustment": "Aby bylo možné losovat, došlo k výměně košů mezi {{moved}} a {{exchanged}}: v jednom koši bylo příliš mnoho klubů jedné asociace.",
       "neutralVenue": "Neutrální hřiště",
       "neutralFinalNote": "Finále se hraje na neutrálním hřišti: žádný z týmů nemá výhodu domácího prostředí.",
       "yourPosition": "Váš klub: {{position}}. z {{total}}, {{points}} bodů",
@@ -4321,15 +4321,15 @@
       },
       "europeanTieWon": {
         "subject": "{{competition}}: postupujeme přes {{opponent}}",
-        "body": "Váš klub porazil soupeře {{opponent}} ({{result}}) a postupuje v soutěži {{competition}}.\n\nVýsledek v závorce je penaltový rozstřel."
+        "body": "Váš klub porazil soupeře {{opponent}} ({{result}}) a postupuje v soutěži {{competition}}."
       },
       "europeanTieLost": {
         "subject": "{{competition}}: vyřazeni soupeřem {{opponent}}",
-        "body": "Váš klub prohrál se soupeřem {{opponent}} ({{result}}) a z {{competition}} vypadl.\n\nVýsledek v závorce je penaltový rozstřel."
+        "body": "Váš klub prohrál se soupeřem {{opponent}} ({{result}}) a ze soutěže {{competition}} vypadl."
       },
       "europeanChampion": {
         "subject": "Vítězové soutěže {{competition}}!",
-        "body": "{{club}} vyhrál soutěž {{competition}}.\n\nJe to největší večer v historii klubu. Představenstvo i fanoušci jsou nadšeni."
+        "body": "Soutěž {{competition}} vyhrál klub {{club}}.\n\nJe to největší večer v historii klubu. Představenstvo i fanoušci jsou nadšeni."
       }
     },
     "news": {
@@ -4500,8 +4500,8 @@
         "body": "Země {{nation}} získala právo pořádat Mistrovství světa {{year}}. Celý národ začíná odpočítávat dny do zahájení největšího fotbalového svátku."
       },
       "europeanChampion": {
-        "headline": "{{club}} vyhrává soutěž {{competition}}",
-        "body": "{{club}} se stal vítězem soutěže {{competition}}."
+        "headline": "Soutěž {{competition}} vyhrál klub {{club}}",
+        "body": "Vítězem soutěže {{competition}} se stal klub {{club}}."
       }
     },
     "competition": {

@@ -65,26 +65,46 @@ pub(crate) fn european_editions(
     editions
 }
 
+/// The European history a game can read: every club's association (its football nation) and each
+/// archived season's points. The one place that decides who counts as an association, so the club
+/// coefficient floor and the European performance places cannot disagree about it.
+pub(crate) struct EuropeanHistory {
+    nation_of: std::collections::HashMap<String, String>,
+    pub records: BTreeMap<u32, SeasonRecord>,
+}
+
+impl EuropeanHistory {
+    pub(crate) fn of(game: &crate::game::Game) -> Self {
+        let nation_of = game
+            .teams
+            .iter()
+            .map(|team| (team.id.clone(), team.football_nation.clone()))
+            .collect();
+        let bonus_of = |competition_id: &str| {
+            game.competitions
+                .iter()
+                .find(|competition| {
+                    competition.id == competition_id && super::rules_of(competition).is_some()
+                })
+                .map(|competition| stage_bonus_millis(competition.priority))
+        };
+        let records = season_records(&european_editions(game), &bonus_of);
+        Self { nation_of, records }
+    }
+
+    pub(crate) fn association_of(&self, club: &str) -> Option<String> {
+        self.nation_of.get(club).cloned()
+    }
+}
+
 /// The game's APFM coefficient of every club, from the European editions it has archived (and the
 /// ones just finished). Empty until a first edition has been played: nothing is invented.
 pub fn european_coefficients(game: &crate::game::Game) -> BTreeMap<String, u32> {
-    let nation_of: std::collections::HashMap<&str, &str> = game
-        .teams
-        .iter()
-        .map(|team| (team.id.as_str(), team.football_nation.as_str()))
-        .collect();
-    let association_of = |club: &str| nation_of.get(club).map(|nation| (*nation).to_string());
-    let bonus_of = |competition_id: &str| {
-        game.competitions
-            .iter()
-            .find(|competition| {
-                competition.id == competition_id && super::rules_of(competition).is_some()
-            })
-            .map(|competition| stage_bonus_millis(competition.priority))
-    };
-    let records = season_records(&european_editions(game), &bonus_of);
+    let history = EuropeanHistory::of(game);
     let clubs: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
-    club_coefficients(&records, &clubs, &association_of)
+    club_coefficients(&history.records, &clubs, &|club| {
+        history.association_of(club)
+    })
 }
 
 /// What one season's European editions gave each club, and who was there.

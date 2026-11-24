@@ -36,6 +36,16 @@ fn message(
     .with_sender_i18n("be.sender.leagueOffice", "be.role.competitionSecretary")
 }
 
+/// The parameters that name a competition: its stored name and, when it has one, its translation
+/// key, which the frontend resolves so a manager reads the name in their own language.
+fn competition_params(competition: &League) -> Vec<(&'static str, String)> {
+    let mut entries = vec![("competition", competition.name.clone())];
+    if let Some(key) = &competition.name_key {
+        entries.push(("competitionKey", key.clone()));
+    }
+    entries
+}
+
 fn params(entries: &[(&str, String)]) -> HashMap<String, String> {
     entries
         .iter()
@@ -99,12 +109,13 @@ fn announce_draw(game: &mut Game, today: &str, competition: &League, club: &str)
         .league_phase
         .as_ref()
         .map_or(0, |rules| rules.matches_per_club());
-    let entries = params(&[
-        ("competition", competition.name.clone()),
+    let mut named = competition_params(competition);
+    named.extend([
         ("matches", matches.to_string()),
         ("opponent", opponent),
         ("date", date),
     ]);
+    let entries = params(&named);
     emit_once(game, &key, || {
         message(
             &key,
@@ -139,10 +150,9 @@ fn announce_league_phase(game: &mut Game, today: &str, competition: &League, clu
         "european_league_phase_{}_{}",
         competition.id, competition.season
     );
-    let entries = params(&[
-        ("competition", competition.name.clone()),
-        ("rank", (position + 1).to_string()),
-    ]);
+    let mut named = competition_params(competition);
+    named.push(("rank", (position + 1).to_string()));
+    let entries = params(&named);
     let subject = format!("be.msg.europeanLeaguePhase{variant}.subject");
     let body = format!("be.msg.europeanLeaguePhase{variant}.body");
     emit_once(game, &key, || {
@@ -159,6 +169,7 @@ fn announce_ties(game: &mut Game, today: &str, competition: &League, club: &str)
         .ties
         .iter()
         .filter(|tie| tie.seeded_team_id == club || tie.unseeded_team_id == club)
+        .filter(|tie| tie.stage != domain::league_phase::KnockoutStage::Final)
     {
         let Some(winner) = tie.winner_id() else {
             continue;
@@ -177,11 +188,12 @@ fn announce_ties(game: &mut Game, today: &str, competition: &League, club: &str)
             "european_tie_{}_{}_{}",
             competition.id, competition.season, tie.id
         );
-        let entries = params(&[
-            ("competition", competition.name.clone()),
+        let mut named = competition_params(competition);
+        named.extend([
             ("opponent", game.team_name_or_id(opponent_id)),
             ("result", result),
         ]);
+        let entries = params(&named);
         let subject = format!("be.msg.europeanTie{variant}.subject");
         let body = format!("be.msg.europeanTie{variant}.body");
         emit_once(game, &key, || {
@@ -196,10 +208,9 @@ fn announce_champion(game: &mut Game, today: &str, competition: &League, state: 
         return;
     };
     let champion_name = game.team_name_or_id(champion);
-    let entries = params(&[
-        ("competition", competition.name.clone()),
-        ("club", champion_name),
-    ]);
+    let mut named = competition_params(competition);
+    named.push(("club", champion_name));
+    let entries = params(&named);
     if game.manager.team_id.as_deref() == Some(champion) {
         let key = format!("european_title_{}_{}", competition.id, competition.season);
         let entries = entries.clone();
@@ -243,21 +254,35 @@ fn announce_champion(game: &mut Game, today: &str, competition: &League, state: 
 pub fn announce(game: &mut Game, today: &str) {
     let club = game.manager.team_id.clone();
     for index in 0..game.competitions.len() {
-        let Some(state) = game.competitions[index]
+        let competition = &game.competitions[index];
+        let Some(state) = competition
             .league_phase
-            .clone()
+            .as_ref()
             .filter(|state| state.stage != CompetitionStage::Created)
         else {
             continue;
         };
-        let competition = game.competitions[index].clone();
-        if let Some(club) = club
+        let managed = club
             .as_deref()
             .filter(|club| competition.participant_ids.iter().any(|id| id == club))
-        {
-            announce_draw(game, today, &competition, club);
-            announce_league_phase(game, today, &competition, club);
-            announce_ties(game, today, &competition, club);
+            .map(str::to_string);
+        let news_id = format!(
+            "european_champion_news_{}_{}",
+            competition.id, competition.season
+        );
+        let champion_to_tell = state.stage == CompetitionStage::Completed
+            && !game.news.iter().any(|article| article.id == news_id);
+        // Only a competition with something to say is copied: the borrow of the game for
+        // `emit_once` forbids reading it in place, and a league phase carries its fixtures.
+        if managed.is_none() && !champion_to_tell {
+            continue;
+        }
+        let competition = competition.clone();
+        let state = state.clone();
+        if let Some(club) = managed {
+            announce_draw(game, today, &competition, &club);
+            announce_league_phase(game, today, &competition, &club);
+            announce_ties(game, today, &competition, &club);
         }
         announce_champion(game, today, &competition, &state);
     }
@@ -365,6 +390,8 @@ mod tests {
             .ties
             .iter()
             .filter(|tie| tie.seeded_team_id == champion || tie.unseeded_team_id == champion)
+            // The final is told as the title, not as a tie.
+            .filter(|tie| tie.stage != domain::league_phase::KnockoutStage::Final)
             .count();
         let mut game = game_with(league, &champion);
 
@@ -373,7 +400,10 @@ mod tests {
 
         assert_eq!(ids(&game, "european_league_phase_").len(), 1);
         assert_eq!(ids(&game, "european_tie_").len(), ties);
-        assert!(ties >= 3, "a champion plays at least three ties: {ties}");
+        assert!(
+            ties >= 2,
+            "a champion plays at least two ties before the final: {ties}"
+        );
         assert_eq!(ids(&game, "european_title_").len(), 1);
         let won: Vec<_> = game
             .messages
@@ -425,5 +455,135 @@ mod tests {
         assert_eq!(lost.len(), 1);
         assert!(lost[0].i18n_params["result"].contains('-'));
         assert!(ids(&game, "european_title_").is_empty());
+    }
+
+    fn tie_result(seeded: u16, unseeded: u16, penalties: Option<(u8, u8)>) -> KnockoutTie {
+        KnockoutTie {
+            id: "t".into(),
+            stage: domain::league_phase::KnockoutStage::QuarterFinals,
+            seeded_team_id: "s".into(),
+            unseeded_team_id: "u".into(),
+            resolution: Some(domain::league_phase::TieResolution {
+                winner_id: "s".into(),
+                seeded_goals: seeded,
+                unseeded_goals: unseeded,
+                penalties,
+                decision: domain::league_phase::TieDecision::Aggregate,
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// Given a tie won 3-1 by the seeded club, and one level 2-2 and won by the seeded club on
+    ///       penalties 5-4
+    /// When the result is written from each club's side
+    /// Then the club's own goals come first, and a shootout is written in brackets, also from its
+    ///      own side.
+    #[test]
+    fn a_result_is_written_from_the_clubs_own_side() {
+        assert_eq!(
+            result_for(&tie_result(3, 1, None), "s").as_deref(),
+            Some("3-1")
+        );
+        assert_eq!(
+            result_for(&tie_result(3, 1, None), "u").as_deref(),
+            Some("1-3")
+        );
+        let level = tie_result(2, 2, Some((5, 4)));
+        assert_eq!(result_for(&level, "s").as_deref(), Some("2-2 (5-4)"));
+        assert_eq!(result_for(&level, "u").as_deref(), Some("2-2 (4-5)"));
+    }
+
+    /// Given a played edition and a manager in each of the three league-phase zones in turn
+    /// When the league-phase result is announced
+    /// Then each hears their own variant (direct, play-off, eliminated) with their own rank.
+    #[test]
+    fn each_zone_hears_its_own_league_phase_message() {
+        let mut league = drawn(profiles::champions_league_2026(), 1);
+        play_everything(&mut league);
+        let outcome = league.league_phase.clone().unwrap().outcome.unwrap();
+        for (club, rank, variant) in [
+            (outcome.direct[0].clone(), 1, "Direct"),
+            (outcome.playoff[0].clone(), 9, "Playoff"),
+            (outcome.eliminated[0].clone(), 25, "Eliminated"),
+        ] {
+            let mut game = game_with(league.clone(), &club);
+            announce(&mut game, "2027-06-06");
+            let message = game
+                .messages
+                .iter()
+                .find(|m| m.id.starts_with("european_league_phase_"))
+                .expect("a league-phase message");
+            assert_eq!(
+                message.subject_key.as_deref(),
+                Some(format!("be.msg.europeanLeaguePhase{variant}.subject").as_str())
+            );
+            assert_eq!(message.i18n_params["rank"], rank.to_string());
+        }
+    }
+
+    /// Given a champion who is the manager, and a manager of a club outside the competition
+    /// When the days are announced
+    /// Then the champion hears of the title through the tie messages of the rounds before the final
+    ///      only (the final is told as the title, never also as "through"), and the outsider hears
+    ///      nothing but sees the champion on the front page.
+    #[test]
+    fn the_final_is_told_as_the_title_and_outsiders_only_read_the_news() {
+        let mut league = drawn(profiles::champions_league_2026(), 1);
+        league.name_key = Some("tournaments.competitions.championsLeague".into());
+        play_everything(&mut league);
+        let champion = league.league_phase.clone().unwrap().champion_id.unwrap();
+        let mut winner = game_with(league.clone(), &champion);
+        announce(&mut winner, "2027-06-06");
+        let final_tie = winner.competitions[0]
+            .league_phase
+            .as_ref()
+            .unwrap()
+            .ties_of(domain::league_phase::KnockoutStage::Final)
+            .next()
+            .unwrap()
+            .id
+            .clone();
+        assert!(
+            !winner.messages.iter().any(|m| m.id.ends_with(&final_tie)),
+            "no \"through\" message for the final"
+        );
+        let title = winner
+            .messages
+            .iter()
+            .find(|m| m.id.starts_with("european_title_"))
+            .unwrap();
+        assert_eq!(
+            title.i18n_params["competitionKey"], "tournaments.competitions.championsLeague",
+            "the competition is named by its translation key"
+        );
+
+        // A club that is not in the competition.
+        let mut outsider = game_with(league, "club-01");
+        outsider.manager.team_id = Some("someone-else".into());
+        announce(&mut outsider, "2027-06-06");
+        assert!(outsider.messages.is_empty());
+        assert_eq!(outsider.news.len(), 1);
+    }
+
+    /// Given an announced edition, saved and loaded again
+    /// When the day is announced on the loaded game
+    /// Then nothing is sent twice: the ledger is saved with the game.
+    #[test]
+    fn a_reload_never_repeats_an_announcement() {
+        let mut league = drawn(profiles::champions_league_2026(), 1);
+        play_everything(&mut league);
+        let champion = league.league_phase.clone().unwrap().champion_id.unwrap();
+        let mut game = game_with(league, &champion);
+        announce(&mut game, "2027-06-06");
+        let sent = game.messages.len();
+        assert!(sent > 0);
+
+        let mut loaded: Game =
+            serde_json::from_str(&serde_json::to_string(&game).unwrap()).unwrap();
+        announce(&mut loaded, "2027-06-07");
+
+        assert_eq!(loaded.messages.len(), sent);
+        assert_eq!(loaded.news.len(), game.news.len());
     }
 }

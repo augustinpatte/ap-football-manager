@@ -153,6 +153,7 @@ fn build_european(fields: &crate::europe::EuropeanFields) -> Result<Vec<Competit
             "seasonStartMonth": 8,
             "seasonStartDay": 1,
             "rules": rules,
+            "berths": crate::europe::european_berths(short),
         });
         definitions
             .push(serde_json::from_value(value).map_err(|e| format!("{id} definition: {e}"))?);
@@ -292,6 +293,71 @@ fn month_day(iso: &str) -> Option<(u8, u8)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Given the authored European competitions
+    /// When their definitions are read
+    /// Then each keeps the clubs of unsimulated leagues (incumbent berth on itself) and sends its
+    ///      winner one competition up (Champions League: itself; Europa League: Champions League;
+    ///      Conference League: Europa League), so the qualification rules of later seasons are
+    ///      reachable in the shipped world and not only in a hand-built test world.
+    #[test]
+    fn the_european_competitions_are_authored_with_their_qualification_berths() {
+        use domain::league::BerthRule;
+        let fields = crate::europe::EuropeanFields::embedded().unwrap();
+        let definitions = build_european(&fields).unwrap();
+        let berths_of = |id: &str| -> Vec<(String, BerthRule)> {
+            definitions
+                .iter()
+                .find(|d| d.id == id)
+                .unwrap_or_else(|| panic!("{id} is authored"))
+                .berths
+                .iter()
+                .map(|b| (b.target.clone(), b.rule.clone()))
+                .collect()
+        };
+        for (id, titleholder_goes_to) in [
+            ("eu-ucl", "eu-ucl"),
+            ("eu-uel", "eu-ucl"),
+            ("eu-uecl", "eu-uel"),
+        ] {
+            let berths = berths_of(id);
+            assert!(
+                berths.contains(&(id.to_string(), BerthRule::Incumbent)),
+                "{id}: {berths:?}"
+            );
+            assert!(
+                berths.contains(&(titleholder_goes_to.to_string(), BerthRule::Titleholder)),
+                "{id}: {berths:?}"
+            );
+        }
+    }
+
+    /// Given the modelled access list
+    /// When a first division's and a cup's berths are read
+    /// Then the Premier League sends 1-4 and a performance place to the Champions League, 5-6 to
+    ///      the Europa League and 7th to the Conference League, and the FA Cup winner the Europa
+    ///      League; a league with no access list has none.
+    #[test]
+    fn first_divisions_and_cups_carry_the_modelled_access_list() {
+        use domain::league::BerthRule;
+        let berths = crate::europe::league_berths("en_pl");
+        let has = |target: &str, rule: BerthRule| {
+            berths.iter().any(|b| b.target == target && b.rule == rule)
+        };
+        assert!(has("eu-ucl", BerthRule::PositionRange { from: 1, to: 4 }));
+        assert!(has(
+            "eu-ucl",
+            BerthRule::EuropeanPerformance {
+                position: 5,
+                places: 2
+            }
+        ));
+        assert!(has("eu-uel", BerthRule::PositionRange { from: 5, to: 6 }));
+        assert!(has("eu-uecl", BerthRule::PositionRange { from: 7, to: 7 }));
+        assert_eq!(crate::europe::cup_berths("en_facup").len(), 1);
+        assert!(crate::europe::cup_berths("en_leaguecup").is_empty());
+        assert!(crate::europe::league_berths("fr_ligue2").is_empty());
+    }
 
     #[test]
     fn month_and_day_come_from_the_confirmed_rule() {

@@ -1694,6 +1694,69 @@ mod tests {
         assert!(reported.contains(&"be.error.competitionDef.berthRequiresLeague"));
     }
 
+    /// Given the European berth rules authored where they do not belong, and where they do
+    /// When the definitions are validated
+    /// Then an incumbent or titleholder berth on a plain league is refused, a performance berth with
+    ///      no places is refused, and an ordinary position berth that points at its own competition
+    ///      is still refused; on a league-phase competition the self-referential rules pass.
+    #[test]
+    fn the_european_berth_rules_are_validated_where_they_are_set() {
+        let mut league = explicit("tr-1", &["team-a", "team-b"]);
+        league.berths = vec![
+            berth("ucl", BerthRule::Incumbent),
+            berth("ucl", BerthRule::Titleholder),
+            berth(
+                "ucl",
+                BerthRule::EuropeanPerformance {
+                    position: 5,
+                    places: 0,
+                },
+            ),
+            berth("tr-1", BerthRule::PositionRange { from: 1, to: 2 }),
+        ];
+        let ucl = explicit("ucl", &["team-a", "team-b"]);
+        let file = CompetitionDefinitionFile {
+            format_version: 1,
+            competitions: vec![league, ucl],
+        };
+
+        let errors = validate_definitions(&file, &ctx());
+        let reported = codes(&errors);
+
+        assert_eq!(
+            reported
+                .iter()
+                .filter(|c| **c == "be.error.competitionDef.berthRequiresLeaguePhase")
+                .count(),
+            2,
+            "{reported:?}"
+        );
+        assert!(reported.contains(&"be.error.competitionDef.berthNoPlaces"));
+        assert!(
+            reported.contains(&"be.error.competitionDef.berthSelfTarget"),
+            "a position berth still may not target its own competition"
+        );
+
+        // On a league-phase competition the same self-referential berths are authored legitimately.
+        let mut europe = explicit("ucl", &["team-a", "team-b"]);
+        europe.format.kind = CompetitionFormat::LeaguePhaseAndKnockout;
+        europe.berths = vec![
+            berth("ucl", BerthRule::Incumbent),
+            berth("ucl", BerthRule::Titleholder),
+        ];
+        let file = CompetitionDefinitionFile {
+            format_version: 1,
+            competitions: vec![europe],
+        };
+        let errors = validate_definitions(&file, &ctx());
+        let reported = codes(&errors);
+        assert!(
+            !reported.contains(&"be.error.competitionDef.berthSelfTarget")
+                && !reported.contains(&"be.error.competitionDef.berthRequiresLeaguePhase"),
+            "{reported:?}"
+        );
+    }
+
     #[test]
     fn berth_playoff_needs_at_least_two_contestants() {
         let mut league = explicit("tr-1", &["team-a", "team-b"]);

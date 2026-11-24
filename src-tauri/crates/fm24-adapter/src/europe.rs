@@ -19,8 +19,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const EUROPE_CSV: &str = include_str!("../config/europe_2026_27.csv");
 
-/// Clubs per European competition's league phase.
-pub const FIELD_SIZE: usize = 36;
+/// Clubs per European competition's league phase (the engine's own constant).
+pub const FIELD_SIZE: usize = domain::league_phase::LEAGUE_PHASE_FIELD_SIZE;
 
 /// The three competitions, strongest first: `(csv key, short key of the OFM id, display name)`.
 pub const COMPETITIONS: [(&str, &str, &str); 3] = [
