@@ -272,6 +272,8 @@ struct CompetitionBefore {
 
 impl Before {
     fn capture(game: &Game, authored_sizes: &BTreeMap<String, usize>) -> Self {
+        let european_in_progress =
+            ofm_core::league_phase::any_edition_in_progress(&game.competitions);
         let competitions = game
             .competitions
             .iter()
@@ -280,7 +282,10 @@ impl Before {
                     competition.id.clone(),
                     CompetitionBefore {
                         season: competition.season,
-                        complete: is_regenerated_at_rollover(competition),
+                        complete: ofm_core::end_of_season::is_renewed_at_rollover(
+                            competition,
+                            european_in_progress,
+                        ),
                         world_cup: is_world_cup_competition(competition)
                             || is_world_cup_qualifying(competition),
                     },

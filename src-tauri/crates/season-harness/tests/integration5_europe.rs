@@ -16,9 +16,7 @@ use season_harness::calendar::{
     CalendarStudy, Displacement, matches_per_month, reloaded, unplayed_clashes,
 };
 use season_harness::driver::{RunOptions, SeasonObserver, play_day, run_seasons};
-use season_harness::europe::{
-    all_european_editions_completed, clubs_in_two_european_competitions, european,
-};
+use season_harness::europe::{clubs_in_two_european_competitions, european};
 use season_harness::europe_watch::{
     EuropeWatch, Rollovers, assert_editions_archived, finish_european_editions,
     window_of_difference,
@@ -386,13 +384,15 @@ fn each_kind_of_club_plays_exactly_its_own_european_season() {
         .unwrap_or_else(|error| panic!("{club}: {error}"));
         assert!(watch.faults.is_empty(), "{club}: {:#?}", watch.faults);
         assert!(invariants.is_clean(), "{club}: {}", invariants.report());
-        // The club's own matches in Europe were all played: 8 or 6 league-phase matches at least.
+        // The club's own matches in Europe were all played: the season is archived (and the next
+        // edition already drawn), so they are read from the archived edition.
         if let Some(id) = expected {
-            let played = game
-                .competitions
+            let edition = game
+                .edition_archive
                 .iter()
-                .find(|c| c.id == id)
-                .unwrap()
+                .find(|edition| edition.is_edition_of(id, 2026))
+                .unwrap_or_else(|| panic!("{club}: {id} 2026 is not archived"));
+            let played = edition
                 .fixtures
                 .iter()
                 .filter(|f| {
@@ -432,9 +432,24 @@ fn three_european_seasons_survive_a_reload_at_every_stage() {
     let mut season = 1;
     let rollovers_wanted = 3;
     let mut rolled = 0;
-    while rolled < rollovers_wanted || !all_european_editions_completed(&game) {
+    let archived_all = |game: &Game, season: u32| {
+        EUROPEAN_IDS.iter().all(|id| {
+            game.edition_archive
+                .iter()
+                .any(|edition| edition.is_edition_of(id, season))
+        })
+    };
+    while rolled < rollovers_wanted || !archived_all(&game, 2028) {
         day += 1;
-        assert!(day < 1_500, "the run did not end: {:#?}", watch.timeline);
+        assert!(
+            day < 1_500,
+            "the run did not end ({rolled} rollovers); archived European editions: {:?}",
+            game.edition_archive
+                .iter()
+                .filter(|edition| edition.league_phase.is_some())
+                .map(|edition| (edition.competition_id.clone(), edition.season))
+                .collect::<Vec<_>>()
+        );
         if ofm_core::end_of_season::is_season_complete(&game) {
             season_harness::driver::roll_season_over(
                 &mut game,
@@ -489,9 +504,12 @@ fn three_european_seasons_survive_a_reload_at_every_stage() {
     assert!(invariants.is_clean(), "{}", invariants.report());
     assert!(reloads >= 30, "only {reloads} reloads");
     // Editions 2026 and 2027 are archived (2028 may be playing): one record each, never two.
-    assert_editions_archived(&game, &EUROPEAN_IDS, &[2026, 2027]);
-    assert_prize_money_posted_once(&game, 2026);
-    assert_prize_money_posted_once(&game, 2027);
+    assert_editions_archived(&game, &EUROPEAN_IDS, &[2026, 2027, 2028]);
+    for season in [2026, 2027, 2028] {
+        assert_prize_money_posted_once(&game, season);
+    }
+    // The fields now in the competitions follow from the latest archived season.
+    assert_next_fields_follow_the_season(&game, 2028);
 }
 
 struct Quiet;

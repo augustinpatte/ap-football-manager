@@ -104,6 +104,15 @@ pub fn is_regenerated_at_rollover(competition: &League) -> bool {
     }
 }
 
+/// Whether the rollover regenerates `competition`, given whether any league-phase edition is still
+/// being played: a finished European edition waits for a sibling still being played (its
+/// titleholder is not known yet) and is renewed by the daily renewal instead. The one definition
+/// the rollover and the season harness share.
+pub fn is_renewed_at_rollover(competition: &League, european_edition_in_progress: bool) -> bool {
+    is_regenerated_at_rollover(competition)
+        && !(european_edition_in_progress && crate::league_phase::rules_of(competition).is_some())
+}
+
 /// A cup with nothing in it is a fresh one; otherwise it is finished once every tie is played.
 /// The round bookkeeping is not asked: a round closes, and the next one is drawn, in the same step
 /// that records its last result.
@@ -593,10 +602,7 @@ fn regenerate_competitions_for_new_season(
     // draw its next edition before the sibling's titleholder is known, and the place would be lost.
     // It keeps its edition and the field set aside; the daily renewal settles all three together.
     let defer_european = crate::league_phase::any_edition_in_progress(&game.competitions);
-    let regenerates = |competition: &League| {
-        is_regenerated_at_rollover(competition)
-            && !(defer_european && crate::league_phase::rules_of(competition).is_some())
-    };
+    let regenerates = |competition: &League| is_renewed_at_rollover(competition, defer_european);
     let domestic_berth_fields = resolve_domestic_berth_fields(game);
     let mut continental_entrants: std::collections::HashMap<String, Vec<String>> = game
         .competitions

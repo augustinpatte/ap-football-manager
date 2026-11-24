@@ -1319,6 +1319,7 @@ fn mapping_rows(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::generated_squads::scale_attributes;
     use domain::player::{Player, PlayerAttributes};
 
     fn attributes(level: u8) -> PlayerAttributes {

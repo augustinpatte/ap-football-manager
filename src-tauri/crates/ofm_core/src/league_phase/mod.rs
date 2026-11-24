@@ -332,7 +332,7 @@ pub fn edition_is_finished(league: &League) -> bool {
 /// completed). A finished one, or one renewed and not yet begun, is not. The next fields depend on
 /// every edition's result (a titleholder moves up a competition), so no competition is renewed
 /// while another is still being played.
-pub(crate) fn any_edition_in_progress(competitions: &[League]) -> bool {
+pub fn any_edition_in_progress(competitions: &[League]) -> bool {
     competitions.iter().any(|competition| {
         rules_of(competition).is_some()
             && competition.league_phase.as_ref().is_some_and(|state| {
