@@ -97,7 +97,7 @@ impl LiveMatchState {
     }
 
     pub(super) fn handle_full_time<R: Rng>(&mut self, rng: &mut R) -> MinuteResult {
-        if self.allows_extra_time && self.home_score == self.away_score {
+        if self.allows_extra_time && self.level_on_aggregate() {
             // Go to extra time. The clock carries on from full time, the same way
             // it does into the second half: starting it again at 91 would replay
             // minutes the second half's stoppage has already used.
@@ -128,7 +128,7 @@ impl LiveMatchState {
     }
 
     pub(super) fn handle_et_end<R: Rng>(&mut self, _rng: &mut R) -> MinuteResult {
-        if self.home_score == self.away_score {
+        if self.level_on_aggregate() {
             // Go to penalty shootout
             self.phase = MatchPhase::PenaltyShootout;
             self.penalty_state = super::PenaltyShootoutState::default();
@@ -302,5 +302,96 @@ impl LiveMatchState {
             ball_zone: self.ball_zone,
             is_finished: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod aggregate_tests {
+    use crate::live_match::{LiveMatchState, MatchPhase};
+    use crate::types::{MatchConfig, PlayStyle, TacticsConfig, TeamData};
+    use rand::SeedableRng;
+
+    fn empty_team(id: &str) -> TeamData {
+        TeamData {
+            id: id.to_string(),
+            name: id.to_string(),
+            formation: "4-4-2".to_string(),
+            play_style: PlayStyle::Balanced,
+            tactics: TacticsConfig::default(),
+            players: vec![],
+        }
+    }
+
+    /// A match at full time with `score`, a first leg of `first_leg` and extra time allowed.
+    fn at_full_time(score: (u8, u8), first_leg: (u8, u8)) -> LiveMatchState {
+        let mut state = LiveMatchState::new(
+            empty_team("home"),
+            empty_team("away"),
+            MatchConfig::default(),
+            vec![],
+            vec![],
+            true,
+        );
+        state.set_first_leg_goals(first_leg.0, first_leg.1);
+        state.home_score = score.0;
+        state.away_score = score.1;
+        state.phase = MatchPhase::FullTime;
+        state
+    }
+
+    fn after_full_time(score: (u8, u8), first_leg: (u8, u8)) -> MatchPhase {
+        let mut state = at_full_time(score, first_leg);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+        state.handle_full_time(&mut rng);
+        state.phase
+    }
+
+    /// Given a single match level after 90 minutes
+    /// When full time is handled
+    /// Then extra time starts, exactly as before two-legged ties existed.
+    #[test]
+    fn a_level_single_match_still_goes_to_extra_time() {
+        assert_eq!(
+            after_full_time((1, 1), (0, 0)),
+            MatchPhase::ExtraTimeFirstHalf
+        );
+        assert_eq!(after_full_time((2, 1), (0, 0)), MatchPhase::Finished);
+    }
+
+    /// Given a second leg the home side lost 0-1 after winning the first 1-0 at the other ground
+    /// When full time is handled
+    /// Then the tie is level on aggregate and extra time starts, though the leg itself was not level.
+    #[test]
+    fn a_second_leg_level_on_aggregate_goes_to_extra_time() {
+        // This match's home side scored 1 in the first leg, the away side 0; the leg ends 0-1.
+        assert_eq!(
+            after_full_time((0, 1), (1, 0)),
+            MatchPhase::ExtraTimeFirstHalf
+        );
+    }
+
+    /// Given a second leg that is level on its own but not on aggregate
+    /// When full time is handled
+    /// Then the match is over: the first leg decided the tie.
+    #[test]
+    fn a_second_leg_level_on_its_own_but_not_on_aggregate_is_over() {
+        assert_eq!(after_full_time((1, 1), (2, 0)), MatchPhase::Finished);
+    }
+
+    /// Given extra time that ends level on the leg but ahead on aggregate, and one level on aggregate
+    /// When extra time ends
+    /// Then the first is finished and the second goes to a shootout.
+    #[test]
+    fn extra_time_ends_on_aggregate_too() {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+        let mut decided = at_full_time((1, 1), (1, 0));
+        decided.phase = MatchPhase::ExtraTimeSecondHalf;
+        decided.handle_et_end(&mut rng);
+        let mut level = at_full_time((0, 1), (1, 0));
+        level.phase = MatchPhase::ExtraTimeSecondHalf;
+        level.handle_et_end(&mut rng);
+
+        assert_eq!(decided.phase, MatchPhase::Finished);
+        assert_eq!(level.phase, MatchPhase::PenaltyShootout);
     }
 }

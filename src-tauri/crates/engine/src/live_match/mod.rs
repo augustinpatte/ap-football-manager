@@ -246,6 +246,10 @@ pub struct LiveMatchState {
 
     // Extra time / knockout
     allows_extra_time: bool,
+    /// Goals the home and the away side of THIS match scored in the first leg of a two-legged
+    /// tie, so a second leg is level (and goes to extra time and penalties) on aggregate, not on
+    /// its own score. `(0, 0)` for a single match.
+    first_leg_goals: (u8, u8),
 
     // Stoppage time (pre-computed when each half starts)
     first_half_stoppage: u8,
@@ -309,6 +313,7 @@ impl LiveMatchState {
             home_set_pieces: SetPieceTakers::default(),
             away_set_pieces: SetPieceTakers::default(),
             allows_extra_time,
+            first_leg_goals: (0, 0),
             first_half_stoppage: 0,
             second_half_stoppage: 0,
             et_first_half_stoppage: 0,
@@ -318,6 +323,19 @@ impl LiveMatchState {
             penalty_state: PenaltyShootoutState::default(),
             recent_zones: VecDeque::with_capacity(10),
         }
+    }
+
+    /// Makes this match the second leg of a tie: `home` and `away` are the goals this match's home
+    /// and away sides scored in the first leg. Extra time and the shootout are then decided on the
+    /// aggregate. Call before kick-off.
+    pub fn set_first_leg_goals(&mut self, home: u8, away: u8) {
+        self.first_leg_goals = (home, away);
+    }
+
+    /// Whether the tie is level: this match's score plus the first leg's.
+    pub(super) fn level_on_aggregate(&self) -> bool {
+        u16::from(self.home_score) + u16::from(self.first_leg_goals.0)
+            == u16::from(self.away_score) + u16::from(self.first_leg_goals.1)
     }
 
     /// Step one minute forward. Returns the events that occurred.
