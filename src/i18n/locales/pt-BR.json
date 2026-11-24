@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Times B sem direito ao acesso",
       "reserveForcedDown": "Times B rebaixados pelo clube principal",
       "reserveReadmitted": "Times B readmitidos"
+    },
+    "leaguePhase": {
+      "title": "Fase de liga",
+      "tableCaption": "Classificação da fase de liga",
+      "zones": {
+        "direct": "Oitavas de final",
+        "playoff": "Play-offs da fase eliminatória",
+        "eliminated": "Eliminados"
+      },
+      "legend": {
+        "direct": "Direto para as oitavas de final (1–{{to}})",
+        "playoff": "Play-offs da fase eliminatória ({{from}}–{{to}})",
+        "eliminated": "Eliminados (do {{from}}º em diante)",
+        "compact": "Primeiros {{direct}}: oitavas. {{playoffFrom}}–{{playoffTo}}: play-offs. Do {{outFrom}}º em diante: eliminados."
+      },
+      "provisional": "Classificação provisória. Os critérios de desempate que dependem de toda a fase de liga de cada clube só são definitivos depois da última partida.",
+      "coefficientFallback": "Não há coeficientes de clubes disponíveis, então um empate igual em todos os outros critérios é resolvido pela ordem de cabeças de chave.",
+      "stages": {
+        "created": "Sorteio não realizado",
+        "leaguePhaseScheduled": "Fase de liga: não iniciada",
+        "leaguePhaseInProgress": "Fase de liga: em andamento",
+        "leaguePhaseCompleted": "Fase de liga concluída",
+        "knockoutPlayoffs": "Play-offs da fase eliminatória",
+        "roundOf16": "Oitavas de final",
+        "quarterFinals": "Quartas de final",
+        "semiFinals": "Semifinais",
+        "final": "Final",
+        "completed": "Edição concluída"
+      },
+      "rounds": {
+        "playoffs": "Play-offs da fase eliminatória"
+      },
+      "champion": "Campeão: {{team}}",
+      "nextMatch": "Sua próxima partida europeia: {{home}} x {{away}}, {{date}}",
+      "noNextMatch": "Seu clube não tem mais partidas europeias para disputar.",
+      "bracketTitle": "Fase eliminatória",
+      "notDrawn": "Ainda não sorteado",
+      "advances": "avança",
+      "tieLabel": "{{seeded}} contra {{unseeded}}",
+      "afterExtraTime": "Após a prorrogação",
+      "onPenalties": "Nos pênaltis",
+      "drawFailed": "Não foi possível realizar o sorteio: {{reason}}",
+      "drawNotMade": "O sorteio ainda não foi realizado.",
+      "legScore": "Jogo {{n}}: {{goals}}",
+      "legNotPlayed": "Jogo {{n}}: não disputado",
+      "aggregateScore": "Agregado: {{goals}}",
+      "penaltiesScore": "Pênaltis: {{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "Este seletor precisa de uma competição de origem.",
         "unknownExcludedCompetition": "Competição excluída desconhecida \"{{excluded}}\".",
         "selectorCycle": "Classificação circular entre competições.",
-        "duplicateTierPriority": "Divisões de {{country}} compartilham a prioridade {{priority}}. Um número menor indica uma divisão superior, e cada nível precisa do seu, ou nenhuma sobe nem cai."
+        "duplicateTierPriority": "Divisões de {{country}} compartilham a prioridade {{priority}}. Um número menor indica uma divisão superior, e cada nível precisa do seu, ou nenhuma sobe nem cai.",
+        "leaguePhaseRulesOnOtherFormat": "As regras de fase de liga só são válidas em uma competição com formato de fase de liga.",
+        "leaguePhaseRulesMissing": "Uma competição com fase de liga precisa de regras de fase de liga.",
+        "leaguePhaseNeedsClubCompetition": "Uma fase de liga só pode ser usada por uma competição continental ou internacional de clubes.",
+        "leaguePhaseFieldSize": "Uma fase de liga precisa de exatamente {{expected}} clubes, mas {{found}} estão listados."
       },
       "worldParseFailed": "Falha ao interpretar o arquivo do banco de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o arquivo do banco de dados do mundo.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "O registro deste jogador está incompleto, então ele não pode ser contratado.",
         "offerRejected": "O clube vendedor recusou esta proposta por considerá-la baixa demais.",
         "negotiationNotAgreed": "As condições não foram acordadas, então a contratação não pode prosseguir."
+      },
+      "leaguePhase": {
+        "rulesMissing": "A competição não tem regras de fase de liga.",
+        "draw": {
+          "fieldShape": "Os clubes não preenchem os potes da fase de liga.",
+          "duplicateClub": "Um clube aparece duas vezes na lista da fase de liga.",
+          "missingAssociation": "Um clube da fase de liga não tem associação nacional, então o sorteio não pode ser feito.",
+          "infeasible": "Nenhum sorteio consegue cumprir as regras de associação para esta lista de clubes.",
+          "searchExhausted": "O sorteio não encontrou nenhuma solução válida dentro do seu limite de busca."
+        },
+        "calendar": {
+          "noTemplate": "A competição não tem calendário de partidas.",
+          "unreadableDate": "Não é possível ler uma data do calendário da competição.",
+          "matchdayCount": "O calendário não tem o número certo de rodadas.",
+          "missingWindow": "Faltam ao calendário as datas de uma fase eliminatória."
+        },
+        "schedule": {
+          "noColouring": "O sorteio não pôde ser distribuído pelas rodadas."
+        },
+        "rules": {
+          "potCountMustDivideField": "O número de potes precisa dividir exatamente os 36 clubes.",
+          "opponentsPerPotMissing": "Cada clube precisa jogar pelo menos contra um adversário de cada pote.",
+          "perPotNeedsTwoOpponents": "Com mandos de campo equilibrados pote a pote, cada clube joga exatamente contra dois adversários de cada pote.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Com potes emparelhados, cada clube joga contra um adversário de cada pote e os potes precisam vir em pares.",
+          "potTooSmallForItsOwnDraw": "Um pote é pequeno demais para conter as partidas sorteadas dentro dele.",
+          "knockoutShapeUnsupported": "Só são aceitas 8 vagas diretas e 16 vagas de play-off.",
+          "associationCapMissing": "O limite de adversários da mesma associação precisa ser de pelo menos um.",
+          "associationLimitExceedsPotCapacity": "O limite de clubes por associação não pode ultrapassar a metade de um pote."
+        }
       }
     },
     "sender": {

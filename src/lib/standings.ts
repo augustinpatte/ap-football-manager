@@ -20,6 +20,9 @@ export function byGenericTablePosition(a: Row, b: Row): number {
  */
 export function orderStandings(competition: Pick<LeagueData, "standings" | "rules"> | null): Row[] {
   if (!competition) return [];
+  // A league phase is ranked by the regulations' order (away goals, opponents' results, cards),
+  // which only the backend can read; it sends the table already in finishing order.
+  if (competition.rules?.format === "LeaguePhaseAndKnockout") return [...competition.standings];
   if ((competition.rules?.tiebreakers?.length ?? 0) > 0) return [...competition.standings];
   return [...competition.standings].sort(byGenericTablePosition);
 }

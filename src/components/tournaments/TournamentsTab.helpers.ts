@@ -25,6 +25,8 @@ export function localizedRoundName(t: TFunction, name: string): string {
   if (name === "Final") return t("tournaments.rounds.final");
   if (name === "Semifinal") return t("tournaments.rounds.semifinal");
   if (name === "Quarterfinal") return t("tournaments.rounds.quarterfinal");
+  // The play-offs of a league-phase competition: the backend's name for the round.
+  if (name === "Knockout Play-offs") return t("tournaments.leaguePhase.rounds.playoffs");
   const roundOf = name.match(/^Round of (\d+)$/);
   if (roundOf) return t("tournaments.rounds.roundOf", { size: roundOf[1] });
   return name;

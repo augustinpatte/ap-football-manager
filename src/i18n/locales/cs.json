@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Rezervní týmy bez práva postupu",
       "reserveForcedDown": "Rezervní týmy sestoupené kvůli mateřskému klubu",
       "reserveReadmitted": "Znovu přijaté rezervní týmy"
+    },
+    "leaguePhase": {
+      "title": "Ligová fáze",
+      "tableCaption": "Tabulka ligové fáze",
+      "zones": {
+        "direct": "Osmifinále",
+        "playoff": "Play-off vyřazovací fáze",
+        "eliminated": "Vyřazeni"
+      },
+      "legend": {
+        "direct": "Přímo do osmifinále (1–{{to}})",
+        "playoff": "Play-off vyřazovací fáze ({{from}}–{{to}})",
+        "eliminated": "Vyřazeni (od {{from}}. místa)",
+        "compact": "Prvních {{direct}}: osmifinále. {{playoffFrom}}–{{playoffTo}}: play-off. Od {{outFrom}}. místa: vyřazeni."
+      },
+      "provisional": "Předběžná tabulka. Pravidla rozhodující o shodě bodů, která čtou celou ligovou fázi každého klubu, jsou konečná až po posledním zápase.",
+      "coefficientFallback": "Koeficienty klubů nejsou k dispozici, proto se shoda ve všech ostatních kritériích řeší pořadím nasazení.",
+      "stages": {
+        "created": "Los nebyl proveden",
+        "leaguePhaseScheduled": "Ligová fáze: nezačala",
+        "leaguePhaseInProgress": "Ligová fáze: probíhá",
+        "leaguePhaseCompleted": "Ligová fáze skončila",
+        "knockoutPlayoffs": "Play-off vyřazovací fáze",
+        "roundOf16": "Osmifinále",
+        "quarterFinals": "Čtvrtfinále",
+        "semiFinals": "Semifinále",
+        "final": "Finále",
+        "completed": "Ročník skončil"
+      },
+      "rounds": {
+        "playoffs": "Play-off vyřazovací fáze"
+      },
+      "champion": "Vítěz: {{team}}",
+      "nextMatch": "Váš další evropský zápas: {{home}} – {{away}}, {{date}}",
+      "noNextMatch": "Váš klub už nemá žádný evropský zápas k odehrání.",
+      "bracketTitle": "Vyřazovací fáze",
+      "notDrawn": "Zatím nelosováno",
+      "advances": "postupuje",
+      "tieLabel": "{{seeded}} – {{unseeded}}",
+      "afterExtraTime": "Po prodloužení",
+      "onPenalties": "Na penalty",
+      "drawFailed": "Los se nepodařilo provést: {{reason}}",
+      "drawNotMade": "Los ještě nebyl proveden.",
+      "legScore": "Zápas {{n}}: {{goals}}",
+      "legNotPlayed": "Zápas {{n}}: neodehráno",
+      "aggregateScore": "Celkem: {{goals}}",
+      "penaltiesScore": "Penalty: {{goals}}"
     }
   },
   "news": {
@@ -3333,7 +3380,11 @@
         "selectorMissingSource": "Tento selektor vyžaduje zdrojovou soutěž.",
         "unknownExcludedCompetition": "Neznámá vyloučená soutěž „{{excluded}}“.",
         "selectorCycle": "Kruhová kvalifikace mezi soutěžemi.",
-        "duplicateTierPriority": "Několik soutěží země {{country}} sdílí prioritu {{priority}}. Nižší číslo znamená vyšší soutěž a každá úroveň potřebuje vlastní, jinak nikdo nepostoupí ani nesestoupí."
+        "duplicateTierPriority": "Několik soutěží země {{country}} sdílí prioritu {{priority}}. Nižší číslo znamená vyšší soutěž a každá úroveň potřebuje vlastní, jinak nikdo nepostoupí ani nesestoupí.",
+        "leaguePhaseRulesOnOtherFormat": "Pravidla ligové fáze platí jen pro soutěž ve formátu ligové fáze.",
+        "leaguePhaseRulesMissing": "Soutěž s ligovou fází potřebuje pravidla ligové fáze.",
+        "leaguePhaseNeedsClubCompetition": "Ligovou fázi může používat jen kontinentální nebo mezinárodní klubová soutěž.",
+        "leaguePhaseFieldSize": "Ligová fáze potřebuje přesně {{expected}} klubů, ale uvedeno je {{found}}."
       },
       "worldParseFailed": "Nepodařilo se zpracovat databázový soubor světa.",
       "worldWriteFileFailed": "Nepodařilo se exportovat databázový soubor světa.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "Záznam tohoto hráče je neúplný, takže ho nelze podepsat.",
         "offerRejected": "Prodávající klub tuto nabídku odmítl jako příliš nízkou.",
         "negotiationNotAgreed": "Podmínky nebyly dohodnuty, takže přestup nelze dokončit."
+      },
+      "leaguePhase": {
+        "rulesMissing": "Soutěž nemá pravidla ligové fáze.",
+        "draw": {
+          "fieldShape": "Kluby nezaplní koše ligové fáze.",
+          "duplicateClub": "Klub je v seznamu ligové fáze uveden dvakrát.",
+          "missingAssociation": "Klub v ligové fázi nemá národní asociaci, a los proto nelze provést.",
+          "infeasible": "Žádný los nemůže splnit pravidla o asociacích pro tento seznam klubů.",
+          "searchExhausted": "Los nenašel v mezích svého hledání žádné platné řešení."
+        },
+        "calendar": {
+          "noTemplate": "Soutěž nemá rozpis zápasů.",
+          "unreadableDate": "Datum v rozpisu zápasů soutěže nelze přečíst.",
+          "matchdayCount": "Rozpis nemá správný počet kol.",
+          "missingWindow": "V rozpisu chybí data jednoho kola vyřazovací fáze."
+        },
+        "schedule": {
+          "noColouring": "Los se nepodařilo rozdělit do kol."
+        },
+        "rules": {
+          "potCountMustDivideField": "Počet košů musí beze zbytku dělit 36 klubů.",
+          "opponentsPerPotMissing": "Každý klub musí hrát alespoň s jedním soupeřem z každého koše.",
+          "perPotNeedsTwoOpponents": "Při vyrovnané domácí a venkovní bilanci po koších hraje každý klub přesně se dvěma soupeři z každého koše.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "U spárovaných košů hraje každý klub s jedním soupeřem z každého koše a koše musí být po dvojicích.",
+          "potTooSmallForItsOwnDraw": "Koš je příliš malý na to, aby pojal zápasy losované uvnitř něj.",
+          "knockoutShapeUnsupported": "Podporováno je jen 8 přímých míst a 16 míst v play-off.",
+          "associationCapMissing": "Limit soupeřů z jedné asociace musí být alespoň jedna.",
+          "associationLimitExceedsPotCapacity": "Limit klubů z jedné asociace nesmí překročit polovinu koše."
+        }
       }
     },
     "sender": {

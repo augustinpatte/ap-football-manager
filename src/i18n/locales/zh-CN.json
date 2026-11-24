@@ -1842,6 +1842,53 @@
       "reserveBlocked": "无权升级的预备队",
       "reserveForcedDown": "因一线队降级而被迫降级的预备队",
       "reserveReadmitted": "重新获准参赛的预备队"
+    },
+    "leaguePhase": {
+      "title": "联赛阶段",
+      "tableCaption": "联赛阶段积分榜",
+      "zones": {
+        "direct": "16 强",
+        "playoff": "淘汰赛附加赛",
+        "eliminated": "出局"
+      },
+      "legend": {
+        "direct": "直接晋级 16 强（第 1–{{to}} 名）",
+        "playoff": "淘汰赛附加赛（第 {{from}}–{{to}} 名）",
+        "eliminated": "出局（第 {{from}} 名及以下）",
+        "compact": "前 {{direct}} 名：16 强。第 {{playoffFrom}}–{{playoffTo}} 名：淘汰赛附加赛。第 {{outFrom}} 名及以下：出局。"
+      },
+      "provisional": "临时积分榜。需要参考每家俱乐部整个联赛阶段表现的同分排名规则，要到最后一场比赛结束后才最终确定。",
+      "coefficientFallback": "没有俱乐部系数，因此在其他所有标准上都相同的情况将按种子排序决出。",
+      "stages": {
+        "created": "尚未抽签",
+        "leaguePhaseScheduled": "联赛阶段：尚未开始",
+        "leaguePhaseInProgress": "联赛阶段：进行中",
+        "leaguePhaseCompleted": "联赛阶段已结束",
+        "knockoutPlayoffs": "淘汰赛附加赛",
+        "roundOf16": "16 强",
+        "quarterFinals": "四分之一决赛",
+        "semiFinals": "半决赛",
+        "final": "决赛",
+        "completed": "本届赛事已结束"
+      },
+      "rounds": {
+        "playoffs": "淘汰赛附加赛"
+      },
+      "champion": "冠军：{{team}}",
+      "nextMatch": "你的下一场欧战比赛：{{home}} 对 {{away}}，{{date}}",
+      "noNextMatch": "你的俱乐部已没有欧战比赛可踢。",
+      "bracketTitle": "淘汰赛阶段",
+      "notDrawn": "尚未抽签",
+      "advances": "晋级",
+      "tieLabel": "{{seeded}} 对 {{unseeded}}",
+      "afterExtraTime": "加时赛后",
+      "onPenalties": "点球决胜",
+      "drawFailed": "无法完成抽签：{{reason}}",
+      "drawNotMade": "尚未进行抽签。",
+      "legScore": "第 {{n}} 回合：{{goals}}",
+      "legNotPlayed": "第 {{n}} 回合：未进行",
+      "aggregateScore": "总比分：{{goals}}",
+      "penaltiesScore": "点球：{{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "该选择器需要一个来源赛事。",
         "unknownExcludedCompetition": "未知的排除赛事“{{excluded}}”。",
         "selectorCycle": "赛事之间存在循环资格依赖。",
-        "duplicateTierPriority": "{{country}} 有多个级别的优先级同为 {{priority}}。数值越小级别越高，每个级别需要各自的数值，否则它们都不会升降级。"
+        "duplicateTierPriority": "{{country}} 有多个级别的优先级同为 {{priority}}。数值越小级别越高，每个级别需要各自的数值，否则它们都不会升降级。",
+        "leaguePhaseRulesOnOtherFormat": "联赛阶段规则只适用于采用联赛阶段赛制的赛事。",
+        "leaguePhaseRulesMissing": "采用联赛阶段的赛事需要联赛阶段规则。",
+        "leaguePhaseNeedsClubCompetition": "联赛阶段只能由洲际或国际俱乐部赛事使用。",
+        "leaguePhaseFieldSize": "联赛阶段需要恰好 {{expected}} 家俱乐部，但列出了 {{found}} 家。"
       },
       "worldParseFailed": "解析世界数据库文件失败。",
       "worldWriteFileFailed": "导出世界数据库文件失败。",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "该球员的记录不完整，无法签约。",
         "offerRejected": "卖方俱乐部认为报价过低，已拒绝。",
         "negotiationNotAgreed": "条款尚未达成一致，因此无法完成签约。"
+      },
+      "leaguePhase": {
+        "rulesMissing": "该赛事没有联赛阶段规则。",
+        "draw": {
+          "fieldShape": "这些俱乐部无法填满联赛阶段的档次。",
+          "duplicateClub": "有一家俱乐部在联赛阶段名单中出现了两次。",
+          "missingAssociation": "联赛阶段中有一家俱乐部没有所属国家协会，因此无法抽签。",
+          "infeasible": "没有任何抽签结果能满足该名单的协会规则。",
+          "searchExhausted": "抽签在搜索上限内没有找到有效方案。"
+        },
+        "calendar": {
+          "noTemplate": "该赛事没有比赛日程。",
+          "unreadableDate": "无法读取赛事日程中的一个日期。",
+          "matchdayCount": "日程的比赛轮次数不正确。",
+          "missingWindow": "日程缺少某一淘汰赛轮次的日期。"
+        },
+        "schedule": {
+          "noColouring": "抽签结果无法分配到各个比赛日。"
+        },
+        "rules": {
+          "potCountMustDivideField": "档次数必须能整除 36 家俱乐部。",
+          "opponentsPerPotMissing": "每家俱乐部必须与每个档次中至少一个对手比赛。",
+          "perPotNeedsTwoOpponents": "在按档次平衡主客场的情况下，每家俱乐部与每个档次中的恰好两个对手比赛。",
+          "pairedPotsNeedOneOpponentAndEvenPots": "采用成对档次时，每家俱乐部与每个档次中的一个对手比赛，且档次必须成对出现。",
+          "potTooSmallForItsOwnDraw": "某个档次太小，容纳不下在其内部抽出的比赛。",
+          "knockoutShapeUnsupported": "仅支持 8 个直接晋级名额和 16 个附加赛名额。",
+          "associationCapMissing": "同一协会对手的数量上限必须至少为一。",
+          "associationLimitExceedsPotCapacity": "每个协会的俱乐部数量上限不能超过半个档次。"
+        }
       }
     },
     "sender": {

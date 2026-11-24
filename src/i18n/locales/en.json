@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Reserve sides not eligible to go up",
       "reserveForcedDown": "Reserve sides pushed down by their parent club",
       "reserveReadmitted": "Reserve sides readmitted"
+    },
+    "leaguePhase": {
+      "title": "League phase",
+      "tableCaption": "League phase table",
+      "zones": {
+        "direct": "Round of 16",
+        "playoff": "Knockout play-offs",
+        "eliminated": "Eliminated"
+      },
+      "legend": {
+        "direct": "Direct to the round of 16 (1–{{to}})",
+        "playoff": "Knockout play-offs ({{from}}–{{to}})",
+        "eliminated": "Eliminated ({{from}} and below)",
+        "compact": "Top {{direct}}: round of 16. {{playoffFrom}}–{{playoffTo}}: knockout play-offs. {{outFrom}} and below: eliminated."
+      },
+      "provisional": "Provisional table. Tiebreakers that read every club's whole league phase are only final once the last match is played.",
+      "coefficientFallback": "No club coefficients are available, so a tie that is level on every other criterion is settled by seeding order.",
+      "stages": {
+        "created": "Draw not made",
+        "leaguePhaseScheduled": "League phase: not started",
+        "leaguePhaseInProgress": "League phase: in progress",
+        "leaguePhaseCompleted": "League phase complete",
+        "knockoutPlayoffs": "Knockout play-offs",
+        "roundOf16": "Round of 16",
+        "quarterFinals": "Quarter-finals",
+        "semiFinals": "Semi-finals",
+        "final": "Final",
+        "completed": "Edition complete"
+      },
+      "rounds": {
+        "playoffs": "Knockout play-offs"
+      },
+      "champion": "Champion: {{team}}",
+      "nextMatch": "Your next European match: {{home}} v {{away}}, {{date}}",
+      "noNextMatch": "Your club has no European match left to play.",
+      "bracketTitle": "Knockout phase",
+      "notDrawn": "Not drawn yet",
+      "advances": "advances",
+      "tieLabel": "{{seeded}} against {{unseeded}}",
+      "afterExtraTime": "After extra time",
+      "onPenalties": "On penalties",
+      "drawFailed": "The draw could not be made: {{reason}}",
+      "drawNotMade": "The draw has not been made yet.",
+      "legScore": "Leg {{n}}: {{goals}}",
+      "legNotPlayed": "Leg {{n}}: not played",
+      "aggregateScore": "Aggregate: {{goals}}",
+      "penaltiesScore": "Penalties: {{goals}}"
     }
   },
   "news": {
@@ -3333,7 +3380,11 @@
         "selectorMissingSource": "This selector needs a source competition.",
         "unknownExcludedCompetition": "Unknown excluded competition \"{{excluded}}\".",
         "selectorCycle": "Circular qualification between competitions.",
-        "duplicateTierPriority": "Divisions of {{country}} share priority {{priority}}. Lower is the higher division, and each tier needs its own number, or none of them is promoted or relegated."
+        "duplicateTierPriority": "Divisions of {{country}} share priority {{priority}}. Lower is the higher division, and each tier needs its own number, or none of them is promoted or relegated.",
+        "leaguePhaseRulesOnOtherFormat": "League-phase rules are only valid on a competition with the league-phase format.",
+        "leaguePhaseRulesMissing": "A league-phase competition needs league-phase rules.",
+        "leaguePhaseNeedsClubCompetition": "A league phase can only be used by a continental or international club competition.",
+        "leaguePhaseFieldSize": "A league phase needs exactly {{expected}} clubs, but {{found}} are listed."
       },
       "worldParseFailed": "Failed to parse the world database file.",
       "worldWriteFileFailed": "Failed to export the world database file.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "This player's record is incomplete, so he cannot be signed.",
         "offerRejected": "The selling club rejected this offer as too low.",
         "negotiationNotAgreed": "The terms were not agreed, so the signing cannot go ahead."
+      },
+      "leaguePhase": {
+        "rulesMissing": "The competition has no league-phase rules.",
+        "draw": {
+          "fieldShape": "The clubs do not fill the pots of the league phase.",
+          "duplicateClub": "A club appears twice in the league-phase field.",
+          "missingAssociation": "A club in the league-phase field has no national association, so the draw cannot be made.",
+          "infeasible": "No draw can satisfy the association rules for this field.",
+          "searchExhausted": "The draw found no valid solution within its search limit."
+        },
+        "calendar": {
+          "noTemplate": "The competition has no match calendar.",
+          "unreadableDate": "A date in the competition's match calendar cannot be read.",
+          "matchdayCount": "The match calendar does not have the right number of matchdays.",
+          "missingWindow": "The match calendar is missing the dates of a knockout round."
+        },
+        "schedule": {
+          "noColouring": "The draw could not be spread over the matchdays."
+        },
+        "rules": {
+          "potCountMustDivideField": "The number of pots must divide the 36 clubs evenly.",
+          "opponentsPerPotMissing": "Each club must play at least one opponent from every pot.",
+          "perPotNeedsTwoOpponents": "With home and away balanced pot by pot, each club plays exactly two opponents from every pot.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "With paired pots, each club plays one opponent from every pot and the pots must come in pairs.",
+          "potTooSmallForItsOwnDraw": "A pot is too small to hold the matches drawn inside it.",
+          "knockoutShapeUnsupported": "Only 8 direct places and 16 play-off places are supported.",
+          "associationCapMissing": "The limit of opponents from one association must be at least one.",
+          "associationLimitExceedsPotCapacity": "The limit of clubs per association cannot exceed half a pot."
+        }
       }
     },
     "sender": {

@@ -114,6 +114,9 @@ describe("localizedRoundName", () => {
 
   it("maps the named rounds to translation keys", () => {
     expect(localizedRoundName(t, "Final")).toBe("tournaments.rounds.final");
+    expect(localizedRoundName(t, "Knockout Play-offs")).toBe(
+      "tournaments.leaguePhase.rounds.playoffs",
+    );
     expect(localizedRoundName(t, "Semifinal")).toBe("tournaments.rounds.semifinal");
     expect(localizedRoundName(t, "Quarterfinal")).toBe("tournaments.rounds.quarterfinal");
   });

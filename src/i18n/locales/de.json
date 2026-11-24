@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Zweitvertretungen ohne Aufstiegsrecht",
       "reserveForcedDown": "Von ihrem Stammverein verdrängte Zweitvertretungen",
       "reserveReadmitted": "Wieder aufgenommene Zweitvertretungen"
+    },
+    "leaguePhase": {
+      "title": "Ligaphase",
+      "tableCaption": "Tabelle der Ligaphase",
+      "zones": {
+        "direct": "Achtelfinale",
+        "playoff": "K.-o.-Play-offs",
+        "eliminated": "Ausgeschieden"
+      },
+      "legend": {
+        "direct": "Direkt ins Achtelfinale (1–{{to}})",
+        "playoff": "K.-o.-Play-offs ({{from}}–{{to}})",
+        "eliminated": "Ausgeschieden (ab Platz {{from}})",
+        "compact": "Die ersten {{direct}}: Achtelfinale. {{playoffFrom}}–{{playoffTo}}: K.-o.-Play-offs. Ab Platz {{outFrom}}: ausgeschieden."
+      },
+      "provisional": "Vorläufige Tabelle. Entscheidungskriterien, die die gesamte Ligaphase jedes Klubs berücksichtigen, stehen erst nach dem letzten Spiel endgültig fest.",
+      "coefficientFallback": "Es liegen keine Klub-Koeffizienten vor; ein in allen anderen Kriterien gleichstehender Fall wird daher nach der Setzreihenfolge entschieden.",
+      "stages": {
+        "created": "Auslosung nicht erfolgt",
+        "leaguePhaseScheduled": "Ligaphase: noch nicht gestartet",
+        "leaguePhaseInProgress": "Ligaphase: läuft",
+        "leaguePhaseCompleted": "Ligaphase beendet",
+        "knockoutPlayoffs": "K.-o.-Play-offs",
+        "roundOf16": "Achtelfinale",
+        "quarterFinals": "Viertelfinale",
+        "semiFinals": "Halbfinale",
+        "final": "Finale",
+        "completed": "Wettbewerb beendet"
+      },
+      "rounds": {
+        "playoffs": "K.-o.-Play-offs"
+      },
+      "champion": "Sieger: {{team}}",
+      "nextMatch": "Dein nächstes Europapokalspiel: {{home}} gegen {{away}}, {{date}}",
+      "noNextMatch": "Dein Klub hat kein Europapokalspiel mehr zu bestreiten.",
+      "bracketTitle": "K.-o.-Phase",
+      "notDrawn": "Noch nicht ausgelost",
+      "advances": "kommt weiter",
+      "tieLabel": "{{seeded}} gegen {{unseeded}}",
+      "afterExtraTime": "Nach Verlängerung",
+      "onPenalties": "Im Elfmeterschießen",
+      "drawFailed": "Die Auslosung konnte nicht durchgeführt werden: {{reason}}",
+      "drawNotMade": "Die Auslosung wurde noch nicht durchgeführt.",
+      "legScore": "Spiel {{n}}: {{goals}}",
+      "legNotPlayed": "Spiel {{n}}: noch nicht gespielt",
+      "aggregateScore": "Gesamt: {{goals}}",
+      "penaltiesScore": "Elfmeterschießen: {{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "Dieser Selektor benötigt einen Quellwettbewerb.",
         "unknownExcludedCompetition": "Unbekannter ausgeschlossener Wettbewerb \"{{excluded}}\".",
         "selectorCycle": "Zirkuläre Qualifikation zwischen Wettbewerben.",
-        "duplicateTierPriority": "Mehrere Ligen von {{country}} teilen sich die Priorität {{priority}}. Ein niedrigerer Wert bedeutet eine höhere Liga, und jede Stufe braucht einen eigenen, sonst steigt keine auf oder ab."
+        "duplicateTierPriority": "Mehrere Ligen von {{country}} teilen sich die Priorität {{priority}}. Ein niedrigerer Wert bedeutet eine höhere Liga, und jede Stufe braucht einen eigenen, sonst steigt keine auf oder ab.",
+        "leaguePhaseRulesOnOtherFormat": "Ligaphasen-Regeln sind nur für einen Wettbewerb im Ligaphasen-Format gültig.",
+        "leaguePhaseRulesMissing": "Ein Wettbewerb mit Ligaphase braucht Ligaphasen-Regeln.",
+        "leaguePhaseNeedsClubCompetition": "Eine Ligaphase kann nur ein kontinentaler oder internationaler Klubwettbewerb nutzen.",
+        "leaguePhaseFieldSize": "Eine Ligaphase braucht genau {{expected}} Klubs, aufgeführt sind aber {{found}}."
       },
       "worldParseFailed": "Die Weltdatenbankdatei konnte nicht verarbeitet werden.",
       "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "Der Datensatz dieses Spielers ist unvollständig, daher kann er nicht verpflichtet werden.",
         "offerRejected": "Der abgebende Verein hat dieses Angebot als zu niedrig abgelehnt.",
         "negotiationNotAgreed": "Die Bedingungen wurden nicht vereinbart, daher kann die Verpflichtung nicht abgeschlossen werden."
+      },
+      "leaguePhase": {
+        "rulesMissing": "Der Wettbewerb hat keine Ligaphasen-Regeln.",
+        "draw": {
+          "fieldShape": "Die Klubs füllen die Lostöpfe der Ligaphase nicht.",
+          "duplicateClub": "Ein Klub kommt in der Teilnehmerliste der Ligaphase doppelt vor.",
+          "missingAssociation": "Ein Klub der Ligaphase hat keinen nationalen Verband, daher kann die Auslosung nicht erfolgen.",
+          "infeasible": "Keine Auslosung kann die Verbandsregeln für diese Teilnehmerliste erfüllen.",
+          "searchExhausted": "Die Auslosung hat innerhalb ihres Suchlimits keine gültige Lösung gefunden."
+        },
+        "calendar": {
+          "noTemplate": "Der Wettbewerb hat keinen Spielplan.",
+          "unreadableDate": "Ein Datum im Spielplan des Wettbewerbs kann nicht gelesen werden.",
+          "matchdayCount": "Der Spielplan hat nicht die richtige Anzahl an Spieltagen.",
+          "missingWindow": "Im Spielplan fehlen die Termine einer K.-o.-Runde."
+        },
+        "schedule": {
+          "noColouring": "Die Auslosung konnte nicht auf die Spieltage verteilt werden."
+        },
+        "rules": {
+          "potCountMustDivideField": "Die Zahl der Lostöpfe muss die 36 Klubs ohne Rest teilen.",
+          "opponentsPerPotMissing": "Jeder Klub muss mindestens gegen einen Gegner aus jedem Lostopf spielen.",
+          "perPotNeedsTwoOpponents": "Bei Heim-/Auswärtsausgleich je Lostopf spielt jeder Klub genau gegen zwei Gegner aus jedem Lostopf.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Bei gepaarten Lostöpfen spielt jeder Klub gegen einen Gegner aus jedem Lostopf, und die Lostöpfe müssen paarweise auftreten.",
+          "potTooSmallForItsOwnDraw": "Ein Lostopf ist zu klein für die darin ausgelosten Spiele.",
+          "knockoutShapeUnsupported": "Unterstützt werden nur 8 Direktplätze und 16 Play-off-Plätze.",
+          "associationCapMissing": "Das Limit an Gegnern desselben Verbands muss mindestens eins betragen.",
+          "associationLimitExceedsPotCapacity": "Das Limit an Klubs pro Verband darf die Hälfte eines Lostopfs nicht überschreiten."
+        }
       }
     },
     "sender": {

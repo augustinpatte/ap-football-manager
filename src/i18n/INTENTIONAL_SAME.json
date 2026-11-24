@@ -416,7 +416,8 @@
     "tournaments.history.final",
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
-    "staff.delegation.mode.full"
+    "staff.delegation.mode.full",
+    "tournaments.leaguePhase.stages.final"
   ],
   "pt-BR": [
     "nations.pt",
@@ -463,7 +464,8 @@
     "tournaments.history.final",
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
-    "staff.delegation.mode.full"
+    "staff.delegation.mode.full",
+    "tournaments.leaguePhase.stages.final"
   ],
   "pt": [
     "nations.pt",
@@ -508,7 +510,8 @@
     "tournaments.history.final",
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
-    "staff.delegation.mode.full"
+    "staff.delegation.mode.full",
+    "tournaments.leaguePhase.stages.final"
   ],
   "ru": ["dashboard.recapTransferLine"],
   "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],
@@ -549,7 +552,8 @@
     "nations.sv",
     "nations.sn",
     "worldEditor.competitionFormat",
-    "tournaments.history.final"
+    "tournaments.history.final",
+    "tournaments.leaguePhase.stages.final"
   ],
   "cs": [
     "dashboard.recapTransferLine",
@@ -755,6 +759,7 @@
     "staff.delegation.mode.manual",
     "match.replayFeed.kickoff",
     "match.replayFeed.offside",
-    "match.liveView.stoppage.offside"
+    "match.liveView.stoppage.offside",
+    "tournaments.leaguePhase.stages.final"
   ]
 }

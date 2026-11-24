@@ -1868,6 +1868,53 @@
       "reserveBlocked": "Squadre B non promovibili",
       "reserveForcedDown": "Squadre B retrocesse dal club principale",
       "reserveReadmitted": "Squadre B riammesse"
+    },
+    "leaguePhase": {
+      "title": "Fase a campionato",
+      "tableCaption": "Classifica della fase a campionato",
+      "zones": {
+        "direct": "Ottavi di finale",
+        "playoff": "Playoff della fase a eliminazione diretta",
+        "eliminated": "Eliminate"
+      },
+      "legend": {
+        "direct": "Direttamente agli ottavi di finale (1–{{to}})",
+        "playoff": "Playoff della fase a eliminazione diretta ({{from}}–{{to}})",
+        "eliminated": "Eliminate (dalla {{from}}ª posizione in giù)",
+        "compact": "Primi {{direct}}: ottavi. {{playoffFrom}}–{{playoffTo}}: playoff. Dalla {{outFrom}}ª in poi: eliminate."
+      },
+      "provisional": "Classifica provvisoria. Gli spareggi tecnici che leggono l'intera fase a campionato di ogni club sono definitivi solo dopo l'ultima partita.",
+      "coefficientFallback": "Non sono disponibili i coefficienti dei club: un pari merito su tutti gli altri criteri si risolve quindi con l'ordine delle teste di serie.",
+      "stages": {
+        "created": "Sorteggio non effettuato",
+        "leaguePhaseScheduled": "Fase a campionato: non iniziata",
+        "leaguePhaseInProgress": "Fase a campionato: in corso",
+        "leaguePhaseCompleted": "Fase a campionato conclusa",
+        "knockoutPlayoffs": "Playoff della fase a eliminazione diretta",
+        "roundOf16": "Ottavi di finale",
+        "quarterFinals": "Quarti di finale",
+        "semiFinals": "Semifinali",
+        "final": "Finale",
+        "completed": "Edizione conclusa"
+      },
+      "rounds": {
+        "playoffs": "Playoff della fase a eliminazione diretta"
+      },
+      "champion": "Campione: {{team}}",
+      "nextMatch": "La tua prossima partita europea: {{home}} contro {{away}}, {{date}}",
+      "noNextMatch": "Il tuo club non ha più partite europee da giocare.",
+      "bracketTitle": "Fase a eliminazione diretta",
+      "notDrawn": "Non ancora sorteggiato",
+      "advances": "passa il turno",
+      "tieLabel": "{{seeded}} contro {{unseeded}}",
+      "afterExtraTime": "Dopo i tempi supplementari",
+      "onPenalties": "Ai rigori",
+      "drawFailed": "Non è stato possibile effettuare il sorteggio: {{reason}}",
+      "drawNotMade": "Il sorteggio non è ancora stato effettuato.",
+      "legScore": "Gara {{n}}: {{goals}}",
+      "legNotPlayed": "Gara {{n}}: non giocata",
+      "aggregateScore": "Aggregato: {{goals}}",
+      "penaltiesScore": "Rigori: {{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "Questo selettore richiede una competizione di origine.",
         "unknownExcludedCompetition": "Competizione esclusa sconosciuta \"{{excluded}}\".",
         "selectorCycle": "Qualificazione circolare tra competizioni.",
-        "duplicateTierPriority": "Più divisioni di {{country}} condividono la priorità {{priority}}. Un numero più basso indica una divisione superiore, e ogni livello ha bisogno del proprio, altrimenti nessuna viene promossa o retrocessa."
+        "duplicateTierPriority": "Più divisioni di {{country}} condividono la priorità {{priority}}. Un numero più basso indica una divisione superiore, e ogni livello ha bisogno del proprio, altrimenti nessuna viene promossa o retrocessa.",
+        "leaguePhaseRulesOnOtherFormat": "Le regole della fase a campionato valgono solo per una competizione con formato con fase a campionato.",
+        "leaguePhaseRulesMissing": "Una competizione con fase a campionato richiede le regole della fase a campionato.",
+        "leaguePhaseNeedsClubCompetition": "Una fase a campionato può essere usata solo da una competizione continentale o internazionale per club.",
+        "leaguePhaseFieldSize": "Una fase a campionato richiede esattamente {{expected}} club, ma ne sono elencati {{found}}."
       },
       "worldParseFailed": "Impossibile interpretare il file del database del mondo.",
       "worldWriteFileFailed": "Impossibile esportare il file del database del mondo.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "La scheda di questo giocatore è incompleta, quindi non può essere ingaggiato.",
         "offerRejected": "Il club venditore ha rifiutato questa offerta perché troppo bassa.",
         "negotiationNotAgreed": "Le condizioni non sono state concordate, quindi l'ingaggio non può procedere."
+      },
+      "leaguePhase": {
+        "rulesMissing": "La competizione non ha regole della fase a campionato.",
+        "draw": {
+          "fieldShape": "I club non riempiono le fasce della fase a campionato.",
+          "duplicateClub": "Un club compare due volte nell'elenco della fase a campionato.",
+          "missingAssociation": "Un club della fase a campionato non ha una federazione nazionale, quindi il sorteggio non può essere effettuato.",
+          "infeasible": "Nessun sorteggio può rispettare le regole sulle federazioni per questo elenco di club.",
+          "searchExhausted": "Il sorteggio non ha trovato alcuna soluzione valida entro il suo limite di ricerca."
+        },
+        "calendar": {
+          "noTemplate": "La competizione non ha un calendario delle partite.",
+          "unreadableDate": "Una data del calendario della competizione non è leggibile.",
+          "matchdayCount": "Il calendario non ha il numero giusto di giornate.",
+          "missingWindow": "Al calendario mancano le date di un turno a eliminazione diretta."
+        },
+        "schedule": {
+          "noColouring": "Il sorteggio non ha potuto essere distribuito sulle giornate."
+        },
+        "rules": {
+          "potCountMustDivideField": "Il numero di fasce deve dividere esattamente i 36 club.",
+          "opponentsPerPotMissing": "Ogni club deve giocare almeno contro un avversario di ogni fascia.",
+          "perPotNeedsTwoOpponents": "Con casa e trasferta bilanciate fascia per fascia, ogni club gioca esattamente contro due avversari di ogni fascia.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Con fasce accoppiate, ogni club gioca contro un avversario di ogni fascia e le fasce devono essere a coppie.",
+          "potTooSmallForItsOwnDraw": "Una fascia è troppo piccola per contenere le partite sorteggiate al suo interno.",
+          "knockoutShapeUnsupported": "Sono supportati solo 8 posti diretti e 16 posti ai playoff.",
+          "associationCapMissing": "Il limite di avversari della stessa federazione deve essere almeno uno.",
+          "associationLimitExceedsPotCapacity": "Il limite di club per federazione non può superare metà di una fascia."
+        }
       }
     },
     "sender": {

@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Tim cadangan yang tidak boleh promosi",
       "reserveForcedDown": "Tim cadangan yang diturunkan oleh klub induknya",
       "reserveReadmitted": "Tim cadangan yang diterima kembali"
+    },
+    "leaguePhase": {
+      "title": "Fase liga",
+      "tableCaption": "Klasemen fase liga",
+      "zones": {
+        "direct": "Babak 16 besar",
+        "playoff": "Play-off babak gugur",
+        "eliminated": "Tersingkir"
+      },
+      "legend": {
+        "direct": "Langsung ke babak 16 besar (1–{{to}})",
+        "playoff": "Play-off babak gugur ({{from}}–{{to}})",
+        "eliminated": "Tersingkir (peringkat {{from}} ke bawah)",
+        "compact": "{{direct}} teratas: babak 16 besar. {{playoffFrom}}–{{playoffTo}}: play-off babak gugur. Peringkat {{outFrom}} ke bawah: tersingkir."
+      },
+      "provisional": "Klasemen sementara. Kriteria pemisah yang membaca seluruh fase liga setiap klub baru final setelah pertandingan terakhir dimainkan.",
+      "coefficientFallback": "Koefisien klub tidak tersedia, sehingga hasil imbang pada semua kriteria lain diputuskan berdasarkan urutan unggulan.",
+      "stages": {
+        "created": "Undian belum dilakukan",
+        "leaguePhaseScheduled": "Fase liga: belum dimulai",
+        "leaguePhaseInProgress": "Fase liga: sedang berjalan",
+        "leaguePhaseCompleted": "Fase liga selesai",
+        "knockoutPlayoffs": "Play-off babak gugur",
+        "roundOf16": "Babak 16 besar",
+        "quarterFinals": "Perempat final",
+        "semiFinals": "Semifinal",
+        "final": "Final",
+        "completed": "Edisi selesai"
+      },
+      "rounds": {
+        "playoffs": "Play-off babak gugur"
+      },
+      "champion": "Juara: {{team}}",
+      "nextMatch": "Pertandingan Eropa berikutnya: {{home}} vs {{away}}, {{date}}",
+      "noNextMatch": "Klubmu tidak punya pertandingan Eropa lagi untuk dimainkan.",
+      "bracketTitle": "Babak gugur",
+      "notDrawn": "Belum diundi",
+      "advances": "lolos",
+      "tieLabel": "{{seeded}} vs {{unseeded}}",
+      "afterExtraTime": "Setelah perpanjangan waktu",
+      "onPenalties": "Lewat adu penalti",
+      "drawFailed": "Undian tidak dapat dilakukan: {{reason}}",
+      "drawNotMade": "Undian belum dilakukan.",
+      "legScore": "Laga {{n}}: {{goals}}",
+      "legNotPlayed": "Laga {{n}}: belum dimainkan",
+      "aggregateScore": "Agregat: {{goals}}",
+      "penaltiesScore": "Penalti: {{goals}}"
     }
   },
   "news": {
@@ -3333,7 +3380,11 @@
         "selectorMissingSource": "Pemilih ini membutuhkan kompetisi sumber.",
         "unknownExcludedCompetition": "Kompetisi yang dikecualikan \"{{excluded}}\" tidak dikenal.",
         "selectorCycle": "Kualifikasi melingkar antar kompetisi.",
-        "duplicateTierPriority": "Beberapa divisi {{country}} memiliki prioritas {{priority}} yang sama. Angka lebih kecil berarti divisi lebih tinggi, dan setiap tingkat butuh angkanya sendiri, atau tidak ada yang promosi maupun degradasi."
+        "duplicateTierPriority": "Beberapa divisi {{country}} memiliki prioritas {{priority}} yang sama. Angka lebih kecil berarti divisi lebih tinggi, dan setiap tingkat butuh angkanya sendiri, atau tidak ada yang promosi maupun degradasi.",
+        "leaguePhaseRulesOnOtherFormat": "Aturan fase liga hanya berlaku untuk kompetisi berformat fase liga.",
+        "leaguePhaseRulesMissing": "Kompetisi dengan fase liga membutuhkan aturan fase liga.",
+        "leaguePhaseNeedsClubCompetition": "Fase liga hanya dapat dipakai oleh kompetisi klub benua atau internasional.",
+        "leaguePhaseFieldSize": "Fase liga membutuhkan tepat {{expected}} klub, tetapi yang terdaftar {{found}}."
       },
       "worldParseFailed": "Gagal mengurai berkas basis data dunia.",
       "worldWriteFileFailed": "Gagal mengekspor berkas basis data dunia.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "Catatan pemain ini tidak lengkap, sehingga tidak dapat direkrut.",
         "offerRejected": "Klub penjual menolak tawaran ini karena terlalu rendah.",
         "negotiationNotAgreed": "Persyaratan belum disepakati, jadi perekrutan tidak dapat dilanjutkan."
+      },
+      "leaguePhase": {
+        "rulesMissing": "Kompetisi ini tidak memiliki aturan fase liga.",
+        "draw": {
+          "fieldShape": "Klub-klub tidak memenuhi pot fase liga.",
+          "duplicateClub": "Satu klub muncul dua kali dalam daftar fase liga.",
+          "missingAssociation": "Satu klub dalam fase liga tidak memiliki asosiasi nasional, sehingga undian tidak dapat dilakukan.",
+          "infeasible": "Tidak ada undian yang dapat memenuhi aturan asosiasi untuk daftar klub ini.",
+          "searchExhausted": "Undian tidak menemukan solusi yang valid dalam batas pencariannya."
+        },
+        "calendar": {
+          "noTemplate": "Kompetisi ini tidak memiliki jadwal pertandingan.",
+          "unreadableDate": "Satu tanggal dalam jadwal pertandingan kompetisi tidak dapat dibaca.",
+          "matchdayCount": "Jadwal tidak memiliki jumlah pekan yang benar.",
+          "missingWindow": "Jadwal kekurangan tanggal untuk satu babak gugur."
+        },
+        "schedule": {
+          "noColouring": "Undian tidak dapat dibagi ke seluruh pekan."
+        },
+        "rules": {
+          "potCountMustDivideField": "Jumlah pot harus membagi 36 klub secara merata.",
+          "opponentsPerPotMissing": "Setiap klub harus bermain melawan setidaknya satu lawan dari tiap pot.",
+          "perPotNeedsTwoOpponents": "Dengan kandang dan tandang seimbang per pot, setiap klub bermain melawan tepat dua lawan dari tiap pot.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Dengan pot berpasangan, setiap klub bermain melawan satu lawan dari tiap pot dan pot harus berpasangan.",
+          "potTooSmallForItsOwnDraw": "Sebuah pot terlalu kecil untuk memuat pertandingan yang diundi di dalamnya.",
+          "knockoutShapeUnsupported": "Hanya 8 tempat langsung dan 16 tempat play-off yang didukung.",
+          "associationCapMissing": "Batas lawan dari satu asosiasi harus minimal satu.",
+          "associationLimitExceedsPotCapacity": "Batas klub per asosiasi tidak boleh melebihi setengah pot."
+        }
       }
     },
     "sender": {

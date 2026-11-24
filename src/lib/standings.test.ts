@@ -33,4 +33,14 @@ describe("orderStandings", () => {
     }).map((r) => r.team_id);
     expect(order).toEqual(["b", "a"]);
   });
+
+  // A league phase is ranked by away goals, wins and its opponents' results, which the screen
+  // cannot read; the generic order would put the club with more goals above the better-ranked one.
+  it("keeps the backend's order for a league phase, whose ranking only the backend can read", () => {
+    const order = orderStandings({
+      standings: [row("ranked-first", 14, 10, 8), row("ranked-second", 14, 20, 18)],
+      rules: { format: "LeaguePhaseAndKnockout", counts_in_season_flow: true },
+    }).map((r) => r.team_id);
+    expect(order).toEqual(["ranked-first", "ranked-second"]);
+  });
 });

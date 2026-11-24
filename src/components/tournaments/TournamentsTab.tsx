@@ -10,6 +10,9 @@ import {
 import { useSeasonAwards } from "./useSeasonAwards";
 import { useTournamentsData } from "./useTournamentsData";
 import type { GameStateData } from "../../store/gameStore";
+import LeaguePhaseOverview from "./LeaguePhaseOverview";
+import LeaguePhaseView from "./LeaguePhaseView";
+import { leaguePhaseOf } from "../../lib/leaguePhase";
 import TournamentsFixturesView from "./TournamentsFixturesView";
 import TournamentsHistoryView from "./TournamentsHistoryView";
 import TournamentsLeagueHeader from "./TournamentsLeagueHeader";
@@ -74,7 +77,9 @@ export default function TournamentsTab({
 
   const standings = orderStandings(league);
 
-  const isKnockout = isKnockoutCompetition(league);
+  const leaguePhase = leaguePhaseOf(league);
+  // A league phase is neither a bracket nor a plain table: it has screens of its own.
+  const isKnockout = isKnockoutCompetition(league) && !leaguePhase;
   const knockoutRounds = league.knockout_rounds ?? [];
   const groups = league.groups ?? [];
   const zones = isKnockout
@@ -157,7 +162,17 @@ export default function TournamentsTab({
 
       <TournamentsViewTabs view={view} onSelectView={setView} isKnockout={isKnockout} />
 
-      {view === "overview" && (
+      {view === "overview" && leaguePhase && (
+        <LeaguePhaseOverview
+          competition={league}
+          state={leaguePhase}
+          topScorers={topScorers}
+          teams={teams}
+          onSelectPlayer={onSelectPlayer}
+        />
+      )}
+
+      {view === "overview" && !leaguePhase && (
         <TournamentsOverview
           standings={standings}
           groups={groups}
@@ -180,7 +195,11 @@ export default function TournamentsTab({
         </div>
       )}
 
-      {view === "standings" && (
+      {view === "standings" && leaguePhase && (
+        <LeaguePhaseView competition={league} state={leaguePhase} teams={teams} />
+      )}
+
+      {view === "standings" && !leaguePhase && (
         <TournamentsStandingsView
           league={league}
           standings={standings}

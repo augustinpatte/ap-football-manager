@@ -872,7 +872,85 @@ export interface EditionSummaryData {
   movements: BoundaryMovementsData | null;
 }
 
+/** One club's row of a league-phase table, in the regulations' ranking order. */
+export interface LeaguePhaseRowData {
+  team_id: string;
+  position: number;
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goals_for: number;
+  goals_against: number;
+  away_goals_for: number;
+  away_wins: number;
+  points: number;
+  opponents_points: number;
+  opponents_goal_difference: number;
+  opponents_goals_for: number;
+  disciplinary_points: number;
+  /** Only when the world supplied one; never invented. */
+  coefficient: number | null;
+}
+
+export type LeaguePhaseStageData =
+  | "Created"
+  | "LeaguePhaseScheduled"
+  | "LeaguePhaseInProgress"
+  | "LeaguePhaseCompleted"
+  | "KnockoutPlayoffs"
+  | "RoundOf16"
+  | "QuarterFinals"
+  | "SemiFinals"
+  | "Final"
+  | "Completed";
+
+export type KnockoutStageData = "Playoffs" | "RoundOf16" | "QuarterFinals" | "SemiFinals" | "Final";
+
+export interface KnockoutTieData {
+  id: string;
+  stage: KnockoutStageData;
+  slot: number;
+  path: number;
+  /** Hosts the return leg. */
+  seeded_team_id: string;
+  /** Hosts the first leg. */
+  unseeded_team_id: string;
+  /** Leg fixture ids in the order played; a single one for the final. */
+  fixture_ids: string[];
+  resolution: null | {
+    winner_id: string;
+    seeded_goals: number;
+    unseeded_goals: number;
+    /** `[seeded, unseeded]` when a shootout decided it. */
+    penalties: [number, number] | null;
+    decision: "Aggregate" | "ExtraTime" | "Penalties";
+  };
+}
+
+/** What a league-phase competition accumulates beyond its fixtures. */
+export interface LeaguePhaseData {
+  stage: LeaguePhaseStageData;
+  calendar_year: number;
+  seeding: string[];
+  pots: string[][];
+  table: LeaguePhaseRowData[];
+  outcome: null | {
+    ranking: string[];
+    direct: string[];
+    playoff: string[];
+    eliminated: string[];
+    coefficient_fallback_used: boolean;
+  };
+  ties: KnockoutTieData[];
+  champion_id: string | null;
+  /** A translation key: why the draw could not be made. */
+  draw_error: string | null;
+}
+
 export interface LeagueData {
+  /** League-phase competitions only. */
+  league_phase?: LeaguePhaseData | null;
   season_start_month?: number;
   season_start_day?: number;
   /** Where finishing places lead (a continental cup, promotion); read by the backend only. */
@@ -897,8 +975,15 @@ export interface LeagueData {
   required_region_ids?: string[];
   participant_ids?: string[];
   rules?: {
-    format: "LeagueTable" | "Knockout" | "GroupAndKnockout";
+    format: "LeagueTable" | "Knockout" | "GroupAndKnockout" | "LeaguePhaseAndKnockout";
     counts_in_season_flow: boolean;
+    /** League-phase competitions only: the shape of the league phase. */
+    league_phase?: {
+      pot_count: number;
+      opponents_per_pot: number;
+      direct_places: number;
+      playoff_places: number;
+    } | null;
     group_size?: number;
     group_best_third_qualifiers?: number;
     group_qualifiers_per_group?: number;

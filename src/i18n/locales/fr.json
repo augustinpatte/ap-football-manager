@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Équipes réserves non promouvables",
       "reserveForcedDown": "Équipes réserves rétrogradées par leur club principal",
       "reserveReadmitted": "Équipes réserves réintégrées"
+    },
+    "leaguePhase": {
+      "title": "Phase de ligue",
+      "tableCaption": "Classement de la phase de ligue",
+      "zones": {
+        "direct": "Huitièmes de finale",
+        "playoff": "Barrages de la phase à élimination directe",
+        "eliminated": "Éliminés"
+      },
+      "legend": {
+        "direct": "Qualifiés directement pour les huitièmes (1–{{to}})",
+        "playoff": "Barrages de la phase à élimination directe ({{from}}–{{to}})",
+        "eliminated": "Éliminés (à partir de la {{from}}ᵉ place)",
+        "compact": "{{direct}} premiers : huitièmes. {{playoffFrom}}–{{playoffTo}} : barrages. À partir de la {{outFrom}}ᵉ place : éliminés."
+      },
+      "provisional": "Classement provisoire. Les critères de départage qui lisent toute la phase de ligue de chaque club ne sont définitifs qu'après le dernier match.",
+      "coefficientFallback": "Aucun coefficient de club n'est disponible : une égalité sur tous les autres critères est donc départagée par l'ordre de tête de série.",
+      "stages": {
+        "created": "Tirage non effectué",
+        "leaguePhaseScheduled": "Phase de ligue : pas commencée",
+        "leaguePhaseInProgress": "Phase de ligue : en cours",
+        "leaguePhaseCompleted": "Phase de ligue terminée",
+        "knockoutPlayoffs": "Barrages de la phase à élimination directe",
+        "roundOf16": "Huitièmes de finale",
+        "quarterFinals": "Quarts de finale",
+        "semiFinals": "Demi-finales",
+        "final": "Finale",
+        "completed": "Édition terminée"
+      },
+      "rounds": {
+        "playoffs": "Barrages de la phase à élimination directe"
+      },
+      "champion": "Vainqueur : {{team}}",
+      "nextMatch": "Votre prochain match européen : {{home}} contre {{away}}, {{date}}",
+      "noNextMatch": "Votre club n'a plus aucun match européen à jouer.",
+      "bracketTitle": "Phase à élimination directe",
+      "notDrawn": "Pas encore tiré",
+      "advances": "est qualifié",
+      "tieLabel": "{{seeded}} contre {{unseeded}}",
+      "afterExtraTime": "Après prolongation",
+      "onPenalties": "Aux tirs au but",
+      "drawFailed": "Le tirage n'a pas pu être effectué : {{reason}}",
+      "drawNotMade": "Le tirage n'a pas encore été effectué.",
+      "legScore": "Match {{n}} : {{goals}}",
+      "legNotPlayed": "Match {{n}} : pas encore joué",
+      "aggregateScore": "Cumul : {{goals}}",
+      "penaltiesScore": "Tirs au but : {{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "Ce sélecteur nécessite une compétition source.",
         "unknownExcludedCompetition": "Compétition exclue inconnue \"{{excluded}}\".",
         "selectorCycle": "Qualification circulaire entre compétitions.",
-        "duplicateTierPriority": "Des divisions de {{country}} partagent la priorité {{priority}}. Plus le nombre est bas, plus la division est élevée, et chaque échelon a besoin du sien, sinon aucune ne monte ni ne descend."
+        "duplicateTierPriority": "Des divisions de {{country}} partagent la priorité {{priority}}. Plus le nombre est bas, plus la division est élevée, et chaque échelon a besoin du sien, sinon aucune ne monte ni ne descend.",
+        "leaguePhaseRulesOnOtherFormat": "Les règles de phase de ligue ne sont valables que pour une compétition au format phase de ligue.",
+        "leaguePhaseRulesMissing": "Une compétition à phase de ligue a besoin de règles de phase de ligue.",
+        "leaguePhaseNeedsClubCompetition": "Une phase de ligue ne peut servir qu'à une compétition continentale ou internationale de clubs.",
+        "leaguePhaseFieldSize": "Une phase de ligue exige exactement {{expected}} clubs, mais {{found}} sont indiqués."
       },
       "worldParseFailed": "Impossible d'interpréter le fichier de base de données du monde.",
       "worldWriteFileFailed": "Impossible d'exporter le fichier de base de données du monde.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "La fiche de ce joueur est incomplète, il ne peut donc pas être recruté.",
         "offerRejected": "Le club vendeur a refusé cette offre, jugée trop basse.",
         "negotiationNotAgreed": "Les conditions n'ont pas été acceptées, la signature ne peut donc pas avoir lieu."
+      },
+      "leaguePhase": {
+        "rulesMissing": "La compétition n'a pas de règles de phase de ligue.",
+        "draw": {
+          "fieldShape": "Les clubs ne remplissent pas les chapeaux de la phase de ligue.",
+          "duplicateClub": "Un club apparaît deux fois dans la liste de la phase de ligue.",
+          "missingAssociation": "Un club de la phase de ligue n'a pas d'association nationale : le tirage ne peut pas être effectué.",
+          "infeasible": "Aucun tirage ne peut respecter les règles d'association pour cette liste de clubs.",
+          "searchExhausted": "Le tirage n'a trouvé aucune solution valide dans sa limite de recherche."
+        },
+        "calendar": {
+          "noTemplate": "La compétition n'a pas de calendrier de matchs.",
+          "unreadableDate": "Une date du calendrier de la compétition est illisible.",
+          "matchdayCount": "Le calendrier n'a pas le bon nombre de journées.",
+          "missingWindow": "Il manque au calendrier les dates d'un tour à élimination directe."
+        },
+        "schedule": {
+          "noColouring": "Le tirage n'a pas pu être réparti sur les journées."
+        },
+        "rules": {
+          "potCountMustDivideField": "Le nombre de chapeaux doit diviser exactement les 36 clubs.",
+          "opponentsPerPotMissing": "Chaque club doit affronter au moins un adversaire de chaque chapeau.",
+          "perPotNeedsTwoOpponents": "Avec domicile et extérieur équilibrés chapeau par chapeau, chaque club affronte exactement deux adversaires de chaque chapeau.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Avec des chapeaux jumelés, chaque club affronte un adversaire de chaque chapeau et les chapeaux doivent former des paires.",
+          "potTooSmallForItsOwnDraw": "Un chapeau est trop petit pour contenir les matchs tirés en son sein.",
+          "knockoutShapeUnsupported": "Seules 8 places directes et 16 places de barrage sont prises en charge.",
+          "associationCapMissing": "La limite d'adversaires d'une même association doit être d'au moins un.",
+          "associationLimitExceedsPotCapacity": "La limite de clubs par association ne peut pas dépasser la moitié d'un chapeau."
+        }
       }
     },
     "sender": {

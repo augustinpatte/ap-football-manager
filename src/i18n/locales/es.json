@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Filiales que no pueden ascender",
       "reserveForcedDown": "Filiales descendidas por su club matriz",
       "reserveReadmitted": "Filiales readmitidas"
+    },
+    "leaguePhase": {
+      "title": "Fase de liga",
+      "tableCaption": "Clasificación de la fase de liga",
+      "zones": {
+        "direct": "Octavos de final",
+        "playoff": "Play-offs de la fase eliminatoria",
+        "eliminated": "Eliminados"
+      },
+      "legend": {
+        "direct": "Directos a octavos de final (1–{{to}})",
+        "playoff": "Play-offs de la fase eliminatoria ({{from}}–{{to}})",
+        "eliminated": "Eliminados (del {{from}} en adelante)",
+        "compact": "Primeros {{direct}}: octavos. {{playoffFrom}}–{{playoffTo}}: play-offs. Desde el {{outFrom}}: eliminados."
+      },
+      "provisional": "Clasificación provisional. Los criterios de desempate que dependen de toda la fase de liga de cada club solo son definitivos cuando se juega el último partido.",
+      "coefficientFallback": "No hay coeficientes de clubes disponibles, así que un empate en todos los demás criterios se resuelve por el orden de cabezas de serie.",
+      "stages": {
+        "created": "Sorteo sin realizar",
+        "leaguePhaseScheduled": "Fase de liga: sin empezar",
+        "leaguePhaseInProgress": "Fase de liga: en curso",
+        "leaguePhaseCompleted": "Fase de liga terminada",
+        "knockoutPlayoffs": "Play-offs de la fase eliminatoria",
+        "roundOf16": "Octavos de final",
+        "quarterFinals": "Cuartos de final",
+        "semiFinals": "Semifinales",
+        "final": "Final",
+        "completed": "Edición terminada"
+      },
+      "rounds": {
+        "playoffs": "Play-offs de la fase eliminatoria"
+      },
+      "champion": "Campeón: {{team}}",
+      "nextMatch": "Tu próximo partido europeo: {{home}} contra {{away}}, {{date}}",
+      "noNextMatch": "Tu club no tiene más partidos europeos por jugar.",
+      "bracketTitle": "Fase eliminatoria",
+      "notDrawn": "Aún sin sortear",
+      "advances": "pasa de ronda",
+      "tieLabel": "{{seeded}} contra {{unseeded}}",
+      "afterExtraTime": "Tras la prórroga",
+      "onPenalties": "En los penaltis",
+      "drawFailed": "No se pudo realizar el sorteo: {{reason}}",
+      "drawNotMade": "El sorteo aún no se ha realizado.",
+      "legScore": "Partido {{n}}: {{goals}}",
+      "legNotPlayed": "Partido {{n}}: sin jugar",
+      "aggregateScore": "Global: {{goals}}",
+      "penaltiesScore": "Penaltis: {{goals}}"
     }
   },
   "news": {
@@ -3290,7 +3337,11 @@
         "selectorMissingSource": "Este selector necesita una competición de origen.",
         "unknownExcludedCompetition": "Competición excluida desconocida \"{{excluded}}\".",
         "selectorCycle": "Clasificación circular entre competiciones.",
-        "duplicateTierPriority": "Varias divisiones de {{country}} comparten la prioridad {{priority}}. Un número menor indica una división superior, y cada categoría necesita el suyo, o ninguna asciende ni desciende."
+        "duplicateTierPriority": "Varias divisiones de {{country}} comparten la prioridad {{priority}}. Un número menor indica una división superior, y cada categoría necesita el suyo, o ninguna asciende ni desciende.",
+        "leaguePhaseRulesOnOtherFormat": "Las reglas de fase de liga solo son válidas en una competición con formato de fase de liga.",
+        "leaguePhaseRulesMissing": "Una competición con fase de liga necesita reglas de fase de liga.",
+        "leaguePhaseNeedsClubCompetition": "Una fase de liga solo puede usarla una competición continental o internacional de clubes.",
+        "leaguePhaseFieldSize": "Una fase de liga necesita exactamente {{expected}} clubes, pero hay {{found}}."
       },
       "worldParseFailed": "No se pudo interpretar el archivo de la base de datos del mundo.",
       "worldWriteFileFailed": "No se pudo exportar el archivo de la base de datos del mundo.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "La ficha de este jugador está incompleta, así que no se puede fichar.",
         "offerRejected": "El club vendedor rechazó esta oferta por considerarla demasiado baja.",
         "negotiationNotAgreed": "No se han acordado las condiciones, así que el fichaje no puede completarse."
+      },
+      "leaguePhase": {
+        "rulesMissing": "La competición no tiene reglas de fase de liga.",
+        "draw": {
+          "fieldShape": "Los clubes no llenan los bombos de la fase de liga.",
+          "duplicateClub": "Un club aparece dos veces en la lista de la fase de liga.",
+          "missingAssociation": "Un club de la fase de liga no tiene asociación nacional, así que no se puede hacer el sorteo.",
+          "infeasible": "Ningún sorteo puede cumplir las reglas de asociación con esta lista de clubes.",
+          "searchExhausted": "El sorteo no encontró ninguna solución válida dentro de su límite de búsqueda."
+        },
+        "calendar": {
+          "noTemplate": "La competición no tiene calendario de partidos.",
+          "unreadableDate": "No se puede leer una fecha del calendario de la competición.",
+          "matchdayCount": "El calendario no tiene el número correcto de jornadas.",
+          "missingWindow": "Al calendario le faltan las fechas de una ronda eliminatoria."
+        },
+        "schedule": {
+          "noColouring": "El sorteo no se pudo repartir en las jornadas."
+        },
+        "rules": {
+          "potCountMustDivideField": "El número de bombos debe dividir exactamente los 36 clubes.",
+          "opponentsPerPotMissing": "Cada club debe jugar al menos contra un rival de cada bombo.",
+          "perPotNeedsTwoOpponents": "Con la localía equilibrada bombo por bombo, cada club juega exactamente contra dos rivales de cada bombo.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Con bombos emparejados, cada club juega contra un rival de cada bombo y los bombos deben ir por parejas.",
+          "potTooSmallForItsOwnDraw": "Un bombo es demasiado pequeño para contener los partidos sorteados dentro de él.",
+          "knockoutShapeUnsupported": "Solo se admiten 8 plazas directas y 16 plazas de play-off.",
+          "associationCapMissing": "El límite de rivales de una misma asociación debe ser al menos uno.",
+          "associationLimitExceedsPotCapacity": "El límite de clubes por asociación no puede superar la mitad de un bombo."
+        }
       }
     },
     "sender": {

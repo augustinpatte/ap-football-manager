@@ -1842,6 +1842,53 @@
       "reserveBlocked": "Yükselme hakkı olmayan yedek takımlar",
       "reserveForcedDown": "Ana kulüpleri nedeniyle düşürülen yedek takımlar",
       "reserveReadmitted": "Yeniden kabul edilen yedek takımlar"
+    },
+    "leaguePhase": {
+      "title": "Lig aşaması",
+      "tableCaption": "Lig aşaması puan durumu",
+      "zones": {
+        "direct": "Son 16 turu",
+        "playoff": "Eleme play-off'ları",
+        "eliminated": "Elendi"
+      },
+      "legend": {
+        "direct": "Doğrudan son 16'ya (1–{{to}})",
+        "playoff": "Eleme play-off'ları ({{from}}–{{to}})",
+        "eliminated": "Elendi ({{from}}. sıradan itibaren)",
+        "compact": "İlk {{direct}}: son 16. {{playoffFrom}}–{{playoffTo}}: eleme play-off'ları. {{outFrom}}. sıradan itibaren: elendi."
+      },
+      "provisional": "Geçici puan durumu. Her kulübün tüm lig aşamasına bakan eşitlik bozma ölçütleri ancak son maçtan sonra kesinleşir.",
+      "coefficientFallback": "Kulüp katsayıları yok; bu yüzden diğer tüm ölçütlerde eşit olan durumlar tohum sırasına göre çözülür.",
+      "stages": {
+        "created": "Kura çekilmedi",
+        "leaguePhaseScheduled": "Lig aşaması: başlamadı",
+        "leaguePhaseInProgress": "Lig aşaması: sürüyor",
+        "leaguePhaseCompleted": "Lig aşaması tamamlandı",
+        "knockoutPlayoffs": "Eleme play-off'ları",
+        "roundOf16": "Son 16 turu",
+        "quarterFinals": "Çeyrek final",
+        "semiFinals": "Yarı final",
+        "final": "Final",
+        "completed": "Sezon tamamlandı"
+      },
+      "rounds": {
+        "playoffs": "Eleme play-off'ları"
+      },
+      "champion": "Şampiyon: {{team}}",
+      "nextMatch": "Sıradaki Avrupa maçınız: {{home}} - {{away}}, {{date}}",
+      "noNextMatch": "Kulübünüzün oynayacağı başka Avrupa maçı kalmadı.",
+      "bracketTitle": "Eleme aşaması",
+      "notDrawn": "Henüz kura çekilmedi",
+      "advances": "tur atlıyor",
+      "tieLabel": "{{seeded}} - {{unseeded}}",
+      "afterExtraTime": "Uzatmalardan sonra",
+      "onPenalties": "Penaltılarla",
+      "drawFailed": "Kura çekilemedi: {{reason}}",
+      "drawNotMade": "Kura henüz çekilmedi.",
+      "legScore": "{{n}}. maç: {{goals}}",
+      "legNotPlayed": "{{n}}. maç: oynanmadı",
+      "aggregateScore": "Toplam: {{goals}}",
+      "penaltiesScore": "Penaltılar: {{goals}}"
     }
   },
   "news": {
@@ -3333,7 +3380,11 @@
         "selectorMissingSource": "Bu seçici bir kaynak turnuva gerektiriyor.",
         "unknownExcludedCompetition": "Bilinmeyen hariç tutulan turnuva \"{{excluded}}\".",
         "selectorCycle": "Turnuvalar arasında döngüsel katılım ilişkisi.",
-        "duplicateTierPriority": "{{country}} ülkesinin birden fazla ligi {{priority}} önceliğini paylaşıyor. Daha düşük sayı daha üst lig demektir ve her kademenin kendi sayısı olmalı, yoksa hiçbiri yükselmez veya düşmez."
+        "duplicateTierPriority": "{{country}} ülkesinin birden fazla ligi {{priority}} önceliğini paylaşıyor. Daha düşük sayı daha üst lig demektir ve her kademenin kendi sayısı olmalı, yoksa hiçbiri yükselmez veya düşmez.",
+        "leaguePhaseRulesOnOtherFormat": "Lig aşaması kuralları yalnızca lig aşaması formatındaki bir turnuvada geçerlidir.",
+        "leaguePhaseRulesMissing": "Lig aşamalı bir turnuvanın lig aşaması kurallarına ihtiyacı vardır.",
+        "leaguePhaseNeedsClubCompetition": "Lig aşamasını yalnızca kıtasal ya da uluslararası bir kulüp turnuvası kullanabilir.",
+        "leaguePhaseFieldSize": "Lig aşaması tam olarak {{expected}} kulüp gerektirir, ancak {{found}} kulüp listelenmiş."
       },
       "worldParseFailed": "Dünya veritabanı dosyası ayrıştırılamadı.",
       "worldWriteFileFailed": "Dünya veritabanı dosyası dışa aktarılamadı.",
@@ -3526,6 +3577,35 @@
         "playerIncomplete": "Bu oyuncunun kaydı eksik, bu yüzden sözleşme imzalanamaz.",
         "offerRejected": "Satıcı kulüp bu teklifi çok düşük olduğu için reddetti.",
         "negotiationNotAgreed": "Koşullar üzerinde anlaşılmadı, bu yüzden transfer gerçekleştirilemez."
+      },
+      "leaguePhase": {
+        "rulesMissing": "Turnuvanın lig aşaması kuralı yok.",
+        "draw": {
+          "fieldShape": "Kulüpler lig aşamasının torbalarını doldurmuyor.",
+          "duplicateClub": "Bir kulüp lig aşaması listesinde iki kez geçiyor.",
+          "missingAssociation": "Lig aşamasındaki bir kulübün ulusal federasyonu yok, bu yüzden kura çekilemez.",
+          "infeasible": "Hiçbir kura bu kulüp listesi için federasyon kurallarını karşılayamaz.",
+          "searchExhausted": "Kura, arama sınırı içinde geçerli bir çözüm bulamadı."
+        },
+        "calendar": {
+          "noTemplate": "Turnuvanın maç takvimi yok.",
+          "unreadableDate": "Turnuvanın maç takvimindeki bir tarih okunamıyor.",
+          "matchdayCount": "Maç takviminde doğru sayıda hafta yok.",
+          "missingWindow": "Maç takviminde bir eleme turunun tarihleri eksik."
+        },
+        "schedule": {
+          "noColouring": "Kura haftalara dağıtılamadı."
+        },
+        "rules": {
+          "potCountMustDivideField": "Torba sayısı 36 kulübü tam olarak bölmelidir.",
+          "opponentsPerPotMissing": "Her kulüp her torbadan en az bir rakiple oynamalıdır.",
+          "perPotNeedsTwoOpponents": "Ev sahibi ve deplasman dengesi torba torba korunduğunda her kulüp her torbadan tam olarak iki rakiple oynar.",
+          "pairedPotsNeedOneOpponentAndEvenPots": "Eşli torbalarda her kulüp her torbadan bir rakiple oynar ve torbalar çift çift gelmelidir.",
+          "potTooSmallForItsOwnDraw": "Bir torba, içinde çekilen maçları barındıramayacak kadar küçük.",
+          "knockoutShapeUnsupported": "Yalnızca 8 doğrudan yer ve 16 play-off yeri desteklenir.",
+          "associationCapMissing": "Aynı federasyondan rakip sınırı en az bir olmalıdır.",
+          "associationLimitExceedsPotCapacity": "Federasyon başına kulüp sınırı bir torbanın yarısını aşamaz."
+        }
       }
     },
     "sender": {
