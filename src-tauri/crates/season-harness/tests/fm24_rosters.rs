@@ -68,7 +68,8 @@ fn the_squad_screen_separates_first_team_academy_and_loans() {
 /// Given the five PSG players the save registers with other clubs,
 /// When the career opens,
 /// Then each is on loan with PSG as owner, keeps PSG's contract, and the loan to a club outside the
-///      world (Nacional, Pafos) carries that club's name.
+///      world (Nacional) carries that club's name. (Pafos plays in the 2026/27 Conference League, so
+///      it is a club of the world since the European competitions: its loan names no outside club.)
 #[test]
 fn a_player_registered_elsewhere_is_on_loan_from_his_owner() {
     let Some(game) = career() else {
@@ -77,7 +78,7 @@ fn a_player_registered_elsewhere_is_on_loan_from_his_owner() {
     for (id, team, name) in [
         ("fm-p-63609", "fm-c-1107", None),
         ("fm-p-62608", "fm-c-1600", Some("Clube Desportivo Nacional")),
-        ("fm-p-60572", "fm-c-16401", Some("Pafos FC")),
+        ("fm-p-60572", "fm-c-16401", None),
     ] {
         let p = player(&game, id);
         let loan = p.active_loan.as_ref().expect(id);

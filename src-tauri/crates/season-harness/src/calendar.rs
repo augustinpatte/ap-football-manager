@@ -54,6 +54,16 @@ pub fn reloaded(game: &Game) -> Game {
     serde_json::from_slice(&saved).expect("a saved game loads")
 }
 
+/// [`reloaded`] for a run that plays across seasons: the edition archive is not part of the game's
+/// JSON (the app persists it in its own table, `competition_edition_archive`), so the reload carries
+/// it across as the real save does. Without it a renewal finds its finished edition "not on record"
+/// and, correctly, refuses to renew it.
+pub fn reloaded_keeping_archive(game: &Game) -> Game {
+    let mut loaded = reloaded(game);
+    loaded.edition_archive = game.edition_archive.clone();
+    loaded
+}
+
 /// What moved in one competition between the calendar its season was generated with and the one it
 /// was played on.
 #[derive(Debug, Clone, PartialEq, Eq)]

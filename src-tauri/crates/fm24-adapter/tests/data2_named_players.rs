@@ -211,7 +211,16 @@ fn every_blocking_integrity_check_passes_for_all_clubs() {
         .collect();
 
     assert!(failed.is_empty(), "{failed:?}");
-    assert_eq!(run.clubs.len(), 240);
+    // The 240 clubs of the domestic leagues and the clubs added only to play in Europe.
+    let european_only = run
+        .european
+        .as_ref()
+        .map_or(0, |e| e.continental_only.len());
+    assert_eq!(run.clubs.len(), 240 + european_only);
+    assert!(
+        european_only > 0,
+        "the real world carries its European-only clubs"
+    );
 }
 
 /// Given the real save, which carries no career records,

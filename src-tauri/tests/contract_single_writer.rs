@@ -35,6 +35,8 @@ const STAGING_ALLOWED: &[&str] = &[
     // OFM's own filler players down to the wage scale of their division, as world generation does
     // for its own players.
     "crates/fm24-adapter/src/pipeline.rs",
+    // The squad passes of the import (moved out of pipeline.rs to keep it inside its size cap).
+    "crates/fm24-adapter/src/generated_squads.rs",
 ];
 
 /// Methods that change a list. Any of them on a movement history, outside the ledger's

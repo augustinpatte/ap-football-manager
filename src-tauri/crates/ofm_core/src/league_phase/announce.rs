@@ -355,7 +355,7 @@ mod tests {
 
         let draw = ids(&game, "european_draw_");
         assert_eq!(draw.len(), 1, "{draw:?}");
-        let message = game.messages.iter().find(|m| m.id == draw[0]).unwrap();
+        let message = game.messages.iter().find(|m| draw.contains(&m.id)).unwrap();
         assert_eq!(
             message.subject_key.as_deref(),
             Some("be.msg.europeanDraw.subject")

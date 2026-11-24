@@ -13,7 +13,7 @@ use domain::league::CompetitionType;
 use domain::league_phase::CompetitionStage;
 use ofm_core::game::Game;
 use season_harness::calendar::{
-    CalendarStudy, Displacement, matches_per_month, reloaded, unplayed_clashes,
+    CalendarStudy, Displacement, matches_per_month, reloaded_keeping_archive, unplayed_clashes,
 };
 use season_harness::driver::{RunOptions, SeasonObserver, play_day, run_seasons};
 use season_harness::europe::{clubs_in_two_european_competitions, european};
@@ -461,7 +461,7 @@ fn three_european_seasons_survive_a_reload_at_every_stage() {
             rolled += 1;
             season += 1;
             // After the rollover: the reload that proves renewal is saved correctly.
-            game = reloaded(&game);
+            game = reloaded_keeping_archive(&game);
             reloads += 1;
             continue;
         }
@@ -482,7 +482,7 @@ fn three_european_seasons_survive_a_reload_at_every_stage() {
             let before: Vec<String> = european(&game)
                 .map(|c| serde_json::to_string(c).unwrap())
                 .collect();
-            game = reloaded(&game);
+            game = reloaded_keeping_archive(&game);
             let after: Vec<String> = european(&game)
                 .map(|c| serde_json::to_string(c).unwrap())
                 .collect();

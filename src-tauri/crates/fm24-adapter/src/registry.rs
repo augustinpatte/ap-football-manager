@@ -158,12 +158,20 @@ pub fn build_registry(world_db: &Path, destination: &Path) -> crate::Result<Regi
     let source = Source::open(world_db)?;
     let facts = source.schema_facts()?;
     let source_sha256 = Source::sha256(world_db)?;
-    let perimeter: HashSet<i64> = source
+    let mut perimeter: HashSet<i64> = source
         .perimeter(facts.start_season)?
         .into_iter()
         .map(|(_, club)| club)
         .collect();
     let cfg = Config::default_config();
+    // The clubs that exist only for the European competitions are clubs of the world as well: their
+    // players are active-world players, so the registry must not offer them as external players
+    // (a second owner), and it fits its valuation on the same population as the world.
+    if cfg.competitions.authored_rules && cfg.competitions.european {
+        let domestic: std::collections::BTreeSet<i64> = perimeter.iter().copied().collect();
+        perimeter
+            .extend(crate::europe::EuropeanFields::embedded()?.continental_only_ids(&domestic));
+    }
     let refs = Refs::embedded()?;
     let built_on = NaiveDate::parse_from_str(&cfg.start.date, "%Y-%m-%d")
         .map_err(|_| "be.error.fm24.registryBuildFailed".to_string())?;
