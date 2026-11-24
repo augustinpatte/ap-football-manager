@@ -29,6 +29,8 @@ pub struct RuleContext<'a> {
     pub reputation: &'a BTreeMap<i64, i64>,
     /// The weekday pattern of each league (`config::CalendarCfg`).
     pub calendar: &'a crate::config::CalendarCfg,
+    /// The European competitions to author, when the world has them.
+    pub european: Option<&'a crate::europe::EuropeanFields>,
 }
 
 /// Builds the league and cup definitions. `members` maps competition id -> club ids (sorted).
@@ -90,6 +92,11 @@ pub fn build(
         }
         let mut definition: CompetitionDefinition = serde_json::from_value(value)
             .map_err(|e| format!("competition {} definition: {e}", competition.id))?;
+        if context.european.is_some()
+            && let Some(key) = competition.target_key.as_deref()
+        {
+            definition.berths = crate::europe::league_berths(key);
+        }
         if context.authored {
             let country_clubs = clubs_of_country(competitions, members, refs, &country);
             definition.rules = Some(rules::league_rules(
@@ -102,6 +109,49 @@ pub fn build(
     }
     if context.authored {
         definitions.extend(build_cups(competitions, members, refs, journal, context)?);
+    }
+    if let Some(fields) = context.european {
+        definitions.extend(build_european(fields)?);
+    }
+    Ok(definitions)
+}
+
+/// The three European competitions: their explicit 2026/27 fields and the league-phase profiles
+/// ([`ofm_core::league_phase::profiles`]). The first edition's participants are UEFA's; the draw
+/// is made by the game when a career starts and is the game's own, never UEFA's.
+fn build_european(fields: &crate::europe::EuropeanFields) -> Result<Vec<CompetitionDefinition>> {
+    use ofm_core::generator::AuthoredRules;
+    use ofm_core::league_phase::profiles;
+    let mut definitions = Vec::new();
+    for (index, (key, short, name)) in crate::europe::COMPETITIONS.iter().enumerate() {
+        let league_phase = match *key {
+            "UCL" => profiles::champions_league_2026(),
+            "UEL" => profiles::europa_league_2026(),
+            _ => profiles::conference_league_2026(),
+        };
+        let id = ids::european_competition(short);
+        let rules = serde_json::to_value(AuthoredRules {
+            league_phase: Some(league_phase),
+            ..AuthoredRules::default()
+        })
+        .map_err(|e| format!("{id} rules: {e}"))?;
+        let value = json!({
+            "id": id,
+            "name": name,
+            "type": "ContinentalClub",
+            "scope": "Continental",
+            "requiredRegionIds": ["europe"],
+            "priority": index + 1,
+            "format": { "kind": "LeaguePhaseAndKnockout" },
+            "participants": {
+                "explicit": fields.field_of(key).map(|p| p.club_id()).collect::<Vec<_>>(),
+            },
+            "seasonStartMonth": 8,
+            "seasonStartDay": 1,
+            "rules": rules,
+        });
+        definitions
+            .push(serde_json::from_value(value).map_err(|e| format!("{id} definition: {e}"))?);
     }
     Ok(definitions)
 }
@@ -212,6 +262,9 @@ fn build_cups(
             feeders.iter().map(|row| ids::competition(row.id)).collect(),
             reserves,
         ));
+        if context.european.is_some() {
+            definition.berths = crate::europe::cup_berths(cup.key);
+        }
         definitions.push(definition);
     }
     Ok(definitions)

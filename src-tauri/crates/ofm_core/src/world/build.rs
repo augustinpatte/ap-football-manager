@@ -165,6 +165,7 @@ pub fn build_game_from_world_data(
                     .filter(|existing_manager| existing_manager.id != game.manager.id),
             );
             game.competitions = competitions;
+            crate::league_phase::draw_pending_editions(&mut game);
             game.national_teams = national_teams;
             game.active_region_ids = default_active_regions;
             game.active_competition_ids = default_active_competitions;
@@ -190,6 +191,7 @@ pub fn build_game_from_world_data(
             // Authored definitions, if any, become the world's competitions;
             // otherwise ensure_multi_competition_foundations auto-builds them.
             game.competitions = competitions;
+            crate::league_phase::draw_pending_editions(&mut game);
             game.extra_translations = extra_translations;
             // Build the league/division foundations *before* generating history so
             // each club's past seasons are attributed to its real ~20-team

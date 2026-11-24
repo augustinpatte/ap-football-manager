@@ -197,7 +197,129 @@ pub(super) fn evaluate_berth_rule(game: &Game, source: &League, rule: &BerthRule
         }
         BerthRule::CupWinner => cup_champion(game, source).into_iter().collect(),
         BerthRule::PlayoffWinner { .. } => Vec::new(),
+        BerthRule::Incumbent => european_incumbents(game, source),
+        BerthRule::Titleholder => european_titleholder(game, source).into_iter().collect(),
+        BerthRule::EuropeanPerformance { position, places } => {
+            european_performance_place(game, source, *position, *places)
+                .into_iter()
+                .collect()
+        }
     }
+}
+
+/// The clubs of a league-phase competition's edition whose league the world does not simulate:
+/// no domestic league table carries them, so no domestic result can requalify them and the place
+/// stays with the club. (Synthetic by design; see `BerthRule::Incumbent`.)
+fn european_incumbents(game: &Game, source: &League) -> Vec<String> {
+    let in_domestic_table: std::collections::HashSet<&str> = game
+        .competitions
+        .iter()
+        .filter(|competition| {
+            competition.scope == CompetitionScope::Domestic
+                && competition.kind == CompetitionType::League
+        })
+        .flat_map(|competition| competition.participant_ids.iter().map(String::as_str))
+        .collect();
+    source
+        .participant_ids
+        .iter()
+        .filter(|club| !in_domestic_table.contains(club.as_str()))
+        .cloned()
+        .collect()
+}
+
+/// Who won a league-phase competition's edition: its champion once the edition is completed, or,
+/// when the competition has already been renewed (its new edition is drawn but unplayed), the
+/// champion of the edition it last finished. An edition still being played has none yet.
+fn european_titleholder(game: &Game, source: &League) -> Option<String> {
+    use domain::league_phase::CompetitionStage;
+    let state = source.league_phase.as_ref()?;
+    match state.stage {
+        CompetitionStage::Completed => state.champion_id.clone(),
+        CompetitionStage::Created | CompetitionStage::LeaguePhaseScheduled => {
+            crate::edition_archive::champion_of_latest_edition_before(
+                &game.edition_archive,
+                &source.id,
+                source.season,
+            )
+            .map(str::to_string)
+        }
+        _ => None,
+    }
+}
+
+/// The club finishing `position` in `source` when its association is one of the `places` best
+/// performers of the latest European season among the associations whose league the world simulates
+/// (UEFA's European performance spots, on this game's own coefficient points).
+fn european_performance_place(
+    game: &Game,
+    source: &League,
+    position: u32,
+    places: u32,
+) -> Option<String> {
+    use crate::league_phase::coefficient;
+    use std::collections::HashMap;
+    let association = source.country_id.as_deref()?;
+    let mut simulated: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for competition in &game.competitions {
+        if competition.scope == CompetitionScope::Domestic
+            && competition.kind == CompetitionType::League
+            && let Some(country) = competition.country_id.as_deref()
+        {
+            simulated.insert(country);
+        }
+    }
+    let nation_of: HashMap<&str, &str> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.football_nation.as_str()))
+        .collect();
+    let association_of = |club: &str| nation_of.get(club).map(|nation| (*nation).to_string());
+    let bonus_of = |competition_id: &str| {
+        game.competitions
+            .iter()
+            .find(|competition| {
+                competition.id == competition_id
+                    && crate::league_phase::rules_of(competition).is_some()
+            })
+            .map(|competition| coefficient::stage_bonus_millis(competition.priority))
+    };
+    let records = coefficient::season_records(&european_editions(game), &bonus_of);
+    let best: Vec<String> = coefficient::association_ranking(&records, &association_of)
+        .into_iter()
+        .map(|(association, _)| association)
+        .filter(|association| simulated.contains(association.as_str()))
+        .take(places as usize)
+        .collect();
+    if !best.iter().any(|candidate| candidate == association) {
+        return None;
+    }
+    standings_for_berth(game, source)
+        .into_iter()
+        .nth((position as usize).saturating_sub(1))
+        .map(|entry| entry.team_id)
+}
+
+/// The league-phase editions on record, plus the ones finished but not yet archived (the rollover
+/// reads qualification before the daily renewal archives them).
+pub(crate) fn european_editions(game: &Game) -> Vec<domain::edition_archive::CompletedEdition> {
+    let mut editions: Vec<_> = game
+        .edition_archive
+        .iter()
+        .filter(|edition| edition.league_phase.is_some())
+        .cloned()
+        .collect();
+    for competition in &game.competitions {
+        if crate::league_phase::rules_of(competition).is_some()
+            && competition.league_phase.as_ref().is_some_and(|state| {
+                state.stage == domain::league_phase::CompetitionStage::Completed
+            })
+        {
+            // Same proof as the archive: an edition that does not prove complete is not counted.
+            let _ = crate::edition_archive::archive_completed_edition(&mut editions, competition);
+        }
+    }
+    editions
 }
 
 /// Teams a single competition's results award to `target` via its berths.
@@ -327,11 +449,39 @@ where
         }
     }
 
+    // A titleholder holds its place by right: it is never the club an oversubscribed field cuts.
+    let titleholders: HashSet<String> = game
+        .competitions
+        .iter()
+        .flat_map(|source| {
+            source
+                .berths
+                .iter()
+                .filter(|berth| berth.rule == BerthRule::Titleholder)
+                .flat_map(move |berth| evaluate_berth_rule(game, source, &berth.rule))
+        })
+        .collect();
+
     let mut fields = HashMap::new();
+    let mut cut_from_above: Vec<String> = Vec::new();
     for target in &targets {
-        let qualified = raw.remove(&target.id).unwrap_or_default();
+        let mut qualified = raw.remove(&target.id).unwrap_or_default();
+        // The clubs the competition above had no room for are offered this one.
+        for club in std::mem::take(&mut cut_from_above) {
+            if !qualified.contains(&club) {
+                qualified.push(club);
+            }
+        }
         let field = if options.fill {
-            seed_cap_and_fill(game, target, qualified, all_placed.clone())
+            let (field, cut) = seed_cap_and_fill_keeping(
+                game,
+                target,
+                qualified,
+                all_placed.clone(),
+                &titleholders,
+            );
+            cut_from_above = cut;
+            field
         } else {
             qualified
         };
@@ -363,9 +513,29 @@ pub fn resolve_continental_fields(game: &Game) -> std::collections::HashMap<Stri
 fn seed_cap_and_fill(
     game: &Game,
     competition: &League,
-    mut qualified: Vec<String>,
+    qualified: Vec<String>,
     seen: std::collections::HashSet<String>,
 ) -> Vec<String> {
+    seed_cap_and_fill_keeping(
+        game,
+        competition,
+        qualified,
+        seen,
+        &std::collections::HashSet::new(),
+    )
+    .0
+}
+
+/// [`seed_cap_and_fill`] for a field that may be oversubscribed: the clubs in `protected` (a
+/// titleholder, who holds its place by right) are never the ones cut, and the clubs that were cut
+/// are returned beside the field so the caller can offer them the next competition down.
+fn seed_cap_and_fill_keeping(
+    game: &Game,
+    competition: &League,
+    mut qualified: Vec<String>,
+    seen: std::collections::HashSet<String>,
+    protected: &std::collections::HashSet<String>,
+) -> (Vec<String>, Vec<String>) {
     let field_size = competition.participant_ids.len().max(4);
     let feeder_regions = feeder_regions(game, competition);
 
@@ -376,8 +546,14 @@ fn seed_cap_and_fill(
             .map(|team| team.reputation)
             .unwrap_or(0)
     };
-    qualified.sort_by(|a, b| reputation(b).cmp(&reputation(a)).then_with(|| a.cmp(b)));
-    qualified.truncate(field_size);
+    qualified.sort_by(|a, b| {
+        protected
+            .contains(b)
+            .cmp(&protected.contains(a))
+            .then_with(|| reputation(b).cmp(&reputation(a)))
+            .then_with(|| a.cmp(b))
+    });
+    let cut = qualified.split_off(qualified.len().min(field_size));
 
     if qualified.len() < field_size {
         let mut fillers: Vec<_> = game
@@ -401,5 +577,5 @@ fn seed_cap_and_fill(
         }
     }
 
-    qualified
+    (qualified, cut)
 }

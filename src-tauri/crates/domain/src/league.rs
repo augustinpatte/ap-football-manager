@@ -168,6 +168,19 @@ pub enum BerthRule {
     /// The winner of a playoff contested by league finishers in the inclusive
     /// 1-based range `[from, to]`.
     PlayoffWinner { from: u32, to: u32 },
+    /// Set on a league-phase competition, targeting itself: the clubs of its current edition that
+    /// no domestic league of the world carries keep their place. Their association's league is not
+    /// simulated, so there is no domestic result to requalify them by; the place stays with the
+    /// club until a European result (a titleholder, a vacancy) moves it. Synthetic by design.
+    Incumbent,
+    /// Set on a league-phase competition: the winner of its finished edition qualifies for the
+    /// berth's target (the Champions League titleholder keeps its place, the Europa League's
+    /// takes one in the Champions League, the Conference League's one in the Europa League).
+    Titleholder,
+    /// Set on a league table: the club finishing `position` qualifies when the league's association
+    /// is one of the `places` best performers in the previous European editions, by the
+    /// coefficient points its clubs earned per club (UEFA's European performance spots).
+    EuropeanPerformance { position: u32, places: u32 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

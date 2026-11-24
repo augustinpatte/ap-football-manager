@@ -118,7 +118,24 @@ pub struct Run {
     pub total_players_in_source: (i64, i64),
     pub club_country: BTreeMap<i64, String>,
     pub short_codes: BTreeMap<i64, String>,
+    /// The European competitions' fields and how each participant maps to the source; `None` when
+    /// the world is built without them.
+    pub european: Option<EuropeanFacts>,
 }
+
+/// What the European competitions added to the world.
+#[derive(Debug, Clone)]
+pub struct EuropeanFacts {
+    pub fields: crate::europe::EuropeanFields,
+    /// Source clubs added only to play in Europe: in no domestic league of the world.
+    pub continental_only: Vec<i64>,
+    /// Clubs with no source counterpart, generated under their UEFA identity.
+    pub generated_clubs: Vec<String>,
+}
+
+/// The competition id the source gives a club that plays in no league of its perimeter: a club
+/// added only for the European competitions.
+pub const CONTINENTAL_ONLY: i64 = 0;
 
 pub const EXPECTED_CLUBS: usize = 240;
 pub const EXPECTED_COMPETITIONS: usize = 12;
@@ -139,11 +156,26 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
 
     // --- perimeter, by internal ids ------------------------------------------------------------
     let perimeter = source.perimeter(schema.start_season)?;
-    let club_ids: Vec<i64> = perimeter.iter().map(|(_, club)| *club).collect();
-    let unique_clubs: BTreeSet<i64> = club_ids.iter().copied().collect();
-    if unique_clubs.len() != club_ids.len() {
+    let domestic_club_ids: Vec<i64> = perimeter.iter().map(|(_, club)| *club).collect();
+    let domestic_clubs: BTreeSet<i64> = domestic_club_ids.iter().copied().collect();
+    if domestic_clubs.len() != domestic_club_ids.len() {
         return Err("a club appears in two perimeter competitions".to_string());
     }
+    // The European competitions bring clubs of other associations whose leagues the world does
+    // not simulate: they are added to the world, in no domestic league, with the same squads,
+    // staff and finances as every other club.
+    let european_fields = if cfg.competitions.authored_rules && cfg.competitions.european {
+        Some(crate::europe::EuropeanFields::embedded()?)
+    } else {
+        None
+    };
+    let continental_only: Vec<i64> = european_fields
+        .as_ref()
+        .map(|fields| fields.continental_only_ids(&domestic_clubs))
+        .unwrap_or_default();
+    let mut club_ids = domestic_club_ids.clone();
+    club_ids.extend(continental_only.iter().copied());
+    let unique_clubs: BTreeSet<i64> = club_ids.iter().copied().collect();
     let competition_ids: Vec<i64> = perimeter
         .iter()
         .map(|(comp, _)| *comp)
@@ -155,7 +187,24 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     for (comp, club) in &perimeter {
         members.entry(*comp).or_default().push(*club);
     }
-    let clubs = source.clubs(&perimeter)?;
+    // A continental-only club belongs to no competition of the source's perimeter (id 0).
+    let mut club_pairs = perimeter.clone();
+    club_pairs.extend(
+        continental_only
+            .iter()
+            .map(|club| (CONTINENTAL_ONLY, *club)),
+    );
+    let clubs = source.clubs(&club_pairs)?;
+    if let Some(fields) = &european_fields {
+        let problems = fields.check_against_source(&clubs, |nation| refs.nation_code(nation));
+        if !problems.is_empty() {
+            return Err(format!(
+                "the European mapping disagrees with world.db ({} problems), first: {}",
+                problems.len(),
+                problems.first().cloned().unwrap_or_default()
+            ));
+        }
+    }
     let players = source.players(&club_ids)?;
     let staff_rows = source.staff(&club_ids)?;
     let total_players_in_source = source.total_players()?;
@@ -167,38 +216,48 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
     let mut teams: Vec<TeamDef> = Vec::new();
     for club in &clubs {
         let id = ids::club(club.id);
-        let country = club
-            .nation
-            .as_deref()
-            .and_then(|n| refs.nation_code(n))
-            .ok_or_else(|| {
-                format!(
-                    "{id} ({}): club nation `{:?}` has no OFM code",
-                    club.name, club.nation
-                )
-            })?;
+        let participant = european_fields
+            .as_ref()
+            .and_then(|fields| fields.by_fm_id(club.id));
+        // A European participant's association is recorded with the mapping (checked against the
+        // source's nation); a club with no nation in the source (Gibraltar has none) takes it
+        // from there, and nowhere else.
+        let country = match (club.nation.as_deref(), participant) {
+            (Some(nation), _) => refs.nation_code(nation),
+            (None, Some(participant)) => Some(participant.association.clone()),
+            (None, None) => None,
+        }
+        .ok_or_else(|| {
+            format!(
+                "{id} ({}): club nation `{:?}` has no OFM code",
+                club.name, club.nation
+            )
+        })?;
         club_country.insert(club.id, country.clone());
-        let city = match refs.city(club.id) {
-            Some((checked_name, city)) if checked_name == club.name => city.to_string(),
-            Some((checked_name, _)) => {
-                journal.error(
-                    "club.city_row_mismatch",
-                    &id,
-                    format!(
-                        "club_city.csv names `{checked_name}` but world.db names `{}`",
-                        club.name
-                    ),
-                );
-                club.name.clone()
-            }
-            None => {
-                journal.error(
-                    "club.city_missing",
-                    &id,
-                    format!("no city for {}", club.name),
-                );
-                club.name.clone()
-            }
+        let city = match participant.filter(|_| club.competition_id == CONTINENTAL_ONLY) {
+            Some(participant) => participant.city.clone(),
+            None => match refs.city(club.id) {
+                Some((checked_name, city)) if checked_name == club.name => city.to_string(),
+                Some((checked_name, _)) => {
+                    journal.error(
+                        "club.city_row_mismatch",
+                        &id,
+                        format!(
+                            "club_city.csv names `{checked_name}` but world.db names `{}`",
+                            club.name
+                        ),
+                    );
+                    club.name.clone()
+                }
+                None => {
+                    journal.error(
+                        "club.city_missing",
+                        &id,
+                        format!("no city for {}", club.name),
+                    );
+                    club.name.clone()
+                }
+            },
         };
         let short = shorts.assign(&club.short_name, &club.name);
         short_codes_by_club.insert(club.id, short.clone());
@@ -232,6 +291,46 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
             kit_pattern: None,
             founded_year: None,
         });
+    }
+
+    // A European participant with no source club is generated under its UEFA identity: a club the
+    // world builder fills with generated players, all listed as generated in the report. Nothing
+    // about it (name aside) is claimed to be real.
+    let mut generated_clubs: Vec<String> = Vec::new();
+    if let Some(fields) = &european_fields {
+        for participant in fields.generated() {
+            let id = participant.club_id();
+            let reputation =
+                (participant.assumed_reputation.unwrap_or(0) / 10).clamp(0, 1000) as u32;
+            journal.warn(
+                "club.generated",
+                &id,
+                format!(
+                    "{} ({}) has no counterpart in world.db: a generated club with the UEFA name, \
+                     reputation {} (an APFM assumption) and a generated squad",
+                    participant.uefa_name, participant.association, reputation
+                ),
+            );
+            teams.push(TeamDef {
+                id: id.clone(),
+                name: participant.uefa_name.clone(),
+                short_name: shorts.assign("", &participant.uefa_name),
+                city: participant.city.clone(),
+                country: participant.association.clone(),
+                colors: TeamColorsDef {
+                    primary: "#ffffff".to_string(),
+                    secondary: "#000000".to_string(),
+                },
+                play_style: "Balanced".to_string(),
+                stadium_name: String::new(),
+                reputation_range: Some([reputation, reputation]),
+                finance_range: None,
+                logo: None,
+                kit_pattern: None,
+                founded_year: None,
+            });
+            generated_clubs.push(id);
+        }
     }
 
     // --- players -------------------------------------------------------------------------------
@@ -362,6 +461,7 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         reserve_pairs: &reserve_pairs,
         reputation: &reputation,
         calendar: &cfg.calendar,
+        european: european_fields.as_ref(),
     };
 
     // --- package on disk, then OFM's own loader and validator ----------------------------------
@@ -483,6 +583,11 @@ pub fn run(world_db: &Path, package_dir: &Path, cfg: &Config) -> Result<Run> {
         total_players_in_source,
         club_country,
         short_codes: short_codes_by_club,
+        european: european_fields.map(|fields| EuropeanFacts {
+            fields,
+            continental_only: continental_only.clone(),
+            generated_clubs,
+        }),
     })
 }
 
@@ -1368,7 +1473,12 @@ fn list_generated(
         })
         .collect();
     staff.sort_by(|a, b| a.club_id.cmp(&b.club_id).then(a.id.cmp(&b.id)));
-    debug_assert!(players.iter().all(|p| known.contains(&p.club_id)));
+    // A generated club (no source id) maps to 0, which no source club has.
+    debug_assert!(
+        players
+            .iter()
+            .all(|p| p.club_id == 0 || known.contains(&p.club_id))
+    );
     (players, staff)
 }
 

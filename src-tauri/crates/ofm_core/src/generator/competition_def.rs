@@ -463,9 +463,17 @@ fn validate_berths(
     );
 
     for berth in &competition.berths {
-        check_berth_target(competition, &berth.target, known_ids, errors);
+        // Only a rule that is about the competition's own edition may point at the competition.
+        let may_target_itself = matches!(berth.rule, BerthRule::Incumbent | BerthRule::Titleholder);
+        check_berth_target(
+            competition,
+            &berth.target,
+            may_target_itself,
+            known_ids,
+            errors,
+        );
         if let Some(fallback) = &berth.fallback_to {
-            check_berth_target(competition, fallback, known_ids, errors);
+            check_berth_target(competition, fallback, false, known_ids, errors);
         }
 
         match &berth.rule {
@@ -491,6 +499,24 @@ fn validate_berths(
                     ));
                 }
             }
+            BerthRule::Incumbent | BerthRule::Titleholder => {
+                if competition.format.kind != CompetitionFormat::LeaguePhaseAndKnockout {
+                    errors.push(DefinitionError::new(
+                        "be.error.competitionDef.berthRequiresLeaguePhase",
+                        &competition.id,
+                    ));
+                }
+            }
+            BerthRule::EuropeanPerformance { position, places } => {
+                validate_range(competition, *position, *position, errors);
+                require_league(competition, is_league, errors);
+                if *places == 0 {
+                    errors.push(DefinitionError::new(
+                        "be.error.competitionDef.berthNoPlaces",
+                        &competition.id,
+                    ));
+                }
+            }
         }
     }
 }
@@ -498,6 +524,7 @@ fn validate_berths(
 fn check_berth_target(
     competition: &CompetitionDefinition,
     target: &str,
+    may_target_itself: bool,
     known_ids: &HashSet<&str>,
     errors: &mut Vec<DefinitionError>,
 ) {
@@ -514,7 +541,7 @@ fn check_berth_target(
     // A berth sends clubs somewhere else. Pointed at itself it validates
     // cleanly, marks the competition as berth-fed, and quietly takes it off
     // its own country's promotion ladder — a typo that costs a whole pyramid.
-    if target == competition.id {
+    if target == competition.id && !may_target_itself {
         errors.push(
             DefinitionError::new("be.error.competitionDef.berthSelfTarget", &competition.id)
                 .with("target", target.to_string()),

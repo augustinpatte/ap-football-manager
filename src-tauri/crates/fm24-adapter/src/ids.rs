@@ -21,6 +21,31 @@ pub fn cup(key: &str) -> String {
     format!("fm-cup-{key}")
 }
 
+/// A club that has no counterpart in world.db: named by its association and the UEFA name it
+/// carries, never by a number, so nothing can mistake it for a source club.
+pub fn generated_club(association: &str, uefa_name: &str) -> String {
+    let slug: String = uefa_name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    format!("eu-gen-{}-{slug}", association.to_ascii_lowercase())
+}
+
+/// One of the three 2026/27 European competitions, named by its short key (`ucl`, `uel`, `uecl`).
+pub fn european_competition(key: &str) -> String {
+    format!("eu-{key}")
+}
+
 /// The internal key behind an id, if it has the expected prefix.
 pub fn internal_key(id: &str, prefix: &str) -> Option<i64> {
     id.strip_prefix(prefix)?.parse().ok()

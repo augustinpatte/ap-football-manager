@@ -104,6 +104,66 @@ pub(crate) fn renew_finished_cups(game: &mut Game, today: &str) -> usize {
     renewed
 }
 
+/// Whether any league-phase competition is in the middle of an edition (drawn and begun, not yet
+/// completed). A finished one, or one renewed and not yet begun, is not.
+fn european_edition_in_progress(game: &Game) -> bool {
+    use domain::league_phase::CompetitionStage;
+    game.competitions.iter().any(|competition| {
+        crate::league_phase::rules_of(competition).is_some()
+            && competition.league_phase.as_ref().is_some_and(|state| {
+                !matches!(
+                    state.stage,
+                    CompetitionStage::Created
+                        | CompetitionStage::LeaguePhaseScheduled
+                        | CompetitionStage::Completed
+                )
+            })
+    })
+}
+
+/// Archives every finished league-phase edition and resolves, together, the fields the berths
+/// give the next editions (domestic results, cup winners, the titleholders, the European
+/// performance places and the places kept by clubs whose league is not simulated). The result is
+/// set aside as each competition's next field, replacing the provisional one the rollover left
+/// when the editions were still being played. A competition no berth feeds keeps its field.
+fn settle_continental_fields(game: &mut Game) {
+    for index in 0..game.competitions.len() {
+        let competition = &game.competitions[index];
+        if crate::league_phase::rules_of(competition).is_some()
+            && crate::league_phase::edition_was_played(competition)
+            && crate::league_phase::edition_is_finished(competition)
+            && let Err(failure) = archive_completed_edition(&mut game.edition_archive, competition)
+        {
+            warn!(
+                "[league-phase-renewal] {} season {} cannot be archived: {failure:?}",
+                competition.id, competition.season
+            );
+            return;
+        }
+    }
+    let fields = crate::end_of_season::resolve_continental_fields(game);
+    for competition in &mut game.competitions {
+        let Some(rules) = crate::league_phase::rules_of(competition) else {
+            continue;
+        };
+        let size = rules.field_size();
+        let Some(field) = fields.get(&competition.id) else {
+            continue;
+        };
+        if field.len() != size {
+            warn!(
+                "[league-phase-renewal] {} was offered {} clubs for {size} places; keeping its waiting field",
+                competition.id,
+                field.len()
+            );
+            continue;
+        }
+        if let Some(state) = competition.league_phase.as_mut() {
+            state.next_entrants = field.clone();
+        }
+    }
+}
+
 /// Archives and renews every finished league-phase competition whose next edition is near, and
 /// returns how many it renewed. The rollover renews the ones it finds finished; this is the way
 /// out for one that was still being played at the rollover (its final falls in June, after most
@@ -119,6 +179,21 @@ pub(crate) fn renew_finished_league_phases(game: &mut Game, today: &str) -> usiz
         return 0;
     };
     let today_start = earliest_start - Days::new(BREAK_BETWEEN_EDITIONS_DAYS);
+    let any_due = game.competitions.iter().any(|competition| {
+        crate::league_phase::rules_of(competition).is_some()
+            && crate::league_phase::edition_is_finished(competition)
+            && next_edition_is_near(competition, &game.clock, today_start, earliest_start)
+    });
+    if !any_due {
+        return 0;
+    }
+    // The next fields depend on every edition's result (a titleholder moves up a competition, a
+    // European performance place needs the whole season), so no competition renews while another
+    // is still being played, and the three fields are settled together before any renews.
+    if european_edition_in_progress(game) {
+        return 0;
+    }
+    settle_continental_fields(game);
     let mut renewed = 0;
     for index in 0..game.competitions.len() {
         let competition = &game.competitions[index];

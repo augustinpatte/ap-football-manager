@@ -1,4 +1,4 @@
-//! `apfm-import <world.db> <out-dir> [--verify-determinism] [--legacy-rules]`
+//! `apfm-import <world.db> <out-dir> [--verify-determinism] [--legacy-rules] [--no-european]`
 //!
 //! Reads world.db read-only, builds the APFM world, runs the integrity checks and writes the world
 //! file, its sidecars and the report into `<out-dir>`. Refuses to write if a blocking check fails.
@@ -15,7 +15,7 @@ fn main() {
     let positional: Vec<&String> = args.iter().filter(|a| !a.starts_with("--")).collect();
     let (Some(world_db), Some(out)) = (positional.first(), positional.get(1)) else {
         eprintln!(
-            "usage: apfm-import <world.db> <out-dir> [--verify-determinism] [--legacy-rules]"
+            "usage: apfm-import <world.db> <out-dir> [--verify-determinism] [--legacy-rules] [--no-european]"
         );
         std::process::exit(2);
     };
@@ -44,6 +44,11 @@ fn execute(
     }
     if legacy_rules {
         cfg.competitions.authored_rules = false;
+    }
+    // The five-country world of the earlier missions, without the European competitions and the
+    // clubs that exist only to play in them: the baseline a European world is compared with.
+    if std::env::args().any(|arg| arg == "--no-european") {
+        cfg.competitions.european = false;
     }
     let started = Instant::now();
     let run = pipeline::run(world_db, &out.join("package"), &cfg)?;

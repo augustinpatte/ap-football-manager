@@ -48,6 +48,33 @@ pub fn division_sizes(game: &Game) -> BTreeMap<String, usize> {
         .collect()
 }
 
+/// The nations whose clubs exist only to play in the European competitions: every club of the
+/// nation is, or once was, in a league-phase edition, and the nation has no table. Such a nation
+/// has no pyramid by design (its league is not simulated), which is not a pyramid that vanished: a
+/// nation whose clubs were never in Europe is not one, so a deleted league is still reported.
+fn continental_only_nations<'a>(
+    game: &Game,
+    clubs_by_nation: &BTreeMap<&'a str, BTreeSet<&str>>,
+) -> BTreeSet<&'a str> {
+    let in_europe: BTreeSet<&str> = game
+        .competitions
+        .iter()
+        .filter(|competition| crate::league_phase::rules_of(competition).is_some())
+        .flat_map(|competition| competition.participant_ids.iter().map(String::as_str))
+        .chain(
+            game.edition_archive
+                .iter()
+                .filter(|edition| edition.league_phase.is_some())
+                .flat_map(|edition| edition.participant_ids.iter().map(String::as_str)),
+        )
+        .collect();
+    clubs_by_nation
+        .iter()
+        .filter(|(_, clubs)| clubs.iter().all(|club| in_europe.contains(club)))
+        .map(|(nation, _)| *nation)
+        .collect()
+}
+
 /// Everything wrong with how `game`'s domestic league tables hold their clubs,
 /// as messages. Empty means the ladder is sound.
 ///
@@ -73,7 +100,12 @@ pub fn ladder_violations(game: &Game, authored_sizes: &BTreeMap<String, usize>) 
     // Argentine leagues deleted after every season. So the country sets are
     // compared first, and a missing one is a violation in its own right.
     let represented: BTreeSet<&str> = tables_by_country.keys().copied().collect();
-    let expected: BTreeSet<&str> = clubs_by_nation.keys().copied().collect();
+    let continental_only = continental_only_nations(game, &clubs_by_nation);
+    let expected: BTreeSet<&str> = clubs_by_nation
+        .keys()
+        .copied()
+        .filter(|nation| !continental_only.contains(nation))
+        .collect();
     for nation in expected.difference(&represented) {
         violations.push(format!("{nation} has clubs but no league table"));
     }
@@ -390,6 +422,49 @@ mod tests {
             violations
                 .iter()
                 .any(|message| message.contains("AR has clubs but no league table")),
+            "{violations:?}"
+        );
+    }
+
+    /// Given a country whose league is not simulated but whose clubs all play in a European
+    ///       league phase
+    /// When the ladder is asked about the world
+    /// Then that is no violation (it never had a pyramid), while the same country with no European
+    ///      club is still reported: deleting a league is not the same as never having one.
+    #[test]
+    fn a_nation_that_exists_only_for_europe_has_no_pyramid_to_lose() {
+        let mut game = small_world();
+        let sizes = division_sizes(&game);
+        let argentines: Vec<String> = game
+            .teams
+            .iter()
+            .filter(|team| team.football_nation == "AR")
+            .map(|team| team.id.clone())
+            .collect();
+        game.competitions
+            .retain(|competition| competition.country_id.as_deref() != Some("AR"));
+        // The sizes of the Argentine divisions went with them: this is a world that never had them.
+        let sizes: BTreeMap<String, usize> = sizes
+            .into_iter()
+            .filter(|(id, _)| !id.starts_with("ar-"))
+            .collect();
+        assert!(
+            ladder_violations(&game, &sizes)
+                .iter()
+                .any(|message| message.contains("AR has clubs but no league table"))
+        );
+
+        let mut europe = League::new("eu".into(), "Eu".into(), 2033, &argentines);
+        europe.kind = CompetitionType::ContinentalClub;
+        europe.scope = CompetitionScope::Continental;
+        europe.rules.format = CompetitionFormat::LeaguePhaseAndKnockout;
+        europe.rules.league_phase = Some(crate::league_phase::profiles::champions_league_2026());
+        game.competitions.push(europe);
+
+        let violations = ladder_violations(&game, &sizes);
+
+        assert!(
+            !violations.iter().any(|message| message.contains("AR")),
             "{violations:?}"
         );
     }

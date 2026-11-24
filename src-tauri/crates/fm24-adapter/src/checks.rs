@@ -59,40 +59,46 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
             &run.source_sha256_before[..16]
         ),
     ));
+    let european_clubs = run.european.as_ref().map_or(0, |facts| {
+        facts.continental_only.len() + facts.generated_clubs.len()
+    });
+    let domestic_clubs = run
+        .clubs
+        .iter()
+        .filter(|club| club.competition_id != crate::pipeline::CONTINENTAL_ONLY)
+        .count();
     checks.push(check(
         "perimeter.clubs",
         true,
-        if run.clubs.len() == crate::pipeline::EXPECTED_CLUBS
-            && world.teams.len() == crate::pipeline::EXPECTED_CLUBS
+        if domestic_clubs == crate::pipeline::EXPECTED_CLUBS
+            && world.teams.len() == crate::pipeline::EXPECTED_CLUBS + european_clubs
         {
             vec![]
         } else {
             vec![format!(
-                "source {} / world {} clubs, expected {}",
-                run.clubs.len(),
+                "source {domestic_clubs} domestic clubs / world {} clubs, expected {} + {european_clubs} European-only",
                 world.teams.len(),
                 crate::pipeline::EXPECTED_CLUBS
             )]
         },
-        "240 clubs in the source perimeter and in the world",
+        format!(
+            "240 clubs in the source perimeter, {european_clubs} more only for the European competitions, {} in the world",
+            world.teams.len()
+        ),
     ));
     let comp_failures = {
         let mut failures = Vec::new();
         if run.competitions.len() != crate::pipeline::EXPECTED_COMPETITIONS {
             failures.push(format!("{} competitions", run.competitions.len()));
         }
-        let (leagues, cups) = world
-            .competition_definitions
-            .as_ref()
-            .map(|d| {
-                let cups = d
-                    .competitions
-                    .iter()
-                    .filter(|c| c.r#type == domain::league::CompetitionType::Cup)
-                    .count();
-                (d.competitions.len() - cups, cups)
+        let count_of = |kind: domain::league::CompetitionType| {
+            world.competition_definitions.as_ref().map_or(0, |d| {
+                d.competitions.iter().filter(|c| c.r#type == kind).count()
             })
-            .unwrap_or((0, 0));
+        };
+        let leagues = count_of(domain::league::CompetitionType::League);
+        let cups = count_of(domain::league::CompetitionType::Cup);
+        let continental = count_of(domain::league::CompetitionType::ContinentalClub);
         if leagues != run.competitions.len() {
             failures.push(format!("world holds {leagues} league definitions"));
         }
@@ -104,14 +110,25 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
         if cups != expected_cups {
             failures.push(format!("world holds {cups} cup definitions"));
         }
+        let expected_continental = if run.european.is_some() {
+            crate::europe::COMPETITIONS.len()
+        } else {
+            0
+        };
+        if continental != expected_continental {
+            failures.push(format!("world holds {continental} European definitions"));
+        }
         failures
     };
     checks.push(check(
         "perimeter.competitions",
         true,
         comp_failures,
-        "12 league definitions and 6 national cups",
+        "12 league definitions, 6 national cups and the European competitions",
     ));
+    if let Some(facts) = &run.european {
+        checks.extend(european_checks(run, facts));
+    }
 
     // Club membership of every league equals the save's.
     let mut membership_failures = Vec::new();
@@ -906,4 +923,137 @@ mod tests {
         assert!(c.detail.starts_with("9 failure(s)"));
         assert!(!c.detail.contains("f5"));
     }
+}
+
+/// The European competitions against the mapping and the teams actually in the world: three
+/// disjoint fields of 36 whose every club exists, carries the source's identity and name, and plays
+/// in no domestic league.
+fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Check> {
+    let world = &run.world;
+    let teams: BTreeMap<&str, &domain::team::Team> = world
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team))
+        .collect();
+    let explicit_of = |def: &ofm_core::generator::CompetitionDefinition| -> Vec<String> {
+        serde_json::to_value(def)
+            .ok()
+            .and_then(|value| value["participants"]["explicit"].as_array().cloned())
+            .map(|list| {
+                list.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let definitions: Vec<&ofm_core::generator::CompetitionDefinition> = world
+        .competition_definitions
+        .iter()
+        .flat_map(|d| d.competitions.iter())
+        .collect();
+
+    let mut field_failures = Vec::new();
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    for (key, short, _) in crate::europe::COMPETITIONS {
+        let id = ids::european_competition(short);
+        let Some(def) = definitions.iter().find(|d| d.id == id) else {
+            field_failures.push(format!("{id} is not in the world"));
+            continue;
+        };
+        let field = explicit_of(def);
+        let expected: Vec<String> = facts.fields.field_of(key).map(|p| p.club_id()).collect();
+        if field != expected {
+            field_failures.push(format!("{id}: field differs from the mapping"));
+        }
+        if field.len() != crate::europe::FIELD_SIZE {
+            field_failures.push(format!("{id}: {} clubs", field.len()));
+        }
+        for club in &field {
+            if !teams.contains_key(club.as_str()) {
+                field_failures.push(format!("{id}: {club} is not a team of the world"));
+            }
+            if !seen.insert(club.clone()) {
+                field_failures.push(format!("{club} is in two European fields"));
+            }
+        }
+    }
+    let mut checks = vec![check(
+        "europe.fields",
+        true,
+        field_failures,
+        "three disjoint fields of 36, every club a team of the world",
+    )];
+
+    let mut identity_failures = Vec::new();
+    for participant in &facts.fields.participants {
+        let Some(team) = teams.get(participant.club_id().as_str()) else {
+            continue;
+        };
+        if team.country != participant.association {
+            identity_failures.push(format!(
+                "{}: country {} but association {}",
+                participant.uefa_name, team.country, participant.association
+            ));
+        }
+        match participant.fm_club_id {
+            Some(_) if team.name != participant.fm_name => identity_failures.push(format!(
+                "{}: world team `{}` but the mapping names `{}`",
+                participant.uefa_name, team.name, participant.fm_name
+            )),
+            None if team.name != participant.uefa_name => identity_failures.push(format!(
+                "{}: generated team carries `{}`",
+                participant.uefa_name, team.name
+            )),
+            _ => {}
+        }
+    }
+    checks.push(check(
+        "europe.identity",
+        true,
+        identity_failures,
+        "every participant is the source club the mapping names (or a generated club under its UEFA name)",
+    ));
+
+    let in_domestic_league: BTreeSet<String> = definitions
+        .iter()
+        .filter(|d| d.r#type == domain::league::CompetitionType::League)
+        .flat_map(|d| explicit_of(d))
+        .collect();
+    let only: Vec<String> = facts
+        .continental_only
+        .iter()
+        .map(|id| ids::club(*id))
+        .chain(facts.generated_clubs.iter().cloned())
+        .collect();
+    checks.push(check(
+        "europe.no_domestic_league",
+        true,
+        only.iter()
+            .filter(|club| in_domestic_league.contains(*club))
+            .map(|club| format!("{club} is in a domestic league"))
+            .collect(),
+        format!(
+            "{} clubs exist only for the European competitions: none is in a domestic league",
+            only.len()
+        ),
+    ));
+
+    let mut unmanned = Vec::new();
+    for club in &only {
+        let players = world
+            .players
+            .iter()
+            .filter(|p| p.team_id.as_deref() == Some(club.as_str()))
+            .count();
+        if players < ofm_core::squad_floor::MIN_SENIOR_PLAYERS {
+            unmanned.push(format!("{club} has {players} players"));
+        }
+    }
+    checks.push(check(
+        "europe.playable_squads",
+        true,
+        unmanned,
+        "every European-only club has a squad at OFM's floor, so every European match can be played",
+    ));
+    checks
 }

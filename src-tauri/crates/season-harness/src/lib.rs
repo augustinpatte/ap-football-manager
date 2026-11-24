@@ -31,6 +31,7 @@ pub mod distribution;
 pub mod driver;
 pub mod env;
 pub mod europe;
+pub mod europe_watch;
 pub mod finance_study;
 pub mod fingerprint;
 pub mod fm24;

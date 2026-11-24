@@ -108,12 +108,21 @@ pub struct CompetitionsCfg {
     /// national cups. `false` rebuilds the plain league-only world, the baseline performance and
     /// behaviour are compared with.
     pub authored_rules: bool,
+    /// The three 2026/27 European competitions and the continental-only clubs that play them
+    /// (`config/europe_2026_27.csv`). Needs `authored_rules`; `false` keeps the five-country world.
+    #[serde(default = "yes")]
+    pub european: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for CompetitionsCfg {
     fn default() -> Self {
         Self {
             authored_rules: true,
+            european: true,
         }
     }
 }

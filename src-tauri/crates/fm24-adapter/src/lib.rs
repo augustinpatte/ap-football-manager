@@ -14,6 +14,7 @@ pub mod career;
 pub mod checks;
 pub mod competitions;
 pub mod config;
+pub mod europe;
 pub mod finance;
 pub mod free_agents;
 pub mod ids;

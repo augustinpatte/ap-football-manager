@@ -11,6 +11,7 @@
 
 pub(crate) mod bracket;
 pub(crate) mod calendar;
+pub mod coefficient;
 pub mod draw;
 pub(crate) mod exclusivity;
 pub(crate) mod flow;
@@ -231,6 +232,51 @@ fn league_fixtures(
         }
     }
     fixtures
+}
+
+/// Draws every league-phase edition a freshly built game holds undrawn, and returns how many it
+/// drew.
+///
+/// An authored competition is built undrawn, because a draw needs each club's association and only
+/// the whole world knows them. A world built from a package therefore has its European competitions
+/// as empty shells until this runs; a game that starts in the middle of a season rebuilds them
+/// through `world::foundations` instead. The draw is the game's own (seeded by the game's seed and
+/// the competition's id), never UEFA's. A refused draw is recorded on the competition and retried
+/// by the daily renewal, so it is never fatal here.
+pub fn draw_pending_editions(game: &mut crate::game::Game) -> usize {
+    let season = crate::world::preseason_league_year(&game.clock);
+    let game_start = game.clock.start_date;
+    let seed = game.seed;
+    let mut drawn = 0;
+    for index in 0..game.competitions.len() {
+        let competition = &game.competitions[index];
+        let undrawn = rules_of(competition).is_some()
+            && competition.fixtures.is_empty()
+            && competition
+                .league_phase
+                .as_ref()
+                .is_none_or(|state| state.stage == CompetitionStage::Created);
+        if !undrawn {
+            continue;
+        }
+        let (start, _) = crate::generator::start_date_at_game_open(
+            game_start,
+            competition.season_start_month,
+            competition.season_start_day,
+        );
+        let id = competition.id.clone();
+        match renew_from_teams(
+            &mut game.competitions[index],
+            &game.teams,
+            seed,
+            season,
+            start,
+        ) {
+            Ok(()) => drawn += 1,
+            Err(error) => log::error!("[league-phase] {id} cannot be drawn: {}", error.key),
+        }
+    }
+    drawn
 }
 
 /// Whether an edition is over and may be renewed: it has a champion, or it never started (no
