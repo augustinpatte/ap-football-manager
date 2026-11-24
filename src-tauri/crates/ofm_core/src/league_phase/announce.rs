@@ -135,7 +135,10 @@ fn announce_league_phase(game: &mut Game, today: &str, competition: &League, clu
     } else {
         "Eliminated"
     };
-    let key = format!("european_league_phase_{}_{}", competition.id, competition.season);
+    let key = format!(
+        "european_league_phase_{}_{}",
+        competition.id, competition.season
+    );
     let entries = params(&[
         ("competition", competition.name.clone()),
         ("rank", (position + 1).to_string()),
@@ -212,7 +215,10 @@ fn announce_champion(game: &mut Game, today: &str, competition: &League, state: 
         });
     }
     // The front page, for everyone, once per edition.
-    let news_id = format!("european_champion_news_{}_{}", competition.id, competition.season);
+    let news_id = format!(
+        "european_champion_news_{}_{}",
+        competition.id, competition.season
+    );
     if !game.news.iter().any(|article| article.id == news_id) {
         game.news.push(
             NewsArticle::new(
@@ -325,14 +331,20 @@ mod tests {
         let draw = ids(&game, "european_draw_");
         assert_eq!(draw.len(), 1, "{draw:?}");
         let message = game.messages.iter().find(|m| m.id == draw[0]).unwrap();
-        assert_eq!(message.subject_key.as_deref(), Some("be.msg.europeanDraw.subject"));
+        assert_eq!(
+            message.subject_key.as_deref(),
+            Some("be.msg.europeanDraw.subject")
+        );
         assert_eq!(message.i18n_params["date"], first.date);
         let opponent = if first.home_team_id == "club-05" {
             &first.away_team_id
         } else {
             &first.home_team_id
         };
-        assert_eq!(message.i18n_params["opponent"], format!("Name of {opponent}"));
+        assert_eq!(
+            message.i18n_params["opponent"],
+            format!("Name of {opponent}")
+        );
         assert!(
             ids(&game, "european_league_phase_").is_empty(),
             "nothing is said about a league phase not yet played"
@@ -369,17 +381,17 @@ mod tests {
             .filter(|m| m.id.starts_with("european_tie_"))
             .map(|m| m.subject_key.clone().unwrap())
             .collect();
-        assert!(won.iter().all(|key| key == "be.msg.europeanTieWon.subject"), "{won:?}");
+        assert!(
+            won.iter().all(|key| key == "be.msg.europeanTieWon.subject"),
+            "{won:?}"
+        );
         let news: Vec<_> = game
             .news
             .iter()
             .filter(|article| article.id.starts_with("european_champion_news_"))
             .collect();
         assert_eq!(news.len(), 1);
-        assert_eq!(
-            news[0].i18n_params["club"],
-            format!("Name of {champion}")
-        );
+        assert_eq!(news[0].i18n_params["club"], format!("Name of {champion}"));
     }
 
     /// Given a played edition and a manager whose club was knocked out

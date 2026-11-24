@@ -213,7 +213,13 @@ describe("LeaguePhaseView manager information", () => {
     render_(
       state({
         stage: "KnockoutPlayoffs",
-        outcome: { ranking: [], direct: [], playoff: [], eliminated: [], coefficient_fallback_used: false },
+        outcome: {
+          ranking: [],
+          direct: [],
+          playoff: [],
+          eliminated: [],
+          coefficient_fallback_used: false,
+        },
       }),
     );
     expect(screen.getByTestId("leaguephase-standing").textContent).not.toContain("cutoffPoints");

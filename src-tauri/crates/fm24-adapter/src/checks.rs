@@ -904,27 +904,6 @@ pub fn run_checks(run: &Run) -> Vec<Check> {
     checks
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_check_with_no_failure_is_ok_and_reports_its_detail() {
-        let c = check("x", true, vec![], "fine");
-        assert!(c.ok);
-        assert_eq!(c.detail, "fine");
-    }
-
-    #[test]
-    fn a_check_with_failures_lists_at_most_five() {
-        let failures: Vec<String> = (0..9).map(|i| format!("f{i}")).collect();
-        let c = check("x", true, failures, "fine");
-        assert!(!c.ok);
-        assert!(c.detail.starts_with("9 failure(s)"));
-        assert!(!c.detail.contains("f5"));
-    }
-}
-
 /// The European competitions against the mapping and the teams actually in the world: three
 /// disjoint fields of 36 whose every club exists, carries the source's identity and name, and plays
 /// in no domestic league.
@@ -1056,4 +1035,25 @@ fn european_checks(run: &Run, facts: &crate::pipeline::EuropeanFacts) -> Vec<Che
         "every European-only club has a squad at OFM's floor, so every European match can be played",
     ));
     checks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_check_with_no_failure_is_ok_and_reports_its_detail() {
+        let c = check("x", true, vec![], "fine");
+        assert!(c.ok);
+        assert_eq!(c.detail, "fine");
+    }
+
+    #[test]
+    fn a_check_with_failures_lists_at_most_five() {
+        let failures: Vec<String> = (0..9).map(|i| format!("f{i}")).collect();
+        let c = check("x", true, failures, "fine");
+        assert!(!c.ok);
+        assert!(c.detail.starts_with("9 failure(s)"));
+        assert!(!c.detail.contains("f5"));
+    }
 }

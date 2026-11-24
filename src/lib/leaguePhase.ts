@@ -123,7 +123,9 @@ export function clubStanding(
   const row = state.table.find((candidate) => candidate.team_id === clubId);
   if (!row) return null;
   const places = leaguePhasePlaces(competition);
-  const last = state.table.find((candidate) => candidate.position === places.direct + places.playoff);
+  const last = state.table.find(
+    (candidate) => candidate.position === places.direct + places.playoff,
+  );
   return {
     position: row.position,
     points: row.points,

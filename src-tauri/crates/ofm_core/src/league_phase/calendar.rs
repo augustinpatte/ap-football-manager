@@ -129,6 +129,32 @@ pub fn edition_dates(
     Ok(EditionDates { league, knockout })
 }
 
+/// Every date the three shipped European competitions play on in the edition that opens in
+/// `season_year`: all league-phase matchdays and every knockout leg. A club of an association with
+/// clubs in the competitions plays on some of them; which clubs is only known after the draw, the
+/// dates are known from the templates alone. Used to keep a league's own midweek rounds off those
+/// weeks.
+pub fn european_matchday_dates(season_year: i32) -> std::collections::BTreeSet<NaiveDate> {
+    use super::profiles;
+    let mut dates = std::collections::BTreeSet::new();
+    for rules in [
+        profiles::champions_league_2026(),
+        profiles::europa_league_2026(),
+        profiles::conference_league_2026(),
+    ] {
+        let Ok(edition) = edition_dates(&rules.calendar, season_year, rules.matches_per_club())
+        else {
+            continue;
+        };
+        dates.extend(edition.league.iter().flatten().copied());
+        for round in &edition.knockout {
+            dates.extend(round.first_leg.iter().copied());
+            dates.extend(round.second_leg.iter().copied());
+        }
+    }
+    dates
+}
+
 /// Moves a window forward in whole weeks until it starts no earlier than `earliest`, so a round
 /// that follows a late one keeps its weekday pattern instead of being dated arbitrarily.
 pub fn window_not_before(dates: &[NaiveDate], earliest: NaiveDate) -> Vec<NaiveDate> {

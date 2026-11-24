@@ -1494,6 +1494,7 @@ mod tests {
                 weekend: [0, 0, 0, 0, 2, 3, 4],
                 midweek: [0, 0, 1, 0, 0, 0, 0],
                 midweek_rounds: 3,
+                ..Default::default()
             }),
             ..Default::default()
         });

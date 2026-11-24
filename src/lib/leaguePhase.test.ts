@@ -176,7 +176,10 @@ describe("a tie's aggregate", () => {
 
 describe("clubStanding", () => {
   const competition = {
-    rules: { format: "LeaguePhaseAndKnockout", league_phase: { direct_places: 8, playoff_places: 16 } },
+    rules: {
+      format: "LeaguePhaseAndKnockout",
+      league_phase: { direct_places: 8, playoff_places: 16 },
+    },
   } as unknown as LeagueData;
   const table = Array.from({ length: 36 }, (_, index) => ({
     team_id: `c${index + 1}`,

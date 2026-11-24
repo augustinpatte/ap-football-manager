@@ -303,6 +303,43 @@ fn a_renewal_that_cannot_draw_says_so() {
     assert_eq!(game.edition_archive.len(), 1);
 }
 
+/// Given a game built from a world whose European competitions were authored but never drawn, one
+///       whose edition is already drawn, and one with no league-phase competition at all (a career
+///       saved before the format existed)
+/// When the pending editions are drawn
+/// Then the first is drawn once, the second is left exactly as it is, and the third is untouched: an
+///      old career is never given a European season it did not have.
+#[test]
+fn pending_editions_are_drawn_once_and_old_careers_are_left_alone() {
+    let mut undrawn = competition(profiles::champions_league_2026());
+    undrawn.participant_ids = field(1).seeding;
+    let mut game = world_with(undrawn);
+    assert!(game.competitions[0].fixtures.is_empty());
+
+    assert_eq!(draw_pending_editions(&mut game), 1);
+    assert_eq!(game.competitions[0].fixtures.len(), 144);
+    let after_first = serde_json::to_string(&game.competitions[0]).unwrap();
+    assert_eq!(
+        draw_pending_editions(&mut game),
+        0,
+        "an edition is drawn once"
+    );
+    assert_eq!(
+        serde_json::to_string(&game.competitions[0]).unwrap(),
+        after_first
+    );
+
+    let mut old_career = world_with(League::new("domestic".into(), "Domestic".into(), 2026, &[]));
+    old_career.competitions[0].rules.format = CompetitionFormat::LeagueTable;
+    let before = serde_json::to_string(&old_career.competitions).unwrap();
+    assert_eq!(draw_pending_editions(&mut old_career), 0);
+    assert_eq!(
+        serde_json::to_string(&old_career.competitions).unwrap(),
+        before
+    );
+    assert!(old_career.edition_archive.is_empty());
+}
+
 /// Given an edition whose draw was refused because the world's clubs were not fit to draw
 /// When the world has since been fixed and the next edition is near
 /// Then the daily renewal draws it (nothing is archived: nothing was played), instead of leaving

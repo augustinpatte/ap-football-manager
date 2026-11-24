@@ -130,6 +130,22 @@ pub(crate) fn plan_rounds(
     });
     let breaks = break_positions(rounds, spare.min(MAX_BREAKS), &midweek_rounds);
 
+    // The days a midweek round must not use: a day either side of a European matchday, for a league
+    // that asks to keep clear of them. Built only for such a league.
+    let european: BTreeSet<NaiveDate> = if pattern.avoid_european_weeks {
+        let season_year = if start.month() >= 6 {
+            start.year()
+        } else {
+            start.year() - 1
+        };
+        crate::league_phase::calendar::european_matchday_dates(season_year)
+    } else {
+        BTreeSet::new()
+    };
+    let clashes_with_europe = |date: NaiveDate| {
+        (-1..=1).any(|offset| european.contains(&(date + Duration::days(offset))))
+    };
+
     let mut plans = Vec::with_capacity(rounds as usize);
     let mut week: i64 = 0;
     let mut latest_before: Option<NaiveDate> = None;
@@ -161,6 +177,7 @@ pub(crate) fn plan_rounds(
                         *weight > 0
                             && *date >= earliest
                             && window_end.is_none_or(|end| *date <= end)
+                            && !(midweek && clashes_with_europe(*date))
                     })
                     .collect();
                 (!days.is_empty()).then_some((days, week + extra))
@@ -238,6 +255,7 @@ mod tests {
             weekend: [0, 0, 0, 0, 1, 3, 5],
             midweek: [0, 0, 1, 0, 0, 0, 0],
             midweek_rounds: 4,
+            ..Default::default()
         }
     }
 
@@ -307,6 +325,58 @@ mod tests {
         }
         by_club.values_mut().for_each(|d| d.sort());
         by_club
+    }
+
+    /// Given a pattern that asks to keep clear of the European weeks
+    /// When a league's calendar is planned for several seasons
+    /// Then no midweek round falls within a day of a European matchday, the same pairings are
+    ///      played, and a pattern that does not ask is planned exactly as before.
+    #[test]
+    fn a_league_can_keep_its_midweek_rounds_off_the_european_weeks() {
+        let careful = MatchdayPattern {
+            avoid_european_weeks: true,
+            ..weekend_pattern()
+        };
+        for year in 2026..=2031 {
+            let opener = day(year, 8, 21);
+            let end = Some(day(year + 1, 5, 17));
+            let european = crate::league_phase::calendar::european_matchday_dates(year);
+            assert!(european.len() > 40, "{year}: the three calendars are known");
+            let plans = plan_rounds(38, opener, end, &careful);
+            let midweek: Vec<NaiveDate> = plans
+                .iter()
+                .filter(|plan| plan.midweek)
+                .flat_map(|plan| plan.days.iter().map(|(date, _)| *date))
+                .collect();
+            assert!(
+                midweek.len() >= 4,
+                "{year}: the midweek rounds are still played"
+            );
+            for date in midweek {
+                for offset in -1..=1 {
+                    assert!(
+                        !european.contains(&(date + Duration::days(offset))),
+                        "{year}: a midweek round on {date} meets a European matchday"
+                    );
+                }
+            }
+            assert_eq!(plans.len(), 38);
+        }
+        // Not asking changes nothing: byte-identical plans to the plain pattern.
+        let plain = plan_rounds(
+            38,
+            day(2026, 8, 21),
+            Some(day(2027, 5, 17)),
+            &weekend_pattern(),
+        );
+        let unflagged = MatchdayPattern {
+            avoid_european_weeks: false,
+            ..weekend_pattern()
+        };
+        assert_eq!(
+            plain,
+            plan_rounds(38, day(2026, 8, 21), Some(day(2027, 5, 17)), &unflagged)
+        );
     }
 
     /// Given a league with no pattern,

@@ -87,6 +87,9 @@ pub fn build(
                     "weekend": pattern.weekend,
                     "midweek": pattern.midweek,
                     "midweekRounds": pattern.midweek_rounds,
+                    // A first division sends clubs to Europe: its own midweek rounds keep off the
+                    // European weeks instead of being moved around them afterwards.
+                    "avoidEuropeanWeeks": level == 1 && context.european.is_some(),
                 },
             });
         }
@@ -376,6 +379,7 @@ mod tests {
                 weekend: [0, 0, 0, 0, 2, 3, 4],
                 midweek: [0, 0, 1, 0, 0, 0, 0],
                 midweek_rounds: 4,
+                ..Default::default()
             })
         );
         assert_eq!(

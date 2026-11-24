@@ -397,7 +397,9 @@ fn a_newly_promoted_club_qualifies_by_finishing_in_a_place() {
     league.standings.insert(2, standing("newbie", 0, 9));
     // It is third in the table, ahead of the club listed third before.
     league.standings[2].points = 1_000;
-    league.standings.sort_by(|a, b| b.points.cmp(&a.points));
+    league
+        .standings
+        .sort_by_key(|entry| std::cmp::Reverse(entry.points));
     let fields = world.fields();
 
     assert!(set(&fields["eu-ucl"]).contains("newbie"));

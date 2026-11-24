@@ -47,6 +47,11 @@ pub struct MatchdayPattern {
     /// Rounds played midweek at least; the scheduler adds more when the season window needs them.
     #[serde(default)]
     pub midweek_rounds: u32,
+    /// Keep the league's midweek rounds off the weeks the European competitions play in (a day
+    /// either side of any of their matchdays), so the clubs of a league that sends many to Europe
+    /// are not moved afterwards by the calendar sweep. Ordinary weekend rounds are not affected.
+    #[serde(default)]
+    pub avoid_european_weeks: bool,
 }
 
 impl MatchdayPattern {
@@ -180,6 +185,7 @@ mod tests {
             weekend: [0, 0, 0, 0, 2, 3, 4],
             midweek: [0, 0, 1, 0, 0, 0, 0],
             midweek_rounds: 4,
+            ..Default::default()
         };
 
         let back: MatchdayPattern =
