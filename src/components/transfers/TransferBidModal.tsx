@@ -31,6 +31,9 @@ import { dealRestrictionOf } from "./dealRestriction";
 import TransferNegotiationHistory from "./TransferNegotiationHistory";
 import { playerHasPendingRegistration } from "./TransfersTab.model";
 
+/** The results the bid dialog words itself; any other result is a failure whose text is `bidError`. */
+const BID_OUTCOMES = new Set<string>(["accepted", "rejected", "counter_offer", "player_talks"]);
+
 export interface TransferBidFormProps {
   bidTarget: PlayerData;
   teams: TeamData[];
@@ -448,7 +451,10 @@ export function TransferBidForm({
       <TransferNegotiationHistory offer={activeBidOffer} mode="outgoing" />
       {bidResult ? (
         <div
-          className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-600 dark:text-red-300" : "text-amber-500"}`}
+          // An outcome is announced politely; a failure (the last branch below: the request was
+          // not sent, or its result is not known) is announced at once and read as a sentence.
+          role={BID_OUTCOMES.has(bidResult) ? "status" : "alert"}
+          className={`text-xs font-heading font-bold tracking-wider mb-3 ${BID_OUTCOMES.has(bidResult) ? "uppercase" : "normal-case"} ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-600 dark:text-red-300" : "text-amber-500"}`}
         >
           {bidResult === "accepted"
             ? t("transfers.bidAccepted")

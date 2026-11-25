@@ -147,7 +147,10 @@ export default function TransferCounterOfferModal({
         </div>
       ) : null}
       {counterError ? (
-        <div className="text-xs font-heading font-bold uppercase tracking-wider mb-3 text-red-500">
+        <div
+          role="alert"
+          className="text-xs font-heading font-bold tracking-wider mb-3 text-red-500"
+        >
           {counterError}
         </div>
       ) : null}

@@ -88,7 +88,7 @@ export default function TeamSelection() {
               navigate("/");
             }}
             aria-label={t("common.back")}
-            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-700 dark:hover:text-gray-200"
+            className="rounded-lg p-2 text-gray-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-page hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-700 dark:hover:text-gray-200"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
