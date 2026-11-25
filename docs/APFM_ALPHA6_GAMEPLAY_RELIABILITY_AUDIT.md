@@ -141,3 +141,6 @@ Before: `36b6908caa90f57e6e4bb758cec724f05123eaefe8a5b8dec5efc0dda27439f7`. Afte
 ## 20. Disk and cleanup
 
 `src-tauri/target` 9.1 GB (reused, no second worktree), `~/apfm-scratch` 72 MB (safe to delete), 44 GB free. The headless-Chrome profile and logs are in the session scratchpad.
+
+---
+Implementation and tests were pushed at `eefdb2c2902fa1467a53a3cb265b152c2e3ba0dc` (fast-forward from `9c003922`); this line is a documentation-only commit on top of it.
