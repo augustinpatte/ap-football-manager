@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Gelişim payı, akademinize katılana kadar bilinmez.",
     "notKnown": "Bilinmiyor",
     "prospectGrowthAssessed": "Gelişim payı yalnızca aralık olarak biliniyor: altyapı ekibinizin değerlendirdiği tavana bakın."
+  },
+  "career": {
+    "loading": "Kariyeriniz yükleniyor…",
+    "loadFailed": {
+      "title": "Kariyeriniz açılamadı",
+      "body": "Oyun kariyerinizi şu anda okuyamadı. Hiçbir şey değişmedi veya kaybolmadı. Tekrar deneyin ya da ana menüye dönün.",
+      "retry": "Tekrar dene",
+      "backToMenu": "Ana menü"
+    }
   }
 }

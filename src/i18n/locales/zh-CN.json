@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "在他加入你的青训营之前,无法得知他的成长空间。",
     "notKnown": "未知",
     "prospectGrowthAssessed": "他的成长空间只知道一个区间:请参考青训团队评估的上限。"
+  },
+  "career": {
+    "loading": "正在加载你的生涯…",
+    "loadFailed": {
+      "title": "无法打开你的生涯",
+      "body": "游戏刚才无法读取你的生涯。没有任何内容被更改或丢失。请重试，或返回主菜单。",
+      "retry": "重试",
+      "backToMenu": "主菜单"
+    }
   }
 }

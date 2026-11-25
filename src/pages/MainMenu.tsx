@@ -1,7 +1,13 @@
 import { getResumableMatch, takeMatchRestoreNotice } from "../services/interactiveMatchService";
+import {
+  beginCareerOperation,
+  consumeAutoResumeSuppression,
+  lookUpActiveCareer,
+  type CareerRoute,
+} from "../services/careerSession";
 import { routeForActiveCareer } from "../services/careerService";
 import { useManagerDobError } from "../hooks/useManagerDobError";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -211,39 +217,37 @@ export default function MainMenu() {
       .catch((error) => console.error("Failed to load manager profiles:", error));
   }, []);
 
-  // Check if a game is already active (e.g. loaded by MCP --mcp-auto-start before frontend mounted)
-  useEffect(() => {
-    invoke<GameStateData>("get_active_game")
-      .then((state) => {
-        const mgrName = state.manager.display_name;
-        applyExtraTranslations(state.extra_translations);
-        setGameState(state);
-        setGameActive(true, mgrName);
-        return routeForActiveCareer().then(navigate);
-      })
-      .catch(() => {
-        // No active game — stay on menu
-      });
-  }, [setGameState, setGameActive, navigate]);
+  // Resuming a career the backend already holds (an MCP auto-start, or a restart of the window).
+  // Both triggers go through one lookup and at most one navigation: the mount probe and a
+  // `game-state-changed` event used to read and route independently, so overlapping answers could
+  // navigate twice or land on the older one.
+  const hasResumedRef = useRef(false);
+  const resumeActiveCareer = useCallback(
+    async (options: { skipWhileBusy?: boolean } = {}) => {
+      const lookup = await lookUpActiveCareer(options);
+      if (lookup.kind !== "found" || hasResumedRef.current) return;
+      hasResumedRef.current = true;
+      applyExtraTranslations(lookup.state.extra_translations);
+      setGameState(lookup.state);
+      setGameActive(true, lookup.state.manager.display_name);
+      navigate(lookup.route satisfies CareerRoute);
+    },
+    [setGameState, setGameActive, navigate],
+  );
 
-  // Listen for game loaded by MCP auto-start (event may arrive after mount)
   useEffect(() => {
-    const unlisten = listen("game-state-changed", async () => {
-      try {
-        const state = await invoke<GameStateData>("get_active_game");
-        const mgrName = state.manager.display_name;
-        applyExtraTranslations(state.extra_translations);
-        setGameState(state);
-        setGameActive(true, mgrName);
-        navigate(await routeForActiveCareer());
-      } catch {
-        // Game not actually active — ignore
-      }
-    });
+    if (consumeAutoResumeSuppression()) return;
+    void resumeActiveCareer();
+  }, [resumeActiveCareer]);
+
+  useEffect(() => {
+    const unlisten = listen("game-state-changed", () =>
+      resumeActiveCareer({ skipWhileBusy: true }),
+    );
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [setGameState, setGameActive, navigate]);
+  }, [resumeActiveCareer]);
 
   /** The backend's answer about the date of birth, shown as the user edits and again on submit. */
   const dobStartup = buildStartupOptions(formData, historyDepthYears);
@@ -434,6 +438,11 @@ export default function MainMenu() {
       return;
     }
 
+    // One career operation at a time: a second click while the world is generated would otherwise
+    // start a second career and race the first one's navigation.
+    const operation = beginCareerOperation("creating");
+    if (!operation) return;
+    let outcome: "awaitingClub" | "none" = "none";
     setIsStarting(true);
     try {
       const game = await invoke<GameStateData>("start_new_game", {
@@ -447,6 +456,7 @@ export default function MainMenu() {
       });
       applyExtraTranslations(game.extra_translations);
       setGameState(game);
+      outcome = "awaitingClub";
       navigate("/select-team");
     } catch (error) {
       console.error("Failed to start game:", error);
@@ -455,6 +465,7 @@ export default function MainMenu() {
         t("menu.failedStartGame", { error: resolveBackendError(error) }),
       );
     } finally {
+      operation.release(outcome);
       setIsStarting(false);
     }
   };
@@ -477,6 +488,9 @@ export default function MainMenu() {
   };
 
   const handleLoadGame = async (saveId: string) => {
+    const operation = beginCareerOperation("loading");
+    if (!operation) return;
+    let outcome: "active" | "awaitingClub" | "none" = "none";
     setLoadingSaveId(saveId);
     try {
       const managerName = await invoke<string>("load_game", { saveId });
@@ -494,6 +508,7 @@ export default function MainMenu() {
       }
       const resumable = await getResumableMatch().catch(() => null);
       if (resumable) {
+        outcome = "active";
         navigate("/match", {
           state: {
             fixtureIndex: resumable.fixture_index,
@@ -505,7 +520,9 @@ export default function MainMenu() {
         });
         return;
       }
-      navigate(await routeForActiveCareer());
+      const route = await routeForActiveCareer();
+      outcome = route === "/select-team" ? "awaitingClub" : "active";
+      navigate(route);
     } catch (error) {
       console.error("Failed to load game:", error);
       setLoadingSaveId(null);
@@ -513,6 +530,8 @@ export default function MainMenu() {
         t("errors.title"),
         t("menu.loadGameFailed", { error: resolveBackendError(error) }),
       );
+    } finally {
+      operation.release(outcome);
     }
   };
 

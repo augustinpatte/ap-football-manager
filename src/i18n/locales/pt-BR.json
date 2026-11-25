@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "A margem de crescimento só é conhecida depois que ele entrar na sua base.",
     "notKnown": "Desconhecido",
     "prospectGrowthAssessed": "A margem de crescimento dele só é conhecida como intervalo: veja o teto avaliado pela sua comissão técnica da base."
+  },
+  "career": {
+    "loading": "Carregando sua carreira…",
+    "loadFailed": {
+      "title": "Não foi possível abrir sua carreira",
+      "body": "O jogo não conseguiu ler sua carreira agora. Nada foi alterado nem perdido. Tente novamente ou volte ao menu principal.",
+      "retry": "Tentar novamente",
+      "backToMenu": "Menu principal"
+    }
   }
 }

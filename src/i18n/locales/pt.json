@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "A margem de crescimento só se conhece depois de ele entrar na tua academia.",
     "notKnown": "Desconhecido",
     "prospectGrowthAssessed": "A sua margem de crescimento só é conhecida como intervalo: vê o teto avaliado pela tua equipa técnica dos jovens."
+  },
+  "career": {
+    "loading": "A carregar a tua carreira…",
+    "loadFailed": {
+      "title": "Não foi possível abrir a tua carreira",
+      "body": "O jogo não conseguiu ler a tua carreira neste momento. Nada foi alterado ou perdido. Tenta novamente ou volta ao menu principal.",
+      "retry": "Tentar novamente",
+      "backToMenu": "Menu principal"
+    }
   }
 }

@@ -1,10 +1,12 @@
 import { useSquadFitness } from "../hooks/useSquadFitness";
-import { routeForActiveCareer } from "../services/careerService";
+import { lookUpActiveCareer } from "../services/careerSession";
+import { useCareerHydration } from "../hooks/useCareerHydration";
+import { CareerLoadState } from "../components/career/CareerLoadState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { applyExtraTranslations } from "../lib/extraTranslations";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
-import { getActiveGame, getActiveSaveId, saveGame, exitToMenu } from "../services/sessionService";
+import { getActiveSaveId, saveGame, exitToMenu } from "../services/sessionService";
 import { resolveBackendError } from "../utils/backendI18n";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -112,6 +114,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     gameState,
     sessionState,
     setGameState,
+    setGameActive,
     clearGame,
     isDirty,
     markClean,
@@ -178,58 +181,68 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     };
   }, [gameState]);
   const loadActiveGameState = useCallback(async () => {
-    const [stateResult, saveIdResult] = await Promise.allSettled([
-      getActiveGame(),
-      getActiveSaveId(),
+    const [lookup, saveIdResult] = await Promise.all([
+      lookUpActiveCareer(),
+      getActiveSaveId().then(
+        (id) => ({ status: "fulfilled" as const, value: id }),
+        () => ({ status: "rejected" as const }),
+      ),
     ]);
 
-    if (stateResult.status === "rejected") {
-      throw stateResult.reason;
-    }
+    if (lookup.kind === "none") return "none" as const;
+    if (lookup.kind !== "found") throw lookup.kind === "failed" ? lookup.error : new Error("busy");
 
-    const activeState = stateResult.value;
-    applyExtraTranslations(activeState.extra_translations);
-    setGameState(activeState);
+    applyExtraTranslations(lookup.state.extra_translations);
+    setGameState(lookup.state);
+    setActiveSaveId(saveIdResult.status === "fulfilled" ? saveIdResult.value : null);
 
-    if (saveIdResult.status === "fulfilled") {
-      setActiveSaveId(saveIdResult.value);
-    } else {
-      setActiveSaveId(null);
+    if (lookup.route !== "/dashboard") {
+      navigate(lookup.route);
     }
-
-    const route = await routeForActiveCareer();
-    if (route !== "/dashboard") {
-      navigate(route);
-    }
+    return "found" as const;
   }, [setGameState, navigate]);
+
+  // A screen without a game asks the backend before leaving; "no session" is the only answer that
+  // sends the player to the menu, and a failed question is shown, not acted on.
+  const hydration = useCareerHydration({
+    hasGame: hasActiveGame,
+    setGameState,
+    setGameActive,
+  });
+  useEffect(() => {
+    if (hydration.status === "none") navigate("/");
+  }, [hydration.status, navigate]);
 
   // Fetch initial state
   useEffect(() => {
-    if (!hasActiveGame) {
-      navigate("/");
-      return;
-    }
+    if (!hasActiveGame) return;
 
     const fetchState = async () => {
       try {
-        await loadActiveGameState();
+        if ((await loadActiveGameState()) === "none") {
+          clearGame();
+          navigate("/");
+        }
       } catch (err) {
         console.error("Failed to fetch game state:", err);
       }
     };
 
     fetchState();
-  }, [hasActiveGame, loadActiveGameState, navigate]);
+  }, [hasActiveGame, loadActiveGameState, clearGame, navigate]);
 
   // Refresh state when MCP tools mutate game (backend emits "game-state-changed")
   useEffect(() => {
     const unlisten = listen("game-state-changed", async () => {
       try {
-        await loadActiveGameState();
-      } catch {
-        // Game may have been exited — navigate back to menu
-        clearGame();
-        navigate("/");
+        if ((await loadActiveGameState()) === "none") {
+          // The backend says the career is gone (an agent exited to the menu).
+          clearGame();
+          navigate("/");
+        }
+      } catch (err) {
+        // The question failed; the career on screen is still the player's. Keep it.
+        console.error("Failed to refresh game state:", err);
       }
     });
     return () => {
@@ -576,6 +589,16 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
       onSquadListFiltersChange: setSquadListFilters,
     },
   });
+
+  if (!hasActiveGame && hydration.status !== "ready") {
+    return (
+      <CareerLoadState
+        status={hydration.status}
+        onRetry={hydration.retry}
+        onBackToMenu={() => navigate("/")}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-page">

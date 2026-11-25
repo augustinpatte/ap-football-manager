@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { GameStateData } from "../store/gameStore";
 import type { LeagueData, SeasonContextData } from "../store/types";
 import { applyExtraTranslations } from "../lib/extraTranslations";
+import { resetCareerSessionForTests } from "../services/careerSession";
 import Dashboard from "./Dashboard";
 import i18n, { i18nReady, SUPPORTED_LANGUAGES } from "../i18n";
 import { useTranslation } from "react-i18next";
@@ -25,12 +26,14 @@ const { listenMock, registeredEventHandlers, matchConfirmState } = vi.hoisted(()
 const navigateMock = vi.fn();
 const invokeMock = vi.fn();
 const setGameStateMock = vi.fn();
+const setGameActiveMock = vi.fn();
 const clearGameMock = vi.fn();
 const markCleanMock = vi.fn();
 const loadSettingsMock = vi.fn();
 const destroyMock = vi.fn();
 let closeRequested: ((event: { preventDefault: () => void }) => Promise<void>) | undefined;
 let isDirty = false;
+let hasActiveGameFlag = true;
 
 function createGameState(): GameStateData {
   return {
@@ -232,9 +235,10 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("../store/gameStore", () => ({
   useGameStore: () => ({
-    hasActiveGame: true,
+    hasActiveGame: hasActiveGameFlag,
     managerName: "Jane Doe",
     gameState,
+    setGameActive: setGameActiveMock,
     setGameState: setGameStateMock,
     clearGame: clearGameMock,
     isDirty,
@@ -393,6 +397,9 @@ describe("Dashboard", () => {
     await i18nReady;
     await i18n.changeLanguage("en");
     isDirty = false;
+    hasActiveGameFlag = true;
+    setGameActiveMock.mockReset();
+    resetCareerSessionForTests();
     closeRequested = undefined;
     destroyMock.mockReset();
     gameState = createGameState();
@@ -1018,5 +1025,79 @@ describe("Dashboard", () => {
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_career_stage"));
     expect(navigateMock).not.toHaveBeenCalledWith("/select-team");
+  });
+  /**
+   * Given a career is on screen
+   * When a refresh fails for a reason that is not "no career" (a locked database, say)
+   * Then the store keeps the game and the player stays: only the backend's "no session" answer ends a career
+   */
+  it("keeps_the_career_when_a_refresh_fails_for_an_unexpected_reason", async () => {
+    render(<Dashboard />);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_active_game"));
+    const handler = registeredEventHandlers.get("game-state-changed");
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") throw new Error("database is locked");
+      return null;
+    });
+    navigateMock.mockReset();
+
+    await act(async () => handler?.());
+
+    expect(clearGameMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given a career is on screen
+   * When the backend says there is no session any more (an agent exited to the menu)
+   * Then the store is cleared and the player goes to the menu exactly once
+   */
+  it("returns_to_the_menu_once_when_the_backend_reports_no_session", async () => {
+    render(<Dashboard />);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("get_active_game"));
+    const handler = registeredEventHandlers.get("game-state-changed");
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") throw "be.error.noActiveGameSession";
+      return null;
+    });
+    navigateMock.mockReset();
+
+    await act(async () => handler?.());
+
+    expect(clearGameMock).toHaveBeenCalledOnce();
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith("/");
+  });
+
+  /**
+   * Given the store has not been filled yet (the flag is still false) but the backend holds a career
+   * When the dashboard mounts
+   * Then it fills the store from the backend instead of redirecting to the menu
+   */
+  it("fills_an_empty_store_from_the_backend_instead_of_redirecting", async () => {
+    hasActiveGameFlag = false;
+
+    render(<Dashboard />);
+
+    await waitFor(() => expect(setGameActiveMock).toHaveBeenCalledWith(true, expect.anything()));
+    expect(navigateMock).not.toHaveBeenCalledWith("/");
+  });
+
+  /**
+   * Given the store is empty and the backend holds no career
+   * When the dashboard mounts
+   * Then the player goes to the menu once
+   */
+  it("goes_to_the_menu_once_when_neither_store_nor_backend_has_a_career", async () => {
+    hasActiveGameFlag = false;
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") throw "be.error.noActiveGameSession";
+      return null;
+    });
+
+    render(<Dashboard />);
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/"));
+    expect(navigateMock).toHaveBeenCalledTimes(1);
   });
 });

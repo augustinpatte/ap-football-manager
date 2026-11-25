@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Prostor pro růst není znám, dokud nenastoupí do vaší akademie.",
     "notKnown": "Neznámé",
     "prospectGrowthAssessed": "Jeho prostor k růstu je znám jen jako rozpětí: podívejte se na strop, který odhadl váš tým pro mládež."
+  },
+  "career": {
+    "loading": "Načítání vaší kariéry…",
+    "loadFailed": {
+      "title": "Kariéru se nepodařilo otevřít",
+      "body": "Hra teď nedokázala přečíst vaši kariéru. Nic se nezměnilo ani neztratilo. Zkuste to znovu nebo se vraťte do hlavní nabídky.",
+      "retry": "Zkusit znovu",
+      "backToMenu": "Hlavní nabídka"
+    }
   }
 }

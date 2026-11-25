@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Ruang pertumbuhannya tidak diketahui sampai ia bergabung dengan akademi Anda.",
     "notKnown": "Tidak diketahui",
     "prospectGrowthAssessed": "Ruang pertumbuhannya hanya diketahui sebagai rentang: lihat batas atas yang dinilai staf akademi Anda."
+  },
+  "career": {
+    "loading": "Memuat karier Anda…",
+    "loadFailed": {
+      "title": "Karier Anda tidak dapat dibuka",
+      "body": "Game tidak dapat membaca karier Anda saat ini. Tidak ada yang berubah atau hilang. Coba lagi, atau kembali ke menu utama.",
+      "retry": "Coba lagi",
+      "backToMenu": "Menu utama"
+    }
   }
 }

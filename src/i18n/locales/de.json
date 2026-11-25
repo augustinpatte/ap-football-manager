@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Sein Entwicklungsspielraum ist erst bekannt, wenn er in deine Akademie eintritt.",
     "notKnown": "Unbekannt",
     "prospectGrowthAssessed": "Sein Entwicklungsspielraum ist nur als Spanne bekannt: Sieh dir die vom Jugendstab eingeschätzte Obergrenze an."
+  },
+  "career": {
+    "loading": "Deine Karriere wird geladen …",
+    "loadFailed": {
+      "title": "Deine Karriere konnte nicht geöffnet werden",
+      "body": "Das Spiel konnte deine Karriere gerade nicht lesen. Es wurde nichts verändert oder gelöscht. Versuche es erneut oder kehre zum Hauptmenü zurück.",
+      "retry": "Erneut versuchen",
+      "backToMenu": "Hauptmenü"
+    }
   }
 }

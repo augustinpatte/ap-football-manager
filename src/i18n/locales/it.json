@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Il margine di crescita si conosce solo dopo che entra nella tua academy.",
     "notKnown": "Sconosciuto",
     "prospectGrowthAssessed": "Il suo margine di crescita è noto solo come intervallo: guarda il tetto valutato dal tuo staff giovanile."
+  },
+  "career": {
+    "loading": "Caricamento della tua carriera…",
+    "loadFailed": {
+      "title": "Impossibile aprire la tua carriera",
+      "body": "Il gioco non è riuscito a leggere la tua carriera in questo momento. Nulla è stato modificato o perso. Riprova o torna al menu principale.",
+      "retry": "Riprova",
+      "backToMenu": "Menu principale"
+    }
   }
 }

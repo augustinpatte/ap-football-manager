@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Se desconoce su margen de crecimiento hasta que entre en tu cantera.",
     "notKnown": "Se desconoce",
     "prospectGrowthAssessed": "Su margen de crecimiento solo se conoce como un rango: mira el techo que valoró tu cuerpo técnico de cantera."
+  },
+  "career": {
+    "loading": "Cargando tu carrera…",
+    "loadFailed": {
+      "title": "No se pudo abrir tu carrera",
+      "body": "El juego no pudo leer tu carrera en este momento. No se ha cambiado ni perdido nada. Inténtalo de nuevo o vuelve al menú principal.",
+      "retry": "Reintentar",
+      "backToMenu": "Menú principal"
+    }
   }
 }

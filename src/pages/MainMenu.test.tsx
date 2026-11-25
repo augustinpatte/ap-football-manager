@@ -9,6 +9,11 @@ import { resetCountryResourcesCache } from "../components/menu/CreateManagerNati
 import type { ManagerProfile } from "../components/menu/types";
 import { resolveBackendError } from "../utils/backendI18n";
 import MainMenu from "./MainMenu";
+import {
+  beginCareerOperation,
+  resetCareerSessionForTests,
+  suppressNextAutoResume,
+} from "../services/careerSession";
 
 const navigateMock = vi.fn();
 const setGameActiveMock = vi.fn();
@@ -307,6 +312,7 @@ async function searchAndSelectNationality(
 
 describe("MainMenu", () => {
   beforeEach(() => {
+    resetCareerSessionForTests();
     navigateMock.mockReset();
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
@@ -1166,6 +1172,8 @@ describe("MainMenu", () => {
 });
 
 describe("MainMenu routing of an active career", () => {
+  beforeEach(() => resetCareerSessionForTests());
+
   const activeGame = (teamId: string | null) => ({
     manager: { first_name: "Ada", last_name: "Lovelace", team_id: teamId },
     extra_translations: {},
@@ -1320,5 +1328,122 @@ describe("MainMenu routing of an active career", () => {
 
     expect(navigateMock).toHaveBeenCalledWith("/select-team");
     expect(navigateMock).not.toHaveBeenCalledWith("/dashboard");
+  });
+});
+
+describe("MainMenu career-start navigation races", () => {
+  const game = (name: string) => ({
+    manager: { first_name: name, last_name: "L", display_name: name, team_id: null },
+    extra_translations: {},
+    teams: [],
+    players: [],
+  });
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((res) => {
+      resolve = res;
+    });
+    return { promise, resolve };
+  }
+
+  async function emitGameStateChanged() {
+    const handler = vi
+      .mocked(listen)
+      .mock.calls.find(([eventName]) => eventName === "game-state-changed")?.[1];
+    await act(async () => {
+      await handler?.({ event: "game-state-changed", id: 1, payload: null });
+    });
+  }
+
+  beforeEach(() => {
+    navigateMock.mockReset();
+    setGameStateMock.mockReset();
+    setGameActiveMock.mockReset();
+    mockedInvoke.mockReset();
+    vi.mocked(listen).mockClear();
+    resetCareerSessionForTests();
+  });
+
+  /**
+   * Given the mount probe is still waiting for the backend
+   * When `game-state-changed` arrives and the two answers come back in the wrong order
+   * Then the menu navigates once, on the newer reading, not once per answer
+   */
+  it("navigates_once_when_the_mount_probe_and_an_event_overlap", async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    const reads = [first, second];
+    const stages = ["awaitingClub", "employed"];
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") return reads.shift()?.promise;
+      if (command === "get_career_stage") return stages.shift();
+      if (command === "get_manager_profiles" || command === "list_installed_packages") return [];
+      return null;
+    });
+
+    render(<MainMenu />);
+    await waitFor(() =>
+      expect(listen).toHaveBeenCalledWith("game-state-changed", expect.any(Function)),
+    );
+    const event = emitGameStateChanged();
+    second.resolve(game("fresh"));
+    first.resolve(game("stale"));
+    await event;
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled());
+
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+  });
+
+  /**
+   * Given a career is being created
+   * When the backend announces `game-state-changed` mid-creation
+   * Then the menu does not navigate: the creation navigates itself when it is done
+   */
+  it("ignores_a_game_state_event_while_a_career_is_being_created", async () => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") throw "be.error.noActiveGameSession";
+      if (command === "get_manager_profiles" || command === "list_installed_packages") return [];
+      return null;
+    });
+    render(<MainMenu />);
+    await waitFor(() =>
+      expect(listen).toHaveBeenCalledWith("game-state-changed", expect.any(Function)),
+    );
+    const operation = beginCareerOperation("creating");
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") return game("half-built");
+      if (command === "get_career_stage") return "employed";
+      return [];
+    });
+
+    await emitGameStateChanged();
+
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(setGameStateMock).not.toHaveBeenCalled();
+    operation?.release();
+  });
+
+  /**
+   * Given the player deliberately left team selection for the menu while the backend still holds
+   * the clubless career
+   * When the menu mounts
+   * Then it does not send the player straight back to team selection
+   */
+  it("does_not_bounce_a_player_who_chose_to_leave_a_clubless_career", async () => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") return game("Ada");
+      if (command === "get_career_stage") return "awaitingClub";
+      if (command === "get_manager_profiles" || command === "list_installed_packages") return [];
+      return null;
+    });
+    suppressNextAutoResume();
+
+    render(<MainMenu />);
+    await act(async () => {});
+
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("get_active_game");
   });
 });

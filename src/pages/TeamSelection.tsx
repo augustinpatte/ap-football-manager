@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore } from "../store/gameStore";
@@ -8,11 +9,21 @@ import TeamSelectionScopePanel from "./TeamSelectionScopePanel";
 import TeamSelectionGrid from "./TeamSelectionGrid";
 import TeamSelectionSidebar from "./TeamSelectionSidebar";
 import { useTeamSelection } from "./useTeamSelection";
+import { useCareerHydration } from "../hooks/useCareerHydration";
+import { CareerLoadState } from "../components/career/CareerLoadState";
+import { suppressNextAutoResume } from "../services/careerSession";
 
 export default function TeamSelection() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { gameState, setGameState, setGameActive } = useGameStore();
+  // `start_new_game` fills the game state but not the active flag, which team selection sets on
+  // confirming, so the state alone says whether a game is held.
+  const hydration = useCareerHydration({
+    hasGame: Boolean(gameState),
+    setGameState,
+    setGameActive,
+  });
 
   const {
     clubSearch,
@@ -47,9 +58,23 @@ export default function TeamSelection() {
     handleConfirm,
   } = useTeamSelection({ gameState, setGameState, setGameActive, navigate });
 
+  // Leaving is decided from the backend's answer, in an effect: navigating while rendering is a
+  // state update on the router from inside another component's render.
+  useEffect(() => {
+    if (!gameState && hydration.status === "none") navigate("/", { replace: true });
+  }, [gameState, hydration.status, navigate]);
+
   if (!gameState) {
-    navigate("/");
-    return null;
+    return (
+      <CareerLoadState
+        status={hydration.status === "ready" ? "loading" : hydration.status}
+        onRetry={hydration.retry}
+        onBackToMenu={() => {
+          suppressNextAutoResume();
+          navigate("/");
+        }}
+      />
+    );
   }
 
   return (
@@ -58,7 +83,10 @@ export default function TeamSelection() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              suppressNextAutoResume();
+              navigate("/");
+            }}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-700 dark:hover:text-gray-200"
           >
             <ArrowLeft className="h-5 w-5" />

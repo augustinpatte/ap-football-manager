@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Sa marge de progression n'est connue qu'une fois qu'il a rejoint votre centre de formation.",
     "notKnown": "Inconnu",
     "prospectGrowthAssessed": "Sa marge de progression n'est connue que sous forme de fourchette : voyez le plafond évalué par votre staff des jeunes."
+  },
+  "career": {
+    "loading": "Chargement de votre carrière…",
+    "loadFailed": {
+      "title": "Impossible d’ouvrir votre carrière",
+      "body": "Le jeu n’a pas pu lire votre carrière à l’instant. Rien n’a été modifié ni perdu. Réessayez ou retournez au menu principal.",
+      "retry": "Réessayer",
+      "backToMenu": "Menu principal"
+    }
   }
 }

@@ -5628,5 +5628,14 @@
     "prospectGrowthUnknown": "Growth room is not known until he joins your academy.",
     "notKnown": "Not known",
     "prospectGrowthAssessed": "His growth room is only known as a range: see the ceiling your youth staff assessed."
+  },
+  "career": {
+    "loading": "Loading your career…",
+    "loadFailed": {
+      "title": "Could not open your career",
+      "body": "The game could not read your career just now. Nothing was changed or lost. Try again, or go back to the main menu.",
+      "retry": "Try again",
+      "backToMenu": "Main menu"
+    }
   }
 }
