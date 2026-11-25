@@ -1218,7 +1218,11 @@
         "fullDesc": "Il vice gestisce da solo ogni compito — acquistare, trattare, vendere, rinnovare — entro le finanze del club e le regole, e non vende mai un giocatore che proteggi.",
         "customDesc": "I compiti si impostano uno per uno qui sotto.",
         "totalNote": "Autorità totale: il vice rispetta la cassa del club, il margine salariale e le regole della dirigenza, quindi i limiti di spesa qui sotto non valgono per acquisti e rinnovi. Non vende mai un giocatore che proteggi.",
-        "limitsOnlyNote": "Questa modalità opera entro i limiti di spesa qui sotto. Scegli Totale per dare al vice autorità sulle finanze del club."
+        "limitsOnlyNote": "Questa modalità opera entro i limiti di spesa qui sotto. Scegli Totale per dare al vice autorità sulle finanze del club.",
+        "fullWarningTitle": "Affidare il lavoro al tuo assistente?",
+        "fullWarningBody": "Con la delega totale il tuo assistente può mettere in lista i giocatori in eccesso, ingaggiare, e rispondere alle offerte o accettarle senza chiederti, entro i limiti di spesa qui sotto. I trasferimenti possono essere conclusi senza la tua approvazione. I giocatori nella tua lista dei protetti non vengono mai spostati e ogni decisione è riportata nella tua posta.",
+        "fullConfirm": "Sì, delega tutto",
+        "fullCancel": "Mantieni la mia approvazione"
       },
       "limits": {
         "title": "Limiti di spesa",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Un parametro zero ha fatto una controproposta",
       "transferDeadline": "Il mercato chiude con trattative ancora aperte"
     },
-    "resume": "Prosegui"
+    "resume": "Prosegui",
+    "threeMonths": "Simula 3 mesi",
+    "threeMonthsDesc": "Gioca i prossimi tre mesi in un colpo solo. Prima di iniziare scegli come gestire partite e decisioni."
   },
   "globalMarket": {
     "kicker": "Mercato",

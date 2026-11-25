@@ -33,6 +33,7 @@ type TransfersMarketTableProps = {
     | "onSelectTeam"
     | "handleToggleTransferListing"
     | "handleToggleLoanListing"
+    | "handleToggleSaleProtection"
     | "handleScoutPlayer"
     | "getDealEntryLabel"
     | "getDealEntryIcon"

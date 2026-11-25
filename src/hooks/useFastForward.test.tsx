@@ -41,9 +41,13 @@ function Harness(props: {
   const ff = useFastForward("2033-07-01T12:00:00Z", props.setGameState, props.onFired);
   return (
     <div>
-      <button type="button" onClick={ff.open}>
+      <button type="button" onClick={() => ff.open()}>
         open
       </button>
+      <button type="button" onClick={() => ff.open({ days: 90, policy: "to_target_date" })}>
+        open-three-months
+      </button>
+      <span data-testid="state">{`${ff.target}|${ff.policy}`}</span>
       <button type="button" onClick={() => void ff.start()}>
         start
       </button>
@@ -88,6 +92,20 @@ describe("useFastForward", () => {
     expect(screen.getByTestId("phase")).toHaveTextContent("configure");
     expect(screen.getByTestId("target")).toHaveTextContent("2033-07-08");
     expect(screen.getByTestId("days")).toHaveTextContent("7");
+  });
+
+  /**
+   * Given the game on 1 July
+   * When the "three months" shortcut opens the dialog
+   * Then the target is 90 days ahead and the policy is the one that plays on to the target date
+   */
+  it("opens already set to three months played to the target date", () => {
+    setup();
+
+    fireEvent.click(screen.getByText("open-three-months"));
+
+    expect(screen.getByTestId("state")).toHaveTextContent("2033-09-29|to_target_date");
+    expect(screen.getByTestId("days")).toHaveTextContent("90");
   });
 
   /** Given a target in the past, when checked, then it is not startable. */

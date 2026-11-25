@@ -48,6 +48,7 @@ import ContextMenu, { type ContextMenuHandle } from "../ContextMenu";
 import { clearContractExitIntent, setContractExitIntent } from "../../services/contractService";
 import { setPlayerSquadRole, setStartingXi } from "../../services/squadService";
 import { toggleLoanList, toggleTransferList } from "../../services/transfersService";
+import { setPlayerProtected } from "../../services/staffService";
 import {
   buildActivePositionMap,
   buildRoleCoverageSummary,
@@ -75,6 +76,7 @@ import {
   buildDelegateToYouthAcademyMenuItem,
   buildDividerMenuItem,
   buildToggleLoanListMenuItem,
+  buildToggleSaleProtectionMenuItem,
   buildToggleTransferListMenuItem,
   buildViewProfileMenuItem,
 } from "../playerActions/playerContextMenuItems";
@@ -107,6 +109,8 @@ interface SquadRosterViewProps {
   /** Held by the dashboard so they survive a visit to a profile; local when absent. */
   filters?: SquadListFilters;
   onFiltersChange?: (filters: SquadListFilters) => void;
+  /** Players the assistant may never sell (the delegation list), to mark and toggle in the menu. */
+  protectedPlayerIds?: string[];
 }
 
 export default function SquadRosterView({
@@ -119,6 +123,7 @@ export default function SquadRosterView({
   onSortStateChange,
   filters,
   onFiltersChange,
+  protectedPlayerIds,
 }: SquadRosterViewProps) {
   const tierOf = useRatingTiers();
   const { t, i18n } = useTranslation();
@@ -710,6 +715,21 @@ export default function SquadRosterView({
                       return;
                     }
                   }),
+                  buildToggleSaleProtectionMenuItem(
+                    t,
+                    protectedPlayerIds?.includes(player.id) ?? false,
+                    async () => {
+                      try {
+                        const updated = await setPlayerProtected(
+                          player.id,
+                          !(protectedPlayerIds?.includes(player.id) ?? false),
+                        );
+                        onMutationComplete?.(updated);
+                      } catch (error) {
+                        setContractActionError(userErrorText(error, t));
+                      }
+                    },
+                  ),
                   buildToggleLoanListMenuItem(t, player.loan_listed, async () => {
                     try {
                       const updated = await toggleLoanList(player.id);

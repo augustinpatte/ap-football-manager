@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
@@ -483,5 +483,27 @@ describe("DashboardHeader in a narrow window (layout rule L5)", () => {
 
     renderHeader({ showContinueMenu: true });
     expect(screen.queryByRole("button", { name: /fastForward.menuTitle/ })).toBeNull();
+  });
+
+  /**
+   * Given the dashboard header with the three-months shortcut available
+   * When it is shown with the Continue menu closed
+   * Then "Simulate 3 months" is a visible button next to Continue, and pressing it calls the handler;
+   *      it is closed while a season is complete, and without a handler it is not offered
+   */
+  it("shows a visible Simulate 3 months control that opens the preset dialog", () => {
+    const onSimulateThreeMonths = vi.fn();
+    const { unmount } = renderHeader({ onSimulateThreeMonths });
+
+    fireEvent.click(screen.getByRole("button", { name: "fastForward.threeMonths" }));
+    expect(onSimulateThreeMonths).toHaveBeenCalledTimes(1);
+    unmount();
+
+    renderHeader({ onSimulateThreeMonths, seasonComplete: true });
+    expect(screen.getByRole("button", { name: "fastForward.threeMonths" })).toBeDisabled();
+    cleanup();
+
+    renderHeader();
+    expect(screen.queryByRole("button", { name: "fastForward.threeMonths" })).toBeNull();
   });
 });

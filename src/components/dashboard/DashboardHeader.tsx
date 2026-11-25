@@ -55,6 +55,8 @@ interface DashboardHeaderProps {
   onSkipToMatchDay: () => void;
   /** Opens the "advance until date" dialog; the menu offers it only when given. */
   onFastForward?: () => void;
+  /** Opens the advance-until-date dialog already set to three months, played to the target date. */
+  onSimulateThreeMonths?: () => void;
   onToggleContinueMenu: () => void;
   saveFlash: boolean;
   searchOpen: boolean;
@@ -263,6 +265,7 @@ export default function DashboardHeader({
   onSelectSearchTeam,
   onSkipToMatchDay,
   onFastForward,
+  onSimulateThreeMonths,
   onToggleContinueMenu,
   saveFlash,
   searchOpen,
@@ -414,7 +417,18 @@ export default function DashboardHeader({
             <ChevronRight className={`h-4 w-4 ${isAdvancing ? "animate-pulse" : ""}`} />
           </button>
         ) : (
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
+            {onSimulateThreeMonths ? (
+              <button
+                type="button"
+                onClick={onSimulateThreeMonths}
+                disabled={isAdvancing || seasonComplete}
+                title={t("fastForward.threeMonthsDesc")}
+                className={`rounded-lg border border-line px-3 py-2 font-heading text-body font-bold uppercase tracking-label text-fg hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60 ${MENU_FOCUS}`}
+              >
+                {t("fastForward.threeMonths")}
+              </button>
+            ) : null}
             <div className="flex">
               <button
                 type="button"

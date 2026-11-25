@@ -37,6 +37,8 @@ export default function DelegationModeCard({
   const { t } = useTranslation();
   const labelId = useId();
   const [draft, setDraft] = useState<DelegationLimits>(limits);
+  // Handing the whole job over is a decision, not a click: it waits here until it is confirmed.
+  const [confirmingFull, setConfirmingFull] = useState(false);
   // The saved limits are the source of truth: a save or a reload replaces the draft.
   useEffect(() => setDraft(limits), [limits]);
   const dirty = LIMIT_FIELDS.some(({ key }) => draft[key] !== limits[key]);
@@ -71,7 +73,12 @@ export default function DelegationModeCard({
             }))}
             value={mode}
             onChange={(next) => {
-              if (!busy && next !== mode) onModeChange(next);
+              if (busy || next === mode) return;
+              if (next === "full") setConfirmingFull(true);
+              else {
+                setConfirmingFull(false);
+                onModeChange(next);
+              }
             }}
           />
           {mode === "custom" ? (
@@ -80,6 +87,35 @@ export default function DelegationModeCard({
             </Badge>
           ) : null}
         </div>
+
+        {confirmingFull ? (
+          <div
+            role="alertdialog"
+            aria-labelledby={`${labelId}-warning`}
+            className="mt-3 rounded-lg border border-warning bg-warning-tint p-3"
+          >
+            <p id={`${labelId}-warning`} className="text-body font-bold text-fg">
+              {t("staff.delegation.mode.fullWarningTitle")}
+            </p>
+            <p className="mt-1 text-caption text-fg">
+              {t("staff.delegation.mode.fullWarningBody")}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setConfirmingFull(false);
+                  onModeChange("full");
+                }}
+              >
+                {t("staff.delegation.mode.fullConfirm")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingFull(false)}>
+                {t("staff.delegation.mode.fullCancel")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <h4 className="mt-4 text-body font-medium">{t("staff.delegation.limits.title")}</h4>
         <p className="text-caption text-fg-muted">{t("staff.delegation.limits.intro")}</p>

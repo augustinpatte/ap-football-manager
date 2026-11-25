@@ -698,6 +698,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
           onSelectSearchTeam={handleSelectSearchTeam}
           onSkipToMatchDay={handleSkipToMatchDay}
           onFastForward={handleOpenFastForward}
+          onSimulateThreeMonths={() => fastForward.open({ days: 90, policy: "to_target_date" })}
           onToggleContinueMenu={handleToggleContinueMenu}
           saveFlash={saveFlash}
           searchOpen={searchOpen}

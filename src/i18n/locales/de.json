@@ -1192,7 +1192,11 @@
         "fullDesc": "Der Co-Trainer erledigt jede Aufgabe selbst — verpflichten, verhandeln, verkaufen, verlängern — im Rahmen der Vereinsfinanzen und der Regeln und verkauft nie einen Spieler, den du schützt.",
         "customDesc": "Die Aufgaben werden unten einzeln eingestellt.",
         "totalNote": "Volle Befugnis: Der Co-Trainer hält sich an die Kasse des Vereins, den Gehaltsspielraum und die Vorgaben des Vorstands; die Ausgabenlimits unten gelten daher nicht für Verpflichtungen und Verlängerungen. Er verkauft nie einen Spieler, den du schützt.",
-        "limitsOnlyNote": "Dieser Modus arbeitet innerhalb der Ausgabenlimits unten. Wähle Voll, um dem Co-Trainer Befugnis über die Vereinsfinanzen zu geben."
+        "limitsOnlyNote": "Dieser Modus arbeitet innerhalb der Ausgabenlimits unten. Wähle Voll, um dem Co-Trainer Befugnis über die Vereinsfinanzen zu geben.",
+        "fullWarningTitle": "Die Arbeit an deinen Assistenten abgeben?",
+        "fullWarningBody": "Mit voller Delegation kann dein Assistent überzählige Spieler auf die Liste setzen, Spieler verpflichten sowie Angebote beantworten und annehmen, ohne dich zu fragen, innerhalb der Ausgabengrenzen unten. Transfers können ohne deine Zustimmung abgeschlossen werden. Spieler auf deiner Schutzliste werden nie bewegt, und jede Entscheidung wird in deinem Posteingang gemeldet.",
+        "fullConfirm": "Ja, alles delegieren",
+        "fullCancel": "Meine Zustimmung behalten"
       },
       "limits": {
         "title": "Ausgabengrenzen",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Ein vertragsloser Spieler hat ein Gegenangebot gemacht",
       "transferDeadline": "Das Transferfenster schließt, während noch Verhandlungen laufen"
     },
-    "resume": "Weitermachen"
+    "resume": "Weitermachen",
+    "threeMonths": "3 Monate simulieren",
+    "threeMonthsDesc": "Spiele die nächsten drei Monate in einem Rutsch. Vor dem Start wählst du, wie Spiele und Entscheidungen behandelt werden."
   },
   "globalMarket": {
     "kicker": "Verpflichtungen",

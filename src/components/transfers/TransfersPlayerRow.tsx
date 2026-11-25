@@ -16,6 +16,7 @@ import {
   buildDividerMenuItem,
   buildScoutPlayerMenuItem,
   buildToggleLoanListMenuItem,
+  buildToggleSaleProtectionMenuItem,
   buildToggleTransferListMenuItem,
   buildViewProfileMenuItem,
   buildViewTeamMenuItem,
@@ -70,6 +71,8 @@ type TransferPlayerRowProps = {
     | "view"
     | "handleToggleTransferListing"
     | "handleToggleLoanListing"
+    | "handleToggleSaleProtection"
+    | "gameState"
     | "isScoutingView"
     | "handleScoutPlayer"
     | "getDealEntryLabel"
@@ -234,6 +237,8 @@ export function TransferPlayerRow({ state, player }: TransferPlayerRowProps) {
     view,
     handleToggleTransferListing,
     handleToggleLoanListing,
+    handleToggleSaleProtection,
+    gameState,
     isScoutingView,
     handleScoutPlayer,
     getDealEntryLabel,
@@ -275,6 +280,14 @@ export function TransferPlayerRow({ state, player }: TransferPlayerRowProps) {
     contextItems.push(
       buildToggleLoanListMenuItem(t, player.loan_listed, () => {
         void handleToggleLoanListing(player.id);
+      }),
+    );
+    // The assistant's own list of players it may never sell: here beside the listing actions, not
+    // only in a player's profile menu.
+    const protectedFromSale = gameState.delegation?.protected_players?.includes(player.id) ?? false;
+    contextItems.push(
+      buildToggleSaleProtectionMenuItem(t, protectedFromSale, () => {
+        void handleToggleSaleProtection(player.id, !protectedFromSale);
       }),
     );
   }

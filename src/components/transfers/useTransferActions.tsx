@@ -4,6 +4,8 @@ import type { GameStateData } from "../../store/gameStore";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { toggleLoanList, toggleTransferList } from "../../services/transfersService";
 import { sendScout } from "../../services/scoutingService";
+import { setPlayerProtected } from "../../services/staffService";
+import { userErrorText } from "../../utils/errorMessage";
 import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
 import { buildAlreadyScoutingIds } from "../scouting/ScoutingTab.model";
 import type { TFunction } from "i18next";
@@ -68,7 +70,17 @@ export function useTransferActions({ gameState, userTeamId, onGameUpdate, t }: I
       setListingError(resolveTranslatedErrorMessage(getErrorMessage(error), t));
     }
   };
+  const handleToggleSaleProtection = async (playerId: string, protect: boolean): Promise<void> => {
+    setListingError(null);
+
+    try {
+      onGameUpdate?.(await setPlayerProtected(playerId, protect));
+    } catch (error) {
+      setListingError(userErrorText(error, t));
+    }
+  };
   return {
+    handleToggleSaleProtection,
     scoutingPlayerId,
     scoutError,
     listingError,

@@ -1192,7 +1192,11 @@
         "fullDesc": "The assistant manages every duty himself — recruiting, negotiating, selling, renewing — within the club's finances and the rules, and never sells a player you protect.",
         "customDesc": "Duties are set one by one below.",
         "totalNote": "Total authority: the assistant is held to the club's cash, wage room and the board's rules, so the spending limits below are not used for signings and renewals. He never sells a player you protect.",
-        "limitsOnlyNote": "This mode works within the spending limits below. Choose Total to give the assistant authority over the club's finances."
+        "limitsOnlyNote": "This mode works within the spending limits below. Choose Total to give the assistant authority over the club's finances.",
+        "fullWarningTitle": "Hand the job to your assistant?",
+        "fullWarningBody": "With full delegation your assistant can list surplus players, sign players, and answer and accept offers without asking you, within the spending limits below. Transfers can be completed without your approval. Players on your protected list are never moved, and every decision is reported in your inbox.",
+        "fullConfirm": "Yes, delegate everything",
+        "fullCancel": "Keep my approval"
       },
       "limits": {
         "title": "Spending limits",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "A free agent has made a counter-offer",
       "transferDeadline": "The transfer window closes with talks still open"
     },
-    "resume": "Carry on"
+    "resume": "Carry on",
+    "threeMonths": "Simulate 3 months",
+    "threeMonthsDesc": "Play the next three months in one go. You choose how matches and decisions are handled before you start."
   },
   "globalMarket": {
     "kicker": "Recruitment",

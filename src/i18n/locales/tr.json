@@ -1192,7 +1192,11 @@
         "fullDesc": "Yardımcı her görevi kendisi yürütür — transfer, pazarlık, satış, yenileme — kulübün mali durumu ve kurallar içinde kalır ve korumaya aldığınız bir oyuncuyu asla satmaz.",
         "customDesc": "Görevler aşağıda tek tek ayarlanır.",
         "totalNote": "Tam yetki: yardımcı kulübün nakdi, maaş payı ve yönetimin kurallarıyla sınırlıdır; bu yüzden aşağıdaki harcama limitleri transfer ve yenilemelerde kullanılmaz. Korumaya aldığınız bir oyuncuyu asla satmaz.",
-        "limitsOnlyNote": "Bu mod aşağıdaki harcama limitleri içinde çalışır. Yardımcıya kulübün finansı üzerinde yetki vermek için Tam'ı seçin."
+        "limitsOnlyNote": "Bu mod aşağıdaki harcama limitleri içinde çalışır. Yardımcıya kulübün finansı üzerinde yetki vermek için Tam'ı seçin.",
+        "fullWarningTitle": "İşi yardımcınıza devredelim mi?",
+        "fullWarningBody": "Tam yetki devriyle yardımcınız, aşağıdaki harcama sınırları içinde size sormadan fazla oyuncuları listeye koyabilir, oyuncu imzalayabilir, teklifleri yanıtlayıp kabul edebilir. Transferler onayınız olmadan tamamlanabilir. Korunan listenizdeki oyuncular asla elden çıkarılmaz ve her karar gelen kutunuza bildirilir.",
+        "fullConfirm": "Evet, her şeyi devret",
+        "fullCancel": "Onayımı koru"
       },
       "limits": {
         "title": "Harcama sınırları",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Serbest bir oyuncu karşı teklif yaptı",
       "transferDeadline": "Transfer dönemi, görüşmeler sürerken kapanıyor"
     },
-    "resume": "Devam et"
+    "resume": "Devam et",
+    "threeMonths": "3 ay simüle et",
+    "threeMonthsDesc": "Önümüzdeki üç ayı tek seferde oynayın. Başlamadan önce maçların ve kararların nasıl ele alınacağını seçersiniz."
   },
   "globalMarket": {
     "kicker": "Transfer",

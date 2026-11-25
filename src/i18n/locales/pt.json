@@ -1192,7 +1192,11 @@
         "fullDesc": "O adjunto gere ele próprio cada tarefa — contratar, negociar, vender, renovar — dentro das finanças do clube e das regras, e nunca vende um jogador que protejas.",
         "customDesc": "As tarefas são definidas uma a uma abaixo.",
         "totalNote": "Autoridade total: o adjunto fica limitado ao dinheiro do clube, à margem salarial e às regras da direção, por isso os limites de despesa abaixo não são usados em contratações nem renovações. Nunca vende um jogador que protejas.",
-        "limitsOnlyNote": "Este modo funciona dentro dos limites de despesa abaixo. Escolhe Total para dar ao adjunto autoridade sobre as finanças do clube."
+        "limitsOnlyNote": "Este modo funciona dentro dos limites de despesa abaixo. Escolhe Total para dar ao adjunto autoridade sobre as finanças do clube.",
+        "fullWarningTitle": "Entregar o trabalho ao teu assistente?",
+        "fullWarningBody": "Com a delegação total, o teu assistente pode listar jogadores excedentários, contratar, e responder a propostas e aceitá-las sem te perguntar, dentro dos limites de gastos abaixo. As transferências podem ser concluídas sem a tua aprovação. Os jogadores da tua lista de protegidos nunca são movidos e cada decisão é comunicada na tua caixa de entrada.",
+        "fullConfirm": "Sim, delegar tudo",
+        "fullCancel": "Manter a minha aprovação"
       },
       "limits": {
         "title": "Limites de despesa",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Um jogador livre fez uma contraproposta",
       "transferDeadline": "O mercado fecha com negociações ainda abertas"
     },
-    "resume": "Continuar"
+    "resume": "Continuar",
+    "threeMonths": "Simular 3 meses",
+    "threeMonthsDesc": "Joga os próximos três meses de uma vez. Antes de começar, escolhes como são tratados os jogos e as decisões."
   },
   "globalMarket": {
     "kicker": "Recrutamento",

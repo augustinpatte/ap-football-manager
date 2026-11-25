@@ -63,6 +63,7 @@ export default function SquadTab({
       onSortStateChange={onSortStateChange}
       filters={filters}
       onFiltersChange={onFiltersChange}
+      protectedPlayerIds={gameState?.delegation?.protected_players}
     />
   );
 }

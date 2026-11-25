@@ -214,16 +214,61 @@ describe("StaffManagementPanel", () => {
     expect(screen.getByTestId("duty-PlayerRecruitment")).toBeInTheDocument();
   });
 
-  it("switches the whole job to full delegation in one click", async () => {
+  /**
+   * Given the assistant works with the manager's approval
+   * When the manager picks full delegation
+   * Then nothing is sent yet: a warning says transfers can complete without approval, and only
+   *      confirming switches the whole job over
+   */
+  it("warns before switching the whole job to full delegation, and switches on confirm", async () => {
     const onGameUpdate = vi.fn();
     render(<StaffManagementPanel overview={overview()} onGameUpdate={onGameUpdate} />);
 
     expect(screen.getByRole("radio", { name: "staff.delegation.mode.approval" })).toBeChecked();
     fireEvent.click(screen.getByRole("radio", { name: "staff.delegation.mode.full" }));
+
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "staff.delegation.mode.fullWarningBody",
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith("set_delegation_mode", expect.anything());
+
+    fireEvent.click(screen.getByRole("button", { name: "staff.delegation.mode.fullConfirm" }));
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("set_delegation_mode", { mode: "full" }),
     );
     expect(onGameUpdate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Given the warning is showing
+   * When the manager keeps his approval
+   * Then the warning closes and the mode is never sent
+   */
+  it("does_not_change_the_mode_when_the_warning_is_declined", () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: "staff.delegation.mode.full" }));
+    fireEvent.click(screen.getByRole("button", { name: "staff.delegation.mode.fullCancel" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalledWith("set_delegation_mode", expect.anything());
+  });
+
+  /**
+   * Given the assistant works with approval
+   * When the manager returns to manual
+   * Then it switches at once: only handing over everything needs the warning
+   */
+  it("switches_to_manual_without_a_warning", async () => {
+    render(<StaffManagementPanel overview={overview()} onGameUpdate={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: "staff.delegation.mode.manual" }));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_delegation_mode", { mode: "manual" }),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
   it("saves spending limits only once they differ from the saved ones", async () => {

@@ -1192,7 +1192,11 @@
         "fullDesc": "El ayudante gestiona él mismo cada tarea —fichar, negociar, vender, renovar— dentro de las finanzas del club y las normas, y nunca vende a un jugador que protejas.",
         "customDesc": "Las tareas se ajustan una a una abajo.",
         "totalNote": "Autoridad total: el ayudante se atiene a la caja del club, al margen salarial y a las normas de la directiva, así que los límites de gasto de abajo no se usan para fichajes ni renovaciones. Nunca vende a un jugador que protejas.",
-        "limitsOnlyNote": "Este modo funciona dentro de los límites de gasto de abajo. Elige Total para darle al ayudante autoridad sobre las finanzas del club."
+        "limitsOnlyNote": "Este modo funciona dentro de los límites de gasto de abajo. Elige Total para darle al ayudante autoridad sobre las finanzas del club.",
+        "fullWarningTitle": "¿Dejar el trabajo en manos de tu asistente?",
+        "fullWarningBody": "Con la delegación total tu asistente puede poner jugadores en venta, fichar y responder o aceptar ofertas sin consultarte, dentro de los límites de gasto de abajo. Los traspasos pueden cerrarse sin tu aprobación. Los jugadores de tu lista de protegidos nunca se mueven y cada decisión se te informa en la bandeja de entrada.",
+        "fullConfirm": "Sí, delegarlo todo",
+        "fullCancel": "Mantener mi aprobación"
       },
       "limits": {
         "title": "Límites de gasto",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Un agente libre ha hecho una contraoferta",
       "transferDeadline": "El mercado cierra con negociaciones aún abiertas"
     },
-    "resume": "Continuar"
+    "resume": "Continuar",
+    "threeMonths": "Simular 3 meses",
+    "threeMonthsDesc": "Juega los próximos tres meses de una vez. Antes de empezar eliges cómo se tratan los partidos y las decisiones."
   },
   "globalMarket": {
     "kicker": "Fichajes",

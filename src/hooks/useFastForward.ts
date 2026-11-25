@@ -27,7 +27,8 @@ export interface FastForwardState {
   /** The target is a real date after today. */
   targetIsValid: boolean;
   daysAhead: number;
-  open: () => void;
+  /** Opens the dialog, optionally already set to a span and a way of handling decisions. */
+  open: (options?: { days?: number; policy?: FastForwardPolicy }) => void;
   close: () => void;
   setTarget: (target: string) => void;
   setPolicy: (policy: FastForwardPolicy) => void;
@@ -69,14 +70,18 @@ export function useFastForward(
   const targetIsValid = isCalendarDate(target) && daysBetween(today, target) > 0;
   const daysAhead = targetIsValid ? daysBetween(today, target) : 0;
 
-  const open = useCallback(() => {
-    if (inFlightRef.current) return;
-    setTarget(addDays(today, 7));
-    setError(null);
-    setResult(null);
-    setProgress(null);
-    setPhase("configure");
-  }, [today]);
+  const open = useCallback(
+    (options?: { days?: number; policy?: FastForwardPolicy }) => {
+      if (inFlightRef.current) return;
+      setTarget(addDays(today, options?.days ?? 7));
+      if (options?.policy) setPolicy(options.policy);
+      setError(null);
+      setResult(null);
+      setProgress(null);
+      setPhase("configure");
+    },
+    [today],
+  );
 
   const close = useCallback(() => {
     if (inFlightRef.current) return;

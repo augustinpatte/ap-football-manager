@@ -1192,7 +1192,11 @@
         "fullDesc": "O auxiliar cuida de cada tarefa sozinho — contratar, negociar, vender, renovar — dentro das finanças do clube e das regras, e nunca vende um jogador que você protege.",
         "customDesc": "As tarefas são definidas uma a uma abaixo.",
         "totalNote": "Autoridade total: o auxiliar fica limitado ao caixa do clube, à folga salarial e às regras da diretoria, então os limites de gasto abaixo não valem para contratações nem renovações. Ele nunca vende um jogador que você protege.",
-        "limitsOnlyNote": "Este modo funciona dentro dos limites de gasto abaixo. Escolha Total para dar ao auxiliar autoridade sobre as finanças do clube."
+        "limitsOnlyNote": "Este modo funciona dentro dos limites de gasto abaixo. Escolha Total para dar ao auxiliar autoridade sobre as finanças do clube.",
+        "fullWarningTitle": "Entregar o trabalho ao seu assistente?",
+        "fullWarningBody": "Com a delegação total, seu assistente pode listar jogadores excedentes, contratar e responder ou aceitar propostas sem perguntar a você, dentro dos limites de gastos abaixo. Transferências podem ser concluídas sem a sua aprovação. Jogadores da sua lista de protegidos nunca são movidos, e cada decisão é informada na sua caixa de entrada.",
+        "fullConfirm": "Sim, delegar tudo",
+        "fullCancel": "Manter minha aprovação"
       },
       "limits": {
         "title": "Limites de gastos",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Um agente livre fez uma contraproposta",
       "transferDeadline": "A janela fecha com negociações ainda abertas"
     },
-    "resume": "Continuar"
+    "resume": "Continuar",
+    "threeMonths": "Simular 3 meses",
+    "threeMonthsDesc": "Jogue os próximos três meses de uma vez. Antes de começar, você escolhe como tratar jogos e decisões."
   },
   "globalMarket": {
     "kicker": "Contratações",

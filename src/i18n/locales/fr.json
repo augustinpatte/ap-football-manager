@@ -1192,7 +1192,11 @@
         "fullDesc": "L'adjoint gère lui-même chaque tâche — recruter, négocier, vendre, prolonger — dans les limites des finances du club et des règles, et ne vend jamais un joueur que vous protégez.",
         "customDesc": "Les tâches sont réglées une par une ci-dessous.",
         "totalNote": "Autorité totale : l'adjoint est tenu par la trésorerie du club, la marge salariale et les règles de la direction ; les plafonds de dépense ci-dessous ne servent donc pas aux recrutements ni aux prolongations. Il ne vend jamais un joueur que vous protégez.",
-        "limitsOnlyNote": "Ce mode fonctionne dans les plafonds de dépense ci-dessous. Choisissez Total pour donner à l'adjoint autorité sur les finances du club."
+        "limitsOnlyNote": "Ce mode fonctionne dans les plafonds de dépense ci-dessous. Choisissez Total pour donner à l'adjoint autorité sur les finances du club.",
+        "fullWarningTitle": "Confier le travail à votre adjoint ?",
+        "fullWarningBody": "Avec la délégation totale, votre adjoint peut mettre des joueurs excédentaires sur la liste, recruter, et répondre aux offres ou les accepter sans vous demander, dans les limites de dépenses ci-dessous. Des transferts peuvent être conclus sans votre accord. Les joueurs de votre liste de protégés ne sont jamais déplacés et chaque décision est signalée dans votre boîte de réception.",
+        "fullConfirm": "Oui, tout déléguer",
+        "fullCancel": "Garder mon accord"
       },
       "limits": {
         "title": "Plafonds de dépense",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Un joueur libre a fait une contre-offre",
       "transferDeadline": "Le mercato ferme alors que des discussions sont encore ouvertes"
     },
-    "resume": "Continuer"
+    "resume": "Continuer",
+    "threeMonths": "Simuler 3 mois",
+    "threeMonthsDesc": "Jouez les trois prochains mois d’un coup. Avant de lancer, vous choisissez comment gérer les matchs et les décisions."
   },
   "globalMarket": {
     "kicker": "Recrutement",

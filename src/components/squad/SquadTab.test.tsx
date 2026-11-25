@@ -40,6 +40,8 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.letContractExpire") return "Let Expire";
       if (key === "playerProfile.reopenContractTalks") return "Reopen Talks";
       if (key === "playerProfile.terminateContract") return "Terminate Now";
+      if (key === "squad.protectFromSale") return "Protect from sale";
+      if (key === "squad.removeSaleProtection") return "Allow the assistant to sell";
       if (key === "squad.addToLoanList") return "Add to Loan List";
       if (key === "squad.removeFromLoanList") return "Remove from Loan List";
       if (key === "transfers.loan") return "Loan";
@@ -397,6 +399,33 @@ describe("SquadTab", () => {
     expect(onSelectPlayer).toHaveBeenCalledWith("gk1", {
       openTermination: true,
     });
+  });
+
+  /**
+   * Given a squad list with one player already on the assistant's protected list
+   * When each player's roster menu is opened
+   * Then the unprotected player offers "protect", the protected one offers to remove it, and
+   *      choosing it sends the toggle for that player: protection is reachable from the squad,
+   *      not only from a profile
+   */
+  it("offers sale protection in the roster context menu and toggles it", async () => {
+    const gameState = makeGameState();
+    (gameState as unknown as { delegation: { protected_players: string[] } }).delegation = {
+      protected_players: ["gk1"],
+    };
+    const onGameUpdate = vi.fn();
+    renderSquadTab(gameState, { onGameUpdate });
+    mockedInvoke.mockResolvedValue(gameState);
+
+    fireEvent.contextMenu(screen.getByText("GK1").closest("tr") as HTMLTableRowElement);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Allow the assistant to sell" }));
+    await waitFor(() =>
+      expect(mockedInvoke).toHaveBeenCalledWith("set_player_protected", {
+        playerId: "gk1",
+        protected: false,
+      }),
+    );
+    expect(onGameUpdate).toHaveBeenCalled();
   });
 
   it("shows loan-listed status immediately after using the roster context menu", async () => {

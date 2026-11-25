@@ -1192,7 +1192,11 @@
         "fullDesc": "Asistent zvládá každý úkol sám — angažování, vyjednávání, prodej, prodlužování — v rámci financí klubu a pravidel a nikdy neprodá hráče, kterého chráníš.",
         "customDesc": "Úkoly se nastavují jednotlivě níže.",
         "totalNote": "Plná pravomoc: asistent se drží hotovosti klubu, mzdového prostoru a pravidel vedení, takže níže uvedené limity výdajů se pro angažmá a prodloužení nepoužívají. Nikdy neprodá hráče, kterého chráníš.",
-        "limitsOnlyNote": "Tento režim funguje v rámci limitů výdajů níže. Zvol Plný, aby asistent získal pravomoc nad financemi klubu."
+        "limitsOnlyNote": "Tento režim funguje v rámci limitů výdajů níže. Zvol Plný, aby asistent získal pravomoc nad financemi klubu.",
+        "fullWarningTitle": "Předat práci asistentovi?",
+        "fullWarningBody": "S plnou delegací může váš asistent v mezích výdajů níže dávat nadbytečné hráče na soupisku k prodeji, podepisovat hráče a odpovídat na nabídky i je přijímat, aniž by se vás ptal. Přestupy tak mohou proběhnout bez vašeho souhlasu. Hráči na vašem seznamu chráněných se nikdy nepřesouvají a každé rozhodnutí se hlásí do vaší pošty.",
+        "fullConfirm": "Ano, vše delegovat",
+        "fullCancel": "Ponechat můj souhlas"
       },
       "limits": {
         "title": "Limity výdajů",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Volný hráč předložil protinabídku",
       "transferDeadline": "Přestupové okno se zavírá, ale jednání stále běží"
     },
-    "resume": "Pokračovat"
+    "resume": "Pokračovat",
+    "threeMonths": "Simulovat 3 měsíce",
+    "threeMonthsDesc": "Odehrajte příští tři měsíce naráz. Před spuštěním si vyberete, jak se naloží se zápasy a rozhodnutími."
   },
   "globalMarket": {
     "kicker": "Přestupy",

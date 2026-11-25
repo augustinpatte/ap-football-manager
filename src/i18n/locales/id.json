@@ -1192,7 +1192,11 @@
         "fullDesc": "Asisten mengelola sendiri setiap tugas — rekrutmen, negosiasi, penjualan, perpanjangan — dalam batas keuangan klub dan aturan, dan tidak pernah menjual pemain yang Anda lindungi.",
         "customDesc": "Tugas diatur satu per satu di bawah.",
         "totalNote": "Otoritas penuh: asisten dibatasi oleh kas klub, ruang gaji, dan aturan dewan, sehingga batas pengeluaran di bawah tidak dipakai untuk rekrutmen dan perpanjangan. Dia tidak pernah menjual pemain yang Anda lindungi.",
-        "limitsOnlyNote": "Mode ini bekerja dalam batas pengeluaran di bawah. Pilih Penuh untuk memberi asisten otoritas atas keuangan klub."
+        "limitsOnlyNote": "Mode ini bekerja dalam batas pengeluaran di bawah. Pilih Penuh untuk memberi asisten otoritas atas keuangan klub.",
+        "fullWarningTitle": "Serahkan pekerjaan ke asisten Anda?",
+        "fullWarningBody": "Dengan delegasi penuh, asisten Anda dapat mendaftarkan pemain berlebih, merekrut pemain, serta menjawab dan menerima tawaran tanpa bertanya, dalam batas pengeluaran di bawah. Transfer dapat diselesaikan tanpa persetujuan Anda. Pemain dalam daftar terlindungi tidak pernah dipindahkan, dan setiap keputusan dilaporkan di kotak masuk Anda.",
+        "fullConfirm": "Ya, delegasikan semuanya",
+        "fullCancel": "Pertahankan persetujuan saya"
       },
       "limits": {
         "title": "Batas pengeluaran",
@@ -5449,7 +5453,9 @@
       "freeAgentCounterOffer": "Agen bebas telah mengajukan tawaran balik",
       "transferDeadline": "Bursa transfer ditutup saat negosiasi masih berjalan"
     },
-    "resume": "Lanjutkan"
+    "resume": "Lanjutkan",
+    "threeMonths": "Simulasikan 3 bulan",
+    "threeMonthsDesc": "Mainkan tiga bulan ke depan sekaligus. Sebelum mulai, Anda memilih cara menangani pertandingan dan keputusan."
   },
   "globalMarket": {
     "kicker": "Rekrutmen",
