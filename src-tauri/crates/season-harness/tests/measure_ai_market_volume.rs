@@ -92,10 +92,11 @@ impl SeasonObserver for Volume {
             self.current.window_open_days += 1;
             let mut seniors: HashMap<&str, usize> = HashMap::new();
             for player in &game.players {
-                if player.squad_role == domain::player::SquadRole::Senior && !player.retired {
-                    if let Some(club) = player.team_id.as_deref() {
-                        *seniors.entry(club).or_default() += 1;
-                    }
+                if player.squad_role == domain::player::SquadRole::Senior
+                    && !player.retired
+                    && let Some(club) = player.team_id.as_deref()
+                {
+                    *seniors.entry(club).or_default() += 1;
                 }
             }
             let mut full = 0;
@@ -212,13 +213,12 @@ fn trim_ai_lists(game: &mut Game, user: &str, limit: usize) -> usize {
         if player.squad_role == domain::player::SquadRole::Senior
             && !player.retired
             && player.active_loan.is_none()
+            && let Some(club) = player.team_id.as_deref().filter(|club| *club != user)
         {
-            if let Some(club) = player.team_id.as_deref().filter(|club| *club != user) {
-                by_club
-                    .entry(club.to_string())
-                    .or_default()
-                    .push((player.ovr, player.id.clone()));
-            }
+            by_club
+                .entry(club.to_string())
+                .or_default()
+                .push((player.ovr, player.id.clone()));
         }
     }
     let mut demoted = HashSet::new();
