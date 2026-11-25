@@ -1,0 +1,106 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import "../../App.css";
+import "../../i18n";
+import { ThemeProvider } from "../../context/ThemeContext";
+import { FormationPitch } from "../../components/match/FormationPitch";
+import { PitchToken, Select } from "../../components/ui";
+import type { EnginePlayerData } from "../../components/match/types";
+
+// TEMPORARY layout probe (never committed): the real FormationPitch and PitchToken at three pitch
+// widths, the old 96 px card with its role select against the new compact token.
+const POSITIONS = ["Goalkeeper", "Defender", "Defender", "Defender", "Defender", "Midfielder", "Midfielder", "Midfielder", "Midfielder", "Forward", "Forward"];
+const players = POSITIONS.map((position, i) => ({
+  id: `p${i}`, name: `Player ${i} Surname`, position, ovr: 70 + i, condition: 90,
+})) as unknown as EnginePlayerData[];
+
+type Variant = "old" | "new";
+
+function token(variant: Variant, p: EnginePlayerData) {
+  const width = variant === "old" ? "w-24" : "w-[min(6rem,16cqw)]";
+  return (
+    <div className={`flex ${width} flex-col items-center gap-0.5 rounded-xl px-1 py-1`}>
+      <PitchToken
+        name={p.name.toUpperCase()}
+        positionAbbr="CM"
+        position="CentralMidfielder"
+        ovr={p.ovr}
+        condition={p.condition}
+        fitTone="exact"
+        avatar={{ full_name: p.name, match_name: p.name }}
+        jerseyNumber={8}
+      >
+        {variant === "old" ? (
+          <div className="w-full">
+            <Select selectSize="sm" variant="ghost" fullWidth value="Standard" onChange={() => {}}>
+              <option value="Standard">Standard</option>
+            </Select>
+          </div>
+        ) : null}
+      </PitchToken>
+    </div>
+  );
+}
+
+const WIDTHS = [300, 360, 520];
+
+function Cell({ variant, width }: { variant: Variant; width: number }) {
+  return (
+    <div data-probe={`${variant}-${width}`} style={{ width, display: "inline-block", margin: 8, verticalAlign: "top" }}>
+      <FormationPitch
+        formation="4-4-2"
+        players={players}
+        onPlayerClick={() => {}}
+        renderToken={(p) => token(variant, p)}
+        className="@container aspect-[5/7] w-full"
+      />
+    </div>
+  );
+}
+
+function overlaps(cell: Element) {
+  const boxes = [...cell.querySelectorAll('[role="button"]')].map((el) => {
+    // the visible card is the token's first child; measure it, not the zero-size slot wrapper
+    const card = (el.firstElementChild as HTMLElement) ?? (el as HTMLElement);
+    const r = card.getBoundingClientRect();
+    return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, sc: (el as HTMLElement).style.scale, nat: (card as HTMLElement).offsetHeight };
+  });
+  let pairs = 0;
+  let worst = 0;
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      const ox = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+      const oy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+      if (ox > 1 && oy > 1) { pairs += 1; worst = Math.max(worst, ox * oy); (window as unknown as {pp: string[]}).pp = ((window as unknown as {pp?: string[]}).pp ?? []).concat(`${i}-${j}:${Math.round(ox)}x${Math.round(oy)}`); }
+    }
+  }
+  const pitch = cell.getBoundingClientRect();
+  const outside = boxes.filter((x) => x.l < pitch.left - 1 || x.r > pitch.right + 1 || x.t < pitch.top - 1 || x.b > pitch.bottom + 1).length;
+  return { tokens: boxes.length, overlappingPairs: pairs, worstOverlapPx2: Math.round(worst), tokenWidth: Math.round(boxes[5]?.w ?? 0), tokenHeight: Math.round(boxes[5]?.h ?? 0), scale: boxes[5]?.sc, natural: boxes[5]?.nat, pitchW: Math.round(pitch.width), pitchH: Math.round(pitch.height), outsidePitch: outside };
+}
+
+function Probe() {
+  React.useEffect(() => {
+    const id = setTimeout(() => {
+      const result: Record<string, unknown> = {};
+      document.querySelectorAll("[data-probe]").forEach((cell) => {
+        result[cell.getAttribute("data-probe") as string] = overlaps(cell);
+      });
+      const pre = document.getElementById("probe-result");
+      if (pre) pre.textContent = JSON.stringify(result) + '|' + JSON.stringify((window as unknown as {pp?: string[]}).pp ?? []);
+    }, 1500);
+    return () => clearTimeout(id);
+  }, []);
+  return (
+    <ThemeProvider>
+      <style>{"* { transition: none !important; }"}</style>
+      <div style={{ padding: 8 }}>
+        {WIDTHS.map((w) => (<span key={w}><Cell variant="old" width={w} /><Cell variant="new" width={w} /></span>))}
+        <pre id="probe-result" />
+      </div>
+    </ThemeProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Probe />);

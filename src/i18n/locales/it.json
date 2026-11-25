@@ -3233,6 +3233,15 @@
       },
       "attacksRight": "{{team}} attacca verso destra",
       "attacksLeft": "{{team}} attacca verso sinistra"
+    },
+    "selectedPlayer": {
+      "title": "Giocatore selezionato",
+      "hint": "Seleziona un giocatore in campo per cambiarne il ruolo.",
+      "role": "Ruolo"
+    },
+    "pitchFocus": {
+      "expand": "Ingrandisci campo",
+      "collapse": "Mostra pannelli laterali"
     }
   },
   "notifications": {

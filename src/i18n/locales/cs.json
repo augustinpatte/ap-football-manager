@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} útočí doprava",
       "attacksLeft": "{{team}} útočí doleva"
+    },
+    "selectedPlayer": {
+      "title": "Vybraný hráč",
+      "hint": "Vyberte hráče na hřišti a změňte jeho roli.",
+      "role": "Role"
+    },
+    "pitchFocus": {
+      "expand": "Zvětšit hřiště",
+      "collapse": "Zobrazit postranní panely"
     }
   },
   "endOfSeason": {

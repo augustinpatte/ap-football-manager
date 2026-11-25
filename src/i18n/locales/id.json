@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} menyerang ke kanan",
       "attacksLeft": "{{team}} menyerang ke kiri"
+    },
+    "selectedPlayer": {
+      "title": "Pemain terpilih",
+      "hint": "Pilih pemain di lapangan untuk mengubah perannya.",
+      "role": "Peran"
+    },
+    "pitchFocus": {
+      "expand": "Perbesar lapangan",
+      "collapse": "Tampilkan panel samping"
     }
   },
   "endOfSeason": {

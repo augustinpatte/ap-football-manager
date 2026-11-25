@@ -28,6 +28,7 @@ import {
 import { PhaseBlueprintPanel } from "../tactics/PhaseBlueprintPanel";
 import { setPlayerRole, setTacticsPhase } from "../../services/squadService";
 import { getRoleOptions } from "../../lib/playerRoles";
+import { buildPitchRows } from "../squad/SquadTab.helpers";
 import type { PlayerRole, TacticsPhaseSettings } from "../../store/types";
 import { PitchToken, Select, TeamLogo, ThemeToggle, type PitchFitTone } from "../ui";
 import { ChevronRight, Crown, Footprints, CornerDownRight, CircleDot, Wand2 } from "lucide-react";
@@ -44,6 +45,14 @@ interface PreMatchSetupProps {
   viewModeSlot?: ReactNode;
 }
 
+/**
+ * A token is as wide as the pitch lets a row be: four across take a fifth of the width each, five a sixth,
+ * so a token never passes 16 % of it (a container-query unit of the pitch) and never 6rem. The
+ * fixed 96 px card this replaced overlapped its neighbours on a 360 px pitch. The role control is not
+ * in the token: it lives in the selected-player panel, where it has room.
+ */
+const TOKEN_WIDTH = "w-[min(6rem,16cqw)]";
+
 export default function PreMatchSetup({
   snapshot,
   gameState,
@@ -56,6 +65,8 @@ export default function PreMatchSetup({
   const tierOf = useRatingTiers();
   const { t } = useTranslation();
   const [selectedStarterId, setSelectedStarterId] = useState<string | null>(null);
+  // The pitch can take the whole width: the side panels step aside.
+  const [pitchFocus, setPitchFocus] = useState(false);
   const [isAutoSelecting, setIsAutoSelecting] = useState(false);
   // Why the last line-up change did not go through: the screen shows what the club holds, so a
   // refused change must be said out loud rather than leave the manager guessing.
@@ -112,16 +123,6 @@ export default function PreMatchSetup({
   const awayTeamColor = awayFullTeam?.colors?.primary ?? "#6366f1";
   const userColor = userSide === "Home" ? homeTeamColor : awayTeamColor;
 
-  const userFullTeam = userSide === "Home" ? homeFullTeam : awayFullTeam;
-  const userPrimary = userFullTeam?.colors?.primary ?? userColor;
-  const userSecondary = userFullTeam?.colors?.secondary ?? "#1a3a6b";
-  const userPattern = userFullTeam?.kit_pattern ?? "Solid";
-
-  const oppFullTeam = userSide === "Home" ? awayFullTeam : homeFullTeam;
-  const oppPrimary = oppFullTeam?.colors?.primary ?? "#6366f1";
-  const oppSecondary = oppFullTeam?.colors?.secondary ?? "#1a3a6b";
-  const oppPattern = oppFullTeam?.kit_pattern ?? "Solid";
-
   // Index the full squad so pitch tokens can be enriched with face/jersey/natural
   // position that the lightweight match snapshot player doesn't carry.
   const storeById = useMemo(
@@ -159,7 +160,7 @@ export default function PreMatchSetup({
     const displayPosition = slotPosition ?? player.position;
     return (
       <div
-        className={`flex w-24 flex-col items-center gap-0.5 rounded-xl px-1 py-1 ${
+        className={`flex ${TOKEN_WIDTH} flex-col items-center gap-0.5 rounded-xl px-0.5 py-1 ${
           isSelected ? "bg-accent-500/25 ring-2 ring-accent-300/70" : ""
         }`}
       >
@@ -177,38 +178,8 @@ export default function PreMatchSetup({
               ? { full_name: sp.full_name, match_name: sp.match_name, media: sp.media }
               : { full_name: player.name, match_name: player.name }
           }
-          jersey={{
-            primaryColor: userPrimary,
-            secondaryColor: userSecondary,
-            pattern: userPattern,
-            number: sp?.jersey_number,
-          }}
-        >
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: not a control; it only keeps the select's mouse and key events from starting a drag or a slot click on the parent. */}
-          <div
-            draggable={false}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            className="w-full"
-          >
-            <Select
-              selectSize="sm"
-              variant="ghost"
-              fullWidth
-              value={playerRoles[player.id] ?? "Standard"}
-              onChange={(e) => {
-                handlePlayerRoleChange(player.id, e.target.value as PlayerRole);
-              }}
-            >
-              {getRoleOptions(displayPosition, playerRoles[player.id] ?? "Standard").map((role) => (
-                <option key={role} value={role}>
-                  {t(`tactics.playerRoles.${role}`, role)}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </PitchToken>
+          jerseyNumber={sp?.jersey_number}
+        />
       </div>
     );
   };
@@ -219,7 +190,7 @@ export default function PreMatchSetup({
     const sp = storeById.get(player.id);
     const displayPosition = slotPosition ?? player.position;
     return (
-      <div className="flex w-24 flex-col items-center gap-0.5 rounded-xl px-1 py-1">
+      <div className={`flex ${TOKEN_WIDTH} flex-col items-center gap-0.5 rounded-xl px-0.5 py-1`}>
         <PitchToken
           name={(sp?.match_name || player.name).toUpperCase()}
           positionAbbr={translatePositionAbbreviation(t, displayPosition)}
@@ -232,12 +203,7 @@ export default function PreMatchSetup({
               ? { full_name: sp.full_name, match_name: sp.match_name, media: sp.media }
               : { full_name: player.name, match_name: player.name }
           }
-          jersey={{
-            primaryColor: oppPrimary,
-            secondaryColor: oppSecondary,
-            pattern: oppPattern,
-            number: sp?.jersey_number,
-          }}
+          jerseyNumber={sp?.jersey_number}
         />
       </div>
     );
@@ -422,6 +388,69 @@ export default function PreMatchSetup({
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
   const oppPositions = positions.filter((pos) => oppTeam.players.some((p) => p.position === pos));
 
+  // The slot a starter fills is his place in the XI: entry i of the XI plays formation slot i.
+  const slotPositions = buildPitchRows(userTeam.formation).flatMap((row) => row.positions);
+  const selectedStarter = userTeam.players.find((p) => p.id === selectedStarterId) ?? null;
+  const selectedSlotPosition = selectedStarter
+    ? slotPositions[userTeam.players.indexOf(selectedStarter)]
+    : undefined;
+
+  /** The selected starter's own controls: his role, where the pitch has no room for a select. */
+  const renderSelectedPlayerPanel = () => {
+    const deployed = selectedStarter ? (selectedSlotPosition ?? selectedStarter.position) : null;
+    return (
+      <section
+        aria-labelledby="selected-player-title"
+        className="rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4 shadow-sm transition-colors duration-300"
+      >
+        <p
+          id="selected-player-title"
+          className="mb-2 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400"
+        >
+          {t("match.selectedPlayer.title")}
+        </p>
+        {selectedStarter && deployed ? (
+          <>
+            <p className="text-body font-semibold text-gray-800 dark:text-gray-100">
+              {selectedStarter.name}
+            </p>
+            <p className="mb-2 text-caption text-gray-500 dark:text-gray-400">
+              {translatePositionAbbreviation(t, deployed)} · {Math.round(selectedStarter.condition)}
+              %
+            </p>
+            <label
+              htmlFor="selected-player-role"
+              className="mb-1 block text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400"
+            >
+              {t("match.selectedPlayer.role")}
+            </label>
+            <Select
+              id="selected-player-role"
+              selectSize="sm"
+              fullWidth
+              value={playerRoles[selectedStarter.id] ?? "Standard"}
+              onChange={(e) =>
+                handlePlayerRoleChange(selectedStarter.id, e.target.value as PlayerRole)
+              }
+            >
+              {getRoleOptions(deployed, playerRoles[selectedStarter.id] ?? "Standard").map(
+                (role) => (
+                  <option key={role} value={role}>
+                    {t(`tactics.playerRoles.${role}`, role)}
+                  </option>
+                ),
+              )}
+            </Select>
+          </>
+        ) : (
+          <p className="text-caption text-gray-500 dark:text-gray-400">
+            {t("match.selectedPlayer.hint")}
+          </p>
+        )}
+      </section>
+    );
+  };
+
   const renderSetPieces = () => (
     <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4 shadow-sm transition-colors duration-300">
       <div className="flex items-center justify-between mb-2.5">
@@ -470,9 +499,13 @@ export default function PreMatchSetup({
   // YOUR TEAM tab: fixed 3-panel (subs+fit / pitch / set-pieces). The page never
   // scrolls — each panel scrolls internally.
   const renderTeamView = () => (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden p-4 xl:grid-cols-[300px_1fr_320px]">
+    <div
+      className={`grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden p-4 ${
+        pitchFocus ? "" : "xl:grid-cols-[300px_1fr_320px]"
+      }`}
+    >
       {/* Left: formation fit + auto-select + substitutes */}
-      <div className="min-h-0 overflow-y-auto">
+      <div className={`min-h-0 overflow-y-auto ${pitchFocus ? "hidden" : ""}`}>
         <PreMatchLineup
           userTeam={userTeam}
           userBench={userBench}
@@ -519,7 +552,15 @@ export default function PreMatchSetup({
       </div>
       {/* Center: the pitch — portrait aspect (SVG is 100x140) so it fills the
           column height without squishing, capped by available width. */}
-      <div className="flex min-h-0 items-center justify-center overflow-hidden">
+      <div className="relative flex min-h-0 items-center justify-center overflow-hidden">
+        <button
+          type="button"
+          aria-pressed={pitchFocus}
+          onClick={() => setPitchFocus((current) => !current)}
+          className="absolute right-1 top-1 z-30 rounded-lg border border-gray-200 bg-white/90 px-2.5 py-1 font-heading text-[10px] font-bold uppercase tracking-wider text-gray-700 shadow-sm hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-focus dark:border-navy-600 dark:bg-navy-800/90 dark:text-gray-200"
+        >
+          {pitchFocus ? t("match.pitchFocus.collapse") : t("match.pitchFocus.expand")}
+        </button>
         <FormationPitch
           formation={userTeam.formation}
           players={userTeam.players}
@@ -528,11 +569,12 @@ export default function PreMatchSetup({
           renderToken={(p, { isSelected, slotPosition, descriptionId, focused }) =>
             renderUserToken(p, isSelected, slotPosition, descriptionId, focused)
           }
-          className="aspect-[5/7] h-full max-h-full w-auto max-w-full"
+          className="@container aspect-[5/7] h-full max-h-full w-auto max-w-full"
         />
       </div>
-      {/* Right: set pieces + phase blueprint */}
-      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+      {/* Right: the selected player, set pieces + phase blueprint */}
+      <div className={`flex min-h-0 flex-col gap-4 overflow-y-auto ${pitchFocus ? "hidden" : ""}`}>
+        {renderSelectedPlayerPanel()}
         {renderSetPieces()}
         <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 shadow-sm transition-colors duration-300">
           <div className="border-b border-gray-100 dark:border-navy-700 px-3 py-2.5">
@@ -564,7 +606,7 @@ export default function PreMatchSetup({
             formation={oppTeam.formation}
             players={oppTeam.players}
             renderToken={(p, { slotPosition }) => renderOppToken(p, slotPosition)}
-            className="aspect-[5/7] h-full max-h-full w-auto max-w-full"
+            className="@container aspect-[5/7] h-full max-h-full w-auto max-w-full"
           />
         </div>
       </div>

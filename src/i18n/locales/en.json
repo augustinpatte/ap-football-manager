@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} attacks to the right",
       "attacksLeft": "{{team}} attacks to the left"
+    },
+    "selectedPlayer": {
+      "title": "Selected player",
+      "hint": "Select a player on the pitch to change his role.",
+      "role": "Role"
+    },
+    "pitchFocus": {
+      "expand": "Expand pitch",
+      "collapse": "Show side panels"
     }
   },
   "endOfSeason": {

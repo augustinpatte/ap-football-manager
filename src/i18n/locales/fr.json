@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} attaque vers la droite",
       "attacksLeft": "{{team}} attaque vers la gauche"
+    },
+    "selectedPlayer": {
+      "title": "Joueur sélectionné",
+      "hint": "Sélectionnez un joueur sur le terrain pour changer son rôle.",
+      "role": "Rôle"
+    },
+    "pitchFocus": {
+      "expand": "Agrandir le terrain",
+      "collapse": "Afficher les panneaux latéraux"
     }
   },
   "endOfSeason": {

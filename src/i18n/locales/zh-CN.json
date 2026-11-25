@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}}向右进攻",
       "attacksLeft": "{{team}}向左进攻"
+    },
+    "selectedPlayer": {
+      "title": "所选球员",
+      "hint": "在球场上选择一名球员以更改其角色。",
+      "role": "角色"
+    },
+    "pitchFocus": {
+      "expand": "放大球场",
+      "collapse": "显示侧边面板"
     }
   },
   "endOfSeason": {

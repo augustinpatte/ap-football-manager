@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} sağa doğru hücum ediyor",
       "attacksLeft": "{{team}} sola doğru hücum ediyor"
+    },
+    "selectedPlayer": {
+      "title": "Seçili oyuncu",
+      "hint": "Rolünü değiştirmek için sahada bir oyuncu seçin.",
+      "role": "Rol"
+    },
+    "pitchFocus": {
+      "expand": "Sahayı genişlet",
+      "collapse": "Yan panelleri göster"
     }
   },
   "endOfSeason": {

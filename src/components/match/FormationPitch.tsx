@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { buildPitchRows } from "../squad/SquadTab.helpers";
 import type { EnginePlayerData } from "./types";
 import { usePitchTokenFocus } from "../ui";
@@ -109,6 +109,22 @@ export function buildFormationSlots(
   });
 }
 
+/**
+ * Rows of a formation are at least 20 % of the pitch height apart (the goalkeeper and the back line);
+ * a token is allowed 18 % of it, so two rows keep a gap, and is about this tall before it is scaled.
+ */
+const ROW_SPACING_SHARE = 0.18;
+const RICH_TOKEN_HEIGHT_PX = 104;
+
+/**
+ * How much to shrink a rich token so two rows never overlap on a pitch this tall: 1 when there is
+ * room, less on a small pitch. Read from the pitch's own height, which a window resize changes.
+ */
+export function richTokenScale(pitchHeightPx: number): number {
+  if (!Number.isFinite(pitchHeightPx) || pitchHeightPx <= 0) return 1;
+  return Math.min(1, (ROW_SPACING_SHARE * pitchHeightPx) / RICH_TOKEN_HEIGHT_PX);
+}
+
 interface FormationPitchProps {
   formation: string;
   players: EnginePlayerData[];
@@ -155,9 +171,20 @@ export function FormationPitch({
   const slots =
     buildSlotAlignedSlots(formation, players, sentOff) ??
     buildFormationSlots(formation, players, sentOff);
+  const pitchRef = useRef<HTMLDivElement>(null);
+  const [tokenScale, setTokenScale] = useState(1);
+  useEffect(() => {
+    const pitch = pitchRef.current;
+    if (!renderToken || !pitch || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setTokenScale(richTokenScale(pitch.clientHeight)));
+    observer.observe(pitch);
+    setTokenScale(richTokenScale(pitch.clientHeight));
+    return () => observer.disconnect();
+  }, [renderToken]);
 
   return (
     <div
+      ref={pitchRef}
       className={`relative overflow-hidden rounded-xl bg-gradient-to-b from-primary-500 to-primary-700 ${className ?? ""}`}
     >
       {/* Decorative: this is the pitch markings, and everything a screen reader needs is in the
@@ -260,7 +287,13 @@ export function FormationPitch({
           .join("")
           .toUpperCase();
         const sharedClass = `absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-all ${onPlayerClick ? "cursor-pointer hover:scale-110" : ""} ${isSelected ? "scale-110" : ""}`;
-        const sharedStyle = { left: `${x}%`, top: `${y}%` };
+        // `scale` is its own CSS property, so it composes with the centring translate of the class.
+        const sharedStyle = {
+          left: `${x}%`,
+          top: `${y}%`,
+          // A string: React appends "px" to a bare number for properties it does not know are unitless.
+          ...(renderToken && tokenScale < 1 ? { scale: String(tokenScale) } : {}),
+        };
         const tokenContent = renderToken ? (
           renderToken(p, {
             isSelected,

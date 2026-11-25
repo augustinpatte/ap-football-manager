@@ -3207,6 +3207,15 @@
       },
       "attacksRight": "{{team}} ataca para a direita",
       "attacksLeft": "{{team}} ataca para a esquerda"
+    },
+    "selectedPlayer": {
+      "title": "Jogador selecionado",
+      "hint": "Seleciona um jogador no campo para mudar o seu papel.",
+      "role": "Papel"
+    },
+    "pitchFocus": {
+      "expand": "Ampliar campo",
+      "collapse": "Mostrar painéis laterais"
     }
   },
   "endOfSeason": {

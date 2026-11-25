@@ -415,3 +415,66 @@ describe("PreMatchSetup line-up changes that fail", () => {
     consoleErrorSpy.mockRestore();
   });
 });
+
+describe("PreMatchSetup pitch tokens and the selected player", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+    vi.mocked(invoke).mockResolvedValue({});
+  });
+
+  /**
+   * Given the user's pitch with eleven tokens
+   * When it is drawn
+   * Then no token carries a role selector: the controls that used to sit inside every card (and
+   *      overlap their neighbours) are gone from the pitch, and the one role control is the panel's
+   */
+  it("keeps_role_selectors_off_the_pitch_tokens", () => {
+    renderSetup();
+
+    const token = screen.getByRole("button", { name: "Home GK" });
+    expect(within(token).queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /role/i })).toBeNull();
+    expect(screen.getByText("match.selectedPlayer.hint")).toBeInTheDocument();
+  });
+
+  /**
+   * Given the pitch
+   * When a player is selected
+   * Then the panel names him and offers his role control, and selecting him again clears it
+   */
+  it("shows_the_selected_players_role_control_in_the_panel", () => {
+    renderSetup();
+
+    fireEvent.click(screen.getByRole("button", { name: "Home GK" }));
+
+    const panel = screen.getByRole("region", { name: "match.selectedPlayer.title" });
+    expect(within(panel).getByText("Home GK")).toBeInTheDocument();
+    expect(within(panel).getByRole("combobox")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Home GK" }));
+    expect(screen.getByText("match.selectedPlayer.hint")).toBeInTheDocument();
+  });
+
+  /**
+   * Given the pitch with its side panels
+   * When the focus toggle is used
+   * Then the side panels step aside and come back
+   */
+  it("lets_the_pitch_take_the_whole_width_and_back", () => {
+    renderSetup();
+    const toggle = screen.getByRole("button", { name: "match.pitchFocus.expand" });
+    const panel = screen.getByRole("region", { name: "match.selectedPlayer.title" });
+
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole("button", { name: "match.pitchFocus.collapse" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(panel.parentElement).toHaveClass("hidden");
+
+    fireEvent.click(screen.getByRole("button", { name: "match.pitchFocus.collapse" }));
+    expect(panel.parentElement).not.toHaveClass("hidden");
+  });
+});
