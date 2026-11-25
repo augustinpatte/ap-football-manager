@@ -112,6 +112,14 @@ impl CalendarStudy {
         Self { planned }
     }
 
+    /// The date each fixture was generated for, by fixture id.
+    pub fn generated_dates(&self) -> Vec<(&str, NaiveDate)> {
+        self.planned
+            .iter()
+            .map(|(id, (_, date))| (id.as_str(), *date))
+            .collect()
+    }
+
     /// Displacement per competition for the fixtures that existed when the study began.
     pub fn displacement(&self, game: &Game) -> Vec<Displacement> {
         let mut by_competition: BTreeMap<String, Displacement> = BTreeMap::new();
