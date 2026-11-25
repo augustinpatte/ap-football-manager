@@ -356,16 +356,16 @@ snapshot is taken, a panicking command, and a ledger over capacity with a reques
   the world-editor toast has no live region; a few raw palette colours and an 11 px label in
   `ReportPreviewStep.tsx`.
 * Not run this time: `ofm-architecture-reviewer`, `ofm-dedup-reviewer`, `ofm-test-reviewer`. The size
-  limits were not re-checked by tooling: `transactions.rs` is 820 lines including its 24 tests, the new
-  harness test files are 600–900 lines (under the 3,000 test-file limit). Duplication named for epic #589:
+  limits were not re-checked by tooling: `transactions.rs` has 370 lines of production code before its `#[cfg(test)]` module (981 with its
+  24 tests; limit 1,500), the new harness test files are 270–860 lines (limit 3,000). Duplication named for epic #589:
   `percent_encode` and the error-text extractors are unchanged; `failureText` is one more consumer of
   `describeError`, not a new copy.
 
 ### 6.4 Performance
 
 * Transaction: one extra `ui_clone` under the lock (4.8 ms on the 16,609-player world, ALPHA6).
-* AI sweep (FM24 world, first season): buyer turns 5,685 → 1,303, pairs weighed 8.8 M → 2.9 M, wall time for
-  the real-world season test unchanged within noise (the sweep is a small part of a day).
+* AI sweep (FM24 world, first season): buyer turns 5,685 → 1,303, pairs weighed 8.8 M → 2.9 M. Wall time was **not** compared
+  before and after; pairs weighed is the work proxy.
 * The measurement tools are `#[ignore]`d and cost nothing in the default suite.
 
 ## 7. Environment: what was and was not operated
