@@ -535,4 +535,4 @@ Nobody operated the macOS Tauri app in this mission. The minimum a person must d
 8. **Old saves** from before this change: load, simulate a week, save, reload.
 
 ---
-Implementation, tests and this report were pushed at the commit named in the next line; that line is a documentation-only commit on top of the SHA above it.
+Implementation, tests and this report were pushed at `b83aecd780e52355672fd8332f3566cb5c17eff9` (fast-forward from `a841051c`); this line is a documentation-only commit on top of it.
