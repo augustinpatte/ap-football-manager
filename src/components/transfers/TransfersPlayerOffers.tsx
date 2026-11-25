@@ -73,6 +73,7 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
   } = state;
   const blocked =
     offer.status === "Pending" ? blockedReason(departureBlockers, player.id, t) : null;
+  const noteId = `blocked-${offer.id}`;
   return (
     <div key={offer.id} className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
@@ -88,11 +89,13 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              handleRespondOffer(player.id, offer.id, true);
+              if (blocked === null) handleRespondOffer(player.id, offer.id, true);
             }}
-            disabled={blocked !== null}
+            aria-disabled={blocked !== null || undefined}
+            aria-describedby={blocked ? noteId : undefined}
             className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
             title={t("transfers.acceptOffer")}
+            aria-label={t("transfers.acceptOffer")}
           >
             <Check className="w-3 h-3" />
           </button>
@@ -104,6 +107,7 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
             }}
             className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500"
             title={t("transfers.rejectOffer")}
+            aria-label={t("transfers.rejectOffer")}
           >
             <X className="w-3 h-3" />
           </button>
@@ -111,9 +115,10 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              openCounterNegotiation(player, offer);
+              if (blocked === null) openCounterNegotiation(player, offer);
             }}
-            disabled={blocked !== null}
+            aria-disabled={blocked !== null || undefined}
+            aria-describedby={blocked ? noteId : undefined}
             aria-label={t("transfers.counterOffer")}
             className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
             title={t("transfers.counterOffer")}
@@ -123,7 +128,7 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
         </div>
       )}
       {blocked && (
-        <p role="note" className="basis-full text-caption text-warning">
+        <p id={noteId} role="note" className="basis-full text-caption text-warning">
           {blocked}
         </p>
       )}
@@ -143,6 +148,7 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
   } = state;
   const blocked =
     offer.status === "Pending" ? blockedReason(departureBlockers, player.id, t) : null;
+  const noteId = `blocked-${offer.id}`;
 
   const offerBuyOptionFee = offer.buy_option_fee ?? player.active_loan?.buy_option_fee ?? null;
   const canExerciseBuyOption =
@@ -181,11 +187,13 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRespondLoanOffer(player.id, offer.id, true);
+                if (blocked === null) handleRespondLoanOffer(player.id, offer.id, true);
               }}
-              disabled={blocked !== null}
+              aria-disabled={blocked !== null || undefined}
+              aria-describedby={blocked ? noteId : undefined}
               className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
               title={t("transfers.acceptLoanOffer")}
+              aria-label={t("transfers.acceptLoanOffer")}
             >
               <Check className="w-3 h-3" />
             </button>
@@ -197,6 +205,7 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
               }}
               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500"
               title={t("transfers.rejectLoanOffer")}
+              aria-label={t("transfers.rejectLoanOffer")}
             >
               <X className="w-3 h-3" />
             </button>
@@ -204,9 +213,10 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                openLoanCounterOffer(player, offer);
+                if (blocked === null) openLoanCounterOffer(player, offer);
               }}
-              disabled={blocked !== null}
+              aria-disabled={blocked !== null || undefined}
+              aria-describedby={blocked ? noteId : undefined}
               aria-label={t("transfers.counterLoanOffer")}
               className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
               title={t("transfers.counterLoanOffer")}
@@ -229,7 +239,7 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
         </button>
       ) : null}
       {blocked && (
-        <p role="note" className="basis-full text-caption text-warning">
+        <p id={noteId} role="note" className="basis-full text-caption text-warning">
           {blocked}
         </p>
       )}

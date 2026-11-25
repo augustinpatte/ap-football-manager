@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlayerData, TransferOfferData } from "../../store/gameStore";
@@ -83,9 +83,16 @@ describe("TransferOfferRecord with a player the squad floor holds", () => {
     });
     render(<TransferOfferRecord state={state} offer={offer} player={player} />);
 
-    expect(screen.getByTitle("transfers.acceptOffer")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).toBeDisabled();
+    expect(screen.getByTitle("transfers.acceptOffer")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTitle("transfers.acceptOffer")).toHaveAccessibleDescription();
+    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByTitle("transfers.rejectOffer")).toBeEnabled();
+    // Closed means closed: a click on the blocked accept does nothing.
+    fireEvent.click(screen.getByTitle("transfers.acceptOffer"));
+    expect(state.handleRespondOffer).not.toHaveBeenCalled();
     expect(screen.getByRole("note")).toBeInTheDocument();
   });
 
@@ -97,8 +104,10 @@ describe("TransferOfferRecord with a player the squad floor holds", () => {
   it("leaves_everything_open_for_a_player_who_can_leave", () => {
     render(<TransferOfferRecord state={baseState({})} offer={offer} player={player} />);
 
-    expect(screen.getByTitle("transfers.acceptOffer")).toBeEnabled();
-    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).toBeEnabled();
+    expect(screen.getByTitle("transfers.acceptOffer")).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 });
