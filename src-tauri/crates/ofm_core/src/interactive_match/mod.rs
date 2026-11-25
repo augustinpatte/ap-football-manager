@@ -49,7 +49,10 @@ use serde::{Deserialize, Serialize};
 
 use self::ai::{AiContext, AiOrder, Checkpoint, Group, REVIEW_EVERY_MS, Squad};
 use self::live_frames::{ClockView, FrameSampler, LiveFrame, LiveRoster, clock_view};
-use self::plan::{PlanError, TacticalChange, TacticalPlan, commands_between, supported_formations};
+use self::plan::{
+    FormationShape, PlanError, TacticalChange, TacticalPlan, commands_between, formation_shapes,
+    supported_formations,
+};
 use crate::game::Game;
 use crate::spatial_runner::{self, SpatialRunError};
 
@@ -202,6 +205,8 @@ pub struct InteractiveView {
     pub assistant_available: bool,
     pub assistant_active: bool,
     pub supported_formations: Vec<String>,
+    /// Where each supported formation puts its eleven slots, for screens that draw a formation.
+    pub formation_shapes: Vec<FormationShape>,
     pub home_plan: PlanView,
     pub away_plan: PlanView,
     pub regulation_minutes: u32,
@@ -406,6 +411,7 @@ impl InteractiveMatch {
             assistant_available: self.assistant_available,
             assistant_active: self.assistant_active,
             supported_formations: supported_formations(),
+            formation_shapes: formation_shapes(),
             home_plan: plan_view(&self.plans[0]),
             away_plan: plan_view(&self.plans[1]),
             regulation_minutes: self.regulation_ms / 60_000,

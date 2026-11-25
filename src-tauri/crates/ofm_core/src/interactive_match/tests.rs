@@ -4,6 +4,7 @@ use super::ai::Group;
 use super::plan::TacticalChange;
 use super::*;
 use crate::spatial_runner::tests::game_with_substitutes;
+use apfm_match_lab::sim::formation::FormationPreset;
 use domain::team::PlayStyle;
 
 /// `MatchReport` has no `PartialEq`; two reports are the same when they serialise the same.
@@ -110,6 +111,63 @@ fn order(m: &InteractiveMatch, id: &str, order: UserOrder) -> UserCommand {
         command_id: id.into(),
         expected_revision: m.session().unwrap().revision(),
         order,
+    }
+}
+
+/// Given a started match
+/// When the view is read
+/// Then every supported formation comes with the engine's own eleven slots (role, depth and
+/// lateral position), the goalkeeper first, exactly as `FormationPreset::slots` gives them, so a
+/// screen draws the engine's shape instead of guessing it from the roles.
+#[test]
+fn the_view_carries_the_engines_own_slots_for_every_supported_formation() {
+    let v = start(1).view().unwrap();
+
+    assert_eq!(v.formation_shapes.len(), v.supported_formations.len());
+    for label in &v.supported_formations {
+        let shape = v
+            .formation_shapes
+            .iter()
+            .find(|shape| &shape.label == label)
+            .unwrap_or_else(|| panic!("no shape for {label}"));
+        let engine = FormationPreset::from_label(label).unwrap().slots();
+        assert_eq!(shape.slots.len(), 11, "{label}");
+        assert_eq!(shape.slots[0].role, apfm_match_lab::model::Position::Gk);
+        for (slot, (role, depth, lateral)) in shape.slots.iter().zip(engine) {
+            assert_eq!(
+                (slot.role, slot.depth, slot.lateral),
+                (role, depth, lateral)
+            );
+        }
+    }
+}
+
+/// Given a started match, whatever formation each side lines up in
+/// When the view is read
+/// Then the roles of the players on the pitch are exactly the roles of the slots of that side's
+/// formation shape, so every player can be matched to a slot of the drawn formation by role.
+#[test]
+fn the_roles_on_the_pitch_fill_the_slots_of_the_formation_shape() {
+    let v = start(1).view().unwrap();
+    for team in [&v.session.home, &v.session.away] {
+        let shape = v
+            .formation_shapes
+            .iter()
+            .find(|shape| shape.label == team.formation)
+            .unwrap_or_else(|| panic!("no shape for {}", team.formation));
+        let mut on_pitch: Vec<String> = team
+            .on_pitch
+            .iter()
+            .map(|p| format!("{:?}", p.role.unwrap()))
+            .collect();
+        let mut slots: Vec<String> = shape
+            .slots
+            .iter()
+            .map(|s| format!("{:?}", s.role))
+            .collect();
+        on_pitch.sort();
+        slots.sort();
+        assert_eq!(on_pitch, slots, "{}", team.formation);
     }
 }
 

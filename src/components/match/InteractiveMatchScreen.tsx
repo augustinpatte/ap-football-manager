@@ -1,33 +1,21 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, CardBody } from "../ui";
+import { TabPanel, Tabs } from "../ui";
 import DashboardCloseConfirmModal from "../dashboard/DashboardCloseConfirmModal";
 import type { MatchKeyEvent } from "../../services/interactiveMatchService";
-import { EventLog, SubstitutionPanel, TacticsPanel, TeamLineup } from "./InteractiveMatchPanels";
+import FormationSubstitutionsPanel from "./FormationSubstitutionsPanel";
+import { SubstitutionPanel, TacticsPanel, TeamLineup } from "./InteractiveMatchPanels";
 import { LiveControls, LiveScoreboard } from "./LiveMatchChrome";
-import LivePitch from "./LivePitch";
+import LiveMatchView from "./LiveMatchView";
 import { playerNames, playerShirts } from "./interactiveMatch.helpers";
 import type { DirectorSnapshot } from "./liveDirector";
 import { goalLineNearest, homeAttacksPositiveGoal } from "./livePlayback";
-import { ReplayStatsPanel } from "./ReplayPanels";
 import { type FeedEntry, feedEntryOf, statsAt } from "./replayDerived";
-import { TEAM_COLOURS } from "./replayPitch";
 import { useLiveMatch } from "./useLiveMatch";
 import { useMatchSave } from "./useMatchSave";
 
 /** How long a goal stays announced above the pitch, in match time. */
 const GOAL_BANNER_MS = 8_000;
-/** The engine's stoppage reasons that have their own wording. */
-const STOPPAGE_REASONS = [
-  "ball_out",
-  "foul",
-  "offside",
-  "goal",
-  "injury",
-  "substitution",
-  "period_end",
-];
-
 interface InteractiveMatchScreenProps<TFinish> {
   homeName: string;
   awayName: string;
@@ -70,6 +58,9 @@ export default function InteractiveMatchScreen<TFinish>({
   });
   const view = snapshot.view;
   const session = view?.session;
+  const tabsId = useId();
+  // Which way the manager looks at the match: the moving pitch, or the formation and the bench.
+  const [matchView, setMatchView] = useState<"live" | "formation">("live");
 
   const names = useMemo(() => (view ? playerNames(view) : {}), [view]);
   const shirts = useMemo(() => (view ? playerShirts(view) : {}), [view]);
@@ -187,47 +178,61 @@ export default function InteractiveMatchScreen<TFinish>({
 
       <div className="grid gap-4 p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3">
-          {/* The banner's height is always reserved so the pitch does not jump when a goal comes. */}
-          <p
-            aria-hidden="true"
-            className="min-h-11 rounded bg-warning-tint px-3 py-2 text-center font-heading text-heading font-bold tracking-label data-[idle=true]:invisible"
-            data-idle={goalText === null}
-          >
-            {goalText ?? "\u00a0"}
-          </p>
-          <LivePitch
-            director={director}
-            roster={view.roster}
-            shirtOf={shirts}
-            homeName={homeName}
-            awayName={awayName}
-            flashGoalX={goalX}
-            drawRef={drawRef}
-            version={snapshot.version}
-          />
-          <PitchCaption
-            snapshot={snapshot}
-            homeName={homeName}
-            awayName={awayName}
-            homeAttacksRight={homeAttacksRight}
-          />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <EventLog
-              entries={entries}
-              teamNames={{ home: homeName, away: awayName }}
-              nameOf={nameOf}
-              minuteLabel={(t_ms) => director.labelAt(t_ms)}
+          {view.user_side !== null && (
+            <Tabs
+              idPrefix={tabsId}
+              label={t("match.formationPanel.tabsLabel")}
+              tabs={[
+                { id: "live", label: t("match.formationPanel.tabLive") },
+                { id: "formation", label: t("match.formationPanel.tabFormation") },
+              ]}
+              selectedId={matchView}
+              onSelect={(id) => setMatchView(id === "formation" ? "formation" : "live")}
             />
-            <Card>
-              <CardBody>
-                <ReplayStatsPanel
-                  stats={stats}
-                  teamNames={{ home: homeName, away: awayName }}
-                  minute={Math.floor(snapshot.playheadMs / 60_000)}
+          )}
+          <TabPanel
+            idPrefix={tabsId}
+            tabId="live"
+            hidden={matchView !== "live"}
+            className="flex min-w-0 flex-col gap-3"
+          >
+            <LiveMatchView
+              director={director}
+              snapshot={snapshot}
+              roster={view.roster}
+              shirts={shirts}
+              homeName={homeName}
+              awayName={awayName}
+              goalText={goalText}
+              goalX={goalX}
+              drawRef={drawRef}
+              homeAttacksRight={homeAttacksRight}
+              entries={entries}
+              nameOf={nameOf}
+              stats={stats}
+            />
+          </TabPanel>
+          {view.user_side !== null && (
+            <TabPanel
+              idPrefix={tabsId}
+              tabId="formation"
+              hidden={matchView !== "formation"}
+              className="min-w-0"
+            >
+              {/* Mounted only while shown: its selection is the manager's, and a hidden copy of the
+                  lineup would put every player's name on the screen twice. */}
+              {matchView === "formation" && (
+                <FormationSubstitutionsPanel
+                  team={mine}
+                  shapes={view.formation_shapes}
+                  supportedFormations={view.supported_formations}
+                  canOrder={snapshot.canOrder && !finished}
+                  onOrder={(order) => void live.giveOrder(order)}
+                  onBackToLive={() => setMatchView("live")}
                 />
-              </CardBody>
-            </Card>
-          </div>
+              )}
+            </TabPanel>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -264,59 +269,5 @@ export default function InteractiveMatchScreen<TFinish>({
         </div>
       </div>
     </main>
-  );
-}
-
-interface PitchCaptionProps {
-  snapshot: DirectorSnapshot;
-  homeName: string;
-  awayName: string;
-  homeAttacksRight: boolean;
-}
-
-/** Who has the ball and which way each team attacks, in words: colour and arrows are never the only signal. */
-function PitchCaption({ snapshot, homeName, awayName, homeAttacksRight }: PitchCaptionProps) {
-  const { t } = useTranslation();
-  const team = snapshot.possessionSide === "away" ? awayName : homeName;
-  let situation: string;
-  if (snapshot.frameState === "stoppage" && snapshot.stoppage) {
-    // A reason a newer engine adds is "play stopped", never a raw key.
-    const reason = STOPPAGE_REASONS.includes(snapshot.stoppage) ? snapshot.stoppage : "other";
-    situation = t(`match.liveView.stoppage.${reason}`);
-  } else if (snapshot.frameState === "kickoff_pending") {
-    situation = t("match.liveView.kickoffPending");
-  } else if (snapshot.frameState === "in_play" && snapshot.possessionSide) {
-    situation = t("match.liveView.hasBall", { team });
-  } else if (snapshot.frameState === "in_play") {
-    situation = t("match.liveView.looseBall");
-  } else {
-    situation = "";
-  }
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-caption text-fg-muted">
-      <ul className="flex flex-wrap gap-x-4">
-        <li className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="inline-block size-3 rounded-full"
-            style={{ backgroundColor: TEAM_COLOURS.home }}
-          />
-          {t(homeAttacksRight ? "match.liveView.attacksRight" : "match.liveView.attacksLeft", {
-            team: homeName,
-          })}
-        </li>
-        <li className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="inline-block size-3 rounded-full"
-            style={{ backgroundColor: TEAM_COLOURS.away }}
-          />
-          {t(homeAttacksRight ? "match.liveView.attacksLeft" : "match.liveView.attacksRight", {
-            team: awayName,
-          })}
-        </li>
-      </ul>
-      <span>{situation}</span>
-    </div>
   );
 }

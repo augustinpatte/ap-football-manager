@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "放大球场",
       "collapse": "显示侧边面板"
+    },
+    "formationPanel": {
+      "tabsLabel": "比赛视图",
+      "tabLive": "实时比赛",
+      "tabFormation": "阵型与换人",
+      "title": "阵型与换人",
+      "backToLive": "返回实时比赛",
+      "pitchLabel": "战术球场，阵型 {{formation}}。请选择一名球员。",
+      "selection": "已选球员",
+      "hint": {
+        "selectOff": "请在球场上选择要换下的球员。",
+        "chooseReplacement": "现在请从替补中为 {{name}} 选择替换人选。",
+        "queued": "此次换人正等待下一次比赛暂停。可在下方队列中取消。",
+        "exhausted": "没有剩余换人名额：已用完或已在队列中。"
+      },
+      "detail": {
+        "position": "出场位置",
+        "natural": "本职 {{position}}",
+        "minutes": "出场分钟数",
+        "replacedBy": "将在下一次暂停时下场，由 {{name}} 替换。"
+      },
+      "status": {
+        "awaitingStoppage": "等待比赛暂停",
+        "comingOn": "即将上场"
+      },
+      "departed": {
+        "sent_off": "被罚下",
+        "injured": "受伤",
+        "substituted": "已换下"
+      },
+      "queueEmpty": "没有等待比赛暂停的换人。",
+      "cancelQueued": "取消",
+      "bench": "替补球员",
+      "benchEmpty": "替补席已空。",
+      "confirmNamed": "用 {{on}} 换下 {{off}}",
+      "clearSelection": "清除选择",
+      "allowance": "已用 {{used}}/{{max}} 个换人名额，{{queued}} 个等待暂停，剩余 {{windows}} 个换人时机。",
+      "currentFormation": "当前阵型：{{formation}}",
+      "changeFormation": "更改阵型",
+      "token": {
+        "condition": "体能 {{condition}}%"
+      }
     }
   },
   "endOfSeason": {

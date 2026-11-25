@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Agrandir le terrain",
       "collapse": "Afficher les panneaux latéraux"
+    },
+    "formationPanel": {
+      "tabsLabel": "Vue du match",
+      "tabLive": "Match en direct",
+      "tabFormation": "Formation et remplacements",
+      "title": "Formation et remplacements",
+      "backToLive": "Retour au match en direct",
+      "pitchLabel": "Terrain tactique, formation {{formation}}. Sélectionnez un joueur.",
+      "selection": "Joueur sélectionné",
+      "hint": {
+        "selectOff": "Sélectionnez sur le terrain le joueur qui sort.",
+        "chooseReplacement": "Choisissez maintenant parmi les remplaçants un joueur pour {{name}}.",
+        "queued": "Ce remplacement attend le prochain arrêt de jeu. Annulez-le dans la file ci-dessous.",
+        "exhausted": "Il ne reste aucun remplacement : ils sont utilisés ou déjà en attente."
+      },
+      "detail": {
+        "position": "Joue comme",
+        "natural": "naturellement {{position}}",
+        "minutes": "Minutes jouées",
+        "replacedBy": "Sort pour {{name}} au prochain arrêt de jeu."
+      },
+      "status": {
+        "awaitingStoppage": "En attente d'un arrêt de jeu",
+        "comingOn": "Entre"
+      },
+      "departed": {
+        "sent_off": "Expulsé",
+        "injured": "Blessé",
+        "substituted": "Remplacé"
+      },
+      "queueEmpty": "Aucun remplacement n'attend un arrêt de jeu.",
+      "cancelQueued": "Annuler",
+      "bench": "Remplaçants",
+      "benchEmpty": "Le banc est vide.",
+      "confirmNamed": "Remplacer {{off}} par {{on}}",
+      "clearSelection": "Effacer la sélection",
+      "allowance": "{{used}} remplacements utilisés sur {{max}}, {{queued}} en attente d'un arrêt de jeu, {{windows}} fenêtres restantes.",
+      "currentFormation": "Formation en cours : {{formation}}",
+      "changeFormation": "Changer de formation",
+      "token": {
+        "condition": "forme {{condition}} pour cent"
+      }
     }
   },
   "endOfSeason": {

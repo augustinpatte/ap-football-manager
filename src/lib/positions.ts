@@ -48,6 +48,7 @@ const CANONICAL_POSITION_MAP: Record<string, string> = {
   lw: "LeftWinger",
   leftwinger: "LeftWinger",
   st: "Striker",
+  ss: "Striker",
   striker: "Striker",
 };
 

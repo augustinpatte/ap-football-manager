@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Ampliar campo",
       "collapse": "Mostrar painéis laterais"
+    },
+    "formationPanel": {
+      "tabsLabel": "Vista do jogo",
+      "tabLive": "Jogo em direto",
+      "tabFormation": "Formação e substituições",
+      "title": "Formação e substituições",
+      "backToLive": "Voltar ao jogo em direto",
+      "pitchLabel": "Campo tático, formação {{formation}}. Selecione um jogador.",
+      "selection": "Jogador selecionado",
+      "hint": {
+        "selectOff": "Selecione no campo o jogador que sai.",
+        "chooseReplacement": "Escolha agora, entre os suplentes, um substituto para {{name}}.",
+        "queued": "Esta substituição aguarda a próxima paragem. Cancele-a na fila abaixo.",
+        "exhausted": "Já não há substituições: foram usadas ou estão em fila."
+      },
+      "detail": {
+        "position": "Joga como",
+        "natural": "natural {{position}}",
+        "minutes": "Minutos jogados",
+        "replacedBy": "Sai para entrar {{name}} na próxima paragem."
+      },
+      "status": {
+        "awaitingStoppage": "A aguardar uma paragem",
+        "comingOn": "A entrar"
+      },
+      "departed": {
+        "sent_off": "Expulso",
+        "injured": "Lesionado",
+        "substituted": "Substituído"
+      },
+      "queueEmpty": "Nenhuma substituição aguarda uma paragem.",
+      "cancelQueued": "Cancelar",
+      "bench": "Suplentes",
+      "benchEmpty": "O banco está vazio.",
+      "confirmNamed": "Substituir {{off}} por {{on}}",
+      "clearSelection": "Limpar seleção",
+      "allowance": "{{used}} de {{max}} substituições usadas, {{queued}} a aguardar paragem, {{windows}} janelas restantes.",
+      "currentFormation": "Formação em campo: {{formation}}",
+      "changeFormation": "Mudar formação",
+      "token": {
+        "condition": "condição {{condition}} por cento"
+      }
     }
   },
   "endOfSeason": {

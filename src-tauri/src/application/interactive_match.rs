@@ -1977,6 +1977,54 @@ mod tests {
         std::fs::write(path, fixture).expect("written");
     }
 
+    /// Writes the engine's own view of a match in each supported formation, for measuring the
+    /// formation panel in a real browser (a probe, not a test fixture: the output is not committed):
+    /// `APFM_FORMATION_PROBE_OUT=/path/formations.json cargo test --lib write_formation_probe -- --ignored`
+    #[test]
+    #[ignore = "writes a probe file for the browser measurement; run on purpose"]
+    fn write_formation_probe() {
+        let out = std::env::var("APFM_FORMATION_PROBE_OUT")
+            .expect("set APFM_FORMATION_PROBE_OUT to the file to write");
+        let mut views = Vec::new();
+        for formation in ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2", "4-5-1"] {
+            let state = StateManager::new();
+            state.set_game(game_with_spatial_fixture());
+            begin(&state);
+            let view = get_interactive_match_state_internal(&state, 0)
+                .expect("state")
+                .view;
+            // The side already plays the first one: there is nothing to change to.
+            if view.home_plan.formation != formation {
+                let receipt = submit_match_command_internal(
+                    &state,
+                    UserCommand {
+                        command_id: format!("probe-{formation}"),
+                        expected_revision: view.session.revision,
+                        order: UserOrder::Tactics(TacticalChange {
+                            formation: Some(formation.to_string()),
+                            ..Default::default()
+                        }),
+                    },
+                    0,
+                )
+                .expect("order");
+                assert!(
+                    receipt.receipt.accepted,
+                    "{formation}: {:?}",
+                    receipt.receipt
+                );
+            }
+            watch(&state, 40);
+            let snapshot = get_interactive_match_state_internal(&state, 0).expect("state");
+            assert_eq!(snapshot.view.session.home.formation, formation);
+            views.push(format!(
+                "{{\"formation\":\"{formation}\",\"snapshot\":{}}}",
+                serde_json::to_string(&snapshot).unwrap()
+            ));
+        }
+        std::fs::write(out, format!("[{}]", views.join(","))).expect("written");
+    }
+
     /// Writes the real frames of the first minutes of a match for the screen's own tests, which
     /// read them as the engine's real output instead of a hand-built stand-in:
     /// `APFM_WRITE_LIVE_FIXTURE=1 cargo test --lib write_live_fixture -- --ignored`

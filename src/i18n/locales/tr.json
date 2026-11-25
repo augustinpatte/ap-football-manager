@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Sahayı genişlet",
       "collapse": "Yan panelleri göster"
+    },
+    "formationPanel": {
+      "tabsLabel": "Maç görünümü",
+      "tabLive": "Canlı maç",
+      "tabFormation": "Diziliş ve oyuncu değişiklikleri",
+      "title": "Diziliş ve oyuncu değişiklikleri",
+      "backToLive": "Canlı maça dön",
+      "pitchLabel": "Taktik saha, diziliş {{formation}}. Bir oyuncu seçin.",
+      "selection": "Seçilen oyuncu",
+      "hint": {
+        "selectOff": "Sahada çıkacak oyuncuyu seçin.",
+        "chooseReplacement": "Şimdi yedeklerden {{name}} için bir yedek seçin.",
+        "queued": "Bu değişiklik bir sonraki oyun duruşunu bekliyor. Aşağıdaki sıradan iptal edin.",
+        "exhausted": "Değişiklik hakkı kalmadı: hepsi kullanıldı ya da sırada."
+      },
+      "detail": {
+        "position": "Oynadığı mevki",
+        "natural": "asıl mevkisi {{position}}",
+        "minutes": "Oynadığı dakika",
+        "replacedBy": "Bir sonraki duruşta çıkacak, yerine {{name}} girecek."
+      },
+      "status": {
+        "awaitingStoppage": "Oyun duruşu bekliyor",
+        "comingOn": "Giriyor"
+      },
+      "departed": {
+        "sent_off": "Kırmızı kart gördü",
+        "injured": "Sakat",
+        "substituted": "Oyundan çıktı"
+      },
+      "queueEmpty": "Oyun duruşu bekleyen değişiklik yok.",
+      "cancelQueued": "İptal",
+      "bench": "Yedekler",
+      "benchEmpty": "Yedek kulübesi boş.",
+      "confirmNamed": "{{off}} yerine {{on}} oyuncusunu oyuna alın",
+      "clearSelection": "Seçimi temizle",
+      "allowance": "{{max}} değişiklikten {{used}} kullanıldı, {{queued}} duruş bekliyor, {{windows}} pencere kaldı.",
+      "currentFormation": "Oynanan diziliş: {{formation}}",
+      "changeFormation": "Dizilişi değiştir",
+      "token": {
+        "condition": "kondisyon yüzde {{condition}}"
+      }
     }
   },
   "endOfSeason": {

@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Expand pitch",
       "collapse": "Show side panels"
+    },
+    "formationPanel": {
+      "tabsLabel": "Match view",
+      "tabLive": "Live match",
+      "tabFormation": "Formation & Substitutions",
+      "title": "Formation & Substitutions",
+      "backToLive": "Back to the live match",
+      "pitchLabel": "Tactical pitch, formation {{formation}}. Select a player.",
+      "selection": "Selected player",
+      "hint": {
+        "selectOff": "Select a player on the pitch to take off.",
+        "chooseReplacement": "Now choose a replacement for {{name}} from the substitutes.",
+        "queued": "This substitution is waiting for the next stoppage. Cancel it from the queue below.",
+        "exhausted": "No substitutions are left: they are used up or already queued."
+      },
+      "detail": {
+        "position": "Playing as",
+        "natural": "natural {{position}}",
+        "minutes": "Minutes played",
+        "replacedBy": "Leaves for {{name}} at the next stoppage."
+      },
+      "status": {
+        "awaitingStoppage": "Waiting for a stoppage",
+        "comingOn": "Coming on"
+      },
+      "departed": {
+        "sent_off": "Sent off",
+        "injured": "Injured",
+        "substituted": "Substituted"
+      },
+      "queueEmpty": "No substitution is waiting for a stoppage.",
+      "cancelQueued": "Cancel",
+      "bench": "Substitutes",
+      "benchEmpty": "The bench is empty.",
+      "confirmNamed": "Substitute {{off}} for {{on}}",
+      "clearSelection": "Clear selection",
+      "allowance": "{{used}} of {{max}} substitutions used, {{queued}} waiting for a stoppage, {{windows}} windows left.",
+      "currentFormation": "Formation in play: {{formation}}",
+      "changeFormation": "Change formation",
+      "token": {
+        "condition": "condition {{condition}} percent"
+      }
     }
   },
   "endOfSeason": {

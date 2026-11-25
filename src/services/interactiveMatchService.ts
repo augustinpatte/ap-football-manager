@@ -87,12 +87,29 @@ export interface PlanView {
   formation: string;
 }
 
+/** One slot of a formation as the engine places it: its role and where it stands, in metres. */
+export interface FormationSlotShape {
+  role: EnginePosition;
+  /** From the team's own goal line along the pitch. */
+  depth: number;
+  /** Across the pitch, 0 to 68, in the engine's frame: a right back has the low value. */
+  lateral: number;
+}
+
+/** A supported formation: its label and its eleven slots, goalkeeper first. */
+export interface FormationShape {
+  label: string;
+  slots: FormationSlotShape[];
+}
+
 export interface InteractiveView {
   session: MatchSessionView;
   user_side: MatchSide | null;
   assistant_available: boolean;
   assistant_active: boolean;
   supported_formations: string[];
+  /** The engine's own geometry of every supported formation, for drawing one. */
+  formation_shapes: FormationShape[];
   home_plan: PlanView;
   away_plan: PlanView;
   regulation_minutes: number;

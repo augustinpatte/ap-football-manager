@@ -3,7 +3,7 @@ import { buildPitchRows } from "../squad/SquadTab.helpers";
 import type { EnginePlayerData } from "./types";
 import { usePitchTokenFocus } from "../ui";
 
-interface FormationSlot {
+export interface FormationSlot {
   player: EnginePlayerData;
   x: number;
   y: number;
@@ -128,6 +128,11 @@ export function richTokenScale(pitchHeightPx: number): number {
 interface FormationPitchProps {
   formation: string;
   players: EnginePlayerData[];
+  /**
+   * Where each player stands, when the caller knows (the live match does: the engine places every
+   * role). Replaces the layout this pitch works out from the formation's label.
+   */
+  slots?: FormationSlot[];
   sentOff?: string[];
   selectedId?: string | null;
   subbedOnIds?: Set<string>;
@@ -156,6 +161,7 @@ interface FormationPitchProps {
 export function FormationPitch({
   formation,
   players,
+  slots: givenSlots,
   sentOff = [],
   selectedId,
   subbedOnIds,
@@ -169,6 +175,7 @@ export function FormationPitch({
   const surfaceId = `pitch-surface-${uid}`;
   const stripesId = `pitch-stripes-${uid}`;
   const slots =
+    givenSlots ??
     buildSlotAlignedSlots(formation, players, sentOff) ??
     buildFormationSlots(formation, players, sentOff);
   const pitchRef = useRef<HTMLDivElement>(null);
@@ -340,6 +347,7 @@ export function FormationPitch({
               role="button"
               tabIndex={0}
               aria-label={p.name}
+              aria-pressed={selectedId === undefined ? undefined : isSelected}
               aria-disabled={isQueuedOff || undefined}
               aria-describedby={renderToken ? descriptionId : undefined}
               onFocus={() => focusToken(p.id)}

@@ -1,0 +1,8 @@
+#!/bin/zsh
+# usage: run_probe.sh width formation variant long
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+OUT=/private/tmp/claude-501/-Users-augustinpatte-apfm-migration-apfm-main/ad1ccea2-4139-4aa6-bb75-c39239f7df61/scratchpad/probe-out
+mkdir -p $OUT
+w=$1; f=$2; v=$3; l=$4
+r=$("$CHROME" --headless=new --window-size=$w,900 --virtual-time-budget=20000 --dump-dom "http://localhost:5199/formation-probe.html?formation=$f&variant=$v&long=$l" 2>/dev/null | grep -o '<pre id="probe-result">[^<]*' | sed 's/<pre id="probe-result">//')
+echo "{\"width\":$w,\"run\":$r}" > "$OUT/$w-$f-$v-$l.json"

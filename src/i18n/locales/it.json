@@ -3245,6 +3245,48 @@
     "pitchFocus": {
       "expand": "Ingrandisci campo",
       "collapse": "Mostra pannelli laterali"
+    },
+    "formationPanel": {
+      "tabsLabel": "Vista della partita",
+      "tabLive": "Partita in diretta",
+      "tabFormation": "Formazione e sostituzioni",
+      "title": "Formazione e sostituzioni",
+      "backToLive": "Torna alla partita in diretta",
+      "pitchLabel": "Campo tattico, modulo {{formation}}. Seleziona un giocatore.",
+      "selection": "Giocatore selezionato",
+      "hint": {
+        "selectOff": "Seleziona in campo il giocatore da togliere.",
+        "chooseReplacement": "Ora scegli tra le riserve un sostituto per {{name}}.",
+        "queued": "Questa sostituzione attende la prossima interruzione. Annullala nella coda qui sotto.",
+        "exhausted": "Non restano sostituzioni: sono state usate o sono già in coda."
+      },
+      "detail": {
+        "position": "Gioca come",
+        "natural": "naturale {{position}}",
+        "minutes": "Minuti giocati",
+        "replacedBy": "Esce per far entrare {{name}} alla prossima interruzione."
+      },
+      "status": {
+        "awaitingStoppage": "In attesa di un'interruzione",
+        "comingOn": "In ingresso"
+      },
+      "departed": {
+        "sent_off": "Espulso",
+        "injured": "Infortunato",
+        "substituted": "Sostituito"
+      },
+      "queueEmpty": "Nessuna sostituzione attende un'interruzione.",
+      "cancelQueued": "Annulla",
+      "bench": "Riserve",
+      "benchEmpty": "La panchina è vuota.",
+      "confirmNamed": "Sostituisci {{off}} con {{on}}",
+      "clearSelection": "Cancella selezione",
+      "allowance": "{{used}} sostituzioni usate su {{max}}, {{queued}} in attesa di un'interruzione, {{windows}} finestre rimaste.",
+      "currentFormation": "Modulo in uso: {{formation}}",
+      "changeFormation": "Cambia modulo",
+      "token": {
+        "condition": "condizione {{condition}} per cento"
+      }
     }
   },
   "notifications": {

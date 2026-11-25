@@ -423,7 +423,8 @@
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
     "staff.delegation.mode.full",
-    "tournaments.leaguePhase.stages.final"
+    "tournaments.leaguePhase.stages.final",
+    "match.formationPanel.detail.natural"
   ],
   "pt-BR": [
     "nations.pt",
@@ -471,7 +472,8 @@
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
     "staff.delegation.mode.full",
-    "tournaments.leaguePhase.stages.final"
+    "tournaments.leaguePhase.stages.final",
+    "match.formationPanel.detail.natural"
   ],
   "pt": [
     "nations.pt",
@@ -517,7 +519,8 @@
     "tournaments.history.playoffs",
     "staff.delegation.mode.manual",
     "staff.delegation.mode.full",
-    "tournaments.leaguePhase.stages.final"
+    "tournaments.leaguePhase.stages.final",
+    "match.formationPanel.detail.natural"
   ],
   "ru": ["dashboard.recapTransferLine"],
   "zh-CN": ["be.news.roundup.resultLine", "be.news.preseasonDigest.resultLine"],

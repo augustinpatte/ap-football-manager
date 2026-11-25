@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Perbesar lapangan",
       "collapse": "Tampilkan panel samping"
+    },
+    "formationPanel": {
+      "tabsLabel": "Tampilan pertandingan",
+      "tabLive": "Pertandingan langsung",
+      "tabFormation": "Formasi dan pergantian",
+      "title": "Formasi dan pergantian",
+      "backToLive": "Kembali ke pertandingan langsung",
+      "pitchLabel": "Lapangan taktik, formasi {{formation}}. Pilih seorang pemain.",
+      "selection": "Pemain terpilih",
+      "hint": {
+        "selectOff": "Pilih pemain di lapangan yang akan diganti.",
+        "chooseReplacement": "Sekarang pilih pengganti untuk {{name}} dari pemain cadangan.",
+        "queued": "Pergantian ini menunggu jeda permainan berikutnya. Batalkan di antrean di bawah.",
+        "exhausted": "Pergantian habis: sudah dipakai atau sudah masuk antrean."
+      },
+      "detail": {
+        "position": "Bermain sebagai",
+        "natural": "posisi asli {{position}}",
+        "minutes": "Menit bermain",
+        "replacedBy": "Keluar pada jeda berikutnya, digantikan {{name}}."
+      },
+      "status": {
+        "awaitingStoppage": "Menunggu jeda permainan",
+        "comingOn": "Masuk"
+      },
+      "departed": {
+        "sent_off": "Kartu merah",
+        "injured": "Cedera",
+        "substituted": "Diganti"
+      },
+      "queueEmpty": "Tidak ada pergantian yang menunggu jeda permainan.",
+      "cancelQueued": "Batalkan",
+      "bench": "Pemain cadangan",
+      "benchEmpty": "Bangku cadangan kosong.",
+      "confirmNamed": "Ganti {{off}} dengan {{on}}",
+      "clearSelection": "Hapus pilihan",
+      "allowance": "{{used}} dari {{max}} pergantian terpakai, {{queued}} menunggu jeda, {{windows}} jendela tersisa.",
+      "currentFormation": "Formasi saat ini: {{formation}}",
+      "changeFormation": "Ubah formasi",
+      "token": {
+        "condition": "kondisi {{condition}} persen"
+      }
     }
   },
   "endOfSeason": {

@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Zvětšit hřiště",
       "collapse": "Zobrazit postranní panely"
+    },
+    "formationPanel": {
+      "tabsLabel": "Pohled na zápas",
+      "tabLive": "Zápas živě",
+      "tabFormation": "Rozestavení a střídání",
+      "title": "Rozestavení a střídání",
+      "backToLive": "Zpět na zápas živě",
+      "pitchLabel": "Taktické hřiště, rozestavení {{formation}}. Vyberte hráče.",
+      "selection": "Vybraný hráč",
+      "hint": {
+        "selectOff": "Vyberte na hřišti hráče, který půjde ze hry.",
+        "chooseReplacement": "Nyní vyberte z náhradníků náhradu za {{name}}.",
+        "queued": "Toto střídání čeká na nejbližší přerušení hry. Zrušte ho ve frontě níže.",
+        "exhausted": "Nezbývá žádné střídání: jsou vyčerpána nebo už ve frontě."
+      },
+      "detail": {
+        "position": "Hraje jako",
+        "natural": "přirozeně {{position}}",
+        "minutes": "Odehrané minuty",
+        "replacedBy": "Při nejbližším přerušení odejde, nastoupí {{name}}."
+      },
+      "status": {
+        "awaitingStoppage": "Čeká na přerušení hry",
+        "comingOn": "Nastupuje"
+      },
+      "departed": {
+        "sent_off": "Vyloučen",
+        "injured": "Zraněn",
+        "substituted": "Vystřídán"
+      },
+      "queueEmpty": "Žádné střídání nečeká na přerušení hry.",
+      "cancelQueued": "Zrušit",
+      "bench": "Náhradníci",
+      "benchEmpty": "Lavička je prázdná.",
+      "confirmNamed": "Vystřídat {{off}} hráčem {{on}}",
+      "clearSelection": "Zrušit výběr",
+      "allowance": "Využito {{used}} z {{max}} střídání, {{queued}} čeká na přerušení, zbývá {{windows}} oken.",
+      "currentFormation": "Aktuální rozestavení: {{formation}}",
+      "changeFormation": "Změnit rozestavení",
+      "token": {
+        "condition": "kondice {{condition}} procent"
+      }
     }
   },
   "endOfSeason": {

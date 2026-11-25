@@ -8,6 +8,7 @@ import type {
   PlanView,
   UserOrder,
 } from "../../services/interactiveMatchService";
+import { SHAPES } from "./formationPanel.fixtures";
 
 // The engine fake shared by the live-match screen's test files, wired in each with
 // `vi.mock(path, async () => (await import("./interactiveMatchTestBackend")).<name>)`.
@@ -169,6 +170,7 @@ function snapshot(): InteractiveSnapshot {
       assistant_available: s.assistantAvailable,
       assistant_active: s.assistantActive,
       supported_formations: ["4-4-2", "4-3-3"],
+      formation_shapes: SHAPES,
       home_plan: { ...s.plan },
       away_plan: { style: "Balanced", pressing: "Medium", tempo: "Direct", formation: "4-4-2" },
       regulation_minutes: 2,

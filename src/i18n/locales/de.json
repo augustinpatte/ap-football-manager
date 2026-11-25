@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Spielfeld vergrößern",
       "collapse": "Seitenleisten anzeigen"
+    },
+    "formationPanel": {
+      "tabsLabel": "Spielansicht",
+      "tabLive": "Live-Spiel",
+      "tabFormation": "Formation und Auswechslungen",
+      "title": "Formation und Auswechslungen",
+      "backToLive": "Zurück zum Live-Spiel",
+      "pitchLabel": "Taktikfeld, Formation {{formation}}. Wähle einen Spieler.",
+      "selection": "Ausgewählter Spieler",
+      "hint": {
+        "selectOff": "Wähle auf dem Feld den Spieler, der runtergeht.",
+        "chooseReplacement": "Wähle jetzt aus den Ersatzspielern einen Ersatz für {{name}}.",
+        "queued": "Diese Auswechslung wartet auf die nächste Spielunterbrechung. Brich sie unten in der Warteschlange ab.",
+        "exhausted": "Keine Auswechslungen mehr übrig: sie sind verbraucht oder schon eingeplant."
+      },
+      "detail": {
+        "position": "Spielt als",
+        "natural": "eigentlich {{position}}",
+        "minutes": "Gespielte Minuten",
+        "replacedBy": "Geht bei der nächsten Unterbrechung für {{name}} raus."
+      },
+      "status": {
+        "awaitingStoppage": "Wartet auf eine Unterbrechung",
+        "comingOn": "Kommt rein"
+      },
+      "departed": {
+        "sent_off": "Vom Platz gestellt",
+        "injured": "Verletzt",
+        "substituted": "Ausgewechselt"
+      },
+      "queueEmpty": "Keine Auswechslung wartet auf eine Unterbrechung.",
+      "cancelQueued": "Abbrechen",
+      "bench": "Ersatzspieler",
+      "benchEmpty": "Die Bank ist leer.",
+      "confirmNamed": "{{off}} durch {{on}} ersetzen",
+      "clearSelection": "Auswahl aufheben",
+      "allowance": "{{used}} von {{max}} Auswechslungen genutzt, {{queued}} warten auf eine Unterbrechung, {{windows}} Fenster übrig.",
+      "currentFormation": "Aktuelle Formation: {{formation}}",
+      "changeFormation": "Formation ändern",
+      "token": {
+        "condition": "Kondition {{condition}} Prozent"
+      }
     }
   },
   "endOfSeason": {

@@ -4,6 +4,7 @@
 //! here is what that function reads, and a change of plan becomes the M12 commands for exactly
 //! the sliders that moved. Nothing here knows how M12 plays: it never recomputes a number.
 
+use apfm_match_lab::model::Position;
 use apfm_match_lab::sim::formation::FormationPreset;
 use apfm_match_lab::sim::session::{MatchCommand, TacticalInstructions};
 use domain::team::{PlayStyle, PressingIntensity, TacticsPhaseSettings, Team, Tempo};
@@ -16,6 +17,43 @@ pub fn supported_formations() -> Vec<String> {
     FormationPreset::ALL
         .iter()
         .map(|f| f.label().to_string())
+        .collect()
+}
+
+/// One of the eleven slots of a formation exactly as the engine places it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SlotShape {
+    pub role: Position,
+    /// Metres from the team's own goal line along the pitch.
+    pub depth: f32,
+    /// Metres across the pitch (0 to 68), in the engine's frame: a right back has the low value.
+    pub lateral: f32,
+}
+
+/// The shape of one supported formation, goalkeeper first, in the engine's own slot order.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FormationShape {
+    pub label: String,
+    pub slots: Vec<SlotShape>,
+}
+
+/// The slots of every formation in [`supported_formations`], read from the engine so a screen
+/// that draws a formation uses the engine's geometry and never a copy of it.
+pub fn formation_shapes() -> Vec<FormationShape> {
+    FormationPreset::ALL
+        .iter()
+        .map(|preset| FormationShape {
+            label: preset.label().to_string(),
+            slots: preset
+                .slots()
+                .into_iter()
+                .map(|(role, depth, lateral)| SlotShape {
+                    role,
+                    depth,
+                    lateral,
+                })
+                .collect(),
+        })
         .collect()
 }
 

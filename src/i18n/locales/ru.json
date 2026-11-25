@@ -3219,6 +3219,48 @@
     "pitchFocus": {
       "expand": "Развернуть поле",
       "collapse": "Показать боковые панели"
+    },
+    "formationPanel": {
+      "tabsLabel": "Вид матча",
+      "tabLive": "Матч в прямом эфире",
+      "tabFormation": "Схема и замены",
+      "title": "Схема и замены",
+      "backToLive": "Назад к матчу",
+      "pitchLabel": "Тактическое поле, схема {{formation}}. Выберите игрока.",
+      "selection": "Выбранный игрок",
+      "hint": {
+        "selectOff": "Выберите на поле игрока, которого нужно заменить.",
+        "chooseReplacement": "Теперь выберите замену для {{name}} из запасных.",
+        "queued": "Эта замена ждёт ближайшей остановки игры. Отмените её в очереди ниже.",
+        "exhausted": "Замен не осталось: они использованы или уже в очереди."
+      },
+      "detail": {
+        "position": "Играет как",
+        "natural": "основная позиция {{position}}",
+        "minutes": "Сыграно минут",
+        "replacedBy": "Уйдёт при ближайшей остановке, вместо него выйдет {{name}}."
+      },
+      "status": {
+        "awaitingStoppage": "Ждёт остановки игры",
+        "comingOn": "Выходит"
+      },
+      "departed": {
+        "sent_off": "Удалён",
+        "injured": "Травмирован",
+        "substituted": "Заменён"
+      },
+      "queueEmpty": "Ни одна замена не ждёт остановки игры.",
+      "cancelQueued": "Отменить",
+      "bench": "Запасные",
+      "benchEmpty": "Скамейка пуста.",
+      "confirmNamed": "Заменить {{off}} на {{on}}",
+      "clearSelection": "Снять выбор",
+      "allowance": "Использовано замен: {{used}} из {{max}}, ждут остановки: {{queued}}, осталось окон: {{windows}}.",
+      "currentFormation": "Текущая схема: {{formation}}",
+      "changeFormation": "Сменить схему",
+      "token": {
+        "condition": "форма: {{condition}}%"
+      }
     }
   },
   "endOfSeason": {

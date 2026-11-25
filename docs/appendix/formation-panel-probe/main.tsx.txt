@@ -1,0 +1,242 @@
+import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import ReactDOM from "react-dom/client";
+import "../../App.css";
+import InteractiveMatchScreen from "../../components/match/InteractiveMatchScreen";
+import { ThemeProvider } from "../../context/ThemeContext";
+import { i18nReady } from "../../i18n";
+import formations from "./formations.json";
+
+// TEMPORARY measurement probe (never committed): the real InteractiveMatchScreen, driven by the
+// engine's own views for each formation, with the Tauri IPC replaced by a fixed answer.
+type Player = {
+  id: string;
+  name: string;
+  injured: boolean;
+  condition: number;
+  role: string | null;
+  yellow_cards: number;
+  shirt_number: number;
+  natural_position: string;
+  minutes_played: number;
+};
+type Team = {
+  formation: string;
+  on_pitch: Player[];
+  bench: Player[];
+  used: Player[];
+  sent_off: Player[];
+  pending_substitutions: { off: string; on: string }[];
+  substitutions_used: number;
+  substitutions_remaining: number;
+};
+
+const params = new URLSearchParams(location.search);
+const formation = params.get("formation") ?? "4-4-2";
+const variant = params.get("variant") ?? "full";
+const longNames = params.get("long") === "1";
+const entry = (formations as { formation: string; snapshot: any }[]).find(
+  (f) => f.formation === formation,
+);
+if (!entry) throw new Error(`no view for ${formation}`);
+const snapshot = structuredClone(entry.snapshot);
+const home: Team = snapshot.view.session.home;
+
+if (longNames) {
+  for (const list of [home.on_pitch, home.bench])
+    for (const p of list) p.name = `Alexander Mitrovic-Fernandez-Papadopoulos${p.shirt_number}`;
+}
+if (variant === "ten" || variant === "busy") {
+  const red = home.on_pitch.splice(10, 1)[0];
+  home.sent_off.push(red);
+}
+if (variant === "queued" || variant === "busy") {
+  home.pending_substitutions = [{ off: home.on_pitch[5].id, on: home.bench[0].id }];
+  home.substitutions_used = 1;
+  home.substitutions_remaining = 4;
+}
+if (variant === "gone" || variant === "busy") {
+  const replaced = home.bench.splice(home.bench.length - 1, 1)[0];
+  const hurt = home.bench.splice(home.bench.length - 1, 1)[0];
+  hurt.injured = true;
+  home.used.push(replaced, hurt);
+  home.on_pitch[3].injured = true;
+}
+
+const real = (await import("../../components/match/liveMatch.real.generated.json")).default as any;
+const roster = snapshot.view.roster as { id: string; side: string }[];
+const clock = snapshot.view.session.clock_ms as number;
+const frame = {
+  t_ms: clock,
+  period: "first_half",
+  state: "stoppage",
+  stoppage: "ball_out",
+  ball: [52, 34, 0],
+  holder: null,
+  possession_side: null,
+  score: [0, 0],
+  players: roster.map((_, i) => [
+    i,
+    6 + (i % 11) * 8,
+    10 + Math.floor(i / 11) * 40 + (i % 3) * 8,
+    0,
+  ]),
+};
+const reply = { stop: "reached", snapshot, frames: [frame] };
+void real;
+
+mockWindows("main");
+mockIPC(
+  (cmd) => {
+    switch (cmd) {
+      case "start_interactive_match":
+      case "get_interactive_match_state":
+        return snapshot;
+      case "advance_interactive_match":
+        return reply;
+      case "take_match_restore_notice":
+      case "get_resumable_match":
+        return null;
+      default:
+        return null;
+    }
+  },
+  { shouldMockEvents: true },
+);
+
+type Box = { l: number; r: number; t: number; b: number };
+const box = (el: Element): Box => {
+  const r = el.getBoundingClientRect();
+  return { l: r.left, r: r.right, t: r.top, b: r.bottom };
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function measure() {
+  await sleep(1500);
+  const tab = [...document.querySelectorAll('[role="tab"]')].find((t) =>
+    t.textContent?.includes("Substitutions"),
+  ) as HTMLElement | undefined;
+  tab?.click();
+  await sleep(500);
+  const pitchSection = document.querySelector('section[aria-label^="Tactical pitch"]');
+  const tokens = [...(pitchSection?.querySelectorAll('[role="button"]') ?? [])] as HTMLElement[];
+  const footprints = tokens.map((el) => ({ el, b: box((el.firstElementChild as Element) ?? el) }));
+  let overlaps = 0;
+  const pairs: string[] = [];
+  for (let i = 0; i < footprints.length; i++)
+    for (let j = i + 1; j < footprints.length; j++) {
+      const a = footprints[i].b,
+        b = footprints[j].b;
+      const ox = Math.min(a.r, b.r) - Math.max(a.l, b.l),
+        oy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+      if (ox > 1 && oy > 1) {
+        overlaps++;
+        pairs.push(
+          `${tokens[i].getAttribute("aria-label")}/${tokens[j].getAttribute("aria-label")}:${Math.round(ox)}x${Math.round(oy)}`,
+        );
+      }
+    }
+  const pitch = pitchSection ? box(pitchSection.firstElementChild as Element) : null;
+  const outside = pitch
+    ? footprints.filter(
+        ({ b }) => b.l < pitch.l - 1 || b.r > pitch.r + 1 || b.t < pitch.t - 1 || b.b > pitch.b + 1,
+      ).length
+    : -1;
+  // text that is cut off: a name or a role line wider than its box
+  const clipped = [...(pitchSection?.querySelectorAll("span") ?? [])]
+    .filter(
+      (s) =>
+        !s.classList.contains("sr-only") &&
+        s.scrollWidth > s.clientWidth + 1 &&
+        getComputedStyle(s).overflow !== "visible",
+    )
+    .map((s) => s.textContent);
+  // select a player and walk the panel's controls
+  tokens[5]?.click();
+  await sleep(200);
+  const panel = pitchSection?.parentElement as HTMLElement | null;
+  const controls = [
+    ...(panel?.querySelectorAll("button, [role=combobox], [role=button]") ?? []),
+  ] as HTMLElement[];
+  const vw = document.documentElement.clientWidth,
+    vh = document.documentElement.clientHeight;
+  const covered: string[] = [];
+  const offscreenX: string[] = [];
+  for (const c of controls) {
+    const r = c.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.right > vw + 1 || r.left < -1) offscreenX.push(c.textContent?.trim().slice(0, 24) ?? "?");
+    c.scrollIntoView({ block: "center" });
+    const rr = c.getBoundingClientRect();
+    const hit = document.elementFromPoint(rr.left + rr.width / 2, rr.top + rr.height / 2);
+    if (hit && hit !== c && !c.contains(hit))
+      covered.push(c.getAttribute("aria-label") ?? c.textContent?.trim().slice(0, 24) ?? "?");
+  }
+  // focus ring: a token focused by keyboard shows a ring (box-shadow) in the real stylesheet
+  const probeToken = tokens[0];
+  probeToken?.focus({ focusVisible: true } as FocusOptions);
+  const ring = probeToken ? getComputedStyle(probeToken).boxShadow : "none";
+  const docOverflowX = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  const wide = [...document.querySelectorAll("body *")]
+    .map((e) => ({ e, r: e.getBoundingClientRect().right }))
+    .filter((x) => x.r > vw + 1)
+    .sort((a, b) => b.r - a.r)
+    .slice(0, 4)
+    .map(
+      (x) =>
+        `${x.e.tagName}.${(x.e.getAttribute("class") ?? "").split(" ").slice(0, 3).join(".")}:${Math.round(x.r)}`,
+    );
+  const panelBox = panel ? box(panel) : null;
+  const heading =
+    [...document.querySelectorAll("h3")].find(
+      (h) =>
+        h.textContent?.startsWith("#") || h.closest("section")?.id === "formation-panel-selection",
+    )?.textContent ?? null;
+  const result = {
+    formation,
+    variant,
+    longNames,
+    viewport: [vw, vh],
+    tokens: tokens.length,
+    overlappingPairs: overlaps,
+    pairs,
+    outsidePitch: outside,
+    clippedTextSpans: clipped,
+    pitch: pitch ? [Math.round(pitch.r - pitch.l), Math.round(pitch.b - pitch.t)] : null,
+    controls: controls.length,
+    offscreenX,
+    covered,
+    focusRing: ring !== "none",
+    documentOverflowX: docOverflowX,
+    selectedHeading: heading,
+    wideElements: wide,
+    bodyScrollW: document.body.scrollWidth,
+    panelBox: panelBox
+      ? [
+          Math.round(panelBox.l),
+          Math.round(panelBox.r),
+          Math.round(panelBox.t),
+          Math.round(panelBox.b),
+        ]
+      : null,
+  };
+  const pre = document.getElementById("probe-result");
+  if (pre) pre.textContent = JSON.stringify(result);
+  window.scrollTo(0, 0);
+  tab?.click();
+  tab?.click();
+}
+
+await i18nReady;
+document.documentElement.classList.add("probe");
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <ThemeProvider>
+    <style>{"* { transition: none !important; animation: none !important; }"}</style>
+    <InteractiveMatchScreen
+      homeName="Reds"
+      awayName="Blues"
+      onFinished={() => undefined}
+      onExited={() => undefined}
+    />
+  </ThemeProvider>,
+);
+void measure();
