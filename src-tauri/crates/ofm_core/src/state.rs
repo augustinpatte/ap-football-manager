@@ -2,6 +2,7 @@ use crate::game::Game;
 use crate::interactive_match::InteractiveMatch;
 use crate::live_match_manager::LiveMatchSession;
 use crate::spatial_runner::PreparedSpatialReplay;
+use crate::transactions::TransactionLedger;
 use domain::stats::StatsState;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -61,6 +62,8 @@ pub struct StateManager {
     active_save_id: Mutex<Option<String>>,
     /// Last career token handed out (`next_career_token`); 0 is never issued.
     last_career_token: AtomicU64,
+    /// Outcomes of recent commands that carried a request id (see `crate::transactions`).
+    transactions: Mutex<TransactionLedger>,
 }
 
 impl Default for StateManager {
@@ -80,7 +83,13 @@ impl StateManager {
             spatial_replay: Mutex::new(None),
             active_save_id: Mutex::new(None),
             last_career_token: AtomicU64::new(0),
+            transactions: Mutex::new(TransactionLedger::default()),
         }
+    }
+
+    /// Runs `f` on the transaction ledger. Always taken after the game lock, never before it.
+    pub(crate) fn with_ledger<R>(&self, f: impl FnOnce(&mut TransactionLedger) -> R) -> R {
+        f(&mut self.transactions.lock().unwrap())
     }
 
     pub fn set_game(&self, game: Game) {
@@ -105,6 +114,8 @@ impl StateManager {
     }
 
     pub fn clear_game(&self) {
+        // Request ids belong to the career they were sent in.
+        self.with_ledger(|ledger| *ledger = TransactionLedger::default());
         clear_option(&self.active_game);
         clear_option(&self.active_stats);
         clear_option(&self.live_match);

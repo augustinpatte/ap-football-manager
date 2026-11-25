@@ -3475,7 +3475,8 @@
         "invalidDealTerms": "Diese Vertragsbedingungen sind nicht erlaubt.",
         "sellOnUnaffordable": "Der abgebende Klub kann den Anteil nicht zahlen, den er dem früheren Verkäufer schuldet.",
         "playerRefusesMove": "Der Spieler möchte nicht zu diesem Verein wechseln.",
-        "playerRefusesLoan": "Der Spieler möchte nicht zu diesem Verein ausgeliehen werden."
+        "playerRefusesLoan": "Der Spieler möchte nicht zu diesem Verein ausgeliehen werden.",
+        "buyerSquadFull": "{{club}} hat keinen freien Platz mehr auf der Profiliste ({{count}} gemeldet von {{max}}, einschließlich bereits zugesagter Plätze für andere vereinbarte Verpflichtungen). Der Verkauf wurde nicht abgeschlossen, und nichts hat sich geändert. Warte, bis der Verein einen Platz frei macht, oder wähle einen anderen Käufer."
       },
       "contracts": {
         "playerNotOwnedByClub": "Der Spieler gehört nicht zu deinem Verein",

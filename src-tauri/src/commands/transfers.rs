@@ -23,6 +23,41 @@ const INVALID_YOUTH_SCOUTING_TARGET_POSITION_ERROR: &str =
 const ERR_PLAYER_NOT_OWNED_BY_USER: &str = "be.error.transfers.playerNotOwnedByUser";
 const ERR_PLAYER_ALREADY_LOANED: &str = "be.error.transfers.playerAlreadyLoaned";
 
+const NO_ACTIVE_GAME: &str = "be.error.noActiveGameSession";
+
+/// Runs a command that moves money or players as one transaction (see `ofm_core::transactions`):
+/// all-or-nothing under the game lock, and a repeat of `request_id` replays the first outcome.
+fn transact<T>(
+    state: &StateManager,
+    request_id: Option<&str>,
+    change: impl FnOnce(&mut Game) -> Result<T, String>,
+) -> Result<T, String>
+where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+{
+    state
+        .run_transaction(request_id, change)
+        .unwrap_or_else(|| Err(NO_ACTIVE_GAME.to_string()))
+}
+
+/// The game as the screen holds it, read after a transaction has committed.
+fn ui_game(state: &StateManager) -> Result<Game, String> {
+    state
+        .get_game(Game::ui_clone)
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
+/// What became of a request the screen sent but may not have heard back from: it ran and changed
+/// the game, it ran and was refused, or it never ran. The screen asks before it tells the player a
+/// transfer failed, and never resubmits a request whose answer it cannot confirm.
+#[tauri::command]
+pub fn get_transaction_status(
+    state: State<'_, Arc<StateManager>>,
+    request_id: String,
+) -> ofm_core::transactions::TransactionStatus {
+    state.transaction_status(&request_id)
+}
+
 fn player_has_active_or_pending_loan(player: &domain::player::Player) -> bool {
     player.active_loan.is_some()
         || player
@@ -125,8 +160,15 @@ pub fn make_transfer_bid(
     player_id: String,
     fee: u64,
     terms: Option<TransferTerms>,
+    request_id: Option<String>,
 ) -> Result<TransferNegotiationCommandResponse, String> {
-    make_transfer_bid_internal(&state, &player_id, fee, terms.unwrap_or_default())
+    make_transfer_bid_internal(
+        &state,
+        request_id.as_deref(),
+        &player_id,
+        fee,
+        terms.unwrap_or_default(),
+    )
 }
 
 #[tauri::command]
@@ -179,6 +221,7 @@ pub fn get_bid_negotiation_status_internal(
 
 pub fn make_transfer_bid_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     fee: u64,
     terms: TransferTerms,
@@ -187,16 +230,10 @@ pub fn make_transfer_bid_internal(
         "[cmd] make_transfer_bid: player_id={}, fee={}, terms={:?}",
         player_id, fee, terms
     );
-    // make_transfer_bid validates (window/player/funds) before executing; its
-    // only post-mutation error path (player-not-found in execute_transfer) is
-    // unreachable here, so in-place mutation is safe.
-    state
-        .update_game(|game| {
-            let result =
-                ofm_core::transfers::make_manager_transfer_bid(game, player_id, fee, terms)?;
-            Ok(map_transfer_negotiation_response(result, game.ui_clone()))
-        })
-        .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
+    let outcome = transact(state, request_id, |game| {
+        ofm_core::transfers::make_manager_transfer_bid(game, player_id, fee, terms)
+    })?;
+    Ok(map_transfer_negotiation_response(outcome, ui_game(state)?))
 }
 
 #[tauri::command]
@@ -206,9 +243,11 @@ pub fn make_loan_offer(
     end_date: String,
     wage_contribution_pct: u8,
     buy_option_fee: Option<u64>,
+    request_id: Option<String>,
 ) -> Result<LoanOfferCommandResponse, String> {
     make_loan_offer_internal(
         &state,
+        request_id.as_deref(),
         &player_id,
         &end_date,
         wage_contribution_pct,
@@ -218,6 +257,7 @@ pub fn make_loan_offer(
 
 pub fn make_loan_offer_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     end_date: &str,
     wage_contribution_pct: u8,
@@ -227,42 +267,39 @@ pub fn make_loan_offer_internal(
         "[cmd] make_loan_offer: player_id={}, end_date={}, wage_contribution_pct={}, buy_option_fee={:?}",
         player_id, end_date, wage_contribution_pct, buy_option_fee
     );
-    let mut game = state
-        .get_game(|g| g.clone())
-        .ok_or("be.error.noActiveGameSession".to_string())?;
-
-    let result = ofm_core::transfers::make_loan_offer(
-        &mut game,
-        player_id,
-        end_date,
-        wage_contribution_pct,
-        buy_option_fee,
-    )?;
-    state.set_game(game.clone());
-
-    Ok(map_loan_offer_response(result, game))
+    // Read, change and commit under one hold of the game lock: this used to clone the game, change
+    // the clone and put it back, which lost whatever another command committed in between.
+    let outcome = transact(state, request_id, |game| {
+        ofm_core::transfers::make_loan_offer(
+            game,
+            player_id,
+            end_date,
+            wage_contribution_pct,
+            buy_option_fee,
+        )
+    })?;
+    Ok(map_loan_offer_response(outcome, ui_game(state)?))
 }
 
 #[tauri::command]
 pub fn exercise_loan_buy_option(
     state: State<'_, Arc<StateManager>>,
     player_id: String,
+    request_id: Option<String>,
 ) -> Result<Game, String> {
-    exercise_loan_buy_option_internal(&state, &player_id)
+    exercise_loan_buy_option_internal(&state, request_id.as_deref(), &player_id)
 }
 
 pub fn exercise_loan_buy_option_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
 ) -> Result<Game, String> {
     info!("[cmd] exercise_loan_buy_option: player_id={}", player_id);
-    let mut game = state
-        .get_game(|g| g.clone())
-        .ok_or("be.error.noActiveGameSession".to_string())?;
-
-    ofm_core::transfers::exercise_loan_buy_option(&mut game, player_id)?;
-    state.set_game(game.clone());
-    Ok(game.into_ui())
+    transact(state, request_id, |game| {
+        ofm_core::transfers::exercise_loan_buy_option(game, player_id)
+    })?;
+    ui_game(state)
 }
 
 pub fn preview_transfer_bid_financial_impact_internal(
@@ -293,12 +330,14 @@ pub fn respond_to_offer(
     player_id: String,
     offer_id: String,
     accept: bool,
+    request_id: Option<String>,
 ) -> Result<Game, String> {
-    respond_to_offer_internal(&state, &player_id, &offer_id, accept)
+    respond_to_offer_internal(&state, request_id.as_deref(), &player_id, &offer_id, accept)
 }
 
 pub fn respond_to_offer_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     offer_id: &str,
     accept: bool,
@@ -307,11 +346,10 @@ pub fn respond_to_offer_internal(
         "[cmd] respond_to_offer: player_id={}, offer_id={}, accept={}",
         player_id, offer_id, accept
     );
-    // Validates (player owned / offer pending) before mutating; the post-accept
-    // execute_transfer error is unreachable once the player is validated.
-    mutate_active_game(state, |game| {
+    transact(state, request_id, |game| {
         ofm_core::transfers::respond_to_offer(game, player_id, offer_id, accept)
-    })
+    })?;
+    ui_game(state)
 }
 
 #[tauri::command]
@@ -320,12 +358,14 @@ pub fn respond_to_loan_offer(
     player_id: String,
     offer_id: String,
     accept: bool,
+    request_id: Option<String>,
 ) -> Result<Game, String> {
-    respond_to_loan_offer_internal(&state, &player_id, &offer_id, accept)
+    respond_to_loan_offer_internal(&state, request_id.as_deref(), &player_id, &offer_id, accept)
 }
 
 pub fn respond_to_loan_offer_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     offer_id: &str,
     accept: bool,
@@ -334,9 +374,10 @@ pub fn respond_to_loan_offer_internal(
         "[cmd] respond_to_loan_offer: player_id={}, offer_id={}, accept={}",
         player_id, offer_id, accept
     );
-    mutate_active_game(state, |game| {
+    transact(state, request_id, |game| {
         ofm_core::transfers::respond_to_loan_offer(game, player_id, offer_id, accept)
-    })
+    })?;
+    ui_game(state)
 }
 
 #[tauri::command]
@@ -347,9 +388,11 @@ pub fn counter_loan_offer(
     end_date: String,
     wage_contribution_pct: u8,
     buy_option_fee: Option<u64>,
+    request_id: Option<String>,
 ) -> Result<LoanOfferCommandResponse, String> {
     counter_loan_offer_internal(
         &state,
+        request_id.as_deref(),
         &player_id,
         &offer_id,
         &end_date,
@@ -360,6 +403,7 @@ pub fn counter_loan_offer(
 
 pub fn counter_loan_offer_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     offer_id: &str,
     end_date: &str,
@@ -370,21 +414,17 @@ pub fn counter_loan_offer_internal(
         "[cmd] counter_loan_offer: player_id={}, offer_id={}, end_date={}, wage_contribution_pct={}, buy_option_fee={:?}",
         player_id, offer_id, end_date, wage_contribution_pct, buy_option_fee
     );
-    let mut outcome = None;
-    let game = mutate_active_game(state, |game| {
-        outcome = Some(ofm_core::transfers::counter_loan_offer(
+    let outcome = transact(state, request_id, |game| {
+        ofm_core::transfers::counter_loan_offer(
             game,
             player_id,
             offer_id,
             end_date,
             wage_contribution_pct,
             buy_option_fee,
-        )?);
-        Ok(())
+        )
     })?;
-    let outcome = outcome.ok_or("be.error.noActiveGameSession".to_string())?;
-
-    Ok(map_loan_offer_response(outcome, game))
+    Ok(map_loan_offer_response(outcome, ui_game(state)?))
 }
 
 #[tauri::command]
@@ -393,12 +433,20 @@ pub fn counter_offer(
     player_id: String,
     offer_id: String,
     requested_fee: u64,
+    request_id: Option<String>,
 ) -> Result<TransferNegotiationCommandResponse, String> {
-    counter_offer_internal(&state, &player_id, &offer_id, requested_fee)
+    counter_offer_internal(
+        &state,
+        request_id.as_deref(),
+        &player_id,
+        &offer_id,
+        requested_fee,
+    )
 }
 
 pub fn counter_offer_internal(
     state: &StateManager,
+    request_id: Option<&str>,
     player_id: &str,
     offer_id: &str,
     requested_fee: u64,
@@ -407,14 +455,10 @@ pub fn counter_offer_internal(
         "[cmd] counter_offer: player_id={}, offer_id={}, requested_fee={}",
         player_id, offer_id, requested_fee
     );
-    // Same shape as make_transfer_bid: full validation precedes mutation.
-    state
-        .update_game(|game| {
-            let result =
-                ofm_core::transfers::counter_offer(game, player_id, offer_id, requested_fee)?;
-            Ok(map_transfer_negotiation_response(result, game.ui_clone()))
-        })
-        .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
+    let outcome = transact(state, request_id, |game| {
+        ofm_core::transfers::counter_offer(game, player_id, offer_id, requested_fee)
+    })?;
+    Ok(map_transfer_negotiation_response(outcome, ui_game(state)?))
 }
 
 fn map_transfer_negotiation_response(
@@ -756,8 +800,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_game());
 
-        let response =
-            counter_offer_internal(&state, "player-1", "offer-1", 1_050_000).expect("response");
+        let response = counter_offer_internal(&state, None, "player-1", "offer-1", 1_050_000)
+            .expect("response");
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-2"));
@@ -788,6 +832,7 @@ mod tests {
     ) -> super::TransferNegotiationCommandResponse {
         let first = make_transfer_bid_internal(
             state,
+            None,
             player_id,
             fee,
             domain::transfer_terms::TransferTerms::default(),
@@ -797,6 +842,7 @@ mod tests {
         let shown = first.player_demand.expect("the contract he would sign");
         make_transfer_bid_internal(
             state,
+            None,
             player_id,
             fee,
             domain::transfer_terms::TransferTerms {
@@ -815,6 +861,7 @@ mod tests {
 
         let first = make_transfer_bid_internal(
             &state,
+            None,
             "player-2",
             1_050_000,
             domain::transfer_terms::TransferTerms::default(),
@@ -880,7 +927,7 @@ mod tests {
         game.players[0].loan_listed = true;
         state.set_game(game);
 
-        let response = make_loan_offer_internal(&state, "player-2", "2027-01-01", 100, None)
+        let response = make_loan_offer_internal(&state, None, "player-2", "2027-01-01", 100, None)
             .expect("response");
 
         assert_eq!(response.decision, LoanOfferDecision::Accepted);
@@ -910,10 +957,10 @@ mod tests {
         game.players[0].loan_listed = true;
         state.set_game(game);
 
-        make_loan_offer_internal(&state, "player-2", "2027-01-01", 100, Some(1_000_000))
+        make_loan_offer_internal(&state, None, "player-2", "2027-01-01", 100, Some(1_000_000))
             .expect("loan-to-buy offer");
         let response =
-            exercise_loan_buy_option_internal(&state, "player-2").expect("exercise option");
+            exercise_loan_buy_option_internal(&state, None, "player-2").expect("exercise option");
 
         let player = response
             .players
@@ -941,6 +988,7 @@ mod tests {
 
         let response = make_transfer_bid_internal(
             &state,
+            None,
             "player-2",
             900_000,
             domain::transfer_terms::TransferTerms::default(),
@@ -971,6 +1019,7 @@ mod tests {
 
         let first = make_transfer_bid_internal(
             &state,
+            None,
             "player-2",
             900_000,
             domain::transfer_terms::TransferTerms::default(),
@@ -991,8 +1040,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_game());
 
-        let response =
-            respond_to_offer_internal(&state, "player-1", "offer-1", false).expect("response");
+        let response = respond_to_offer_internal(&state, None, "player-1", "offer-1", false)
+            .expect("response");
 
         let player = response
             .players
@@ -1044,8 +1093,9 @@ mod tests {
         });
         state.set_game(game);
 
-        let response = respond_to_loan_offer_internal(&state, "player-1", "loan-offer-1", true)
-            .expect("response");
+        let response =
+            respond_to_loan_offer_internal(&state, None, "player-1", "loan-offer-1", true)
+                .expect("response");
 
         let player = response
             .players
@@ -1100,6 +1150,7 @@ mod tests {
 
         let response = counter_loan_offer_internal(
             &state,
+            None,
             "player-1",
             "loan-offer-counter",
             "2027-01-01",
@@ -1379,8 +1430,8 @@ mod tests {
     /// Given a buyer with one senior place left and a purchase already agreed and waiting to
     ///   register
     /// When the manager accepts an incoming offer from that buyer
-    /// Then the promised place is not his: the command fails with the squad-limit key and the
-    ///      stored career is unchanged.
+    /// Then the promised place is not his: the command fails naming the buyer's list, not "your"
+    ///      list, and the stored career is unchanged.
     #[test]
     fn respond_to_offer_internal_refuses_a_buyer_whose_last_place_is_promised() {
         let state = StateManager::new();
@@ -1390,13 +1441,12 @@ mod tests {
         let before = snapshot(&game);
         state.set_game(game);
 
-        let refused = respond_to_offer_internal(&state, "player-1", "offer-1", true);
+        let refused = respond_to_offer_internal(&state, None, "player-1", "offer-1", true);
 
         assert!(
-            refused
-                .as_ref()
-                .err()
-                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            refused.as_ref().err().is_some_and(
+                |error| error.starts_with("be.error.transfers.buyerSquadFull?club=Buyer%20FC")
+            ),
             "{refused:?}"
         );
         let stored = state.get_game(|game| game.clone()).expect("stored game");
@@ -1427,13 +1477,12 @@ mod tests {
         let before = snapshot(&game);
         state.set_game(game);
 
-        let refused = counter_offer_internal(&state, "player-1", "offer-1", 1_050_000);
+        let refused = counter_offer_internal(&state, None, "player-1", "offer-1", 1_050_000);
 
         assert!(
-            refused
-                .as_ref()
-                .err()
-                .is_some_and(|error| error.starts_with("be.error.freeAgents.squadFull")),
+            refused.as_ref().err().is_some_and(
+                |error| error.starts_with("be.error.transfers.buyerSquadFull?club=Buyer%20FC")
+            ),
             "{refused:?}"
         );
         let stored = state.get_game(|game| game.clone()).expect("stored game");
@@ -1460,7 +1509,7 @@ mod tests {
         fill_senior_list(&mut game, "team-2", 30);
         state.set_game(game);
 
-        let response = counter_offer_internal(&state, "player-1", "offer-1", 5_000_000)
+        let response = counter_offer_internal(&state, None, "player-1", "offer-1", 5_000_000)
             .expect("the negotiation can be ended");
 
         assert_eq!(
@@ -1525,5 +1574,235 @@ mod tests {
 
     fn snapshot(game: &Game) -> serde_json::Value {
         serde_json::to_value(game).expect("a game serialises")
+    }
+
+    /// Loan-listed players of team-2, each a separate target for a loan offer the owner turns down.
+    fn game_with_many_loan_targets(count: usize) -> Game {
+        let mut game = make_bid_game();
+        let template = game.players[0].clone();
+        game.players.clear();
+        for index in 0..count {
+            let mut target = template.clone();
+            target.id = format!("loan-target-{index}");
+            target.loan_listed = true;
+            target.transfer_offers.clear();
+            target.loan_offers.clear();
+            game.players.push(target);
+        }
+        game.messages.clear();
+        game
+    }
+
+    fn posted_messages(state: &StateManager) -> usize {
+        state.get_game(|game| game.messages.len()).expect("game")
+    }
+
+    /// Given a loan offer being processed while another command posts messages
+    /// When both run for a while on separate threads
+    /// Then every message is still in the game: the loan command does not put an old copy of the
+    ///      game back over what the other command committed.
+    #[test]
+    fn a_loan_offer_does_not_overwrite_what_another_command_commits() {
+        use std::sync::Arc;
+        let state = Arc::new(StateManager::new());
+        state.set_game(game_with_many_loan_targets(120));
+        let poster = {
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || {
+                for index in 0..400 {
+                    state.update_game(|game| {
+                        game.messages.push(domain::message::InboxMessage::new(
+                            format!("concurrent-{index}"),
+                            "s".to_string(),
+                            "b".to_string(),
+                            "f".to_string(),
+                            "2026-08-01".to_string(),
+                        ));
+                    });
+                }
+            })
+        };
+        for index in 0..120 {
+            let target = format!("loan-target-{index}");
+            // Wage share 0: the owner turns it down, which is committed (the offer row) and returns.
+            let outcome = make_loan_offer_internal(&state, None, &target, "2027-01-01", 0, None);
+            assert!(outcome.is_ok(), "{outcome:?}");
+        }
+        poster.join().expect("poster");
+
+        let concurrent = state
+            .get_game(|game| {
+                game.messages
+                    .iter()
+                    .filter(|message| message.id.starts_with("concurrent-"))
+                    .count()
+            })
+            .expect("game");
+        assert_eq!(concurrent, 400, "messages posted meanwhile were lost");
+    }
+
+    /// Given a loan offer delivered twice with the same request id (a double click, a retry)
+    /// When both deliveries are processed
+    /// Then there is one loan, both get the same answer, and the second is not an error.
+    #[test]
+    fn a_loan_offer_delivered_twice_is_one_loan_with_one_answer() {
+        let state = StateManager::new();
+        let mut game = make_bid_game();
+        game.players[0].loan_listed = true;
+        state.set_game(game);
+
+        let first = make_loan_offer_internal(
+            &state,
+            Some("req-loan"),
+            "player-2",
+            "2027-01-01",
+            100,
+            None,
+        )
+        .expect("first delivery");
+        let second = make_loan_offer_internal(
+            &state,
+            Some("req-loan"),
+            "player-2",
+            "2027-01-01",
+            100,
+            None,
+        )
+        .expect("the repeat replays the first answer, it does not fail");
+
+        assert_eq!(first.decision, LoanOfferDecision::Accepted);
+        assert_eq!(second.decision, first.decision);
+        assert_eq!(second.offer_id, first.offer_id);
+        let (offers, active) = state
+            .get_game(|game| {
+                let player = game.players.iter().find(|p| p.id == "player-2").unwrap();
+                (player.loan_offers.len(), player.active_loan.is_some())
+            })
+            .expect("game");
+        assert_eq!((offers, active), (1, true));
+        assert_eq!(
+            state.transaction_status("req-loan"),
+            ofm_core::transactions::TransactionStatus::Committed
+        );
+    }
+
+    /// Given a loan offer that is refused (the player is not on the loan list)
+    /// When it is sent
+    /// Then the game is byte-for-byte what it was, and the request is recorded as refused.
+    #[test]
+    fn a_refused_loan_offer_leaves_no_trace() {
+        let state = StateManager::new();
+        let mut game = make_bid_game();
+        game.players[0].loan_listed = false;
+        state.set_game(game);
+        let before = state
+            .get_game(|game| serde_json::to_string(game).expect("serialises"))
+            .expect("game");
+
+        let refused = make_loan_offer_internal(
+            &state,
+            Some("req-refused"),
+            "player-2",
+            "2027-01-01",
+            100,
+            None,
+        );
+
+        assert!(refused.is_err());
+        let after = state
+            .get_game(|game| serde_json::to_string(game).expect("serialises"))
+            .expect("game");
+        assert_eq!(before, after);
+        assert!(matches!(
+            state.transaction_status("req-refused"),
+            ofm_core::transactions::TransactionStatus::Refused(_)
+        ));
+    }
+
+    /// Given an accepted purchase option exercised twice with one request id
+    /// When both deliveries are processed
+    /// Then the club is charged once, and the repeat is not an error.
+    #[test]
+    fn exercising_a_buy_option_twice_with_one_request_id_charges_once() {
+        let state = StateManager::new();
+        let mut game = make_bid_game();
+        game.players[0].loan_listed = true;
+        state.set_game(game);
+        make_loan_offer_internal(&state, None, "player-2", "2027-01-01", 100, Some(2_000_000))
+            .expect("a loan with a purchase option");
+        let finance_before = state
+            .get_game(|game| {
+                game.teams
+                    .iter()
+                    .find(|t| t.id == "team-1")
+                    .unwrap()
+                    .finance
+            })
+            .expect("game");
+
+        let first = exercise_loan_buy_option_internal(&state, Some("req-buy"), "player-2");
+        let second = exercise_loan_buy_option_internal(&state, Some("req-buy"), "player-2");
+
+        assert!(first.is_ok(), "{:?}", first.err());
+        assert!(second.is_ok(), "{:?}", second.err());
+        let finance_after = state
+            .get_game(|game| {
+                game.teams
+                    .iter()
+                    .find(|t| t.id == "team-1")
+                    .unwrap()
+                    .finance
+            })
+            .expect("game");
+        assert_eq!(finance_before - finance_after, 2_000_000);
+    }
+
+    /// Given a loan agreed while the window is shut, so it waits to register
+    /// When the game is saved and loaded as JSON in between and the window opens
+    /// Then the loan is still pending after the reload, registers once, and is not duplicated.
+    #[test]
+    fn a_loan_pending_registration_survives_a_reload_and_registers_once() {
+        let state = StateManager::new();
+        let mut game = make_bid_game();
+        game.players[0].loan_listed = true;
+        game.season_context.transfer_window.status = TransferWindowStatus::Closed;
+        game.season_context.transfer_window.opens_on = Some("2026-09-01".to_string());
+        state.set_game(game);
+
+        let response = make_loan_offer_internal(&state, None, "player-2", "2027-01-01", 100, None)
+            .expect("agreed, pending registration");
+        assert_eq!(response.decision, LoanOfferDecision::Accepted);
+        let json = state
+            .get_game(|game| serde_json::to_string(game).expect("serialises"))
+            .expect("game");
+        let mut reloaded: Game = serde_json::from_str(&json).expect("reloads");
+        assert_eq!(
+            reloaded.players[0].loan_offers[0].status,
+            LoanOfferStatus::PendingRegistration
+        );
+        assert!(reloaded.players[0].active_loan.is_none());
+
+        reloaded.clock.current_date = Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0).unwrap();
+        reloaded.season_context.transfer_window.status = TransferWindowStatus::Open;
+        ofm_core::transfers::process_pending_loan_registrations(&mut reloaded);
+        ofm_core::transfers::process_pending_loan_registrations(&mut reloaded);
+
+        assert!(reloaded.players[0].active_loan.is_some());
+        assert_eq!(reloaded.players[0].loan_offers.len(), 1);
+        assert_eq!(reloaded.players[0].team_id.as_deref(), Some("team-1"));
+    }
+
+    /// Given no request id and an unknown one
+    /// When the status of the unknown one is asked
+    /// Then nothing happened for it.
+    #[test]
+    fn an_unseen_request_has_no_effect_to_report() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+        assert_eq!(
+            state.transaction_status("never-sent"),
+            ofm_core::transactions::TransactionStatus::Unknown
+        );
+        assert_eq!(posted_messages(&state), 0);
     }
 }

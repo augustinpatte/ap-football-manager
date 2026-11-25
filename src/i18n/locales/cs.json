@@ -3483,7 +3483,8 @@
         "invalidDealTerms": "Tyto podmínky dohody nejsou povoleny.",
         "sellOnUnaffordable": "Prodávající klub nemůže zaplatit podíl, který dluží klubu, jenž ho prodal dříve.",
         "playerRefusesMove": "Hráč do toho klubu nechce.",
-        "playerRefusesLoan": "Hráč nechce do toho klubu na hostování."
+        "playerRefusesLoan": "Hráč nechce do toho klubu na hostování.",
+        "buyerSquadFull": "{{club}} nemá volné místo na soupisce A-týmu ({{count}} registrovaných z {{max}}, včetně míst již slíbených jiným dohodnutým posilám). Prodej se neuskutečnil a nic se nezměnilo. Počkejte, až klub uvolní místo, nebo vyberte jiného kupce."
       },
       "contracts": {
         "playerNotOwnedByClub": "Hráč nepatří do vašeho klubu",

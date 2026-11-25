@@ -313,7 +313,51 @@ fn ensure_place_for(game: &Game, player: &Player, buyer_team_id: &str) -> Result
     if player.team_id.as_deref() == Some(buyer_team_id) {
         return Ok(());
     }
-    super::registration::signing_place_refusal(game, buyer_team_id, &player.id).map_or(Ok(()), Err)
+    match super::registration::signing_place_refusal(game, buyer_team_id, &player.id) {
+        None => Ok(()),
+        // The manager's own list keeps the "your list" wording; any other club's list is named, so
+        // a sale blocked by a buyer is never reported as the manager's own squad being full.
+        Some(refusal) if game.manager.team_id.as_deref() == Some(buyer_team_id) => Err(refusal),
+        Some(refusal) => Err(buyer_list_full_error(game, buyer_team_id, &refusal)),
+    }
+}
+
+/// The refusal for a buyer other than the manager's club whose senior list has no place:
+/// `be.error.transfers.buyerSquadFull` with the club's name and the count and limit the list
+/// reported. The name is percent-encoded because club names carry spaces and punctuation.
+fn buyer_list_full_error(game: &Game, buyer_team_id: &str, list_full_refusal: &str) -> String {
+    let figures = list_full_refusal
+        .split_once('?')
+        .map_or("", |(_, figures)| figures);
+    let figure = |name: &str| {
+        figures
+            .split('&')
+            .find_map(|pair| {
+                pair.strip_prefix(name)
+                    .and_then(|rest| rest.strip_prefix('='))
+            })
+            .unwrap_or("")
+    };
+    format!(
+        "{ERR_BUYER_SQUAD_FULL}?club={}&count={}&max={}",
+        percent_encode(&game.team_name_or_id(buyer_team_id)),
+        figure("count"),
+        figure("max"),
+    )
+}
+
+/// RFC 3986 percent-encoding of everything but unreserved characters, for a parameter value in an
+/// error key (the frontend reads it back with `URLSearchParams`).
+fn percent_encode(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 /// Whether `buyer_team_id` could be given the contract it would need to buy this

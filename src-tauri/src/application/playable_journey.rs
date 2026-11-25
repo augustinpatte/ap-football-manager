@@ -385,8 +385,9 @@ fn a_bid_above_the_transfer_budget_is_refused_and_changes_nothing() {
         .id
         .clone();
 
-    let error = make_transfer_bid_internal(&session.state, &target, fee, TransferTerms::default())
-        .expect_err("the bid is beyond the budget");
+    let error =
+        make_transfer_bid_internal(&session.state, None, &target, fee, TransferTerms::default())
+            .expect_err("the bid is beyond the budget");
 
     assert_eq!(error, "be.error.transfers.transferBudgetTooLow");
     let after = session.game();
@@ -886,6 +887,7 @@ fn agree_a_signing(session: &Session) -> AgreedSigning {
     for (target, fee) in targets {
         let mut response = match make_transfer_bid_internal(
             &session.state,
+            None,
             &target,
             fee,
             TransferTerms::default(),
@@ -902,7 +904,7 @@ fn agree_a_signing(session: &Session) -> AgreedSigning {
                 player_contract_years: demand.contract_years as u8,
                 ..TransferTerms::default()
             };
-            response = make_transfer_bid_internal(&session.state, &target, fee, terms)
+            response = make_transfer_bid_internal(&session.state, None, &target, fee, terms)
                 .expect("the contract terms are answered");
         }
         if response.decision == Decision::Accepted {

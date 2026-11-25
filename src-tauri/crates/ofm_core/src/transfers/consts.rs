@@ -54,6 +54,8 @@ pub(super) const ERR_INSUFFICIENT_FUNDS: &str = "be.error.transfers.insufficient
 pub(super) const ERR_TRANSFER_BUDGET_TOO_LOW: &str = "be.error.transfers.transferBudgetTooLow";
 pub(super) const ERR_PLAYER_NOT_OWNED_BY_USER: &str = "be.error.transfers.playerNotOwnedByUser";
 pub(super) const ERR_OFFER_NOT_PENDING: &str = "be.error.transfers.offerNotPending";
+/// A buyer other than the manager's club has no place left on its senior list.
+pub(super) const ERR_BUYER_SQUAD_FULL: &str = "be.error.transfers.buyerSquadFull";
 pub(super) const ERR_TALKS_BROKEN_OFF: &str = "be.error.transfers.talksBrokenOff";
 pub(super) const ERR_COUNTER_OFFER_MUST_EXCEED_CURRENT: &str =
     "be.error.transfers.counterOfferMustExceedCurrentOffer";

@@ -3483,7 +3483,8 @@
         "invalidDealTerms": "These deal terms are not allowed.",
         "sellOnUnaffordable": "The selling club cannot pay the share it owes the club that sold him earlier.",
         "playerRefusesMove": "The player does not want to join that club.",
-        "playerRefusesLoan": "The player does not want to go on loan to that club."
+        "playerRefusesLoan": "The player does not want to go on loan to that club.",
+        "buyerSquadFull": "{{club}} has no free place on its senior list ({{count}} registered of {{max}}, counting places already promised to other agreed signings). The sale was not made and nothing has changed. Wait until the club frees a place, or choose another buyer."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",

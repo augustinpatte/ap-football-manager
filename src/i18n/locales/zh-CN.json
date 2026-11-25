@@ -3475,7 +3475,8 @@
         "invalidDealTerms": "这些交易条款不被允许。",
         "sellOnUnaffordable": "出售方俱乐部无法支付应付给先前卖家的分成。",
         "playerRefusesMove": "球员不愿加盟那家俱乐部。",
-        "playerRefusesLoan": "球员不愿租借到那家俱乐部。"
+        "playerRefusesLoan": "球员不愿租借到那家俱乐部。",
+        "buyerSquadFull": "{{club}}的一线队名单没有空位（已注册 {{count}} 人，上限 {{max}} 人，已计入承诺给其他已谈妥转会的名额）。出售未完成，一切保持原样。请等待该俱乐部腾出名额，或选择其他买家。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",

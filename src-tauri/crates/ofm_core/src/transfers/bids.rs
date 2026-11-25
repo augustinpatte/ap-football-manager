@@ -1158,6 +1158,11 @@ pub fn counter_offer(
         return Err(ERR_COUNTER_OFFER_MUST_EXCEED_CURRENT.into());
     }
 
+    // Whether the player can leave at all is settled before the buyer is asked about a price: a
+    // counter for a sale the squad floor forbids must not close the talks (a firm "no" at an
+    // excessive fee would) nor be answered with a price the manager could never take.
+    crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
+
     let buyer_team = game
         .teams
         .iter()
@@ -1190,8 +1195,7 @@ pub fn counter_offer(
     let mut agreed_terms = TransferTerms::default();
     if accepted {
         // Before the offer is marked agreed: refusing after would leave it agreed
-        // with the player still at his club.
-        crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
+        // with the player still at his club. (The squad floor was checked above.)
         agreed_terms = incoming_deal_terms(game, player_id, &buyer_team_id)?;
         ensure_buyer_can_pay_standard_wage(game, player_id, &buyer_team_id, &agreed_terms)?;
     }

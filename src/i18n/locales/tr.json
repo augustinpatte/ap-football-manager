@@ -3483,7 +3483,8 @@
         "invalidDealTerms": "Bu anlaşma şartlarına izin verilmiyor.",
         "sellOnUnaffordable": "Satan kulüp, onu daha önce satan kulübe borçlu olduğu payı ödeyemiyor.",
         "playerRefusesMove": "Oyuncu o kulübe katılmak istemiyor.",
-        "playerRefusesLoan": "Oyuncu o kulübe kiralık gitmek istemiyor."
+        "playerRefusesLoan": "Oyuncu o kulübe kiralık gitmek istemiyor.",
+        "buyerSquadFull": "{{club}} kulübünün birinci takım listesinde boş yer yok ({{max}} kontenjanın {{count}} yeri dolu; diğer anlaşılmış transferlere söz verilen yerler dahil). Satış gerçekleşmedi ve hiçbir şey değişmedi. Kulübün yer açmasını bekleyin veya başka bir alıcı seçin."
       },
       "contracts": {
         "playerNotOwnedByClub": "Oyuncu kulübünüze ait değil",

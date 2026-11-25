@@ -105,6 +105,7 @@ pub fn transfer_make_bid(
 
     let response = crate::commands::transfers::make_transfer_bid_internal(
         &ctx.state_manager,
+        None,
         &player_id,
         fee,
         domain::transfer_terms::TransferTerms {
@@ -191,6 +192,7 @@ pub fn transfer_respond_to_offer(
 ) -> Result<OfferAnswered, String> {
     crate::commands::transfers::respond_to_offer_internal(
         &ctx.state_manager,
+        None,
         &player_id,
         &offer_id,
         accept,
@@ -220,6 +222,7 @@ pub fn transfer_counter_offer(
 ) -> Result<CounterOffered, String> {
     let response = crate::commands::transfers::counter_offer_internal(
         &ctx.state_manager,
+        None,
         &player_id,
         &offer_id,
         requested_fee,

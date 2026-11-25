@@ -3475,7 +3475,8 @@
         "invalidDealTerms": "Essas condições do acordo não são permitidas.",
         "sellOnUnaffordable": "O clube vendedor não consegue pagar a parte que deve ao clube que o vendeu antes.",
         "playerRefusesMove": "O jogador não quer ir para esse clube.",
-        "playerRefusesLoan": "O jogador não quer ser emprestado a esse clube."
+        "playerRefusesLoan": "O jogador não quer ser emprestado a esse clube.",
+        "buyerSquadFull": "{{club}} não tem vaga livre na lista de profissionais ({{count}} inscritos de {{max}}, contando as vagas já prometidas a outras contratações acordadas). A venda não foi feita e nada mudou. Aguarde o clube liberar uma vaga ou escolha outro comprador."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao seu clube",

@@ -111,6 +111,7 @@ pub mod suspension;
 #[cfg(test)]
 mod test_support;
 pub mod training;
+pub mod transactions;
 pub mod transfers;
 pub mod turn;
 pub mod value_scale;

@@ -3483,7 +3483,8 @@
         "invalidDealTerms": "Ketentuan kesepakatan ini tidak diizinkan.",
         "sellOnUnaffordable": "Klub penjual tidak mampu membayar bagian yang terutang kepada klub yang menjualnya sebelumnya.",
         "playerRefusesMove": "Pemain tidak mau bergabung dengan klub itu.",
-        "playerRefusesLoan": "Pemain tidak mau dipinjamkan ke klub itu."
+        "playerRefusesLoan": "Pemain tidak mau dipinjamkan ke klub itu.",
+        "buyerSquadFull": "{{club}} tidak punya tempat kosong di daftar skuad senior ({{count}} terdaftar dari {{max}}, termasuk tempat yang sudah dijanjikan untuk perekrutan lain yang telah disepakati). Penjualan tidak dilakukan dan tidak ada yang berubah. Tunggu sampai klub mengosongkan tempat, atau pilih pembeli lain."
       },
       "contracts": {
         "playerNotOwnedByClub": "Pemain tidak termasuk dalam klub kamu",

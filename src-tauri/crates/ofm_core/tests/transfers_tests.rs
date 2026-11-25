@@ -10,6 +10,8 @@ mod incoming_interest;
 mod loans;
 #[path = "transfers_tests/realism.rs"]
 mod realism;
+#[path = "transfers_tests/sale_integrity.rs"]
+mod sale_integrity;
 #[path = "transfers_tests/squad_places.rs"]
 mod squad_places;
 
