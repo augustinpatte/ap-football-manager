@@ -11,7 +11,7 @@ import {
   type StaffOverview,
   type StaffSlice,
 } from "../../services/staffService";
-import { resolveBackendError, resolveBackendKeyError } from "../../utils/backendI18n";
+import { resolveBackendKeyError } from "../../utils/backendI18n";
 import OfferDialog from "./OfferDialog";
 import StaffManagementPanel from "./StaffManagementPanel";
 import { Button, Card, CardBody, Badge, CountryFlag, Dialog, ProgressBar } from "../ui";
@@ -33,6 +33,7 @@ import { useTranslation } from "react-i18next";
 import { releaseStaff } from "../../services/staffService";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import type { DashboardNavigateContext } from "../dashboard/dashboardProfileNavigation";
+import { failureReason, failureText } from "../../utils/failureText";
 
 interface StaffTabProps {
   gameState: GameStateData | null;
@@ -220,7 +221,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
       applyStaffUpdate(await releaseStaff(staffId));
       setReleasing(null);
     } catch (err) {
-      setActionError(resolveBackendError(err));
+      setActionError(failureText(err));
     } finally {
       setActionLoading(null);
     }
@@ -505,7 +506,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                               wage: formatWeeklyWage(candidates[staff.id].asking_wage, "compact"),
                             })}
                             {candidates[staff.id].blocker
-                              ? ` — ${resolveBackendError(candidates[staff.id].blocker)}`
+                              ? ` — ${failureReason(candidates[staff.id].blocker)}`
                               : ""}
                           </p>
                         ) : null}

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { GameStateData, LeagueData } from "../store/gameStore";
@@ -6,11 +6,13 @@ import { useGameStore } from "../store/gameStore";
 import { createPlayer, createTeam } from "../test-utils/factories";
 import { ThemeProvider } from "../context/ThemeContext";
 import TeamSelection from "./TeamSelection";
+import { hasLeftCareerOnPurpose, resetCareerSessionForTests } from "../services/careerSession";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
+const navigateMock = vi.hoisted(() => vi.fn());
 vi.mock("react-router-dom", () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateMock,
 }));
 
 vi.mock("../services/portraitService", () => ({
@@ -76,6 +78,8 @@ function buildGameState(): GameStateData {
 
 describe("TeamSelection", () => {
   beforeEach(() => {
+    navigateMock.mockReset();
+    resetCareerSessionForTests();
     vi.mocked(useGameStore).mockReturnValue({
       gameState: buildGameState(),
       setGameState: vi.fn(),
@@ -100,5 +104,23 @@ describe("TeamSelection", () => {
 
     // Confirm button reflects the auto-selected club.
     expect(screen.getByText("teamSelect.manage")).toBeInTheDocument();
+  });
+
+  /**
+   * Given the player is choosing a club for a career that has none yet
+   * When they press the back arrow
+   * Then they go to the menu and the menu is told it is their own doing, so it does not resume them
+   */
+  it("goes_back_to_the_menu_on_purpose_through_a_named_control", () => {
+    render(
+      <ThemeProvider>
+        <TeamSelection />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "common.back" }));
+
+    expect(navigateMock).toHaveBeenCalledWith("/");
+    expect(hasLeftCareerOnPurpose()).toBe(true);
   });
 });

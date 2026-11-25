@@ -23,3 +23,18 @@ export function rawErrorDisplays(source: string): string[] {
       ),
     );
 }
+
+/**
+ * A screen hands a failure to `resolveBackendError`, which returns raw prose and untranslated keys
+ * as they are. Screens use `failureText` / `failureReason` (`src/utils/failureText.ts`), which turn
+ * anything the game has no sentence for into one safe message. A reference without a call
+ * (`userErrorText(error, t, resolveBackendError)`) is how the formatter is passed and is fine.
+ */
+const DIRECT_RESOLVE_CALL = /\bresolveBackendError\(/;
+
+/** Lines of a screen's source that call `resolveBackendError` directly. */
+export function directResolveCalls(source: string): string[] {
+  return source
+    .split("\n")
+    .flatMap((line, index) => (DIRECT_RESOLVE_CALL.test(line) ? [`line ${index + 1}`] : []));
+}

@@ -9,7 +9,6 @@ import {
   PLAY_STYLES,
 } from "./types";
 import { getPlayerName } from "./helpers";
-import { resolveBackendError } from "../../utils/backendI18n";
 import { FormationPitch } from "./FormationPitch";
 import { PlayerRolesPanel } from "./PlayerRolesPanel";
 import { condBgColor, condColor } from "../../lib/playerConditionDisplay";
@@ -31,6 +30,7 @@ import {
   sortByPositionGroup,
   type MatchScenarioId,
 } from "./SubPanel.helpers";
+import { failureReason } from "../../utils/failureText";
 
 const CompareBar = ({ label, valA, valB }: { label: string; valA: number; valB: number }) => {
   const diff = valB - valA;
@@ -663,7 +663,7 @@ export function SubPanel({
                 {t("match.substitutionRefused", {
                   off: getPlayerName(snapshot, refusal.swap.offId),
                   on: getPlayerName(snapshot, refusal.swap.onId),
-                  reason: resolveBackendError(refusal.reason),
+                  reason: failureReason(refusal.reason),
                 })}
               </p>
             )}

@@ -16,7 +16,6 @@ import {
   suggestedReportFileName,
   uploadReportBundle,
 } from "../../services/reportService";
-import { resolveBackendError } from "../../utils/backendI18n";
 import {
   type ReportDraft,
   describeContext,
@@ -25,6 +24,7 @@ import {
   minutesToWait,
   toUploadFailure,
 } from "./ReportBugModal.helpers";
+import { failureReason, failureText } from "../../utils/failureText";
 
 export type Working = "upload" | "export" | null;
 
@@ -126,7 +126,7 @@ export function useReportSubmission(inputs: SubmissionInputs, outcome: Submissio
           ? t("be.error.report.upload.rateLimitedWait", {
               minutes: minutesToWait(rejected.retry_after_seconds),
             })
-          : resolveBackendError(rejected.key),
+          : failureReason(rejected.key),
       );
     } finally {
       setWorking(null);
@@ -161,7 +161,7 @@ export function useReportSubmission(inputs: SubmissionInputs, outcome: Submissio
       outcome.onExported();
     } catch (error: unknown) {
       logError(`[report] export failed: ${String(error)}`);
-      setFailure(resolveBackendError(error));
+      setFailure(failureText(error));
     } finally {
       setWorking(null);
     }

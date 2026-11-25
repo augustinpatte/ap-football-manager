@@ -16,7 +16,7 @@ import {
 import { weeklyWageAmount } from "../../lib/finance";
 import { getFinanceSnapshot, type FinanceSnapshotData } from "../../services/financeService";
 import { useTranslation } from "react-i18next";
-import { resolveBackendError, resolveMessage } from "../../utils/backendI18n";
+import { resolveMessage } from "../../utils/backendI18n";
 import {
   type FacilityId,
   type FacilityUpgradeErrorState,
@@ -34,6 +34,7 @@ import {
 } from "./FinancesTab.helpers";
 import FinancesFacilitiesCard from "./FinancesFacilitiesCard";
 import FinancesPayrollTable from "./FinancesPayrollTable";
+import { failureText } from "../../utils/failureText";
 
 interface FinancesTabProps {
   gameState: GameStateData;
@@ -301,7 +302,7 @@ function FinancesTabLoaded({
       console.error("Failed to upgrade facility:", error);
       setFacilityUpgradeError({
         facilityId: facility,
-        message: resolveBackendError(error),
+        message: failureText(error),
       });
     } finally {
       setActionLoading(null);
@@ -328,7 +329,7 @@ function FinancesTabLoaded({
       console.error("Failed to request board support:", error);
       setBoardSupportFeedback({
         tone: "error",
-        text: resolveBackendError(error),
+        text: failureText(error),
       });
     } finally {
       setActionLoading(null);
@@ -355,7 +356,7 @@ function FinancesTabLoaded({
       console.error("Failed to pitch sponsors:", error);
       setSponsorPitchFeedback({
         tone: "error",
-        text: resolveBackendError(error),
+        text: failureText(error),
       });
     } finally {
       setActionLoading(null);
@@ -383,7 +384,7 @@ function FinancesTabLoaded({
       console.error("Failed to launch marketing campaign:", error);
       setMarketingCampaignFeedback({
         tone: "error",
-        text: resolveBackendError(error),
+        text: failureText(error),
       });
     } finally {
       setActionLoading(null);

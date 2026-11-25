@@ -36,8 +36,10 @@ vi.mock("../../services/reportService", () => ({
 vi.mock("../../lib/logger", () => ({
   logError: (message: string) => logError(message),
 }));
-vi.mock("../../utils/backendI18n", () => ({
-  resolveBackendError: (error: unknown) => String(error),
+// The wording of a failure is tested in utils/failureText.test.ts; here a failure reads as itself.
+vi.mock("../../utils/failureText", () => ({
+  failureText: (error: unknown) => String(error),
+  failureReason: (error: unknown) => String(error),
 }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),

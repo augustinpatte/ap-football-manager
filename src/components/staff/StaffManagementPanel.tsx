@@ -16,10 +16,10 @@ import {
   setDutyOwner,
 } from "../../services/staffService";
 import { getActiveGame } from "../../services/sessionService";
-import { resolveBackendError } from "../../utils/backendI18n";
 import { formatDate, formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar, Select } from "../ui";
 import DelegationModeCard from "./DelegationModeCard";
+import { failureText } from "../../utils/failureText";
 
 interface StaffManagementPanelProps {
   overview: StaffOverview | null;
@@ -102,7 +102,7 @@ export default function StaffManagementPanel({
       onGameUpdate(await action());
       refreshRecs();
     } catch (err) {
-      setError(resolveBackendError(err));
+      setError(failureText(err));
       // A refused answer may still have changed the game: the backend drops a proposal it cannot
       // carry out. Read the game again so the list and the dashboard do not keep showing it.
       try {

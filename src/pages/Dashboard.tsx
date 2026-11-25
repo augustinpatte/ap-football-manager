@@ -7,7 +7,6 @@ import { applyExtraTranslations } from "../lib/extraTranslations";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { getActiveSaveId, saveGame, exitToMenu } from "../services/sessionService";
-import { resolveBackendError } from "../utils/backendI18n";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import type { MatchModeType } from "../hooks/useAdvanceTime";
@@ -66,6 +65,7 @@ import {
 } from "../services/portraitService";
 import { getFinanceSnapshot, type TeamFinanceSnapshotData } from "../services/financeService";
 import { isSeasonComplete } from "../lib/seasonContext";
+import { failureText } from "../utils/failureText";
 
 const CLUB_TABS = new Set([
   "Squad",
@@ -664,7 +664,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
             role="alert"
             className="m-3 rounded-lg border border-line bg-warning-tint px-4 py-3 text-body text-warning"
           >
-            {resolveBackendError(saveError)}
+            {failureText(saveError)}
           </p>
         ) : null}
         {advanceError ? (

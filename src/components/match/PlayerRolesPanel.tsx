@@ -2,11 +2,11 @@ import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { getRoleOptions } from "../../lib/playerRoles";
-import { resolveBackendError } from "../../utils/backendI18n";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { Select } from "../ui";
 import { sortByPositionGroup } from "./SubPanel.helpers";
 import type { EnginePlayerData, RoleChangeOutcome } from "./types";
+import { failureReason } from "../../utils/failureText";
 
 /**
  * A role picker for each player on the pitch. The engine is the authority on what a role may be:
@@ -98,7 +98,7 @@ export function PlayerRolesPanel({
         >
           {t("match.roleChangeRefused", {
             player: refusal.player,
-            reason: resolveBackendError(refusal.reason),
+            reason: failureReason(refusal.reason),
           })}
         </p>
       )}

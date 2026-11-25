@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { StrictMode, type ComponentPropsWithoutRef, type ReactNode } from "react";
 
 import { countryName } from "../lib/countries";
 import { resetCountryResourcesCache } from "../components/menu/CreateManagerNationalityField";
@@ -12,7 +12,7 @@ import MainMenu from "./MainMenu";
 import {
   beginCareerOperation,
   resetCareerSessionForTests,
-  suppressNextAutoResume,
+  markLeftCareerOnPurpose,
 } from "../services/careerSession";
 
 const navigateMock = vi.fn();
@@ -1438,12 +1438,130 @@ describe("MainMenu career-start navigation races", () => {
       if (command === "get_manager_profiles" || command === "list_installed_packages") return [];
       return null;
     });
-    suppressNextAutoResume();
+    markLeftCareerOnPurpose();
 
     render(<MainMenu />);
     await act(async () => {});
 
     expect(navigateMock).not.toHaveBeenCalled();
     expect(mockedInvoke).not.toHaveBeenCalledWith("get_active_game");
+  });
+});
+
+/**
+ * React StrictMode (dev builds) mounts every component, unmounts it and mounts it again. A guard
+ * that is spent by the first mount is gone for the second, which is the one the player keeps: the
+ * deliberate "back to the menu" was bounced straight back into the clubless career in `tauri dev`.
+ */
+describe("MainMenu under React StrictMode", () => {
+  const career = (teamId: string | null) => ({
+    manager: { first_name: "Ada", last_name: "L", display_name: "Ada", team_id: teamId },
+    extra_translations: {},
+    teams: [],
+    players: [],
+  });
+
+  function backendHolds(stage: string, teamId: string | null) {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "get_active_game") return career(teamId);
+      if (command === "get_career_stage") return stage;
+      if (command === "get_manager_profiles" || command === "list_installed_packages") return [];
+      return null;
+    });
+  }
+
+  function renderStrict() {
+    return render(
+      <StrictMode>
+        <MainMenu />
+      </StrictMode>,
+    );
+  }
+
+  beforeEach(() => {
+    navigateMock.mockReset();
+    setGameStateMock.mockReset();
+    setGameActiveMock.mockReset();
+    mockedInvoke.mockReset();
+    resetCareerSessionForTests();
+  });
+
+  /**
+   * Given the player left a clubless career for the menu on purpose (the back arrow)
+   * When the menu mounts, unmounts and mounts again, as StrictMode does
+   * Then neither mount reads the backend or sends the player back
+   */
+  it("does_not_bounce_a_deliberate_back_to_the_menu_on_the_second_mount", async () => {
+    backendHolds("awaitingClub", null);
+    markLeftCareerOnPurpose();
+
+    renderStrict();
+    await act(async () => {});
+
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("get_active_game");
+  });
+
+  /**
+   * Given the player left the career on purpose and opened another page and came back to the menu
+   * When the menu mounts again
+   * Then it is still the player's own doing: no automatic return
+   */
+  it("keeps_respecting_the_choice_when_the_menu_is_mounted_again_later", async () => {
+    backendHolds("awaitingClub", null);
+    markLeftCareerOnPurpose();
+
+    renderStrict().unmount();
+    renderStrict();
+    await act(async () => {});
+
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given the backend holds a career with a club (a reload of the window, or an MCP start)
+   * When the menu mounts under StrictMode
+   * Then the player is resumed once, on the dashboard
+   */
+  it("resumes_a_held_career_once_after_a_reload", async () => {
+    backendHolds("employed", "team-1");
+
+    renderStrict();
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+    expect(setGameStateMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Given the backend holds a clubless career and nobody left it on purpose (a restart)
+   * When the menu mounts under StrictMode
+   * Then the player is resumed once, in team selection
+   */
+  it("resumes_a_clubless_career_once_in_team_selection", async () => {
+    backendHolds("awaitingClub", null);
+
+    renderStrict();
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(navigateMock).toHaveBeenCalledTimes(1);
+    expect(navigateMock).toHaveBeenCalledWith("/select-team");
+  });
+
+  /**
+   * Given the player left a career on purpose and then starts or loads another
+   * When the operation begins
+   * Then the choice is spent: the next menu mount resumes what the backend holds
+   */
+  it("starting_or_loading_a_career_ends_the_deliberate_stay_at_the_menu", async () => {
+    backendHolds("employed", "team-1");
+    markLeftCareerOnPurpose();
+    beginCareerOperation("loading")?.release("active");
+
+    renderStrict();
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/dashboard"));
   });
 });

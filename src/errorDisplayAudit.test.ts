@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { rawErrorDisplays } from "./errorDisplayAudit.helpers";
+import { directResolveCalls, rawErrorDisplays } from "./errorDisplayAudit.helpers";
 
 /**
  * No screen prints a raw failure. The audit reads every non-test source file under `src/` and
@@ -13,6 +13,9 @@ const sources = import.meta.glob(["./**/*.ts", "./**/*.tsx"], {
   import: "default",
   query: "?raw",
 }) as Record<string, string>;
+
+/** The two modules that define how a failure is worded may call the resolver themselves. */
+const MAY_CALL_THE_RESOLVER = ["./utils/backendI18n.ts", "./utils/failureText.ts"];
 
 /** Developer pages no player reaches. */
 const EXCUSED: Record<string, string> = {
@@ -43,6 +46,31 @@ describe("raw error display", () => {
 
     expect(paths.length).toBeGreaterThan(300);
     expect(findings).toEqual([]);
+  });
+
+  /**
+   * Given every production source file of the frontend
+   * When it is scanned for a direct `resolveBackendError(...)` call
+   * Then only the modules that define the wording call it: a screen showing a failure goes through
+   *      `failureText`/`failureReason`, so no raw prose or untranslated key can reach the player
+   */
+  it("no_screen_hands_a_failure_to_the_raw_resolver", () => {
+    const findings = Object.keys(sources)
+      .filter(isProduction)
+      .filter((path) => !MAY_CALL_THE_RESOLVER.includes(path))
+      .flatMap((path) => directResolveCalls(sources[path]).map((line) => `${path} ${line}`));
+
+    expect(findings).toEqual([]);
+  });
+
+  /**
+   * Given a line that calls the resolver and one that only passes it along
+   * When they are scanned
+   * Then only the call is reported: the fixture that proves the rule can fail
+   */
+  it("reports_a_direct_call_and_passes_a_formatter_reference", () => {
+    expect(directResolveCalls("setError(resolveBackendError(err));")).toHaveLength(1);
+    expect(directResolveCalls("userErrorText(error, t, resolveBackendError)")).toEqual([]);
   });
 
   /**

@@ -533,14 +533,21 @@ describe("Dashboard", () => {
     expect(markCleanMock).not.toHaveBeenCalled();
   });
 
-  /** Given a disk failure, when Save & Quit fails, then the error is visible and the unsaved career stays open. */
+  /**
+   * Given a disk failure the game has no sentence for, when Save & Quit fails, then a message is
+   * visible (in the player's language, with a reference, not the raw error) and the unsaved career
+   * stays open.
+   */
   it("keeps the window after another save failure", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     isDirty = true;
     render(<Dashboard />);
     refuseCommand("save_game", new Error("disk unavailable"));
     await requestWindowClose();
     fireEvent.click(screen.getByRole("button", { name: "Save & Quit" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("disk unavailable");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/Reference: [0-9A-Z]{6}/);
+    expect(alert).not.toHaveTextContent("disk unavailable");
     expect(destroyMock).not.toHaveBeenCalled();
     expect(markCleanMock).not.toHaveBeenCalled();
   });

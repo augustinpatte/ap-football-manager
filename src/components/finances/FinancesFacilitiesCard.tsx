@@ -1,13 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardBody, Button } from "../ui";
 import { formatExactMoney } from "../../lib/helpers";
-import { resolveBackendError } from "../../utils/backendI18n";
 import type { FacilityUpgradePreviewData } from "../../services/financeService";
 import {
   type FacilityId,
   type FacilityUpgradeErrorState,
   FACILITY_DEFINITIONS,
 } from "./FinancesTab.helpers";
+import { failureReason } from "../../utils/failureText";
 
 interface FinancesFacilitiesCardProps {
   facilities: Record<"training" | "medical" | "scouting", number>;
@@ -44,7 +44,7 @@ export default function FinancesFacilitiesCard({
               previewsCurrent && upgrade !== undefined && canAffordUpgrade && !financeBlockReason;
             const isLoading = actionLoading === facility.id;
             const upgradeReason = financeBlockReason
-              ? resolveBackendError(financeBlockReason)
+              ? failureReason(financeBlockReason)
               : facilityUpgradeError?.facilityId === facility.id
                 ? facilityUpgradeError.message
                 : null;

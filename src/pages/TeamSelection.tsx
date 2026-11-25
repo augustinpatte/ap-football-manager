@@ -11,7 +11,7 @@ import TeamSelectionSidebar from "./TeamSelectionSidebar";
 import { useTeamSelection } from "./useTeamSelection";
 import { useCareerHydration } from "../hooks/useCareerHydration";
 import { CareerLoadState } from "../components/career/CareerLoadState";
-import { suppressNextAutoResume } from "../services/careerSession";
+import { markLeftCareerOnPurpose } from "../services/careerSession";
 
 export default function TeamSelection() {
   const { t } = useTranslation();
@@ -70,7 +70,7 @@ export default function TeamSelection() {
         status={hydration.status === "ready" ? "loading" : hydration.status}
         onRetry={hydration.retry}
         onBackToMenu={() => {
-          suppressNextAutoResume();
+          markLeftCareerOnPurpose();
           navigate("/");
         }}
       />
@@ -84,9 +84,10 @@ export default function TeamSelection() {
           <button
             type="button"
             onClick={() => {
-              suppressNextAutoResume();
+              markLeftCareerOnPurpose();
               navigate("/");
             }}
+            aria-label={t("common.back")}
             className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-navy-700 dark:hover:text-gray-200"
           >
             <ArrowLeft className="h-5 w-5" />

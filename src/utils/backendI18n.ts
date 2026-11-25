@@ -120,7 +120,9 @@ export function resolveBackendError(error: unknown): string {
 export function resolveBackendKeyError(error: unknown, fallback: string): string {
   const message = extractErrorMessage(error).trim();
   if (!message.startsWith("be.error.")) return fallback;
-  return resolveBackendError(message) || fallback;
+  const text = resolveBackendError(message);
+  // A key no locale has text for comes back as itself: that is not an explanation.
+  return text && !text.includes("be.error.") ? text : fallback;
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {

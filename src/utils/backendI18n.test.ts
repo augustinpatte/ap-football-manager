@@ -1317,6 +1317,15 @@ describe("resolveBackendKeyError", () => {
   it("falls back for anything that is not a backend key", () => {
     expect(resolveBackendKeyError(new Error("engine failed"), "generic")).toBe("generic");
   });
+
+  /**
+   * Given a backend key that no locale has text for (a key added in Rust and not yet translated)
+   * When it is shown to the player
+   * Then the generic fallback is shown, not the key itself.
+   */
+  it("falls_back_for_a_key_nothing_translates_instead_of_showing_the_key", () => {
+    expect(resolveBackendKeyError("be.error.nobody.wrote.this", "generic")).toBe("generic");
+  });
 });
 
 describe("resolveBackendError", () => {

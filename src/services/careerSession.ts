@@ -33,7 +33,7 @@ let phase: CareerPhase = "none";
 let operation: symbol | null = null;
 let inFlight: Promise<ActiveCareerLookup> | null = null;
 let rereadRequested = false;
-let autoResumeSuppressed = false;
+let leftCareerOnPurpose = false;
 
 function setPhase(next: CareerPhase): void {
   if (phase === next) return;
@@ -50,7 +50,7 @@ export function resetCareerSessionForTests(): void {
   operation = null;
   inFlight = null;
   rereadRequested = false;
-  autoResumeSuppressed = false;
+  leftCareerOnPurpose = false;
 }
 
 function isNoSessionError(error: unknown): boolean {
@@ -133,6 +133,8 @@ export function beginCareerOperation(kind: "creating" | "loading"): CareerOperat
   if (operation !== null) return null;
   const token = Symbol(kind);
   operation = token;
+  // Starting or opening a career is the player choosing to be in one again.
+  leftCareerOnPurpose = false;
   setPhase(kind);
   return {
     release: (outcome) => {
@@ -144,17 +146,24 @@ export function beginCareerOperation(kind: "creating" | "loading"): CareerOperat
 }
 
 /**
- * Marks the next arrival at the menu as the player's own doing. Leaving a clubless career through
+ * Records that the player left a career for the menu on purpose. Leaving a clubless career through
  * the back arrow leaves that career installed in the backend (only `exit_to_menu` clears it), so a
  * menu that resumed whatever the backend holds would send the player straight back.
+ *
+ * It is a state, not a one-shot: React StrictMode (dev) mounts the menu, unmounts it and mounts it
+ * again, and a flag spent by the first mount was already gone for the second, the one that stays.
+ * It ends when the player starts or loads a career (`beginCareerOperation`), or when the menu
+ * resumes a career because the backend announced one (`clearLeftCareerOnPurpose`).
  */
-export function suppressNextAutoResume(): void {
-  autoResumeSuppressed = true;
+export function markLeftCareerOnPurpose(): void {
+  leftCareerOnPurpose = true;
 }
 
-/** True once, for the menu mount that follows `suppressNextAutoResume`. */
-export function consumeAutoResumeSuppression(): boolean {
-  const suppressed = autoResumeSuppressed;
-  autoResumeSuppressed = false;
-  return suppressed;
+/** True while the player's own choice to be at the menu still stands. */
+export function hasLeftCareerOnPurpose(): boolean {
+  return leftCareerOnPurpose;
+}
+
+export function clearLeftCareerOnPurpose(): void {
+  leftCareerOnPurpose = false;
 }

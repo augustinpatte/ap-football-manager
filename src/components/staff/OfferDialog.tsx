@@ -2,9 +2,9 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { OfferResponse } from "../../services/staffService";
-import { resolveBackendError } from "../../utils/backendI18n";
 import { formatVal, formatWeeklyWage } from "../../lib/helpers";
 import { Button, Dialog } from "../ui";
+import { failureText } from "../../utils/failureText";
 
 interface OfferDialogProps {
   mode: "hire" | "renew";
@@ -43,7 +43,7 @@ export default function OfferDialog({
       setResponse(answer);
       if (answer.status === "accepted") onClose();
     } catch (err) {
-      setError(resolveBackendError(err));
+      setError(failureText(err));
     } finally {
       setBusy(false);
     }

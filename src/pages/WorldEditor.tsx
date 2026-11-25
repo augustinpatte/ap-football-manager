@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { resolveBackendError } from "../utils/backendI18n";
 import {
   emptyCompetition,
   emptyConfederation,
@@ -42,6 +41,7 @@ import {
   type FormPanel,
 } from "../components/worldEditor/WorldEditorFormPanel";
 import { WorldEditorListContent } from "../components/worldEditor/WorldEditorListContent";
+import { failureText } from "../utils/failureText";
 
 const AUTO_SAVE_KEY = "worldEditor.autoSave";
 const RECENT_PROJECTS_KEY = "worldEditor.recentProjects";
@@ -278,7 +278,7 @@ export default function WorldEditor() {
           setTimeout(() => setSaveState("idle"), 2000);
         } catch (err) {
           setSaveState("error");
-          flashError(resolveBackendError(err));
+          flashError(failureText(err));
           throw err;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,7 +353,7 @@ export default function WorldEditor() {
       setSelectedSection("metadata");
       setFormPanel("metadata");
     } catch (err) {
-      flashError(resolveBackendError(err));
+      flashError(failureText(err));
     } finally {
       setIsBusy(false);
     }
@@ -366,7 +366,7 @@ export default function WorldEditor() {
       try {
         dir = await invoke<string>("extract_ofm_for_editing", { ofmPath: path });
       } catch (err) {
-        flashError(resolveBackendError(err));
+        flashError(failureText(err));
         setIsBusy(false);
         return;
       }
@@ -382,7 +382,7 @@ export default function WorldEditor() {
       setSelectedSection("metadata");
       setFormPanel("metadata");
     } catch (err) {
-      flashError(resolveBackendError(err));
+      flashError(failureText(err));
     } finally {
       setIsBusy(false);
     }
@@ -457,7 +457,7 @@ export default function WorldEditor() {
       await invoke(command, { ...payload, output: outPath });
       flashSuccess(t("worldEditor.exportCsvSuccess"));
     } catch (err) {
-      flashError(resolveBackendError(err));
+      flashError(failureText(err));
     } finally {
       setIsBusy(false);
     }
@@ -491,7 +491,7 @@ export default function WorldEditor() {
       await invoke("build_ofm", { dir: projectDir, output: outPath });
       flashSuccess(t("worldEditor.buildSuccess"));
     } catch (err) {
-      flashError(resolveBackendError(err));
+      flashError(failureText(err));
     } finally {
       setIsBusy(false);
     }
@@ -743,7 +743,7 @@ export default function WorldEditor() {
             onSaveMetadata={() => {
               void persist({ meta }).catch(() => {});
             }}
-            onAssetError={(err) => flashError(resolveBackendError(err))}
+            onAssetError={(err) => flashError(failureText(err))}
             counts={{
               teams: teams.length,
               players: players.length,

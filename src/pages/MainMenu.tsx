@@ -1,7 +1,8 @@
 import { getResumableMatch, takeMatchRestoreNotice } from "../services/interactiveMatchService";
 import {
   beginCareerOperation,
-  consumeAutoResumeSuppression,
+  clearLeftCareerOnPurpose,
+  hasLeftCareerOnPurpose,
   lookUpActiveCareer,
   type CareerRoute,
 } from "../services/careerSession";
@@ -23,12 +24,12 @@ import { UPSTREAM_BUG_REPORT_ENABLED } from "../lib/product";
 import type { ManagerProfile } from "../components/menu/types";
 import { applyExtraTranslations } from "../lib/extraTranslations";
 import { formatAppVersion } from "../lib/appVersion";
-import { resolveBackendError } from "../utils/backendI18n";
 import { prewarmManagerSquadPortraits } from "../services/portraitService";
 import { FolderOpen, Settings, PlusCircle, ChevronRight, Power, Package } from "lucide-react";
 import { ReportBugModal } from "../components/diagnostics/ReportBugModal";
 import { CrashReportPrompt } from "../components/diagnostics/CrashReportPrompt";
 import { showError } from "../lib/errorDialog";
+import { failureReason, failureText } from "../utils/failureText";
 
 const CreateManagerForm = lazy(() => import("../components/menu/CreateManagerForm"));
 const ProfileSaveConfirm = lazy(() => import("../components/menu/ProfileSaveConfirm"));
@@ -227,6 +228,7 @@ export default function MainMenu() {
       const lookup = await lookUpActiveCareer(options);
       if (lookup.kind !== "found" || hasResumedRef.current) return;
       hasResumedRef.current = true;
+      clearLeftCareerOnPurpose();
       applyExtraTranslations(lookup.state.extra_translations);
       setGameState(lookup.state);
       setGameActive(true, lookup.state.manager.display_name);
@@ -236,7 +238,7 @@ export default function MainMenu() {
   );
 
   useEffect(() => {
-    if (consumeAutoResumeSuppression()) return;
+    if (hasLeftCareerOnPurpose()) return;
     void resumeActiveCareer();
   }, [resumeActiveCareer]);
 
@@ -256,7 +258,7 @@ export default function MainMenu() {
     dobStartup?.startYear ?? null,
     dobStartup?.startPhase ?? null,
   );
-  const dobLiveRuleMessage = dobRuleKey ? resolveBackendError(dobRuleKey) : null;
+  const dobLiveRuleMessage = dobRuleKey ? failureReason(dobRuleKey) : null;
   const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
 
   const updateFormField = (field: keyof CreateManagerFormData, value: string) => {
@@ -380,7 +382,7 @@ export default function MainMenu() {
       await loadInstalledPackages();
     } catch (err) {
       console.error("Failed to install package:", err);
-      await showError(t("errors.title"), resolveBackendError(err));
+      await showError(t("errors.title"), failureText(err));
     } finally {
       setIsInstallingPackage(false);
     }
@@ -394,7 +396,7 @@ export default function MainMenu() {
       setPackageStackErrors([]);
     } catch (err) {
       console.error("Failed to uninstall package:", err);
-      await showError(t("errors.title"), resolveBackendError(err));
+      await showError(t("errors.title"), failureText(err));
     }
   };
 
@@ -462,7 +464,7 @@ export default function MainMenu() {
       console.error("Failed to start game:", error);
       await showError(
         t("errors.title"),
-        t("menu.failedStartGame", { error: resolveBackendError(error) }),
+        t("menu.failedStartGame", { error: failureReason(error) }),
       );
     } finally {
       operation.release(outcome);
@@ -480,7 +482,7 @@ export default function MainMenu() {
       console.error("Failed to load saves:", error);
       await showError(
         t("errors.title"),
-        t("menu.failedLoadSaves", { error: resolveBackendError(error) }),
+        t("menu.failedLoadSaves", { error: failureReason(error) }),
       );
     } finally {
       setIsLoadingSaves(false);
@@ -504,7 +506,7 @@ export default function MainMenu() {
       setGameActive(true, managerName);
       const restoreNotice = await takeMatchRestoreNotice().catch(() => null);
       if (restoreNotice) {
-        await showError(t("errors.title"), resolveBackendError(restoreNotice));
+        await showError(t("errors.title"), failureText(restoreNotice));
       }
       const resumable = await getResumableMatch().catch(() => null);
       if (resumable) {
@@ -526,10 +528,7 @@ export default function MainMenu() {
     } catch (error) {
       console.error("Failed to load game:", error);
       setLoadingSaveId(null);
-      await showError(
-        t("errors.title"),
-        t("menu.loadGameFailed", { error: resolveBackendError(error) }),
-      );
+      await showError(t("errors.title"), t("menu.loadGameFailed", { error: failureReason(error) }));
     } finally {
       operation.release(outcome);
     }

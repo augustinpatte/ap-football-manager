@@ -6,7 +6,6 @@ import type { GameStateData, LeagueData, PlayerData, TeamData } from "../store/g
 import { getActiveCompetitions, getPlayerOvr } from "../lib/helpers";
 import { buildRegionLabel } from "../lib/teamRegions";
 import { competitionDisplayName } from "../lib/competitionName";
-import { resolveBackendError } from "../utils/backendI18n";
 import { prewarmManagerSquadPortraits } from "../services/portraitService";
 import { showError } from "../lib/errorDialog";
 import {
@@ -16,6 +15,7 @@ import {
   sortCompetitions,
   teamCompetitions,
 } from "./TeamSelection.helpers";
+import { failureReason } from "../utils/failureText";
 
 type CompetitionSelection = Record<string, boolean>;
 type RegionSelection = Record<string, boolean>;
@@ -411,7 +411,7 @@ export function useTeamSelection({
       console.error("Failed to select team:", error);
       await showError(
         t("errors.title"),
-        t("teamSelect.failedToSelectTeam", { error: resolveBackendError(error) }),
+        t("teamSelect.failedToSelectTeam", { error: failureReason(error) }),
       );
     } finally {
       setIsConfirming(false);

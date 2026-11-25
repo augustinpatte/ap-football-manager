@@ -4,7 +4,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { AlertCircle, ArrowLeft, ChevronRight, Database, Loader2, Shuffle, X } from "lucide-react";
 import { Button } from "../ui";
 import { FM24_WORLD_ID } from "../../lib/product";
-import { resolveBackendError } from "../../utils/backendI18n";
 import {
   findFm24WorldSource,
   getFm24InstallStatus,
@@ -12,6 +11,7 @@ import {
   listWorldDatabases,
   type WorldDatabaseInfo,
 } from "../../services/worldDatabaseService";
+import { failureText } from "../../utils/failureText";
 
 /** What the player picked: the generated demo world, or a world file on this machine. */
 export type WorldChoice =
@@ -222,7 +222,7 @@ export default function WorldDatabaseStep({ onNext, onBack, onClose }: WorldData
       const local = found.find((world) => world.world_id === FM24_WORLD_ID);
       if (local) setSelectedId(local.id);
     } catch (failure) {
-      setError(resolveBackendError(failure));
+      setError(failureText(failure));
     } finally {
       setInstalling(false);
     }
