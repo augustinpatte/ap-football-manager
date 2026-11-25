@@ -721,7 +721,15 @@ fn the_gate_as_four_passes(game: &Game, team_id: &str, incoming: &str) -> Option
         + pending_incoming_loans(game, team_id, incoming)
         + loaned_out_seniors(game, team_id, incoming);
     let capacity = crate::contracts::squad_capacity(game, team_id);
-    (capacity.free_places <= promised).then(|| capacity.full_error())
+    // The refusal is the same two sentences as the gate's: plain "full" when nothing is held, and
+    // "places held" (with the figures) when free places are all spoken for.
+    (capacity.free_places <= promised).then(|| {
+        if promised == 0 {
+            capacity.full_error()
+        } else {
+            capacity.held_error(promised)
+        }
+    })
 }
 
 /// Given worlds of players scattered over four clubs and free agents, with every way a player can

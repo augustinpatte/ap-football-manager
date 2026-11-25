@@ -9,7 +9,8 @@ type Translate = (key: string, params?: Record<string, string | number>) => stri
 /** What a transfer dialog does next: carry on with the answer, or show a message and stop. */
 export type TransferSubmission<T> =
   | { kind: "done"; value: T }
-  | { kind: "stopped"; message: string };
+  /** `unresolved`: the action may have happened (a lost answer); the dialog must not invite a resend. */
+  | { kind: "stopped"; message: string; unresolved: boolean };
 
 /**
  * Sends one user action that moves money or players and turns every way it can end into either its
@@ -32,7 +33,11 @@ export async function submitTransferCommand<T>(
       } catch (error) {
         console.error("Could not refresh the game after a lost answer", error);
       }
-      return { kind: "stopped", message: options.t("transfers.requestWentThrough") };
+      return {
+        kind: "stopped",
+        message: options.t("transfers.requestWentThrough"),
+        unresolved: true,
+      };
     }
     case "refused":
     case "failed":
@@ -40,6 +45,7 @@ export async function submitTransferCommand<T>(
       return {
         kind: "stopped",
         message: userErrorText(outcome.error, options.t, resolveBackendError),
+        unresolved: outcome.kind === "unconfirmed",
       };
   }
 }

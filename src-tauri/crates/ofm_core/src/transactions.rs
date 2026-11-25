@@ -359,6 +359,37 @@ mod tests {
         );
     }
 
+    /// Given a committed outcome that cannot be read back as the type a repeat asks for
+    /// When the same id is delivered again
+    /// Then the repeat says the earlier result is unreadable (it did happen: nothing runs again)
+    #[test]
+    fn a_committed_outcome_that_cannot_be_read_back_is_reported_not_rerun() {
+        let state = state();
+        let runs = AtomicUsize::new(0);
+        state
+            .run_transaction(Some("req-5"), |game| {
+                runs.fetch_add(1, Ordering::SeqCst);
+                post_one_message(game)
+            })
+            .unwrap()
+            .unwrap();
+
+        // Asked for as a different type: the recorded number is not a string.
+        let repeat = state
+            .run_transaction::<String>(Some("req-5"), |_| {
+                runs.fetch_add(1, Ordering::SeqCst);
+                Ok(String::new())
+            })
+            .unwrap();
+
+        assert_eq!(
+            repeat,
+            Err("be.error.transactions.outcomeUnreadable".to_string())
+        );
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+        assert_eq!(messages(&state), 1);
+    }
+
     /// Given no active game
     /// When a transaction is attempted
     /// Then it reports there is no game rather than running.

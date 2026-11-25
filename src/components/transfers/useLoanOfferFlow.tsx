@@ -39,6 +39,8 @@ export function useLoanOfferFlow({
   const [loanBuyOptionEnabled, setLoanBuyOptionEnabled] = useState(false);
   const [loanBuyOptionFee, setLoanBuyOptionFee] = useState("");
   const [loanLoading, setLoanLoading] = useState(false);
+  // A lost answer for an offer that may have been made: Submit stays closed until the dialog is reopened.
+  const [loanUnresolved, setLoanUnresolved] = useState(false);
   const [loanError, setLoanError] = useState<string | null>(null);
   const [loanResult, setLoanResult] = useState<LoanOfferResponseData["decision"] | "error" | null>(
     null,
@@ -57,6 +59,7 @@ export function useLoanOfferFlow({
     setLoanError(null);
     setLoanResult(null);
     setLoanSuggestedTerms(null);
+    setLoanUnresolved(false);
   };
   const closeLoanOffer = () => {
     setLoanTargetId(null);
@@ -67,6 +70,7 @@ export function useLoanOfferFlow({
     setLoanError(null);
     setLoanResult(null);
     setLoanSuggestedTerms(null);
+    setLoanUnresolved(false);
   };
   // One press is one request: a second press while the first is waiting would otherwise send the
   // same offer twice before the button had time to close.
@@ -95,6 +99,7 @@ export function useLoanOfferFlow({
       if (submission.kind === "stopped") {
         setLoanResult("error");
         setLoanError(submission.message);
+        setLoanUnresolved(submission.unresolved);
         return;
       }
       applyLoanResponse(submission.value);
@@ -161,6 +166,7 @@ export function useLoanOfferFlow({
     loanPeriodOptions.find((option) => option.id === loanPeriodId && !option.disabled) ?? null;
   const loanSubmitDisabled =
     loanLoading ||
+    loanUnresolved ||
     !selectedLoanPeriodOption ||
     loanResult === "accepted" ||
     transferWindowBlocksRegistration ||

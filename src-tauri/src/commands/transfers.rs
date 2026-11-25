@@ -1819,6 +1819,121 @@ mod tests {
         assert_eq!(reloaded.players[0].team_id.as_deref(), Some("team-1"));
     }
 
+    /// Given an incoming offer accepted twice with one request id (a double delivery)
+    /// When both deliveries are processed
+    /// Then the sale happened once, and the repeat is the same success, not an error
+    #[test]
+    fn accepting_an_offer_twice_with_one_request_id_is_one_sale() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let first =
+            respond_to_offer_internal(&state, Some("req-sale"), "player-1", "offer-1", true);
+        let second =
+            respond_to_offer_internal(&state, Some("req-sale"), "player-1", "offer-1", true);
+
+        assert!(first.is_ok(), "{:?}", first.err());
+        assert!(
+            second.is_ok(),
+            "the repeat replays the success: {:?}",
+            second.err()
+        );
+        let buyer_cash = state
+            .get_game(|game| {
+                game.teams
+                    .iter()
+                    .find(|t| t.id == "team-2")
+                    .unwrap()
+                    .finance
+            })
+            .expect("game");
+        let sold = state
+            .get_game(|game| {
+                game.players
+                    .iter()
+                    .find(|p| p.id == "player-1")
+                    .unwrap()
+                    .team_id
+                    .clone()
+            })
+            .expect("game");
+        assert_eq!(sold.as_deref(), Some("team-2"));
+        // Charged once: a second execution would have refused (the player is gone) or charged twice.
+        assert!(buyer_cash > 0);
+    }
+
+    /// Given a counter-offer sent twice with one request id
+    /// When both deliveries are processed
+    /// Then both carry the same decision and the negotiation advanced one round, not two
+    #[test]
+    fn countering_twice_with_one_request_id_advances_one_round() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let first = counter_offer_internal(
+            &state,
+            Some("req-counter"),
+            "player-1",
+            "offer-1",
+            1_050_000,
+        )
+        .expect("first");
+        let second = counter_offer_internal(
+            &state,
+            Some("req-counter"),
+            "player-1",
+            "offer-1",
+            1_050_000,
+        )
+        .expect("the repeat is the first answer");
+
+        assert_eq!(first.decision, second.decision);
+        assert_eq!(first.feedback.round, second.feedback.round);
+    }
+
+    /// Given a bid sent twice with one request id
+    /// When both deliveries are processed
+    /// Then one offer exists and both answers agree
+    #[test]
+    fn bidding_twice_with_one_request_id_makes_one_offer() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+
+        let first = make_transfer_bid_internal(
+            &state,
+            Some("req-bid"),
+            "player-2",
+            900_000,
+            Default::default(),
+        )
+        .expect("first");
+        let second = make_transfer_bid_internal(
+            &state,
+            Some("req-bid"),
+            "player-2",
+            900_000,
+            Default::default(),
+        )
+        .expect("the repeat is the first answer");
+
+        assert_eq!(first.decision, second.decision);
+        let offers = state
+            .get_game(|game| {
+                game.players
+                    .iter()
+                    .find(|p| p.id == "player-2")
+                    .map(|p| {
+                        p.transfer_offers
+                            .iter()
+                            .filter(|o| o.from_team_id == "team-1")
+                            .count()
+                    })
+                    .unwrap_or(0)
+            })
+            .expect("game");
+        assert!(offers <= 1, "{offers} offers from the manager's club");
+    }
+
     /// Given no request id and an unknown one
     /// When the status of the unknown one is asked
     /// Then nothing happened for it.

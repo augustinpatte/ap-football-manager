@@ -879,4 +879,54 @@ mod tests {
         game.manager.team_id = None;
         assert!(query_user_schedule(&game).is_none());
     }
+
+    /// Given two matches on one date in two competitions, one of them away, and one dated today
+    /// When the schedule is queried
+    /// Then ties break by competition then fixture id, the away match is marked away, each row names
+    ///      its competition, and a match dated today is still the next one
+    #[test]
+    fn ties_home_away_names_and_today_are_all_read_from_the_competitions() {
+        let mut game = make_game(
+            vec![fixture_in(
+                "league-1",
+                "L9",
+                "2033-03-12",
+                "other-team",
+                "user-team",
+            )],
+            "2033-03-12",
+            "user-team",
+        );
+        let mut cup = League {
+            id: "cup-1".to_string(),
+            name: "Test Cup".to_string(),
+            fixtures: vec![fixture_in("cup-1", "C9", "2033-03-12", "user-team", "x")],
+            ..Default::default()
+        };
+        cup.fixtures[0].competition = FixtureCompetition::Cup;
+        game.competitions.push(cup);
+
+        let schedule = query_user_schedule(&game).unwrap();
+
+        let rows: Vec<(&str, &str, bool, bool)> = schedule
+            .fixtures
+            .iter()
+            .map(|f| {
+                (
+                    f.fixture.id.as_str(),
+                    f.competition_name.as_str(),
+                    f.is_home,
+                    f.is_next,
+                )
+            })
+            .collect();
+        // "cup-1" sorts before "league-1"; the cup match is home, the league match away.
+        assert_eq!(
+            rows,
+            vec![
+                ("C9", "Test Cup", true, true),
+                ("L9", "Test League", false, false)
+            ]
+        );
+    }
 }

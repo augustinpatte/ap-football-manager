@@ -156,6 +156,23 @@ describe("describeError", () => {
   });
 });
 
+/**
+ * Given the backend key that says an earlier result could not be read back (the action committed)
+ * When it is described
+ * Then it does not claim nothing was changed
+ */
+describe("describeError for an action that may have happened", () => {
+  it("never_says_nothing_was_changed_for_an_unreadable_outcome", async () => {
+    await i18n.changeLanguage("en");
+
+    const described = describeError("be.error.transactions.outcomeUnreadable", currentT());
+
+    expect(described.kind).toBe("refusal");
+    expect(described.followUp).toBeNull();
+    expect(described.text).toContain("Check the Transfers page");
+  });
+});
+
 describe("resolveTranslatedErrorMessage", () => {
   /**
    * Given the same encoded refusal through the helper the flows call

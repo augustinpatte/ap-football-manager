@@ -172,6 +172,35 @@ describe("lookUpActiveCareer", () => {
 
     expect(invokeMock.mock.calls.filter(([c]) => c === "get_active_game")).toHaveLength(2);
   });
+  /**
+   * Given a career is being created
+   * When a lookup that does not ask to be skipped reads the backend meanwhile
+   * Then it answers, but the phase stays "creating": a reading never overwrites an operation
+   */
+  it("keeps_the_creating_phase_while_a_lookup_reads_the_backend", async () => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "get_active_game") return activeGame("half-built");
+      if (command === "get_career_stage") return "employed";
+      return null;
+    });
+    beginCareerOperation("creating");
+
+    const lookup = await lookUpActiveCareer();
+
+    expect(lookup).toMatchObject({ kind: "found" });
+    expect(getCareerPhase()).toBe("creating");
+  });
+
+  /**
+   * Given a malformed (empty) answer from the backend
+   * When the lookup runs
+   * Then it is a failure, never "a career with no data"
+   */
+  it("treats_an_empty_game_as_a_failed_lookup", async () => {
+    invokeMock.mockResolvedValue(null);
+
+    expect(await lookUpActiveCareer()).toMatchObject({ kind: "failed" });
+  });
 });
 
 describe("beginCareerOperation", () => {
@@ -203,7 +232,7 @@ describe("beginCareerOperation", () => {
     const first = beginCareerOperation("loading");
     first?.release();
 
-    expect(getCareerPhase()).not.toBe("loading");
+    expect(getCareerPhase()).toBe("none");
     expect(beginCareerOperation("creating")).not.toBeNull();
   });
 

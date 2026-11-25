@@ -88,6 +88,12 @@ function referenceFor(raw: string): string {
   return hash.toString(36).toUpperCase().padStart(6, "0").slice(-6);
 }
 
+/**
+ * Backend keys that say an action DID happen (or may have): their text is the player's cue to look
+ * and not to retry, so "Nothing was changed." is never added to them.
+ */
+const COMMITTED_OR_UNKNOWN_KEYS = new Set(["be.error.transactions.outcomeUnreadable"]);
+
 /** A placeholder the message needed and the failure did not carry. */
 const UNFILLED_PLACEHOLDER = /\{\{[^}]*\}\}/g;
 
@@ -114,7 +120,7 @@ export function describeError(
       const usable = formatted && formatted !== raw && !formatted.includes("be.error.");
       return {
         text: (usable ? formatted : translated).replace(UNFILLED_PLACEHOLDER, "—"),
-        followUp: t("errors.nothingChanged"),
+        followUp: COMMITTED_OR_UNKNOWN_KEYS.has(parsed.key) ? null : t("errors.nothingChanged"),
         kind: "refusal",
         reference: null,
       };

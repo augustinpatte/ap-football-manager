@@ -111,6 +111,8 @@ describe("useLoanOfferFlow", () => {
 
     expect(onGameUpdate).toHaveBeenCalledWith(refreshed);
     expect(hook.result.current.loanError).toBe(t("transfers.requestWentThrough"));
+    // The offer may have been made: Submit stays closed, so the answer is read, not repeated.
+    expect(hook.result.current.loanSubmitDisabled).toBe(true);
   });
 
   /**

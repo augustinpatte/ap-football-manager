@@ -249,7 +249,7 @@ fn a_club_of_thirty_one_can_sell_a_midfielder_and_falls_to_thirty() {
 
     assert_eq!(club_of(&game, "mid").as_deref(), Some("team-2"));
     assert_eq!(seniors(&game, "team-1"), 30);
-    assert!(!squad_capacity(&game, "team-1").blocks_signing || seniors(&game, "team-1") == 30);
+    assert_eq!(squad_capacity(&game, "team-1").free_places, 0);
 }
 
 /// Given a club of 31 seniors
