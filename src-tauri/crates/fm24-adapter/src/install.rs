@@ -30,7 +30,11 @@ use std::path::{Path, PathBuf};
 /// (`[[calendar.league]]` in the adapter config), so its rounds fall on Friday, Saturday and Sunday in
 /// the proportions of its country and never all on the weekday of the opener. The dates are generated,
 /// not the official fixture lists. A career already saved keeps the calendar it was given.
-pub const WORLD_REVISION: u32 = 9;
+/// Revision 10 (INTEGRATION5): the world carries the 2026/27 European competitions: 69 continental-only
+/// clubs, the UEFA league phases and their berth rules. A world installed under revision 9 has no
+/// Europe at all, so it must not be reported current: it is offered for regeneration and never
+/// replaced without an explicit install.
+pub const WORLD_REVISION: u32 = 10;
 
 /// What an installation produced, in the terms the world screen shows.
 #[derive(Debug, Clone)]
@@ -188,6 +192,37 @@ mod tests {
             std::fs::read_to_string(&installed).unwrap(),
             "world of revision 6"
         );
+    }
+
+    /// Given a world installed under revision 9, which predates the European competitions
+    /// When the status is read
+    /// Then it is outdated although it carries a marker, and the installed file is left alone;
+    ///      a marker at the current revision clears it
+    #[test]
+    fn a_world_installed_under_revision_9_has_no_europe_and_is_outdated() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let databases = dir.path().join("databases");
+        std::fs::create_dir_all(&databases).unwrap();
+        let id = Config::default_config().world.id;
+        let installed = databases.join(format!("{id}.json"));
+        std::fs::write(&installed, "world of revision 9").unwrap();
+        std::fs::write(marker_path(&databases), "{\"revision\":9}").unwrap();
+
+        let status = install_status(&databases);
+
+        assert!(status.installed && status.outdated);
+        assert_eq!(status.revision, Some(9));
+        assert!(status.current_revision > 9);
+        assert_eq!(
+            std::fs::read_to_string(&installed).unwrap(),
+            "world of revision 9"
+        );
+        std::fs::write(
+            marker_path(&databases),
+            format!("{{\"revision\":{WORLD_REVISION}}}"),
+        )
+        .unwrap();
+        assert!(!install_status(&databases).outdated);
     }
 
     /// Given a source that is not a database
