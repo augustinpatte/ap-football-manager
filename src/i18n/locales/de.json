@@ -1748,7 +1748,16 @@
       "yourMatch": "Dein Spiel",
       "otherFixtures": "Andere Spiele"
     },
-    "playoffZone": "Relegation / Playoffs"
+    "playoffZone": "Relegation / Playoffs",
+    "myMatches": {
+      "tab": "Meine Spiele",
+      "title": "Meine Spiele — alle Wettbewerbe",
+      "filter": "Wettbewerb",
+      "allCompetitions": "Alle Wettbewerbe",
+      "empty": "Keine Spiele für deinen Verein gefunden.",
+      "home": "Heim",
+      "away": "Auswärts"
+    }
   },
   "players": {
     "searchPlaceholder": "Nach Name oder Nationalität suchen...",

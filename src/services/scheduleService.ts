@@ -48,3 +48,21 @@ export interface ScheduleSlice {
 export function fetchSchedule(query: ScheduleQuery): Promise<ScheduleSlice> {
   return invoke<ScheduleSlice>("get_schedule", { query });
 }
+
+/** One of the manager's matches, from whichever competition holds it (see `get_user_schedule`). */
+export interface UserFixture {
+  fixture: FixtureSummary;
+  competition_name: string;
+  is_home: boolean;
+  is_next: boolean;
+}
+
+export interface UserSchedule {
+  today: string;
+  fixtures: UserFixture[];
+}
+
+/** The manager's matches across every competition his club plays in, in date order. */
+export async function fetchUserSchedule(): Promise<UserSchedule | null> {
+  return (await invoke<UserSchedule | null>("get_user_schedule")) ?? null;
+}

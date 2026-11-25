@@ -1748,7 +1748,16 @@
       "yourMatch": "Your match",
       "otherFixtures": "Other fixtures"
     },
-    "playoffZone": "Play-offs / barrage"
+    "playoffZone": "Play-offs / barrage",
+    "myMatches": {
+      "tab": "My matches",
+      "title": "My matches — all competitions",
+      "filter": "Competition",
+      "allCompetitions": "All competitions",
+      "empty": "No matches found for your club.",
+      "home": "Home",
+      "away": "Away"
+    }
   },
   "players": {
     "searchPlaceholder": "Search by name or nationality...",

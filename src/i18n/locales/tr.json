@@ -1748,7 +1748,16 @@
       "yourMatch": "Sizin maçınız",
       "otherFixtures": "Diğer maçlar"
     },
-    "playoffZone": "Play-off / baraj"
+    "playoffZone": "Play-off / baraj",
+    "myMatches": {
+      "tab": "Maçlarım",
+      "title": "Maçlarım — tüm yarışmalar",
+      "filter": "Yarışma",
+      "allCompetitions": "Tüm yarışmalar",
+      "empty": "Kulübünüz için maç bulunamadı.",
+      "home": "İç saha",
+      "away": "Deplasman"
+    }
   },
   "players": {
     "searchPlaceholder": "Ad veya uyruğa göre ara...",

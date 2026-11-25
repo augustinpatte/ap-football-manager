@@ -1748,7 +1748,16 @@
       "yourMatch": "Váš zápas",
       "otherFixtures": "Ostatní zápasy"
     },
-    "playoffZone": "Baráž"
+    "playoffZone": "Baráž",
+    "myMatches": {
+      "tab": "Moje zápasy",
+      "title": "Moje zápasy — všechny soutěže",
+      "filter": "Soutěž",
+      "allCompetitions": "Všechny soutěže",
+      "empty": "Pro váš klub nebyly nalezeny žádné zápasy.",
+      "home": "Doma",
+      "away": "Venku"
+    }
   },
   "players": {
     "searchPlaceholder": "Hledat podle jména nebo národnosti...",

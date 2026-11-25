@@ -293,6 +293,7 @@ pub fn run() {
             get_players_page,
             get_teams_directory,
             get_schedule,
+            get_user_schedule,
             get_news_feed,
             get_messages_page,
             get_competitions_view,

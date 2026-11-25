@@ -1748,7 +1748,16 @@
       "yourMatch": "Pertandingan kamu",
       "otherFixtures": "Pertandingan lainnya"
     },
-    "playoffZone": "Play-off / barage"
+    "playoffZone": "Play-off / barage",
+    "myMatches": {
+      "tab": "Pertandingan saya",
+      "title": "Pertandingan saya — semua kompetisi",
+      "filter": "Kompetisi",
+      "allCompetitions": "Semua kompetisi",
+      "empty": "Tidak ada pertandingan untuk klub Anda.",
+      "home": "Kandang",
+      "away": "Tandang"
+    }
   },
   "players": {
     "searchPlaceholder": "Cari berdasarkan nama atau kewarganegaraan...",

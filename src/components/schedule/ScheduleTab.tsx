@@ -19,13 +19,16 @@ import { competitionDisplayName } from "../../lib/competitionName";
 import type { GameStateData, LeagueData } from "../../store/gameStore";
 import {
   fetchSchedule,
+  fetchUserSchedule,
   type MatchdayGroup,
   type ScheduleSlice,
+  type UserSchedule,
 } from "../../services/scheduleService";
 import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
 import { Badge, Card, CardBody, Select } from "../ui";
 import ScheduleCalendarGrid from "./ScheduleCalendarGrid";
+import MyMatchesView from "./MyMatchesView";
 import MovedFromNote from "./MovedFromNote";
 import M12ReplayViewer from "../match/M12ReplayViewer";
 import { loadMatchReplay } from "../../services/matchReplayService";
@@ -37,13 +40,14 @@ interface ScheduleTabProps {
 
 const PAST_PAGE_SIZE = 4;
 
-type View = "calendar" | "fixtures" | "standings" | "international";
+type View = "myMatches" | "calendar" | "fixtures" | "standings" | "international";
 
 export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProps) {
   const { t } = useTranslation();
-  const [view, setView] = useState<View>("calendar");
+  const [view, setView] = useState<View>("myMatches");
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string | null>(null);
   const [slice, setSlice] = useState<ScheduleSlice | null>(null);
+  const [userSchedule, setUserSchedule] = useState<UserSchedule | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [visiblePastCount, setVisiblePastCount] = useState(PAST_PAGE_SIZE);
   const [replayJson, setReplayJson] = useState<string | null>(null);
@@ -138,6 +142,28 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
     };
   }, [selectedCompetition?.id, t]);
 
+  // The manager's own matches across every competition: read again when the day or the
+  // competitions change, from the competitions' own fixtures.
+  const today = gameState.clock?.current_date;
+  const hasCompetitions = activeCompetitions.length > 0;
+  useEffect(() => {
+    if (!hasCompetitions) {
+      setUserSchedule(null);
+      return;
+    }
+    let cancelled = false;
+    fetchUserSchedule()
+      .then((result) => {
+        if (!cancelled) setUserSchedule(result ?? null);
+      })
+      .catch((err) => {
+        if (!cancelled) setFetchError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [today, hasCompetitions, gameState.competitions, t]);
+
   // Reset past-group paging when competition changes.
   useEffect(() => {
     setVisiblePastCount(PAST_PAGE_SIZE);
@@ -220,6 +246,10 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
       )}
 
       <div className="mb-5 flex flex-wrap gap-2">
+        <ViewButton active={view === "myMatches"} onClick={() => setView("myMatches")}>
+          <CalendarIcon className="mr-1.5 inline h-4 w-4 -mt-0.5" />
+          {t("schedule.myMatches.tab")}
+        </ViewButton>
         <ViewButton active={view === "calendar"} onClick={() => setView("calendar")}>
           <CalendarIcon className="mr-1.5 inline h-4 w-4 -mt-0.5" />
           {t("schedule.calendar.title", "Calendar")}
@@ -238,7 +268,7 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
             {t("schedule.international")}
           </ViewButton>
         )}
-        {competitionSwitcher}
+        {view !== "myMatches" && competitionSwitcher}
       </div>
 
       {fetchError && (
@@ -250,6 +280,16 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
         <p role="alert" className="mb-4 text-body text-danger">
           {replayError}
         </p>
+      )}
+
+      {view === "myMatches" && (
+        <MyMatchesView
+          schedule={userSchedule}
+          gameState={gameState}
+          onOpenReplay={openReplay}
+          replayLoadingFixture={replayLoadingFixture}
+          t={t}
+        />
       )}
 
       {view === "calendar" && (

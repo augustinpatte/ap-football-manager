@@ -1774,7 +1774,16 @@
       "yourMatch": "La tua partita",
       "otherFixtures": "Altre partite"
     },
-    "playoffZone": "Play-off / spareggio"
+    "playoffZone": "Play-off / spareggio",
+    "myMatches": {
+      "tab": "Le mie partite",
+      "title": "Le mie partite — tutte le competizioni",
+      "filter": "Competizione",
+      "allCompetitions": "Tutte le competizioni",
+      "empty": "Nessuna partita trovata per il tuo club.",
+      "home": "Casa",
+      "away": "Trasferta"
+    }
   },
   "players": {
     "searchPlaceholder": "Cerca per nome o nazionalità...",

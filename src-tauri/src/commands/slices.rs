@@ -11,7 +11,9 @@ use ofm_core::slices::inbox::{query_messages, MessagesQuery};
 use ofm_core::slices::news::{query_news_feed, NewsFeed, NewsFeedQuery};
 use ofm_core::slices::player_history::{query_player_history, PlayerHistory};
 use ofm_core::slices::players::{query_page, PlayersPage, PlayersPageQuery};
-use ofm_core::slices::schedule::{query_schedule, ScheduleQuery, ScheduleSlice};
+use ofm_core::slices::schedule::{
+    query_schedule, query_user_schedule, ScheduleQuery, ScheduleSlice, UserSchedule,
+};
 use ofm_core::slices::scouted_report::{query_scouted_report, ScoutedReportView};
 use ofm_core::slices::session::{project_session, SessionState, SessionStateQuery};
 use ofm_core::slices::squad::{query_squad, SquadPlayer};
@@ -51,6 +53,17 @@ pub async fn get_schedule(
 ) -> Result<ScheduleSlice, String> {
     state
         .get_game(|game| query_schedule(game, &query))
+        .flatten()
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
+/// The manager's matches from every competition his club plays in, merged by date.
+#[tauri::command]
+pub async fn get_user_schedule(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<UserSchedule, String> {
+    state
+        .get_game(query_user_schedule)
         .flatten()
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())
 }

@@ -1748,7 +1748,16 @@
       "yourMatch": "您的比赛",
       "otherFixtures": "其他比赛"
     },
-    "playoffZone": "附加赛 / 保级附加赛"
+    "playoffZone": "附加赛 / 保级附加赛",
+    "myMatches": {
+      "tab": "我的比赛",
+      "title": "我的比赛 — 所有赛事",
+      "filter": "赛事",
+      "allCompetitions": "所有赛事",
+      "empty": "没有找到你俱乐部的比赛。",
+      "home": "主场",
+      "away": "客场"
+    }
   },
   "players": {
     "searchPlaceholder": "按姓名或国籍搜索...",

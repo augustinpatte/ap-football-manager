@@ -1748,7 +1748,16 @@
       "yourMatch": "Seu jogo",
       "otherFixtures": "Outros jogos"
     },
-    "playoffZone": "Play-offs / repescagem"
+    "playoffZone": "Play-offs / repescagem",
+    "myMatches": {
+      "tab": "Meus jogos",
+      "title": "Meus jogos — todas as competições",
+      "filter": "Competição",
+      "allCompetitions": "Todas as competições",
+      "empty": "Nenhum jogo encontrado para o seu clube.",
+      "home": "Casa",
+      "away": "Fora"
+    }
   },
   "players": {
     "searchPlaceholder": "Buscar por nome ou nacionalidade...",

@@ -1748,7 +1748,16 @@
       "yourMatch": "Votre match",
       "otherFixtures": "Autres matchs"
     },
-    "playoffZone": "Barrages"
+    "playoffZone": "Barrages",
+    "myMatches": {
+      "tab": "Mes matchs",
+      "title": "Mes matchs — toutes les compétitions",
+      "filter": "Compétition",
+      "allCompetitions": "Toutes les compétitions",
+      "empty": "Aucun match trouvé pour votre club.",
+      "home": "Domicile",
+      "away": "Extérieur"
+    }
   },
   "players": {
     "searchPlaceholder": "Rechercher par nom ou nationalité...",

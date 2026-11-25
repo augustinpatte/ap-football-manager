@@ -159,6 +159,74 @@ pub fn query_schedule(game: &Game, query: &ScheduleQuery) -> Option<ScheduleSlic
     })
 }
 
+/// One match of the manager's club, from whichever competition holds it.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct UserFixture {
+    /// The fixture as the competition stores it: its competition and fixture ids are what replay
+    /// and navigation use, so nothing is copied or renumbered here.
+    pub fixture: FixtureSummary,
+    pub competition_name: String,
+    /// True when the manager's club is the home side.
+    pub is_home: bool,
+    /// True for the earliest scheduled match from today on, across every competition.
+    pub is_next: bool,
+}
+
+/// The manager's matches across every competition his club plays in, in date order.
+#[derive(Debug, Serialize)]
+pub struct UserSchedule {
+    /// The game's current date (YYYY-MM-DD).
+    pub today: String,
+    pub fixtures: Vec<UserFixture>,
+}
+
+/// The manager's fixtures from every competition in the game (league, cups, European and
+/// international club competitions, friendlies), merged in date order. A projection of the
+/// competitions' own fixtures: it keeps no calendar of its own, so a postponement, a renewed
+/// competition or a result is the same here the moment it is anywhere.
+pub fn query_user_schedule(game: &Game) -> Option<UserSchedule> {
+    let user_team_id = game.manager.team_id.as_deref()?;
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let team_name: BTreeMap<&str, &str> = game
+        .teams
+        .iter()
+        .map(|team| (team.id.as_str(), team.name.as_str()))
+        .collect();
+
+    let mut fixtures: Vec<UserFixture> = game
+        .competitions
+        .iter()
+        .flat_map(|competition| {
+            competition
+                .fixtures
+                .iter()
+                .filter(|fixture| {
+                    fixture.home_team_id == user_team_id || fixture.away_team_id == user_team_id
+                })
+                .map(|fixture| UserFixture {
+                    fixture: project_fixture(fixture, &team_name),
+                    competition_name: competition.name.clone(),
+                    is_home: fixture.home_team_id == user_team_id,
+                    is_next: false,
+                })
+        })
+        .collect();
+    fixtures.sort_by(|a, b| {
+        (&a.fixture.date, &a.fixture.competition_id, &a.fixture.id).cmp(&(
+            &b.fixture.date,
+            &b.fixture.competition_id,
+            &b.fixture.id,
+        ))
+    });
+    if let Some(next) = fixtures
+        .iter_mut()
+        .find(|entry| entry.fixture.status == "Scheduled" && entry.fixture.date >= today)
+    {
+        next.is_next = true;
+    }
+    Some(UserSchedule { today, fixtures })
+}
+
 fn group_key(fixture: &Fixture) -> String {
     if fixture.competition == FixtureCompetition::League {
         format!(
@@ -659,5 +727,156 @@ mod tests {
         let fixture = &slice.upcoming_groups[0].fixtures[0];
         assert_eq!(fixture.home_team_name, "User FC");
         assert_eq!(fixture.away_team_name, "Other FC");
+    }
+
+    fn fixture_in(competition_id: &str, id: &str, date: &str, home: &str, away: &str) -> Fixture {
+        let mut fixture = make_fixture(id, 1, date, home, away, FixtureStatus::Scheduled);
+        fixture.competition_id = competition_id.to_string();
+        fixture
+    }
+
+    fn three_competition_game() -> Game {
+        let mut game = make_game(
+            vec![
+                fixture_in("league-1", "L1", "2033-03-20", "user-team", "other-team"),
+                fixture_in("league-1", "L2", "2033-03-05", "other-team", "user-team"),
+                fixture_in("league-1", "L3", "2033-03-22", "a", "b"),
+            ],
+            "2033-03-12",
+            "user-team",
+        );
+        let mut cup = League {
+            id: "cup-1".to_string(),
+            name: "Test Cup".to_string(),
+            fixtures: vec![fixture_in("cup-1", "C1", "2033-03-15", "user-team", "x")],
+            ..Default::default()
+        };
+        cup.fixtures[0].competition = FixtureCompetition::Cup;
+        let mut europe = League {
+            id: "ucl".to_string(),
+            name: "Champions League".to_string(),
+            fixtures: vec![
+                fixture_in("ucl", "E1", "2033-03-18", "y", "user-team"),
+                fixture_in("ucl", "E2", "2033-03-18", "p", "q"),
+            ],
+            ..Default::default()
+        };
+        europe.fixtures[0].competition = FixtureCompetition::ContinentalClub;
+        game.competitions.push(cup);
+        game.competitions.push(europe);
+        game
+    }
+
+    /// Given the manager's club plays in a league, a cup and a European competition
+    /// When the unified schedule is queried
+    /// Then every one of his matches is there in date order, none of anyone else's, each with its
+    ///      own competition id and fixture id
+    #[test]
+    fn the_user_schedule_merges_every_competition_in_date_order() {
+        let game = three_competition_game();
+
+        let schedule = query_user_schedule(&game).expect("a manager with a club");
+
+        let rows: Vec<(&str, &str, &str)> = schedule
+            .fixtures
+            .iter()
+            .map(|f| {
+                (
+                    f.fixture.date.as_str(),
+                    f.fixture.competition_id.as_str(),
+                    f.fixture.id.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                ("2033-03-05", "league-1", "L2"),
+                ("2033-03-15", "cup-1", "C1"),
+                ("2033-03-18", "ucl", "E1"),
+                ("2033-03-20", "league-1", "L1"),
+            ]
+        );
+        assert_eq!(schedule.today, "2033-03-12");
+    }
+
+    /// Given matches in several competitions
+    /// When the schedule is queried
+    /// Then exactly one is the next, the earliest still to be played, and it is in the cup
+    #[test]
+    fn the_next_match_is_the_earliest_unplayed_across_competitions() {
+        let game = three_competition_game();
+
+        let schedule = query_user_schedule(&game).unwrap();
+
+        let next: Vec<&str> = schedule
+            .fixtures
+            .iter()
+            .filter(|f| f.is_next)
+            .map(|f| f.fixture.id.as_str())
+            .collect();
+        assert_eq!(next, vec!["C1"]);
+    }
+
+    /// Given a match moved to a later date
+    /// When the schedule is queried
+    /// Then it sits at its new date and still names the date it was first set for
+    #[test]
+    fn a_postponed_match_moves_in_the_user_schedule() {
+        use domain::league::{Postponement, RescheduleReason};
+        let mut game = three_competition_game();
+        let moved = game.competitions[0]
+            .fixtures
+            .iter_mut()
+            .find(|f| f.id == "L1")
+            .unwrap();
+        moved.date = "2033-03-30".to_string();
+        moved.postponement = Some(Postponement {
+            original_date: "2033-03-20".into(),
+            reason: RescheduleReason::CupTie,
+        });
+
+        let schedule = query_user_schedule(&game).unwrap();
+
+        let last = schedule.fixtures.last().unwrap();
+        assert_eq!(last.fixture.id, "L1");
+        assert_eq!(last.fixture.date, "2033-03-30");
+        assert_eq!(last.fixture.rescheduled_from.as_deref(), Some("2033-03-20"));
+    }
+
+    /// Given played matches and a manager with no club
+    /// When the schedule is queried
+    /// Then results ride along with played matches, and a clubless manager has no schedule
+    #[test]
+    fn played_matches_carry_their_result_and_a_clubless_manager_has_none() {
+        let mut game = make_game(
+            vec![make_completed_fixture(
+                "P1",
+                1,
+                "2033-03-01",
+                "user-team",
+                "other-team",
+                2,
+                1,
+            )],
+            "2033-03-12",
+            "user-team",
+        );
+
+        let schedule = query_user_schedule(&game).unwrap();
+        assert_eq!(
+            schedule.fixtures[0]
+                .fixture
+                .result
+                .as_ref()
+                .unwrap()
+                .home_goals,
+            2
+        );
+        assert!(schedule.fixtures[0].is_home);
+        assert!(schedule.fixtures.iter().all(|f| !f.is_next));
+
+        game.manager.team_id = None;
+        assert!(query_user_schedule(&game).is_none());
     }
 }

@@ -67,6 +67,12 @@ vi.mock("react-i18next", () => ({
 
 const mockedInvoke = vi.mocked(invoke);
 
+/** The Schedule tab opens on "My matches"; the older tests exercise the single-competition views. */
+function openCalendar(): void {
+  const calendar = screen.queryByRole("button", { name: "Calendar" });
+  if (calendar) fireEvent.click(calendar);
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function makeTeam(overrides: Partial<TeamData> = {}): TeamData {
@@ -255,6 +261,7 @@ describe("ScheduleTab", () => {
 
   it("renders the empty state when there are no competitions", () => {
     render(<ScheduleTab gameState={makeGameState(false)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     expect(screen.getByText("No league")).toBeInTheDocument();
     // No invoke call if there are no competitions.
     expect(mockedInvoke).not.toHaveBeenCalled();
@@ -262,6 +269,7 @@ describe("ScheduleTab", () => {
 
   it("fetches the schedule slice on mount and shows upcoming fixture", async () => {
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     await waitFor(() => {
       expect(screen.getByTestId("schedule-fixture-fix-1")).toBeInTheDocument();
     });
@@ -277,6 +285,7 @@ describe("ScheduleTab", () => {
       makeSlice({ upcoming_groups: [makeGroup({ fixtures: [moved, unmoved] })] }),
     );
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     await waitFor(() => {
       expect(screen.getByTestId("schedule-fixture-moved")).toBeInTheDocument();
     });
@@ -288,6 +297,7 @@ describe("ScheduleTab", () => {
 
   it("marks the next user match group with a badge", async () => {
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     await waitFor(() => {
       expect(screen.getByText("Next match")).toBeInTheDocument();
     });
@@ -321,6 +331,7 @@ describe("ScheduleTab", () => {
     mockedInvoke.mockResolvedValue(slice);
 
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     await waitFor(() => {
       expect(screen.getByText(`Friendly – ${formatMatchDate("2026-09-05")}`)).toBeInTheDocument();
@@ -343,6 +354,7 @@ describe("ScheduleTab", () => {
     );
 
     render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     await waitFor(() => {
       expect(
@@ -398,6 +410,7 @@ describe("ScheduleTab", () => {
     mockedInvoke.mockResolvedValue(slice);
 
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     fireEvent.click(screen.getByRole("button", { name: /Fixtures/i }));
 
     await waitFor(() => {
@@ -409,6 +422,7 @@ describe("ScheduleTab", () => {
   it("calendar view offers context menu actions for fixture teams", async () => {
     const onSelectTeam = vi.fn();
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={onSelectTeam} />);
+    openCalendar();
 
     await waitFor(() => {
       expect(screen.getByTestId("schedule-fixture-fix-1")).toBeInTheDocument();
@@ -422,6 +436,7 @@ describe("ScheduleTab", () => {
   it("switches to standings and lets the user click a team", async () => {
     const onSelectTeam = vi.fn();
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={onSelectTeam} />);
+    openCalendar();
 
     fireEvent.click(screen.getByRole("button", { name: /Standings/i }));
     await waitFor(() => {
@@ -473,6 +488,7 @@ describe("ScheduleTab", () => {
     state.active_competition_ids = ["eng-1", "eng-2"];
 
     render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+    openCalendar();
     fireEvent.click(screen.getByRole("button", { name: /Standings/i }));
 
     await waitFor(() => {
@@ -509,6 +525,7 @@ describe("ScheduleTab", () => {
     mockedInvoke.mockResolvedValue(makeSlice({ upcoming_groups: [], past_groups: pastGroups }));
 
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     // First page of past groups (4) visible, more not visible yet.
     await waitFor(() => {
@@ -546,6 +563,7 @@ describe("ScheduleTab", () => {
     state.active_competition_ids = ["eng-1", "bra-1"];
 
     render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith("get_schedule", {
@@ -569,11 +587,13 @@ describe("ScheduleTab", () => {
 
   it("hides the international toggle when there are no national-team fixtures", () => {
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
     expect(screen.queryByRole("button", { name: /International/i })).not.toBeInTheDocument();
   });
 
   it("scrolls to the group card when a calendar day with fixtures is clicked", async () => {
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     // Wait for the slice to load so the group card div is in the DOM and its ref registered.
     await waitFor(() => {
@@ -620,6 +640,7 @@ describe("ScheduleTab", () => {
     mockedInvoke.mockResolvedValue(slice);
 
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     // Wait for upcoming fixture group to be in the DOM so its ref is registered.
     await waitFor(() => {
@@ -661,6 +682,7 @@ describe("ScheduleTab", () => {
     ] as GameStateData["national_teams"];
 
     render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+    openCalendar();
     fireEvent.click(screen.getByRole("button", { name: /International/i }));
 
     expect(screen.getByTestId("schedule-callup-p1")).toBeInTheDocument();
@@ -690,6 +712,7 @@ describe("ScheduleTab", () => {
     );
     const onSelectTeam = vi.fn();
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={onSelectTeam} />);
+    openCalendar();
 
     fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
     await waitFor(() => {
@@ -723,6 +746,7 @@ describe("ScheduleTab", () => {
       command === "get_schedule" ? Promise.resolve(schedule) : Promise.resolve(null),
     );
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("match.replayNotRecorded");
@@ -745,6 +769,7 @@ describe("ScheduleTab", () => {
       command === "get_schedule" ? Promise.resolve(schedule) : load.promise,
     );
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     const reviewButton = await screen.findByRole("button", { name: "match.reviewMatch" });
     fireEvent.click(reviewButton);
@@ -779,9 +804,12 @@ describe("ScheduleTab", () => {
     mockedInvoke.mockImplementation((command) =>
       command === "get_schedule"
         ? Promise.resolve(schedule)
-        : Promise.reject(new Error("database error")),
+        : command === "get_user_schedule"
+          ? Promise.resolve(null)
+          : Promise.reject(new Error("database error")),
     );
     render(<ScheduleTab gameState={makeGameState(true)} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     fireEvent.click(await screen.findByRole("button", { name: "match.reviewMatch" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("match.replayUnavailable");
@@ -834,6 +862,7 @@ describe("ScheduleTab", () => {
       return Promise.resolve({ replay_json: "cup-stored-replay" });
     });
     render(<ScheduleTab gameState={state} onSelectTeam={vi.fn()} />);
+    openCalendar();
 
     const competitionSelect = await screen.findByRole("combobox", { name: "common.competition" });
     fireEvent.click(competitionSelect);

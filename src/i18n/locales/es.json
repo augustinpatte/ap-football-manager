@@ -1748,7 +1748,16 @@
       "yourMatch": "Tu partido",
       "otherFixtures": "Otros partidos"
     },
-    "playoffZone": "Play-offs"
+    "playoffZone": "Play-offs",
+    "myMatches": {
+      "tab": "Mis partidos",
+      "title": "Mis partidos — todas las competiciones",
+      "filter": "Competición",
+      "allCompetitions": "Todas las competiciones",
+      "empty": "No hay partidos para tu club.",
+      "home": "Local",
+      "away": "Visitante"
+    }
   },
   "players": {
     "searchPlaceholder": "Buscar por nombre o nacionalidad...",
