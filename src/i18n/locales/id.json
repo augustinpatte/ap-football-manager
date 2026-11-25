@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Pemain ini tidak punya tawaran balik yang perlu dijawab.",
         "counterExpired": "Tawaran baliknya sudah kedaluwarsa.",
         "noOpenTalk": "Kamu tidak punya tawaran terbuka untuk pemain ini.",
-        "invalidOffer": "Itu bukan tawaran kontrak yang valid."
+        "invalidOffer": "Itu bukan tawaran kontrak yang valid.",
+        "squadFullHeld": "Daftar skuad senior Anda memiliki {{count}} dari {{max}} pemain terdaftar, tetapi {{held}} tempat dicadangkan untuk pemain Anda yang sedang dipinjamkan, yang akan kembali ke tempat itu, dan untuk perekrutan yang sudah disepakati. Kosongkan {{release}} tempat lagi sebelum merekrut pemain lain: putus kontrak, jual, pinjamkan, atau pindahkan pemain ke skuad muda."
       },
       "fastForward": {
         "invalidDate": "Itu bukan tanggal yang valid.",

@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Dieser Spieler hat kein Gegenangebot, das du beantworten könntest.",
         "counterExpired": "Sein Gegenangebot ist abgelaufen.",
         "noOpenTalk": "Du hast kein offenes Angebot bei diesem Spieler.",
-        "invalidOffer": "Das ist kein gültiges Vertragsangebot."
+        "invalidOffer": "Das ist kein gültiges Vertragsangebot.",
+        "squadFullHeld": "Auf deiner Profiliste sind {{count}} von {{max}} Spielern gemeldet, aber {{held}} Platz/Plätze sind für deine verliehenen Spieler, die dorthin zurückkehren, und für bereits vereinbarte Verpflichtungen reserviert. Schaffe noch {{release}} Platz/Plätze frei, bevor du einen weiteren Spieler verpflichtest: Vertrag auflösen, verkaufen, verleihen oder einen Spieler in die Jugend schicken."
       },
       "fastForward": {
         "invalidDate": "Das ist kein gültiges Datum.",

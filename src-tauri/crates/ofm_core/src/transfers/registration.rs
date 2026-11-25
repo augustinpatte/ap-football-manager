@@ -157,7 +157,14 @@ pub(crate) fn signing_place_refusal(
         }
     }
     let capacity = crate::contracts::SquadCapacity::seniors_only(registered_seniors);
-    (capacity.free_places <= promised).then(|| capacity.full_error())
+    (capacity.free_places <= promised).then(|| {
+        if promised == 0 {
+            capacity.full_error()
+        } else {
+            // Not "full": the list has room today, and says which places are spoken for.
+            capacity.held_error(promised)
+        }
+    })
 }
 
 /// The places a player who is *not* registered at `team_id` holds for it: a purchase agreed and

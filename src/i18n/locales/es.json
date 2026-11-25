@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Este jugador no tiene ninguna contraoferta que responder.",
         "counterExpired": "Su contraoferta ha caducado.",
         "noOpenTalk": "No tienes ninguna oferta abierta con este jugador.",
-        "invalidOffer": "Esa oferta de contrato no es válida."
+        "invalidOffer": "Esa oferta de contrato no es válida.",
+        "squadFullHeld": "Tu lista de primer equipo tiene {{count}} de {{max}} jugadores inscritos, pero {{held}} plaza(s) están reservadas para tus jugadores cedidos, que volverán a ocuparlas, y para fichajes ya acordados. Libera {{release}} plaza(s) más antes de fichar a otro jugador: rescinde, vende, cede o pasa a un jugador a la plantilla juvenil."
       },
       "fastForward": {
         "invalidDate": "Esa no es una fecha válida.",

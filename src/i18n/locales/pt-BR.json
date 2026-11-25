@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Este jogador não tem nenhuma contraproposta para responder.",
         "counterExpired": "A contraproposta dele expirou.",
         "noOpenTalk": "Você não tem nenhuma proposta aberta com este jogador.",
-        "invalidOffer": "Essa proposta de contrato não é válida."
+        "invalidOffer": "Essa proposta de contrato não é válida.",
+        "squadFullHeld": "Sua lista de profissionais tem {{count}} de {{max}} jogadores inscritos, mas {{held}} vaga(s) estão reservadas para seus jogadores emprestados, que voltam a elas, e para contratações já acordadas. Libere mais {{release}} vaga(s) antes de contratar outro jogador: rescinda, venda, empreste ou mova um jogador para a equipe de jovens."
       },
       "fastForward": {
         "invalidDate": "Essa não é uma data válida.",

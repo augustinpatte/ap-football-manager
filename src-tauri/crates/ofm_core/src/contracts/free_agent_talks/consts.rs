@@ -87,6 +87,10 @@ pub(crate) const ERR_TALK_ALREADY_OPEN: &str = "be.error.freeAgents.talkAlreadyO
 pub(crate) const ERR_TALKS_BROKEN_OFF: &str = "be.error.freeAgents.talksBrokenOff";
 pub(crate) const ERR_TOO_MANY_OPEN_TALKS: &str = "be.error.freeAgents.tooManyOpenTalks";
 pub(crate) const ERR_SQUAD_FULL: &str = "be.error.freeAgents.squadFull";
+/// The list has room today but its free places are all held: for players of the club out on loan who
+/// return to them, and for signings already agreed. Shares the `squadFull` prefix on purpose, so a
+/// caller that treats "no place" as one case still does.
+pub(crate) const ERR_SQUAD_FULL_HELD: &str = "be.error.freeAgents.squadFullHeld";
 pub(crate) const ERR_NO_COUNTER_TO_ANSWER: &str = "be.error.freeAgents.noCounterToAnswer";
 pub(crate) const ERR_COUNTER_EXPIRED: &str = "be.error.freeAgents.counterExpired";
 pub(crate) const ERR_NO_OPEN_TALK: &str = "be.error.freeAgents.noOpenTalk";

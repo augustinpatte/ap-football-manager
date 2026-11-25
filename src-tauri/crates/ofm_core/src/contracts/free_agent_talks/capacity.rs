@@ -6,7 +6,7 @@
 //! could not tell whether the release had registered. Every number the refusal and the contract
 //! screen show comes from [`squad_capacity`], and the check that refuses is the same function.
 
-use super::consts::{ERR_SQUAD_FULL, MAX_SENIOR_SQUAD};
+use super::consts::{ERR_SQUAD_FULL, ERR_SQUAD_FULL_HELD, MAX_SENIOR_SQUAD};
 use crate::game::Game;
 use domain::player::{Player, SquadRole};
 use serde::{Deserialize, Serialize};
@@ -95,6 +95,18 @@ impl SquadCapacity {
             },
             blocks_signing,
         }
+    }
+
+    /// The refusal when places are free on paper but `held` of them are spoken for. `release` is the
+    /// places to free before one more player fits: the held ones, plus his own, less those free.
+    pub(crate) fn held_error(&self, held: usize) -> String {
+        format!(
+            "{ERR_SQUAD_FULL_HELD}?count={}&max={}&held={}&release={}",
+            self.registered_seniors,
+            self.senior_limit,
+            held,
+            (held + 1).saturating_sub(self.free_places)
+        )
     }
 
     /// The refusal as a translation key with the numbers the player needs to act on it.

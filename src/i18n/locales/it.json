@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Questo giocatore non ha nessuna controproposta a cui rispondere.",
         "counterExpired": "La sua controproposta è scaduta.",
         "noOpenTalk": "Non hai nessuna offerta aperta con questo giocatore.",
-        "invalidOffer": "Questa non è un'offerta di contratto valida."
+        "invalidOffer": "Questa non è un'offerta di contratto valida.",
+        "squadFullHeld": "La tua lista della prima squadra ha {{count}} giocatori registrati su {{max}}, ma {{held}} posto/i sono riservati ai tuoi giocatori in prestito, che li riprenderanno, e ad acquisti già concordati. Libera ancora {{release}} posto/i prima di tesserare un altro giocatore: svincola, vendi, presta o sposta un giocatore nella squadra giovanile."
       },
       "fastForward": {
         "invalidDate": "Questa non è una data valida.",

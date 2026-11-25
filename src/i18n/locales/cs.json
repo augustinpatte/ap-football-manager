@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Tento hráč nemá žádný protinávrh, na který bys mohl odpovědět.",
         "counterExpired": "Jeho protinávrh vypršel.",
         "noOpenTalk": "S tímto hráčem nemáš žádnou otevřenou nabídku.",
-        "invalidOffer": "To není platná nabídka smlouvy."
+        "invalidOffer": "To není platná nabídka smlouvy.",
+        "squadFullHeld": "Na vaší soupisce A-týmu je registrováno {{count}} z {{max}} hráčů, ale {{held}} míst je vyhrazeno pro vaše hráče na hostování, kteří se na ně vrátí, a pro již dohodnuté posily. Uvolněte ještě {{release}} míst, než podepíšete dalšího hráče: rozviňte smlouvu, prodejte, pošlete na hostování nebo přesuňte hráče do mládeže."
       },
       "fastForward": {
         "invalidDate": "Toto není platné datum.",

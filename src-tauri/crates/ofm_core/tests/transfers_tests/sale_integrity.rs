@@ -311,3 +311,80 @@ fn a_youth_player_holds_no_senior_place() {
 
     assert_eq!(seniors(&game, "team-1"), senior_before - 1);
 }
+
+const SQUAD_FULL_HELD: &str = "be.error.freeAgents.squadFullHeld";
+
+/// Sends `count` of `club`'s seniors out on loan to team-2, where the borrower registers them.
+fn lend_out(game: &mut Game, club: &str, count: usize) {
+    for index in 0..count {
+        let mut lent = make_player(&format!("lent-{club}-{index}"));
+        lent.team_id = Some("team-2".to_string());
+        lent.stage_wage(0);
+        lent.market_value = 0;
+        lent.active_loan = Some(ActiveLoan {
+            parent_team_id: club.to_string(),
+            loan_team_id: "team-2".to_string(),
+            loan_team_name: None,
+            start_date: "2026-08-01".to_string(),
+            end_date: "2027-06-30".to_string(),
+            wage_contribution_pct: 100,
+            buy_option_fee: None,
+            loan_start_minutes: 0,
+            loan_start_appearances: 0,
+            development_reported_minutes: 0,
+            development_reported_appearances: 0,
+            terms_source: domain::player::LoanTermsSource::Agreed,
+        });
+        game.players.push(lent);
+    }
+}
+
+/// Given a club with 23 seniors registered and 7 more out on loan, who return to their places
+/// When it bids for a player
+/// Then it is refused, and the refusal says the places are held (7), not that the list is full:
+///      the old "23 of 30 taken, free 0" was a sentence nobody could act on
+#[test]
+fn a_club_with_loanees_out_is_told_its_places_are_held() {
+    let mut game = make_game_with_player(make_player("target"), vec![], 90_000_000, 90_000_000);
+    fill_to(&mut game, "team-1", 23);
+    lend_out(&mut game, "team-1", 7);
+
+    let refused = make_transfer_bid(&mut game, "target", 2_000_000);
+
+    let error = refused.err().expect("refused");
+    assert!(error.starts_with(SQUAD_FULL_HELD), "{error}");
+    assert!(
+        error.contains("count=23") && error.contains("held=7") && error.contains("release=1"),
+        "{error}"
+    );
+}
+
+/// Given the same club with one place more free than its loanees will take back
+/// When it bids for a player
+/// Then it is agreed: the held places are exactly that, held, and one more is open
+#[test]
+fn a_club_with_one_place_beyond_its_loanees_can_sign() {
+    let mut game = make_game_with_player(make_player("target"), vec![], 90_000_000, 90_000_000);
+    fill_to(&mut game, "team-1", 22);
+    lend_out(&mut game, "team-1", 7);
+
+    let agreed = make_transfer_bid(&mut game, "target", 2_000_000);
+
+    assert!(agreed.is_ok(), "{agreed:?}");
+}
+
+/// Given a club with nobody out on loan and a full list of 30
+/// When it bids for a player
+/// Then the refusal is the plain "full" one with its figures, exactly as before
+#[test]
+fn a_full_list_with_no_held_places_keeps_the_plain_refusal() {
+    let mut game = make_game_with_player(make_player("target"), vec![], 90_000_000, 90_000_000);
+    fill_to(&mut game, "team-1", 30);
+
+    let refused = make_transfer_bid(&mut game, "target", 2_000_000);
+
+    assert_eq!(
+        refused.err().as_deref(),
+        Some("be.error.freeAgents.squadFull?count=30&max=30&release=1")
+    );
+}

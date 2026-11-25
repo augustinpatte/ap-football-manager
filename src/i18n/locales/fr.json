@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Ce joueur n'a aucune contre-proposition à laquelle répondre.",
         "counterExpired": "Sa contre-proposition a expiré.",
         "noOpenTalk": "Vous n'avez aucune offre en cours avec ce joueur.",
-        "invalidOffer": "Cette offre de contrat n'est pas valide."
+        "invalidOffer": "Cette offre de contrat n'est pas valide.",
+        "squadFullHeld": "Votre liste de seniors compte {{count}} joueurs inscrits sur {{max}}, mais {{held}} place(s) sont réservées à vos joueurs prêtés, qui les reprendront, et à des recrues déjà convenues. Libérez encore {{release}} place(s) avant de recruter un autre joueur : résiliez, vendez, prêtez ou passez un joueur chez les jeunes."
       },
       "fastForward": {
         "invalidDate": "Cette date n'est pas valide.",

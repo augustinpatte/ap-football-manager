@@ -66,8 +66,8 @@ fn the_world_opens_with_a_pool_of_fm24_free_agents_priced_on_the_saves_scale() {
     );
 }
 
-/// Given an FM24 free agent,
-/// When the player's club offers him exactly what he asks over three years,
+/// Given an FM24 free agent and a club whose places are all held (23 registered, 7 on loan),
+/// When the club first offers, then makes room, and offers him what he asks over three years,
 /// Then he signs for that wage, the club's bill rises by it, and he is the club's.
 #[test]
 fn the_player_can_sign_an_fm24_free_agent_at_the_wage_he_asks() {
@@ -85,17 +85,44 @@ fn the_player_can_sign_an_fm24_free_agent_at_the_wage_he_asks() {
 
     // His ask is a floor: he wants a little more than he last had. Offer 40 % over.
     let wage = target.1 + target.1 * 2 / 5;
-    let outcome = submit_free_agent_offer(
-        &mut game,
-        &target.0,
-        OfferTerms {
-            weekly_wage: wage,
-            contract_years: 3,
-            signing_bonus: 0,
-            promise_stepping_stone: false,
-        },
-    )
-    .expect("the offer is taken");
+    let offer = OfferTerms {
+        weekly_wage: wage,
+        contract_years: 3,
+        signing_bonus: 0,
+        promise_stepping_stone: false,
+    };
+
+    // The opening squad of this club has 23 seniors registered and 7 more out on loan until the
+    // end of the season, who return to their places: 30 in all. The club is full, whatever the
+    // registered count says, and the refusal must say which places are held (the old message said
+    // "23 of 30, free 0").
+    let held = submit_free_agent_offer(&mut game, &target.0, offer);
+    assert!(
+        held.as_ref().err().is_some_and(|error| error
+            .starts_with("be.error.freeAgents.squadFullHeld?count=23&max=30&held=7&release=1")),
+        "a club whose places are all held says so: {held:?}"
+    );
+
+    // A manager makes room as the game allows: moves a senior outside the first team to the youth squad.
+    let spare = game
+        .players
+        .iter()
+        .filter(|p| {
+            p.team_id.as_deref() == Some(LENS)
+                && p.squad_role == domain::player::SquadRole::Senior
+                && !game.teams.iter().any(|t| t.starting_xi_ids.contains(&p.id))
+        })
+        .min_by_key(|p| (p.ovr, p.id.clone()))
+        .map(|p| p.id.clone())
+        .expect("a senior outside the first team");
+    game.players
+        .iter_mut()
+        .find(|p| p.id == spare)
+        .expect("the spare player")
+        .squad_role = domain::player::SquadRole::Youth;
+
+    let outcome = submit_free_agent_offer(&mut game, &target.0, offer)
+        .expect("the offer is taken once a place is free");
     assert_eq!(outcome.decision, FreeAgentOfferDecision::Pending);
     for _ in 0..3 {
         game.clock.current_date += chrono::Duration::days(1);

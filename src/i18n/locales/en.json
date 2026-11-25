@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "There is no counter-offer from this player to answer.",
         "counterExpired": "His counter-offer has expired.",
         "noOpenTalk": "You have no open offer with this player.",
-        "invalidOffer": "That is not a valid contract offer."
+        "invalidOffer": "That is not a valid contract offer.",
+        "squadFullHeld": "Your senior list has {{count}} of {{max}} players registered, but {{held}} place(s) are held for your players out on loan, who return to them, and for signings already agreed. Free {{release}} more place(s) before signing another player: release, sell, loan out or move a player to the youth squad."
       },
       "fastForward": {
         "invalidDate": "That is not a valid date.",

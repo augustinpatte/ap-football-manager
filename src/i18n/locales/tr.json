@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "Bu oyuncunun yanıtlanacak bir karşı teklifi yok.",
         "counterExpired": "Karşı teklifinin süresi doldu.",
         "noOpenTalk": "Bu oyuncuyla açık bir teklifin yok.",
-        "invalidOffer": "Bu geçerli bir sözleşme teklifi değil."
+        "invalidOffer": "Bu geçerli bir sözleşme teklifi değil.",
+        "squadFullHeld": "Birinci takım listenizde {{max}} oyuncudan {{count}} kayıtlı, ancak {{held}} yer, geri dönecek kiralık oyuncularınız ve zaten anlaşılmış transferler için ayrılmış durumda. Başka bir oyuncu imzalamadan önce {{release}} yer daha açın: sözleşme feshedin, satın, kiralayın veya bir oyuncuyu altyapıya alın."
       },
       "fastForward": {
         "invalidDate": "Bu geçerli bir tarih değil.",

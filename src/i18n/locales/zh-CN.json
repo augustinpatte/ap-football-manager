@@ -3566,7 +3566,8 @@
         "noCounterToAnswer": "该球员没有需要你答复的还价。",
         "counterExpired": "他的还价已过期。",
         "noOpenTalk": "你没有与该球员的进行中报价。",
-        "invalidOffer": "这不是有效的合同报价。"
+        "invalidOffer": "这不是有效的合同报价。",
+        "squadFullHeld": "你的一线队名单已注册 {{count}}/{{max}} 人，但其中 {{held}} 个名额被保留给外租后会回归的球员和已谈妥的签约。再签其他球员前，请再腾出 {{release}} 个名额：解约、出售、外租或将球员调入青年队。"
       },
       "fastForward": {
         "invalidDate": "这不是有效的日期。",
