@@ -11,6 +11,7 @@ import { resolveBackendError } from "../utils/backendI18n";
 import MainMenu from "./MainMenu";
 import {
   beginCareerOperation,
+  hasLeftCareerOnPurpose,
   resetCareerSessionForTests,
   markLeftCareerOnPurpose,
 } from "../services/careerSession";
@@ -1549,6 +1550,43 @@ describe("MainMenu under React StrictMode", () => {
 
     expect(navigateMock).toHaveBeenCalledTimes(1);
     expect(navigateMock).toHaveBeenCalledWith("/select-team");
+  });
+
+  /**
+   * Given the player left a clubless career for the menu on purpose, under StrictMode
+   * When they open an existing save
+   * Then the career opens once, on the dashboard, and the deliberate stay at the menu is over, so
+   *      the next menu mount resumes what the backend holds
+   */
+  it("loading_a_save_navigates_once_and_ends_the_deliberate_stay", async () => {
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "list_installed_packages" || command === "get_manager_profiles") return [];
+      if (command === "get_saves") {
+        return [
+          {
+            id: "save-1",
+            name: "My Save",
+            manager_name: "Ada Lovelace",
+            db_filename: "save-1.db",
+            checksum: "abc",
+            created_at: "2026-01-01T00:00:00Z",
+            last_played_at: "2026-02-01T00:00:00Z",
+          },
+        ];
+      }
+      if (command === "load_game") return "Ada Lovelace";
+      return null;
+    });
+    markLeftCareerOnPurpose();
+
+    renderStrict();
+    fireEvent.click(screen.getByText("menu.loadGame"));
+    fireEvent.click(await screen.findByText("My Save"));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith("/dashboard"));
+    await act(async () => {});
+
+    expect(navigateMock.mock.calls.filter(([route]) => route === "/dashboard")).toHaveLength(1);
+    expect(hasLeftCareerOnPurpose()).toBe(false);
   });
 
   /**
