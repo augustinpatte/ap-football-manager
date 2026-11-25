@@ -191,6 +191,15 @@ pub struct Game {
     /// installed again and gets a fresh one. 0 for a game that was never installed (tests).
     #[serde(default)]
     pub career_token: u64,
+    /// Orders the snapshots of one installed career. `StateManager` advances it under the game
+    /// lock on every write (`update_game`, `set_game`), so a game handed to the screen carries the
+    /// revision of the state it shows and the screen can refuse an answer older than the one it
+    /// already holds. Only meaningful together with `career_token`: a new career restarts at 1.
+    /// May advance without a visible change (a write that found nothing to do), never goes back.
+    /// Not saved: a loaded game is installed again and starts a new count. 0 for a game that was
+    /// never installed (tests).
+    #[serde(default)]
+    pub state_revision: u64,
     /// Keys of events that have already been announced to the player.
     ///
     /// This is the sent-ledger. It exists because `messages` cannot serve as
@@ -326,6 +335,7 @@ impl Game {
             custom_tactics: Vec::new(),
             legacy_tactics_imported: false,
             career_token: 0,
+            state_revision: 0,
             archived_messages: Vec::new(),
             emitted_events: BTreeSet::new(),
             extra_translations: std::collections::HashMap::new(),

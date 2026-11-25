@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { GameStateData, MessageData } from "./types";
 import type { SessionState, UserCompetitionSummary, StandingRow } from "../services/sessionService";
+import { isStaleSnapshot } from "./gameSnapshotOrder";
 import { isMessageVisible, isNewsArticleVisible } from "../utils/newsVisibility";
 
 type FootballIdentityCarrier = {
@@ -193,6 +194,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       careerEpoch: active ? state.careerEpoch + 1 : state.careerEpoch,
     })),
   setGameState: (state) => {
+    // The one gate every answer carrying a whole game passes: an older picture never replaces a
+    // newer one, however late it arrives (transactions, refreshes, MCP-driven updates).
+    if (isStaleSnapshot(get().gameState, state)) return;
     const normalized = normalizeGameStateNationalities(state);
     set({ gameState: normalized, sessionState: deriveSessionState(normalized), isDirty: true });
   },

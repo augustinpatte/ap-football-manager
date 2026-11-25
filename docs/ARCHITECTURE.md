@@ -165,11 +165,42 @@ This is registered as Tauri managed state and accessed by all commands via `Stat
 
 **Key pattern**: Commands acquire the mutex, clone the `Game` for return, and release the lock. Mutations happen inside the lock scope.
 
+### State revision (ordering of answers)
+
+Two commands can both succeed on the backend in the order A, B and their answers still reach the
+screen as B, A. The screen must not end on A. Every `Game` the backend sends therefore carries
+`career_token` (which installed career it is) and `state_revision` (how many writes that career
+has had), and `gameStore.setGameState` refuses an older picture:
+
+* `StateManager::update_game` advances `Game::state_revision` by one **before** its closure runs, under
+  the game lock, so a snapshot taken inside the closure (`ui_clone`) already carries the revision of
+  the state it shows, and a closure that swaps the whole `Game` cannot rewind it. A write that finds
+  nothing to do still advances it; only the order matters.
+* `update_game_when` is the same for a change that may be refused: when the closure's answer is a
+  refusal (or a replay), the revision is put back, so a refusal leaves the game byte for byte as it
+  was. `run_transaction` and `advance_to_next_season_internal` use it.
+* `set_game` assigns the revision itself: the same career continues its count (+1, even when the
+  argument is an older clone), a different career starts at 1. A new career always has a new
+  `career_token` (never reused in a process, increasing), so revisions are never compared across
+  careers: a higher token is a newer career, a lower one is a career that was replaced.
+* The revision is not saved (a load is a new install). It is a field of `Game` with
+  `#[serde(default)]`; no SQLite column, and the transaction ledger holds no snapshot.
+* The screen (`store/gameSnapshotOrder.ts`, applied in `setGameState`): same career, lower revision →
+  dropped; same revision → accepted (the screen's own edit of that state); a lower career token →
+  dropped; a snapshot with no stamp (an older backend, a fixture) → accepted. Every path that puts
+  a whole game into the store passes this one gate: transactions, `get_active_game` refreshes,
+  `game-state-changed` events from MCP, time advancement, fast-forward.
+
+What it does **not** cover: commands that return only a slice of the game (the inbox's
+`setMessages`) are not stamped, and after `clearGame` nothing remains to compare against, so a late
+answer of the career just left is not recognised by revision (the `careerEpoch` guards cover the
+dialogs that matter).
+
 ### Frontend State
 
 Two Zustand stores:
 
-- **`gameStore`** — Active game state (`GameStateData`), manager info, `hasActiveGame` flag. Updated after every Tauri command that returns game state.
+- **`gameStore`** — Active game state (`GameStateData`), manager info, `hasActiveGame` flag. Updated after every Tauri command that returns game state, through the ordering gate described above.
 - **`settingsStore`** — `AppSettings` (theme, language, currency, match preferences). Loaded once on Settings page mount, persisted via Tauri commands.
 
 ---

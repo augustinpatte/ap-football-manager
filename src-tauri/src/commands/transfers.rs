@@ -1507,8 +1507,9 @@ mod tests {
         let mut game = make_game();
         fill_senior_list(&mut game, "team-2", 29);
         promise_a_purchase(&mut game, "team-2");
-        let before = snapshot(&game);
         state.set_game(game);
+        // After the install: installing stamps the game with its first revision.
+        let before = snapshot(&state.get_game(|game| game.clone()).expect("installed"));
 
         let refused = respond_to_offer_internal(&state, None, "player-1", "offer-1", true);
 
@@ -1543,8 +1544,9 @@ mod tests {
         let mut game = make_game();
         fill_senior_list(&mut game, "team-2", 29);
         promise_a_purchase(&mut game, "team-2");
-        let before = snapshot(&game);
         state.set_game(game);
+        // After the install: installing stamps the game with its first revision.
+        let before = snapshot(&state.get_game(|game| game.clone()).expect("installed"));
 
         let refused = counter_offer_internal(&state, None, "player-1", "offer-1", 1_050_000);
 

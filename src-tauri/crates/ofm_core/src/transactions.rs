@@ -293,37 +293,42 @@ impl StateManager {
             }
             None => None,
         };
-        self.update_game(|game| {
-            if request
-                .career_token
-                .is_some_and(|token| token != game.career_token)
-            {
-                return Err(ERR_CAREER_CHANGED.to_string());
-            }
-            let Some(request_id) = request.id else {
-                let value = all_or_nothing(game, change)?;
-                return Ok(TransactionReceipt {
-                    value,
-                    snapshot: Some(game.ui_clone()),
-                });
-            };
-            match self.with_ledger(|ledger| ledger.finished(request_id, operation))? {
-                Some(finished) => replay(finished).map(|value| TransactionReceipt {
-                    value,
-                    snapshot: None,
-                }),
-                None => {
-                    let result = all_or_nothing(game, change);
-                    self.with_ledger(|ledger| {
-                        ledger.insert(request_id, operation, recorded(&result))
-                    });
-                    result.map(|value| TransactionReceipt {
+        // A refusal or a replay changes nothing, so it must not advance the revision either.
+        let committed = |answer: &Result<TransactionReceipt<T>, String>| matches!(answer, Ok(receipt) if receipt.snapshot.is_some());
+        self.update_game_when(
+            |game| {
+                if request
+                    .career_token
+                    .is_some_and(|token| token != game.career_token)
+                {
+                    return Err(ERR_CAREER_CHANGED.to_string());
+                }
+                let Some(request_id) = request.id else {
+                    let value = all_or_nothing(game, change)?;
+                    return Ok(TransactionReceipt {
                         value,
                         snapshot: Some(game.ui_clone()),
-                    })
+                    });
+                };
+                match self.with_ledger(|ledger| ledger.finished(request_id, operation))? {
+                    Some(finished) => replay(finished).map(|value| TransactionReceipt {
+                        value,
+                        snapshot: None,
+                    }),
+                    None => {
+                        let result = all_or_nothing(game, change);
+                        self.with_ledger(|ledger| {
+                            ledger.insert(request_id, operation, recorded(&result))
+                        });
+                        result.map(|value| TransactionReceipt {
+                            value,
+                            snapshot: Some(game.ui_clone()),
+                        })
+                    }
                 }
-            }
-        })
+            },
+            committed,
+        )
     }
 
     /// What became of a request, for a screen that did not receive the answer. Read-only.
@@ -977,5 +982,131 @@ mod tests {
 
         assert!(first.snapshot.is_some());
         assert!(second.snapshot.is_none());
+    }
+    /// Given two transfer commands A then B on one career, both successful
+    /// When their answers are put in the order a screen may receive them (B, then A)
+    /// Then both commits are in the game, each answer carries the revision of the state it shows,
+    /// and the later commit's revision is the higher one, so a screen can tell which to keep.
+    #[test]
+    fn two_commits_answered_out_of_order_are_ordered_by_the_revision_they_carry() {
+        let state = state_in_career(3);
+        // What a refresh asked for just before A commits sees: it must not look as new as A's answer.
+        let read_before_a = state.get_game(|game| game.state_revision).unwrap();
+        let a = state
+            .run_transaction(Some("req-a"), OP, post_one_message)
+            .unwrap()
+            .unwrap();
+        let b = state
+            .run_transaction(Some("req-b"), OP, post_one_message)
+            .unwrap()
+            .unwrap();
+
+        let (a_shown, b_shown) = (a.snapshot.unwrap(), b.snapshot.unwrap());
+
+        assert_eq!(messages(&state), 2, "both transactions are committed");
+        assert!(
+            read_before_a < a_shown.state_revision,
+            "an answer is stamped with the revision of the state it shows, not the one before it"
+        );
+        assert!(a_shown.state_revision < b_shown.state_revision);
+        assert_eq!(a_shown.messages.len(), 1);
+        assert_eq!(b_shown.messages.len(), 2);
+        assert_eq!(a_shown.career_token, b_shown.career_token);
+    }
+
+    /// Given a committed request and another writer that has moved the game on
+    /// When the request is delivered again
+    /// Then the replay carries no snapshot (so no older revision can travel with it), nothing is
+    /// written again, and the game still holds one copy of the first commit and the later writer's.
+    #[test]
+    fn a_replay_carries_no_snapshot_that_could_be_older_than_the_game() {
+        let state = state_in_career(3);
+        let first = state
+            .run_transaction(Some("req-r"), OP, post_one_message)
+            .unwrap()
+            .unwrap();
+        state.update_game(|game| post_one_message(game).ok());
+
+        let revision_after_second_writer = state.get_game(|game| game.state_revision).unwrap();
+        let replayed = state
+            .run_transaction(Some("req-r"), OP, post_one_message)
+            .unwrap()
+            .unwrap();
+
+        assert!(first.snapshot.unwrap().state_revision < revision_after_second_writer);
+        assert!(replayed.snapshot.is_none());
+        assert_eq!(messages(&state), 2);
+    }
+
+    /// Given eight threads each committing 25 transactions
+    /// When every answer is collected
+    /// Then no two answers share a revision: each commit has its own place in the order.
+    #[test]
+    fn concurrent_commits_never_share_a_revision() {
+        let state = Arc::new(state_in_career(3));
+        let workers: Vec<_> = (0..8)
+            .map(|worker| {
+                let state = Arc::clone(&state);
+                std::thread::spawn(move || {
+                    (0..25)
+                        .map(|n| {
+                            state
+                                .run_transaction(
+                                    Some(format!("req-{worker}-{n}").as_str()),
+                                    OP,
+                                    post_one_message,
+                                )
+                                .unwrap()
+                                .unwrap()
+                                .snapshot
+                                .unwrap()
+                                .state_revision
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut revisions: Vec<u64> = workers
+            .into_iter()
+            .flat_map(|worker| worker.join().unwrap())
+            .collect();
+        revisions.sort_unstable();
+        let distinct = revisions.len();
+        revisions.dedup();
+
+        assert_eq!(distinct, 200);
+        assert_eq!(revisions.len(), 200, "a revision was handed out twice");
+        assert_eq!(messages(&state), 200);
+    }
+    /// Given a revision the screen holds
+    /// When a transaction is refused, or a committed one is replayed
+    /// Then the revision has not moved: only a commit advances it, so a refusal leaves the game
+    /// byte for byte as it was.
+    #[test]
+    fn a_refusal_and_a_replay_leave_the_revision_where_it_was() {
+        let state = state_in_career(3);
+        let committed = state
+            .run_transaction(Some("req-ok"), OP, post_one_message)
+            .unwrap()
+            .unwrap();
+        let after_commit = state.get_game(|game| game.state_revision).unwrap();
+
+        let refused =
+            state.run_transaction::<u32>(Some("req-no"), OP, |_| Err("be.error.nope".into()));
+        let replayed = state.run_transaction(Some("req-ok"), OP, post_one_message);
+        let career_refused = state.run_transaction(
+            TransactionRequest::new(Some("req-old"), Some(99)),
+            OP,
+            post_one_message,
+        );
+
+        assert!(refused.unwrap().is_err());
+        assert!(replayed.unwrap().is_ok());
+        assert!(career_refused.unwrap().is_err());
+        assert_eq!(committed.snapshot.unwrap().state_revision, after_commit);
+        assert_eq!(
+            state.get_game(|game| game.state_revision),
+            Some(after_commit)
+        );
     }
 }

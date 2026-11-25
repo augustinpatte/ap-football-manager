@@ -11,22 +11,32 @@ use ofm_core::{game::Game, state::StateManager};
 /// to the screen straight away (a new game, a chosen club) hands it the stamped one.
 pub(crate) fn install_career(
     state: &StateManager,
-    mut game: Game,
+    game: Game,
     stats: StatsState,
     save_id: Option<String>,
 ) -> u64 {
+    install_career_stamped(state, game, stats, save_id).0
+}
+
+/// [`install_career`], also returning the revision the installed game was given.
+fn install_career_stamped(
+    state: &StateManager,
+    mut game: Game,
+    stats: StatsState,
+    save_id: Option<String>,
+) -> (u64, u64) {
     let _operation = super::live_session::operation();
     drop(state.take_live_match());
     drop(state.take_interactive_match());
     let career_token = state.next_career_token();
     game.career_token = career_token;
-    state.set_game(game);
+    let revision = state.set_game(game);
     state.set_stats_state(stats);
     match save_id {
         Some(id) => state.set_save_id(id),
         None => state.clear_save_id(),
     }
-    career_token
+    (career_token, revision)
 }
 
 /// [`install_career`] for a game that goes to the screen straight away (a new game, a chosen
@@ -40,7 +50,10 @@ pub(crate) fn install_career_for_screen(
     save_id: Option<String>,
 ) -> Game {
     let mut shown = game.clone();
-    shown.career_token = install_career(state, game, stats, save_id);
+    // The revision the install assigned, not one read back afterwards: a writer that ran in between
+    // would otherwise make this copy look newer than the content it holds.
+    (shown.career_token, shown.state_revision) =
+        install_career_stamped(state, game, stats, save_id);
     shown
 }
 

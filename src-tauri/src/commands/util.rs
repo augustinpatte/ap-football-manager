@@ -44,10 +44,14 @@ where
     F: FnOnce(&mut Game) -> Result<(), String>,
 {
     state
-        .update_game(|game| {
-            mutate(game)?;
-            Ok(game.ui_clone())
-        })
+        .update_game_when(
+            |game| {
+                mutate(game)?;
+                Ok(game.ui_clone())
+            },
+            // A refusal changes nothing, the revision included.
+            |answer: &Result<Game, String>| answer.is_ok(),
+        )
         .unwrap_or_else(|| Err(NO_ACTIVE_GAME.to_string()))
 }
 

@@ -24,22 +24,26 @@ pub fn advance_to_next_season_internal(state: &StateManager) -> Result<serde_jso
     crate::platform::keep_simulation_awake();
     info!("[cmd] advance_to_next_season");
     state
-        .update_game(|game| {
-            let summary = ofm_core::end_of_season::advance_to_next_season(game)?;
+        .update_game_when(
+            |game| {
+                let summary = ofm_core::end_of_season::advance_to_next_season(game)?;
 
-            if game.manager.team_id.is_none() {
-                Ok(serde_json::json!({
-                    "action": "fired",
-                    "game": game,
-                    "summary": summary,
-                }))
-            } else {
-                Ok(serde_json::json!({
-                    "game": game,
-                    "summary": summary,
-                }))
-            }
-        })
+                if game.manager.team_id.is_none() {
+                    Ok(serde_json::json!({
+                        "action": "fired",
+                        "game": game,
+                        "summary": summary,
+                    }))
+                } else {
+                    Ok(serde_json::json!({
+                        "game": game,
+                        "summary": summary,
+                    }))
+                }
+            },
+            // A refused rollover (not complete, or already done) changes nothing, the revision included.
+            |answer: &Result<serde_json::Value, String>| answer.is_ok(),
+        )
         .unwrap_or_else(|| Err("be.error.noActiveGameSession".to_string()))
 }
 
@@ -234,8 +238,11 @@ pub(crate) mod tests {
         let mut game = completed_checkpoint();
         game.competitions[0].fixtures[0].status = FixtureStatus::Scheduled;
         game.league = Some(game.competitions[0].clone());
-        let before = serde_json::to_value(&game).unwrap();
         state.set_game(game);
+        // After the install: installing stamps the game with its first revision.
+        let before = state
+            .get_game(|game| serde_json::to_value(game).unwrap())
+            .unwrap();
         assert_eq!(
             advance_to_next_season_internal(&state).unwrap_err(),
             "be.error.seasonNotComplete"

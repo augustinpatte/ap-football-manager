@@ -97,19 +97,29 @@ impl StateManager {
             .unwrap_or_else(|poisoned| poisoned.into_inner()))
     }
 
-    pub fn set_game(&self, game: Game) {
+    /// Installs `game`. The revision is assigned here, never taken from the argument: a clone that
+    /// was read earlier carries an older number, and putting it back must not rewind the career.
+    /// The same career continues its count (+1); a different one starts at 1.
+    ///
+    /// Returns the revision the installed game was given, so a caller that hands a copy to the screen
+    /// stamps it with the number its install really had, not one a later writer has advanced.
+    pub fn set_game(&self, mut game: Game) -> u64 {
         let mut installed = self.active_game.lock().unwrap();
         let career = game.career_token;
-        let same_career = installed
+        let continuing = installed
             .as_ref()
-            .is_some_and(|current| current.career_token == career);
+            .filter(|current| current.career_token == career)
+            .map(|current| current.state_revision);
+        let revision = continuing.map_or(1, |revision| revision + 1);
+        game.state_revision = revision;
         *installed = Some(game);
         // Request ids belong to the career they were sent in: installing another one (or a reload
         // of the same save, which gets a new token) starts an empty ledger. Replacing the game with
         // a newer state of the same career keeps it. Ledger after the game lock, as everywhere.
-        if !same_career {
+        if continuing.is_none() {
             self.with_ledger(|ledger| *ledger = TransactionLedger::for_career(career));
         }
+        revision
     }
 
     pub fn get_game<F, R>(&self, f: F) -> Option<R>
@@ -121,12 +131,41 @@ impl StateManager {
 
     /// Atomically read-modify-write the active game. The closure receives a mutable reference
     /// to the Game while the Mutex is held, preventing lost-update races between GUI and MCP.
+    ///
+    /// Revision rule: acquiring the write lock advances `Game::state_revision` by one *before* the
+    /// closure runs, so a snapshot the closure takes (`ui_clone`) already carries the revision of the
+    /// state it describes, and a closure that swaps the whole game cannot rewind it. A write that
+    /// changes nothing still advances it; that is harmless, since only the order matters.
     pub fn update_game<F, R>(&self, f: F) -> Option<R>
     where
         F: FnOnce(&mut Game) -> R,
     {
+        self.write_game(f, |_| true)
+    }
+
+    /// [`Self::update_game`] for a change that may be refused or replayed: when `committed` says the
+    /// closure's answer changed nothing, the revision is put back, so a refusal leaves the game
+    /// exactly as it was (the guarantee transfer commands give and test byte for byte).
+    pub fn update_game_when<F, R>(&self, f: F, committed: impl FnOnce(&R) -> bool) -> Option<R>
+    where
+        F: FnOnce(&mut Game) -> R,
+    {
+        self.write_game(f, committed)
+    }
+
+    fn write_game<F, R>(&self, f: F, committed: impl FnOnce(&R) -> bool) -> Option<R>
+    where
+        F: FnOnce(&mut Game) -> R,
+    {
         let mut guard = self.active_game.lock().unwrap();
-        guard.as_mut().map(f)
+        guard.as_mut().map(|game| {
+            let before = game.state_revision;
+            let revision = before + 1;
+            game.state_revision = revision;
+            let result = f(game);
+            game.state_revision = if committed(&result) { revision } else { before };
+            result
+        })
     }
 
     pub fn clear_game(&self) {
@@ -507,5 +546,107 @@ mod tests {
         state.clear_game();
         assert!(state.with_live_match(|_| ()).is_none());
         assert!(state.get_game(|_| ()).is_none());
+    }
+    /// Given an installed career
+    /// When it is written through `update_game` several times
+    /// Then every write advances the revision by one, and a read does not.
+    #[test]
+    fn every_update_advances_the_revision_and_a_read_does_not() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_fixture());
+        let installed = state.get_game(|game| game.state_revision).unwrap();
+
+        let seen_inside: Vec<u64> = (0..3)
+            .map(|_| state.update_game(|game| game.state_revision).unwrap())
+            .collect();
+        let _ = state.get_game(|game| game.clone());
+
+        assert_eq!(seen_inside, [installed + 1, installed + 2, installed + 3]);
+        assert_eq!(
+            state.get_game(|game| game.state_revision),
+            Some(installed + 3)
+        );
+    }
+
+    /// Given a game installed as a new career
+    /// When it is read back
+    /// Then its revision starts at 1; 0 is reserved for a game that was never installed.
+    #[test]
+    fn a_new_career_starts_at_revision_one() {
+        let state = StateManager::new();
+        let mut game = make_game_with_fixture();
+        game.state_revision = 99;
+
+        state.set_game(game);
+
+        assert_eq!(state.get_game(|game| game.state_revision), Some(1));
+    }
+
+    /// Given a career that has moved to a high revision
+    /// When an older clone of the same career is put back with `set_game`
+    /// Then the revision still moves forward: replacing never rewinds it.
+    #[test]
+    fn replacing_the_same_career_with_an_older_clone_does_not_rewind_the_revision() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_fixture());
+        let stale_clone = state.get_game(|game| game.clone()).unwrap();
+        for _ in 0..5 {
+            state.update_game(|_| ());
+        }
+        let before = state.get_game(|game| game.state_revision).unwrap();
+
+        state.set_game(stale_clone);
+
+        assert_eq!(state.get_game(|game| game.state_revision), Some(before + 1));
+    }
+
+    /// Given a writer that swaps the whole game for another value inside `update_game`
+    /// When the write ends
+    /// Then the revision is the one this write was given, not the swapped-in game's.
+    #[test]
+    fn a_closure_that_replaces_the_game_cannot_rewind_the_revision() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_fixture());
+        state.update_game(|_| ());
+
+        let stamped_inside = state
+            .update_game(|game| {
+                *game = make_game_with_fixture();
+                game.state_revision
+            })
+            .unwrap();
+        let after = state.get_game(|game| game.state_revision).unwrap();
+
+        assert_eq!(
+            stamped_inside, 0,
+            "the swapped-in value shows it was replaced"
+        );
+        assert_eq!(after, 3);
+    }
+
+    /// Given a career at a high revision
+    /// When another career is installed (a load, a new game)
+    /// Then the new career has its own count from 1, and its token differs, so the two are never
+    /// compared by revision.
+    #[test]
+    fn a_replacement_career_restarts_the_count_under_its_own_token() {
+        let state = StateManager::new();
+        let mut first = make_game_with_fixture();
+        first.career_token = state.next_career_token();
+        state.set_game(first);
+        for _ in 0..10 {
+            state.update_game(|_| ());
+        }
+        let first_token = state.get_game(|game| game.career_token).unwrap();
+
+        let mut second = make_game_with_fixture();
+        second.career_token = state.next_career_token();
+        state.set_game(second);
+
+        let (token, revision) = state
+            .get_game(|game| (game.career_token, game.state_revision))
+            .unwrap();
+        assert!(token > first_token);
+        assert_eq!(revision, 1);
     }
 }

@@ -160,11 +160,18 @@ fn shapes(paths: &[String]) -> String {
 
 /// Fields of the live game that a save deliberately does not hold, each with the reason. A path
 /// listed here is skipped exactly: a field of the same name anywhere else is still compared.
-const NOT_SAVED: &[(&str, &str)] = &[(
-    "game.career_token",
-    "session identity: install_career stamps a fresh one on every load, the screen reads it from the \
-     game JSON, and it is never written to the save",
-)];
+const NOT_SAVED: &[(&str, &str)] = &[
+    (
+        "game.career_token",
+        "session identity: install_career stamps a fresh one on every load, the screen reads it from the \
+         game JSON, and it is never written to the save",
+    ),
+    (
+        "game.state_revision",
+        "session ordering: StateManager counts writes of the installed career; a load starts a new count \
+         and the number is never written to the save",
+    ),
+];
 
 /// Where the live game and the one loaded from the save differ, minus the fields in [`NOT_SAVED`].
 fn unexplained_differences(live: &Value, on_disk: &Value) -> Vec<String> {

@@ -403,6 +403,7 @@ impl GamePersistenceReader {
             legacy_world_cup_draw: meta.legacy_world_cup_draw,
             legacy_tactics_imported: meta.legacy_tactics_imported,
             career_token: 0,
+            state_revision: 0,
             clock,
             manager_id: meta.manager_id.clone(),
             managers,
