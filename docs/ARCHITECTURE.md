@@ -197,6 +197,23 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 | `load_game` | save_id | — | Load a saved game |
 | `exit_to_menu` | — | — | Save and clear active game |
 
+### Transfer Transactions and Related Reads
+
+Every command that moves money or players (`make_transfer_bid`, `make_loan_offer`,
+`exercise_loan_buy_option`, `respond_to_offer`, `respond_to_loan_offer`, `counter_offer`,
+`counter_loan_offer`) takes an optional `request_id` and runs through
+`StateManager::run_transaction` (`ofm_core/src/transactions.rs`): read, change and commit under one
+hold of the game lock, all-or-nothing (a refusal after the change has started leaves the game
+untouched), and a repeat of the same id replays the first outcome instead of running again. The screen
+sends one id per user action and, if an answer is lost, asks `get_transaction_status` before it says
+anything failed.
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `get_transaction_status` | request_id | `{state: unknown \| committed \| refused, error?}` | What became of a request id: it never ran, it changed the game, or it was refused (with the refusal key) |
+| `get_departure_blockers` | — | `Map<player_id, error key>` | The manager's players the squad floor would not let leave today, each with the refusal a sale, loan or release of his would get; the offers list closes Accept and Counter for them |
+| `get_user_schedule` | — | `UserSchedule` | The manager's matches from every competition in the game, in date order, with the next one marked; a projection of the competitions' own fixtures, no calendar of its own |
+
 ### Match Commands
 
 | Command | Parameters | Returns | Description |

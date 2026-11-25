@@ -221,7 +221,7 @@ mod tests {
             .run_transaction::<u32>(Some("req-2"), |_| Err("be.error.nope".to_string()))
             .unwrap();
         let repeated = state
-            .run_transaction(Some("req-2"), |game| post_one_message(game))
+            .run_transaction(Some("req-2"), post_one_message)
             .unwrap();
 
         assert_eq!(refused, Err("be.error.nope".to_string()));
@@ -296,7 +296,7 @@ mod tests {
         for index in 0..300 {
             let id = format!("req-stress-{index}");
             state
-                .run_transaction(Some(&id), |game| post_one_message(game))
+                .run_transaction(Some(&id), post_one_message)
                 .unwrap()
                 .unwrap();
         }
@@ -347,7 +347,7 @@ mod tests {
     fn clearing_the_game_forgets_request_ids() {
         let state = state();
         state
-            .run_transaction(Some("req-4"), |game| post_one_message(game))
+            .run_transaction(Some("req-4"), post_one_message)
             .unwrap()
             .unwrap();
         state.clear_game();

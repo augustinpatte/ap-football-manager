@@ -285,7 +285,7 @@ fn a_sale_to_a_buyer_with_a_full_list_names_the_buyers_list() {
 
     let refused = respond_to_offer(&mut game, "mid", "offer-1", true);
 
-    let error = refused.err().expect("refused");
+    let error = refused.expect_err("refused");
     assert!(error.starts_with(BUYER_FULL), "{error}");
     assert!(error.contains("club=Seller%20FC"), "{error}");
     assert!(
@@ -351,7 +351,7 @@ fn a_club_with_loanees_out_is_told_its_places_are_held() {
 
     let refused = make_transfer_bid(&mut game, "target", 2_000_000);
 
-    let error = refused.err().expect("refused");
+    let error = refused.expect_err("refused");
     assert!(error.starts_with(SQUAD_FULL_HELD), "{error}");
     assert!(
         error.contains("count=23") && error.contains("held=7") && error.contains("release=1"),
