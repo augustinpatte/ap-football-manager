@@ -3211,7 +3211,7 @@
     "selectedPlayer": {
       "title": "Vybraný hráč",
       "hint": "Vyberte hráče na hřišti a změňte jeho roli.",
-      "role": "Role"
+      "role": "Role hráče"
     },
     "pitchFocus": {
       "expand": "Zvětšit hřiště",
