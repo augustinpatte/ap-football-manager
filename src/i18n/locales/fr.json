@@ -1699,7 +1699,7 @@
       "wageShare": "Le club d’accueil paie {{pct}} % du salaire",
       "openPlayer": "Ouvrir {{name}}",
       "playerTermsNote": "Un montant convenu avec un club mais pas encore avec le joueur n’est pas enregistré : la fenêtre de l’offre reste ouverte jusqu’à ce que vous lui proposiez un contrat.",
-      "needsAnswer": "{{count}} en attente de votre réponse"
+      "needsAnswer": "En attente de votre réponse : {{count}}"
     }
   },
   "transferCentreWorld": {
@@ -5125,7 +5125,7 @@
   },
   "errors": {
     "title": "Une erreur est survenue",
-    "refusalTitle": "Impossible pour le moment",
+    "refusalTitle": "Action impossible",
     "nothingChanged": "Rien n’a été modifié.",
     "unexpected": "Le jeu n’a pas pu terminer cette action et ne peut pas confirmer si elle a abouti. Vérifiez la page Transferts et votre boîte de réception avant de réessayer. Référence : {{reference}}."
   },

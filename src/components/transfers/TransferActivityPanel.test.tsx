@@ -67,7 +67,7 @@ describe("TransferActivityPanel", () => {
 
     const toggle = screen.getByRole("button", { name: /transfer activity/i });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(toggle).getByText("1 waiting for your answer")).toBeInTheDocument();
+    expect(within(toggle).getByText("Waiting for your answer: 1")).toBeInTheDocument();
     expect(screen.queryByText("Player 0")).not.toBeInTheDocument();
   });
 

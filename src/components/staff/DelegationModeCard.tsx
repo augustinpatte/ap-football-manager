@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { DelegationLimits, DelegationMode } from "../../services/staffService";
@@ -39,6 +39,22 @@ export default function DelegationModeCard({
   const [draft, setDraft] = useState<DelegationLimits>(limits);
   // Handing the whole job over is a decision, not a click: it waits here until it is confirmed.
   const [confirmingFull, setConfirmingFull] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+  // The safe choice takes focus when the confirmation opens, and the mode control gets it back when
+  // it closes: a keyboard user is never left on a button that has just been removed.
+  useEffect(() => {
+    if (confirmingFull) cancelRef.current?.focus();
+    else if (wasConfirming.current) {
+      cardRef.current
+        ?.querySelector<HTMLElement>(
+          '[role="radio"][aria-checked="true"], input[type="radio"]:checked',
+        )
+        ?.focus();
+    }
+    wasConfirming.current = confirmingFull;
+  }, [confirmingFull]);
   // The saved limits are the source of truth: a save or a reload replaces the draft.
   useEffect(() => setDraft(limits), [limits]);
   const dirty = LIMIT_FIELDS.some(({ key }) => draft[key] !== limits[key]);
@@ -46,103 +62,120 @@ export default function DelegationModeCard({
   return (
     <Card>
       <CardBody>
-        <h3 id={labelId} className="font-heading text-lead uppercase">
-          {t("staff.delegation.mode.title")}
-        </h3>
-        <p className="mt-1 text-body text-fg-muted">
-          {hasAssistant
-            ? t(`staff.delegation.mode.${mode}Desc`)
-            : t("staff.delegation.noAssistant")}
-        </p>
-        {hasAssistant && mode === "full" ? (
-          <p className="mt-1 text-caption text-fg-muted">
-            {t(
-              limits.finance_bound
-                ? "staff.delegation.mode.totalNote"
-                : "staff.delegation.mode.limitsOnlyNote",
-            )}
+        <div ref={cardRef}>
+          <h3 id={labelId} className="font-heading text-lead uppercase">
+            {t("staff.delegation.mode.title")}
+          </h3>
+          <p className="mt-1 text-body text-fg-muted">
+            {hasAssistant
+              ? t(`staff.delegation.mode.${mode}Desc`)
+              : t("staff.delegation.noAssistant")}
           </p>
-        ) : null}
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <SegmentedControl<DelegationMode>
-            labelledBy={labelId}
-            emphasis="strong"
-            options={MODES.map((value) => ({
-              value,
-              label: t(`staff.delegation.mode.${value}`),
-            }))}
-            value={mode}
-            onChange={(next) => {
-              if (busy || next === mode) return;
-              if (next === "full") setConfirmingFull(true);
-              else {
-                setConfirmingFull(false);
-                onModeChange(next);
-              }
-            }}
-          />
-          {mode === "custom" ? (
-            <Badge variant="neutral" size="sm">
-              {t("staff.delegation.mode.custom")}
-            </Badge>
+          {hasAssistant && mode === "full" ? (
+            <p className="mt-1 text-caption text-fg-muted">
+              {t(
+                limits.finance_bound
+                  ? "staff.delegation.mode.totalNote"
+                  : "staff.delegation.mode.limitsOnlyNote",
+              )}
+            </p>
           ) : null}
-        </div>
-
-        {confirmingFull ? (
-          <div
-            role="alertdialog"
-            aria-labelledby={`${labelId}-warning`}
-            className="mt-3 rounded-lg border border-warning bg-warning-tint p-3"
-          >
-            <p id={`${labelId}-warning`} className="text-body font-bold text-fg">
-              {t("staff.delegation.mode.fullWarningTitle")}
-            </p>
-            <p className="mt-1 text-caption text-fg">
-              {t("staff.delegation.mode.fullWarningBody")}
-            </p>
-            <div className="mt-2 flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => {
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <SegmentedControl<DelegationMode>
+              labelledBy={labelId}
+              emphasis="strong"
+              options={MODES.map((value) => ({
+                value,
+                label: t(`staff.delegation.mode.${value}`),
+              }))}
+              value={mode}
+              onChange={(next) => {
+                if (busy || next === mode) return;
+                if (next === "full") setConfirmingFull(true);
+                else {
                   setConfirmingFull(false);
-                  onModeChange("full");
-                }}
-              >
-                {t("staff.delegation.mode.fullConfirm")}
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmingFull(false)}>
-                {t("staff.delegation.mode.fullCancel")}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        <h4 className="mt-4 text-body font-medium">{t("staff.delegation.limits.title")}</h4>
-        <p className="text-caption text-fg-muted">{t("staff.delegation.limits.intro")}</p>
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          {LIMIT_FIELDS.map(({ key, step }) => (
-            <label key={key} className="grid gap-1 text-body">
-              <span className="text-fg-muted">{t(`staff.delegation.limits.${key}`)}</span>
-              <input
-                type="number"
-                min={0}
-                step={step}
-                value={draft[key]}
-                onChange={(event) =>
-                  setDraft({ ...draft, [key]: Math.max(0, Math.round(Number(event.target.value))) })
+                  onModeChange(next);
                 }
-                className="rounded-lg border border-line bg-sunken px-3 py-2 text-fg"
-              />
-            </label>
-          ))}
-        </div>
-        <p className="mt-1 text-caption text-fg-muted">
-          {t("staff.delegation.limits.transferNote")}
-        </p>
-        <div className="mt-2">
-          <Button size="sm" disabled={busy || !dirty} onClick={() => onLimitsSave(draft)}>
-            {t("staff.delegation.limits.save")}
-          </Button>
+              }}
+            />
+            {mode === "custom" ? (
+              <Badge variant="neutral" size="sm">
+                {t("staff.delegation.mode.custom")}
+              </Badge>
+            ) : null}
+          </div>
+
+          {confirmingFull ? (
+            <div
+              role="alertdialog"
+              aria-labelledby={`${labelId}-warning`}
+              aria-describedby={`${labelId}-warning-body`}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  setConfirmingFull(false);
+                }
+              }}
+              className="mt-3 rounded-lg border border-warning bg-warning-tint p-3"
+            >
+              <p id={`${labelId}-warning`} className="text-body font-bold text-fg">
+                {t("staff.delegation.mode.fullWarningTitle")}
+              </p>
+              <p id={`${labelId}-warning-body`} className="mt-1 text-caption text-fg">
+                {t("staff.delegation.mode.fullWarningBody")}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setConfirmingFull(false);
+                    onModeChange("full");
+                  }}
+                >
+                  {t("staff.delegation.mode.fullConfirm")}
+                </Button>
+                <Button
+                  ref={cancelRef}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmingFull(false)}
+                >
+                  {t("staff.delegation.mode.fullCancel")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <h4 className="mt-4 text-body font-medium">{t("staff.delegation.limits.title")}</h4>
+          <p className="text-caption text-fg-muted">{t("staff.delegation.limits.intro")}</p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            {LIMIT_FIELDS.map(({ key, step }) => (
+              <label key={key} className="grid gap-1 text-body">
+                <span className="text-fg-muted">{t(`staff.delegation.limits.${key}`)}</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={step}
+                  value={draft[key]}
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      [key]: Math.max(0, Math.round(Number(event.target.value))),
+                    })
+                  }
+                  className="rounded-lg border border-line bg-sunken px-3 py-2 text-fg"
+                />
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-caption text-fg-muted">
+            {t("staff.delegation.limits.transferNote")}
+          </p>
+          <div className="mt-2">
+            <Button size="sm" disabled={busy || !dirty} onClick={() => onLimitsSave(draft)}>
+              {t("staff.delegation.limits.save")}
+            </Button>
+          </div>
         </div>
       </CardBody>
     </Card>

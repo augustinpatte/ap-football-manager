@@ -1699,7 +1699,7 @@
       "wageShare": "Klub peminjam membayar {{pct}}% gaji",
       "openPlayer": "Buka {{name}}",
       "playerTermsNote": "Biaya yang disepakati dengan klub tetapi belum dengan pemain tidak disimpan: jendela tawaran tetap terbuka sampai Anda mengajukan syarat kontrak kepadanya.",
-      "needsAnswer": "{{count}} menunggu jawaban Anda"
+      "needsAnswer": "Menunggu jawaban Anda: {{count}}"
     }
   },
   "transferCentreWorld": {

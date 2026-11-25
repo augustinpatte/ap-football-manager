@@ -89,7 +89,9 @@ impl StateManager {
 
     /// Runs `f` on the transaction ledger. Always taken after the game lock, never before it.
     pub(crate) fn with_ledger<R>(&self, f: impl FnOnce(&mut TransactionLedger) -> R) -> R {
-        f(&mut self.transactions.lock().unwrap())
+        // Poison-tolerant: the ledger only holds finished outcomes, so a panic elsewhere must not stop
+        // every later transfer command from running.
+        f(&mut self.transactions.lock().unwrap_or_else(|poisoned| poisoned.into_inner()))
     }
 
     pub fn set_game(&self, game: Game) {

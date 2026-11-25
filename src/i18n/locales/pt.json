@@ -1699,7 +1699,7 @@
       "wageShare": "O clube recetor paga {{pct}}% do salário",
       "openPlayer": "Abrir {{name}}",
       "playerTermsNote": "Um valor acordado com um clube mas ainda não com o jogador não fica guardado: a janela da proposta mantém-se aberta até lhe apresentares um contrato.",
-      "needsAnswer": "{{count}} aguardam a tua resposta"
+      "needsAnswer": "Aguardam a tua resposta: {{count}}"
     }
   },
   "transferCentreWorld": {

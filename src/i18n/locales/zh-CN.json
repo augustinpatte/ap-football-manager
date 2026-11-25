@@ -1699,7 +1699,7 @@
       "wageShare": "租入方支付 {{pct}}% 的薪资",
       "openPlayer": "打开 {{name}}",
       "playerTermsNote": "与俱乐部谈妥但尚未与球员谈妥的转会费不会被保存：报价窗口会一直保持打开，直到你向球员提出合同条款。",
-      "needsAnswer": "{{count}} 项等待你答复"
+      "needsAnswer": "等待你答复：{{count}}"
     }
   },
   "transferCentreWorld": {
@@ -3507,7 +3507,7 @@
         "insufficientFunds": "资金不足",
         "transferBudgetTooLow": "转会预算过低",
         "playerNotOwnedByUser": "未找到该球员，或该球员不属于你",
-        "offerNotPending": "在你回复之前谈判已冷却。如果对方回头再谈,请重新开启谈判。",
+        "offerNotPending": "在你回复之前谈判已冷却。如果对方回头再谈，请重新开启谈判。",
         "talksBrokenOff": "该俱乐部已终止这名球员的谈判。请稍后再试。",
         "loanBorrowerCannotAffordWages": "租借俱乐部负担不起这部分薪资。其每周薪资预算为 {{budget}}。",
         "counterOfferMustExceedCurrentOffer": "还价必须高于当前报价",

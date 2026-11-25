@@ -463,18 +463,21 @@ describe("PreMatchSetup pitch tokens and the selected player", () => {
   it("lets_the_pitch_take_the_whole_width_and_back", () => {
     renderSetup();
     const toggle = screen.getByRole("button", { name: "match.pitchFocus.expand" });
-    const panel = screen.getByRole("region", { name: "match.selectedPlayer.title" });
+    const setPieces = screen.getByText("match.setPiecesCaptain");
 
     expect(toggle).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(toggle);
 
-    expect(screen.getByRole("button", { name: "match.pitchFocus.collapse" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(panel.parentElement).toHaveClass("hidden");
+    // One constant name, so "pressed" means the same thing to a screen reader.
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(setPieces.closest(".hidden")).not.toBeNull();
+    // The selected player's role control is still on screen with the side panels away.
+    fireEvent.click(screen.getByRole("button", { name: "Home GK" }));
+    const panel = screen.getByRole("region", { name: "match.selectedPlayer.title" });
+    expect(panel.closest(".hidden")).toBeNull();
+    expect(within(panel).getByRole("combobox")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "match.pitchFocus.collapse" }));
-    expect(panel.parentElement).not.toHaveClass("hidden");
+    fireEvent.click(toggle);
+    expect(setPieces.closest(".hidden")).toBeNull();
   });
 });

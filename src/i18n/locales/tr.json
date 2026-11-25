@@ -1682,7 +1682,7 @@
       "empty": "Henüz hiçbir şey yok: açık veya yakın tarihli teklif ya da kiralama yok.",
       "section": {
         "received": "Gelen teklifler: yanıtınızı bekliyor",
-        "negotiating": "Tekliflerin: görüşmeler sürüyor",
+        "negotiating": "Teklifleriniz: görüşmeler sürüyor",
         "pendingRegistration": "Anlaşıldı: tescil bekliyor",
         "completed": "Tamamlanan transferler",
         "activeLoans": "Süren kiralamalar",
@@ -1699,7 +1699,7 @@
       "wageShare": "Kiralayan kulüp maaşın %{{pct}}’ini öder",
       "openPlayer": "{{name}} oyuncusunu aç",
       "playerTermsNote": "Kulüple anlaşılan ancak oyuncuyla henüz anlaşılmayan bedel kaydedilmez: sözleşme şartlarını oyuncuya sunana kadar teklif penceresi açık kalır.",
-      "needsAnswer": "{{count}} yanıtınızı bekliyor"
+      "needsAnswer": "Yanıtınızı bekleyen: {{count}}"
     }
   },
   "transferCentreWorld": {

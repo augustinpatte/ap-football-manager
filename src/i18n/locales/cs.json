@@ -1194,7 +1194,7 @@
         "totalNote": "Plná pravomoc: asistent se drží hotovosti klubu, mzdového prostoru a pravidel vedení, takže níže uvedené limity výdajů se pro angažmá a prodloužení nepoužívají. Nikdy neprodá hráče, kterého chráníš.",
         "limitsOnlyNote": "Tento režim funguje v rámci limitů výdajů níže. Zvol Plný, aby asistent získal pravomoc nad financemi klubu.",
         "fullWarningTitle": "Předat práci asistentovi?",
-        "fullWarningBody": "S plnou delegací může váš asistent v mezích výdajů níže dávat nadbytečné hráče na soupisku k prodeji, podepisovat hráče a odpovídat na nabídky i je přijímat, aniž by se vás ptal. Přestupy tak mohou proběhnout bez vašeho souhlasu. Hráči na vašem seznamu chráněných se nikdy nepřesouvají a každé rozhodnutí se hlásí do vaší pošty.",
+        "fullWarningBody": "S plnou delegací může váš asistent v mezích výdajů níže dávat nadbytečné hráče na přestupovou listinu, podepisovat hráče a odpovídat na nabídky i je přijímat, aniž by se vás ptal. Přestupy tak mohou proběhnout bez vašeho souhlasu. Hráči na vašem seznamu chráněných se nikdy nepřesouvají a každé rozhodnutí se hlásí do vaší pošty.",
         "fullConfirm": "Ano, vše delegovat",
         "fullCancel": "Ponechat můj souhlas"
       },
@@ -1582,7 +1582,7 @@
     "offerStatusAccepted": "Přijato",
     "offerStatusRejected": "Odmítnuto",
     "offerStatusWithdrawn": "Jednání ochladla",
-    "negotiationExpiredError": "Jednání ochladla dříve, než jste stihli odpovědět. Pokud bude mít klub zájem, zahajte nové vyjednávání.",
+    "negotiationExpiredError": "Jednání ochladla dříve, než bylo možné odpovědět. Pokud bude mít klub zájem, zahajte nové vyjednávání.",
     "resumeNegotiationHint": "Jednání s tímto klubem stále probíhají.",
     "resumeNegotiationHeadline": "Druhý klub čeká na váš další krok.",
     "resumeNegotiationDetail": "Jejich poslední reakce směřovala k částce {{fee}}.",
@@ -1699,7 +1699,7 @@
       "wageShare": "Přijímající klub platí {{pct}} % platu",
       "openPlayer": "Otevřít {{name}}",
       "playerTermsNote": "Poplatek dohodnutý s klubem, ale ještě ne s hráčem, se neukládá: okno nabídky zůstane otevřené, dokud hráči nenavrhnete smlouvu.",
-      "needsAnswer": "{{count}} čeká na vaši odpověď"
+      "needsAnswer": "Čeká na vaši odpověď: {{count}}"
     }
   },
   "transferCentreWorld": {
@@ -3515,7 +3515,7 @@
         "insufficientFunds": "Nedostatek finančních prostředků",
         "transferBudgetTooLow": "Přestupový rozpočet je příliš nízký",
         "playerNotOwnedByUser": "Hráč nebyl nalezen nebo není váš",
-        "offerNotPending": "Jednání ochladla dříve, než jste stihli odpovědět. Pokud bude mít klub zájem, zahajte nové vyjednávání.",
+        "offerNotPending": "Jednání ochladla dříve, než bylo možné odpovědět. Pokud bude mít klub zájem, zahajte nové vyjednávání.",
         "talksBrokenOff": "Tento klub ukončil jednání o tomto hráči. Zkuste to později.",
         "loanBorrowerCannotAffordWages": "Hostující klub si tento podíl na mzdě nemůže dovolit. Jeho týdenní mzdový rozpočet je {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Protinabídka musí být vyšší než aktuální nabídka",
@@ -3602,7 +3602,7 @@
         "ownerNotFound": "Tento člen není ve vašem týmu.",
         "ownerNotEligible": "Tato pozice nemůže tuto povinnost zastávat.",
         "offerGone": "Tato nabídka už není k dispozici.",
-        "offerChanged": "Nabídka se změnila, zatímco jste si ji prohlíželi. Před odpovědí zkontrolujte nové podmínky.",
+        "offerChanged": "Nabídka se změnila během prohlížení. Před odpovědí zkontrolujte nové podmínky.",
         "playerProtected": "Tento hráč je na vašem seznamu chráněných, takže ho asistent nedá na soupisku k prodeji ani s ním nebude hýbat. Chcete-li to, nejprve ochranu zrušte."
       },
       "freeAgents": {
@@ -3614,7 +3614,7 @@
         "counterExpired": "Jeho protinávrh vypršel.",
         "noOpenTalk": "S tímto hráčem nemáš žádnou otevřenou nabídku.",
         "invalidOffer": "To není platná nabídka smlouvy.",
-        "squadFullHeld": "Na vaší soupisce A-týmu je registrováno {{count}} z {{max}} hráčů, ale {{held}} míst je vyhrazeno pro vaše hráče na hostování, kteří se na ně vrátí, a pro již dohodnuté posily. Uvolněte ještě {{release}} míst, než podepíšete dalšího hráče: rozviňte smlouvu, prodejte, pošlete na hostování nebo přesuňte hráče do mládeže."
+        "squadFullHeld": "Na vaší soupisce A-týmu je registrováno {{count}} z {{max}} hráčů, ale {{held}} místo/míst je vyhrazeno pro vaše hráče na hostování, kteří se na ně vrátí, a pro již dohodnuté posily. Uvolněte ještě {{release}} místo/míst, než podepíšete dalšího hráče: ukončete smlouvu, prodejte, pošlete na hostování nebo přesuňte hráče do mládeže."
       },
       "fastForward": {
         "invalidDate": "Toto není platné datum.",

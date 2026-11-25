@@ -401,26 +401,24 @@ export default function PreMatchSetup({
     return (
       <section
         aria-labelledby="selected-player-title"
-        className="rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4 shadow-sm transition-colors duration-300"
+        className="rounded-xl border border-line bg-panel p-4 shadow-sm"
       >
-        <p
+        <h3
           id="selected-player-title"
-          className="mb-2 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400"
+          className="mb-2 text-caption font-heading font-bold uppercase tracking-label text-fg-muted"
         >
           {t("match.selectedPlayer.title")}
-        </p>
+        </h3>
         {selectedStarter && deployed ? (
           <>
-            <p className="text-body font-semibold text-gray-800 dark:text-gray-100">
-              {selectedStarter.name}
-            </p>
-            <p className="mb-2 text-caption text-gray-500 dark:text-gray-400">
+            <p className="text-body font-semibold text-fg">{selectedStarter.name}</p>
+            <p className="mb-2 text-caption text-fg-muted">
               {translatePositionAbbreviation(t, deployed)} · {Math.round(selectedStarter.condition)}
               %
             </p>
             <label
               htmlFor="selected-player-role"
-              className="mb-1 block text-[10px] font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400"
+              className="mb-1 block text-caption font-heading uppercase tracking-label text-fg-muted"
             >
               {t("match.selectedPlayer.role")}
             </label>
@@ -443,9 +441,7 @@ export default function PreMatchSetup({
             </Select>
           </>
         ) : (
-          <p className="text-caption text-gray-500 dark:text-gray-400">
-            {t("match.selectedPlayer.hint")}
-          </p>
+          <p className="text-caption text-fg-muted">{t("match.selectedPlayer.hint")}</p>
         )}
       </section>
     );
@@ -556,8 +552,9 @@ export default function PreMatchSetup({
         <button
           type="button"
           aria-pressed={pitchFocus}
+          aria-label={t("match.pitchFocus.expand")}
           onClick={() => setPitchFocus((current) => !current)}
-          className="absolute right-1 top-1 z-30 rounded-lg border border-gray-200 bg-white/90 px-2.5 py-1 font-heading text-[10px] font-bold uppercase tracking-wider text-gray-700 shadow-sm hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-focus dark:border-navy-600 dark:bg-navy-800/90 dark:text-gray-200"
+          className="absolute right-1 top-1 z-30 rounded-lg border border-line bg-panel/90 px-2.5 py-1 font-heading text-caption font-bold uppercase tracking-label text-fg shadow-sm hover:bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
         >
           {pitchFocus ? t("match.pitchFocus.collapse") : t("match.pitchFocus.expand")}
         </button>
@@ -571,10 +568,14 @@ export default function PreMatchSetup({
           }
           className="@container aspect-[5/7] h-full max-h-full w-auto max-w-full"
         />
+        {/* With the side panels away, the selected player's role control stays reachable here. */}
+        {pitchFocus ? (
+          <div className="absolute bottom-1 left-1 z-30 w-64">{renderSelectedPlayerPanel()}</div>
+        ) : null}
       </div>
       {/* Right: the selected player, set pieces + phase blueprint */}
       <div className={`flex min-h-0 flex-col gap-4 overflow-y-auto ${pitchFocus ? "hidden" : ""}`}>
-        {renderSelectedPlayerPanel()}
+        {pitchFocus ? null : renderSelectedPlayerPanel()}
         {renderSetPieces()}
         <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 shadow-sm transition-colors duration-300">
           <div className="border-b border-gray-100 dark:border-navy-700 px-3 py-2.5">

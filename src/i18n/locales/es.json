@@ -1699,7 +1699,7 @@
       "wageShare": "El club receptor paga el {{pct}} % del sueldo",
       "openPlayer": "Abrir a {{name}}",
       "playerTermsNote": "Una tarifa acordada con un club pero aún no con el jugador no se guarda: la ventana de la oferta sigue abierta hasta que le propongas un contrato.",
-      "needsAnswer": "{{count}} esperan tu respuesta"
+      "needsAnswer": "Esperan tu respuesta: {{count}}"
     }
   },
   "transferCentreWorld": {

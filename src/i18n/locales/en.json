@@ -1699,7 +1699,7 @@
       "wageShare": "Borrower pays {{pct}}% of wages",
       "openPlayer": "Open {{name}}",
       "playerTermsNote": "A fee agreed with a club but not yet with the player is not stored: the bid window stays open until you put contract terms to him.",
-      "needsAnswer": "{{count}} waiting for your answer"
+      "needsAnswer": "Waiting for your answer: {{count}}"
     }
   },
   "transferCentreWorld": {

@@ -1699,7 +1699,7 @@
       "wageShare": "Der Leihverein zahlt {{pct}} % des Gehalts",
       "openPlayer": "{{name}} öffnen",
       "playerTermsNote": "Eine mit dem Verein vereinbarte Ablöse, der Spieler aber noch nicht zugestimmt hat, wird nicht gespeichert: Das Angebotsfenster bleibt offen, bis du ihm Vertragsbedingungen vorlegst.",
-      "needsAnswer": "{{count}} warten auf deine Antwort"
+      "needsAnswer": "Warten auf deine Antwort: {{count}}"
     }
   },
   "transferCentreWorld": {

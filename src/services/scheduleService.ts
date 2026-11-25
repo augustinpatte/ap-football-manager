@@ -63,6 +63,8 @@ export interface UserSchedule {
 }
 
 /** The manager's matches across every competition his club plays in, in date order. */
-export async function fetchUserSchedule(): Promise<UserSchedule | null> {
-  return (await invoke<UserSchedule | null>("get_user_schedule")) ?? null;
+export async function fetchUserSchedule(): Promise<UserSchedule> {
+  // A manager without a club has no matches of his own: null from the backend is an empty list, not
+  // "still loading".
+  return (await invoke<UserSchedule | null>("get_user_schedule")) ?? { today: "", fixtures: [] };
 }

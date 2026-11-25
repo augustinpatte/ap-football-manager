@@ -61,10 +61,11 @@ pub async fn get_schedule(
 #[tauri::command]
 pub async fn get_user_schedule(
     state: State<'_, Arc<StateManager>>,
-) -> Result<UserSchedule, String> {
+) -> Result<Option<UserSchedule>, String> {
+    // No active game is the error; a manager without a club has no matches of his own, which is an
+    // empty answer (null), not a failure: the Schedule tab opens on this view for him too.
     state
         .get_game(query_user_schedule)
-        .flatten()
         .ok_or_else(|| NO_ACTIVE_GAME.to_string())
 }
 
