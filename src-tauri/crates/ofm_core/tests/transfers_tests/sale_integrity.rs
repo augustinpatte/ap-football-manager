@@ -388,3 +388,38 @@ fn a_full_list_with_no_held_places_keeps_the_plain_refusal() {
         Some("be.error.freeAgents.squadFull?count=30&max=30&release=1")
     );
 }
+
+/// Given a club with only two senior goalkeepers
+/// When the blockers are asked
+/// Then both keepers are listed with the refusal a sale of either would get, and no outfield
+///      player is: the warning on screen is the answer the command would give
+#[test]
+fn the_blockers_list_exactly_the_players_who_cannot_leave() {
+    let mut game = sale_game(user_player_at("gk", Position::Goalkeeper, 900_000));
+    leave_goalkeepers(&mut game, "team-1", 2, "gk");
+    // Depth elsewhere, so the fifteen-senior minimum is not what holds the outfield players.
+    fill_to(&mut game, "team-1", 22);
+
+    let blockers = ofm_core::squad_floor::departure_blockers(&game, "team-1");
+
+    let ids: Vec<&str> = blockers.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(ids.contains(&"gk"));
+    assert_eq!(ids.len(), 2, "{ids:?}");
+    let refusal = counter_offer(&mut game, "gk", "offer-1", 1_050_000)
+        .err()
+        .unwrap();
+    assert_eq!(
+        blockers.iter().find(|(id, _)| id == "gk").unwrap().1,
+        refusal
+    );
+}
+
+/// Given a club with cover in every position
+/// When the blockers are asked
+/// Then nobody is blocked
+#[test]
+fn a_club_with_cover_everywhere_has_no_blockers() {
+    let game = sale_game(user_player_at("gk", Position::Goalkeeper, 900_000));
+
+    assert!(ofm_core::squad_floor::departure_blockers(&game, "team-1").is_empty());
+}

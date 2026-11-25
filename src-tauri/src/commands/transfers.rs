@@ -154,6 +154,33 @@ pub fn toggle_loan_list_internal(state: &StateManager, player_id: &str) -> Resul
     })
 }
 
+/// Players of the manager's club who cannot leave today without leaving it short of the squad
+/// floor, each with the refusal a sale, loan or release of his would get (a translation key). The
+/// screen reads it before the manager answers or counters an offer, so a sale that cannot happen is
+/// said so up front instead of after he has submitted it.
+#[tauri::command]
+pub fn get_departure_blockers(
+    state: State<'_, Arc<StateManager>>,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    get_departure_blockers_internal(&state)
+}
+
+pub fn get_departure_blockers_internal(
+    state: &StateManager,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    state
+        .get_game(|game| {
+            game.manager
+                .team_id
+                .as_deref()
+                .map(|team_id| ofm_core::squad_floor::departure_blockers(game, team_id))
+                .unwrap_or_default()
+                .into_iter()
+                .collect()
+        })
+        .ok_or_else(|| NO_ACTIVE_GAME.to_string())
+}
+
 #[tauri::command]
 pub fn make_transfer_bid(
     state: State<'_, Arc<StateManager>>,
@@ -592,10 +619,10 @@ fn parse_youth_target_position(value: Option<&str>) -> Result<Option<Position>, 
 mod tests {
     use super::{
         counter_loan_offer_internal, counter_offer_internal, exercise_loan_buy_option_internal,
-        get_transfer_deadline_summary_internal, make_loan_offer_internal,
-        make_transfer_bid_internal, preview_transfer_bid_financial_impact_internal,
-        respond_to_loan_offer_internal, respond_to_offer_internal, toggle_loan_list_internal,
-        toggle_transfer_list_internal,
+        get_departure_blockers_internal, get_transfer_deadline_summary_internal,
+        make_loan_offer_internal, make_transfer_bid_internal,
+        preview_transfer_bid_financial_impact_internal, respond_to_loan_offer_internal,
+        respond_to_offer_internal, toggle_loan_list_internal, toggle_transfer_list_internal,
     };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
@@ -1804,5 +1831,41 @@ mod tests {
             ofm_core::transactions::TransactionStatus::Unknown
         );
         assert_eq!(posted_messages(&state), 0);
+    }
+
+    /// Given a club with a surplus midfielder and only two goalkeepers
+    /// When the manager's departure blockers are read through the command
+    /// Then the keepers are named with the key a sale of either would return, the midfielder is not,
+    ///      and an unemployed manager has none
+    #[test]
+    fn departure_blockers_name_the_players_a_sale_would_be_refused_for() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        // Two senior keepers, and outfield depth so only the keepers are held.
+        game.players.retain(|p| {
+            p.position != Position::Goalkeeper || p.team_id.as_deref() != Some("team-1")
+        });
+        for index in 0..2 {
+            let mut keeper = game.players[0].clone();
+            keeper.id = format!("keeper-{index}");
+            keeper.position = Position::Goalkeeper;
+            keeper.team_id = Some("team-1".to_string());
+            keeper.transfer_offers.clear();
+            game.players.push(keeper);
+        }
+        state.set_game(game);
+
+        let blockers = get_departure_blockers_internal(&state).expect("blockers");
+
+        assert!(
+            blockers
+                .get("keeper-0")
+                .is_some_and(|key| key.starts_with("be.error.squadFloor.")),
+            "{blockers:?}"
+        );
+        state.update_game(|game| game.manager.team_id = None);
+        assert!(get_departure_blockers_internal(&state)
+            .expect("blockers")
+            .is_empty());
     }
 }

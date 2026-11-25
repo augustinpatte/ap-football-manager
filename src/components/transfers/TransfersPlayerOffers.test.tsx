@@ -24,7 +24,12 @@ describe("TransferOfferRecord", () => {
       openCounterNegotiation: vi.fn(),
     } as unknown as Pick<
       TransfersTabController,
-      "gameState" | "t" | "userTeamId" | "handleRespondOffer" | "openCounterNegotiation"
+      | "gameState"
+      | "t"
+      | "userTeamId"
+      | "handleRespondOffer"
+      | "openCounterNegotiation"
+      | "departureBlockers"
     >;
     const offer = {
       id: "o1",
@@ -38,5 +43,62 @@ describe("TransferOfferRecord", () => {
     );
 
     expect(screen.getByText(/€941,250/)).toBeInTheDocument();
+  });
+});
+
+describe("TransferOfferRecord with a player the squad floor holds", () => {
+  const baseState = (departureBlockers: Record<string, string>) =>
+    ({
+      gameState: { teams: [{ id: "buyer", name: "Buyer FC" }] },
+      t: (key: string) => key,
+      userTeamId: "mine",
+      handleRespondOffer: vi.fn(),
+      openCounterNegotiation: vi.fn(),
+      departureBlockers,
+    }) as unknown as Pick<
+      TransfersTabController,
+      | "gameState"
+      | "t"
+      | "userTeamId"
+      | "handleRespondOffer"
+      | "openCounterNegotiation"
+      | "departureBlockers"
+    >;
+  const offer = {
+    id: "o1",
+    from_team_id: "buyer",
+    fee: 941250,
+    status: "Pending",
+  } as unknown as TransferOfferData;
+  const player = { id: "gk", team_id: "mine" } as unknown as PlayerData;
+
+  /**
+   * Given an offer for a player the club cannot spare
+   * When the offer row is shown
+   * Then accepting and countering are closed, declining is not, and the reason is on the row
+   */
+  it("closes_accept_and_counter_but_not_decline_and_says_why", () => {
+    const state = baseState({
+      gk: "be.error.squadFloor.wouldLeaveShort?group=common.positionGroups.Goalkeeper",
+    });
+    render(<TransferOfferRecord state={state} offer={offer} player={player} />);
+
+    expect(screen.getByTitle("transfers.acceptOffer")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).toBeDisabled();
+    expect(screen.getByTitle("transfers.rejectOffer")).toBeEnabled();
+    expect(screen.getByRole("note")).toBeInTheDocument();
+  });
+
+  /**
+   * Given the same offer for a player the club can spare
+   * When the offer row is shown
+   * Then nothing is closed and there is no note
+   */
+  it("leaves_everything_open_for_a_player_who_can_leave", () => {
+    render(<TransferOfferRecord state={baseState({})} offer={offer} player={player} />);
+
+    expect(screen.getByTitle("transfers.acceptOffer")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "transfers.counterOffer" })).toBeEnabled();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 });

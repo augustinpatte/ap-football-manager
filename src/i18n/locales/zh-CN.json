@@ -1671,7 +1671,32 @@
       "pendingDetail": "他的转会将于 {{date}} 办理注册。",
       "pendingDetailNoDate": "他的转会正在等待办理注册。"
     },
-    "requestWentThrough": "你的请求已经执行，但回复在途中丢失。报价记录中可以查看结果。"
+    "requestWentThrough": "你的请求已经执行，但回复在途中丢失。报价记录中可以查看结果。",
+    "activity": {
+      "title": "转会动态",
+      "intro": "你参与的每一项报价和租借，按阶段分类。打开球员即可查看其完整记录。",
+      "empty": "暂无：没有进行中或近期的报价和租借。",
+      "section": {
+        "received": "收到的报价：等待你的答复",
+        "negotiating": "你的报价：谈判进行中",
+        "pendingRegistration": "已谈妥：等待注册",
+        "completed": "已完成的转会",
+        "activeLoans": "进行中的租借",
+        "closed": "已拒绝或撤回（最近 60 天）"
+      },
+      "direction": {
+        "buying": "引进",
+        "selling": "出售",
+        "loanIn": "租入",
+        "loanOut": "租出"
+      },
+      "registersOn": "{{date}} 注册",
+      "loanUntil": "至 {{date}}",
+      "wageShare": "租入方支付 {{pct}}% 的薪资",
+      "openPlayer": "打开 {{name}}",
+      "playerTermsNote": "与俱乐部谈妥但尚未与球员谈妥的转会费不会被保存：报价窗口会一直保持打开，直到你向球员提出合同条款。",
+      "needsAnswer": "{{count}} 项等待你答复"
+    }
   },
   "transferCentreWorld": {
     "title": "转会中心",

@@ -1671,7 +1671,32 @@
       "pendingDetail": "Transferi {{date}} tarihinde tescil edilmeyi bekliyor.",
       "pendingDetailNoDate": "Transferi tescil edilmeyi bekliyor."
     },
-    "requestWentThrough": "İsteğiniz gerçekleşti ancak yanıtı yolda kayboldu. Sonucu teklif geçmişinde görebilirsiniz."
+    "requestWentThrough": "İsteğiniz gerçekleşti ancak yanıtı yolda kayboldu. Sonucu teklif geçmişinde görebilirsiniz.",
+    "activity": {
+      "title": "Transfer hareketleri",
+      "intro": "Katıldığınız her teklif ve kiralama, aşamasına göre. Tüm geçmişi görmek için bir oyuncuyu açın.",
+      "empty": "Henüz hiçbir şey yok: açık veya yakın tarihli teklif ya da kiralama yok.",
+      "section": {
+        "received": "Gelen teklifler: yanıtınızı bekliyor",
+        "negotiating": "Tekliflerin: görüşmeler sürüyor",
+        "pendingRegistration": "Anlaşıldı: tescil bekliyor",
+        "completed": "Tamamlanan transferler",
+        "activeLoans": "Süren kiralamalar",
+        "closed": "Reddedilen veya geri çekilen (son 60 gün)"
+      },
+      "direction": {
+        "buying": "Transfer (alım)",
+        "selling": "Satış",
+        "loanIn": "Kiralık alınan",
+        "loanOut": "Kiralık verilen"
+      },
+      "registersOn": "Tescil tarihi: {{date}}",
+      "loanUntil": "{{date}} tarihine kadar",
+      "wageShare": "Kiralayan kulüp maaşın %{{pct}}’ini öder",
+      "openPlayer": "{{name}} oyuncusunu aç",
+      "playerTermsNote": "Kulüple anlaşılan ancak oyuncuyla henüz anlaşılmayan bedel kaydedilmez: sözleşme şartlarını oyuncuya sunana kadar teklif penceresi açık kalır.",
+      "needsAnswer": "{{count}} yanıtınızı bekliyor"
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",

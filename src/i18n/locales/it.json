@@ -1697,7 +1697,32 @@
       "pendingDetail": "Il suo trasferimento attende la registrazione il {{date}}.",
       "pendingDetailNoDate": "Il suo trasferimento attende la registrazione."
     },
-    "requestWentThrough": "La tua richiesta è andata a buon fine, ma la risposta si è persa per strada. Lo storico delle offerte mostra il risultato."
+    "requestWentThrough": "La tua richiesta è andata a buon fine, ma la risposta si è persa per strada. Lo storico delle offerte mostra il risultato.",
+    "activity": {
+      "title": "Attività di mercato",
+      "intro": "Ogni offerta e prestito a cui partecipi, per fase. Apri un giocatore per vederne tutta la cronologia.",
+      "empty": "Ancora nulla: nessuna offerta o prestito aperto o recente.",
+      "section": {
+        "received": "Offerte ricevute: attendono la tua risposta",
+        "negotiating": "Le tue offerte: trattative in corso",
+        "pendingRegistration": "Concordati: in attesa di tesseramento",
+        "completed": "Trasferimenti conclusi",
+        "activeLoans": "Prestiti in corso",
+        "closed": "Rifiutate o ritirate (ultimi 60 giorni)"
+      },
+      "direction": {
+        "buying": "Acquisto",
+        "selling": "Vendita",
+        "loanIn": "Prestito in entrata",
+        "loanOut": "Prestito in uscita"
+      },
+      "registersOn": "Tesseramento il {{date}}",
+      "loanUntil": "Fino al {{date}}",
+      "wageShare": "Il club ospitante paga il {{pct}}% dello stipendio",
+      "openPlayer": "Apri {{name}}",
+      "playerTermsNote": "Una cifra concordata con un club ma non ancora con il giocatore non viene salvata: la finestra dell’offerta resta aperta finché non gli proponi un contratto.",
+      "needsAnswer": "{{count}} attendono la tua risposta"
+    }
   },
   "transferCentreWorld": {
     "title": "Centro trasferimenti",

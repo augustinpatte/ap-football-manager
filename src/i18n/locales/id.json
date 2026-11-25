@@ -1671,7 +1671,32 @@
       "pendingDetail": "Perpindahannya menunggu registrasi pada {{date}}.",
       "pendingDetailNoDate": "Perpindahannya menunggu registrasi."
     },
-    "requestWentThrough": "Permintaan Anda berhasil diproses, tetapi balasannya hilang di perjalanan. Riwayat tawaran menampilkan hasilnya."
+    "requestWentThrough": "Permintaan Anda berhasil diproses, tetapi balasannya hilang di perjalanan. Riwayat tawaran menampilkan hasilnya.",
+    "activity": {
+      "title": "Aktivitas transfer",
+      "intro": "Setiap tawaran dan peminjaman yang Anda ikuti, menurut tahap. Buka pemain untuk melihat riwayat lengkapnya.",
+      "empty": "Belum ada: tidak ada tawaran atau peminjaman yang terbuka atau baru.",
+      "section": {
+        "received": "Tawaran diterima: menunggu jawaban Anda",
+        "negotiating": "Tawaran Anda: negosiasi berlangsung",
+        "pendingRegistration": "Disepakati: menunggu pendaftaran",
+        "completed": "Transfer selesai",
+        "activeLoans": "Peminjaman aktif",
+        "closed": "Ditolak atau ditarik (60 hari terakhir)"
+      },
+      "direction": {
+        "buying": "Perekrutan",
+        "selling": "Penjualan",
+        "loanIn": "Pinjaman masuk",
+        "loanOut": "Pinjaman keluar"
+      },
+      "registersOn": "Terdaftar pada {{date}}",
+      "loanUntil": "Sampai {{date}}",
+      "wageShare": "Klub peminjam membayar {{pct}}% gaji",
+      "openPlayer": "Buka {{name}}",
+      "playerTermsNote": "Biaya yang disepakati dengan klub tetapi belum dengan pemain tidak disimpan: jendela tawaran tetap terbuka sampai Anda mengajukan syarat kontrak kepadanya.",
+      "needsAnswer": "{{count}} menunggu jawaban Anda"
+    }
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",

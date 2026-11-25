@@ -46,6 +46,7 @@ type TransfersMarketTableProps = {
     | "handleRespondLoanOffer"
     | "openLoanCounterOffer"
     | "handleExerciseLoanBuyOption"
+    | "departureBlockers"
     | "showMarketPagination"
     | "marketRangeFrom"
     | "marketRangeTo"

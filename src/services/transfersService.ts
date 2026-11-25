@@ -195,6 +195,14 @@ export async function counterOffer(
   });
 }
 
+/**
+ * The manager's players who cannot leave today without leaving the club short of the squad floor,
+ * each with the refusal key a sale, loan or release of his would get.
+ */
+export async function getDepartureBlockers(): Promise<Record<string, string>> {
+  return (await invoke<Record<string, string> | null>("get_departure_blockers")) ?? {};
+}
+
 /** The user's negotiation over a player as the backend's own rule reads it. */
 export interface BidNegotiationStatusData {
   /** The offer the next bid continues, or the broken-off talks; null when the next bid starts over. */

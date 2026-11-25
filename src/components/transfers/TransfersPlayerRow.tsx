@@ -41,6 +41,7 @@ type PlayerRowDetailsProps = {
     | "handleRespondLoanOffer"
     | "openLoanCounterOffer"
     | "handleExerciseLoanBuyOption"
+    | "departureBlockers"
     | "isScoutingView"
     | "openDealEntry"
     | "openDealHistory"
@@ -84,6 +85,7 @@ type TransferPlayerRowProps = {
     | "handleRespondLoanOffer"
     | "openLoanCounterOffer"
     | "handleExerciseLoanBuyOption"
+    | "departureBlockers"
   >;
   player: PlayerData;
 };

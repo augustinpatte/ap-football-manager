@@ -3,11 +3,17 @@ import { Badge } from "../ui";
 import { ShoppingCart, Gavel, Check, X } from "lucide-react";
 import { getTeamName, formatExactMoney } from "../../lib/helpers";
 import { getTransferOfferBadgeVariant, getTransferOfferStatusLabel } from "./TransfersTab.helpers";
+import { describeError } from "../../utils/errorMessage";
 import type { TransfersTabController } from "./useTransfersTabController";
 type TransferOfferRecordProps = {
   state: Pick<
     TransfersTabController,
-    "gameState" | "t" | "userTeamId" | "handleRespondOffer" | "openCounterNegotiation"
+    | "gameState"
+    | "t"
+    | "userTeamId"
+    | "handleRespondOffer"
+    | "openCounterNegotiation"
+    | "departureBlockers"
   >;
   offer: TransferOfferData;
   player: PlayerData;
@@ -21,6 +27,7 @@ type LoanOfferRecordProps = {
     | "handleRespondLoanOffer"
     | "openLoanCounterOffer"
     | "handleExerciseLoanBuyOption"
+    | "departureBlockers"
   >;
   offer: LoanOfferData;
   player: PlayerData;
@@ -37,6 +44,7 @@ type PlayerOffersCellProps = {
     | "handleRespondLoanOffer"
     | "openLoanCounterOffer"
     | "handleExerciseLoanBuyOption"
+    | "departureBlockers"
   >;
   hasOffersForThisPlayer: boolean;
   transferOffersForThisPlayer: TransferOfferData[];
@@ -44,10 +52,29 @@ type PlayerOffersCellProps = {
   loanOffersForThisPlayer: LoanOfferData[];
 };
 
+/** Why this player cannot be sold, lent or released today, in words; `null` when he can. */
+function blockedReason(
+  blockers: Record<string, string> | undefined,
+  playerId: string,
+  t: TransferOfferRecordProps["state"]["t"],
+): string | null {
+  const refusal = blockers?.[playerId];
+  return refusal ? describeError(refusal, t).text : null;
+}
+
 export function TransferOfferRecord({ state, offer, player }: TransferOfferRecordProps) {
-  const { gameState, t, userTeamId, handleRespondOffer, openCounterNegotiation } = state;
+  const {
+    gameState,
+    t,
+    userTeamId,
+    handleRespondOffer,
+    openCounterNegotiation,
+    departureBlockers,
+  } = state;
+  const blocked =
+    offer.status === "Pending" ? blockedReason(departureBlockers, player.id, t) : null;
   return (
-    <div key={offer.id} className="flex items-center gap-2">
+    <div key={offer.id} className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
         {getTeamName(gameState.teams, offer.from_team_id, t("common.unknown"))}
       </span>
@@ -63,7 +90,8 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
               e.stopPropagation();
               handleRespondOffer(player.id, offer.id, true);
             }}
-            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
+            disabled={blocked !== null}
+            className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
             title={t("transfers.acceptOffer")}
           >
             <Check className="w-3 h-3" />
@@ -85,13 +113,19 @@ export function TransferOfferRecord({ state, offer, player }: TransferOfferRecor
               e.stopPropagation();
               openCounterNegotiation(player, offer);
             }}
+            disabled={blocked !== null}
             aria-label={t("transfers.counterOffer")}
-            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
+            className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
             title={t("transfers.counterOffer")}
           >
             <Gavel className="w-3 h-3" /> {t("transfers.counter")}
           </button>
         </div>
+      )}
+      {blocked && (
+        <p role="note" className="basis-full text-caption text-warning">
+          {blocked}
+        </p>
       )}
     </div>
   );
@@ -105,7 +139,10 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
     handleRespondLoanOffer,
     openLoanCounterOffer,
     handleExerciseLoanBuyOption,
+    departureBlockers,
   } = state;
+  const blocked =
+    offer.status === "Pending" ? blockedReason(departureBlockers, player.id, t) : null;
 
   const offerBuyOptionFee = offer.buy_option_fee ?? player.active_loan?.buy_option_fee ?? null;
   const canExerciseBuyOption =
@@ -116,7 +153,7 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
     offerBuyOptionFee > 0;
 
   return (
-    <div key={`loan-${offer.id}`} className="flex items-center gap-2">
+    <div key={`loan-${offer.id}`} className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">
         {getTeamName(gameState.teams, offer.from_team_id, t("common.unknown"))}
       </span>
@@ -146,7 +183,8 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
                 e.stopPropagation();
                 handleRespondLoanOffer(player.id, offer.id, true);
               }}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
+              disabled={blocked !== null}
+              className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none p-1 rounded bg-success-500/20 hover:bg-success-500/30 text-primary-700 dark:text-success-400"
               title={t("transfers.acceptLoanOffer")}
             >
               <Check className="w-3 h-3" />
@@ -168,8 +206,9 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
                 e.stopPropagation();
                 openLoanCounterOffer(player, offer);
               }}
+              disabled={blocked !== null}
               aria-label={t("transfers.counterLoanOffer")}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
+              className="disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 dark:focus-visible:ring-primary-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-navy-800 motion-reduce:transition-none flex items-center gap-1 px-2 py-1 rounded bg-accent-500/20 hover:bg-accent-500/30 text-accent-700 dark:text-accent-400 text-xs font-heading font-bold uppercase tracking-wider"
               title={t("transfers.counterLoanOffer")}
             >
               <Gavel className="w-3 h-3" /> {t("transfers.counter")}
@@ -189,6 +228,11 @@ export function LoanOfferRecord({ state, offer, player }: LoanOfferRecordProps) 
           <ShoppingCart className="w-3 h-3" /> {t("transfers.exerciseBuyOption")}
         </button>
       ) : null}
+      {blocked && (
+        <p role="note" className="basis-full text-caption text-warning">
+          {blocked}
+        </p>
+      )}
     </div>
   );
 }

@@ -232,18 +232,41 @@ pub(crate) fn club_needs_him_given(
 /// returns, naming what it would leave the club short of.
 pub(crate) fn ensure_departure_keeps_floor(game: &Game, player_id: &str) -> Result<(), String> {
     match departure_would_leave_short(game, player_id) {
-        Some(Shortage::Group(group)) => Err(crate::contracts::backend_text_with_param(
+        Some(shortage) => Err(refusal_for(&shortage)),
+        None => Ok(()),
+    }
+}
+
+/// The refusal text for a shortage: one sentence per cause, shared by every route that refuses a
+/// departure and by [`departure_blockers`], so what the screen warns of is what the command says.
+fn refusal_for(shortage: &Shortage) -> String {
+    match shortage {
+        Shortage::Group(group) => crate::contracts::backend_text_with_param(
             WOULD_LEAVE_GROUP_SHORT_ERROR,
             "group",
-            &position_group_key(&group),
-        )),
-        Some(Shortage::Seniors) => Err(crate::contracts::backend_text_with_param(
+            &position_group_key(group),
+        ),
+        Shortage::Seniors => crate::contracts::backend_text_with_param(
             WOULD_LEAVE_SENIORS_SHORT_ERROR,
             "floor",
             &MIN_SENIOR_PLAYERS.to_string(),
-        )),
-        None => Ok(()),
+        ),
     }
+}
+
+/// Every senior of `team_id` who could not leave today without leaving the club short, with the
+/// refusal his sale, loan or release would get. One pass over the world: the screen asks it once to
+/// tell the manager, before he answers an offer or counters it, that a sale is not possible.
+pub fn departure_blockers(game: &Game, team_id: &str) -> Vec<(String, String)> {
+    let seniors = senior_counts(game, team_id);
+    game.players
+        .iter()
+        .filter(|player| holds_up_the_floor(player, team_id))
+        .filter_map(|player| {
+            shortage_without_one(seniors, &player.position)
+                .map(|shortage| (player.id.clone(), refusal_for(&shortage)))
+        })
+        .collect()
 }
 
 /// The frontend key naming a position group, resolved there as a param value.

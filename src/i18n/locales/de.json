@@ -1671,7 +1671,32 @@
       "pendingDetail": "Sein Wechsel wartet auf die Registrierung am {{date}}.",
       "pendingDetailNoDate": "Sein Wechsel wartet auf die Registrierung."
     },
-    "requestWentThrough": "Deine Anfrage wurde ausgeführt, aber die Antwort ging unterwegs verloren. Der Angebotsverlauf zeigt das Ergebnis."
+    "requestWentThrough": "Deine Anfrage wurde ausgeführt, aber die Antwort ging unterwegs verloren. Der Angebotsverlauf zeigt das Ergebnis.",
+    "activity": {
+      "title": "Transferaktivität",
+      "intro": "Jedes Angebot und jede Leihe, an der du beteiligt bist, nach Stand. Öffne einen Spieler, um seinen vollständigen Verlauf zu sehen.",
+      "empty": "Noch nichts: keine offenen oder aktuellen Angebote oder Leihen.",
+      "section": {
+        "received": "Erhaltene Angebote: warten auf deine Antwort",
+        "negotiating": "Deine Angebote: Verhandlungen laufen",
+        "pendingRegistration": "Vereinbart: warten auf die Registrierung",
+        "completed": "Abgeschlossene Transfers",
+        "activeLoans": "Laufende Leihen",
+        "closed": "Abgelehnt oder zurückgezogen (letzte 60 Tage)"
+      },
+      "direction": {
+        "buying": "Verpflichtung",
+        "selling": "Verkauf",
+        "loanIn": "Leihe (aufgenommen)",
+        "loanOut": "Leihe (abgegeben)"
+      },
+      "registersOn": "Registrierung am {{date}}",
+      "loanUntil": "Bis {{date}}",
+      "wageShare": "Der Leihverein zahlt {{pct}} % des Gehalts",
+      "openPlayer": "{{name}} öffnen",
+      "playerTermsNote": "Eine mit dem Verein vereinbarte Ablöse, der Spieler aber noch nicht zugestimmt hat, wird nicht gespeichert: Das Angebotsfenster bleibt offen, bis du ihm Vertragsbedingungen vorlegst.",
+      "needsAnswer": "{{count}} warten auf deine Antwort"
+    }
   },
   "transferCentreWorld": {
     "title": "Transferzentrum",

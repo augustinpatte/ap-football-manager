@@ -1671,7 +1671,32 @@
       "pendingDetail": "Jeho přestup čeká na registraci dne {{date}}.",
       "pendingDetailNoDate": "Jeho přestup čeká na registraci."
     },
-    "requestWentThrough": "Váš požadavek proběhl, ale odpověď se cestou ztratila. Výsledek ukazuje historie nabídek."
+    "requestWentThrough": "Váš požadavek proběhl, ale odpověď se cestou ztratila. Výsledek ukazuje historie nabídek.",
+    "activity": {
+      "title": "Přestupová aktivita",
+      "intro": "Každá nabídka a hostování, kterých se účastníte, podle fáze. Otevřete hráče a uvidíte celou jeho historii.",
+      "empty": "Zatím nic: žádné otevřené ani nedávné nabídky či hostování.",
+      "section": {
+        "received": "Přijaté nabídky: čekají na vaši odpověď",
+        "negotiating": "Vaše nabídky: jednání probíhají",
+        "pendingRegistration": "Dohodnuto: čeká na registraci",
+        "completed": "Dokončené přestupy",
+        "activeLoans": "Probíhající hostování",
+        "closed": "Odmítnuto nebo staženo (posledních 60 dní)"
+      },
+      "direction": {
+        "buying": "Posila",
+        "selling": "Prodej",
+        "loanIn": "Hostování k nám",
+        "loanOut": "Hostování od nás"
+      },
+      "registersOn": "Registrace {{date}}",
+      "loanUntil": "Do {{date}}",
+      "wageShare": "Přijímající klub platí {{pct}} % platu",
+      "openPlayer": "Otevřít {{name}}",
+      "playerTermsNote": "Poplatek dohodnutý s klubem, ale ještě ne s hráčem, se neukládá: okno nabídky zůstane otevřené, dokud hráči nenavrhnete smlouvu.",
+      "needsAnswer": "{{count}} čeká na vaši odpověď"
+    }
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",

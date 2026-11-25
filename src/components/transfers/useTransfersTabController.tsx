@@ -7,6 +7,7 @@ import { useLoanCounterFlow } from "./useLoanCounterFlow";
 import { useTransferCounterFlow } from "./useTransferCounterFlow";
 import { useTransferResponses } from "./useTransferResponses";
 import { useTransferActions } from "./useTransferActions";
+import { useDepartureBlockers } from "./useDepartureBlockers";
 import { useDealWorkspaceFlow } from "./useDealWorkspaceFlow";
 export function useTransfersTabController({
   gameState,
@@ -36,6 +37,7 @@ export function useTransfersTabController({
   const transferCounterFlow = useTransferCounterFlow({ onGameUpdate, t });
   const transferResponses = useTransferResponses({ onGameUpdate });
   const transferActions = useTransferActions({ gameState, userTeamId, onGameUpdate, t });
+  const departureBlockers = useDepartureBlockers(gameState);
   const dealWorkspaceFlow = useDealWorkspaceFlow({
     gameState,
     onGameUpdate,
@@ -61,6 +63,7 @@ export function useTransfersTabController({
     ...transferResponses,
     ...transferActions,
     ...dealWorkspaceFlow,
+    departureBlockers,
   };
 }
 export type TransfersTabController = ReturnType<typeof useTransfersTabController>;

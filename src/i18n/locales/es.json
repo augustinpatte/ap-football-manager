@@ -1671,7 +1671,32 @@
       "pendingDetail": "Su traspaso espera la inscripción el {{date}}.",
       "pendingDetailNoDate": "Su traspaso espera la inscripción."
     },
-    "requestWentThrough": "Tu solicitud se realizó, pero su respuesta se perdió por el camino. El historial de ofertas muestra el resultado."
+    "requestWentThrough": "Tu solicitud se realizó, pero su respuesta se perdió por el camino. El historial de ofertas muestra el resultado.",
+    "activity": {
+      "title": "Actividad de traspasos",
+      "intro": "Cada oferta y cesión en la que participas, por fase. Abre un jugador para ver su historial completo.",
+      "empty": "Nada todavía: no hay ofertas ni cesiones abiertas o recientes.",
+      "section": {
+        "received": "Ofertas recibidas: esperan tu respuesta",
+        "negotiating": "Tus ofertas: negociaciones en curso",
+        "pendingRegistration": "Acordados: pendientes de inscripción",
+        "completed": "Traspasos completados",
+        "activeLoans": "Cesiones en curso",
+        "closed": "Rechazadas o retiradas (últimos 60 días)"
+      },
+      "direction": {
+        "buying": "Fichaje",
+        "selling": "Venta",
+        "loanIn": "Cesión recibida",
+        "loanOut": "Cesión enviada"
+      },
+      "registersOn": "Se inscribe el {{date}}",
+      "loanUntil": "Hasta el {{date}}",
+      "wageShare": "El club receptor paga el {{pct}} % del sueldo",
+      "openPlayer": "Abrir a {{name}}",
+      "playerTermsNote": "Una tarifa acordada con un club pero aún no con el jugador no se guarda: la ventana de la oferta sigue abierta hasta que le propongas un contrato.",
+      "needsAnswer": "{{count}} esperan tu respuesta"
+    }
   },
   "transferCentreWorld": {
     "title": "Centro de fichajes",

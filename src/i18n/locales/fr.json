@@ -1671,7 +1671,32 @@
       "pendingDetail": "Son transfert attend l'enregistrement le {{date}}.",
       "pendingDetailNoDate": "Son transfert attend l'enregistrement."
     },
-    "requestWentThrough": "Votre demande a bien été traitée, mais sa réponse s’est perdue en route. L’historique des offres montre le résultat."
+    "requestWentThrough": "Votre demande a bien été traitée, mais sa réponse s’est perdue en route. L’historique des offres montre le résultat.",
+    "activity": {
+      "title": "Activité de transferts",
+      "intro": "Chaque offre et prêt auquel vous participez, par étape. Ouvrez un joueur pour voir tout son historique.",
+      "empty": "Rien pour l’instant : aucune offre ni aucun prêt en cours ou récent.",
+      "section": {
+        "received": "Offres reçues : en attente de votre réponse",
+        "negotiating": "Vos offres : discussions en cours",
+        "pendingRegistration": "Convenus : en attente d’enregistrement",
+        "completed": "Transferts conclus",
+        "activeLoans": "Prêts en cours",
+        "closed": "Refusées ou retirées (60 derniers jours)"
+      },
+      "direction": {
+        "buying": "Recrue",
+        "selling": "Vente",
+        "loanIn": "Prêt entrant",
+        "loanOut": "Prêt sortant"
+      },
+      "registersOn": "Enregistré le {{date}}",
+      "loanUntil": "Jusqu’au {{date}}",
+      "wageShare": "Le club d’accueil paie {{pct}} % du salaire",
+      "openPlayer": "Ouvrir {{name}}",
+      "playerTermsNote": "Un montant convenu avec un club mais pas encore avec le joueur n’est pas enregistré : la fenêtre de l’offre reste ouverte jusqu’à ce que vous lui proposiez un contrat.",
+      "needsAnswer": "{{count}} en attente de votre réponse"
+    }
   },
   "transferCentreWorld": {
     "title": "Centre des transferts",

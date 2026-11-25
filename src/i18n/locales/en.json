@@ -1671,7 +1671,32 @@
       "pendingDetail": "His move is waiting for registration on {{date}}.",
       "pendingDetailNoDate": "His move is waiting for registration."
     },
-    "requestWentThrough": "Your request went through, but its reply was lost on the way. The offer history shows the result."
+    "requestWentThrough": "Your request went through, but its reply was lost on the way. The offer history shows the result.",
+    "activity": {
+      "title": "Transfer activity",
+      "intro": "Every offer and loan you are part of, by stage. Open a player to see his full history.",
+      "empty": "Nothing yet: no offers or loans are open or recent.",
+      "section": {
+        "received": "Offers received: waiting for your answer",
+        "negotiating": "Your offers: talks in progress",
+        "pendingRegistration": "Agreed: waiting to register",
+        "completed": "Completed transfers",
+        "activeLoans": "Active loans",
+        "closed": "Rejected or withdrawn (last 60 days)"
+      },
+      "direction": {
+        "buying": "Signing",
+        "selling": "Selling",
+        "loanIn": "Loan in",
+        "loanOut": "Loan out"
+      },
+      "registersOn": "Registers on {{date}}",
+      "loanUntil": "Until {{date}}",
+      "wageShare": "Borrower pays {{pct}}% of wages",
+      "openPlayer": "Open {{name}}",
+      "playerTermsNote": "A fee agreed with a club but not yet with the player is not stored: the bid window stays open until you put contract terms to him.",
+      "needsAnswer": "{{count}} waiting for your answer"
+    }
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",

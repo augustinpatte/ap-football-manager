@@ -1671,7 +1671,32 @@
       "pendingDetail": "A transferência dele aguarda o registro em {{date}}.",
       "pendingDetailNoDate": "A transferência dele aguarda o registro."
     },
-    "requestWentThrough": "Seu pedido foi concluído, mas a resposta se perdeu no caminho. O histórico de propostas mostra o resultado."
+    "requestWentThrough": "Seu pedido foi concluído, mas a resposta se perdeu no caminho. O histórico de propostas mostra o resultado.",
+    "activity": {
+      "title": "Atividade de transferências",
+      "intro": "Todas as propostas e empréstimos de que você participa, por etapa. Abra um jogador para ver o histórico completo.",
+      "empty": "Nada ainda: não há propostas nem empréstimos abertos ou recentes.",
+      "section": {
+        "received": "Propostas recebidas: aguardando sua resposta",
+        "negotiating": "Suas propostas: negociações em andamento",
+        "pendingRegistration": "Acordados: aguardando registro",
+        "completed": "Transferências concluídas",
+        "activeLoans": "Empréstimos ativos",
+        "closed": "Recusadas ou retiradas (últimos 60 dias)"
+      },
+      "direction": {
+        "buying": "Contratação",
+        "selling": "Venda",
+        "loanIn": "Empréstimo recebido",
+        "loanOut": "Empréstimo cedido"
+      },
+      "registersOn": "Registro em {{date}}",
+      "loanUntil": "Até {{date}}",
+      "wageShare": "O clube que recebe paga {{pct}}% do salário",
+      "openPlayer": "Abrir {{name}}",
+      "playerTermsNote": "Um valor acordado com um clube mas ainda não com o jogador não é salvo: a janela da proposta fica aberta até você apresentar um contrato a ele.",
+      "needsAnswer": "{{count}} aguardando sua resposta"
+    }
   },
   "transferCentreWorld": {
     "title": "Central de transferências",

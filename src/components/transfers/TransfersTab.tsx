@@ -6,6 +6,7 @@ import { TransfersMarketFilters } from "./TransfersMarketFilters";
 import { TransfersBudgetHeader, TransfersTabNavigation } from "./TransfersTabHeader";
 import { TransfersMarketTable } from "./TransfersMarketTable";
 import TransferDeadlinePanel from "./TransferDeadlinePanel";
+import TransferActivityPanel from "./TransferActivityPanel";
 import {
   ActiveDealWorkspace,
   TransferBidDialog,
@@ -39,6 +40,9 @@ export default function TransfersTab(props: TransfersTabProps) {
 
       {/* Tab navigation */}
       <TransfersTabNavigation state={state} />
+
+      {/* Every offer and loan by stage: what needs an answer, what registers when, what fell through */}
+      <TransferActivityPanel gameState={props.gameState} onSelectPlayer={props.onSelectPlayer} />
 
       {/* Filters */}
       <TransfersMarketFilters state={state} />
