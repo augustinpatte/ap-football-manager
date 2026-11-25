@@ -271,6 +271,160 @@ fn a_dormant_club_with_a_need_shops_before_the_window_closes() {
     );
 }
 
+/// Fills `team2`'s senior list with defenders until it holds `seniors` players (its two forwards
+/// included), so its forward need stays as it was.
+fn pad_team2_list_to(game: &mut Game, seniors: usize) {
+    let held = game
+        .players
+        .iter()
+        .filter(|p| p.team_id.as_deref() == Some("team2"))
+        .count();
+    for index in 0..seniors.saturating_sub(held) {
+        let mut defender = Player::new(
+            format!("team2-filler-{index}"),
+            "Filler".to_string(),
+            "Defender".to_string(),
+            "1998-01-01".to_string(),
+            "England".to_string(),
+            Position::Defender,
+            sample_attributes(),
+        );
+        defender.team_id = Some("team2".to_string());
+        defender.stage_contract_end(Some("2028-06-30".to_string()));
+        defender.stage_wage(10_000);
+        game.players.push(defender);
+    }
+}
+
+/// Given a club with a real need and money whose senior list is full (30 registered)
+/// When the market sweeps on its review day
+/// Then it makes no offer: every purchase would be refused at registration (`buyerSquadFull`), so
+///      an offer to the user would be one he could never accept, and its turn would be wasted.
+#[test]
+fn a_club_whose_senior_list_is_full_does_not_shop() {
+    let mut game = dormant_buyer_with_a_need(60, true);
+    pad_team2_list_to(&mut game, 30);
+
+    evaluate_transfer_market(&mut game);
+
+    assert!(
+        !bids_from_team2(&game),
+        "a club with no place on its senior list bid for a player it cannot register"
+    );
+}
+
+/// Given the same club one place short of full (29 registered)
+/// When the market sweeps on its review day
+/// Then it still bids: the rule removes only the clubs that cannot sign anyone.
+#[test]
+fn a_club_with_one_place_left_still_shops() {
+    let mut game = dormant_buyer_with_a_need(60, true);
+    pad_team2_list_to(&mut game, 29);
+
+    evaluate_transfer_market(&mut game);
+
+    assert!(
+        bids_from_team2(&game),
+        "a club with a place on its list must still shop"
+    );
+}
+
+fn senior_of(id: &str, club: &str) -> Player {
+    let mut player = Player::new(
+        id.to_string(),
+        "Squad".to_string(),
+        id.to_string(),
+        "1998-01-01".to_string(),
+        "England".to_string(),
+        Position::Midfielder,
+        sample_attributes(),
+    );
+    player.team_id = Some(club.to_string());
+    player
+}
+
+/// Given clubs in every state a senior list can be in: empty, with room, one place short because a
+///       purchase is agreed, one short because a senior is out on loan, exactly full, over the limit
+/// When the sweep asks which have no place, and each club is asked the registration gate itself
+/// Then the two agree for every club: one rule, read two ways.
+#[test]
+fn the_sweeps_full_clubs_are_the_clubs_the_registration_gate_refuses() {
+    use domain::player::{ActiveLoan, LoanTermsSource, TransferOffer};
+
+    let mut game = make_game();
+    game.players.clear();
+    let sizes = [
+        ("room", 20, 0, 0),
+        ("one_left", 29, 0, 0),
+        ("full", 30, 0, 0),
+        ("over", 33, 0, 0),
+        ("purchase_agreed", 29, 1, 0),
+        ("senior_on_loan", 29, 0, 1),
+        ("loan_and_purchase_with_room", 27, 1, 1),
+        ("loan_and_purchase_without", 28, 1, 1),
+    ];
+    let mut elsewhere = 0;
+    for (club, seniors, agreed_purchases, seniors_out) in sizes {
+        game.teams.push(make_team(club, club, 500));
+        for index in 0..seniors {
+            game.players
+                .push(senior_of(&format!("{club}-{index}"), club));
+        }
+        for _ in 0..agreed_purchases {
+            elsewhere += 1;
+            let mut target = senior_of(&format!("target-{elsewhere}"), "team2");
+            target.transfer_offers.push(TransferOffer {
+                id: format!("offer-{elsewhere}"),
+                from_team_id: club.to_string(),
+                fee: 1,
+                wage_offered: 1,
+                last_manager_fee: None,
+                negotiation_round: 1,
+                suggested_counter_fee: None,
+                status: TransferOfferStatus::PendingRegistration,
+                date: "2026-01-12".to_string(),
+                registration_date: Some("2026-01-20".to_string()),
+                registration_failure_reason: None,
+                closed_on: None,
+                terms: Default::default(),
+            });
+            game.players.push(target);
+        }
+        for _ in 0..seniors_out {
+            elsewhere += 1;
+            let mut lent = senior_of(&format!("lent-{elsewhere}"), "team2");
+            lent.active_loan = Some(ActiveLoan {
+                parent_team_id: club.to_string(),
+                loan_team_id: "team2".to_string(),
+                loan_team_name: None,
+                start_date: "2026-01-01".to_string(),
+                end_date: "2026-06-30".to_string(),
+                wage_contribution_pct: 100,
+                buy_option_fee: None,
+                loan_start_minutes: 0,
+                loan_start_appearances: 0,
+                development_reported_minutes: 0,
+                development_reported_appearances: 0,
+                terms_source: LoanTermsSource::default(),
+            });
+            game.players.push(lent);
+        }
+    }
+
+    let full = super::registration::clubs_without_a_senior_place(&game);
+
+    for (club, _, _, _) in sizes {
+        assert_eq!(
+            full.contains(club),
+            super::registration::signing_place_refusal(&game, club, "a-new-signing").is_some(),
+            "{club}: the sweep and the registration gate disagree"
+        );
+    }
+    assert!(full.contains("full") && full.contains("over") && full.contains("purchase_agreed"));
+    assert!(full.contains("senior_on_loan") && full.contains("loan_and_purchase_without"));
+    assert!(!full.contains("room") && !full.contains("one_left"));
+}
+
 // Shared fixtures for the acceptance routes, with enough depth to permit a departure.
 pub(super) fn acceptance_game(owner: &str, deferred: bool) -> Game {
     let mut game = make_game();

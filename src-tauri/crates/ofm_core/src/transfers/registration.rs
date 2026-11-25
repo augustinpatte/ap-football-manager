@@ -167,6 +167,59 @@ pub(crate) fn signing_place_refusal(
     })
 }
 
+/// The clubs with no place on their senior list for one more signing, read in one pass over the
+/// world: the places registered seniors take and the places promised (purchases and loans agreed,
+/// seniors out on loan) are the ones [`signing_place_refusal`] counts, and the limit is the one
+/// `SquadCapacity` states. For the market sweep, which would otherwise let such a club choose a
+/// purchase that registration is certain to refuse.
+pub(crate) fn clubs_without_a_senior_place(game: &Game) -> HashSet<String> {
+    let mut registered: std::collections::HashMap<&str, usize> = Default::default();
+    let mut promised: std::collections::HashMap<&str, usize> = Default::default();
+    for player in &game.players {
+        if let Some(team) = player.team_id.as_deref()
+            && !player.retired
+            && player.squad_role == domain::player::SquadRole::Senior
+        {
+            *registered.entry(team).or_default() += 1;
+        }
+        // A player who reserves nothing (almost all of them) has no club to name here.
+        let named_by_offers = player
+            .transfer_offers
+            .iter()
+            .map(|offer| offer.from_team_id.as_str())
+            .chain(
+                player
+                    .loan_offers
+                    .iter()
+                    .map(|offer| offer.from_team_id.as_str()),
+            )
+            .chain(
+                player
+                    .active_loan
+                    .iter()
+                    .map(|loan| loan.parent_team_id.as_str()),
+            );
+        let mut counted: HashSet<&str> = HashSet::new();
+        for club in named_by_offers {
+            if player.team_id.as_deref() == Some(club) || !counted.insert(club) {
+                continue;
+            }
+            let reserved = places_reserved_by(player, club);
+            if reserved > 0 {
+                *promised.entry(club).or_default() += reserved;
+            }
+        }
+    }
+    registered
+        .iter()
+        .filter(|(club, held)| {
+            let free = crate::contracts::SquadCapacity::seniors_only(**held).free_places;
+            free <= promised.get(*club).copied().unwrap_or(0)
+        })
+        .map(|(club, _)| (*club).to_string())
+        .collect()
+}
+
 /// The places a player who is *not* registered at `team_id` holds for it: a purchase agreed and
 /// waiting to register, a loan agreed and waiting to register, and, if he is one of its seniors out
 /// on loan, the place he returns to. Each counts one. The incoming player's own exception is the

@@ -64,7 +64,9 @@ pub use deadline::{
 pub use deal_log::*;
 pub use execution::*;
 pub use inbox_actions::{TransferOfferResponseEffect, apply_transfer_offer_response};
-pub use interest::{FUNNEL_NAMES, FUNNEL_STAGES, market_funnel, reset_market_funnel};
+pub use interest::{
+    FUNNEL_NAMES, FUNNEL_STAGES, market_execution_failures, market_funnel, reset_market_funnel,
+};
 use lifecycle::*;
 pub use loans::*;
 pub use market::*;

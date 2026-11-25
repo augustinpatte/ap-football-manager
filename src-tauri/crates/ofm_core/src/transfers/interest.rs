@@ -67,9 +67,62 @@ pub(super) enum Funnel {
     OfferOpened,
     /// An incoming loan offer was opened to the user.
     LoanOfferOpened,
+    // The same questions for a target owned by another AI club (a deal between two AI clubs), plus
+    // the ones only an AI seller answers. Measurement only: nothing counted here feeds a decision.
+    /// A buyer weighed a target owned by an AI club.
+    AiPairsWeighed,
+    AiRejectedMoved,
+    AiRejectedNoInterest,
+    AiRejectedNoCase,
+    AiRejectedSpending,
+    AiRejectedPrice,
+    AiRejectedBudget,
+    /// The player would not agree terms with the buying club.
+    AiRejectedTerms,
+    AiRejectedWage,
+    AiRejectedBooks,
+    /// The seller would not sell on the usual terms and the offer was not exceptional.
+    AiSellerUnwilling,
+    /// The offer was exceptional but the seller is not better off for taking it.
+    AiSellerDeclinedExceptional,
+    /// The day's cap on completed AI deals was already reached.
+    AiCapBlocked,
+    /// The pair passed every test.
+    AiPassed,
+    /// A buyer ended its turn with a target chosen from an AI club.
+    AiBuyerChose,
+    /// A buyer weighed its options and chose nothing.
+    AiBuyerFoundNothing,
+    /// The buyer borrowed a player in place of the purchase it had chosen.
+    AiLoanInstead,
+    /// A chosen purchase was executed: a permanent transfer between two AI clubs.
+    AiDealCompleted,
+    /// A chosen purchase was refused at execution (squad limits, registration, books).
+    AiDealFailed,
+    /// A club that wanted to shop was left out of the sweep: its senior list has no place.
+    AiBuyerListFull,
 }
 
-pub const FUNNEL_STAGES: usize = 21;
+impl Funnel {
+    /// The counter a rejection of a target owned by an AI club is booked under.
+    pub(super) fn for_ai_owner(self) -> Funnel {
+        match self {
+            Funnel::RejectedMoved => Funnel::AiRejectedMoved,
+            Funnel::RejectedNoInterest => Funnel::AiRejectedNoInterest,
+            Funnel::RejectedNoCase => Funnel::AiRejectedNoCase,
+            Funnel::RejectedSpending => Funnel::AiRejectedSpending,
+            Funnel::RejectedPrice => Funnel::AiRejectedPrice,
+            Funnel::RejectedBudget => Funnel::AiRejectedBudget,
+            Funnel::RejectedTerms => Funnel::AiRejectedTerms,
+            Funnel::RejectedWage => Funnel::AiRejectedWage,
+            Funnel::RejectedBooks => Funnel::AiRejectedBooks,
+            // The throttles and the loan target are the user-offer inbox's, with no AI counterpart.
+            other => other,
+        }
+    }
+}
+
+pub const FUNNEL_STAGES: usize = 41;
 
 /// The names of the funnel's counters, in order, for the harness's report.
 pub const FUNNEL_NAMES: [&str; FUNNEL_STAGES] = [
@@ -94,6 +147,26 @@ pub const FUNNEL_NAMES: [&str; FUNNEL_STAGES] = [
     "passed",
     "offer_opened",
     "loan_offer_opened",
+    "ai_pairs_weighed",
+    "ai_rejected_moved",
+    "ai_rejected_no_interest",
+    "ai_rejected_no_case",
+    "ai_rejected_spending",
+    "ai_rejected_price",
+    "ai_rejected_budget",
+    "ai_rejected_terms",
+    "ai_rejected_wage",
+    "ai_rejected_books",
+    "ai_seller_unwilling",
+    "ai_seller_declined_exceptional",
+    "ai_cap_blocked",
+    "ai_passed",
+    "ai_buyer_chose",
+    "ai_buyer_found_nothing",
+    "ai_loan_instead",
+    "ai_deal_completed",
+    "ai_deal_failed",
+    "ai_buyer_list_full",
 ];
 
 static FUNNEL: [AtomicU64; FUNNEL_STAGES] = [const { AtomicU64::new(0) }; FUNNEL_STAGES];
@@ -111,6 +184,36 @@ pub fn reset_market_funnel() {
     for counter in &FUNNEL {
         counter.store(0, Ordering::Relaxed);
     }
+    EXECUTION_FAILURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clear();
+}
+
+/// Why a purchase an AI club had chosen was refused when it was executed, by refusal key.
+/// Measurement only, like the funnel: nothing counted here feeds a decision.
+static EXECUTION_FAILURES: std::sync::Mutex<std::collections::BTreeMap<String, u64>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
+pub(super) fn note_execution_failure(refusal: &str) {
+    let key = refusal.split('?').next().unwrap_or(refusal).to_string();
+    *EXECUTION_FAILURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .entry(key)
+        .or_default() += 1;
+}
+
+/// The refusals of executed AI purchases since the last [`reset_market_funnel`], most frequent first.
+pub fn market_execution_failures() -> Vec<(String, u64)> {
+    let mut failures: Vec<(String, u64)> = EXECUTION_FAILURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .iter()
+        .map(|(key, count)| (key.clone(), *count))
+        .collect();
+    failures.sort_by_key(|(key, count)| (std::cmp::Reverse(*count), key.clone()));
+    failures
 }
 
 /// The shortlist's bar, shared by the opportunity score and appeal.
@@ -330,6 +433,6 @@ mod tests {
     #[test]
     fn every_stage_has_a_name_and_a_counter() {
         assert_eq!(FUNNEL_NAMES.len(), FUNNEL_STAGES);
-        assert_eq!(Funnel::LoanOfferOpened as usize, FUNNEL_STAGES - 1);
+        assert_eq!(Funnel::AiBuyerListFull as usize, FUNNEL_STAGES - 1);
     }
 }

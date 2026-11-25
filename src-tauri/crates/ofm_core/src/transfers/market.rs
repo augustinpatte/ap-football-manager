@@ -6,7 +6,7 @@
 
 use super::buyer_view::{BuyerView, squad_indices_by_club};
 use super::deal_log::{DEAL_LOG, DEAL_LOG_ON, picker_would_start};
-use super::interest::{AppealBench, Funnel, VISIBLE_APPEAL, count};
+use super::interest::{AppealBench, Funnel, VISIBLE_APPEAL, count, note_execution_failure};
 use super::*;
 
 use crate::squad_floor::group_index as position_group_index;
@@ -686,10 +686,24 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         // the club puts them in a different, reproducible order every day.
         buyer_ids.sort_by_key(|id| crate::stable_hash::stable_hash(id.as_bytes(), day_number));
     }
+    // The day's capacity is set by the clubs that wanted to shop, before those with no place on
+    // their senior list are left out, so leaving them out does not shrink the market's day.
+    let clubs_that_wanted_to_shop = buyer_ids.len();
+    // A club whose senior list is full cannot register anyone, however good its choice: what it
+    // chose was refused at execution (96 % of the purchases the clubs of the FM24 world chose in
+    // a first season), and an offer it made to the user's player was one he could never accept.
+    let clubs_without_a_place = registration::clubs_without_a_senior_place(game);
+    buyer_ids.retain(|club| {
+        let has_a_place = !clubs_without_a_place.contains(club.as_str());
+        if !has_a_place {
+            count(Funnel::AiBuyerListFull);
+        }
+        has_a_place
+    });
     // One completed deal per this many shopping clubs a day, and never fewer than the base: with
     // the whole world shopping, a flat two a day capped the market below what its needs produce.
     let max_completed_ai_transfers = ((MAX_COMPLETED_AI_TRANSFERS_PER_DAY
-        .max(buyer_ids.len() / BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY)
+        .max(clubs_that_wanted_to_shop / BUYERS_PER_COMPLETED_AI_TRANSFER_PER_DAY)
         as f64)
         * phase.activity_factor())
     .round() as usize;
@@ -861,7 +875,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         &position_depths,
         &team_reputation,
     );
-    let max_ai_loans = ((((buyer_ids.len() / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1)) as f64)
+    // Like the day's deals, the day's loans are sized by the clubs that wanted to shop.
+    let max_ai_loans = ((((clubs_that_wanted_to_shop / BUYERS_PER_COMPLETED_AI_LOAN_PER_DAY).max(1))
+        as f64)
         * phase.activity_factor())
     .round() as usize;
     let mut completed_ai_loans = 0_usize;
@@ -1035,14 +1051,18 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let mut acceptable = |target: &&MarketTarget| -> bool {
             // For the harness: a rejection of a user's player is counted where it happens.
             let reject = |stage: Funnel| {
-                if target.is_user_owned {
-                    count(stage);
-                }
+                count(if target.is_user_owned {
+                    stage
+                } else {
+                    stage.for_ai_owner()
+                });
                 false
             };
-            if target.is_user_owned {
-                count(Funnel::PairsWeighed);
-            }
+            count(if target.is_user_owned {
+                Funnel::PairsWeighed
+            } else {
+                Funnel::AiPairsWeighed
+            });
             if target.owner_team_id == buyer_id || moved_player_ids.contains(&target.player_id) {
                 return reject(Funnel::RejectedMoved);
             }
@@ -1064,6 +1084,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     return reject(Funnel::RejectedThrottle);
                 }
             } else if completed_ai_transfers >= max_completed_ai_transfers {
+                count(Funnel::AiCapBlocked);
                 return false;
             }
             // A club that would not sell him on the usual terms still hears an exceptional offer
@@ -1077,6 +1098,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     target.contract_days,
                 );
             if !usual_terms && !sale_view::is_exceptional(target.fee, target.value) {
+                count(Funnel::AiSellerUnwilling);
                 return false;
             }
             // The cheap tests come first, in front of anything that reads the buyer's side: a sweep
@@ -1157,6 +1179,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 return reject(Funnel::RejectedSpending);
             }
             if !usual_terms && !exceptional_sale_is_rational(target, price) {
+                count(Funnel::AiSellerDeclinedExceptional);
                 return false;
             }
             // An AI club buys what improves the side by more than the money is worth to it. A club
@@ -1218,9 +1241,11 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             {
                 return reject(Funnel::RejectedBooks);
             }
-            if target.is_user_owned {
-                count(Funnel::Passed);
-            }
+            count(if target.is_user_owned {
+                Funnel::Passed
+            } else {
+                Funnel::AiPassed
+            });
             true
         };
         // Every option the buyer could take is weighed by what it adds to the squad and by the
@@ -1277,6 +1302,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         }
 
         let Some((target, _, agreed)) = chosen else {
+            count(Funnel::AiBuyerFoundNothing);
             // Nothing to buy: perhaps something to borrow.
             if completed_ai_loans < max_ai_loans
                 && let Some(player_id) = try_ai_loan(
@@ -1318,8 +1344,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             continue;
         }
 
+        count(Funnel::AiBuyerChose);
         // Whether the club would sell him was settled with the choice (`willing_to_sell`).
         if completed_ai_transfers >= max_completed_ai_transfers {
+            count(Funnel::AiCapBlocked);
             continue;
         }
 
@@ -1411,18 +1439,27 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             invalidate_loan_views(&sale_view, &loan_targets, &player_id, &buyer_id);
             moved_player_ids.insert(player_id);
             completed_ai_loans += 1;
+            count(Funnel::AiLoanInstead);
             continue;
         }
-        if execute_transfer_with_terms(
+        let execution = execute_transfer_with_terms(
             game,
             &candidate.player_id,
             &buyer_id,
             &candidate.owner_team_id,
             candidate.fee,
             &deal_terms,
-        )
-        .is_ok()
-        {
+        );
+        if let Err(refusal) = &execution {
+            note_execution_failure(refusal);
+        }
+        let executed = execution.is_ok();
+        count(if executed {
+            Funnel::AiDealCompleted
+        } else {
+            Funnel::AiDealFailed
+        });
+        if executed {
             sale_view.invalidate(&candidate.owner_team_id);
             sale_view.invalidate(&buyer_id);
             if let Some(record) = deal_record {
