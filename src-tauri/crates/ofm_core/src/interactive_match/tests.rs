@@ -1111,3 +1111,134 @@ fn fm24_workload_reference_study() {
         );
     }
 }
+
+/// The mean condition (1 = fresh, 0 = exhausted) of the players of each side who are on the pitch.
+fn mean_conditions(m: &InteractiveMatch) -> (f32, f32) {
+    let view = m.session().expect("a session").view();
+    let mean = |team: &apfm_match_lab::sim::session::TeamView| {
+        team.on_pitch.iter().map(|p| p.condition).sum::<f32>() / team.on_pitch.len() as f32
+    };
+    (mean(&view.home), mean(&view.away))
+}
+
+/// Samples both sides' mean on-pitch condition at the minutes ALPHA6 asked about, over `seeds`.
+fn condition_trajectory(
+    seeds: std::ops::RangeInclusive<u64>,
+    starting: Option<u8>,
+) -> [(f32, f32); 5] {
+    const MINUTES: [u32; 5] = [0, 30, 57, 75, 90];
+    let mut sums = [(0.0f32, 0.0f32); 5];
+    let mut n = 0.0f32;
+    for seed in seeds {
+        let mut g = game(seed);
+        if let Some(condition) = starting {
+            for player in g.players.iter_mut() {
+                player.condition = condition;
+            }
+        }
+        let mut m = InteractiveMatch::start(&g, identity(), "fatigue").expect("starts");
+        let mut played = 0;
+        for (slot, minute) in MINUTES.iter().enumerate() {
+            if *minute > played {
+                run_for(&mut m, minute - played);
+                played = *minute;
+            }
+            let (home, away) = mean_conditions(&m);
+            sums[slot].0 += home;
+            sums[slot].1 += away;
+        }
+        n += 1.0;
+    }
+    sums.map(|(home, away)| (home / n, away / n))
+}
+
+/// Given matches between two OFM-adapted sides, fully fit and with the same balanced tactics,
+/// When the mean on-pitch condition of each side is read at minutes 0, 30, 57, 75 and 90,
+/// Then it starts at the players' own condition, falls through the match, stays in range, and the
+///      two sides fall together: the home and away trajectories differ by far less than the fall.
+///
+/// This is the measurement behind the owner's question about opponent condition at minute 57
+/// (79–96 %): the engine's figure is a condition in [0, 1], the UI shows it times 100, and both
+/// sides lose it by the same law. The printed table is quoted in the ALPHA6 report.
+#[test]
+fn both_sides_lose_condition_together_through_a_match() {
+    let fresh = condition_trajectory(1..=6, Some(100));
+    eprintln!("CONDITION fit (100):  minute  home  away");
+    for (minute, (home, away)) in [0, 30, 57, 75, 90].iter().zip(fresh) {
+        eprintln!("CONDITION {minute:>3}  {home:.3}  {away:.3}");
+    }
+
+    for (home, away) in fresh {
+        assert!((0.0..=1.0).contains(&home) && (0.0..=1.0).contains(&away));
+        assert!(
+            (home - away).abs() < 0.08,
+            "the two sides must fall alike: {home:.3} v {away:.3}"
+        );
+    }
+    assert!(
+        fresh[0].0 > 0.97,
+        "fit players start fresh: {:.3}",
+        fresh[0].0
+    );
+    assert!(
+        fresh[1].0 < fresh[0].0,
+        "condition falls over the first half hour"
+    );
+    assert!(
+        fresh[4].0 < fresh[2].0,
+        "and falls again from the hour to full time: {:.3} then {:.3}",
+        fresh[2].0,
+        fresh[4].0
+    );
+}
+
+/// Given the same matches
+/// When the mean condition is read just before and just after the half-time break
+/// Then it is higher after: the break restores condition, which is why minute 57 reads higher than
+///      minute 30 (a measurement of the engine's behaviour, not a rule this repository sets)
+#[test]
+fn the_half_time_break_restores_condition() {
+    let mut before = 0.0f32;
+    let mut after = 0.0f32;
+    for seed in 1..=4 {
+        let mut m = start(seed);
+        run_for(&mut m, 44);
+        before += mean_conditions(&m).0;
+        run_for(&mut m, 4);
+        after += mean_conditions(&m).0;
+    }
+    eprintln!(
+        "CONDITION half-time: 44' {:.3} -> 48' {:.3}",
+        before / 4.0,
+        after / 4.0
+    );
+
+    assert!(
+        after > before + 0.02,
+        "{:.3} then {:.3}",
+        before / 4.0,
+        after / 4.0
+    );
+}
+
+/// Given the same matches started by players at 70 instead of 100,
+/// When the condition is read at kick-off and at minute 57,
+/// Then the starting condition shows through: it starts lower and stays lower.
+#[test]
+fn starting_condition_shows_through_at_minute_57() {
+    let fit = condition_trajectory(1..=4, Some(100));
+    let tired = condition_trajectory(1..=4, Some(70));
+    eprintln!(
+        "CONDITION start 100 -> 57': {:.3}/{:.3}; start 70 -> 57': {:.3}/{:.3}",
+        fit[2].0, fit[2].1, tired[2].0, tired[2].1
+    );
+
+    assert!(
+        tired[0].0 < fit[0].0 - 0.2,
+        "the start is read from the player"
+    );
+    assert!(
+        tired[2].0 < fit[2].0 - 0.1,
+        "and it is still lower at the hour"
+    );
+}
