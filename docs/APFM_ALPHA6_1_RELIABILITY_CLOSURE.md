@@ -410,3 +410,6 @@ two matters that are decisions, not defects (market volume, calendar tail), are 
 
 No M12 UI work, no new feature, no change to delegation logic, no scheduler change, no change to the
 senior-list rule, and no development phase was started after this document.
+
+---
+Implementation, tests and this report were pushed at `eb1994ccb8c91a0c241e5fed78762d5f5528dc1b` (fast-forward from `ef460fe6`); this line is a documentation-only commit on top of it.
