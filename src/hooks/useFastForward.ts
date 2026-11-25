@@ -11,7 +11,7 @@ import {
 import type { GameStateData } from "../store/gameStore";
 import { addDays, daysBetween, isCalendarDate } from "./useFastForward.helpers";
 
-export type FastForwardPhase = "closed" | "configure" | "running" | "result";
+export type FastForwardPhase = "closed" | "configure" | "running" | "result" | "report";
 
 export interface FastForwardState {
   phase: FastForwardPhase;
@@ -22,6 +22,11 @@ export interface FastForwardState {
   progress: FastForwardProgress | null;
   isCancelling: boolean;
   result: FastForwardResponse | null;
+  /**
+   * The last run that finished in this career, kept after the dialog is closed so its report can be
+   * opened again. Reading it never touches the game.
+   */
+  lastRun: FastForwardResponse | null;
   /** A translation key or message from the backend, shown beside the form or the result. */
   error: string | null;
   /** The target is a real date after today. */
@@ -36,6 +41,10 @@ export interface FastForwardState {
   cancel: () => void;
   /** Carry on towards the same target after a stop, from where the game now stands. */
   resume: () => Promise<void>;
+  /** Shows the report of the last run, from its result or from outside the dialog. */
+  openReport: () => void;
+  /** Leaves the report: back to the result it was opened from, or closed. */
+  leaveReport: () => void;
 }
 
 /**
@@ -47,6 +56,8 @@ export function useFastForward(
   currentDate: string,
   setGameState: (state: GameStateData) => void,
   onFired: () => void,
+  /** The career on screen: a report of another career is never offered. */
+  careerToken?: number,
 ): FastForwardState {
   const [phase, setPhase] = useState<FastForwardPhase>("closed");
   const [target, setTarget] = useState("");
@@ -54,6 +65,11 @@ export function useFastForward(
   const [progress, setProgress] = useState<FastForwardProgress | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [result, setResult] = useState<FastForwardResponse | null>(null);
+  const [finished, setFinished] = useState<{
+    response: FastForwardResponse;
+    careerToken: number | undefined;
+  } | null>(null);
+  const [reportFromResult, setReportFromResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A ref, not `phase`: a double click lands before the state commit re-renders.
   const inFlightRef = useRef(false);
@@ -110,6 +126,7 @@ export function useFastForward(
         if (mountedRef.current) {
           setProgress(response.progress);
           setResult(response);
+          setFinished({ response, careerToken: response.game.career_token });
           setPhase("result");
         }
       } catch (err) {
@@ -133,6 +150,21 @@ export function useFastForward(
     if (result) await run(result.progress.target_date);
   }, [result, run]);
 
+  const openReport = useCallback(() => {
+    // From the result when there is one on screen; otherwise from outside the dialog.
+    setReportFromResult(result !== null);
+    setPhase("report");
+  }, [result]);
+
+  const leaveReport = useCallback(() => {
+    setPhase(reportFromResult && result ? "result" : "closed");
+  }, [reportFromResult, result]);
+
+  const lastRun =
+    finished && (careerToken === undefined || finished.careerToken === careerToken)
+      ? finished.response
+      : null;
+
   const cancel = useCallback(() => {
     setIsCancelling(true);
     void cancelFastForward();
@@ -146,6 +178,7 @@ export function useFastForward(
     progress,
     isCancelling,
     result,
+    lastRun,
     error,
     targetIsValid,
     daysAhead,
@@ -156,5 +189,7 @@ export function useFastForward(
     start,
     cancel,
     resume,
+    openReport,
+    leaveReport,
   };
 }

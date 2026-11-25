@@ -42,6 +42,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::end_of_season::{self, EndOfSeasonSummary};
 use crate::game::Game;
+use crate::simulation_report::{self, ReportTracker, SimulationReport};
 use crate::{matchday, turn};
 
 /// How far ahead a request may reach. Two seasons: past that the calendar is not generated yet
@@ -152,6 +153,9 @@ pub struct FastForwardSummary {
     /// What a [`InterruptPolicy::ToTargetDate`] run went past. Always empty for the other
     /// policies, which stop instead.
     pub passed_decisions: Vec<PassedDecision>,
+    /// What happened in the days that were played (see `simulation_report`).
+    #[serde(default)]
+    pub report: SimulationReport,
 }
 
 /// An open run. Holds only what the loop needs between days; the game lives with the caller.
@@ -169,6 +173,7 @@ pub struct FastForward {
     user_matches_played: u32,
     season_summaries: Vec<EndOfSeasonSummary>,
     passed_decisions: Vec<PassedDecision>,
+    report: ReportTracker,
 }
 
 fn parse_day(text: &str) -> Option<NaiveDate> {
@@ -216,6 +221,7 @@ impl FastForward {
             user_matches_played: 0,
             season_summaries: Vec::new(),
             passed_decisions: Vec::new(),
+            report: ReportTracker::begin(game),
         })
     }
 
@@ -241,6 +247,7 @@ impl FastForward {
             stop,
             season_summaries: self.season_summaries,
             passed_decisions: self.passed_decisions,
+            report: simulation_report::build_report(game, self.report),
         }
     }
 
@@ -273,6 +280,7 @@ impl FastForward {
             return Some(StopReason::Error { error });
         }
         self.days_done += 1;
+        self.report.after_day(game);
         if self.was_employed && game.manager.team_id.is_none() {
             return Some(StopReason::ManagerFired);
         }
@@ -331,6 +339,7 @@ impl FastForward {
         }
         match end_of_season::advance_to_next_season(game) {
             Ok(summary) => {
+                self.report.after_rollover(game, &summary);
                 self.season_summaries.push(summary);
                 if game.manager.team_id.is_none() {
                     return Some(StopReason::ManagerFired);

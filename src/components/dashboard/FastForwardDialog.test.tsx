@@ -5,6 +5,7 @@ import type { FastForwardState } from "../../hooks/useFastForward";
 import type { FastForwardResponse } from "../../services/fastForwardService";
 import type { GameStateData } from "../../store/gameStore";
 import FastForwardDialog from "./FastForwardDialog";
+import { emptyClub } from "./simulationReport/reportFixtures";
 
 vi.mock("react-i18next", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-i18next")>()),
@@ -24,6 +25,7 @@ function state(overrides: Partial<FastForwardState> = {}): FastForwardState {
     progress: null,
     isCancelling: false,
     result: null,
+    lastRun: null,
     error: null,
     targetIsValid: true,
     daysAhead: 7,
@@ -34,6 +36,8 @@ function state(overrides: Partial<FastForwardState> = {}): FastForwardState {
     start: vi.fn().mockResolvedValue(undefined),
     cancel: vi.fn(),
     resume: vi.fn().mockResolvedValue(undefined),
+    openReport: vi.fn(),
+    leaveReport: vi.fn(),
     ...overrides,
   };
 }
@@ -188,5 +192,53 @@ describe("FastForwardDialog", () => {
   it("announces a backend refusal beside the form", () => {
     render(<FastForwardDialog state={state({ error: "be.error.fastForward.alreadyRunning" })} />);
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+  /**
+   * Given a finished run on screen
+   * When the player asks for the full report
+   * Then the dialog asks the state to open it, and the result still offers Close
+   */
+  it("offers the full report from the result", () => {
+    const current = state({ phase: "result", result: result({ kind: "target_reached" }) });
+    render(<FastForwardDialog state={current} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "fastForward.report.open" }));
+
+    expect(current.openReport).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "common.close" })).toBeInTheDocument();
+  });
+
+  /**
+   * Given the report phase with a result behind it
+   * When the report is shown and left
+   * Then it is the report that shows, Back leaves it, and Escape leaves it too (never closes the dialog outright)
+   */
+  it("shows the report and leaves it with Back or Escape", () => {
+    const response = result(
+      { kind: "target_reached" },
+      { report: { clubs: [emptyClub({ days_played: 4 })] } },
+    );
+    const current = state({ phase: "report", result: response, lastRun: response });
+    render(<FastForwardDialog state={current} />);
+
+    expect(screen.getByRole("heading", { name: "fastForward.report.title" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "fastForward.report.back" }));
+    expect(current.leaveReport).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(current.leaveReport).toHaveBeenCalledTimes(2);
+    expect(current.close).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Given the report opened from outside the dialog (no result on screen)
+   * When it shows
+   * Then the way out says Close, and it reads the last run
+   */
+  it("shows the last run's report when opened from outside the dialog", () => {
+    const last = result({ kind: "target_reached" }, { report: { clubs: [emptyClub()] } });
+    render(<FastForwardDialog state={state({ phase: "report", lastRun: last })} />);
+
+    expect(screen.getByRole("heading", { name: "fastForward.report.title" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "common.close" })).toBeInTheDocument();
   });
 });

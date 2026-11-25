@@ -149,7 +149,10 @@
     "match.replayStats.fouls",
     "tournaments.competitions.championsLeague",
     "tournaments.competitions.europaLeague",
-    "tournaments.competitions.conferenceLeague"
+    "tournaments.competitions.conferenceLeague",
+    "fastForward.report.tab.transfers",
+    "fastForward.report.tab.delegation",
+    "fastForward.report.source.transfer"
   ],
   "fr": [
     "globalMarket.club",
@@ -282,7 +285,10 @@
     "match.replayStats.possession",
     "match.replayStats.corners",
     "staff.delegation.mode.approval",
-    "staff.delegation.mode.full"
+    "staff.delegation.mode.full",
+    "fastForward.report.tab.finances",
+    "fastForward.report.netColumn",
+    "fastForward.report.source.match"
   ],
   "it": [
     "globalMarket.club",
@@ -562,7 +568,10 @@
     "nations.sn",
     "worldEditor.competitionFormat",
     "tournaments.history.final",
-    "tournaments.leaguePhase.stages.final"
+    "tournaments.leaguePhase.stages.final",
+    "fastForward.report.netColumn",
+    "fastForward.report.cause.permanent_transfer",
+    "fastForward.report.source.transfer"
   ],
   "cs": [
     "dashboard.recapTransferLine",
@@ -769,6 +778,8 @@
     "match.replayFeed.kickoff",
     "match.replayFeed.offside",
     "match.liveView.stoppage.offside",
-    "tournaments.leaguePhase.stages.final"
+    "tournaments.leaguePhase.stages.final",
+    "fastForward.report.cause.permanent_transfer",
+    "fastForward.report.source.transfer"
   ]
 }

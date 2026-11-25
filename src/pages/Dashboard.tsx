@@ -17,6 +17,7 @@ import DashboardHeader, {
 } from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
 import FastForwardDialog from "../components/dashboard/FastForwardDialog";
+import { reportNavigation } from "../components/dashboard/useReportNavigation";
 import FiredModal from "../components/dashboard/FiredModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
@@ -379,6 +380,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
     gameState?.clock.current_date ?? "",
     setGameState,
     useCallback(() => setShowFiredModal(true), [setShowFiredModal]),
+    gameState?.career_token,
   );
 
   const handleSave = useCallback(async () => {
@@ -653,7 +655,10 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
         onDismissDigest={dismissDigest}
         onDigestStop={abortDigest}
       />
-      <FastForwardDialog state={fastForward} />
+      <FastForwardDialog
+        state={fastForward}
+        reportNavigation={reportNavigation(handleNavigate, fastForward.close)}
+      />
       <FiredModal />
 
       {/* Main Content Area */}
@@ -699,6 +704,7 @@ export default function Dashboard({ initialTab = "Home" }: DashboardProps): JSX.
           onSkipToMatchDay={handleSkipToMatchDay}
           onFastForward={handleOpenFastForward}
           onSimulateThreeMonths={() => fastForward.open({ days: 90, policy: "to_target_date" })}
+          onOpenLastReport={fastForward.lastRun ? fastForward.openReport : undefined}
           onToggleContinueMenu={handleToggleContinueMenu}
           saveFlash={saveFlash}
           searchOpen={searchOpen}

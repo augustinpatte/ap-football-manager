@@ -506,4 +506,24 @@ describe("DashboardHeader in a narrow window (layout rule L5)", () => {
     renderHeader();
     expect(screen.queryByRole("button", { name: "fastForward.threeMonths" })).toBeNull();
   });
+  /**
+   * Given a finished simulation
+   * When the header has a way to reopen its report
+   * Then a control opens it; without one the control is not offered, and it waits while a day advances
+   */
+  it("offers the last simulation report only once there is one", () => {
+    const onOpenLastReport = vi.fn();
+    const { unmount } = renderHeader({ onOpenLastReport });
+
+    fireEvent.click(screen.getByRole("button", { name: "fastForward.report.reopen" }));
+    expect(onOpenLastReport).toHaveBeenCalledTimes(1);
+    unmount();
+
+    renderHeader({ onOpenLastReport, isAdvancing: true });
+    expect(screen.getByRole("button", { name: "fastForward.report.reopen" })).toBeDisabled();
+    cleanup();
+
+    renderHeader();
+    expect(screen.queryByRole("button", { name: "fastForward.report.reopen" })).toBeNull();
+  });
 });

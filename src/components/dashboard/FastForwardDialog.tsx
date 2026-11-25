@@ -12,6 +12,8 @@ import type {
   FastForwardStop,
 } from "../../services/fastForwardService";
 import { resolveBackendError } from "../../utils/backendI18n";
+import type { ReportNavigation } from "./simulationReport/ReportLines";
+import SimulationReportView from "./simulationReport/SimulationReportView";
 import { userErrorText } from "../../utils/errorMessage";
 
 const POLICIES: { value: FastForwardPolicy; label: string; description: string }[] = [
@@ -278,6 +280,9 @@ function ResultView({ state, onClose }: { state: FastForwardState; onClose: () =
             {t("fastForward.resume")}
           </Button>
         ) : null}
+        <Button variant="outline" onClick={state.openReport}>
+          {t("fastForward.report.open")}
+        </Button>
         <Button onClick={onClose}>{t("common.close")}</Button>
       </div>
     </>
@@ -286,17 +291,30 @@ function ResultView({ state, onClose }: { state: FastForwardState; onClose: () =
 
 export default function FastForwardDialog({
   state,
+  reportNavigation,
 }: {
   state: FastForwardState;
+  /** Where a name in the report leads; the dialog closes first. Without it names are plain text. */
+  reportNavigation?: ReportNavigation;
 }): JSX.Element | null {
+  const { t } = useTranslation();
   if (state.phase === "closed") return null;
+  const report = state.phase === "report" ? (state.result ?? state.lastRun) : null;
   return (
     <Dialog
       labelledBy="fast-forward-title"
-      onClose={state.close}
+      onClose={state.phase === "report" ? state.leaveReport : state.close}
       busy={state.phase === "running"}
-      className="mx-4 w-full max-w-lg rounded-2xl p-6"
+      className={`mx-4 w-full rounded-2xl p-6 ${state.phase === "report" ? "max-w-3xl" : "max-w-lg"}`}
     >
+      {report ? (
+        <SimulationReportView
+          response={report}
+          onBack={state.leaveReport}
+          backLabel={state.result ? t("fastForward.report.back") : t("common.close")}
+          nav={reportNavigation}
+        />
+      ) : null}
       {state.phase === "configure" ? <ConfigureView state={state} onClose={state.close} /> : null}
       {state.phase === "running" ? <RunningView state={state} /> : null}
       {state.phase === "result" ? <ResultView state={state} onClose={state.close} /> : null}

@@ -16,9 +16,10 @@ import {
   setDutyOwner,
 } from "../../services/staffService";
 import { getActiveGame } from "../../services/sessionService";
-import { formatDate, formatExactMoney, formatWeeklyWage } from "../../lib/helpers";
+import { formatDate, formatWeeklyWage } from "../../lib/helpers";
 import { Badge, Button, Card, CardBody, Checkbox, ProgressBar, Select } from "../ui";
 import DelegationModeCard from "./DelegationModeCard";
+import { useDelegationParams } from "./delegationParams";
 import { failureText } from "../../utils/failureText";
 
 interface StaffManagementPanelProps {
@@ -40,38 +41,12 @@ const DUTIES: Duty[] = [
   "Offers",
 ];
 
-/** Backend params carry raw enum names; the ones that name a post or a position are translated. */
-function useParams() {
-  const { t } = useTranslation();
-  return (params: [string, string][]): Record<string, string> =>
-    Object.fromEntries(
-      params.map(([key, value]) => [
-        key,
-        key === "post"
-          ? t(`staff.posts.${value}`, { defaultValue: value })
-          : key === "position"
-            ? t(`common.positions.${value}`, { defaultValue: value })
-            : key === "focus" || key === "currentFocus"
-              ? t(`training.focuses.${value}.label`, { defaultValue: value })
-              : key === "intensity" || key === "currentIntensity"
-                ? t(`training.intensities.${value}.label`, { defaultValue: value })
-                : key === "schedule"
-                  ? t(`training.schedules.${value}.label`, { defaultValue: value })
-                  : key === "style"
-                    ? t(`common.playStyles.${value}`, { defaultValue: value })
-                    : key === "fee" && Number.isFinite(Number(value))
-                      ? formatExactMoney(Number(value))
-                      : value,
-      ]),
-    );
-}
-
 export default function StaffManagementPanel({
   overview,
   onGameUpdate,
 }: StaffManagementPanelProps) {
   const { t, i18n } = useTranslation();
-  const named = useParams();
+  const named = useDelegationParams();
   const shortDate = (iso: string) =>
     formatDate(iso.slice(0, 10), i18n.language, {
       year: "numeric",

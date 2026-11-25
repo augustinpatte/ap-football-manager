@@ -62,6 +62,27 @@ carry on). New ones:
 A `to_target_date` run does not stop for these. It records each in `passed_decisions` (once, with the
 date it was passed), so nothing is skipped silently.
 
+## The simulation report
+
+`FastForwardSummary` carries `report` (`ofm_core::simulation_report`): what happened in the days that
+were played, for the club the manager held. It keeps no ledger and repeats no simulation.
+
+* **Records, not estimates.** Matches are the club's completed fixtures; transfers and contracts
+  are read from each player's movement ledger (each fee is checked against the cash journal and
+  carries `fee_in_journal`); finances are the cash journal's posts plus the club's cash before and
+  after (what the journal does not explain is `unexplained`, never hidden in a category); the squad
+  is the difference between the squad before and after with the ledger's cause when it has one;
+  delegation is the delegation log; events are the season rollovers the run performed, knockout ties,
+  the board's messages and a dismissal.
+* **The days actually played.** `from` is the first day played and `until` the first day not played:
+  an early stop reports the days it played, not the days it was asked for.
+* **One entry per club.** The run's `ReportTracker` follows the manager's club day by day (one pass
+  over the club's players per day, no copy of the game). A dismissal or a change of club closes the
+  stretch the same day, and the next club gets its own entry covering only its own days.
+* **Bounded.** Each list is capped at `MAX_LISTED` (400) with the exact `total` beside it.
+* **Reading it changes nothing.** The screen keeps the last run's report (`useFastForward.lastRun`)
+  and opens it from the result or from the header; opening it calls no command.
+
 ## Cancellation, interruption, saves
 
 * **One day per lock.** Each `step` is a whole day inside one `update_game`; the lock is free between

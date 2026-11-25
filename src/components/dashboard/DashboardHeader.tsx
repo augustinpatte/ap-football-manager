@@ -57,6 +57,8 @@ interface DashboardHeaderProps {
   onFastForward?: () => void;
   /** Opens the advance-until-date dialog already set to three months, played to the target date. */
   onSimulateThreeMonths?: () => void;
+  /** Opens the report of the last simulation; absent until one has finished in this career. */
+  onOpenLastReport?: () => void;
   onToggleContinueMenu: () => void;
   saveFlash: boolean;
   searchOpen: boolean;
@@ -266,6 +268,7 @@ export default function DashboardHeader({
   onSkipToMatchDay,
   onFastForward,
   onSimulateThreeMonths,
+  onOpenLastReport,
   onToggleContinueMenu,
   saveFlash,
   searchOpen,
@@ -427,6 +430,17 @@ export default function DashboardHeader({
                 className={`rounded-lg border border-line px-3 py-2 font-heading text-body font-bold uppercase tracking-label text-fg hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60 ${MENU_FOCUS}`}
               >
                 {t("fastForward.threeMonths")}
+              </button>
+            ) : null}
+            {onOpenLastReport ? (
+              <button
+                type="button"
+                onClick={onOpenLastReport}
+                disabled={isAdvancing}
+                title={t("fastForward.report.reopenDesc")}
+                className={`rounded-lg border border-line px-3 py-2 font-heading text-body font-bold uppercase tracking-label text-fg hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60 ${MENU_FOCUS}`}
+              >
+                {t("fastForward.report.reopen")}
               </button>
             ) : null}
             <div className="flex">

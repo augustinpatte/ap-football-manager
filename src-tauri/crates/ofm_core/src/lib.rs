@@ -93,6 +93,7 @@ pub mod scouting_view;
 pub mod season_awards;
 pub mod season_context;
 pub mod seed;
+pub mod simulation_report;
 pub mod slices;
 pub mod spatial_adapter;
 pub mod spatial_match_output;

@@ -1,0 +1,235 @@
+import type { ClubReport, Listed } from "../../../services/fastForwardService";
+
+export const listed = <T>(items: T[], total = items.length): Listed<T> => ({ items, total });
+
+/** A club report with nothing in it: the base every scenario adds to. */
+export function emptyClub(overrides: Partial<ClubReport> = {}): ClubReport {
+  return {
+    club_id: "reds",
+    club_name: "Reds FC",
+    from: "2026-08-01",
+    until: "2026-08-11",
+    days_played: 10,
+    ended: "continues",
+    matches: {
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goals_for: 0,
+      goals_against: 0,
+      fixtures: listed([]),
+    },
+    transfers: {
+      purchases: 0,
+      sales: 0,
+      loans_in: 0,
+      loans_out: 0,
+      free_signings: 0,
+      fees_paid: 0,
+      fees_received: 0,
+      moves: listed([]),
+    },
+    contracts: { renewed: 0, expired: 0, terminated: 0, released: 0, changes: listed([]) },
+    finances: {
+      opening_cash: 1_000_000,
+      closing_cash: 1_000_000,
+      change: 0,
+      by_kind: [],
+      transfer_fees_out: 0,
+      transfer_fees_in: 0,
+      posts: 0,
+      unexplained: 0,
+      detail_complete: true,
+    },
+    squad: {
+      size_before: 24,
+      size_after: 24,
+      arrivals: listed([]),
+      departures: listed([]),
+      injuries: listed([]),
+    },
+    delegation: { executed: 0, approved: 0, declined: 0, left_to_manager: 0, entries: listed([]) },
+    events: [],
+    ...overrides,
+  };
+}
+
+/** A club report with one of everything, dated apart so the order of a timeline is checkable. */
+export function busyClub(): ClubReport {
+  return emptyClub({
+    matches: {
+      played: 1,
+      won: 1,
+      drawn: 0,
+      lost: 0,
+      goals_for: 2,
+      goals_against: 0,
+      fixtures: listed([
+        {
+          fixture_id: "fx-1",
+          competition_id: "league",
+          competition_name: "Test League",
+          competition_name_key: null,
+          date: "2026-08-05",
+          at_home: true,
+          opponent_id: "blues",
+          opponent_name: "Blues FC",
+          goals_for: 2,
+          goals_against: 0,
+          penalties_for: null,
+          penalties_against: null,
+          outcome: "win",
+        },
+      ]),
+    },
+    transfers: {
+      purchases: 1,
+      sales: 1,
+      loans_in: 0,
+      loans_out: 0,
+      free_signings: 0,
+      fees_paid: 2_000_000,
+      fees_received: 500_000,
+      moves: listed([
+        {
+          date: "2026-08-07",
+          kind: "sale",
+          player_id: "p-sold",
+          player_name: "Sam Sold",
+          fee: 500_000,
+          counterparty_id: "blues",
+          counterparty_name: "Blues FC",
+          loan_end_date: null,
+          via_purchase_option: false,
+          fee_in_journal: true,
+        },
+        {
+          date: "2026-08-03",
+          kind: "purchase",
+          player_id: "p-bought",
+          player_name: "Ben Bought",
+          fee: 2_000_000,
+          counterparty_id: "blues",
+          counterparty_name: "Blues FC",
+          loan_end_date: null,
+          via_purchase_option: false,
+          fee_in_journal: false,
+        },
+      ]),
+    },
+    contracts: {
+      renewed: 1,
+      expired: 0,
+      terminated: 0,
+      released: 0,
+      changes: listed([
+        {
+          date: "2026-08-05",
+          kind: "renewal",
+          player_id: "p-renewed",
+          player_name: "Ria Renewed",
+          weekly_wage_before: 10_000,
+          weekly_wage_after: 14_000,
+          end_before: "2026-12-31",
+          end_after: "2029-06-30",
+        },
+      ]),
+    },
+    squad: {
+      size_before: 24,
+      size_after: 24,
+      arrivals: listed([
+        {
+          player_id: "p-bought",
+          player_name: "Ben Bought",
+          cause: "permanent_transfer",
+          date: "2026-08-03",
+          counterparty_name: "Blues FC",
+          fee: 2_000_000,
+        },
+      ]),
+      departures: listed([
+        {
+          player_id: "p-sold",
+          player_name: "Sam Sold",
+          cause: "permanent_transfer",
+          date: "2026-08-07",
+          counterparty_name: "Blues FC",
+          fee: 500_000,
+        },
+      ]),
+      injuries: listed([
+        {
+          player_id: "p-hurt",
+          player_name: "Ivy Hurt",
+          injury: "common.injuries.twistedAnkle",
+          days_remaining_when_seen: 12,
+          first_seen: "2026-08-02",
+          recovered_by: null,
+          still_at_club: true,
+        },
+      ]),
+    },
+    delegation: {
+      executed: 1,
+      approved: 0,
+      declined: 1,
+      left_to_manager: 1,
+      entries: listed([
+        {
+          date: "2026-08-04",
+          duty: "Scouting",
+          title_key: "delegation.log.listedSurplus",
+          params: [["player_id", "p-sold"]],
+          outcome: "executed",
+        },
+        {
+          date: "2026-08-06",
+          duty: "Scouting",
+          title_key: "delegation.log.offerDeclined",
+          params: [["player_id", "p-sold"]],
+          outcome: "declined",
+        },
+        {
+          date: "2026-08-08",
+          duty: "Scouting",
+          title_key: "delegation.log.offerDeclined",
+          params: [["player_id", "p-sold"]],
+          outcome: "leftToManager",
+        },
+      ]),
+    },
+    finances: {
+      opening_cash: 1_000_000,
+      closing_cash: 600_000,
+      change: -400_000,
+      by_kind: [
+        { kind: "transfer_fee_out", income: 0, expense: -2_000_000, net: -2_000_000, posts: 1 },
+        { kind: "transfer_fee_in", income: 500_000, expense: 0, net: 500_000, posts: 1 },
+        { kind: "matchday", income: 1_100_000, expense: 0, net: 1_100_000, posts: 1 },
+      ],
+      transfer_fees_out: -2_000_000,
+      transfer_fees_in: 500_000,
+      posts: 3,
+      unexplained: 0,
+      detail_complete: true,
+    },
+    events: [
+      {
+        kind: "knockout_eliminated",
+        date: "2026-08-09",
+        fixture_id: "fx-9",
+        competition_id: "cup",
+        competition_name: "Test Cup",
+      },
+      {
+        kind: "board_message",
+        date: "2026-08-01",
+        message_id: "msg-1",
+        subject_key: null,
+        subject: "Board",
+      },
+    ],
+  });
+}
