@@ -1702,6 +1702,9 @@
       "pendingDetailNoDate": "Il suo trasferimento attende la registrazione."
     },
     "requestWentThrough": "La tua richiesta è andata a buon fine, ma la risposta si è persa per strada. Lo storico delle offerte mostra il risultato.",
+    "requestNeverRan": "La tua richiesta non è arrivata al gioco, quindi non è stato modificato nulla. Puoi riprovare.",
+    "requestStillRunning": "Il gioco sta ancora elaborando la tua richiesta, quindi l’esito non è ancora noto. Controlla la cronologia delle offerte prima di riprovare.",
+    "requestCareerChanged": "Questa carriera è stata chiusa o sostituita mentre la tua richiesta veniva inviata. Nulla di essa è stato applicato qui.",
     "activity": {
       "title": "Attività di mercato",
       "intro": "Ogni offerta e prestito a cui partecipi, per fase. Apri un giocatore per vederne tutta la cronologia.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Non è stato possibile rileggere l’esito precedente di questa azione. Controlla la pagina Trasferimenti prima di riprovare."
+        "outcomeUnreadable": "Non è stato possibile rileggere l’esito precedente di questa azione. Controlla la pagina Trasferimenti prima di riprovare.",
+        "careerChanged": "Questa azione è stata avviata in una carriera che non è più aperta.",
+        "requestAbandoned": "Questa richiesta è stata annullata prima di poter essere eseguita. Inviala di nuovo.",
+        "requestIdReused": "Questa richiesta è già stata usata per un’altra azione. Inviala di nuovo."
       },
       "playerNotInLineup": "Quel giocatore non è nell’undici titolare."
     },
@@ -5127,7 +5133,7 @@
     "title": "Qualcosa è andato storto",
     "refusalTitle": "Non è possibile",
     "nothingChanged": "Non è stato modificato nulla.",
-    "unexpected": "Il gioco non è riuscito a completare questa azione e non può confermare se sia andata a buon fine. Controlla la pagina Trasferimenti e la posta in arrivo prima di riprovare. Riferimento: {{reference}}."
+    "unexpected": "Il gioco non è riuscito a completare questa azione e non può confermare se sia andata a buon fine. Controlla la pagina in cui ti trovavi e la posta in arrivo prima di riprovare. Riferimento: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Segnala un bug",

@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Sein Wechsel wartet auf die Registrierung."
     },
     "requestWentThrough": "Deine Anfrage wurde ausgeführt, aber die Antwort ging unterwegs verloren. Der Angebotsverlauf zeigt das Ergebnis.",
+    "requestNeverRan": "Deine Anfrage hat das Spiel nicht erreicht, daher wurde nichts geändert. Du kannst es erneut versuchen.",
+    "requestStillRunning": "Das Spiel verarbeitet deine Anfrage noch, daher ist das Ergebnis noch nicht bekannt. Prüfe den Angebotsverlauf, bevor du es erneut versuchst.",
+    "requestCareerChanged": "Diese Karriere wurde geschlossen oder ersetzt, während deine Anfrage gesendet wurde. Nichts davon wurde hier angewendet.",
     "activity": {
       "title": "Transferaktivität",
       "intro": "Jedes Angebot und jede Leihe, an der du beteiligt bist, nach Stand. Öffne einen Spieler, um seinen vollständigen Verlauf zu sehen.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Das frühere Ergebnis dieser Aktion konnte nicht gelesen werden. Prüfe die Transferseite, bevor du es erneut versuchst."
+        "outcomeUnreadable": "Das frühere Ergebnis dieser Aktion konnte nicht gelesen werden. Prüfe die Transferseite, bevor du es erneut versuchst.",
+        "careerChanged": "Diese Aktion wurde in einer Karriere gestartet, die nicht mehr geöffnet ist.",
+        "requestAbandoned": "Diese Anfrage wurde abgebrochen, bevor sie ausgeführt werden konnte. Sende sie erneut.",
+        "requestIdReused": "Diese Anfrage wurde bereits für eine andere Aktion verwendet. Sende sie erneut."
       },
       "playerNotInLineup": "Dieser Spieler steht nicht in der Startelf."
     },
@@ -5127,7 +5133,7 @@
     "title": "Etwas ist schiefgelaufen",
     "refusalTitle": "Das ist nicht möglich",
     "nothingChanged": "Es wurde nichts verändert.",
-    "unexpected": "Das Spiel konnte diese Aktion nicht abschließen und kann nicht bestätigen, ob sie ausgeführt wurde. Prüfe die Transferseite und deinen Posteingang, bevor du es erneut versuchst. Referenz: {{reference}}."
+    "unexpected": "Das Spiel konnte diese Aktion nicht abschließen und kann nicht bestätigen, ob sie ausgeführt wurde. Prüfe die Seite, auf der du warst, und deinen Posteingang, bevor du es erneut versuchst. Referenz: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Fehler melden",

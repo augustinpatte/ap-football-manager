@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Transferi tescil edilmeyi bekliyor."
     },
     "requestWentThrough": "İsteğiniz gerçekleşti ancak yanıtı yolda kayboldu. Sonucu teklif geçmişinde görebilirsiniz.",
+    "requestNeverRan": "İsteğiniz oyuna ulaşmadı, bu yüzden hiçbir şey değişmedi. Tekrar deneyebilirsiniz.",
+    "requestStillRunning": "Oyun isteğinizi hâlâ işliyor, bu yüzden sonucu henüz bilinmiyor. Tekrar denemeden önce teklif geçmişine bakın.",
+    "requestCareerChanged": "İsteğiniz gönderilirken bu kariyer kapatıldı veya değiştirildi. Ondan hiçbir şey buraya uygulanmadı.",
     "activity": {
       "title": "Transfer hareketleri",
       "intro": "Katıldığınız her teklif ve kiralama, aşamasına göre. Tüm geçmişi görmek için bir oyuncuyu açın.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Bu işlemin önceki sonucu okunamadı. Tekrar denemeden önce Transferler sayfasına bakın."
+        "outcomeUnreadable": "Bu işlemin önceki sonucu okunamadı. Tekrar denemeden önce Transferler sayfasına bakın.",
+        "careerChanged": "Bu işlem artık açık olmayan bir kariyerde başlatılmıştı.",
+        "requestAbandoned": "Bu istek çalışamadan iptal edildi. Lütfen yeniden gönderin.",
+        "requestIdReused": "Bu istek zaten başka bir işlem için kullanıldı. Lütfen yeniden gönderin."
       },
       "playerNotInLineup": "Bu oyuncu ilk 11’de değil."
     },
@@ -5127,7 +5133,7 @@
     "title": "Bir şeyler ters gitti",
     "refusalTitle": "Bu yapılamaz",
     "nothingChanged": "Hiçbir şey değişmedi.",
-    "unexpected": "Oyun bu işlemi tamamlayamadı ve gerçekleşip gerçekleşmediğini doğrulayamıyor. Tekrar denemeden önce Transferler sayfasına ve gelen kutunuza bakın. Referans: {{reference}}."
+    "unexpected": "Oyun bu işlemi tamamlayamadı ve gerçekleşip gerçekleşmediğini doğrulayamıyor. Tekrar denemeden önce bulunduğunuz sayfaya ve gelen kutunuza bakın. Referans: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Hata bildir",

@@ -54,8 +54,8 @@ export function useTransferCounterFlow({ onGameUpdate, t }: Input) {
 
     try {
       const submission = await submitTransferCommand(
-        (requestId) =>
-          counterOffer(counterTarget.player.id, counterTarget.offerId, requestedFee, requestId),
+        (request) =>
+          counterOffer(counterTarget.player.id, counterTarget.offerId, requestedFee, request),
         { onGameUpdate, t },
       );
       if (submission.kind === "stopped") {

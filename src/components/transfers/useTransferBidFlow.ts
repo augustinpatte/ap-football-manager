@@ -196,7 +196,7 @@ export function useTransferBidFlow({
 
     try {
       const submission = await submitTransferCommand(
-        (requestId) => makeTransferBid(bidTarget.id, bidFee, sendableTerms, requestId),
+        (request) => makeTransferBid(bidTarget.id, bidFee, sendableTerms, request),
         { onGameUpdate, t },
       );
       if (submission.kind === "stopped") {

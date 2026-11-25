@@ -9,8 +9,8 @@ import {
 } from "../../services/transfersService";
 import { formatDate } from "../../lib/dateFormatting";
 import { formatVal } from "../../lib/helpers";
-import { resolveBackendError } from "../../utils/backendI18n";
 import { Badge, Card, CardBody } from "../ui";
+import { failureText } from "../../utils/failureText";
 
 interface TransferDeadlinePanelProps {
   gameState: GameStateData;
@@ -85,7 +85,7 @@ export default function TransferDeadlinePanel({
       })
       .catch((failure: unknown) => {
         if (!cancelled) {
-          setError(resolveBackendError(failure));
+          setError(failureText(failure));
         }
       });
     return () => {

@@ -367,7 +367,7 @@ describe("TransfersTab", (): void => {
         playerId: "player-1",
         offerId: "offer-1",
         requestedFee: 1200000,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
     });
 

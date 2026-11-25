@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "His move is waiting for registration."
     },
     "requestWentThrough": "Your request went through, but its reply was lost on the way. The offer history shows the result.",
+    "requestNeverRan": "Your request did not reach the game, so nothing was changed. You can try again.",
+    "requestStillRunning": "The game is still processing your request, so its result is not known yet. Check the offer history before trying again.",
+    "requestCareerChanged": "This career was closed or replaced while your request was being sent. Nothing from it was applied here.",
     "activity": {
       "title": "Transfer activity",
       "intro": "Every offer and loan you are part of, by stage. Open a player to see his full history.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "The earlier result of this action could not be read back. Check the Transfers page before trying again."
+        "outcomeUnreadable": "The earlier result of this action could not be read back. Check the Transfers page before trying again.",
+        "careerChanged": "This action was started in a career that is no longer open.",
+        "requestAbandoned": "This request was cancelled before it could run. Send it again.",
+        "requestIdReused": "This request was already used for a different action. Send it again."
       },
       "playerNotInLineup": "That player is not in the starting lineup."
     },
@@ -5127,7 +5133,7 @@
     "title": "Something went wrong",
     "refusalTitle": "This can't be done",
     "nothingChanged": "Nothing was changed.",
-    "unexpected": "The game could not complete this action and cannot confirm whether it went through. Check the Transfers page and your Inbox before trying again. Reference: {{reference}}."
+    "unexpected": "The game could not complete this action and cannot confirm whether it went through. Check the page you were on and your Inbox before trying again. Reference: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Report a bug",

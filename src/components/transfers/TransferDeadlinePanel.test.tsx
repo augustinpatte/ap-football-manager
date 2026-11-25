@@ -18,8 +18,10 @@ vi.mock("react-i18next", () => ({
 vi.mock("../../services/transfersService", () => ({
   getTransferDeadlineSummary: vi.fn(),
 }));
-vi.mock("../../utils/backendI18n", () => ({
-  resolveBackendError: (error: unknown) => `resolved:${String(error)}`,
+// The wording of a failure is tested in utils/failureText.test.ts; here a failure reads as itself.
+vi.mock("../../utils/failureText", () => ({
+  failureText: (error: unknown) => `resolved:${String(error)}`,
+  failureReason: (error: unknown) => `resolved:${String(error)}`,
 }));
 
 const mockedSummary = vi.mocked(getTransferDeadlineSummary);

@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Jeho přestup čeká na registraci."
     },
     "requestWentThrough": "Váš požadavek proběhl, ale odpověď se cestou ztratila. Výsledek ukazuje historie nabídek.",
+    "requestNeverRan": "Váš požadavek hru nedosáhl, takže se nic nezměnilo. Můžete to zkusit znovu.",
+    "requestStillRunning": "Hra váš požadavek stále zpracovává, takže jeho výsledek zatím není znám. Před dalším pokusem zkontrolujte historii nabídek.",
+    "requestCareerChanged": "Tato kariéra byla během odesílání vašeho požadavku zavřena nebo nahrazena. Nic z ní zde nebylo použito.",
     "activity": {
       "title": "Přestupová aktivita",
       "intro": "Každá nabídka a hostování, kterých se účastníte, podle fáze. Otevřete hráče a uvidíte celou jeho historii.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Dřívější výsledek této akce se nepodařilo přečíst. Před dalším pokusem zkontrolujte stránku Přestupy."
+        "outcomeUnreadable": "Dřívější výsledek této akce se nepodařilo přečíst. Před dalším pokusem zkontrolujte stránku Přestupy.",
+        "careerChanged": "Tato akce byla zahájena v kariéře, která už není otevřená.",
+        "requestAbandoned": "Tento požadavek byl zrušen dříve, než mohl proběhnout. Odešlete ho znovu.",
+        "requestIdReused": "Tento požadavek už byl použit pro jinou akci. Odešlete ho znovu."
       },
       "playerNotInLineup": "Tento hráč není v základní sestavě."
     },
@@ -5127,7 +5133,7 @@
     "title": "Něco se pokazilo",
     "refusalTitle": "To nelze provést",
     "nothingChanged": "Nic se nezměnilo.",
-    "unexpected": "Hra tuto akci nedokázala dokončit a nemůže potvrdit, zda proběhla. Před dalším pokusem zkontrolujte stránku Přestupy a doručenou poštu. Reference: {{reference}}."
+    "unexpected": "Hra tuto akci nedokázala dokončit a nemůže potvrdit, zda proběhla. Před dalším pokusem zkontrolujte stránku, na které jste byli, a doručenou poštu. Reference: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Nahlásit chybu",

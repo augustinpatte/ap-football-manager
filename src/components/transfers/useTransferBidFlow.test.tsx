@@ -525,7 +525,7 @@ describe("useTransferBidFlow", (): void => {
         target.id,
         1500000,
         terms,
-        expect.any(String),
+        expect.objectContaining({ id: expect.any(String) }),
       );
     });
   });
@@ -576,7 +576,7 @@ describe("useTransferBidFlow", (): void => {
         target.id,
         expect.any(Number),
         expect.objectContaining({ player_weekly_wage: 13000, player_contract_years: 3 }),
-        expect.any(String),
+        expect.objectContaining({ id: expect.any(String) }),
       );
     });
     await waitFor((): void => {

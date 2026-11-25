@@ -89,14 +89,14 @@ export function useLoanCounterFlow({
 
     try {
       const submission = await submitTransferCommand(
-        (requestId) =>
+        (request) =>
           counterLoanOffer(
             loanCounterTarget.player.id,
             loanCounterTarget.offer.id,
             selectedLoanCounterPeriodOption.endDate,
             Math.max(0, Math.min(100, Math.round(loanCounterWageContributionPct))),
             loanCounterBuyOptionEnabled ? parseTransferFeeInput(loanCounterBuyOptionFee) : null,
-            requestId,
+            request,
           ),
         { onGameUpdate, t },
       );

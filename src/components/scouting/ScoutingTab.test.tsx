@@ -724,7 +724,7 @@ describe("ScoutingTab", () => {
       expect(invokeMock).toHaveBeenCalledWith("make_transfer_bid", {
         playerId: "player-1",
         fee: 300000,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });

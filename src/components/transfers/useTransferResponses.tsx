@@ -6,6 +6,7 @@ import {
   respondToOffer,
   respondToLoanOffer,
 } from "../../services/transfersService";
+import type { RequestStamp } from "../../services/transactionService";
 import { submitTransferCommand } from "./transferSubmission";
 interface Input {
   onGameUpdate: ((game: GameStateData) => void) | undefined;
@@ -18,7 +19,7 @@ export function useTransferResponses({ onGameUpdate }: Input) {
   const answering = useRef(false);
   const respond = async (
     failureLog: string,
-    action: (requestId: string) => Promise<GameStateData>,
+    action: (request: RequestStamp) => Promise<GameStateData>,
   ): Promise<void> => {
     if (answering.current) return;
     answering.current = true;
@@ -40,16 +41,16 @@ export function useTransferResponses({ onGameUpdate }: Input) {
     }
   };
   const handleRespondOffer = (playerId: string, offerId: string, accept: boolean) =>
-    respond("Failed to respond to offer:", (requestId) =>
-      respondToOffer(playerId, offerId, accept, requestId),
+    respond("Failed to respond to offer:", (request) =>
+      respondToOffer(playerId, offerId, accept, request),
     );
   const handleRespondLoanOffer = (playerId: string, offerId: string, accept: boolean) =>
-    respond("Failed to respond to loan offer:", (requestId) =>
-      respondToLoanOffer(playerId, offerId, accept, requestId),
+    respond("Failed to respond to loan offer:", (request) =>
+      respondToLoanOffer(playerId, offerId, accept, request),
     );
   const handleExerciseLoanBuyOption = (playerId: string) =>
-    respond("Failed to exercise loan buy option:", (requestId) =>
-      exerciseLoanBuyOption(playerId, requestId),
+    respond("Failed to exercise loan buy option:", (request) =>
+      exerciseLoanBuyOption(playerId, request),
     );
   return {
     responseError,

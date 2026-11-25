@@ -148,7 +148,7 @@ describe("useLoanOfferFlow", () => {
     await act(async () => hook.result.current.handleMakeLoanOffer());
     await act(async () => hook.result.current.handleMakeLoanOffer());
 
-    const ids = makeLoanOfferMock.mock.calls.map((call) => call[4]);
+    const ids = makeLoanOfferMock.mock.calls.map((call) => call[4]?.id);
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBeTruthy();
     expect(ids[0]).not.toBe(ids[1]);

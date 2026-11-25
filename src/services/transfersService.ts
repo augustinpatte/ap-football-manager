@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { RequestStamp } from "./transactionService";
 
 import type { GameStateData } from "../store/gameStore";
 
@@ -99,13 +100,13 @@ export async function makeTransferBid(
   playerId: string,
   fee: number,
   terms?: TransferTermsData,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<TransferNegotiationResponseData> {
   return invoke<TransferNegotiationResponseData>("make_transfer_bid", {
     playerId,
     fee,
     terms,
-    requestId,
+    request,
   });
 }
 
@@ -114,24 +115,24 @@ export async function makeLoanOffer(
   endDate: string,
   wageContributionPct: number,
   buyOptionFee: number | null = null,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<LoanOfferResponseData> {
   return invoke<LoanOfferResponseData>("make_loan_offer", {
     playerId,
     endDate,
     wageContributionPct,
     buyOptionFee,
-    requestId,
+    request,
   });
 }
 
 export async function exerciseLoanBuyOption(
   playerId: string,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("exercise_loan_buy_option", {
     playerId,
-    requestId,
+    request,
   });
 }
 
@@ -139,13 +140,13 @@ export async function respondToOffer(
   playerId: string,
   offerId: string,
   accept: boolean,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("respond_to_offer", {
     playerId,
     offerId,
     accept,
-    requestId,
+    request,
   });
 }
 
@@ -153,13 +154,13 @@ export async function respondToLoanOffer(
   playerId: string,
   offerId: string,
   accept: boolean,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("respond_to_loan_offer", {
     playerId,
     offerId,
     accept,
-    requestId,
+    request,
   });
 }
 
@@ -169,7 +170,7 @@ export async function counterLoanOffer(
   endDate: string,
   wageContributionPct: number,
   buyOptionFee: number | null = null,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<LoanOfferResponseData> {
   return invoke<LoanOfferResponseData>("counter_loan_offer", {
     playerId,
@@ -177,7 +178,7 @@ export async function counterLoanOffer(
     endDate,
     wageContributionPct,
     buyOptionFee,
-    requestId,
+    request,
   });
 }
 
@@ -185,13 +186,13 @@ export async function counterOffer(
   playerId: string,
   offerId: string,
   requestedFee: number,
-  requestId?: string,
+  request?: RequestStamp,
 ): Promise<TransferNegotiationResponseData> {
   return invoke<TransferNegotiationResponseData>("counter_offer", {
     playerId,
     offerId,
     requestedFee,
-    requestId,
+    request,
   });
 }
 

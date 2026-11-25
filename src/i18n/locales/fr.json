@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Son transfert attend l'enregistrement."
     },
     "requestWentThrough": "Votre demande a bien été traitée, mais sa réponse s’est perdue en route. L’historique des offres montre le résultat.",
+    "requestNeverRan": "Votre demande n’a pas atteint le jeu : rien n’a été modifié. Vous pouvez réessayer.",
+    "requestStillRunning": "Le jeu traite encore votre demande : son résultat n’est pas encore connu. Consultez l’historique des offres avant de réessayer.",
+    "requestCareerChanged": "Cette carrière a été fermée ou remplacée pendant l’envoi de votre demande. Rien n’en a été appliqué ici.",
     "activity": {
       "title": "Activité de transferts",
       "intro": "Chaque offre et prêt auquel vous participez, par étape. Ouvrez un joueur pour voir tout son historique.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Le résultat précédent de cette action n’a pas pu être relu. Vérifiez la page Transferts avant de réessayer."
+        "outcomeUnreadable": "Le résultat précédent de cette action n’a pas pu être relu. Vérifiez la page Transferts avant de réessayer.",
+        "careerChanged": "Cette action a été lancée dans une carrière qui n’est plus ouverte.",
+        "requestAbandoned": "Cette demande a été annulée avant d’avoir pu s’exécuter. Envoyez-la de nouveau.",
+        "requestIdReused": "Cette demande a déjà servi pour une autre action. Envoyez-la de nouveau."
       },
       "playerNotInLineup": "Ce joueur n’est pas dans le onze de départ."
     },
@@ -5127,7 +5133,7 @@
     "title": "Une erreur est survenue",
     "refusalTitle": "Action impossible",
     "nothingChanged": "Rien n’a été modifié.",
-    "unexpected": "Le jeu n’a pas pu terminer cette action et ne peut pas confirmer si elle a abouti. Vérifiez la page Transferts et votre boîte de réception avant de réessayer. Référence : {{reference}}."
+    "unexpected": "Le jeu n’a pas pu terminer cette action et ne peut pas confirmer si elle a abouti. Vérifiez la page où vous étiez et votre boîte de réception avant de réessayer. Référence : {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Signaler un bug",

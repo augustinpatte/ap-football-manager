@@ -382,6 +382,7 @@ pub fn run() {
             get_bid_negotiation_status,
             get_transfer_deadline_summary,
             get_transaction_status,
+            settle_transaction,
             get_departure_blockers,
             respond_to_offer,
             respond_to_loan_offer,

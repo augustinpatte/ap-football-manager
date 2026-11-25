@@ -12,7 +12,7 @@ import {
   type SquadCapacityData,
 } from "../../services/freeAgentService";
 import { calcAgeOnDate } from "../../lib/valueFormatting";
-import { resolveBackendError } from "../../utils/backendI18n";
+import { failureText } from "../../utils/failureText";
 
 interface UseFreeAgentContractFlowArgs {
   gameState: GameStateData;
@@ -239,7 +239,7 @@ export function useFreeAgentContractFlow({
       const result = await action();
       onGameUpdate?.(result.game);
     } catch (error) {
-      setContractError(resolveBackendError(error));
+      setContractError(failureText(error));
     } finally {
       setContractSubmitting(false);
     }

@@ -1,6 +1,6 @@
-import type { GameStateData } from "../../store/gameStore";
+import { useGameStore, type GameStateData } from "../../store/gameStore";
 import { getActiveGame } from "../../services/sessionService";
-import { submitTransaction } from "../../services/transactionService";
+import { submitTransaction, type RequestStamp } from "../../services/transactionService";
 import { resolveBackendError } from "../../utils/backendI18n";
 import { userErrorText } from "../../utils/errorMessage";
 
@@ -20,10 +20,20 @@ export type TransferSubmission<T> =
  * says so instead of showing an error beside a transfer that happened.
  */
 export async function submitTransferCommand<T>(
-  run: (requestId: string) => Promise<T>,
-  options: { onGameUpdate?: (game: GameStateData) => void; t: Translate },
+  run: (request: RequestStamp) => Promise<T>,
+  options: {
+    onGameUpdate?: (game: GameStateData) => void;
+    t: Translate;
+    /** Replaces the real pause between two looks at an in-progress request (tests). */
+    pause?: (milliseconds: number) => Promise<void>;
+  },
 ): Promise<TransferSubmission<T>> {
-  const outcome = await submitTransaction(run);
+  const careerToken = useGameStore.getState().gameState?.career_token;
+  const outcome = await submitTransaction(run, {
+    careerToken,
+    currentCareerToken: () => useGameStore.getState().gameState?.career_token,
+    pause: options.pause,
+  });
   switch (outcome.kind) {
     case "done":
       return { kind: "done", value: outcome.value };
@@ -39,8 +49,26 @@ export async function submitTransferCommand<T>(
         unresolved: true,
       };
     }
-    case "refused":
     case "failed":
+      // The backend closed the id before it ran: nothing changed and a new press is a new request.
+      return {
+        kind: "stopped",
+        message: options.t("transfers.requestNeverRan"),
+        unresolved: false,
+      };
+    case "in-progress":
+      return {
+        kind: "stopped",
+        message: options.t("transfers.requestStillRunning"),
+        unresolved: true,
+      };
+    case "career-changed":
+      return {
+        kind: "stopped",
+        message: options.t("transfers.requestCareerChanged"),
+        unresolved: true,
+      };
+    case "refused":
     case "unconfirmed":
       return {
         kind: "stopped",

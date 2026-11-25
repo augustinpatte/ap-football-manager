@@ -305,7 +305,7 @@ describe("TransfersTab", (): void => {
       expect(mockedInvoke).toHaveBeenCalledWith("make_transfer_bid", {
         playerId: "player-market-1",
         fee: 1000000,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
     });
 
@@ -411,7 +411,7 @@ describe("TransfersTab", (): void => {
         endDate: "2027-01-01",
         wageContributionPct: 75,
         buyOptionFee: null,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
     });
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
@@ -484,7 +484,7 @@ describe("TransfersTab", (): void => {
         endDate: "2027-06-30",
         wageContributionPct: 100,
         buyOptionFee: null,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
     });
 
@@ -598,7 +598,7 @@ describe("TransfersTab", (): void => {
       expect(mockedInvoke).toHaveBeenCalledWith("make_transfer_bid", {
         playerId: "transfer-target",
         fee: 1_000_000,
-        requestId: expect.any(String),
+        request: expect.objectContaining({ id: expect.any(String) }),
       });
     });
   });

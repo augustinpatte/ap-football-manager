@@ -86,13 +86,13 @@ export function useLoanOfferFlow({
 
     try {
       const submission = await submitTransferCommand(
-        (requestId) =>
+        (request) =>
           makeLoanOffer(
             loanTarget.id,
             selectedLoanPeriodOption.endDate,
             Math.max(0, Math.min(100, Math.round(loanWageContributionPct))),
             loanBuyOptionEnabled ? parseTransferFeeInput(loanBuyOptionFee) : null,
-            requestId,
+            request,
           ),
         { onGameUpdate, t },
       );

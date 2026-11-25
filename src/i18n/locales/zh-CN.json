@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "他的转会正在等待办理注册。"
     },
     "requestWentThrough": "你的请求已经执行，但回复在途中丢失。报价记录中可以查看结果。",
+    "requestNeverRan": "你的请求没有送达游戏，因此没有任何改动。你可以再试一次。",
+    "requestStillRunning": "游戏仍在处理你的请求，因此结果尚不明确。请先查看报价记录，再决定是否重试。",
+    "requestCareerChanged": "你的请求发送期间，该存档生涯已被关闭或替换。其中的内容没有应用到这里。",
     "activity": {
       "title": "转会动态",
       "intro": "你参与的每一项报价和租借，按阶段分类。打开球员即可查看其完整记录。",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "无法读取此操作之前的结果。请先查看转会页面，再决定是否重试。"
+        "outcomeUnreadable": "无法读取此操作之前的结果。请先查看转会页面，再决定是否重试。",
+        "careerChanged": "此操作是在一个已不再打开的生涯中发起的。",
+        "requestAbandoned": "此请求在执行前已被取消。请重新发送。",
+        "requestIdReused": "此请求已用于另一项操作。请重新发送。"
       },
       "playerNotInLineup": "该球员不在首发阵容中。"
     },
@@ -5127,7 +5133,7 @@
     "title": "出了点问题",
     "refusalTitle": "无法执行",
     "nothingChanged": "没有任何更改。",
-    "unexpected": "游戏无法完成此操作，也无法确认操作是否已生效。请先查看转会页面和收件箱，再决定是否重试。参考编号：{{reference}}。"
+    "unexpected": "游戏无法完成此操作，也无法确认操作是否已生效。请先查看你所在的页面和收件箱，再决定是否重试。参考编号：{{reference}}。"
   },
   "reportBug": {
     "describeTitle": "报告错误",

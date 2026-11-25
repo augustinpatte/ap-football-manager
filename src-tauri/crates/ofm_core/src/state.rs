@@ -98,7 +98,18 @@ impl StateManager {
     }
 
     pub fn set_game(&self, game: Game) {
-        set_option(&self.active_game, game);
+        let mut installed = self.active_game.lock().unwrap();
+        let career = game.career_token;
+        let same_career = installed
+            .as_ref()
+            .is_some_and(|current| current.career_token == career);
+        *installed = Some(game);
+        // Request ids belong to the career they were sent in: installing another one (or a reload
+        // of the same save, which gets a new token) starts an empty ledger. Replacing the game with
+        // a newer state of the same career keeps it. Ledger after the game lock, as everywhere.
+        if !same_career {
+            self.with_ledger(|ledger| *ledger = TransactionLedger::for_career(career));
+        }
     }
 
     pub fn get_game<F, R>(&self, f: F) -> Option<R>

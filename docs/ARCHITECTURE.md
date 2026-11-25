@@ -201,16 +201,32 @@ All frontend↔backend communication goes through Tauri's `invoke()` mechanism. 
 
 Every command that moves money or players (`make_transfer_bid`, `make_loan_offer`,
 `exercise_loan_buy_option`, `respond_to_offer`, `respond_to_loan_offer`, `counter_offer`,
-`counter_loan_offer`) takes an optional `request_id` and runs through
+`counter_loan_offer`) takes an optional `request: { id, careerToken }` stamp and runs through
 `StateManager::run_transaction` (`ofm_core/src/transactions.rs`): read, change and commit under one
 hold of the game lock, all-or-nothing (a refusal after the change has started leaves the game
-untouched), and a repeat of the same id replays the first outcome instead of running again. The screen
-sends one id per user action and, if an answer is lost, asks `get_transaction_status` before it says
-anything failed.
+untouched), and a repeat of the same id replays the first outcome instead of running again.
+
+The protocol that makes a lost answer safe:
+
+* A request is `in_progress` from the moment its command arrives (before it waits for the game
+  lock), not only once it has finished, so "unknown" can never mean "still running".
+* An id that was never seen is not proof that the command will never arrive. `settle_transaction`
+  closes it (`abandoned`): a late delivery is then refused with `be.error.transactions.requestAbandoned`,
+  and only then is "it did not run" a fact. The screen retries with a new id.
+* An id belongs to one operation (`requestIdReused`) and one career: the stamp carries the
+  `Game.career_token` the screen was showing, a command for another career is refused before it
+  writes (`careerChanged`), and the ledger is emptied whenever the installed career changes
+  (`set_game` with another token, `clear_game`).
+* On the first delivery the returned `game` is taken under the same hold of the lock as the commit;
+  a replay has no snapshot of that moment and returns the game as it is now.
+* The screen (`transactionService.ts`) chases a lost answer with `settle_transaction`, waits while it
+  is `in_progress` (about 5 s), and otherwise reports `went-through`, `refused`, `failed` (proved not
+  to have run), `in-progress` / `unconfirmed` (do not retry; same id) or `career-changed`.
 
 | Command | Parameters | Returns | Description |
 |---------|-----------|---------|-------------|
-| `get_transaction_status` | request_id | `{state: unknown \| committed \| refused, error?}` | What became of a request id: it never ran, it changed the game, or it was refused (with the refusal key) |
+| `get_transaction_status` | request_id, career_token? | `{state: unknown \| in_progress \| committed \| refused \| abandoned \| career_changed, error?}` | Read-only: what became of a request id. `unknown` is not final |
+| `settle_transaction` | request_id, career_token? | same | As above, but an id never seen is closed (`abandoned`) so a late delivery cannot run |
 | `get_departure_blockers` | — | `Map<player_id, error key>` | The manager's players the squad floor would not let leave today, each with the refusal a sale, loan or release of his would get; the offers list closes Accept and Counter for them |
 | `get_user_schedule` | — | `UserSchedule` | The manager's matches from every competition in the game, in date order, with the next one marked; a projection of the competitions' own fixtures, no calendar of its own |
 

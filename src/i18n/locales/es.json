@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Su traspaso espera la inscripción."
     },
     "requestWentThrough": "Tu solicitud se realizó, pero su respuesta se perdió por el camino. El historial de ofertas muestra el resultado.",
+    "requestNeverRan": "Tu solicitud no llegó al juego, así que no se cambió nada. Puedes intentarlo de nuevo.",
+    "requestStillRunning": "El juego sigue procesando tu solicitud, así que aún no se conoce su resultado. Revisa el historial de ofertas antes de volver a intentarlo.",
+    "requestCareerChanged": "Esta carrera se cerró o se sustituyó mientras se enviaba tu solicitud. Nada de ella se aplicó aquí.",
     "activity": {
       "title": "Actividad de traspasos",
       "intro": "Cada oferta y cesión en la que participas, por fase. Abre un jugador para ver su historial completo.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "No se pudo recuperar el resultado anterior de esta acción. Revisa la página de Fichajes antes de volver a intentarlo."
+        "outcomeUnreadable": "No se pudo recuperar el resultado anterior de esta acción. Revisa la página de Fichajes antes de volver a intentarlo.",
+        "careerChanged": "Esta acción se inició en una carrera que ya no está abierta.",
+        "requestAbandoned": "Esta solicitud se canceló antes de poder ejecutarse. Envíala de nuevo.",
+        "requestIdReused": "Esta solicitud ya se usó para otra acción distinta. Envíala de nuevo."
       },
       "playerNotInLineup": "Ese jugador no está en la alineación titular."
     },
@@ -5127,7 +5133,7 @@
     "title": "Algo ha salido mal",
     "refusalTitle": "No se puede hacer",
     "nothingChanged": "No se ha cambiado nada.",
-    "unexpected": "El juego no pudo completar esta acción y no puede confirmar si se realizó. Revisa la página de Fichajes y tu bandeja de entrada antes de volver a intentarlo. Referencia: {{reference}}."
+    "unexpected": "El juego no pudo completar esta acción y no puede confirmar si se realizó. Revisa la página en la que estabas y tu bandeja de entrada antes de volver a intentarlo. Referencia: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Informar de un fallo",

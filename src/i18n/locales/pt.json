@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "A transferência dele aguarda o registo."
     },
     "requestWentThrough": "O teu pedido foi concluído, mas a resposta perdeu-se pelo caminho. O histórico de propostas mostra o resultado.",
+    "requestNeverRan": "O teu pedido não chegou ao jogo, por isso nada foi alterado. Podes tentar novamente.",
+    "requestStillRunning": "O jogo ainda está a processar o teu pedido, por isso o resultado ainda não é conhecido. Consulta o histórico de ofertas antes de tentar novamente.",
+    "requestCareerChanged": "Esta carreira foi fechada ou substituída enquanto o teu pedido era enviado. Nada dela foi aplicado aqui.",
     "activity": {
       "title": "Atividade de transferências",
       "intro": "Todas as propostas e empréstimos em que participas, por fase. Abre um jogador para ver o histórico completo.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Não foi possível recuperar o resultado anterior desta ação. Verifica a página de Transferências antes de tentar novamente."
+        "outcomeUnreadable": "Não foi possível recuperar o resultado anterior desta ação. Verifica a página de Transferências antes de tentar novamente.",
+        "careerChanged": "Esta ação foi iniciada numa carreira que já não está aberta.",
+        "requestAbandoned": "Este pedido foi cancelado antes de poder ser executado. Envia-o novamente.",
+        "requestIdReused": "Este pedido já foi usado para outra ação. Envia-o novamente."
       },
       "playerNotInLineup": "Esse jogador não está no onze inicial."
     },
@@ -5127,7 +5133,7 @@
     "title": "Algo correu mal",
     "refusalTitle": "Não é possível",
     "nothingChanged": "Nada foi alterado.",
-    "unexpected": "O jogo não conseguiu concluir esta ação e não consegue confirmar se foi realizada. Verifica a página de Transferências e a tua caixa de entrada antes de tentar novamente. Referência: {{reference}}."
+    "unexpected": "O jogo não conseguiu concluir esta ação e não consegue confirmar se foi realizada. Verifica a página em que estavas e a tua caixa de entrada antes de tentar novamente. Referência: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Reportar um erro",

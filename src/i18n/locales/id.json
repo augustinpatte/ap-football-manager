@@ -1676,6 +1676,9 @@
       "pendingDetailNoDate": "Perpindahannya menunggu registrasi."
     },
     "requestWentThrough": "Permintaan Anda berhasil diproses, tetapi balasannya hilang di perjalanan. Riwayat tawaran menampilkan hasilnya.",
+    "requestNeverRan": "Permintaan Anda tidak sampai ke game, jadi tidak ada yang berubah. Anda bisa mencoba lagi.",
+    "requestStillRunning": "Game masih memproses permintaan Anda, jadi hasilnya belum diketahui. Periksa riwayat penawaran sebelum mencoba lagi.",
+    "requestCareerChanged": "Karier ini ditutup atau diganti saat permintaan Anda dikirim. Tidak ada yang diterapkan di sini.",
     "activity": {
       "title": "Aktivitas transfer",
       "intro": "Setiap tawaran dan peminjaman yang Anda ikuti, menurut tahap. Buka pemain untuk melihat riwayat lengkapnya.",
@@ -3677,7 +3680,10 @@
         }
       },
       "transactions": {
-        "outcomeUnreadable": "Hasil sebelumnya dari tindakan ini tidak dapat dibaca. Periksa halaman Transfer sebelum mencoba lagi."
+        "outcomeUnreadable": "Hasil sebelumnya dari tindakan ini tidak dapat dibaca. Periksa halaman Transfer sebelum mencoba lagi.",
+        "careerChanged": "Tindakan ini dimulai di karier yang sudah tidak terbuka.",
+        "requestAbandoned": "Permintaan ini dibatalkan sebelum sempat berjalan. Kirim lagi.",
+        "requestIdReused": "Permintaan ini sudah dipakai untuk tindakan lain. Kirim lagi."
       },
       "playerNotInLineup": "Pemain itu tidak ada di susunan pemain utama."
     },
@@ -5127,7 +5133,7 @@
     "title": "Ada yang tidak beres",
     "refusalTitle": "Tidak bisa dilakukan",
     "nothingChanged": "Tidak ada yang berubah.",
-    "unexpected": "Game tidak dapat menyelesaikan tindakan ini dan tidak dapat memastikan apakah tindakan itu berhasil. Periksa halaman Transfer dan kotak masuk Anda sebelum mencoba lagi. Referensi: {{reference}}."
+    "unexpected": "Game tidak dapat menyelesaikan tindakan ini dan tidak dapat memastikan apakah tindakan itu berhasil. Periksa halaman tempat Anda berada dan kotak masuk Anda sebelum mencoba lagi. Referensi: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Laporkan bug",
