@@ -99,11 +99,13 @@ export async function makeTransferBid(
   playerId: string,
   fee: number,
   terms?: TransferTermsData,
+  requestId?: string,
 ): Promise<TransferNegotiationResponseData> {
   return invoke<TransferNegotiationResponseData>("make_transfer_bid", {
     playerId,
     fee,
     terms,
+    requestId,
   });
 }
 
@@ -112,18 +114,24 @@ export async function makeLoanOffer(
   endDate: string,
   wageContributionPct: number,
   buyOptionFee: number | null = null,
+  requestId?: string,
 ): Promise<LoanOfferResponseData> {
   return invoke<LoanOfferResponseData>("make_loan_offer", {
     playerId,
     endDate,
     wageContributionPct,
     buyOptionFee,
+    requestId,
   });
 }
 
-export async function exerciseLoanBuyOption(playerId: string): Promise<GameStateData> {
+export async function exerciseLoanBuyOption(
+  playerId: string,
+  requestId?: string,
+): Promise<GameStateData> {
   return invoke<GameStateData>("exercise_loan_buy_option", {
     playerId,
+    requestId,
   });
 }
 
@@ -131,11 +139,13 @@ export async function respondToOffer(
   playerId: string,
   offerId: string,
   accept: boolean,
+  requestId?: string,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("respond_to_offer", {
     playerId,
     offerId,
     accept,
+    requestId,
   });
 }
 
@@ -143,11 +153,13 @@ export async function respondToLoanOffer(
   playerId: string,
   offerId: string,
   accept: boolean,
+  requestId?: string,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("respond_to_loan_offer", {
     playerId,
     offerId,
     accept,
+    requestId,
   });
 }
 
@@ -157,6 +169,7 @@ export async function counterLoanOffer(
   endDate: string,
   wageContributionPct: number,
   buyOptionFee: number | null = null,
+  requestId?: string,
 ): Promise<LoanOfferResponseData> {
   return invoke<LoanOfferResponseData>("counter_loan_offer", {
     playerId,
@@ -164,6 +177,7 @@ export async function counterLoanOffer(
     endDate,
     wageContributionPct,
     buyOptionFee,
+    requestId,
   });
 }
 
@@ -171,11 +185,13 @@ export async function counterOffer(
   playerId: string,
   offerId: string,
   requestedFee: number,
+  requestId?: string,
 ): Promise<TransferNegotiationResponseData> {
   return invoke<TransferNegotiationResponseData>("counter_offer", {
     playerId,
     offerId,
     requestedFee,
+    requestId,
   });
 }
 

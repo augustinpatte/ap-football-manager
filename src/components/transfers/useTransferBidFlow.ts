@@ -11,7 +11,7 @@ import {
   type TransferNegotiationFeedbackData,
   type TransferNegotiationResponseData,
 } from "../../services/transfersService";
-import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
+import { submitTransferCommand } from "./transferSubmission";
 import { DEFAULT_BID_TERMS, parseBidTerms, type BidTermsInput } from "./bidTerms";
 import {
   buildResumedBidFeedback,
@@ -180,18 +180,32 @@ export function useTransferBidFlow({
     setBidProjection(null);
   };
 
+  // One press is one request: a second press before the answer would send the bid twice.
+  const submitting = useRef(false);
   const handleMakeBid = async (): Promise<void> => {
     if (!bidTarget || bidFee === null || bidFee <= 0 || !parsedTerms.valid) {
       return;
     }
 
+    if (submitting.current) return;
+    submitting.current = true;
     setBidLoading(true);
     setBidResult(null);
     setBidError(null);
     setBidFeedback(null);
 
     try {
-      const response = await makeTransferBid(bidTarget.id, bidFee, sendableTerms);
+      const submission = await submitTransferCommand(
+        (requestId) => makeTransferBid(bidTarget.id, bidFee, sendableTerms, requestId),
+        { onGameUpdate, t },
+      );
+      if (submission.kind === "stopped") {
+        setBidResult("error");
+        setBidError(submission.message);
+        setBidFeedback(null);
+        return;
+      }
+      const response = submission.value;
       // The player is handled now: an offer the game update brings is this bid's own, and its
       // feedback is the response's, not a "resumed negotiation" one.
       resumedFor.current = bidTarget.id;
@@ -217,10 +231,10 @@ export function useTransferBidFlow({
         setBidAmount((response.suggested_fee / 1_000_000).toFixed(2));
       }
     } catch (error: unknown) {
-      setBidResult("error");
-      setBidError(resolveTranslatedErrorMessage(getErrorMessage(error), t));
-      setBidFeedback(null);
+      // The backend has answered; a local step failing must not turn its answer into an error.
+      console.error("A step after the bid answer failed; the answer stands", error);
     } finally {
+      submitting.current = false;
       setBidLoading(false);
     }
   };

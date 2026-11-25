@@ -7,7 +7,7 @@ import type {
   RegistrySearchRequest,
   RegistrySortKey,
 } from "../../services/registryService";
-import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
+import { describeError, getErrorMessage } from "../../utils/errorMessage";
 
 /** What the screen edits; the backend owns the search contract it is sent as. */
 export interface GlobalMarketQuery {
@@ -172,8 +172,8 @@ export function marketErrorMessage(error: unknown, t: Translate): string {
   const key = message.split("?")[0] ?? "";
   if (!TRANSLATION_KEY.test(key)) return t("globalMarket.errorGeneric");
 
-  const resolved = resolveTranslatedErrorMessage(error, t);
-  return resolved === message ? t("globalMarket.errorGeneric") : resolved;
+  const described = describeError(error, t);
+  return described.kind === "technical" ? t("globalMarket.errorGeneric") : described.text;
 }
 
 /** Which sentence explains why the signing button is closed. */

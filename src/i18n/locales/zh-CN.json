@@ -1670,7 +1670,8 @@
       "pendingTitle": "已达成转会协议",
       "pendingDetail": "他的转会将于 {{date}} 办理注册。",
       "pendingDetailNoDate": "他的转会正在等待办理注册。"
-    }
+    },
+    "requestWentThrough": "你的请求已经执行，但回复在途中丢失。报价记录中可以查看结果。"
   },
   "transferCentreWorld": {
     "title": "转会中心",
@@ -3355,7 +3356,9 @@
         "leaguePhaseNeedsClubCompetition": "联赛阶段只能由洲际或国际俱乐部赛事使用。",
         "leaguePhaseFieldSize": "联赛阶段需要恰好 {{expected}} 家俱乐部，但列出了 {{found}} 家。",
         "berthRequiresLeaguePhase": "“现有参赛者”或“卫冕冠军”名额只能设置在含联赛阶段的赛事上。",
-        "berthNoPlaces": "欧战表现名额至少要授予一个席位。"
+        "berthNoPlaces": "欧战表现名额至少要授予一个席位。",
+        "invalidSeasonDay": "某赛事的赛季开始日期不是其所在月份的有效日期。",
+        "invalidSeasonMonth": "某赛事的赛季开始月份无效。"
       },
       "worldParseFailed": "解析世界数据库文件失败。",
       "worldWriteFileFailed": "导出世界数据库文件失败。",
@@ -3457,7 +3460,7 @@
         "insufficientFunds": "资金不足",
         "transferBudgetTooLow": "转会预算过低",
         "playerNotOwnedByUser": "未找到该球员，或该球员不属于你",
-        "offerNotPending": "未找到报价，或该报价已不再处于待处理状态",
+        "offerNotPending": "在你回复之前谈判已冷却。如果对方回头再谈,请重新开启谈判。",
         "talksBrokenOff": "该俱乐部已终止这名球员的谈判。请稍后再试。",
         "loanBorrowerCannotAffordWages": "租借俱乐部负担不起这部分薪资。其每周薪资预算为 {{budget}}。",
         "counterOfferMustExceedCurrentOffer": "还价必须高于当前报价",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "出售方俱乐部不会同意这笔签约。",
         "signingRefusedByPlayer": "无论你能提供什么条件，球员都不会加盟。",
         "ownerNotFound": "该成员不在你的教练组中。",
-        "ownerNotEligible": "该职位无法负责这项职责。"
+        "ownerNotEligible": "该职位无法负责这项职责。",
+        "offerGone": "该报价已不可用。",
+        "offerChanged": "你查看期间该报价已发生变化。请先查看新的条款再作答复。",
+        "playerProtected": "该球员在你的保护名单中，因此助理不会将其挂牌或调动。如需这样做，请先取消保护。"
       },
       "freeAgents": {
         "talkAlreadyOpen": "你已经向该球员报过价。请等待他的答复或撤回报价。",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "同一协会对手的数量上限必须至少为一。",
           "associationLimitExceedsPotCapacity": "每个协会的俱乐部数量上限不能超过半个档次。"
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "无法读取此操作之前的结果。请先查看转会页面，再决定是否重试。"
+      },
+      "playerNotInLineup": "该球员不在首发阵容中。"
     },
     "sender": {
       "boardOfDirectors": "董事会",
@@ -5066,7 +5076,10 @@
     "reload": "重新加载游戏"
   },
   "errors": {
-    "title": "出了点问题"
+    "title": "出了点问题",
+    "refusalTitle": "无法执行",
+    "nothingChanged": "没有任何更改。",
+    "unexpected": "游戏无法完成此操作，也无法确认操作是否已生效。请先查看转会页面和收件箱，再决定是否重试。参考编号：{{reference}}。"
   },
   "reportBug": {
     "describeTitle": "报告错误",

@@ -1670,7 +1670,8 @@
       "pendingTitle": "Přestup už je dohodnutý",
       "pendingDetail": "Jeho přestup čeká na registraci dne {{date}}.",
       "pendingDetailNoDate": "Jeho přestup čeká na registraci."
-    }
+    },
+    "requestWentThrough": "Váš požadavek proběhl, ale odpověď se cestou ztratila. Výsledek ukazuje historie nabídek."
   },
   "transferCentreWorld": {
     "title": "Přestupové centrum",
@@ -3398,7 +3399,9 @@
         "leaguePhaseNeedsClubCompetition": "Ligovou fázi může používat jen kontinentální nebo mezinárodní klubová soutěž.",
         "leaguePhaseFieldSize": "Ligová fáze potřebuje přesně {{expected}} klubů, ale uvedeno je {{found}}.",
         "berthRequiresLeaguePhase": "Místo pro stávajícího účastníka nebo držitele titulu lze nastavit jen u soutěže s ligovou fází.",
-        "berthNoPlaces": "Místo za evropskou výkonnost musí přidělit alespoň jedno místo."
+        "berthNoPlaces": "Místo za evropskou výkonnost musí přidělit alespoň jedno místo.",
+        "invalidSeasonDay": "Den zahájení sezóny soutěže není platným dnem jejího měsíce.",
+        "invalidSeasonMonth": "Měsíc zahájení sezóny soutěže není platný měsíc."
       },
       "worldParseFailed": "Nepodařilo se zpracovat databázový soubor světa.",
       "worldWriteFileFailed": "Nepodařilo se exportovat databázový soubor světa.",
@@ -3465,7 +3468,7 @@
         "insufficientFunds": "Nedostatek finančních prostředků",
         "transferBudgetTooLow": "Přestupový rozpočet je příliš nízký",
         "playerNotOwnedByUser": "Hráč nebyl nalezen nebo není váš",
-        "offerNotPending": "Nabídka nebyla nalezena nebo nečeká na vyřízení",
+        "offerNotPending": "Jednání ochladla dříve, než jste stihli odpovědět. Pokud bude mít klub zájem, zahajte nové vyjednávání.",
         "talksBrokenOff": "Tento klub ukončil jednání o tomto hráči. Zkuste to později.",
         "loanBorrowerCannotAffordWages": "Hostující klub si tento podíl na mzdě nemůže dovolit. Jeho týdenní mzdový rozpočet je {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Protinabídka musí být vyšší než aktuální nabídka",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "Prodávající klub by s tímto angažmá nesouhlasil.",
         "signingRefusedByPlayer": "Hráč by nepřišel za žádných podmínek, které můžete nabídnout.",
         "ownerNotFound": "Tento člen není ve vašem týmu.",
-        "ownerNotEligible": "Tato pozice nemůže tuto povinnost zastávat."
+        "ownerNotEligible": "Tato pozice nemůže tuto povinnost zastávat.",
+        "offerGone": "Tato nabídka už není k dispozici.",
+        "offerChanged": "Nabídka se změnila, zatímco jste si ji prohlíželi. Před odpovědí zkontrolujte nové podmínky.",
+        "playerProtected": "Tento hráč je na vašem seznamu chráněných, takže ho asistent nedá na soupisku k prodeji ani s ním nebude hýbat. Chcete-li to, nejprve ochranu zrušte."
       },
       "freeAgents": {
         "talkAlreadyOpen": "S tímto hráčem už nabídku máš. Počkej na jeho odpověď, nebo ji stáhni.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "Limit soupeřů z jedné asociace musí být alespoň jedna.",
           "associationLimitExceedsPotCapacity": "Limit klubů z jedné asociace nesmí překročit polovinu koše."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Dřívější výsledek této akce se nepodařilo přečíst. Před dalším pokusem zkontrolujte stránku Přestupy."
+      },
+      "playerNotInLineup": "Tento hráč není v základní sestavě."
     },
     "sender": {
       "boardOfDirectors": "Představenstvo",
@@ -5066,7 +5076,10 @@
     "reload": "Načíst hru znovu"
   },
   "errors": {
-    "title": "Něco se pokazilo"
+    "title": "Něco se pokazilo",
+    "refusalTitle": "To nelze provést",
+    "nothingChanged": "Nic se nezměnilo.",
+    "unexpected": "Hra tuto akci nedokázala dokončit a nemůže potvrdit, zda proběhla. Před dalším pokusem zkontrolujte stránku Přestupy a doručenou poštu. Reference: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Nahlásit chybu",

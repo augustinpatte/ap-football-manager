@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GameStateData, PlayerData, TransferOfferData } from "../../store/gameStore";
 import type { NegotiationFeedbackPanelData } from "../NegotiationFeedbackPanel";
 import {
@@ -8,10 +8,10 @@ import {
 import {
   buildResumedCounterFeedback,
   formatTransferFeeInput,
-  mapTransferNegotiationError,
   normalizeTransferNegotiationFeedback,
   parseTransferFeeInput,
 } from "./TransfersTab.helpers";
+import { submitTransferCommand } from "./transferSubmission";
 import type { TFunction } from "i18next";
 import type { CounterTarget } from "./TransfersTab.types";
 interface Input {
@@ -39,22 +39,30 @@ export function useTransferCounterFlow({ onGameUpdate, t }: Input) {
     setCounterResult(null);
     setCounterFeedback(buildResumedCounterFeedback(offer));
   };
+  // One press is one request: a second press before the answer would send the counter twice.
+  const submitting = useRef(false);
   const handleCounterOffer = async () => {
     const requestedFee = parseTransferFeeInput(counterAmount);
 
-    if (!counterTarget || requestedFee === null || requestedFee <= 0) return;
+    if (!counterTarget || requestedFee === null || requestedFee <= 0 || submitting.current) return;
 
+    submitting.current = true;
     setCounterLoading(true);
     setCounterError(null);
     setCounterResult(null);
     setCounterFeedback(null);
 
     try {
-      const response = await counterOffer(
-        counterTarget.player.id,
-        counterTarget.offerId,
-        requestedFee,
+      const submission = await submitTransferCommand(
+        (requestId) =>
+          counterOffer(counterTarget.player.id, counterTarget.offerId, requestedFee, requestId),
+        { onGameUpdate, t },
       );
+      if (submission.kind === "stopped") {
+        setCounterError(submission.message);
+        return;
+      }
+      const response = submission.value;
 
       if (onGameUpdate) onGameUpdate(response.game);
       setCounterResult(response.decision);
@@ -63,8 +71,10 @@ export function useTransferCounterFlow({ onGameUpdate, t }: Input) {
         setCounterAmount(formatTransferFeeInput(response.suggested_fee));
       }
     } catch (err: unknown) {
-      setCounterError(mapTransferNegotiationError(t, String(err) || "error"));
+      // The backend has answered; a local step failing must not turn its answer into an error.
+      console.error("A step after the counteroffer answer failed; the answer stands", err);
     } finally {
+      submitting.current = false;
       setCounterLoading(false);
     }
   };

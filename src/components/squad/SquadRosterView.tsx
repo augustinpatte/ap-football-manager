@@ -43,6 +43,7 @@ import {
 } from "../../lib/playerSquad";
 import { getInjurySeverity, resolveInjuryName } from "../../lib/injury";
 import { useTranslation } from "react-i18next";
+import { userErrorText } from "../../utils/errorMessage";
 import ContextMenu, { type ContextMenuHandle } from "../ContextMenu";
 import { clearContractExitIntent, setContractExitIntent } from "../../services/contractService";
 import { setPlayerSquadRole, setStartingXi } from "../../services/squadService";
@@ -372,7 +373,7 @@ export default function SquadRosterView({
         : await clearContractExitIntent(playerId);
       onMutationComplete?.(result.game);
     } catch (error) {
-      setContractActionError(String(error));
+      setContractActionError(userErrorText(error, t));
     } finally {
       setContractActionPlayerId(null);
     }
@@ -394,7 +395,7 @@ export default function SquadRosterView({
     try {
       await persistStartingXi(nextXiIds);
     } catch (error) {
-      setContractActionError(String(error));
+      setContractActionError(userErrorText(error, t));
     }
   };
 

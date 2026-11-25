@@ -1670,7 +1670,8 @@
       "pendingTitle": "Uma transferência já foi acertada",
       "pendingDetail": "A transferência dele aguarda o registro em {{date}}.",
       "pendingDetailNoDate": "A transferência dele aguarda o registro."
-    }
+    },
+    "requestWentThrough": "Seu pedido foi concluído, mas a resposta se perdeu no caminho. O histórico de propostas mostra o resultado."
   },
   "transferCentreWorld": {
     "title": "Central de transferências",
@@ -3355,7 +3356,9 @@
         "leaguePhaseNeedsClubCompetition": "Uma fase de liga só pode ser usada por uma competição continental ou internacional de clubes.",
         "leaguePhaseFieldSize": "Uma fase de liga precisa de exatamente {{expected}} clubes, mas {{found}} estão listados.",
         "berthRequiresLeaguePhase": "Uma vaga de clube já participante ou de detentor do título só pode ser definida em uma competição com fase de liga.",
-        "berthNoPlaces": "Uma vaga por desempenho europeu precisa conceder pelo menos uma vaga."
+        "berthNoPlaces": "Uma vaga por desempenho europeu precisa conceder pelo menos uma vaga.",
+        "invalidSeasonDay": "O dia de início da temporada de uma competição não é um dia válido do seu mês.",
+        "invalidSeasonMonth": "O mês de início da temporada de uma competição não é um mês válido."
       },
       "worldParseFailed": "Falha ao interpretar o arquivo do banco de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o arquivo do banco de dados do mundo.",
@@ -3457,7 +3460,7 @@
         "insufficientFunds": "Fundos insuficientes",
         "transferBudgetTooLow": "O orçamento de transferências é baixo demais",
         "playerNotOwnedByUser": "Jogador não encontrado ou não pertence a você",
-        "offerNotPending": "Oferta não encontrada ou não está mais pendente",
+        "offerNotPending": "As conversas esfriaram antes de você conseguir responder. Inicie uma nova negociação se o clube voltar.",
         "talksBrokenOff": "Este clube encerrou as conversas por este jogador. Tente de novo mais tarde.",
         "loanBorrowerCannotAffordWages": "O clube que recebe o jogador não consegue pagar esta parte do salário. O orçamento salarial semanal é {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "A contraproposta deve superar a oferta atual",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "O clube vendedor não aceitaria essa contratação.",
         "signingRefusedByPlayer": "O jogador não viria com nenhuma condição que você possa oferecer.",
         "ownerNotFound": "Esse membro não está na sua comissão técnica.",
-        "ownerNotEligible": "Esse cargo não pode cuidar desta tarefa."
+        "ownerNotEligible": "Esse cargo não pode cuidar desta tarefa.",
+        "offerGone": "Essa oferta não está mais disponível.",
+        "offerChanged": "Essa oferta mudou enquanto você a analisava. Revise as novas condições antes de responder.",
+        "playerProtected": "Este jogador está na sua lista de protegidos, então seu assistente não vai listá-lo nem movê-lo. Remova a proteção primeiro se quiser isso."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Você já tem uma proposta com este jogador. Espere a resposta dele ou retire-a.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "O limite de adversários da mesma associação precisa ser de pelo menos um.",
           "associationLimitExceedsPotCapacity": "O limite de clubes por associação não pode ultrapassar a metade de um pote."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Não foi possível recuperar o resultado anterior desta ação. Confira a página de Transferências antes de tentar de novo."
+      },
+      "playerNotInLineup": "Esse jogador não está na escalação titular."
     },
     "sender": {
       "boardOfDirectors": "Diretoria",
@@ -5066,7 +5076,10 @@
     "reload": "Recarregar o jogo"
   },
   "errors": {
-    "title": "Algo deu errado"
+    "title": "Algo deu errado",
+    "refusalTitle": "Não é possível",
+    "nothingChanged": "Nada foi alterado.",
+    "unexpected": "O jogo não conseguiu concluir esta ação e não consegue confirmar se ela foi realizada. Confira a página de Transferências e sua caixa de entrada antes de tentar de novo. Referência: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Relatar um bug",

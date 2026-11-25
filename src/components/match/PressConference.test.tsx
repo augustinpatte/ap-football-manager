@@ -10,6 +10,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
+      if (key === "be.error.liveMatch.noCompletedMatch") return "No completed match";
       if (key === "match.pressSubmitFailed") return `FAILED: ${String(options?.reason)}`;
       return options ? `${key} ${JSON.stringify(options)}` : key;
     },
@@ -116,7 +117,7 @@ describe("PressConference", () => {
     answerEveryQuestion();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("FAILED: be.error.liveMatch.noCompletedMatch");
+    expect(alert).toHaveTextContent("FAILED: No completed match");
     // The button that was pressed has just disabled itself: focus goes to the reason, not the page.
     expect(alert).toHaveFocus();
     expect(onFinish).not.toHaveBeenCalled();

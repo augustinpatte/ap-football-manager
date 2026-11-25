@@ -367,6 +367,7 @@ describe("TransfersTab", (): void => {
         playerId: "player-1",
         offerId: "offer-1",
         requestedFee: 1200000,
+        requestId: expect.any(String),
       });
     });
 
@@ -449,10 +450,7 @@ describe("TransfersTab", (): void => {
       ]);
       state.staff = [createScout()];
 
-      routes.rejectOnce(
-        "send_scout",
-        new Error("Scout is already assigned to another scouting task."),
-      );
+      routes.rejectOnce("send_scout", "be.error.scouting.scoutAssignmentFull");
       marketAnswer = () => marketPageOf(state.players);
 
       render(
@@ -523,7 +521,7 @@ describe("TransfersTab", (): void => {
   it("shows a localized message when a counter-offer expires before submission", async (): Promise<void> => {
     const state = createGameState();
     marketAnswer = answerList("with_offers", state.players);
-    routes.rejectOnce("counter_offer", "Offer not found or not pending");
+    routes.rejectOnce("counter_offer", "be.error.transfers.offerNotPending");
 
     render(
       <TransfersTab
@@ -541,7 +539,7 @@ describe("TransfersTab", (): void => {
     await waitFor((): void => {
       expect(
         screen.getByText(
-          "Talks cooled off before you could answer. Start a new negotiation if the club comes back.",
+          /Talks cooled off before you could answer\. Start a new negotiation if the club comes back\. Nothing was changed\./,
         ),
       ).toBeInTheDocument();
     });

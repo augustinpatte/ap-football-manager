@@ -1670,7 +1670,8 @@
       "pendingTitle": "Bir transfer zaten kararlaştırıldı",
       "pendingDetail": "Transferi {{date}} tarihinde tescil edilmeyi bekliyor.",
       "pendingDetailNoDate": "Transferi tescil edilmeyi bekliyor."
-    }
+    },
+    "requestWentThrough": "İsteğiniz gerçekleşti ancak yanıtı yolda kayboldu. Sonucu teklif geçmişinde görebilirsiniz."
   },
   "transferCentreWorld": {
     "title": "Transfer Merkezi",
@@ -3398,7 +3399,9 @@
         "leaguePhaseNeedsClubCompetition": "Lig aşamasını yalnızca kıtasal ya da uluslararası bir kulüp turnuvası kullanabilir.",
         "leaguePhaseFieldSize": "Lig aşaması tam olarak {{expected}} kulüp gerektirir, ancak {{found}} kulüp listelenmiş.",
         "berthRequiresLeaguePhase": "Mevcut katılımcı veya şampiyon kontenjanı yalnızca lig aşaması olan bir turnuvada tanımlanabilir.",
-        "berthNoPlaces": "Avrupa performans kontenjanı en az bir yer vermelidir."
+        "berthNoPlaces": "Avrupa performans kontenjanı en az bir yer vermelidir.",
+        "invalidSeasonDay": "Bir yarışmanın sezon başlangıç günü kendi ayı için geçerli bir gün değil.",
+        "invalidSeasonMonth": "Bir yarışmanın sezon başlangıç ayı geçerli bir ay değil."
       },
       "worldParseFailed": "Dünya veritabanı dosyası ayrıştırılamadı.",
       "worldWriteFileFailed": "Dünya veritabanı dosyası dışa aktarılamadı.",
@@ -3465,7 +3468,7 @@
         "insufficientFunds": "Yetersiz bakiye",
         "transferBudgetTooLow": "Transfer bütçesi çok düşük",
         "playerNotOwnedByUser": "Oyuncu bulunamadı veya size ait değil",
-        "offerNotPending": "Teklif bulunamadı veya beklemede değil",
+        "offerNotPending": "Siz yanıt veremeden görüşmeler soğudu. Kulüp geri dönerse yeni bir pazarlık başlatın.",
         "talksBrokenOff": "Bu kulüp bu oyuncuyla ilgili görüşmeleri sonlandırdı. Daha sonra tekrar deneyin.",
         "loanBorrowerCannotAffordWages": "Kiralayan kulüp bu maaş payını karşılayamıyor. Haftalık maaş bütçesi {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Karşı teklif mevcut teklifi aşmalıdır",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "Satan kulüp bu transfere razı olmaz.",
         "signingRefusedByPlayer": "Oyuncu sunabileceğiniz hiçbir şartla gelmez.",
         "ownerNotFound": "Bu üye ekibinizde değil.",
-        "ownerNotEligible": "Bu görev bu pozisyon tarafından yürütülemez."
+        "ownerNotEligible": "Bu görev bu pozisyon tarafından yürütülemez.",
+        "offerGone": "Bu teklif artık geçerli değil.",
+        "offerChanged": "Teklif siz bakarken değişti. Yanıtlamadan önce yeni şartları gözden geçirin.",
+        "playerProtected": "Bu oyuncu korunan oyuncular listenizde, bu yüzden yardımcınız onu listeye koymaz ya da hareket ettirmez. İstiyorsanız önce korumayı kaldırın."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Bu oyuncuyla zaten açık bir teklifin var. Yanıtını bekle ya da teklifi geri çek.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "Aynı federasyondan rakip sınırı en az bir olmalıdır.",
           "associationLimitExceedsPotCapacity": "Federasyon başına kulüp sınırı bir torbanın yarısını aşamaz."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Bu işlemin önceki sonucu okunamadı. Tekrar denemeden önce Transferler sayfasına bakın."
+      },
+      "playerNotInLineup": "Bu oyuncu ilk 11’de değil."
     },
     "sender": {
       "boardOfDirectors": "Yönetim Kurulu",
@@ -5066,7 +5076,10 @@
     "reload": "Oyunu yeniden yükle"
   },
   "errors": {
-    "title": "Bir şeyler ters gitti"
+    "title": "Bir şeyler ters gitti",
+    "refusalTitle": "Bu yapılamaz",
+    "nothingChanged": "Hiçbir şey değişmedi.",
+    "unexpected": "Oyun bu işlemi tamamlayamadı ve gerçekleşip gerçekleşmediğini doğrulayamıyor. Tekrar denemeden önce Transferler sayfasına ve gelen kutunuza bakın. Referans: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Hata bildir",

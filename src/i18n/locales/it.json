@@ -1696,7 +1696,8 @@
       "pendingTitle": "Un trasferimento è già concordato",
       "pendingDetail": "Il suo trasferimento attende la registrazione il {{date}}.",
       "pendingDetailNoDate": "Il suo trasferimento attende la registrazione."
-    }
+    },
+    "requestWentThrough": "La tua richiesta è andata a buon fine, ma la risposta si è persa per strada. Lo storico delle offerte mostra il risultato."
   },
   "transferCentreWorld": {
     "title": "Centro trasferimenti",
@@ -3355,7 +3356,9 @@
         "leaguePhaseNeedsClubCompetition": "Una fase a campionato può essere usata solo da una competizione continentale o internazionale per club.",
         "leaguePhaseFieldSize": "Una fase a campionato richiede esattamente {{expected}} club, ma ne sono elencati {{found}}.",
         "berthRequiresLeaguePhase": "Un posto per club già presente o detentore del titolo può essere definito solo in una competizione con fase a campionato.",
-        "berthNoPlaces": "Un posto per rendimento europeo deve assegnare almeno un posto."
+        "berthNoPlaces": "Un posto per rendimento europeo deve assegnare almeno un posto.",
+        "invalidSeasonDay": "Il giorno di inizio stagione di una competizione non è un giorno valido del suo mese.",
+        "invalidSeasonMonth": "Il mese di inizio stagione di una competizione non è un mese valido."
       },
       "worldParseFailed": "Impossibile interpretare il file del database del mondo.",
       "worldWriteFileFailed": "Impossibile esportare il file del database del mondo.",
@@ -3457,7 +3460,7 @@
         "insufficientFunds": "Fondi insufficienti",
         "transferBudgetTooLow": "Il budget trasferimenti è troppo basso",
         "playerNotOwnedByUser": "Giocatore non trovato o non appartiene al tuo club",
-        "offerNotPending": "Offerta non trovata o non più in sospeso",
+        "offerNotPending": "I colloqui si sono raffreddati prima che tu potessi rispondere. Avvia una nuova trattativa se il club torna a farsi vivo.",
         "talksBrokenOff": "Questo club ha chiuso la trattativa per questo giocatore. Riprova più tardi.",
         "loanBorrowerCannotAffordWages": "Il club che riceve il giocatore non può permettersi questa quota di stipendio. Il suo budget salariale settimanale è {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "La controfferta deve superare l'offerta attuale",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "Il club venditore non accetterebbe questo acquisto.",
         "signingRefusedByPlayer": "Il giocatore non verrebbe a nessuna condizione che tu possa offrire.",
         "ownerNotFound": "Questo membro non fa parte del tuo staff.",
-        "ownerNotEligible": "Questo ruolo non può occuparsi di questo compito."
+        "ownerNotEligible": "Questo ruolo non può occuparsi di questo compito.",
+        "offerGone": "Quell’offerta non è più disponibile.",
+        "offerChanged": "Quell’offerta è cambiata mentre la guardavi. Rivedi le nuove condizioni prima di rispondere.",
+        "playerProtected": "Questo giocatore è nella tua lista dei protetti, quindi il tuo assistente non lo metterà in lista né lo muoverà. Rimuovi prima la protezione se lo desideri."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Hai già un'offerta aperta con questo giocatore. Aspetta la sua risposta o ritirala.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "Il limite di avversari della stessa federazione deve essere almeno uno.",
           "associationLimitExceedsPotCapacity": "Il limite di club per federazione non può superare metà di una fascia."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Non è stato possibile rileggere l’esito precedente di questa azione. Controlla la pagina Trasferimenti prima di riprovare."
+      },
+      "playerNotInLineup": "Quel giocatore non è nell’undici titolare."
     },
     "sender": {
       "boardOfDirectors": "Consiglio di amministrazione",
@@ -5066,7 +5076,10 @@
     "reload": "Ricarica il gioco"
   },
   "errors": {
-    "title": "Qualcosa è andato storto"
+    "title": "Qualcosa è andato storto",
+    "refusalTitle": "Non è possibile",
+    "nothingChanged": "Non è stato modificato nulla.",
+    "unexpected": "Il gioco non è riuscito a completare questa azione e non può confermare se sia andata a buon fine. Controlla la pagina Trasferimenti e la posta in arrivo prima di riprovare. Riferimento: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Segnala un bug",

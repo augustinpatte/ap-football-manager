@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GameStateData, PlayerData } from "../../store/gameStore";
-import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { makeLoanOffer, type LoanOfferResponseData } from "../../services/transfersService";
+import { submitTransferCommand } from "./transferSubmission";
 import {
   buildLoanPeriodOptions,
   formatTransferFeeInput,
@@ -68,56 +68,87 @@ export function useLoanOfferFlow({
     setLoanResult(null);
     setLoanSuggestedTerms(null);
   };
+  // One press is one request: a second press while the first is waiting would otherwise send the
+  // same offer twice before the button had time to close.
+  const submitting = useRef(false);
   const handleMakeLoanOffer = async () => {
-    if (!loanTarget || !selectedLoanPeriodOption) return;
+    if (!loanTarget || !selectedLoanPeriodOption || submitting.current) return;
 
+    submitting.current = true;
     setLoanLoading(true);
     setLoanError(null);
     setLoanResult(null);
     setLoanSuggestedTerms(null);
 
     try {
-      const response = await makeLoanOffer(
-        loanTarget.id,
-        selectedLoanPeriodOption.endDate,
-        Math.max(0, Math.min(100, Math.round(loanWageContributionPct))),
-        loanBuyOptionEnabled ? parseTransferFeeInput(loanBuyOptionFee) : null,
+      const submission = await submitTransferCommand(
+        (requestId) =>
+          makeLoanOffer(
+            loanTarget.id,
+            selectedLoanPeriodOption.endDate,
+            Math.max(0, Math.min(100, Math.round(loanWageContributionPct))),
+            loanBuyOptionEnabled ? parseTransferFeeInput(loanBuyOptionFee) : null,
+            requestId,
+          ),
+        { onGameUpdate, t },
       );
-      setLoanResult(response.decision);
-      if (response.decision === "counter_offer") {
-        setLoanSuggestedTerms({
-          wageContributionPct: response.suggested_wage_contribution_pct ?? loanWageContributionPct,
-          endDate: response.suggested_end_date ?? selectedLoanPeriodOption.endDate,
-          buyOptionFee: response.suggested_buy_option_fee,
-        });
-        if (response.suggested_wage_contribution_pct !== null) {
-          setLoanWageContributionPct(
-            Math.max(0, Math.min(100, Math.round(response.suggested_wage_contribution_pct))),
-          );
-        }
-        if (response.suggested_end_date) {
-          setLoanPeriodId(
-            getLoanPeriodIdForEndDate(
-              loanRegistrationDate,
-              loanTarget.contract_end,
-              response.suggested_end_date,
-            ),
-          );
-        }
-        if (response.suggested_buy_option_fee !== null) {
-          setLoanBuyOptionEnabled(true);
-          setLoanBuyOptionFee(formatTransferFeeInput(response.suggested_buy_option_fee));
-        } else {
-          setLoanBuyOptionEnabled(false);
-          setLoanBuyOptionFee("");
-        }
+      if (submission.kind === "stopped") {
+        setLoanResult("error");
+        setLoanError(submission.message);
+        return;
       }
-      if (onGameUpdate) onGameUpdate(response.game);
-    } catch (err: unknown) {
-      setLoanResult("error");
-      setLoanError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+      applyLoanResponse(submission.value);
     } finally {
+      submitting.current = false;
       setLoanLoading(false);
+    }
+  };
+  /**
+   * The backend has answered, so the offer is on the books whatever happens here. Nothing below can
+   * turn that into an error: a local step that throws is logged and the answer stands, because an
+   * error shown beside a loan that was made invites a second, duplicate offer.
+   */
+  const applyLoanResponse = (response: LoanOfferResponseData) => {
+    setLoanResult(response.decision);
+    try {
+      onGameUpdate?.(response.game);
+      if (response.decision === "counter_offer" && loanTarget && selectedLoanPeriodOption) {
+        applySuggestedLoanTerms(response, loanTarget, selectedLoanPeriodOption.endDate);
+      }
+    } catch (error) {
+      console.error("A step after the loan answer failed; the answer stands", error);
+    }
+  };
+  const applySuggestedLoanTerms = (
+    response: LoanOfferResponseData,
+    target: PlayerData,
+    fallbackEndDate: string,
+  ) => {
+    setLoanSuggestedTerms({
+      wageContributionPct: response.suggested_wage_contribution_pct ?? loanWageContributionPct,
+      endDate: response.suggested_end_date ?? fallbackEndDate,
+      buyOptionFee: response.suggested_buy_option_fee,
+    });
+    if (response.suggested_wage_contribution_pct !== null) {
+      setLoanWageContributionPct(
+        Math.max(0, Math.min(100, Math.round(response.suggested_wage_contribution_pct))),
+      );
+    }
+    if (response.suggested_end_date) {
+      setLoanPeriodId(
+        getLoanPeriodIdForEndDate(
+          loanRegistrationDate,
+          target.contract_end,
+          response.suggested_end_date,
+        ),
+      );
+    }
+    if (response.suggested_buy_option_fee !== null) {
+      setLoanBuyOptionEnabled(true);
+      setLoanBuyOptionFee(formatTransferFeeInput(response.suggested_buy_option_fee));
+    } else {
+      setLoanBuyOptionEnabled(false);
+      setLoanBuyOptionFee("");
     }
   };
   const parsedLoanBuyOptionFee = loanBuyOptionEnabled

@@ -1670,7 +1670,8 @@
       "pendingTitle": "Ein Wechsel ist bereits vereinbart",
       "pendingDetail": "Sein Wechsel wartet auf die Registrierung am {{date}}.",
       "pendingDetailNoDate": "Sein Wechsel wartet auf die Registrierung."
-    }
+    },
+    "requestWentThrough": "Deine Anfrage wurde ausgeführt, aber die Antwort ging unterwegs verloren. Der Angebotsverlauf zeigt das Ergebnis."
   },
   "transferCentreWorld": {
     "title": "Transferzentrum",
@@ -3355,7 +3356,9 @@
         "leaguePhaseNeedsClubCompetition": "Eine Ligaphase kann nur ein kontinentaler oder internationaler Klubwettbewerb nutzen.",
         "leaguePhaseFieldSize": "Eine Ligaphase braucht genau {{expected}} Klubs, aufgeführt sind aber {{found}}.",
         "berthRequiresLeaguePhase": "Ein Platz für Stammteilnehmer oder Titelhalter kann nur bei einem Wettbewerb mit Ligaphase festgelegt werden.",
-        "berthNoPlaces": "Ein Platz für europäische Leistung muss mindestens einen Platz vergeben."
+        "berthNoPlaces": "Ein Platz für europäische Leistung muss mindestens einen Platz vergeben.",
+        "invalidSeasonDay": "Der Saisonstarttag eines Wettbewerbs ist kein gültiger Tag seines Monats.",
+        "invalidSeasonMonth": "Der Saisonstartmonat eines Wettbewerbs ist kein gültiger Monat."
       },
       "worldParseFailed": "Die Weltdatenbankdatei konnte nicht verarbeitet werden.",
       "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
@@ -3457,7 +3460,7 @@
         "insufficientFunds": "Nicht genug Geld vorhanden",
         "transferBudgetTooLow": "Das Transferbudget ist zu niedrig",
         "playerNotOwnedByUser": "Spieler nicht gefunden oder nicht in deinem Besitz",
-        "offerNotPending": "Angebot nicht gefunden oder nicht mehr ausstehend",
+        "offerNotPending": "Die Gespräche sind abgekühlt, bevor du antworten konntest. Starte eine neue Verhandlung, falls der Klub zurückkommt.",
         "talksBrokenOff": "Dieser Verein hat die Gespräche über diesen Spieler beendet. Versuche es später erneut.",
         "loanBorrowerCannotAffordWages": "Der aufnehmende Verein kann sich diesen Gehaltsanteil nicht leisten. Sein wöchentliches Gehaltsbudget beträgt {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Das Gegenangebot muss über dem aktuellen Angebot liegen",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "Der abgebende Verein würde dieser Verpflichtung nicht zustimmen.",
         "signingRefusedByPlayer": "Der Spieler würde zu keinen Konditionen kommen, die du bieten könntest.",
         "ownerNotFound": "Dieses Teammitglied gehört nicht zu deinem Stab.",
-        "ownerNotEligible": "Diese Position kann diese Aufgabe nicht übernehmen."
+        "ownerNotEligible": "Diese Position kann diese Aufgabe nicht übernehmen.",
+        "offerGone": "Dieses Angebot ist nicht mehr verfügbar.",
+        "offerChanged": "Dieses Angebot hat sich geändert, während du es angesehen hast. Prüfe die neuen Bedingungen, bevor du antwortest.",
+        "playerProtected": "Dieser Spieler steht auf deiner Schutzliste, daher setzt dein Assistent ihn weder auf die Transferliste noch bewegt er ihn. Hebe zuerst den Schutz auf, wenn du das willst."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Du hast bereits ein Angebot bei diesem Spieler. Warte auf seine Antwort oder ziehe es zurück.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "Das Limit an Gegnern desselben Verbands muss mindestens eins betragen.",
           "associationLimitExceedsPotCapacity": "Das Limit an Klubs pro Verband darf die Hälfte eines Lostopfs nicht überschreiten."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Das frühere Ergebnis dieser Aktion konnte nicht gelesen werden. Prüfe die Transferseite, bevor du es erneut versuchst."
+      },
+      "playerNotInLineup": "Dieser Spieler steht nicht in der Startelf."
     },
     "sender": {
       "boardOfDirectors": "Vorstand",
@@ -5066,7 +5076,10 @@
     "reload": "Spiel neu laden"
   },
   "errors": {
-    "title": "Etwas ist schiefgelaufen"
+    "title": "Etwas ist schiefgelaufen",
+    "refusalTitle": "Das ist nicht möglich",
+    "nothingChanged": "Es wurde nichts verändert.",
+    "unexpected": "Das Spiel konnte diese Aktion nicht abschließen und kann nicht bestätigen, ob sie ausgeführt wurde. Prüfe die Transferseite und deinen Posteingang, bevor du es erneut versuchst. Referenz: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Fehler melden",

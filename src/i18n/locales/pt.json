@@ -1670,7 +1670,8 @@
       "pendingTitle": "Uma transferência já foi acordada",
       "pendingDetail": "A transferência dele aguarda o registo a {{date}}.",
       "pendingDetailNoDate": "A transferência dele aguarda o registo."
-    }
+    },
+    "requestWentThrough": "O teu pedido foi concluído, mas a resposta perdeu-se pelo caminho. O histórico de propostas mostra o resultado."
   },
   "transferCentreWorld": {
     "title": "Centro de transferências",
@@ -3355,7 +3356,9 @@
         "leaguePhaseNeedsClubCompetition": "Uma fase de liga só pode ser usada por uma competição continental ou internacional de clubes.",
         "leaguePhaseFieldSize": "Uma fase de liga precisa de exatamente {{expected}} clubes, mas estão indicados {{found}}.",
         "berthRequiresLeaguePhase": "Uma vaga de clube já participante ou de detentor do título só pode ser definida numa competição com fase de liga.",
-        "berthNoPlaces": "Uma vaga por desempenho europeu tem de atribuir pelo menos um lugar."
+        "berthNoPlaces": "Uma vaga por desempenho europeu tem de atribuir pelo menos um lugar.",
+        "invalidSeasonDay": "O dia de início da época de uma competição não é um dia válido do seu mês.",
+        "invalidSeasonMonth": "O mês de início da época de uma competição não é um mês válido."
       },
       "worldParseFailed": "Falha ao interpretar o ficheiro da base de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o ficheiro da base de dados do mundo.",
@@ -3457,7 +3460,7 @@
         "insufficientFunds": "Fundos insuficientes",
         "transferBudgetTooLow": "O orçamento de transferências é demasiado baixo",
         "playerNotOwnedByUser": "Jogador não encontrado ou não te pertence",
-        "offerNotPending": "Oferta não encontrada ou já não está pendente",
+        "offerNotPending": "As conversas arrefeceram antes de conseguires responder. Inicia uma nova negociação se o clube voltar.",
         "talksBrokenOff": "Este clube terminou as conversações por este jogador. Tente de novo mais tarde.",
         "loanBorrowerCannotAffordWages": "O clube de destino não consegue pagar esta parte do salário. O orçamento salarial semanal é {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "A contraproposta tem de superar a oferta atual",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "O clube vendedor não aceitaria esta contratação.",
         "signingRefusedByPlayer": "O jogador não viria com nenhuma condição que possa oferecer.",
         "ownerNotFound": "Esse membro não está na tua equipa técnica.",
-        "ownerNotEligible": "Esse cargo não pode assumir esta tarefa."
+        "ownerNotEligible": "Esse cargo não pode assumir esta tarefa.",
+        "offerGone": "Essa oferta já não está disponível.",
+        "offerChanged": "Essa oferta mudou enquanto a analisavas. Revê as novas condições antes de responder.",
+        "playerProtected": "Este jogador está na tua lista de protegidos, por isso o teu assistente não o vai listar nem mexer nele. Remove primeiro a proteção se quiseres isso."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Já tens uma proposta com este jogador. Espera pela resposta dele ou retira-a.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "O limite de adversários da mesma associação tem de ser pelo menos um.",
           "associationLimitExceedsPotCapacity": "O limite de clubes por associação não pode exceder metade de um pote."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Não foi possível recuperar o resultado anterior desta ação. Verifica a página de Transferências antes de tentar novamente."
+      },
+      "playerNotInLineup": "Esse jogador não está no onze inicial."
     },
     "sender": {
       "boardOfDirectors": "Conselho de Administração",
@@ -5066,7 +5076,10 @@
     "reload": "Recarregar o jogo"
   },
   "errors": {
-    "title": "Algo correu mal"
+    "title": "Algo correu mal",
+    "refusalTitle": "Não é possível",
+    "nothingChanged": "Nada foi alterado.",
+    "unexpected": "O jogo não conseguiu concluir esta ação e não consegue confirmar se foi realizada. Verifica a página de Transferências e a tua caixa de entrada antes de tentar novamente. Referência: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Reportar um erro",

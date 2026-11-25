@@ -35,7 +35,8 @@ const baseQuery: PlayersPageQuery = {
 const page = (label: string): PlayersPage =>
   ({ items: [{ id: label }], total: 1, page: 1, page_size: 30 }) as unknown as PlayersPage;
 
-const translate = (key: string) => key;
+const translate = (key: string) =>
+  key === "be.error.liveMatch.inProgress" ? "A live match is in progress" : key;
 
 beforeEach(() => {
   mockedFetch.mockReset();
@@ -96,10 +97,12 @@ describe("usePlayersPage", () => {
    * Then the translated reason is exposed and clears on the next good answer.
    */
   it("exposes a translated error and clears it on success", async () => {
-    mockedFetch.mockRejectedValueOnce("some failure").mockResolvedValueOnce(page("b"));
+    mockedFetch
+      .mockRejectedValueOnce("be.error.liveMatch.inProgress")
+      .mockResolvedValueOnce(page("b"));
     const { result } = renderHook(() => usePlayersPage(baseQuery, translate));
 
-    await waitFor(() => expect(result.current.error).toBe("some failure"));
+    await waitFor(() => expect(result.current.error).toBe("A live match is in progress"));
 
     act(() => result.current.refetch());
     await waitFor(() => expect(result.current.error).toBeNull());

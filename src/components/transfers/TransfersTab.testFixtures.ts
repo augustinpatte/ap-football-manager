@@ -202,6 +202,11 @@ export function createGameState(players: PlayerData[] = [createPlayer()]): GameS
   };
 }
 export const transferTestTranslation = (key: string, params?: Record<string, string | number>) => {
+  if (key === "be.error.transfers.offerNotPending")
+    return "Talks cooled off before you could answer. Start a new negotiation if the club comes back.";
+  if (key === "errors.nothingChanged") return "Nothing was changed.";
+  if (key === "be.error.scouting.scoutAssignmentFull")
+    return "Scout is already assigned to another scouting task.";
   if (key === "finances.perWeekSuffix") return "/wk";
   if (key === "finances.perWeekSuffix") return "/wk";
   if (key === "finances.perYearSuffix") return "/yr";

@@ -1670,7 +1670,8 @@
       "pendingTitle": "Perpindahan sudah disepakati",
       "pendingDetail": "Perpindahannya menunggu registrasi pada {{date}}.",
       "pendingDetailNoDate": "Perpindahannya menunggu registrasi."
-    }
+    },
+    "requestWentThrough": "Permintaan Anda berhasil diproses, tetapi balasannya hilang di perjalanan. Riwayat tawaran menampilkan hasilnya."
   },
   "transferCentreWorld": {
     "title": "Pusat Transfer",
@@ -3398,7 +3399,9 @@
         "leaguePhaseNeedsClubCompetition": "Fase liga hanya dapat dipakai oleh kompetisi klub benua atau internasional.",
         "leaguePhaseFieldSize": "Fase liga membutuhkan tepat {{expected}} klub, tetapi yang terdaftar {{found}}.",
         "berthRequiresLeaguePhase": "Kuota peserta bertahan atau juara bertahan hanya dapat ditetapkan pada kompetisi dengan fase liga.",
-        "berthNoPlaces": "Kuota kinerja Eropa harus memberikan setidaknya satu tempat."
+        "berthNoPlaces": "Kuota kinerja Eropa harus memberikan setidaknya satu tempat.",
+        "invalidSeasonDay": "Hari mulai musim suatu kompetisi bukan hari yang valid pada bulannya.",
+        "invalidSeasonMonth": "Bulan mulai musim suatu kompetisi bukan bulan yang valid."
       },
       "worldParseFailed": "Gagal mengurai berkas basis data dunia.",
       "worldWriteFileFailed": "Gagal mengekspor berkas basis data dunia.",
@@ -3465,7 +3468,7 @@
         "insufficientFunds": "Dana tidak mencukupi",
         "transferBudgetTooLow": "Anggaran transfer terlalu rendah",
         "playerNotOwnedByUser": "Pemain tidak ditemukan atau bukan milik kamu",
-        "offerNotPending": "Tawaran tidak ditemukan atau tidak tertunda",
+        "offerNotPending": "Negosiasi mereda sebelum kamu sempat merespons. Mulai negosiasi baru jika klub kembali.",
         "talksBrokenOff": "Klub ini telah mengakhiri pembicaraan soal pemain ini. Coba lagi nanti.",
         "loanBorrowerCannotAffordWages": "Klub peminjam tidak sanggup membayar porsi gaji ini. Anggaran gaji mingguannya adalah {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Tawaran balasan harus melebihi tawaran saat ini",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "Klub penjual tidak akan menyetujui perekrutan itu.",
         "signingRefusedByPlayer": "Pemain tidak akan bergabung dengan persyaratan apa pun yang dapat Anda tawarkan.",
         "ownerNotFound": "Anggota staf itu tidak ada di staf Anda.",
-        "ownerNotEligible": "Posisi itu tidak bisa menangani tugas ini."
+        "ownerNotEligible": "Posisi itu tidak bisa menangani tugas ini.",
+        "offerGone": "Tawaran itu sudah tidak tersedia.",
+        "offerChanged": "Tawaran itu berubah saat Anda melihatnya. Tinjau syarat barunya sebelum menjawab.",
+        "playerProtected": "Pemain ini ada di daftar pemain terlindungi Anda, jadi asisten tidak akan mendaftarkan atau memindahkannya. Hapus perlindungan terlebih dahulu jika Anda menginginkannya."
       },
       "freeAgents": {
         "talkAlreadyOpen": "Kamu sudah punya tawaran untuk pemain ini. Tunggu jawabannya atau tarik tawaran itu.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "Batas lawan dari satu asosiasi harus minimal satu.",
           "associationLimitExceedsPotCapacity": "Batas klub per asosiasi tidak boleh melebihi setengah pot."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "Hasil sebelumnya dari tindakan ini tidak dapat dibaca. Periksa halaman Transfer sebelum mencoba lagi."
+      },
+      "playerNotInLineup": "Pemain itu tidak ada di susunan pemain utama."
     },
     "sender": {
       "boardOfDirectors": "Dewan Direksi",
@@ -5066,7 +5076,10 @@
     "reload": "Muat ulang gim"
   },
   "errors": {
-    "title": "Ada yang tidak beres"
+    "title": "Ada yang tidak beres",
+    "refusalTitle": "Tidak bisa dilakukan",
+    "nothingChanged": "Tidak ada yang berubah.",
+    "unexpected": "Game tidak dapat menyelesaikan tindakan ini dan tidak dapat memastikan apakah tindakan itu berhasil. Periksa halaman Transfer dan kotak masuk Anda sebelum mencoba lagi. Referensi: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Laporkan bug",

@@ -26,6 +26,8 @@ vi.mock("../../utils/backendI18n", () => ({
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
+      if (key === "be.error.scouting.scoutAssignmentFull")
+        return "Scout is already assigned to another scouting task.";
       if (key === "scouting.title") return "Scouting";
       if (key === "scouting.scouts") return "Scouts";
       if (key === "scouting.activeAssignments") return "Active Assignments";
@@ -397,7 +399,7 @@ describe("ScoutingTab", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const state = createGameState({ scouts: [createScout()] });
     marketPlayers = state.players;
-    answer("send_scout", new Error("Scout is already assigned to another scouting task."));
+    answer("send_scout", new Error("be.error.scouting.scoutAssignmentFull"));
     try {
       render(<ScoutingTab gameState={state} onGameUpdate={vi.fn()} />);
 
@@ -722,6 +724,7 @@ describe("ScoutingTab", () => {
       expect(invokeMock).toHaveBeenCalledWith("make_transfer_bid", {
         playerId: "player-1",
         fee: 300000,
+        requestId: expect.any(String),
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });

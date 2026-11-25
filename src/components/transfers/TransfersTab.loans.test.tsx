@@ -191,6 +191,7 @@ describe("TransfersTab", (): void => {
         endDate: "2027-06-30",
         wageContributionPct: 75,
         buyOptionFee: 1250000,
+        requestId: expect.any(String),
       });
     });
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
@@ -244,6 +245,7 @@ describe("TransfersTab", (): void => {
         playerId: "loan-owned",
         offerId: "loan-offer-1",
         accept: true,
+        requestId: expect.any(String),
       });
     });
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
@@ -401,6 +403,7 @@ describe("TransfersTab", (): void => {
         endDate: "2027-01-28",
         wageContributionPct: 85,
         buyOptionFee: null,
+        requestId: expect.any(String),
       });
     });
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
@@ -462,6 +465,7 @@ describe("TransfersTab", (): void => {
     await waitFor((): void => {
       expect(mockedInvoke).toHaveBeenCalledWith("exercise_loan_buy_option", {
         playerId: "loan-buy-player",
+        requestId: expect.any(String),
       });
     });
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);

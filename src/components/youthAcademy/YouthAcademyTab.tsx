@@ -9,6 +9,7 @@ import { calcAge, positionBadgeVariant } from "../../lib/helpers";
 import { canDelegateToYouthAcademy, isYouthAcademyPlayer } from "../../lib/playerSquad";
 import { TraitList } from "../TraitBadge";
 import { useTranslation } from "react-i18next";
+import { userErrorText } from "../../utils/errorMessage";
 import { countryName } from "../../lib/countries";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import ContextMenu, { type ContextMenuHandle } from "../ContextMenu";
@@ -186,7 +187,7 @@ export default function YouthAcademyTab({
       applyScoutingUpdate(updated);
       setSelectedYouthScoutId("");
     } catch (err) {
-      setYouthSearchError(String(err));
+      setYouthSearchError(userErrorText(err, t));
     } finally {
       setStartingYouthSearch(false);
     }
@@ -197,7 +198,7 @@ export default function YouthAcademyTab({
     try {
       applyScoutingUpdate(await cancelYouthScouting(assignmentId));
     } catch (err) {
-      setYouthSearchError(String(err));
+      setYouthSearchError(userErrorText(err, t));
     }
   };
 
@@ -206,7 +207,7 @@ export default function YouthAcademyTab({
     try {
       applyScoutingUpdate(await reassignYouthScouting(assignmentId, scoutId));
     } catch (err) {
-      setYouthSearchError(String(err));
+      setYouthSearchError(userErrorText(err, t));
     }
   };
 

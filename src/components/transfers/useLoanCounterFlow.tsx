@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GameStateData, LoanOfferData, PlayerData } from "../../store/gameStore";
-import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
+import { submitTransferCommand } from "./transferSubmission";
 import { counterLoanOffer, type LoanOfferResponseData } from "../../services/transfersService";
 import {
   buildLoanPeriodOptions,
@@ -76,22 +76,36 @@ export function useLoanCounterFlow({
     setLoanCounterResult(null);
     setLoanCounterSuggestedTerms(null);
   };
+  // One press is one request: a second press before the answer would send the counter twice.
+  const submitting = useRef(false);
   const handleCounterLoanOffer = async () => {
-    if (!loanCounterTarget || !selectedLoanCounterPeriodOption) return;
+    if (!loanCounterTarget || !selectedLoanCounterPeriodOption || submitting.current) return;
 
+    submitting.current = true;
     setLoanCounterLoading(true);
     setLoanCounterError(null);
     setLoanCounterResult(null);
     setLoanCounterSuggestedTerms(null);
 
     try {
-      const response = await counterLoanOffer(
-        loanCounterTarget.player.id,
-        loanCounterTarget.offer.id,
-        selectedLoanCounterPeriodOption.endDate,
-        Math.max(0, Math.min(100, Math.round(loanCounterWageContributionPct))),
-        loanCounterBuyOptionEnabled ? parseTransferFeeInput(loanCounterBuyOptionFee) : null,
+      const submission = await submitTransferCommand(
+        (requestId) =>
+          counterLoanOffer(
+            loanCounterTarget.player.id,
+            loanCounterTarget.offer.id,
+            selectedLoanCounterPeriodOption.endDate,
+            Math.max(0, Math.min(100, Math.round(loanCounterWageContributionPct))),
+            loanCounterBuyOptionEnabled ? parseTransferFeeInput(loanCounterBuyOptionFee) : null,
+            requestId,
+          ),
+        { onGameUpdate, t },
       );
+      if (submission.kind === "stopped") {
+        setLoanCounterResult("error");
+        setLoanCounterError(submission.message);
+        return;
+      }
+      const response = submission.value;
       setLoanCounterResult(response.decision);
       if (response.decision === "counter_offer") {
         setLoanCounterSuggestedTerms({
@@ -119,9 +133,10 @@ export function useLoanCounterFlow({
       }
       if (onGameUpdate) onGameUpdate(response.game);
     } catch (err: unknown) {
-      setLoanCounterResult("error");
-      setLoanCounterError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
+      // The backend has answered; a local step failing must not turn its answer into an error.
+      console.error("A step after the loan counter answer failed; the answer stands", err);
     } finally {
+      submitting.current = false;
       setLoanCounterLoading(false);
     }
   };

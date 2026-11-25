@@ -12,6 +12,7 @@ import type {
   FastForwardStop,
 } from "../../services/fastForwardService";
 import { resolveBackendError } from "../../utils/backendI18n";
+import { userErrorText } from "../../utils/errorMessage";
 
 const POLICIES: { value: FastForwardPolicy; label: string; description: string }[] = [
   {
@@ -134,7 +135,7 @@ function ConfigureView({ state, onClose }: { state: FastForwardState; onClose: (
 
       {state.error ? (
         <p role="alert" className="mt-3 text-caption text-danger">
-          {resolveBackendError(state.error)}
+          {userErrorText(state.error, t, resolveBackendError)}
         </p>
       ) : null}
 
@@ -250,7 +251,7 @@ function ResultBody({ response }: { response: FastForwardResponse }) {
       />
       {stop.kind === "error" ? (
         <p role="alert" className="mt-3 text-caption text-danger">
-          {resolveBackendError(stop.error)}
+          {userErrorText(stop.error, t, resolveBackendError)}
         </p>
       ) : null}
     </>

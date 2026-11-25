@@ -11,7 +11,6 @@ import {
   getLoanPeriodIdForEndDate,
   getTransferOfferBadgeVariant,
   getTransferOfferStatusLabel,
-  mapTransferNegotiationError,
   normalizeTransferNegotiationFeedback,
   parseTransferFeeInput,
 } from "./TransfersTab.helpers";
@@ -245,12 +244,5 @@ describe("TransfersTab.helpers", () => {
     expect(getTransferOfferBadgeVariant("Pending")).toBe("accent");
     expect(getTransferOfferBadgeVariant("Accepted")).toBe("success");
     expect(getTransferOfferStatusLabel(t, "Withdrawn")).toBe("transfers.offerStatusWithdrawn");
-  });
-
-  it("maps expired negotiation errors to the localized message", () => {
-    expect(mapTransferNegotiationError(t, "Offer not found or not pending")).toBe(
-      "transfers.negotiationExpiredError",
-    );
-    expect(mapTransferNegotiationError(t, "other error")).toBe("other error");
   });
 });

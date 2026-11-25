@@ -186,7 +186,8 @@ describe("ScoutingDossierSection", () => {
     });
 
     render(<Harness />);
-    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+    expect(await screen.findByRole("alert")).toHaveTextContent("errors.unexpected");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("boom");
   });
 
   /**

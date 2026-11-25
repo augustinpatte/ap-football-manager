@@ -332,11 +332,3 @@ export function getTransferOfferBadgeVariant(
       return "danger" as const;
   }
 }
-
-export function mapTransferNegotiationError(t: Translate, error: string): string {
-  if (error.includes("Offer not found or not pending")) {
-    return t("transfers.negotiationExpiredError");
-  }
-
-  return error;
-}

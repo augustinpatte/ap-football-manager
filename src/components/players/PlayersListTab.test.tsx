@@ -36,6 +36,8 @@ vi.mock("../../utils/backendI18n", () => ({
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
+      if (key === "be.error.scouting.scoutAssignmentFull")
+        return "Scout is already assigned to another scouting task.";
       if (key === "players.searchPlaceholder") return "Search players";
       if (key === "players.allPos") return "All positions";
       if (key.startsWith("common.positionGroups.")) return key.split(".").pop() as string;
@@ -538,7 +540,7 @@ describe("PlayersListTab", () => {
       const gameState = createGameState();
       gameState.staff = [createScout()];
       setupSliceMock(gameState, {
-        send_scout: () => new Error("Scout is already assigned to another scouting task."),
+        send_scout: () => new Error("be.error.scouting.scoutAssignmentFull"),
       });
 
       render(
@@ -638,6 +640,7 @@ describe("PlayersListTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("make_transfer_bid", {
         playerId: "player-2",
         fee: 300000,
+        requestId: expect.any(String),
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });

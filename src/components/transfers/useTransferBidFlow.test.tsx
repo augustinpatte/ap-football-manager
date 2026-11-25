@@ -521,7 +521,12 @@ describe("useTransferBidFlow", (): void => {
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor((): void => {
-      expect(mockedMakeTransferBid).toHaveBeenCalledWith(target.id, 1500000, terms);
+      expect(mockedMakeTransferBid).toHaveBeenCalledWith(
+        target.id,
+        1500000,
+        terms,
+        expect.any(String),
+      );
     });
   });
 
@@ -571,6 +576,7 @@ describe("useTransferBidFlow", (): void => {
         target.id,
         expect.any(Number),
         expect.objectContaining({ player_weekly_wage: 13000, player_contract_years: 3 }),
+        expect.any(String),
       );
     });
     await waitFor((): void => {

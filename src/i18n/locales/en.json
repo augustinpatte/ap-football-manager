@@ -1670,7 +1670,8 @@
       "pendingTitle": "A move is already agreed",
       "pendingDetail": "His move is waiting for registration on {{date}}.",
       "pendingDetailNoDate": "His move is waiting for registration."
-    }
+    },
+    "requestWentThrough": "Your request went through, but its reply was lost on the way. The offer history shows the result."
   },
   "transferCentreWorld": {
     "title": "Transfer Centre",
@@ -3398,7 +3399,9 @@
         "leaguePhaseNeedsClubCompetition": "A league phase can only be used by a continental or international club competition.",
         "leaguePhaseFieldSize": "A league phase needs exactly {{expected}} clubs, but {{found}} are listed.",
         "berthRequiresLeaguePhase": "An incumbent or titleholder berth can only be set on a league-phase competition.",
-        "berthNoPlaces": "A European performance berth must award at least one place."
+        "berthNoPlaces": "A European performance berth must award at least one place.",
+        "invalidSeasonDay": "A competition's season start day is not a valid day of its month.",
+        "invalidSeasonMonth": "A competition's season start month is not a valid month."
       },
       "worldParseFailed": "Failed to parse the world database file.",
       "worldWriteFileFailed": "Failed to export the world database file.",
@@ -3465,7 +3468,7 @@
         "insufficientFunds": "Insufficient funds",
         "transferBudgetTooLow": "Transfer budget too low",
         "playerNotOwnedByUser": "Player not found or not yours",
-        "offerNotPending": "Offer not found or not pending",
+        "offerNotPending": "Talks cooled off before you could answer. Start a new negotiation if the club comes back.",
         "talksBrokenOff": "This club has ended talks over this player. Try again later.",
         "loanBorrowerCannotAffordWages": "The borrowing club cannot afford this wage share. Its weekly wage budget is {{budget}}.",
         "counterOfferMustExceedCurrentOffer": "Counter offer must exceed current offer",
@@ -3550,7 +3553,10 @@
         "signingRefusedByClub": "The selling club would not agree to that signing.",
         "signingRefusedByPlayer": "The player would not join on any terms you could offer.",
         "ownerNotFound": "That staff member is not on your staff.",
-        "ownerNotEligible": "That post cannot run this duty."
+        "ownerNotEligible": "That post cannot run this duty.",
+        "offerGone": "That offer is no longer available.",
+        "offerChanged": "That offer changed while you were looking at it. Review the new terms before answering.",
+        "playerProtected": "This player is on your protected list, so your assistant will not list or move him. Remove the protection first if you want that."
       },
       "freeAgents": {
         "talkAlreadyOpen": "You already have an offer with this player. Wait for his answer or withdraw it.",
@@ -3621,7 +3627,11 @@
           "associationCapMissing": "The limit of opponents from one association must be at least one.",
           "associationLimitExceedsPotCapacity": "The limit of clubs per association cannot exceed half a pot."
         }
-      }
+      },
+      "transactions": {
+        "outcomeUnreadable": "The earlier result of this action could not be read back. Check the Transfers page before trying again."
+      },
+      "playerNotInLineup": "That player is not in the starting lineup."
     },
     "sender": {
       "boardOfDirectors": "Board of Directors",
@@ -5066,7 +5076,10 @@
     "reload": "Reload the game"
   },
   "errors": {
-    "title": "Something went wrong"
+    "title": "Something went wrong",
+    "refusalTitle": "This can't be done",
+    "nothingChanged": "Nothing was changed.",
+    "unexpected": "The game could not complete this action and cannot confirm whether it went through. Check the Transfers page and your Inbox before trying again. Reference: {{reference}}."
   },
   "reportBug": {
     "describeTitle": "Report a bug",
