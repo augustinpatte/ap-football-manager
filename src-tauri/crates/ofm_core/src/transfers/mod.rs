@@ -26,6 +26,7 @@ use uuid::Uuid;
 
 mod affordability;
 mod bids;
+mod buyer_turn;
 mod buyer_view;
 mod consent;
 mod consts;
@@ -42,6 +43,7 @@ mod processing;
 mod promises;
 mod realism;
 mod registration;
+mod room_making;
 mod sale_view;
 mod strategy;
 mod terms;
@@ -81,6 +83,10 @@ pub(crate) use registration::{
     has_pending_transfer_registration, pending_fee_commitments, pending_wage_commitments,
     player_has_active_or_pending_loan, player_has_pending_registration, signing_place_refusal,
     transfer_window_is_open,
+};
+pub use room_making::{
+    ROOM_STAT_NAMES, RoomMakingReport, RoomPlayer, RoomSwap, reset_room_making_report,
+    room_making_report, set_room_making_enabled,
 };
 pub(crate) use sale_view::reinvestment_gain;
 pub(crate) use strategy::{Ambition, ClubProfile, Means, profile_in, profile_of, strategies_of};
@@ -263,5 +269,7 @@ pub(crate) struct LoanMarketCandidate {
 
 #[cfg(test)]
 mod revaluation_tests;
+#[cfg(test)]
+mod room_making_tests;
 #[cfg(test)]
 mod tests;

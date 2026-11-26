@@ -384,6 +384,36 @@ pub(super) fn ensure_buyer_can_pay_standard_wage(
     ensure_place_for(game, player, buyer_team_id)
 }
 
+/// Whether the purchase of `player_id` would be refused for any reason other than a place on the
+/// buyer's senior list, judged now and with nothing moved. A club that frees a place for a
+/// signing asks this first: it does not let a player go for a purchase that was going to fail
+/// anyway. The checks are the ones [`execute_transfer_with_terms`] makes, in its order, minus the
+/// place.
+pub(super) fn purchase_refusal_but_for_a_place(
+    game: &Game,
+    player_id: &str,
+    to_team_id: &str,
+    from_team_id: &str,
+    fee: u64,
+    terms: &TransferTerms,
+) -> Result<(), String> {
+    crate::squad_floor::ensure_departure_keeps_floor(game, player_id)?;
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .ok_or("be.error.playerNotFound")?;
+    if player_has_active_or_pending_loan(player) {
+        return Err(ERR_PLAYER_ALREADY_LOANED.into());
+    }
+    let (buyer, wage, _) = buyers_agreed_terms(game, player, to_team_id, terms)?;
+    if !purchase_wage_policy_verdict(game, &buyer, player, wage).permits() {
+        return Err(renewal_wage_policy_error_message(&buyer));
+    }
+    terms::validate_terms(terms)?;
+    terms::ensure_completion_postable(game, player_id, to_team_id, from_team_id, fee, terms)
+}
+
 /// Moves a player between clubs with what the buyer attached to the fee: instalments, a sell-on clause, a
 /// signing bonus, a promise to the player. The cash goes in one atomic posting, so a refusal
 /// anywhere before it leaves nothing half done.

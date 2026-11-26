@@ -411,18 +411,26 @@ fn the_sweeps_full_clubs_are_the_clubs_the_registration_gate_refuses() {
         }
     }
 
-    let full = super::registration::clubs_without_a_senior_place(&game);
+    let short = super::registration::senior_places_short(&game);
+    let full: std::collections::HashSet<&String> = short.keys().collect();
 
     for (club, _, _, _) in sizes {
         assert_eq!(
-            full.contains(club),
+            full.contains(&club.to_string()),
             super::registration::signing_place_refusal(&game, club, "a-new-signing").is_some(),
             "{club}: the sweep and the registration gate disagree"
         );
+        // The places a club must free are the places the gate counts it short by.
+        assert_eq!(
+            short.get(club).copied().unwrap_or(0),
+            super::registration::places_to_free_for_a_signing(&game, club, "a-new-signing"),
+            "{club}: the sweep and the gate disagree on how many places are missing"
+        );
     }
-    assert!(full.contains("full") && full.contains("over") && full.contains("purchase_agreed"));
-    assert!(full.contains("senior_on_loan") && full.contains("loan_and_purchase_without"));
-    assert!(!full.contains("room") && !full.contains("one_left"));
+    let has = |club: &str| full.contains(&club.to_string());
+    assert!(has("full") && has("over") && has("purchase_agreed"));
+    assert!(has("senior_on_loan") && has("loan_and_purchase_without"));
+    assert!(!has("room") && !has("one_left"));
 }
 
 // Shared fixtures for the acceptance routes, with enough depth to permit a departure.

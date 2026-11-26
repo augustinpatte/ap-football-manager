@@ -156,6 +156,47 @@ impl SaleView {
     }
 }
 
+/// What a club's asking price reads of the world, beyond the player: the same for every player a
+/// sweep prices, so it is built once. The shortlist prices each AI club's player with it, and a club
+/// that makes room for a signing by selling a surplus player prices him with the same rule.
+pub(super) struct AskingContext<'a> {
+    pub phase: super::realism::WindowPhase,
+    pub today: NaiveDate,
+    pub troubled_clubs: &'a std::collections::HashSet<String>,
+    pub cutting_clubs: &'a std::collections::HashSet<String>,
+    pub position_depths: &'a HashMap<String, [usize; 4]>,
+}
+
+impl AskingContext<'_> {
+    /// What `owner_id` asks for `player`, who is `status` to it, on this day.
+    pub(super) fn fee_for(
+        &self,
+        player: &Player,
+        owner_id: &str,
+        status: PlayerStatus,
+        listed: bool,
+    ) -> u64 {
+        let group = crate::squad_floor::group_index(&player.position);
+        super::realism::asking_fee(&super::realism::AskingFacts {
+            value: player.market_value,
+            status,
+            phase: self.phase,
+            contract_days_left: super::contract_days_remaining(self.today, player.contract_end()),
+            listed,
+            age: domain::age::age_on_or_unknown(self.today, &player.date_of_birth),
+            potential_gap: i32::from(player.potential) - i32::from(player.ovr),
+            morale: player.morale,
+            seller_in_trouble: self.troubled_clubs.contains(owner_id),
+            seller_cutting_costs: self.cutting_clubs.contains(owner_id),
+            replacement_hard: self.position_depths.get(owner_id).is_some_and(|depths| {
+                depths[group]
+                    <= crate::squad_floor::MIN_PLAYERS_PER_GROUP[group].1
+                        + crate::squad_floor::PLANNING_MARGIN_PER_GROUP
+            }),
+        })
+    }
+}
+
 /// The club that would sell: its row, where its players stand in `game.players`, its strategy.
 pub(super) struct Seller<'a> {
     pub team: &'a Team,

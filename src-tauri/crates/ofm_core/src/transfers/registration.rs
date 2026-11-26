@@ -138,6 +138,35 @@ pub(crate) fn signing_place_refusal(
     team_id: &str,
     incoming_player_id: &str,
 ) -> Option<String> {
+    let (registered_seniors, promised) = senior_places_held(game, team_id, incoming_player_id);
+    let capacity = crate::contracts::SquadCapacity::seniors_only(registered_seniors);
+    (capacity.free_places <= promised).then(|| {
+        if promised == 0 {
+            capacity.full_error()
+        } else {
+            // Not "full": the list has room today, and says which places are spoken for.
+            capacity.held_error(promised)
+        }
+    })
+}
+
+/// How many places `team_id` must free before `incoming_player_id` can be registered: 0 when the
+/// gate lets him in, otherwise the seniors registered plus the places promised, plus his own, less
+/// the limit. The count [`signing_place_refusal`] refuses on, so a club that frees exactly this many
+/// can sign him. A list already over the limit (a world's opening lists can be) needs more than one.
+pub(super) fn places_to_free_for_a_signing(
+    game: &Game,
+    team_id: &str,
+    incoming_player_id: &str,
+) -> usize {
+    let (registered_seniors, promised) = senior_places_held(game, team_id, incoming_player_id);
+    let limit = crate::contracts::SquadCapacity::seniors_only(0).free_places;
+    (registered_seniors + promised + 1).saturating_sub(limit)
+}
+
+/// The seniors registered at `team_id` and the places promised to other deals: the two figures the
+/// registration limit is judged on.
+fn senior_places_held(game: &Game, team_id: &str, incoming_player_id: &str) -> (usize, usize) {
     // One pass over the world, not four: this gate runs for every club's every signing, so it is
     // the hottest loop of an AI day. The team is compared once per player, and a player who
     // reserves nothing (almost all of them) costs no more than that comparison. The three counts
@@ -156,23 +185,16 @@ pub(crate) fn signing_place_refusal(
             promised += reserved;
         }
     }
-    let capacity = crate::contracts::SquadCapacity::seniors_only(registered_seniors);
-    (capacity.free_places <= promised).then(|| {
-        if promised == 0 {
-            capacity.full_error()
-        } else {
-            // Not "full": the list has room today, and says which places are spoken for.
-            capacity.held_error(promised)
-        }
-    })
+    (registered_seniors, promised)
 }
 
-/// The clubs with no place on their senior list for one more signing, read in one pass over the
-/// world: the places registered seniors take and the places promised (purchases and loans agreed,
-/// seniors out on loan) are the ones [`signing_place_refusal`] counts, and the limit is the one
-/// `SquadCapacity` states. For the market sweep, which would otherwise let such a club choose a
-/// purchase that registration is certain to refuse.
-pub(crate) fn clubs_without_a_senior_place(game: &Game) -> HashSet<String> {
+/// The clubs with no place on their senior list for one more signing, and for each how many places
+/// it must free to have one, read in one pass over the world: the places registered seniors take and
+/// the places promised (purchases and loans agreed, seniors out on loan) are the ones
+/// [`signing_place_refusal`] counts, and the limit is the one `SquadCapacity` states. For the market
+/// sweep, which would otherwise let such a club choose a purchase that registration is certain to
+/// refuse, and which lets a club short of exactly one place make it ([`room_making`](super::room_making)).
+pub(super) fn senior_places_short(game: &Game) -> std::collections::HashMap<String, usize> {
     let mut registered: std::collections::HashMap<&str, usize> = Default::default();
     let mut promised: std::collections::HashMap<&str, usize> = Default::default();
     for player in &game.players {
@@ -210,13 +232,14 @@ pub(crate) fn clubs_without_a_senior_place(game: &Game) -> HashSet<String> {
             }
         }
     }
+    let limit = crate::contracts::SquadCapacity::seniors_only(0).free_places;
     registered
         .iter()
-        .filter(|(club, held)| {
-            let free = crate::contracts::SquadCapacity::seniors_only(**held).free_places;
-            free <= promised.get(*club).copied().unwrap_or(0)
+        .filter_map(|(club, held)| {
+            let short =
+                (held + promised.get(*club).copied().unwrap_or(0) + 1).saturating_sub(limit);
+            (short > 0).then(|| ((*club).to_string(), short))
         })
-        .map(|(club, _)| (*club).to_string())
         .collect()
 }
 

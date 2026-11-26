@@ -4,9 +4,11 @@
 //! then walks the buying clubs and lets each open at most one approach — subject to the
 //! budget in `lifecycle`, which is what keeps a listed player from being buried in offers.
 
+use super::buyer_turn::{BuyerTurn, SweepFacts};
 use super::buyer_view::{BuyerView, squad_indices_by_club};
 use super::deal_log::{DEAL_LOG, DEAL_LOG_ON, picker_would_start};
 use super::interest::{AppealBench, Funnel, VISIBLE_APPEAL, count, note_execution_failure};
+use super::room_making::{self, RoomFacts, RoomOutcome, Signing, SweepBooks};
 use super::*;
 
 use crate::squad_floor::group_index as position_group_index;
@@ -15,6 +17,24 @@ use chrono::Datelike;
 /// How many buyer turns the sweep has taken in this process: a measure of the market's work, read
 /// by the harness. It never feeds a decision.
 static BUYER_EVALUATIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Nanoseconds the daily sweep has run in this process: the cost of the AI market, read by the
+/// harness. Measurement only.
+static SWEEP_NANOS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub fn market_sweep_nanos() -> u64 {
+    SWEEP_NANOS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Adds the time since it was made to [`SWEEP_NANOS`] when the sweep ends, by any of its exits.
+struct SweepTimer(std::time::Instant);
+
+impl Drop for SweepTimer {
+    fn drop(&mut self) {
+        let nanos = u64::try_from(self.0.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        SWEEP_NANOS.fetch_add(nanos, std::sync::atomic::Ordering::Relaxed);
+    }
+}
 
 pub fn market_buyer_evaluations() -> u64 {
     BUYER_EVALUATIONS.load(std::sync::atomic::Ordering::Relaxed)
@@ -31,10 +51,6 @@ static PARTICIPATION: [std::sync::atomic::AtomicU64; PARTICIPATION_COUNTERS] =
 pub fn market_participation() -> [u64; PARTICIPATION_COUNTERS] {
     std::array::from_fn(|index| PARTICIPATION[index].load(std::sync::atomic::Ordering::Relaxed))
 }
-
-/// How much further up the reputation ladder a club that has just come up looks for a signing:
-/// its new division is above the reputation it earned in the old one.
-const PROMOTED_REPUTATION_REACH: u32 = 50;
 
 /// An imbalance large enough to warrant immediate market participation before a club's ordinary
 /// review day. Smaller needs still inform target appraisal once the club is shopping.
@@ -505,6 +521,7 @@ fn try_ai_loan(game: &mut Game, search: LoanSearch<'_>) -> Option<String> {
 }
 
 pub fn evaluate_transfer_market(game: &mut Game) {
+    let _timer = SweepTimer(std::time::Instant::now());
     expire_stale_transfer_offers(game);
     expire_stale_loan_offers(game);
     prune_closed_offers(game);
@@ -619,6 +636,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     let active_team_ids = game.active_team_ids();
     let weekday = game.clock.current_date.weekday().num_days_from_monday();
     let day_number = u64::try_from(current_date.num_days_from_ce()).unwrap_or(0);
+    // Clubs that may shop although their senior list is full, to make room for what they choose
+    // (`room_making`): those with a real need, on their review day, that are short of exactly one place.
+    let mut room_seekers: HashSet<String> = HashSet::new();
     let mut buyer_ids: Vec<String> = game
         .teams
         .iter()
@@ -651,6 +671,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             // cover that never played while the sides' elevens were unchanged.
             let closing_need = phase >= WindowPhase::LastWeek && unmet_need;
             let selected = !patient && (in_scope || review_day || closing_need || whole_market);
+            if selected && unmet_need && review_day {
+                room_seekers.insert(team.id.clone());
+            }
             let count = |index: usize| {
                 PARTICIPATION[index].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             };
@@ -692,13 +715,20 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     // A club whose senior list is full cannot register anyone, however good its choice: what it
     // chose was refused at execution (96 % of the purchases the clubs of the FM24 world chose in
     // a first season), and an offer it made to the user's player was one he could never accept.
-    let clubs_without_a_place = registration::clubs_without_a_senior_place(game);
+    let places_short = registration::senior_places_short(game);
+    let mut clubs_without_a_place: HashSet<String> = places_short.keys().cloned().collect();
+    let making_room = room_making::is_enabled();
     buyer_ids.retain(|club| {
         let has_a_place = !clubs_without_a_place.contains(club.as_str());
-        if !has_a_place {
+        // A full club that has a real need still shops: it may make room for what it chooses.
+        let may_make_room = making_room
+            && places_short.get(club.as_str()) == Some(&1)
+            && room_seekers.contains(club.as_str());
+        if !has_a_place && !may_make_room {
             count(Funnel::AiBuyerListFull);
+            return false;
         }
-        has_a_place
+        true
     });
     // One completed deal per this many shopping clubs a day, and never fewer than the base: with
     // the whole world shopping, a flat two a day capped the market below what its needs produce.
@@ -756,6 +786,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             domain::age::age_on_or_unknown(current_date, &player.date_of_birth),
         )
     }));
+    let asking = sale_view::AskingContext {
+        phase,
+        today: current_date,
+        troubled_clubs: &troubled_clubs,
+        cutting_clubs: &cutting_clubs,
+        position_depths: &position_depths,
+    };
     for player in &game.players {
         let Some(owner_team_id) = player.team_id.as_deref() else {
             continue;
@@ -829,23 +866,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let fee = if is_user_owned {
             suggested_incoming_fee(current_date, player)
         } else {
-            asking_fee(&AskingFacts {
-                value: player.market_value,
-                status,
-                phase,
-                contract_days_left: contract_days_remaining(current_date, player.contract_end()),
-                listed: player.transfer_listed,
-                age,
-                potential_gap: i32::from(player.potential) - i32::from(player.ovr),
-                morale: player.morale,
-                seller_in_trouble: troubled_clubs.contains(owner_team_id),
-                seller_cutting_costs: cutting_clubs.contains(owner_team_id),
-                replacement_hard: position_depths.get(owner_team_id).is_some_and(|depths| {
-                    depths[group]
-                        <= crate::squad_floor::MIN_PLAYERS_PER_GROUP[group].1
-                            + crate::squad_floor::PLANNING_MARGIN_PER_GROUP
-                }),
-            })
+            asking.fee_for(player, owner_team_id, status, player.transfer_listed)
         };
         shortlist.push(MarketTarget {
             player_id: player.id.clone(),
@@ -882,6 +903,28 @@ pub fn evaluate_transfer_market(game: &mut Game) {
     .round() as usize;
     let mut completed_ai_loans = 0_usize;
 
+    let facts = SweepFacts {
+        current_date,
+        phase,
+        consent: &consent,
+        team_country: &team_country,
+        player_index: &player_index,
+        strategies: &strategies,
+        sale_view: &sale_view,
+        home_matches: &home_matches,
+        promoted_clubs: &promoted_clubs,
+        relegated_clubs: &relegated_clubs,
+    };
+    let room_facts = RoomFacts {
+        sweep: &facts,
+        asking: &asking,
+        statuses: &statuses,
+        position_depths: &position_depths,
+        team_reputation: &team_reputation,
+        squad_levels: &squad_levels,
+        user_team_id: user_team_id.as_deref(),
+        max_completed_ai_transfers,
+    };
     BUYER_EVALUATIONS.fetch_add(buyer_ids.len() as u64, std::sync::atomic::Ordering::Relaxed);
     for _ in &buyer_ids {
         count(Funnel::BuyersShopping);
@@ -890,29 +933,33 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         let Some(buyer_team) = game.teams.iter().find(|team| team.id == buyer_id).cloned() else {
             continue;
         };
-        let buyer_depths = position_depths.get(&buyer_id).copied().unwrap_or([0; 4]);
 
-        let loan_offer_player_id = if let Some(user_team_id) = user_team_id.as_deref() {
-            if new_user_loan_offers_today < MAX_NEW_INCOMING_USER_OFFERS_PER_DAY {
-                create_incoming_user_loan_offer_if_any(
-                    game,
-                    user_team_id,
-                    &buyer_id,
-                    &buyer_team.name,
-                    &today,
-                    current_date,
-                    IncomingOfferBudget {
-                        new_today: &new_loan_offers_per_player,
-                        approach_clubs: &approach_clubs,
-                        cooled_clubs: &cooled_clubs,
-                    },
-                )
+        // A full club may shop to make room, but never offers for the manager's player, to buy or
+        // to borrow: an offer the manager could not accept, because the club has no place to
+        // register him.
+        let buyer_list_is_full = clubs_without_a_place.contains(&buyer_id);
+        let loan_offer_player_id =
+            if let Some(user_team_id) = user_team_id.as_deref().filter(|_| !buyer_list_is_full) {
+                if new_user_loan_offers_today < MAX_NEW_INCOMING_USER_OFFERS_PER_DAY {
+                    create_incoming_user_loan_offer_if_any(
+                        game,
+                        user_team_id,
+                        &buyer_id,
+                        &buyer_team.name,
+                        &today,
+                        current_date,
+                        IncomingOfferBudget {
+                            new_today: &new_loan_offers_per_player,
+                            approach_clubs: &approach_clubs,
+                            cooled_clubs: &cooled_clubs,
+                        },
+                    )
+                } else {
+                    None
+                }
             } else {
                 None
-            }
-        } else {
-            None
-        };
+            };
         if let Some(player_id) = loan_offer_player_id.as_ref() {
             *new_loan_offers_per_player
                 .entry(player_id.clone())
@@ -925,131 +972,21 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             count(Funnel::LoanOfferOpened);
         }
 
-        // The list is score-sorted, so the first target clearing this club's
-        // filters is its highest-appeal eligible signing.
-        let (loan_levels, buyer_levels) = crate::squad_outlook::club_outlook(
-            club_players
-                .get(&buyer_id)
-                .into_iter()
-                .flatten()
-                .map(|&index| &game.players[index])
-                .filter(|player| {
-                    player.team_id.as_deref() == Some(buyer_id.as_str())
-                        && crate::squad_outlook::counts_toward_squad(player)
-                }),
-            current_date,
-        );
-        let mut available_buyer_depths = [0_usize; 4];
-        for &index in club_players.get(&buyer_id).map_or(&[][..], Vec::as_slice) {
-            let player = &game.players[index];
-            if player.team_id.as_deref() == Some(buyer_id.as_str())
-                && player.squad_role == domain::player::SquadRole::Senior
-                && player
-                    .injury
-                    .as_ref()
-                    .is_none_or(|injury| injury.days_remaining < LONG_INJURY_DAYS)
-            {
-                available_buyer_depths[position_group_index(&player.position)] += 1;
-            }
-        }
-        let buyer_books = crate::ai_finance_guard::SigningBooks::given(
-            &buyer_team,
-            wage_bills.get(&buyer_id).copied().unwrap_or(0),
-            home_matches.get(&buyer_id).copied().unwrap_or(0),
-        );
-        let profile = strategies
-            .get(&buyer_id)
-            .copied()
-            .unwrap_or(strategy::ClubProfile::NEUTRAL);
-        // Worked out once for this buyer, and only if a target gets as far as needing it.
-        let mut buyer_wage_facts: Option<BuyerWageFacts> = None;
-        let buyer_promoted = promoted_clubs.contains(buyer_id.as_str());
-        let buyer_overstretched = is_overstretched_at(
-            wage_bills.get(&buyer_id).copied().unwrap_or(0),
-            buyer_team.wage_budget,
-            buyer_team.finance,
-            // A club that has just come down does not spend as the division it left did.
-            if relegated_clubs.contains(buyer_id.as_str()) {
-                100
-            } else {
-                120
-            },
-        );
-        let buyer_cash = buyer_team.transfer_budget.min(buyer_team.finance);
-        // What he adds to the side this buyer fields (Squad Intelligence: the team that plays its
-        // formation, not a broad group's first cover), and whether the buyer is short in his group.
-        let view = BuyerView::new(
+        let mut turn = BuyerTurn::new(
             game,
-            club_players.get(&buyer_id).map_or(&[][..], Vec::as_slice),
-            &buyer_team,
-            profile,
-            current_date,
+            &facts,
+            &wage_bills,
+            &club_players,
+            &position_depths,
+            buyer_team,
         );
-        // An exceptional offer for a player the club would not otherwise sell: whether the seller
-        // is better off for it (it cannot lose a player nobody replaces, and it can mend more than
-        // he is worth).
-        let exceptional_sale_is_rational = |target: &MarketTarget, fee: u64| -> bool {
-            let (Some(&index), Some(seller_team), Some(squad)) = (
-                player_index.get(&target.player_id),
-                game.teams
-                    .iter()
-                    .find(|team| team.id == target.owner_team_id),
-                club_players.get(&target.owner_team_id),
-            ) else {
-                return false;
-            };
-            sale_view.rational_sale(
-                game,
-                &sale_view::Seller {
-                    team: seller_team,
-                    squad,
-                    profile: strategies
-                        .get(&target.owner_team_id)
-                        .copied()
-                        .unwrap_or(strategy::ClubProfile::NEUTRAL),
-                    today: current_date,
-                },
-                &game.players[index],
-                fee,
-            )
-        };
-        let target_player = |target: &MarketTarget| {
-            player_index
-                .get(&target.player_id)
-                .map(|&index| &game.players[index])
-        };
-        let fit = |target: &MarketTarget| -> (i32, bool) {
-            let levels = &buyer_levels[target.position_group_index];
-            (
-                target_player(target).map_or(0, |player| view.improvement(player)),
-                group_is_thin(levels, target.position_group_index),
-            )
-        };
-        // The fee this buyer would pay: the seller's price when it is within his ceiling, a little
-        // under it when the ceiling is close, none otherwise. A user's player has no asking price
-        // to haggle over: the incoming offer is the buyer's own.
-        let price = |target: &MarketTarget| -> Option<u64> {
-            if !target.needs_a_case() {
-                return Some(target.fee);
-            }
-            let (improvement, thin) = fit(target);
-            agreed_fee(
-                target.fee,
-                buyer_ceiling(&CeilingFacts {
-                    value: target.value,
-                    improvement,
-                    thin,
-                    age: target.age,
-                    phase,
-                    alternatives: 1,
-                    budget: buyer_cash,
-                    // A club that has come up wants to be ready for its new division.
-                    ambition: if buyer_promoted { 0.04 } else { 0.0 },
-                }),
-            )
-        };
-        let mut acceptable = |target: &&MarketTarget| -> bool {
+        let acceptable = |turn: &mut BuyerTurn, target: &&MarketTarget| -> bool {
             // For the harness: a rejection of a user's player is counted where it happens.
+            count(if target.is_user_owned {
+                Funnel::PairsWeighed
+            } else {
+                Funnel::AiPairsWeighed
+            });
             let reject = |stage: Funnel| {
                 count(if target.is_user_owned {
                     stage
@@ -1058,16 +995,15 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 });
                 false
             };
-            count(if target.is_user_owned {
-                Funnel::PairsWeighed
-            } else {
-                Funnel::AiPairsWeighed
-            });
             if target.owner_team_id == buyer_id || moved_player_ids.contains(&target.player_id) {
                 return reject(Funnel::RejectedMoved);
             }
             if loan_offer_player_id.as_deref() == Some(target.player_id.as_str()) {
                 return reject(Funnel::RejectedLoanTarget);
+            }
+            if target.is_user_owned && buyer_list_is_full {
+                count(Funnel::AiBuyerListFull);
+                return false;
             }
             if target.is_user_owned {
                 let budget = IncomingOfferBudget {
@@ -1087,166 +1023,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 count(Funnel::AiCapBlocked);
                 return false;
             }
-            // A club that would not sell him on the usual terms still hears an exceptional offer
-            // (settled below, once the fee is known).
-            let usual_terms = target.is_user_owned
-                || willing_to_sell(
-                    target.status,
-                    target.is_listed,
-                    target.score,
-                    phase,
-                    target.contract_days,
-                );
-            if !usual_terms && !sale_view::is_exceptional(target.fee, target.value) {
-                count(Funnel::AiSellerUnwilling);
-                return false;
-            }
-            // The cheap tests come first, in front of anything that reads the buyer's side: a sweep
-            // puts thousands of targets in front of every buyer, and only the few that pass these
-            // are worth the evaluation of what they would add.
-            let thin = group_is_thin(
-                &buyer_levels[target.position_group_index],
-                target.position_group_index,
-            );
-            // Below the floor the club is not choosing a signing, it is fielding a side: any body
-            // will do. At the floor it has the bodies it needs and is choosing again.
-            let below_floor = buyer_levels[target.position_group_index].len()
-                < crate::squad_floor::MIN_PLAYERS_PER_GROUP[target.position_group_index].1;
-            // Clubs only chase players that fit their stature and a position they
-            // actually need, so a single star doesn't draw the whole division. A club with a hole
-            // to fill near the close will look a little higher.
-            let reach = if thin {
-                (60.0 * phase.pressure()) as u32
-            } else {
-                0
-            } + if buyer_promoted {
-                PROMOTED_REPUTATION_REACH
-            } else {
-                0
-            };
-            let fills_a_starting_need =
-                target_player(target).is_some_and(|player| view.has_starter_need_for(player));
-            if !buyer_has_genuine_interest(
-                buyer_team.reputation,
-                target.owner_reputation.saturating_sub(reach),
-                available_buyer_depths[target.position_group_index],
-                fills_a_starting_need,
-            ) {
-                return reject(Funnel::RejectedNoInterest);
-            }
-            // Nobody pays a fee for a player at the end of his career, a goalkeeper's coming later.
-            if target.needs_a_case()
-                && target.age >= retirement_horizon_age(target.position_group_index)
-            {
-                return reject(Funnel::RejectedNoCase);
-            }
-            // A club that cannot carry what it already pays sells and lends before it buys.
-            if target.needs_a_case() && buyer_overstretched && target.fee > 0 {
-                return reject(Funnel::RejectedSpending);
-            }
-            // The first cover usually screens weak targets cheaply, but broad groups cannot see
-            // a specialist for a weak starting slot. The side appraises that exception below.
-            if target.needs_a_case()
-                && !target_fills_a_need(
-                    &buyer_levels[target.position_group_index],
-                    target.position_group_index,
-                    target.planned_ovr(),
-                )
-                && !target_player(target).is_some_and(|player| view.has_starter_need_for(player))
-            {
-                return reject(Funnel::RejectedNoCase);
-            }
-            // A cheap foreign filler is not worth the trip.
-            if target.needs_a_case() {
-                let same_country = team_country
-                    .get(&target.owner_team_id)
-                    .is_some_and(|country| *country == buyer_team.country);
-                let improvement =
-                    if same_country || thin || target.value >= CROSS_BORDER_FILLER_VALUE {
-                        0
-                    } else {
-                        fit(target).0
-                    };
-                if !worth_the_border(same_country, target.value, improvement, thin) {
-                    return reject(Funnel::RejectedNoCase);
-                }
-            }
-            let Some(price) = price(target) else {
-                return reject(Funnel::RejectedPrice);
-            };
-            // A club short of money spends little on one player unless it has a hole to fill.
-            if target.needs_a_case() && !profile.allows_spending(price, buyer_cash, thin) {
-                return reject(Funnel::RejectedSpending);
-            }
-            if !usual_terms && !exceptional_sale_is_rational(target, price) {
-                count(Funnel::AiSellerDeclinedExceptional);
-                return false;
-            }
-            // An AI club buys what improves the side by more than the money is worth to it. A club
-            // short of bodies may waive the price test, but never the question of whether the
-            // player adds anything at all: that is the third keeper a club with two already has,
-            // and the fee for a spectator. The floor is the model's own (`MIN_GAIN`), the same one
-            // the loan path asks of a borrower, so a fee is not a way round it. Only a club under
-            // the legal squad floor, which must find a body to field a side, is excused entirely.
-            //
-            // A thin club's waiver is for a player who makes the side better *now*. A player whose
-            // value is all in a later season is a succession signing, and a succession signing has
-            // to be worth its fee on the club's own scale like any other: without that, a club at
-            // the floor bought future bench cover with the price test waived, and the cover never
-            // started even in its own model.
-            if target.needs_a_case() {
-                let valued = target_player(target)
-                    .and_then(|player| view.appraise(player, price))
-                    .is_some_and(|case| match (below_floor, thin) {
-                        (true, _) => true,
-                        (false, true) => case.is_worth_it() || case.helps_now(),
-                        (false, false) => case.is_worth_it(),
-                    });
-                if !valued {
-                    return reject(Funnel::RejectedNoCase);
-                }
-            }
-            if !(buyer_team.transfer_budget >= price as i64 && buyer_team.finance >= price as i64) {
-                return reject(Funnel::RejectedBudget);
-            }
-            let Some(&index) = player_index.get(&target.player_id) else {
-                return false;
-            };
-            let player = &game.players[index];
-            let Some(deal_terms) = consent.terms_for(player, &buyer_team, current_date) else {
-                return reject(Funnel::RejectedTerms);
-            };
-            let facts = buyer_wage_facts.get_or_insert_with(|| {
-                BuyerWageFacts::new(
-                    wage_bills.get(&buyer_id).copied().unwrap_or(0),
-                    buyer_depths,
-                )
-            });
-            if !buyer_can_pay_standard_wage(player, &buyer_team, facts, current_date, &deal_terms) {
-                return reject(Funnel::RejectedWage);
-            }
-            if target.needs_a_case()
-                && !buyer_books.can_carry(
-                    i64::from(
-                        standard_contract_terms(
-                            player,
-                            &buyer_team,
-                            current_date,
-                            deal_terms.player_weekly_wage,
-                        )
-                        .map_or(0, |(wage, _)| wage),
-                    ),
-                    price as i64,
-                )
-            {
-                return reject(Funnel::RejectedBooks);
-            }
-            count(if target.is_user_owned {
-                Funnel::Passed
-            } else {
-                Funnel::AiPassed
-            });
-            true
+            turn.would_sign(game, &facts, &club_players, target)
         };
         // Every option the buyer could take is weighed by what it adds to the squad and by the
         // country it is in. A club's own market is no longer tried first: a big club hardly
@@ -1259,7 +1036,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         for target in &shortlist {
             let same_country = team_country
                 .get(&target.owner_team_id)
-                .is_some_and(|country| *country == buyer_team.country);
+                .is_some_and(|country| *country == turn.team.country);
             let bucket = usize::from(same_country);
             if weighed[bucket] >= OPTIONS_WEIGHED_PER_BUYER {
                 if weighed[1 - bucket] >= OPTIONS_WEIGHED_PER_BUYER {
@@ -1267,34 +1044,13 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 }
                 continue;
             }
-            if !acceptable(&target) {
+            if !acceptable(&mut turn, &target) {
                 continue;
             }
-            let Some(fee) = price(target) else {
+            let Some(fee) = turn.price(game, &facts, target) else {
                 continue;
             };
-            let (improvement, _) = fit(target);
-            let priced_points = target_player(target)
-                .and_then(|player| view.appraise(player, fee))
-                .map_or(0, |case| case.utility_points());
-            let rank = target_rank(
-                target.score,
-                priced_points,
-                geographic_affinity(&GeoFacts {
-                    same_country,
-                    buyer_reputation: buyer_team.reputation,
-                    improvement,
-                    fee,
-                    buyer_budget: buyer_cash,
-                    value: target.value,
-                }),
-            ) * profile.rank_weight(&strategy::TargetFacts {
-                age: target.age,
-                potential_gap: target.potential_gap,
-                improvement,
-                fee,
-                value: target.value,
-            });
+            let rank = turn.rank(game, &facts, target, fee);
             if chosen.is_none_or(|(_, best, _)| rank > best) {
                 chosen = Some((target, rank, fee));
             }
@@ -1308,10 +1064,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 && let Some(player_id) = try_ai_loan(
                     game,
                     LoanSearch {
-                        borrower: &buyer_team,
-                        levels: &loan_levels,
-                        view: &view,
-                        books: &buyer_books,
+                        borrower: &turn.team,
+                        levels: &turn.loan_levels,
+                        view: &turn.view,
+                        books: &turn.books,
                         targets: &loan_targets,
                         moved_player_ids: &moved_player_ids,
                         current_date,
@@ -1321,6 +1077,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 invalidate_loan_views(&sale_view, &loan_targets, &player_id, &buyer_id);
                 moved_player_ids.insert(player_id);
                 completed_ai_loans += 1;
+                room_making::refresh_place(game, &mut clubs_without_a_place, &buyer_id);
             }
             continue;
         };
@@ -1331,7 +1088,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         };
 
         if Some(candidate.owner_team_id.as_str()) == user_team_id.as_deref() {
-            create_incoming_user_offer(game, &candidate, &buyer_id, &buyer_team.name, &today);
+            create_incoming_user_offer(game, &candidate, &buyer_id, &turn.team.name, &today);
             count(Funnel::OfferOpened);
             *new_offers_per_player
                 .entry(candidate.player_id.clone())
@@ -1355,9 +1112,9 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             .load(std::sync::atomic::Ordering::Relaxed)
             .then(|| {
                 let player = &game.players[*player_index.get(&target.player_id)?];
-                let (improvement, thin) = fit(target);
-                let marginal = view.marginal(player);
-                let placement = view.placement(player);
+                let (improvement, thin) = turn.fit(game, &facts, target);
+                let marginal = turn.view.marginal(player);
+                let placement = turn.view.placement(player);
                 Some(DealRecord {
                     player_id: target.player_id.clone(),
                     buyer_id: buyer_id.clone(),
@@ -1372,17 +1129,17 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     age: target.age,
                     contract_days: contract_days_remaining(current_date, player.contract_end()),
                     date: today.clone(),
-                    buyer_reputation: buyer_team.reputation,
+                    buyer_reputation: turn.team.reputation,
                     seller_reputation: target.owner_reputation,
-                    buyer_country: buyer_team.country.clone(),
+                    buyer_country: turn.team.country.clone(),
                     seller_country: team_country
                         .get(&target.owner_team_id)
                         .cloned()
                         .unwrap_or_default(),
                     improvement,
                     thin,
-                    buyer_formation: buyer_team.formation.clone(),
-                    buyer_levels: buyer_levels[target.position_group_index].clone(),
+                    buyer_formation: turn.team.formation.clone(),
+                    buyer_levels: turn.levels[target.position_group_index].clone(),
                     natural_position: format!("{:?}", player.natural_position),
                     alternate_positions: player
                         .alternate_positions
@@ -1390,8 +1147,8 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                         .map(|position| format!("{position:?}"))
                         .collect(),
                     potential: player.potential,
-                    buyer_group_depth: available_buyer_depths[target.position_group_index],
-                    buyer_planned_depth: buyer_levels[target.position_group_index].len(),
+                    buyer_group_depth: turn.available_depths[target.position_group_index],
+                    buyer_planned_depth: turn.levels[target.position_group_index].len(),
                     role: marginal.map_or("None", |marginal| marginal.reason.name()),
                     starts_at: marginal.and_then(|marginal| marginal.starts_at),
                     points: marginal.map_or(0, |marginal| marginal.points),
@@ -1400,7 +1157,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                     placement: placement.map(|placement| DealPlacement {
                         now_gain: placement.now_gain,
                         model_start: placement.model_start,
-                        picker_starts_now: picker_would_start(game, &buyer_team, player),
+                        picker_starts_now: picker_would_start(game, &turn.team, player),
                         blocker_slot: std::array::from_fn(|year| {
                             placement.blocker[year].map(|blocker| blocker.slot)
                         }),
@@ -1420,16 +1177,45 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         // The wage he was judged to come for is the wage he is signed at.
         let deal_terms = player_index
             .get(&candidate.player_id)
-            .and_then(|&index| consent.terms_for(&game.players[index], &buyer_team, current_date))
+            .and_then(|&index| consent.terms_for(&game.players[index], &turn.team, current_date))
             .unwrap_or_default();
-        if completed_ai_loans < max_ai_loans
+        // A club whose list is full makes room first, by a departure that completes now, and
+        // signs only if it did. The loan the club might have taken instead cannot be: it has
+        // chosen a purchase and made room for it.
+        let mut departure = None;
+        if making_room && clubs_without_a_place.contains(&buyer_id) {
+            let outcome = room_making::make_room(
+                game,
+                &room_facts,
+                &mut SweepBooks {
+                    club_players: &mut club_players,
+                    wage_bills: &mut wage_bills,
+                    moved_player_ids: &mut moved_player_ids,
+                    completed_ai_transfers: &mut completed_ai_transfers,
+                    clubs_without_a_place: &mut clubs_without_a_place,
+                },
+                &turn,
+                &Signing {
+                    target,
+                    fee: candidate.fee,
+                    terms: &deal_terms,
+                },
+            );
+            match outcome {
+                RoomOutcome::Made(made) => departure = Some(made),
+                RoomOutcome::AlreadyFree => {}
+                RoomOutcome::Refused(_) => continue,
+            }
+        }
+        if departure.is_none()
+            && completed_ai_loans < max_ai_loans
             && let Some(player_id) = try_ai_loan(
                 game,
                 LoanSearch {
-                    borrower: &buyer_team,
-                    levels: &loan_levels,
-                    view: &view,
-                    books: &buyer_books,
+                    borrower: &turn.team,
+                    levels: &turn.loan_levels,
+                    view: &turn.view,
+                    books: &turn.books,
                     targets: &loan_targets,
                     moved_player_ids: &moved_player_ids,
                     current_date,
@@ -1439,6 +1225,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
             invalidate_loan_views(&sale_view, &loan_targets, &player_id, &buyer_id);
             moved_player_ids.insert(player_id);
             completed_ai_loans += 1;
+            room_making::refresh_place(game, &mut clubs_without_a_place, &buyer_id);
             count(Funnel::AiLoanInstead);
             continue;
         }
@@ -1459,32 +1246,42 @@ pub fn evaluate_transfer_market(game: &mut Game) {
         } else {
             Funnel::AiDealFailed
         });
+        if let Some(made) = departure
+            && let Some(&index) = player_index.get(&candidate.player_id)
+        {
+            room_making::record_swap(
+                &buyer_id,
+                &today,
+                made,
+                &Signing {
+                    target,
+                    fee: candidate.fee,
+                    terms: &deal_terms,
+                },
+                room_making::RoomPlayer::signing(&game.players[index], target, &turn.view),
+                executed,
+            );
+        }
         if executed {
-            sale_view.invalidate(&candidate.owner_team_id);
-            sale_view.invalidate(&buyer_id);
             if let Some(record) = deal_record {
                 DEAL_LOG
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
                     .push(record);
             }
-            if let Some(&index) = player_index.get(&candidate.player_id) {
-                if let Some(seller) = club_players.get_mut(&candidate.owner_team_id) {
-                    seller.retain(|&held| held != index);
-                }
-                club_players
-                    .entry(buyer_id.clone())
-                    .or_default()
-                    .push(index);
+            SweepBooks {
+                club_players: &mut club_players,
+                wage_bills: &mut wage_bills,
+                moved_player_ids: &mut moved_player_ids,
+                completed_ai_transfers: &mut completed_ai_transfers,
+                clubs_without_a_place: &mut clubs_without_a_place,
             }
-            moved_player_ids.insert(candidate.player_id);
-            completed_ai_transfers += 1;
-            // Only the seller is recounted: a club that has just bought has had its turn (each
-            // club is a buyer once a sweep), so its new bill is never read again today, while
-            // the seller may still buy and is held to the bill it has after the sale.
-            wage_bills.insert(
-                candidate.owner_team_id.clone(),
-                calc_wages(game, &candidate.owner_team_id),
+            .note_completed_transfer(
+                game,
+                &facts,
+                &candidate.player_id,
+                &candidate.owner_team_id,
+                &buyer_id,
             );
         }
     }
