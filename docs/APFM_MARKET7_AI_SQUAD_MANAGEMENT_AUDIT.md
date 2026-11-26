@@ -417,3 +417,9 @@ the second season, is the market the game should have (section 9, item 3), and t
   `APFM_SEASONS=3`; `APFM_ROOM_MAKING=0` plays the market without room-making; `APFM_GENERATED=1` the generated world.
 * Logs: `baseline-volume.log`, `final2-fm24-rm1.log` (ON), `final2-fm24-rm0.log` (OFF), `final2-generated-rm1.log`.
 * In the repository: `cargo test --release -p season-harness --test measure_ai_market_volume -- --ignored --nocapture`.
+
+---
+
+Pushed to `origin/apfm/main` by a normal fast-forward from `ca023ac0`: code commit `c38ef192`, document commit `22ee08cf` (this file). Source database SHA-256 re-read at push time: `36b6908caa90f57e6e4bb758cec724f05123eaefe8a5b8dec5efc0dda27439f7` (unchanged).
+
+Final SHA: `22ee08cf7f8f3ba20fbaa53c637f5f72c38535d9` (the document commit; the commit that records it follows).
